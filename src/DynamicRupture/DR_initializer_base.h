@@ -18,6 +18,7 @@ namespace seissol {
       struct Init_FL_2;
       struct Init_FL_3; //aging law
       struct Init_FL_6;
+      struct Init_FL_16;
       struct Init_FL_33;
       struct Init_FL_103;
       struct Init_FL_103_Thermal;
@@ -171,34 +172,25 @@ public:
       real (*d_c)[numOfPointsPadded]                       = it->var(ConcreteLts->d_c);                 //from faultParameters
       real (*mu_S)[numOfPointsPadded]                      = it->var(ConcreteLts->mu_S);                //from faultParameters
       real (*mu_D)[numOfPointsPadded]                      = it->var(ConcreteLts->mu_D);                //from faultParameters
-      real (*forced_rupture_time)[numOfPointsPadded]       = it->var(ConcreteLts->forced_rupture_time); //from faultParameters
       bool (*DS)[numOfPointsPadded]                        = it->var(ConcreteLts->DS);                  //from parameter file
       real *averaged_Slip                                  = it->var(ConcreteLts->averaged_Slip);       // = 0
       real (*dynStress_time)[numOfPointsPadded]            = it->var(ConcreteLts->dynStress_time);      // = 0
-      real *tn                                             = it->var(ConcreteLts->tn);                  // = 0
+
 
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+        //initialize padded elements for vectorization
+        for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
+          d_c[ltsFace][iBndGP]                    = 0.0;
+          mu_S[ltsFace][iBndGP]                   = 0.0;
+          mu_D[ltsFace][iBndGP]                   = 0.0;
+        }
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
           d_c[ltsFace][iBndGP]                    = static_cast<real>( faultParameters["d_c"][meshFace * numberOfPoints] );
           mu_S[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_s"][meshFace * numberOfPoints] );
           mu_D[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_d"][meshFace * numberOfPoints] );
-          if(faultParameters["forced_rupture_time"] != NULL ){
-              forced_rupture_time[ltsFace][iBndGP]    = static_cast<real>( faultParameters["forced_rupture_time"][meshFace * numberOfPoints] );
-          }else{
-              forced_rupture_time[ltsFace][iBndGP]    = 0.0;
-          }
-        }
-        //initialize padded elements for vectorization
-        for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
-          d_c[ltsFace][iBndGP]                    = 0.0;
-          mu_S[ltsFace][iBndGP]                   = 0.0;
-          mu_D[ltsFace][iBndGP]                   = 0.0;
-          forced_rupture_time[ltsFace][iBndGP]    = 0.0;
         }
         averaged_Slip[ltsFace]= 0.0;
-        tn[ltsFace]= 0.0;
-
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
           DS[ltsFace][iBndGP] = m_Params->IsDsOutputOn;
@@ -208,6 +200,44 @@ public:
     }//leaf_iterator loop
   }
 };
+
+class seissol::initializers::Init_FL_16 : public seissol::initializers::Init_FL_2 {
+public:
+  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
+                                          initializers::LTSTree* dynRupTree,
+                                          std::unordered_map<std::string,
+                                              double*> faultParameters,
+                                          unsigned* ltsFaceToMeshFace,
+                                          seissol::Interoperability &e_interoperability) override {
+    Init_FL_2::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
+
+    unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+
+    for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+
+      real (*forced_rupture_time)[numOfPointsPadded]       = it->var(ConcreteLts->forced_rupture_time); //from faultParameters
+      real *tn                                             = it->var(ConcreteLts->tn);                  // = 0
+
+      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+
+        //initialize padded elements for vectorization
+        for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
+          forced_rupture_time[ltsFace][iBndGP]    = 0.0;
+        }
+        for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
+          if(faultParameters["forced_rupture_time"] != NULL ){
+            forced_rupture_time[ltsFace][iBndGP]    = static_cast<real>( faultParameters["forced_rupture_time"][meshFace * numberOfPoints] );
+          }
+        }
+        tn[ltsFace]= 0.0;
+      }//lts-face loop
+      layerLtsFaceToMeshFace += it->getNumberOfCells();
+    }//leaf_iterator loop
+  }
+};
+
 
 
 class seissol::initializers::Init_FL_3 : public seissol::initializers::BaseDrInitializer {
@@ -242,6 +272,7 @@ public:
     }//leaf_iterator loop
   }
 };
+
 
 
 

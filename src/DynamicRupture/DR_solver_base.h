@@ -42,8 +42,9 @@ protected:
   //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
   //YAML::Node m_InputParam;
-  dr::DrParameterT *m_Params;
-  ImpedancesAndEta*                     impAndEta;
+  dr::DrParameterT         *m_Params;
+  ImpedancesAndEta*        impAndEta;
+  real                     m_fullUpdateTime;
   real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
   real                    (*cohesion)[numOfPointsPadded];
   real                    (*mu)[numOfPointsPadded];
@@ -75,7 +76,8 @@ protected:
  * copies all parameters from the DynamicRupture LTS to the local attributes
  */
   virtual void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup){
+                                seissol::initializers::DynamicRupture *dynRup,
+                                real fullUpdateTime){
     impAndEta                                     = layerData.var(dynRup->impAndEta);
     initialStressInFaultCS                        = layerData.var(dynRup->initialStressInFaultCS);
     cohesion                                      = layerData.var(dynRup->cohesion);
@@ -92,6 +94,7 @@ protected:
     tracXZ                                        = layerData.var(dynRup->tracXZ);
     imposedStatePlus                              = layerData.var(dynRup->imposedStatePlus);
     imposedStateMinus                             = layerData.var(dynRup->imposedStateMinus);
+    m_fullUpdateTime                              = fullUpdateTime;
   }
 
   /*
@@ -103,7 +106,7 @@ protected:
    *
    * Calculate stress from jump of plus and minus side
    */
-  void precomputeStressFromQInterpolated(
+  virtual void precomputeStressFromQInterpolated(
     FaultStresses &faultStresses,
     real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -169,12 +172,12 @@ protected:
   /*
   * Function from NucleationFunctions_mod.f90
   */
-  double Calc_SmoothStepIncrement(double fullUpdateTime, real dt){
-    double Gnuc;
-    double prevtime;
-    if(fullUpdateTime > 0.0 && fullUpdateTime <= m_Params->t_0){
-      Gnuc = Calc_SmoothStep(fullUpdateTime);
-      prevtime = fullUpdateTime - dt;
+  real Calc_SmoothStepIncrement(real current_time ,real dt){
+    real Gnuc;
+    real prevtime;
+    if(current_time > 0.0 && current_time <= m_Params->t_0){
+      Gnuc = Calc_SmoothStep(current_time);
+      prevtime = current_time - dt;
       if(prevtime > 0.0){
         Gnuc = Gnuc - Calc_SmoothStep(prevtime);
       }
@@ -187,13 +190,13 @@ protected:
   /*
   * Function in NucleationFunctions_mod.f90
   */
-  double Calc_SmoothStep(double fullUpdateTime){
-    double Gnuc;
-    if (fullUpdateTime <= 0){
+  real Calc_SmoothStep(real current_time){
+    real Gnuc;
+    if (current_time <= 0){
       Gnuc=0.0;
     }else{
-      if (fullUpdateTime < m_Params->t_0){
-        Gnuc = std::exp(seissol::dr::aux::power(fullUpdateTime - m_Params->t_0, 2) / (fullUpdateTime * (fullUpdateTime - 2.0 * m_Params->t_0)));
+      if (current_time < m_Params->t_0){
+        Gnuc = std::exp(seissol::dr::aux::power(current_time - m_Params->t_0, 2) / (current_time * (current_time - 2.0 * m_Params->t_0)));
       }else{
         Gnuc=1.0;
       }
@@ -206,12 +209,11 @@ protected:
   // this way, no subtimestep resolution possible
   void outputRuptureFront(
       real LocSlipRate[numberOfPoints],
-      real fullUpdateTime,
       unsigned int face
   ){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       if (RF[face][iBndGP] && LocSlipRate[iBndGP] > 0.001) {
-        rupture_time[face][iBndGP] = fullUpdateTime;
+        rupture_time[face][iBndGP] = m_fullUpdateTime;
         RF[face][iBndGP] = false;
       }
     }
@@ -277,7 +279,7 @@ public:
     DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
 
     //this copies all lts data pointers to local class attributes
-    copyLtsTreeToLocal(layerData, dynRup);
+    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
@@ -312,7 +314,7 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+      outputRuptureFront(LocSlipRate, ltsFace);
 
       //output peak slip rate
       calcPeakSlipRate(LocSlipRate, ltsFace);
@@ -336,7 +338,7 @@ public:
                         real fullUpdateTime,
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
-    copyLtsTreeToLocal(layerData, dynRup);
+    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -369,9 +371,10 @@ protected:
  * copies all parameters from the DynamicRupture LTS to the local attributes
  */
   void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup) override {
+                          seissol::initializers::DynamicRupture *dynRup,
+                          real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
-    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
@@ -390,7 +393,7 @@ public:
                           real timeWeights[CONVERGENCE_ORDER],
                           real DeltaT[CONVERGENCE_ORDER]) override {
 
-      copyLtsTreeToLocal(layerData, dynRup);
+      copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -435,7 +438,7 @@ public:
         // output rupture front
         // outside of iTimeGP loop in order to safe an 'if' in a loop
         // this way, no subtimestep resolution possible
-        outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+        outputRuptureFront(LocSlipRate, ltsFace);
 
         //output peak slip rate
         calcPeakSlipRate(LocSlipRate, ltsFace);
@@ -462,9 +465,9 @@ protected:
  * copies all parameters from the DynamicRupture LTS to the local attributes
  */
   void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup) override {
+                          seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
-    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //TODO: change later to const_cast
     //seissol::initializers::DR_lts_template *ConcreteLts = dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
@@ -493,7 +496,7 @@ public:
                         real fullUpdateTime,
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
-    copyLtsTreeToLocal(layerData, dynRup);
+    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -517,7 +520,7 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+      outputRuptureFront(LocSlipRate, ltsFace);
 
       //output peak slip rate
       calcPeakSlipRate(LocSlipRate, ltsFace);

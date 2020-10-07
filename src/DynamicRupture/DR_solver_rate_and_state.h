@@ -195,7 +195,7 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, fullUpdateTime, face);
+      outputRuptureFront(LocSlipRate, face);
 
       calcPeakSlipRate(LocSlipRate, face);
 
@@ -235,9 +235,9 @@ protected:
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup) override {
+                          seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
-    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
@@ -496,7 +496,7 @@ public:
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
     //first copy all Variables from the Base Lts dynRup tree
-    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup);
+    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
     //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     //!as a consequence, the SR is affected the AlmostZero value when too small
@@ -681,7 +681,7 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+      outputRuptureFront(LocSlipRate, ltsFace);
 
       calcPeakSlipRate(LocSlipRate, ltsFace);
 
@@ -734,9 +734,9 @@ protected:
  * copies all parameters from the DynamicRupture LTS to the local attributes
  */
   void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup) override {
+                          seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
-    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup);
+    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
@@ -837,9 +837,9 @@ protected:
  * copies all parameters from the DynamicRupture LTS to the local attributes
  */
   void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup) override {
+                          seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
-    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //TODO: change later to const_cast
     //seissol::initializers::DR_lts_template *ConcreteLts = dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
@@ -863,7 +863,7 @@ public:
                         real fullUpdateTime,
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
-    SolverRateAndStateVwFL7::copyLtsTreeToLocal(layerData, dynRup);
+    SolverRateAndStateVwFL7::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -1010,7 +1010,7 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+      outputRuptureFront(LocSlipRate, ltsFace);
 
       //output peak slip rate
       calcPeakSlipRate(LocSlipRate, ltsFace);

@@ -98,9 +98,9 @@ class seissol::dr::factory::Factory_FL_7 : public seissol::dr::factory::Abstract
 
 class seissol::dr::factory::Factory_FL_16 : public seissol::dr::factory::AbstractFactory {
   virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::DR_FL_2,
-                           new seissol::initializers::Init_FL_2,
-                           new seissol::dr::fr_law::Solver_FL_16,
+    return std::make_tuple(new seissol::initializers::DR_FL_16,
+                           new seissol::initializers::Init_FL_16,
+                           new seissol::dr::fr_law::LinearSlipWeakeningSolverFL16,
                            new seissol::dr::output::Output_FL_2);
   }
 };

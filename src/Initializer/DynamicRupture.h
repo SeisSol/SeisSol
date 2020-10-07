@@ -50,6 +50,7 @@ namespace seissol {
     struct DR_FL_2;
     struct DR_FL_3;
     struct DR_FL_6;
+    struct DR_FL_16;
     struct DR_FL_33;
     struct DR_FL_103;
     struct DR_FL_103_Thermal;
@@ -57,7 +58,6 @@ namespace seissol {
 }
 
 //TODO: remove space independent parameters:  rs_f0, rs_b, rs_sr0
-
 
 
 struct seissol::initializers::DynamicRupture {
@@ -145,11 +145,10 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
     Variable<real[ numOfPointsPadded ]>                   d_c;
     Variable<real[ numOfPointsPadded ]>                   mu_S;
     Variable<real[ numOfPointsPadded ]>                   mu_D;
-    Variable<real[ numOfPointsPadded ]>                   forced_rupture_time;
     Variable<bool[ numOfPointsPadded ]>                   DS;
     Variable<real>                                        averaged_Slip;
     Variable<real[ numOfPointsPadded ]>                   dynStress_time;
-    Variable<real>                                        tn;
+
 
     virtual void addTo(initializers::LTSTree& tree) {
         seissol::initializers::DynamicRupture::addTo(tree);
@@ -157,13 +156,25 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
         tree.addVar(      d_c,                              mask,                 1,      seissol::memory::Standard );
         tree.addVar(      mu_S,                             mask,                 1,      seissol::memory::Standard );
         tree.addVar(      mu_D,                             mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
         tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
         tree.addVar(      averaged_Slip,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      dynStress_time,                   mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
     }
 };
+
+struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_FL_2 {
+  Variable<real[ numOfPointsPadded ]>                   forced_rupture_time;
+  Variable<real>                                        tn;
+
+  virtual void addTo(initializers::LTSTree& tree) {
+    seissol::initializers::DynamicRupture::addTo(tree);
+    LayerMask mask = LayerMask(Ghost);
+    tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
+  }
+
+};
+
 
 struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRupture {
   Variable<real>                                                  RS_f0;                      //face independent
