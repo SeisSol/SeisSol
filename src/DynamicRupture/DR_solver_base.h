@@ -248,6 +248,9 @@ protected:
   }
 
 public:
+  /*
+   * evaluates the current friction model
+   */
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                          seissol::initializers::DynamicRupture *dynRup,
                          real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -255,6 +258,10 @@ public:
                          real fullUpdateTime,
                          real timeWeights[CONVERGENCE_ORDER]) = 0;
 
+  /*
+   * compute the DeltaT from the current timePoints
+   * call this function before evaluate to set the correct DeltaT
+   */
   void computeDeltaT(double timePoints[CONVERGENCE_ORDER]){
     deltaT[0]= timePoints[0];
     for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
@@ -263,6 +270,7 @@ public:
     deltaT[CONVERGENCE_ORDER-1] = deltaT[CONVERGENCE_ORDER-1] + deltaT[0];  // to fill last segment of Gaussian integration
   }
 
+  //TODO: maybe this function is used, if not delete it
   void dynamicRuptureCalc(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup,
                           real fullUpdateTime,

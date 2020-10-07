@@ -7,7 +7,6 @@
 
 
 #include "DR_solver_base.h"
-
 #include "DR_math.h"
 #include <yaml-cpp/yaml.h>
 
@@ -52,6 +51,9 @@ protected:
     dynStress_time                                = layerData.var(ConcreteLts->dynStress_time);
   }
 
+  /*
+   * compute the fault strength
+   */
   virtual void calcStrengthHook(
       std::array<real, numOfPointsPadded> &Strength,
       FaultStresses &faultStresses,
@@ -60,7 +62,8 @@ protected:
   ) = 0;
 
   /*
-   *
+   *  compute the slip rate and the traction from the fault strength and fault stresses
+   *  also updates the directional slip1 and slip2
    */
   virtual void calcSlipRateAndTraction(
       std::array<real, numOfPointsPadded> &Strength,
@@ -106,6 +109,10 @@ protected:
     }
   }
 
+  /*
+   *  compute and output the state Variable:
+   *  for linear slip weakening state variable = slip
+   */
   virtual void calcStateVariableHook(
       std::array<real, numOfPointsPadded> &stateVariablePsi,
       std::array<real, numOfPointsPadded> &outputSlip,
@@ -113,11 +120,15 @@ protected:
       unsigned int iTimeGP,
       unsigned int ltsFace) = 0;
 
-  //Carsten Thesis: Eq. 2.45
-  //evaluate friction law: updated mu -> friction law
+/*
+ * evaluate friction law: updated mu -> friction law
+ * for example see Carsten Uphoff's thesis: Eq. 2.45
+ */
   virtual void frictionFunctionHook(std::array<real, numOfPointsPadded> &stateVariablePsi, unsigned int ltsFace) = 0;
 
-  //instantaneous healing option Reset Mu and Slip
+  /*
+   * instantaneous healing option Reset Mu and Slip
+   */
   virtual void instantaneousHealing(unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       if (locSlipRate[ltsFace][iBndGP] < u_0) {
@@ -127,8 +138,10 @@ protected:
     }
   }
 
-  //output time when shear stress is equal to the dynamic stress after rupture arrived
-  //currently only for linear slip weakening
+/*
+ * output time when shear stress is equal to the dynamic stress after rupture arrived
+ * currently only for linear slip weakening
+ */
   virtual void outputDynamicStress(
       unsigned int ltsFace
   ){
