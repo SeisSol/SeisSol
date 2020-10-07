@@ -124,9 +124,6 @@ src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
 
 #adrian code
-src/Physics/Evaluate_friction_law.cpp
-src/Physics/Evaluate_friction_law.h
-src/Physics/tmpFrictionDataStruct.cpp
 src/DynamicRupture/DR_math.h
 src/DynamicRupture/DR_factory.h
 src/DynamicRupture/DR_initializer_base.h
