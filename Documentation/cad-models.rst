@@ -3,7 +3,6 @@ CAD models
 
 The following help pages describe how to build a structural model with either Gocad or SimModeler.
 
-
 SimModeler CAD workflow
 -----------------------
 
@@ -16,7 +15,7 @@ GOCAD CAD workflow
 
 GOCAD is the tool we historically used to process complex geophysical data into structural models.
 Since then, SimModeler developed tools for processing discrete data, in particular, a discrete surface intersection algorithm, which is much faster and more reliable than the one from GoCAD.
-We, therefore, recommend the use of the SimModeler workflow. Because GoCAD may still be useful for fine processing of surface data, we detail the full GoCAD workflow at: :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
+We, therefore, recommend the use of the SimModeler workflow. Because GoCAD may still be useful for fine processing of surface data (e.g. surface smoothing with constraints), we detail the full GoCAD workflow at: :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
 
 Useful scripts
 --------------
