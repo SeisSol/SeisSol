@@ -71,7 +71,7 @@ createFaultFromCurve.py takes 3 main arguments: ``filename``, ``dipType`` and ``
 - ``dipType`` allow switching between a constant (0), an along-depth dependant (1) or an along-strike dependent (2).
 - ``dipDesc`` gives either the dip angle value (dipType=0) or the 1D variation of the dip angle (dipType=1 or 2).
 
-.. figure:: https://www.geophysik.uni-muenchen.de/~ulrich/dipDescription.png
+.. figure:: LatexFigures/dipDescription.png
    :alt: example of surface mesh generated using createFaultFromCurve.py and various dipType
    :width: 12.00000cm
    :align: center
@@ -81,7 +81,7 @@ createFaultFromCurve.py takes 3 main arguments: ``filename``, ``dipType`` and ``
 In the Palu case example, the Southern segment dips 90, the Northern segment dips 65, and the middle segment has a varying dip along strike (shallower dip in the southern bend).
 We therefore generate the faults using:
 
-.. code-block::
+.. code-block:: bash
 
     dx=0.5e3
     python SeisSol/Meshing/GocadRelatedScripts/createFaultFromCurve.py ExampleFiles/SimModeler_workflow/segmentSouth_d90_long.dat 0 90 --dd $dx --maxdepth 16e3 --extend 4e3
@@ -112,14 +112,14 @@ When then intersect these datasets using the Discrete tab of SimModeler:
 
 
 
-.. figure:: https://www.geophysik.uni-muenchen.de/~ulrich/SimModeler_before_intersection.png
+.. figure:: LatexFigures/SimModeler_before_intersection.png
      :alt: Imported mesh representation of faults without explicitly meshed intersection.
      :width: 12.00000cm
      :align: center
 
      Fig. 2: Imported mesh representation of faults without explicitly meshed intersection.
 
-.. figure:: https://www.geophysik.uni-muenchen.de/~ulrich/SimModeler_after_intersection.png
+.. figure:: LatexFigures/SimModeler_after_intersection.png
      :alt: Intersected faults, after applying `union parts`
      :width: 12.00000cm
      :align: center
