@@ -4,10 +4,20 @@ CAD models
 The following help pages describe how to build a structural model with
 Gocad.
 
-A simple tutorial
------------------
 
-See :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
+SimModeler CAD workflow
+-----------------------
+
+Since September 2019, SimModeler features powerfull tools for processing discrete data (geometry in the form of meshes), which allow building structural models without the need to rely on additionnal CAD software.
+We illustrate the SimModeler CAD workflow by building the structural model of the Palu earthquake dynamic rupture scenario (Ulrich et al., 2019).
+See :doc:`simmodelerCAD-workflow`.
+
+GOCAD CAD workflow
+------------------
+
+GOCAD is the tool we historically used to to process complex geophysical data into structural models.
+Since then, SimModeler developped tools for processing discrete data, in particular a discrete surface intersection algorithm, which is much faster and more reliable than the one from GoCAD.
+We therefore recommand the use of the SimModeler workflow. Because GoCAD may still be useful for fine processing of surface data, we detail the full GoCAD workflow at: :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
 
 Useful scripts
 --------------
@@ -17,15 +27,15 @@ is available  `here <https://github.com/SeisSol/Meshing/tree/master/GocadRelated
 They are documented (try -h option).
 The most important script are:
 
--  createFaultFromCurve.py allows creating a ts surface from a fault trace. 
+-  ``createFaultFromCurve.py`` allows creating a ts surface from a fault trace. 
    The fault trace is resampled, smoothed and extended using either a constant dip, a depth varying dip or an along-strike varying dip. 
    This script has been used to generate all the faults of the Kaikoura model (Ulrich et al., 2019).
--  createGOCADTSurf_NXNY.py, which allows creating a ts surface from a structured grid of points.
--  createGOCADTSurf.py, which allows creating a ts surface from a partially structured grid of points.
-   Contrary to createGOCADTSurf_NXNY.py, the number of nodes on a line (resp. on a column) should not constant.
+-  ``createGOCADTSurf_NXNY.py``, which allows creating a ts surface from a structured grid of points.
+-  ``createGOCADTSurf.py``, which allows creating a ts surface from a partially structured grid of points.
+   Contrary to ``createGOCADTSurf_NXNY.py``, the number of nodes on a line (resp. on a column) should not constant.
    On the other hand, the lines (resp. the columns) of the point cloud should share constant ordinates (resp. abscissa).
    This script is used for creating the Sumatra fault of our Sumatra models (see Uphoff et al., 2017).
--  convertTs2Stl.py, which allows converting the geometric model from Gocad into a stl file, inputted into the mesher (e.g. SimModeler).
+-  ``convertTs2Stl.py``, which allows converting the geometric model from Gocad into a stl file, inputted into the mesher (e.g. SimModeler).
 
 
 Processing high-resolution topographic data
@@ -84,6 +94,8 @@ Dealing with intersection artifacts
 -----------------------------------
 
 :doc:`manually-fixing-an-intersection-in-gocad`
+
+.. _On the use of projections:
 
 On the use of projections
 -------------------------
