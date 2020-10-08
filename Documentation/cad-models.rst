@@ -1,8 +1,7 @@
 CAD models
 ==========
 
-The following help pages describe how to build a structural model with
-Gocad.
+The following help pages describe how to build a structural model with either Gocad or SimModeler.
 
 
 SimModeler CAD workflow
