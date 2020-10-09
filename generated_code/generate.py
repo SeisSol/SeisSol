@@ -89,15 +89,10 @@ else:
   mem_layout = cmdLineArgs.memLayout
 
 
-host_arch = cmdLineArgs.host_arch
 if cmdLineArgs.device_arch == 'none':
-  compute_arch = cmdLineArgs.host_arch
-  compute_sub_arch = None
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
 else:
-  compute_arch = cmdLineArgs.device_arch
-  compute_sub_arch = cmdLineArgs.device_sub_arch
-
-arch = useArchitectureIdentifiedBy(compute_arch, compute_sub_arch, host_arch)
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.device_arch, cmdLineArgs.device_sub_arch, cmdLineArgs.host_arch)
 
 
 equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
