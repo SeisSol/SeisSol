@@ -56,8 +56,7 @@ Input file resources
 ~~~~~~~~~~~~~~~~~~~~
 
 The files needed to work through the examples are provided. 
-All files necessary to set up the cookbook examples can be downloaded at https://gitlab.lrz.de/ru58zid/benchmarks/
-(a backup repository will be: https://github.com/daisy20170101/SeisSol_Cookbook)
+All files necessary to set up the cookbook examples can be downloaded at https://github.com/SeisSol/Examples
 
 References
 ~~~~~~~~~~~~~~~~~~~~
