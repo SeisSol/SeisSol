@@ -39,20 +39,14 @@
  * Time Step width management in SeisSol.
  **/
 
-#include <numeric>
 #include "Parallel/MPI.h"
 
 #include "TimeManager.h"
+#include "CommunicationManager.h"
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
 
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-#include <Parallel/Pin.h>
-volatile bool g_executeCommThread;
-volatile unsigned int* volatile g_handleRecvs;
-volatile unsigned int* volatile g_handleSends;
-pthread_t g_commThread;
-#endif
+
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
@@ -63,17 +57,13 @@ seissol::time_stepping::TimeManager::TimeManager():
 }
 
 seissol::time_stepping::TimeManager::~TimeManager() {
-  // free memory of the clusters
-  for(unsigned l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
-    delete clusters[l_cluster];
-  }
 }
 
 void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_timeStepping,
                                                       struct MeshStructure* i_meshStructure,
                                                       initializers::MemoryManager& i_memoryManager) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
-
+  std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
 
@@ -99,7 +89,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
       const bool printProgress = (localClusterId == 0) && (type == Interior);
-      clusters.push_back(new TimeCluster(
+      clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           m_timeStepping.clusterIds[localClusterId],
           type,
@@ -115,8 +105,8 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
           &m_loopStatistics)
       );
     }
-    auto* interior = clusters[clusters.size() - 1];
-    auto* copy = clusters[clusters.size() - 2];
+    auto& interior = clusters[clusters.size() - 1];
+    auto& copy = clusters[clusters.size() - 2];
 
     // Mark copy layers as higher priority layers.
     constexpr int priorityLow = -1;
@@ -185,6 +175,22 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
   };
   std::sort(clusters.begin(), clusters.end(), prioritySorter);
   std::sort(ghostClusters.begin(), ghostClusters.end(), prioritySorter);
+
+#ifdef USE_COMM_THREAD
+  bool useCommthread = true;
+#else
+  bool useCommthread = false;
+#endif
+  if (useCommthread && MPI::mpi.size() == 1)  {
+    logInfo(MPI::mpi.rank()) << "Only using one mpi rank. Not using communication thread.";
+    useCommthread = false;
+  }
+
+  if (useCommthread) {
+    communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters));
+  } else {
+    communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
+  }
 }
 
 
@@ -198,34 +204,30 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   m_timeStepping.synchronizationTime = synchronizationTime;
   logInfo(seissol::MPI::mpi.rank()) << " new sync time = " << synchronizationTime;
 
-  for (auto* cluster : clusters) {
+  for (auto& cluster : clusters) {
     cluster->updateSyncTime(synchronizationTime);
     cluster->reset();
   }
 
-  for (auto& ghostCluster : ghostClusters) {
-    ghostCluster->updateSyncTime(synchronizationTime);
-    ghostCluster->reset();
-  }
+  communicationManager->reset(synchronizationTime);
+
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
-    for (auto* cluster : clusters) {
+    for (auto& cluster : clusters) {
       // A cluster yields once it is blocked by other cluster.
       bool yield = false;
       do {
         yield = cluster->act();
         // Check ghost cells often for communication progress
         // Note: This replaces the need for a communication thread.
-        for (auto& ghostCluster : ghostClusters) {
-          ghostCluster->act();
-          finished = finished && ghostCluster->synced();
-        }
+        communicationManager->progression();
       } while (!(yield || cluster->synced()));
       finished = finished && cluster->synced();
     }
+    finished &= communicationManager->checkIfFinished();
   }
 }
 
@@ -244,7 +246,7 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
     std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
     std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources) {
-  for (auto* cluster : clusters) {
+  for (auto& cluster : clusters) {
     cluster->setPointSources(
         clusterMappings[cluster->layerType][cluster->m_clusterId].cellToSources,
         clusterMappings[cluster->layerType][cluster->m_clusterId].numberOfMappings,
@@ -255,7 +257,7 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
 
 void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
 {
-  for (auto* cluster : clusters) {
+  for (auto& cluster : clusters) {
     cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->m_clusterId,
                                                                cluster->layerType));
   }

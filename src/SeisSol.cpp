@@ -58,13 +58,6 @@
 
 bool seissol::SeisSol::init(int argc, char* argv[])
 {
-	// Check if we need threadsafe MPI
-#ifdef USE_COMM_THREAD
-	MPI::mpi.requireThreadsafe();
-#endif // USE_COMM_THREAD
-	if (async::Config::mode() != async::SYNC)
-		MPI::mpi.requireThreadsafe();
-
 	// Call pre MPI hooks
 	seissol::Modules::callHook<seissol::PRE_MPI>();
 

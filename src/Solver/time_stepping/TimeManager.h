@@ -45,6 +45,7 @@
 #include <queue>
 #include <list>
 #include <cassert>
+#include <memory>
 
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/typedefs.hpp>
@@ -60,6 +61,7 @@
 namespace seissol {
   namespace time_stepping {
     class TimeManager;
+    class AbstractCommunicationManager;
 
       template<typename T>
       constexpr T ipow(T x, T y) {
@@ -100,10 +102,12 @@ class seissol::time_stepping::TimeManager {
     TimeStepping m_timeStepping;
 
     //! all local (copy & interior) LTS clusters, which are under control of this time manager
-    std::vector<TimeCluster*> clusters;
+    //std::vector<TimeCluster*> clusters;
+    std::vector<std::unique_ptr<TimeCluster>> clusters;
 
-    //! all MPI (ghost) LTS clusters, which are under control of this time manager
-    std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
+  //! all MPI (ghost) LTS clusters, which are under control of this time manager
+    //std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
+    std::unique_ptr<AbstractCommunicationManager> communicationManager;
 
     //! queue of clusters, which are allowed to update their copy layer locally
     //std::list< TimeCluster* > m_localCopyQueue;
@@ -202,15 +206,6 @@ class seissol::time_stepping::TimeManager {
      * @param i_time time.
      **/
     void setInitialTimes( double i_time = 0 );
-
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-    void pollForCommunication();
-
-    static void* static_pollForCommunication(void* p) {
-      static_cast<seissol::time_stepping::TimeManager*>(p)->pollForCommunication();
-      return NULL;
-    }
-#endif
 
     void printComputationTime();
 };

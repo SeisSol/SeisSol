@@ -5,7 +5,7 @@
 #include <cmath>
 #include <queue>
 #include <variant>
-#include <omp.h>
+#include <mutex>
 #include <memory>
 #include <algorithm>
 #include <type_traits>
@@ -44,27 +44,23 @@ inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
 class MessageQueue {
  private:
   std::queue<Message> queue;
-  omp_lock_t lock{};
+  std::mutex mutex;
 
  public:
   MessageQueue() {
-    omp_init_lock(&lock);
   }
   ~MessageQueue() {
-    omp_destroy_lock(&lock);
   }
 
   void push(Message const& message) {
-    omp_set_lock(&lock);
+    std::lock_guard lock{mutex};
     queue.push(message);
-    omp_unset_lock(&lock);
   }
 
   Message pop() {
-    omp_set_lock(&lock);
+    std::lock_guard lock{mutex};
     const Message message = queue.front();
     queue.pop();
-    omp_unset_lock(&lock);
     return message;
   }
 

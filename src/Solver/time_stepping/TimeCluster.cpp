@@ -87,11 +87,6 @@
 #include <cassert>
 #include <cstring>
 
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-extern volatile unsigned int* volatile g_handleRecvs;
-extern volatile unsigned int* volatile g_handleSends;
-#endif
-
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
 
