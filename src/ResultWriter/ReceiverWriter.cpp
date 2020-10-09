@@ -154,6 +154,8 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<Eigen::Vector3d> c
 #endif
 
   logInfo(rank) << "Mapping receivers to LTS cells...";
+  m_receiverClusters[Interior].clear();
+  m_receiverClusters[Copy].clear();
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       unsigned meshId = meshIds[point];
