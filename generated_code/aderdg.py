@@ -40,7 +40,7 @@
 
 import numpy as np
 from abc import ABC, abstractmethod
-from common import *
+from common import generate_kernel_name_prefix
 
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
