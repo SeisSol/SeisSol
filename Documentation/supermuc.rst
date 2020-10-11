@@ -120,10 +120,10 @@ set compiler options:
   $ export CXX=mpiCC
   $ export CC=mpicc
 
-  $ make build
-  $ Cd build
-  $ CMAKE_PREFIX_PATH=$NETCDF_BASE
-  $ cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
+  $ mkdir build
+  $ cd build
+  $ export CMAKE_PREFIX_PATH=$NETCDF_BASE
+  $ cmake ../  -DCMAKE_INSTALL_PREFIX=<folder-to-ASAGI>/build/ 
   $ make
   $ make install
   (Know errors: 1.Numa could not found - turn off Numa by -DNONUMA=on . )
@@ -141,16 +141,12 @@ set compiler options:
   parallelization             = 'hybrid'
   #parallelization             = 'mpi'
   generatedKernels            = 'yes'
-  #measureNodeLevelPerformance = 'none'
   useExecutionEnvironment     = 'yes'
   order = 4
   equations='elastic'
   #equations = 'viscoelastic2'
   #numberOfMechanisms = 3
   # machine dependent options
-  #compiler='gcc'
-  cppCompiler          = 'mpiCC'
-  fortranCompiler      = 'mpif90'
 
   netcdf='yes'
   hdf5='yes'
