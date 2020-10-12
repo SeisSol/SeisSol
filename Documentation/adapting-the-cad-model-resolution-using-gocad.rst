@@ -36,7 +36,7 @@ the border. Here is the final result.
 Finally, the new surface can possibly be merged into the coarse
 topography.
 
-.. |coarse and fine topography| image:: https://www.geophysik.uni-muenchen.de/~ulrich/topo_coarse_fine1.png
-.. |adding border Extremities| image:: https://www.geophysik.uni-muenchen.de/~ulrich/topo_coarse_fine2.png
-.. |gap filled| image:: https://www.geophysik.uni-muenchen.de/~ulrich/topo_coarse_fine3.png
+.. |coarse and fine topography| image:: LatexFigures/topo_coarse_fine1.png
+.. |adding border Extremities| image:: LatexFigures/topo_coarse_fine2.png
+.. |gap filled| image:: LatexFigures/topo_coarse_fine3.png
 
