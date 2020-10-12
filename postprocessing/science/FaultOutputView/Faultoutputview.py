@@ -11,7 +11,9 @@ If you only want to plot the fautls broke, e.g. stress_drop[N_belowthreshold]=0,
 """
 import sys
 sys.modules[__name__].__dict__.clear()
-from submodules.pythonXdmfReader.pythonXdmfReader import *
+##to get pythonXdmfReader, use the link: https://github.com/Thomas-Ulrich/pythonXdmfReader
+##add to your working directory
+from pythonXdmfReader import *
 import glob
 import numpy as np
 import statistics
