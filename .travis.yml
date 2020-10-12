@@ -15,54 +15,57 @@ before_install:
  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
  - sudo apt-get update -qq
  - wget https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
- - wget https://syncandshare.lrz.de/dl/fiE4aBvw5mQ5fa5VEMmk3XNC/scons-3.1.1.tar.gz
  - wget https://github.com/hfp/libxsmm/archive/master.zip
+ - cp -r $TRAVIS_BUILD_DIR/submodules/yaml-cpp .
 
 install:
- - sudo apt-get install -qq g++-5 gfortran openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-100 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev 
+ - |
+    sudo apt-get update
+    sudo apt-get install gcc-8 g++-8 gfortran-8
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
+    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
+    sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
+    gcc --version
+    sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-100 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest
+    gfortran --version
  - sudo pip3 install --upgrade pip
  - sudo pip3 install 'numpy>=1.12.0'
  - sudo pip3 install lxml
  - sudo pip3 install setuptools
  - sudo pip3 install sphinx
  - sudo pip3 install sphinx_rtd_theme
- - tar -xaf scons-3.1.1.tar.gz
- - cd scons-3.1.1 && sudo python3 setup.py install --prefix=/usr && cd ..
+ - sudo pip3 install gemmforge
+ - cd yaml-cpp && cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF . && make && sudo make install && cd ..
  - tar -xaf netcdf-4.6.1.tar.gz
  - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
  - unzip master.zip
  - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
 
+env:
+  - SEISSOL_BUILD_TYPE=Debug SEISSOL_PRECISION=double
+  - SEISSOL_BUILD_TYPE=Debug SEISSOL_PRECISION=single
+  - SEISSOL_BUILD_TYPE=Release SEISSOL_PRECISION=double
+  - SEISSOL_BUILD_TYPE=Release SEISSOL_PRECISION=single
+
+# Defines 4 jobs i.e., Debug and Release x Double and Single
 script:
  - cd Documentation && make html && cd ..
-# use the -W flag to turn warnings into errors
-# - sphinx-build -nW -b dummy Documentation Documentation/_build/html
- - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
-   # netcdf is built statically with hdf5 support, hence the following do not link
-   # - scons compileMode=release order=6 parallelization=hybrid netcdf=yes arch=dsnb compiler=gcc unitTests=fast -j2
-   # - scons compileMode=release order=6 parallelization=hybrid netcdf=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes metis=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes metis=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
- - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
+ - |
+   set -euo pipefail
+   export IFS=$'\n\t'
+   export CTEST_OUTPUT_ON_FAILURE=1
+   for equation in elastic viscoelastic2 anisotropic; do
+    if [ "$equation" = viscoelastic2 ]; then
+        mechanisms=3
+    else
+        mechanisms=0
+    fi
+        dirname="build_${equation}_${SEISSOL_PRECISION}_${SEISSOL_BUILD_TYPE}"
+        echo "mkdir ${dirname}"
+        mkdir -p $dirname && cd $dirname
+        CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/: cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$SEISSOL_BUILD_TYPE -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$SEISSOL_PRECISION -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
+        make -j $(nproc)
+        make test
+        cd ..
+    done
+    set +u
