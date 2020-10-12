@@ -7,6 +7,8 @@ The meshing workflow is presented through a simple example, by meshing
 the CAD model obtained from :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
 The created stl-file is imported via ``File > Import Discrete Data``.
 
+.. _SimModeler prerequisite:
+
 Prerequisite
 ------------
 

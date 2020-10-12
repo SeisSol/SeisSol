@@ -1,13 +1,21 @@
 CAD models
 ==========
 
-The following help pages describe how to build a structural model with
-Gocad.
+The following help pages describe how to build a structural model with either Gocad or SimModeler.
 
-A simple tutorial
------------------
+SimModeler CAD workflow
+-----------------------
 
-See :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
+Since September 2019, SimModeler features powerful tools for processing discrete data (geometry in the form of meshes), which allow building structural models without the need to rely on additional CAD software.
+We illustrate the SimModeler CAD workflow by building the structural model of the Palu earthquake dynamic rupture scenario (Ulrich et al., 2019).
+See :doc:`simmodelerCAD-workflow`.
+
+GOCAD CAD workflow
+------------------
+
+GOCAD is the tool we historically used to process complex geophysical data into structural models.
+Since then, SimModeler developed tools for processing discrete data, in particular, a discrete surface intersection algorithm, which is much faster and more reliable than the one from GoCAD.
+We, therefore, recommend the use of the SimModeler workflow. Because GoCAD may still be useful for fine processing of surface data (e.g. surface smoothing with constraints), we detail the full GoCAD workflow at: :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
 
 Useful scripts
 --------------
@@ -15,24 +23,24 @@ Useful scripts
 A collection of python scripts typically used to create the surfaces used in the CAD model
 is available  `here <https://github.com/SeisSol/Meshing/tree/master/GocadRelatedScripts>`__.
 They are documented (try -h option).
-The most important script are:
+The most important scripts are:
 
--  createFaultFromCurve.py allows creating a ts surface from a fault trace. 
-   The fault trace is resampled, smoothed and extended using either a constant dip, a depth varying dip or an along-strike varying dip. 
+-  ``createFaultFromCurve.py`` allows creating a ts surface from a fault trace. 
+   The fault trace is resampled, smoothed, and extended using either a constant dip, a depth varying dip, or an along-strike varying dip. 
    This script has been used to generate all the faults of the Kaikoura model (Ulrich et al., 2019).
--  createGOCADTSurf_NXNY.py, which allows creating a ts surface from a structured grid of points.
--  createGOCADTSurf.py, which allows creating a ts surface from a partially structured grid of points.
-   Contrary to createGOCADTSurf_NXNY.py, the number of nodes on a line (resp. on a column) should not constant.
+-  ``createGOCADTSurf_NXNY.py``, which allows creating a ts surface from a structured grid of points.
+-  ``createGOCADTSurf.py``, which allows creating a ts surface from a partially structured grid of points.
+   Contrary to ``createGOCADTSurf_NXNY.py``, the number of nodes on a line (resp. on a column) should not constant.
    On the other hand, the lines (resp. the columns) of the point cloud should share constant ordinates (resp. abscissa).
    This script is used for creating the Sumatra fault of our Sumatra models (see Uphoff et al., 2017).
--  convertTs2Stl.py, which allows converting the geometric model from Gocad into a stl file, inputted into the mesher (e.g. SimModeler).
+-  ``convertTs2Stl.py``, which allows converting the geometric model from Gocad into a stl file, inputted into the mesh generator (e.g. SimModeler).
 
 
 Processing high-resolution topographic data
 -------------------------------------------
 
 High resolution topographic and bathymetric data are usually available. 
-Generating geometric models including such large dataset can be challenging.
+Generating geometric models including such large datasets can be challenging.
 In particular, intersecting such surfaces with other surfaces can be time-consuming and error-prone.
 Here we present various strategies and tools to overcome this challenge.
 
@@ -42,7 +50,7 @@ Using Gdal
 
 `Gdal <https://www.gdal.org/>`__ is a powerful library to process gridded data. 
 It allows, for instance, to easily resample or crop a dataset, and to convert files in handy file formats.
-Here is a commented example of our use of gdal to create a ts surface from a high-resolution topography of Nepal (file data/merged_original.tif).
+Here is a commented example of our use of Gdal to create a ts surface from a high-resolution topography of Nepal (file data/merged_original.tif).
 
 .. code-block:: bash
 
@@ -63,13 +71,12 @@ Topographic data coarsening with SimModeler
 To avoid dealing with too large files when building the CAD model, topography data can be coarsened where
 fine resolution is not necessary. For further details, see :doc:`remeshing-the-topography`.
 
-The same procedure can be also useful when the intersection between 2 surfaces fails in gocad. 
-In fact, remeshing one of the surfaces can facilitate the intersection step in Gocad. In such a
+The same procedure can be also useful when the intersection between 2 surfaces fails in Gocad. 
+In fact, creating a clean mesh of one of the surfaces can facilitate the intersection step in Gocad. In such a
 case, all surface already intersected with the surface that we want to
-remesh have to be exported to SimModeler. The mesh attributes "Use
+mesh again have to be exported to SimModeler. The mesh attributes "Use
 Discrete Geometry Mesh" and "No mesh" have to be assigned to these
-surfaces. This will ensure that the border nodes of the remesh surface
-keep unaffected by the remeshing.
+surfaces. This will ensure that the border nodes of the new meshed surfaces keep unchanged.
 
 Alternative using Gocad
 -----------------------
@@ -84,6 +91,8 @@ Dealing with intersection artifacts
 -----------------------------------
 
 :doc:`manually-fixing-an-intersection-in-gocad`
+
+.. _On the use of projections:
 
 On the use of projections
 -------------------------
