@@ -76,10 +76,7 @@ slip-weakening fracture criterion.
 
 TPV5 uses a linear-slip weakening friction everywhere on the fault.
 There are ten parameters associated with the friction constitutive law
-and fault properties in the **parameters.par**. It can be found at https://github.com/daisy20170101/SeisSol_Cookbook/.
-
-.. literalinclude:: tpv5/parameters.par
-   :language: fortran
+and fault properties in the **parameters.par**. It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
 
 Four friction constitutive parameters are: mu\_s, mu\_d, d\_c and
 cohesion. Six stress parameters are: s\_xx, s\_yy, s\_zz, s\_xy, s\_xz,
