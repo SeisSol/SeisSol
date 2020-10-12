@@ -23,6 +23,7 @@ class Impalajit(CMakePackage):
     
 
     depends_on('cmake', type='build')
+    depends_on('pkg-config', type='build')
 
     def cmake_args(self):
         args = []
