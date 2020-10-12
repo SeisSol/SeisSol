@@ -116,9 +116,9 @@ set compiler options:
 
 ::
 
-  $ export FC=mpif90
-  $ export CXX=mpiCC
-  $ export CC=mpicc
+  $ export FC=mpiifort
+  $ export CXX=mpiicpc
+  $ export CC=mpiicc
 
   $ mkdir build
   $ cd build
@@ -126,7 +126,7 @@ set compiler options:
   $ cmake ../  -DCMAKE_INSTALL_PREFIX=<folder-to-ASAGI>/build/ 
   $ make
   $ make install
-  (Know errors: 1.Numa could not found - turn off Numa by -DNONUMA=on . )
+  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
 
 4. Copy the SeisSol configuration to a file e.g. supermuc_ng.py
@@ -136,30 +136,35 @@ set compiler options:
   import os
   # build options
   compileMode                 = 'release'
-  #compileMode                 = 'relWithDebInfo'
-  #compileMode                 = 'debug'
+  #compileMode                = 'relWithDebInfo'
+  #compileMode                = 'debug'
   parallelization             = 'hybrid'
-  #parallelization             = 'mpi'
+  #parallelization            = 'mpi'
   generatedKernels            = 'yes'
   useExecutionEnvironment     = 'yes'
-  order = 4
-  equations='elastic'
-  #equations = 'viscoelastic2'
-  #numberOfMechanisms = 3
-  # machine dependent options
+  order                       = 4
+  equations                   ='elastic'
+  #equations                  = 'viscoelastic2'
+  plasticity                  = 'no'  
+  # if turn on off-fault plasticity: 
+  #plasticity                 = 'yes' 
 
-  netcdf='yes'
-  hdf5='yes'
-  metis='yes'
-  netcdfDir=os.environ['NETCDF_BASE']
-  hdf5Dir=os.environ['HDF5_BASE']
-  metisDir=os.environ['PARMETIS_BASE']
+  netcdf	='yes'
+  hdf5		='yes'
+  metis		='yes'
+  netcdfDir	=os.environ['NETCDF_BASE']
+  hdf5Dir	=os.environ['HDF5_BASE']
+  metisDir	=os.environ['PARMETIS_BASE']
   
   # ASAGI folder need to be verified.
-  asagi='yes'
-  zlibDir='/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib'
+
+  asagi		='yes'
+  zlibDir	='<path-to-ASAGI>/build/lib'
+  # example: 
+  # zlibDir	='/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib'
 
   phase=3 # for Supermuc-NG
+
   if phase==1:
      arch ='dsnb'
   elif phase==2:
@@ -169,8 +174,6 @@ set compiler options:
      arch = 'dskx'
      commThread ='yes'
 
-  plasticity='no'
-  #logLevel                    = 'warning'
   logLevel                    = 'warning'
   logLevel0                   = 'info'
 
@@ -209,10 +212,11 @@ set compiler options:
   #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
   module load slurm_setup
+  
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
-  export OMP_NUM_THREADS=94
+  export OMP_NUM_THREADS=47
   export OMP_PLACES="cores(47)"
 
   export XDMFWRITER_ALIGNMENT=8388608
@@ -225,6 +229,6 @@ set compiler options:
   export ASYNC_BUFFER_ALIGNMENT=8388608
   source /etc/profile.d/modules.sh
 
-  echo $SLURM_NTASKS
-  srun ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
+  ech o$SLURM_NTASKS
+  srun --export=ALL  ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
 
