@@ -73,7 +73,7 @@ Supermuc-NG
   module load scons gcc cmake/3.6 python/3.6_intel slurm_setup
   module load libszip/2.1.1
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load hdf5/1.8.20-intel-impi-threadsafe
+  module load hdf5/1.8.20-intel-impi-frt-threadsafe 
   module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
 
   ####### universal setup for SeisSol
