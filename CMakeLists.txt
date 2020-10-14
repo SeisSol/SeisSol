@@ -139,7 +139,7 @@ target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
 # Libs
 include(ExternalProject)
 
-find_package(YAML-CPP 0.5.3)
+find_package(YAML-CPP 0.5.3 QUIET)
 if (YAML-CPP_FOUND)
   target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
   target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
