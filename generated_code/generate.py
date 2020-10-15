@@ -41,11 +41,11 @@
 
 import argparse
 import importlib.util
-import inspect
+import sys
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
 
 import DynamicRupture
 import Plasticity
@@ -58,7 +58,9 @@ cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations')
 cmdLineParser.add_argument('--matricesDir')
 cmdLineParser.add_argument('--outputDir')
-cmdLineParser.add_argument('--arch')
+cmdLineParser.add_argument('--host_arch')
+cmdLineParser.add_argument('--device_arch', default=None)
+cmdLineParser.add_argument('--device_sub_arch', default=None)
 cmdLineParser.add_argument('--order', type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--memLayout')
@@ -68,20 +70,30 @@ cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
+# derive the compute platform
+gpu_platforms = ['nvidia', 'amd-gpu']
+targets = ['gpu', 'cpu'] if cmdLineArgs.device_arch[1:] in gpu_platforms else ['cpu']
+
 if cmdLineArgs.memLayout == 'auto':
   # TODO(Lukas) Don't hardcode this
   env = {
     'equations': cmdLineArgs.equations,
     'order': cmdLineArgs.order,
-    'arch': cmdLineArgs.arch,
-    'multipleSimulations': cmdLineArgs.multipleSimulations
+    'arch': cmdLineArgs.host_arch,
+    'device': cmdLineArgs.device_arch,
+    'multipleSimulations': cmdLineArgs.multipleSimulations,
+    'targets': targets
   }
   mem_layout = memlayout.guessMemoryLayout(env)
 else:
   mem_layout = cmdLineArgs.memLayout
-  
 
-arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
+
+if cmdLineArgs.device_arch == 'none':
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
+else:
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.device_arch, cmdLineArgs.device_sub_arch, cmdLineArgs.host_arch)
+
 
 equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
 try:
@@ -104,38 +116,43 @@ else:
     adg = equations.PoroelasticADERDG(**cmdArgsDict)
 
 include_tensors = set()
-g = Generator(arch)
+generator = Generator(arch)
 
 # Equation-specific kernels
-adg.addInit(g)
-adg.addLocal(g)
-adg.addNeighbor(g)
-adg.addTime(g)
+adg.addInit(generator)
+adg.addLocal(generator, targets)
+adg.addNeighbor(generator, targets)
+adg.addTime(generator, targets)
 adg.add_include_tensors(include_tensors)
 
 # Common kernels
-include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod))
-Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
-NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
-SurfaceDisplacement.addKernels(g, adg)
-Point.addKernels(g, adg)
+include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
+                                                 adg,
+                                                 cmdLineArgs.matricesDir,
+                                                 cmdLineArgs.dynamicRuptureMethod,
+                                                 targets))
+
+Plasticity.addKernels(generator, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
+NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
+SurfaceDisplacement.addKernels(generator, adg)
+Point.addKernels(generator, adg)
 
 # pick up the user's defined gemm tools
 gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
-generators = []
+gemm_generators = []
 
 for tool in gemm_tool_list:
   if hasattr(gemm_configuration, tool):
     specific_gemm_class = getattr(gemm_configuration, tool)
-    generators.append(specific_gemm_class(arch))
+    gemm_generators.append(specific_gemm_class(arch))
   else:
     print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
           "Please, refer to the documentation".format(tool))
     sys.exit("failure")
 
 # Generate code
-gemmTools = GeneratorCollection(generators)
-g.generate(outputDir=cmdLineArgs.outputDir,
-           namespace='seissol',
-           gemm_cfg=gemmTools,
-           include_tensors=include_tensors)
+gemmTools = GeneratorCollection(gemm_generators)
+generator.generate(outputDir=cmdLineArgs.outputDir,
+                   namespace='seissol',
+                   gemm_cfg=gemmTools,
+                   include_tensors=include_tensors)

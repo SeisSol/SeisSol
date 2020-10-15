@@ -278,7 +278,6 @@ namespace seissol {
         for(unsigned i = 0; i < numPoints; i++) {
           m_materials->at(i) = seissol::model::AnisotropicMaterial(elasticMaterials[i]);
         }
-        delete model;
       }
       else {
         easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
