@@ -116,10 +116,6 @@ set compiler options:
 
 ::
 
-  $ export FC=mpiifort
-  $ export CXX=mpiicpc
-  $ export CC=mpiicc
-
   $ mkdir build
   $ cd build
   $ export CMAKE_PREFIX_PATH=$NETCDF_BASE
