@@ -70,19 +70,15 @@ Supermuc-NG
 ::
 
   ##### module load for SeisSol
-  module load scons gcc cmake/3.6 python/3.6_intel slurm_setup
+  module load scons gcc/9 cmake/3.14.4 python/3.6_intel
   module load libszip/2.1.1
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load hdf5/1.8.20-intel-impi-threadsafe
+  module load hdf5/1.8.21-impi-cxx-frt-threadsafe 
   module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
 
-  ####### universal setup for SeisSol
-  export PATH=~/local/bin:$PATH
-  export PKG_CONFIG_PATH=~/local/lib/pkgconfig/:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=~/local/lib:$PARMETIS_LIBDIR:$METIS_LIBDIR:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LD_LIBRARY_PATH
-  export CPATH=~/local/include:$PARMETIS_BASE/include:$METIS_BASE/include:$NETCDF_BASE/include:$HDF5_BASE/include:$CPATH
-  export LIBRARY_PATH=~/local/lib:$PARMETIS_LIBDIR:$METIS_LIBDIR:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LIBRARY_PATH
-    
+  ####### for pspamm.py
+  export PATH=~/bin:$PATH
+  
   ####  local setup for SeisSol. 
   export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
   export PKG_CONFIG_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -116,9 +112,9 @@ set compiler options:
 
 ::
 
-  $ export FC=mpif90
-  $ export CXX=mpiCC
-  $ export CC=mpicc
+  $ export FC=mpiifort
+  $ export CXX=mpiicpc
+  $ export CC=mpiicc
 
   $ make build
   $ Cd build
@@ -129,55 +125,13 @@ set compiler options:
   (Know errors: 1.Numa could not found - turn off Numa by -DNONUMA=on . )
 
 
-4. Copy the SeisSol configuration to a file e.g. supermuc_ng.py
+4. Install SeisSol with cmake, e.g. with (more options with ccmake)
 
 ::
 
-  import os
-  # build options
-  compileMode                 = 'release'
-  #compileMode                 = 'relWithDebInfo'
-  #compileMode                 = 'debug'
-  parallelization             = 'hybrid'
-  #parallelization             = 'mpi'
-  generatedKernels            = 'yes'
-  #measureNodeLevelPerformance = 'none'
-  useExecutionEnvironment     = 'yes'
-  order = 4
-  equations='elastic'
-  #equations = 'viscoelastic2'
-  #numberOfMechanisms = 3
-  # machine dependent options
-  #compiler='gcc'
-  cppCompiler          = 'mpiCC'
-  fortranCompiler      = 'mpif90'
-
-  netcdf='yes'
-  hdf5='yes'
-  metis='yes'
-  netcdfDir=os.environ['NETCDF_BASE']
-  hdf5Dir=os.environ['HDF5_BASE']
-  metisDir=os.environ['PARMETIS_BASE']
-  
-  # ASAGI folder need to be verified.
-  asagi='yes'
-  zlibDir='/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib'
-
-  phase=3 # for Supermuc-NG
-  if phase==1:
-     arch ='dsnb'
-  elif phase==2:
-     arch = 'dhsw'
-     #commThread ='yes'
-  else:
-     arch = 'dskx'
-     commThread ='yes'
-
-  plasticity='no'
-  #logLevel                    = 'warning'
-  logLevel                    = 'warning'
-  logLevel0                   = 'info'
-
+   mkdir build-release && cd build-release
+   CC=mpiicc CXX=mpiicpc FC=mpiifort  cmake -DCOMMTHREAD=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   make -j 48
 
 5. Submission file for SeisSol on NG:
 
@@ -230,5 +184,5 @@ set compiler options:
   source /etc/profile.d/modules.sh
 
   echo $SLURM_NTASKS
-  srun ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
+  srun SeisSol_Release_sskx_4_elastic parameters.par
 
