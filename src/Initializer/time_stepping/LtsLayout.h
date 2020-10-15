@@ -524,6 +524,15 @@ class seissol::initializers::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
+
+    /**
+    * Get the global cluster Id of a particular local mesh element.
+    *
+    * @param LocalMeshElementId local mesh Id of an element.
+    **/
+    unsigned getGlobalClusterId(int LocalMeshElementId) {
+      return m_cellClusterIds[LocalMeshElementId];;
+    }
 };
 
 #endif

@@ -174,14 +174,14 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
     using Matrix64 = Eigen::Matrix<double, 6, 4>;
     Matrix44 R11 = R(traction_indices, {0,1,2,3});
     Matrix64 R21 = R(velocity_indices, {0,1,2,3});
-    auto S = - (R21 * R11.inverse()).eval();
+    Matrix64 S = (-(R21 * R11.inverse())).eval();
 #else
     std::array<int, 3> traction_indices = {0,3,5};
     std::array<int, 3> velocity_indices = {6,7,8};
     using Matrix33 = Eigen::Matrix<double, 3, 3>;
     Matrix33 R11 = R(traction_indices, {0,1,2});
     Matrix33 R21 = R(velocity_indices, {0,1,2});
-    auto S = - (R21 * R11.inverse()).eval();
+    Matrix33 S = (-(R21 * R11.inverse())).eval();
 #endif
 
     //set lower left block
@@ -194,6 +194,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
       }
       row++;
     }
+
     //set lower right block
     for (auto &v : velocity_indices) {
       QgodLocal(v, v) = 1.0;

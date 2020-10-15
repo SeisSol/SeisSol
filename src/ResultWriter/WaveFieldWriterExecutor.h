@@ -190,7 +190,7 @@ public:
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
-		m_waveFieldWriter->init(variables, std::vector<const char*>());
+		m_waveFieldWriter->init(variables, std::vector<const char*>(), true, true, true);
 		m_waveFieldWriter->setMesh(
 			info.bufferSize(param.bufferIds[CELLS]) / (4*sizeof(unsigned int)),
 			static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
@@ -260,6 +260,10 @@ public:
 	}
 	// End the if statement
 #endif // USE_MPI
+	}
+
+	void setClusteringData(const unsigned *Clustering) {
+	  m_waveFieldWriter->writeClusteringInfo(Clustering);
 	}
 
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)

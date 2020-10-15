@@ -235,7 +235,6 @@ target_include_directories(SeisSol-lib PUBLIC
 
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
