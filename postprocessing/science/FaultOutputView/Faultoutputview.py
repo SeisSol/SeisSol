@@ -27,14 +27,21 @@ view_azimuth=-80
 ###moment rate and magnitue
 print ('start plotting the moment rate & calculating the magnitude')
 filelist=glob.glob(dir+'*-EnF_t*')
-En1=np.loadtxt(filelist[1],skiprows=1)
-dt=np.mean(np.diff(En1[:,0]))
-Mo_rate=np.zeros([En1.shape[0],1])
-
+dt=np.zeros(len(filelist))
+tmax=np.zeros(len(filelist))
 for i,fname in enumerate(filelist):
     En=np.loadtxt(filelist[i],skiprows=1)
-    Mo_rate[:,0]=Mo_rate[:,0]+En[:,1]
-Mw=2/3*np.log10(np.sum(Mo_rate*dt))-6.07
+    dt[i]=np.mean(np.diff(En[:,0]))
+    tmax[i]=np.max(En[:,0])
+dt_min=np.min(dt)
+t_end=np.max(tmax)
+ndt=int(round(t_end/dt_min))+1
+Mo_rate=np.zeros(ndt)
+t_even=np.linspace(0,t_end,num=ndt,endpoint=True)
+for i,fname in enumerate(filelist):
+    En=np.loadtxt(filelist[i],skiprows=1)
+    Mo_rate[:]=Mo_rate[:]+np.interp(t_even,En[:,0],En[:,1])
+Mw=2/3*np.log10(np.sum(Mo_rate*dt_min))-6.07
 print(Mw)
 
 fig = plt.figure()
