@@ -145,6 +145,9 @@ set compiler options:
   order                       = 4
   equations                   ='elastic'
   #equations                  = 'viscoelastic2'
+  #equations = 'viscoelastic2'
+  #numberOfMechanisms = 3
+  
   plasticity                  = 'no'  
   # if turn on off-fault plasticity: 
   #plasticity                 = 'yes' 
@@ -216,7 +219,7 @@ set compiler options:
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
-  export OMP_NUM_THREADS=47
+  export OMP_NUM_THREADS=94
   export OMP_PLACES="cores(47)"
 
   export XDMFWRITER_ALIGNMENT=8388608
@@ -229,6 +232,6 @@ set compiler options:
   export ASYNC_BUFFER_ALIGNMENT=8388608
   source /etc/profile.d/modules.sh
 
-  ech o$SLURM_NTASKS
+  echo $SLURM_NTASKS
   srun --export=ALL  ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
 
