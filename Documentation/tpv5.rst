@@ -52,7 +52,7 @@ The toolbox of **gmsh2gambit** is used for converting gmsh file to Gambit neutru
 ``$ pumgen tpv5.neu tpv5``
 
 The compilation and usage of PUMGen can be found in https://github.com/SeisSol/PUMGen/wiki and https://seissol.readthedocs.io/en/latest/
-The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/tpv5_f200m.geo. The mesh file can be generated using a bash file https://github.com/SeisSol/Examples/blob/master/tpv5/generating_the_mesh.sh.
+The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/tpv5_f200m.geo. The mesh file can be generated using the bash file https://github.com/SeisSol/Examples/blob/master/tpv5/generating_the_mesh.sh.
 
 
 .. figure:: LatexFigures/mesh5.png
