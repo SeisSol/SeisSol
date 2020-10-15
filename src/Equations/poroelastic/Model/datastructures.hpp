@@ -1,7 +1,12 @@
 #ifndef MODEL_POROELASTIC_DATASTRUCTURES_H_
 #define MODEL_POROELASTIC_DATASTRUCTURES_H_
 
-#include <Model/common_datastructures.hpp>
+#include <limits>
+
+#include <Eigen/Eigen>
+
+#include "Model/common_datastructures.hpp"
+#include "PoroelasticJacobian.h"
 
 namespace seissol {
   namespace model {
@@ -43,13 +48,22 @@ namespace seissol {
         em.getFullStiffnessTensor(fullTensor);
       }
 
-      //TODO SW: Find the wave speeds
       double getMaxWaveSpeed() const final {
         return getPWaveSpeed();
       }
 
       double getPWaveSpeed() const final {
-        return std::sqrt(bulk_solid / (rho - porosity * rho_fluid / tortuosity));
+        Eigen::Matrix<double, 13, 13> AT;
+        seissol::model::getTransposedCoefficientMatrix(*this, 0, AT);
+        Eigen::ComplexEigenSolver<Eigen::Matrix<double, 13, 13>> ces;
+        ces.compute(AT);
+        const auto eigenvalues = ces.eigenvalues();
+        double max_ev = std::numeric_limits<double>::lowest();
+        for (int i = 0; i < 13; i++) {
+          max_ev = eigenvalues[i].real() > max_ev ? eigenvalues[i].real() : max_ev;
+        }
+          
+        return max_ev;
       }
 
       double getSWaveSpeed() const final {
