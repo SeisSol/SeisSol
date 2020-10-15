@@ -96,7 +96,22 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
 #if NUMBER_OF_QUANTITIES < 6
   #error You cannot use PointSource with less than 6 quantities.
 #endif
-  
+
+  std::fill(o_forceComponents, o_forceComponents+NUMBER_OF_QUANTITIES, 0);
+#ifdef USE_POROELASTIC
+  std::cout << "Poroelastic explosion source" << std::endl;
+  //Use explosive source
+  o_forceComponents[6] = 1;
+  o_forceComponents[7] = 1;
+  o_forceComponents[8] = 1;
+  o_forceComponents[10] = 0;
+  o_forceComponents[11] = 0;
+  o_forceComponents[12] = 0;
+  for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    std::cout << o_forceComponents[i] << ", ";
+  }
+  std::cout << std::endl;
+#else 
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u, v, w)
   o_forceComponents[0] = M[0][0];
   o_forceComponents[1] = M[1][1];
@@ -107,10 +122,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   o_forceComponents[6] = f[0];
   o_forceComponents[7] = f[1];
   o_forceComponents[8] = f[2];
-
-  for (unsigned m = 9; m < NUMBER_OF_QUANTITIES; ++m) {
-    o_forceComponents[m] = 0.0;
-  }
+#endif
 }
 
 real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
