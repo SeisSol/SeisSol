@@ -72,8 +72,8 @@ option optimize_netgen is necessary for optimizing meshing with good quality.
 6.Then convert the .msh file to 3D Gambit neutral file and PUML format as same as shown in TPV5
 
 ::
-   $ gmsh2gambit -i tpv5.msh -o tpv5.neu
-   $ pumgen tpv5.neu tpv5
+   $ gmsh2gambit -i tpv29_step2.msh -o tpv29.neu
+   $ pumgen tpv29.neu tpv29
 
 
 The mesh can be created by using a bash script https://github.com/SeisSol/Examples/blob/master/tpv29/generating_the_mesh.sh.
