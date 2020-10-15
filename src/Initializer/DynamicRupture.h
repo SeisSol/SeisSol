@@ -169,12 +169,11 @@ struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_FL_2 {
   Variable<real>                                        tn;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DynamicRupture::addTo(tree);
+    seissol::initializers::DR_FL_2::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
   }
-
 };
 
 
