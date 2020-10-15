@@ -228,6 +228,16 @@ protected:
   real  (*stateVar)[numOfPointsPadded];
   real  (*dynStress_time)[numOfPointsPadded];
 
+  //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
+  //!as a consequence, the SR is affected the AlmostZero value when too small
+  double AlmostZero = 1e-45;
+
+  //!PARAMETERS of THE optimisation loops
+  //!absolute tolerance on the function to be optimzed
+  //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
+  //! Number of iteration in the loops
+  unsigned int nSRupdates = 60;
+  unsigned int nSVupdates = 2;
 
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -495,17 +505,6 @@ public:
     //first copy all Variables from the Base Lts dynRup tree
     RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-    //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
-    //!as a consequence, the SR is affected the AlmostZero value when too small
-    double AlmostZero = 1e-45;
-
-    //!PARAMETERS of THE optimisation loops
-    //!absolute tolerance on the function to be optimzed
-    //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
-    //! Number of iteration in the loops
-    unsigned int nSRupdates = 60;
-    unsigned int nSVupdates = 2;
-    
     double Gnuc = 0;
     dt = 0;
     for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
@@ -550,9 +549,6 @@ public:
         }
       } //end If-Tnuc
 
-      for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-        LocSV[iBndGP] = stateVar[ltsFace][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)      //local varriable required
-      }
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
         //TODO: test padded:
@@ -570,7 +566,7 @@ public:
 
           // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
-          stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
+          stateVarZero[iBndGP] = stateVar[ltsFace][iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
           locSlipRate[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2) );
@@ -673,6 +669,8 @@ public:
         //write back State Variable to lts tree
         stateVar[ltsFace][iBndGP] = stateVar[ltsFace][iBndGP] + resampledDeltaStateVar[iBndGP];
       }
+
+      //---------------------------------------------
 
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
