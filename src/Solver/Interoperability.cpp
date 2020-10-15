@@ -591,6 +591,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       auto materials = std::vector<seissol::model::Plasticity>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::Plasticity> parameterDB;
       parameterDB.setMaterialVector(&materials);
+      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         bulkFriction[i] = materials[i].bulkFriction;
         plastCo[i] = materials[i].plastCo;
