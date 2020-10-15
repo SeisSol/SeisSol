@@ -229,5 +229,5 @@ set compiler options:
   source /etc/profile.d/modules.sh
 
   echo $SLURM_NTASKS
-  srun --export=ALL  ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
+  srun  ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
 
