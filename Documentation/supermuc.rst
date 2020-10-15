@@ -141,8 +141,7 @@ set compiler options:
   order                       = 4
   equations                   ='elastic'
   #equations                  = 'viscoelastic2'
-  #equations = 'viscoelastic2'
-  #numberOfMechanisms = 3
+  #numberOfMechanisms         = 3
   
   plasticity                  = 'no'  
   # if turn on off-fault plasticity: 
