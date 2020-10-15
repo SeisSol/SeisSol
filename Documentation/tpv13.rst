@@ -54,7 +54,7 @@ Plasticity parameters
 To turn on plasticity in SeisSol, add the following lines in
 *parameter.par*:
 
-::
+.. code-block:: Fortran
   
   &SourceType
   Plasticity = 1 ! default = 0
@@ -63,7 +63,7 @@ To turn on plasticity in SeisSol, add the following lines in
   
 In the **material.yaml**, add plasticity parameters:
 
-::
+.. code-block:: YAML
   
   !Switch
   [rho, mu, lambda, plastCo, bulkFriction]: !ConstantMap

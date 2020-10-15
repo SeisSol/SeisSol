@@ -78,7 +78,7 @@ TPV5 uses a linear-slip weakening friction everywhere on the fault.
 There are ten parameters associated with the friction constitutive law
 and fault properties in the **parameters.par**. It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
 
-::
+.. code-block:: Fortran
   
   &equations
   MaterialFileName = material.yaml
