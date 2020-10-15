@@ -8,14 +8,16 @@ depths followed by an unexpected localized tsunami within Palu Bay.
 
 Geometry
 ~~~~~~~~
-**Building a 3D model with complicated geometries using Simmodeler**
 
-1. Creating a high resolution topography and bathymetry free surface 
-and merge it with a simple box model
+In this section, we will build a 3D model with complicated geometries 
+using `SimModeler <https://simmetrix.com/index.php/simmodeler/overview>`_.
+
+**1. Creating a high resolution topography and bathymetry free surface 
+and merge it with a simple box model**
 
 -  Creating the topographic layer
 
-We create the topography from a NetCDF file downloaded from https://www.gebco.net/.
+We create the topography from a NetCDF file downloaded from `GEBCO <https://www.gebco.net/>`_.
 
 .. figure:: LatexFigures/palu_topoGEBCO.png
    :alt: Screenshot from GEBCO.
@@ -57,6 +59,7 @@ We generate a simple box with `Gmsh <https://gmsh.info/>`_:
 The box dimensions are such as the topography is slightly wider than the box. 
 The mesh size is chosen small enough to facilitate intersection with topography 
 and large enough to limit the number of elements.
+
 ::
   
   mesh_size = 10e3;
@@ -104,7 +107,7 @@ We then remove excess from both models using 'Delete' in the 'Discrete' tab.
 
    Screenshot of merged domain in SimModeler. 
 
-2. Creating complex fault networks constrained by fault traces and dip 
+**2. Creating complex fault networks constrained by fault traces and dip** 
 
 -  Building faults from trace and dip 
 
@@ -134,12 +137,6 @@ The faults then are straightforwardly created using:
 The 'data' folder contains (x,y,z) ASCII files describing fault traces 
 and dip variation along-strike.
 
-.. figure:: LatexFigures/palu_faultsegments.png
-   :alt: Screenshot of fault segments for Palu model.
-   :width: 18.00000cm
-
-   Screenshot of fault segments for Palu model.
-
 -  Merging box and faults
 
 Let suppose that we know have 2 smd file, one with the intersected faults, 
@@ -165,6 +162,12 @@ Now we just have to delete the faults parts above the topography
 
 and the model is finished.
 
+.. figure:: LatexFigures/palu_faultsegments.png
+   :alt: Screenshot of fault segments for Palu model.
+   :width: 18.00000cm
+
+   Screenshot of fault segments for Palu model.
+
 -  Evaluating the obtained geometric model
 
 Note that when evaluating the model, the shortest edge should not be small 
@@ -189,10 +192,85 @@ e.g. 5 km mesh with 5\ :math:`^\circ`.
 
    Screenshot of ‘Discrete Face Rotation Angle Limit’ parameter in Surface Meshing in SimModeler.
 
-3. Volume meshing with unstructured tetrahedral meshing
+**3. Volume meshing with unstructured tetrahedral meshing**
 
-4. Visualizing the output with Paraview
+-  Assigning boundary conditions
 
+In SimModeler, select 'Analysis' tab then select 'Analysis Attributes'. 
+We need to name a 'New Case ...' and select with 'SeisSol' as the solver.
+Then select the top surface and assign it with 'Free Surface' boundary condition.
 
+.. figure:: LatexFigures/palu_freesurfaceBC.png
+   :alt: Screenshot of assigning 'Free Surface' boundary condition in SimModeler.
+   :width: 20.00000cm
 
+   Screenshot of assigning 'Free Surface' boundary condition in SimModeler.
 
+Then select all sides and bottom surfaces and assign them with 'Absorbing' 
+boundary condition.
+
+.. figure:: LatexFigures/palu_absorbingBC.png
+   :alt: Screenshot of assigning 'Absorbing' boundary condition in SimModeler.
+   :width: 20.00000cm
+
+   Screenshot of assigning 'Absorbing' boundary condition in SimModeler.
+
+Then select all fault segments and assign them with 'Dynamic Rupture' 
+boundary condition.
+
+.. figure:: LatexFigures/palu_dynamicruptureBC.png
+   :alt: Screenshot of assigning 'Dynamic Rupture' boundary condition in SimModeler.
+   :width: 20.00000cm
+
+   Screenshot of assigning 'Dynamic Rupture' boundary condition in SimModeler.
+
+-  Setting meshing parameters
+
+We then Select 'Meshing' tab and select 'Mesh Size' to absolute 300 m within 
+the fault segments. Next we set 'Mesh Size' to absolute 20000 m at 
+the far side of our domain. We also set 'Gradation Rate' to 0.3.
+Then we set 'Surface Shape Metric' with limiting aspect ratio to 6.0 and set 
+'Volume Shape Metric' with limiting aspect ratio to 12.0. Then save our case 
+as 'palu.smd' file and select 'Generate Mesh' and start meshing.
+
+- Evaluating the mesh
+
+After the meshing is completed, select 'Show Mesh'.
+
+.. figure:: LatexFigures/palu_showmesh.png
+   :alt: Screenshot of the mesh generated using SimModeler.
+   :width: 20.00000cm
+
+   Screenshot of the mesh generated using SimModeler.
+
+We can see the mesh statistics by selecting 'Mesh Stats'.
+
+.. figure:: LatexFigures/palu_meshstats.png
+   :alt: Screenshot of the mesh statistics.
+   :width: 20.00000cm
+
+   Screenshot of the mesh statistics.
+
+We can also clip the mesh using 'Clip Mesh'.
+
+.. figure:: LatexFigures/palu_meshclip.png
+   :alt: Screenshot of the clipped mesh.
+   :width: 20.00000cm
+
+.. figure:: LatexFigures/palu_meshclipzoom.png
+   :alt: Screenshot of the clipped mesh .
+   :width: 20.00000cm
+
+   Screenshot of the clipped mesh.
+
+and we can save the generated mesh (.sms file) and mesh analysis (.neu file).
+
+Nucleation
+~~~~~~~~~~
+
+Parameters
+~~~~~~~~~~
+
+Results
+~~~~~~~
+We visualize the output with `Paraview <https://www.paraview.org/>`_.
