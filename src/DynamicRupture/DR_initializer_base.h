@@ -435,7 +435,7 @@ public:
       real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);
 
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-        unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+        //unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
           strengthData[ltsFace][iBndGP] =  mu[ltsFace][iBndGP] * initialStressInFaultCS[ltsFace][iBndGP][0];
         }

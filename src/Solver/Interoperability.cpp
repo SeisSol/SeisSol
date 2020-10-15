@@ -1055,7 +1055,7 @@ void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFa
   f_interoperability_getDynRup(m_domain, fFace, &tmpInitialStressInFaultCS[0], &mu[ltsFace][0], &slipRate1[ltsFace][0], &slipRate2[ltsFace][0], &RF[ltsFace][0]);
 
   for(int i = 0; i< 6; i++){
-    for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++){
+    for(unsigned int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++){
       initialStressInFaultCS[ltsFace][iBndGP][i] = tmpInitialStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
     }
   }
@@ -1074,7 +1074,7 @@ void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int mes
   real tmpNucleationStressInFaultCS[tensor::QInterpolated::Shape[0] * 6] = {0};
   f_interoperability_getDynRupNucStress(m_domain, fFace, &tmpNucleationStressInFaultCS[0]);
   for (int i = 0; i < 6; i++) {
-    for (int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
+    for (unsigned int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
       nucleationStressInFaultCS[ltsFace][iBndGP][i] = tmpNucleationStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
     }
   }

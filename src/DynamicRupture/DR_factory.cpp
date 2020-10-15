@@ -49,7 +49,8 @@ namespace seissol {
   }
 }
 
-
+//TODO: can be removed: used to get an overview of the factory pattern
+/*
 int temporary_main() {
     // instantiate all components necessary for the program
     using namespace seissol::dr;
@@ -102,13 +103,13 @@ int temporary_main() {
     //    dr::output::Base* m_DrOutput,
     // evaluate is called in void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData )
 
-    //!FrictonLaw->evaluate(*DynRup /*+ DrLtsTree*/);
+    //!FrictonLaw->evaluate(*DynRup);
 
-    //!DrOutput->tiePointers(*DynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
+    //!DrOutput->tiePointers(*DynRup + DrLtsTree, + faultWriter); // pass ptrs of the first cluster    // inside of a compute loop
 
 
     //end of program
-    DrOutput->postCompute(*DynRup /*+ DrLtsTree*/);    // at the end of program
+    DrOutput->postCompute(*DynRup);    // at the end of program
 
     //in MemoryManager.h ~MemoryManager()
     delete DynRup;
@@ -117,3 +118,4 @@ int temporary_main() {
     delete DrOutput;    // DrLtsTree will get deleted as it is done in SeisSol
     return 0;
 }
+//*/

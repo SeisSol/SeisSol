@@ -320,7 +320,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
   //debugging:
-  const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
+  const unsigned int numberOfPoints = tensor::QInterpolated::Shape[0];
   auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);
   auto imposedStateMinusViewTest2 = init::QInterpolated::view::create(imposedStateMinusTest[4]);
   //std::cout << "imposedStateMinusView: (" << m_FrictonLaw->numberOfFunctionCalls << ") " << imposedStateMinusView2(41, 3) << std::endl;
@@ -334,7 +334,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     auto imposedStatePlusView = init::QInterpolated::view::create(imposedStateMinus[lts_face]);
     auto imposedStatePlusViewTest = init::QInterpolated::view::create(imposedStateMinusTest[lts_face]);
     for (int j = 0; j < 9; j++) {
-      for (int i = 0; i < numberOfPoints; i++) {
+      for (unsigned int i = 0; i < numberOfPoints; i++) {
         if(fabs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.01 ){  // 0.00000000000001
           std::cout << "Function call of error: "<< m_FrictonLaw->numberOfFunctionCalls << " error: " << fabs(  imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) <<  std::endl;
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;

@@ -114,12 +114,12 @@ public:
                            seissol::initializers::DynamicRupture *dynRup,
                            seissol::Interoperability &e_interoperability) override {
     Output_Base::tiePointers(layerData, dynRup, e_interoperability);
-    seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
+    //seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
     std::cout << "tie ptr for Init_FL_3\n";
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
-    seissol::initializers::DR_FL_3 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 &>(DynRup);
+    //seissol::initializers::DR_FL_3 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 &>(DynRup);
     std::cout << "output vars for Init_FL_3\n";
   }
 };
@@ -135,7 +135,7 @@ public:
     }
 
     virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
-        seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(DynRup);
+        //seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(DynRup);
         std::cout << "output vars for Init_FL_33\n";
     }
 };
@@ -166,7 +166,7 @@ public:
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
-    seissol::initializers::DR_FL_103 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 &>(DynRup);
+    //seissol::initializers::DR_FL_103 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 &>(DynRup);
     std::cout << "output vars for Init_FL_103\n";
   }
 };
@@ -199,7 +199,7 @@ public:
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
-    seissol::initializers::DR_FL_103 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 &>(DynRup);
+    //seissol::initializers::DR_FL_103 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 &>(DynRup);
     std::cout << "output vars for Init_FL_6\n";
   }
 };

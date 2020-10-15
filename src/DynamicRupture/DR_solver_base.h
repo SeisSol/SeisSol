@@ -270,69 +270,6 @@ public:
     deltaT[CONVERGENCE_ORDER-1] = deltaT[CONVERGENCE_ORDER-1] + deltaT[0];  // to fill last segment of Gaussian integration
   }
 
-  //TODO: maybe this function is used, if not delete it
-  void dynamicRuptureCalc(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup,
-                          real fullUpdateTime,
-                          kernels::DynamicRupture &dynamicRuptureKernel,
-                          GlobalData const* globalData){
-
-    DRFaceInformation*                    faceInformation                                                   = layerData.var(dynRup->faceInformation);
-    DRGodunovData*                        godunovData                                                       = layerData.var(dynRup->godunovData);
-    real**                                timeDerivativePlus                                                = layerData.var(dynRup->timeDerivativePlus);
-    real**                                timeDerivativeMinus                                               = layerData.var(dynRup->timeDerivativeMinus);
-    //TODO: if computation loop is not splitted -> smaller size
-    alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-    alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-
-
-    computeDeltaT(dynamicRuptureKernel.timePoints);
-
-    //this copies all lts data pointers to local class attributes
-    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
-#endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      //initialize struct for in/outputs stresses
-      FaultStresses faultStresses{};
-
-      unsigned prefetchFace = (ltsFace < layerData.getNumberOfCells() - 1) ? ltsFace + 1 : ltsFace;
-      dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[ltsFace],
-                                                      globalData,
-                                                      &godunovData[ltsFace],
-                                                      timeDerivativePlus[ltsFace],
-                                                      timeDerivativeMinus[ltsFace],
-                                                      QInterpolatedPlus[ltsFace],
-                                                      QInterpolatedMinus[ltsFace],
-                                                      timeDerivativePlus[prefetchFace],
-                                                      timeDerivativeMinus[prefetchFace] );
-
-      //compute stresses from Qinterpolated
-      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
-
-      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-        /*
-         * add friction law calculation here:
-         */
-
-      }
-
-      // output rupture front
-      // outside of iTimeGP loop in order to safe an 'if' in a loop
-      // this way, no subtimestep resolution possible
-      outputRuptureFront(ltsFace);
-
-      //output peak slip rate
-      calcPeakSlipRate(ltsFace);
-
-      //save stresses in imposedState
-      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, dynamicRuptureKernel.timeWeights, ltsFace);
-
-      //*/
-    } //End layerData.getNumberOfCells()-loop
-  }
 };  //End BaseFrictionSolver Class
 
 

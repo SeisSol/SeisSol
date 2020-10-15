@@ -114,7 +114,7 @@ public:
           locSlipRate[ltsFace][iBndGP]      = std::sqrt(seissol::dr::aux::power(LocSR1,2) + seissol::dr::aux::power(LocSR2,2));
           tmp        = fabs( locSlipRate[ltsFace][iBndGP]);
 
-          for(int j = 0; j < nSVupdates; j++){ //!This loop corrects SV values
+          for(unsigned int j = 0; j < nSVupdates; j++){ //!This loop corrects SV values
             locSlipRate[ltsFace][iBndGP] = fabs( locSlipRate[ltsFace][iBndGP]);
 
             // FL= 3 aging law and FL=4 slip law
@@ -130,7 +130,7 @@ public:
 
             SlipRateGuess = locSlipRate[ltsFace][iBndGP];   // SRtest: We use as first guess the SR value of the previous time step
 
-            for(int i = 0; i < nSRupdates; i++){   //!This loop corrects SR values
+            for(unsigned int i = 0; i < nSRupdates; i++){   //!This loop corrects SR values
               tmp          = 0.5 / RS_sr0[ltsFace] * exp((m_Params->rs_f0 + m_Params->rs_b * log(RS_sr0[ltsFace] * LocSV / RS_sl0[ltsFace]) ) / RS_a[ltsFace]);
               tmp2         = tmp * SlipRateGuess;
               NR           = -(1.0/waveSpeedsPlus->sWaveVelocity/waveSpeedsPlus->density+1.0/waveSpeedsMinus->sWaveVelocity/waveSpeedsMinus->density) *
@@ -230,14 +230,16 @@ protected:
 
   //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   //!as a consequence, the SR is affected the AlmostZero value when too small
-  double AlmostZero = 1e-45;
+  const double AlmostZero = 1e-45;
 
   //!PARAMETERS of THE optimisation loops
   //!absolute tolerance on the function to be optimzed
   //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
   //! Number of iteration in the loops
-  unsigned int nSRupdates = 60;
-  unsigned int nSVupdates = 2;
+  const unsigned int nSRupdates = 60;
+  const unsigned int nSVupdates = 2;
+
+  const double aTolF = 1e-8;
 
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -291,8 +293,7 @@ protected:
                             std::array<real, numOfPointsPadded> &sh_stress, std::array<real, numOfPointsPadded> &SRtest ){
 
     double tmp[numberOfPoints], tmp2[numberOfPoints], tmp3[numberOfPoints], mu_f[numberOfPoints], dmu_f[numberOfPoints], NR[numberOfPoints], dNR[numberOfPoints];
-    double aTolF = 1e-8;
-    double AlmostZero = 1e-45;
+    //double AlmostZero = 1e-45;
     bool has_converged = false;
 
     //!solve for Vnew = SR , applying the Newton-Raphson algorithm
@@ -550,6 +551,10 @@ public:
       } //end If-Tnuc
 
 
+      for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+        LocSV[iBndGP] = stateVar[ltsFace][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)      //local varriable required
+      }
+
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
         //TODO: test padded:
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
@@ -566,7 +571,7 @@ public:
 
           // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
-          stateVarZero[iBndGP] = stateVar[ltsFace][iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
+          stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
           locSlipRate[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2) );
@@ -577,7 +582,7 @@ public:
 
         hookSetInitialP_f(P_f, ltsFace);
 
-        for (int j = 0; j < nSVupdates; j++) {
+        for (unsigned int j = 0; j < nSVupdates; j++) {
 
           hookCalcP_f(P_f, faultStresses, false, iTimeGP, ltsFace);
 
@@ -612,7 +617,7 @@ public:
         if (!has_converged) {
           //!logError(*) 'nonConvergence RS Newton', time
           //TODO: error logging : logError(*) 'NaN detected', time
-          //std::cout << "nonConvergence RS Newton" << std::endl;
+          std::cout << "nonConvergence RS Newton, time: " << fullUpdateTime << std::endl;
           assert(!std::isnan(LocSlipTmp[0]) && "nonConvergence RS Newton");
         }
 
@@ -656,6 +661,8 @@ public:
           faultStresses.TractionGP_XY[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
           faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
 
+
+          //TODO: Could be outside TimeLoop?
           deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[ltsFace][iBndGP];
         } // End of BndGP-loop
       } // End of iTimeGP-loop
@@ -751,9 +758,10 @@ protected:
   void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f,  FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
+      //TODO: Sh access race condition if run in parallel?
       Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
 
-      for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+      for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
        //!recover original values as it gets overwritten in the ThermalPressure routine
         Theta_tmp[iTP_grid_nz] = TP_Theta[ltsFace][iBndGP][iTP_grid_nz];
         Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][iBndGP][iTP_grid_nz];
@@ -763,7 +771,7 @@ protected:
 
       P_f[iBndGP] = pressure[ltsFace][iBndGP];
       if(saveTmpInTP){
-        for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+        for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
           TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
           TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
         }
@@ -777,7 +785,7 @@ protected:
     T = 0.0;
     p = 0.0;
 
-    for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+    for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
       tauV = Sh[iBndGP] * locSlipRate[ltsFace][iBndGP]; //!fault strenght*slip rate
       Lambda_prime = m_Params->TP_lambda * m_Params->alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params->alpha_th);
       //!Gaussian shear zone in spectral domain, normalized by w
