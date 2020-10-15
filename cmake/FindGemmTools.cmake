@@ -49,6 +49,12 @@ foreach(component ${_GEMM_TOOLS_LIST})
     elseif ("${component}" STREQUAL "Eigen")
         # already included by default!
 
+    elseif ("${component}" STREQUAL "GemmForge")
+        execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"
+                        OUTPUT_VARIABLE GEMMFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_MODULE_PATH})
+        find_package(GemmForge 0.0.201 REQUIRED)
+
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \
                 Please, refer to the documentation")

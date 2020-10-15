@@ -7,7 +7,7 @@ Compilation
 ===============
 ```
 export CC=gcc (or icpc with intel)
-export CXX = g++ (or icc with intel)
+export CXX=g++ (or icc with intel)
 scons   
 ```
 
