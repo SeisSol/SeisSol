@@ -253,7 +253,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
-
+/*
   //debugging:
   //TODO: delete these if not required for debugging anymore:
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
@@ -264,9 +264,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real imposedStatePlusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real imposedStateMinusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   m_FrictonLaw->numberOfFunctionCalls++;
-  /*
-  if(  m_FrictonLaw->numberOfFunctionCalls ==  165){
-    std::cout << "now its: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
+
+  if(  m_FrictonLaw->numberOfFunctionCalls ==  1){
+  std::cout << "!!! ----------------- !!! IN DEBUG MODE !!!  ----------------- !!!" << std::endl;
+    //std::cout << "now its: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
   }
 //*/
 
@@ -296,7 +297,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-
+/*
     // legacy code:
     //TODO remove - only for debugging:
     //int fortran_face = static_cast<int>(faceInformation[face].meshFace) + 1;
@@ -322,7 +323,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
-
+/*
   //debugging:
   const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
   auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);
