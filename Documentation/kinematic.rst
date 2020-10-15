@@ -42,7 +42,7 @@ lines in parameter.par file.
   FileName=’northridge.nrf’
   /
 
-Download standard rupture format file (northridge.srf) can be found in https://scec.usc.edu/scecpedia/Standard_Rupture_Format.
+Download standard rupture format file (northridge.srf) can be found in https://strike.scec.org/scecpedia/Standard_Rupture_Format.
 Please note that the SCEC units are different with SeisSol units in some
 aspect.
 
@@ -52,7 +52,7 @@ The fault is divided into 20 grids along the strike and 25 grids
   
 ::
 
-  verison (1.0)
+  version (1.0)
   PLANE 1
   ELON ELAT NSTK NDIP LEN WID STK DIP DTOP SHYP DHYP
   POINTS 500
