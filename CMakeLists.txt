@@ -95,6 +95,7 @@ add_custom_command(
        generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
+       generated_code/matrices/matrices_poroelastic.xml
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
@@ -341,7 +342,6 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
@@ -349,6 +349,14 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
   )
+  if(${EQUATIONS} STREQUAL "poroelastic")
+    CXXTEST_ADD_TEST_MPI(
+            test_serial_test_suite
+            1
+            test_serial.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
+  )
+  endif()
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
