@@ -54,18 +54,26 @@ Plasticity parameters
 To turn on plasticity in SeisSol, add the following lines in
 *parameter.par*:
 
-
-&SourceType
-Plasticity = 1 ! default = 0
-Tv = 0.03 ! Plastic relaxation
-/
-
-
+::
+  
+  &SourceType
+  Plasticity = 1 ! default = 0
+  Tv = 0.03 ! Plastic relaxation
+  /
+  
 In the **material.yaml**, add plasticity parameters:
 
-.. literalinclude:: tpv12/tpv12_13_material.yaml
-   :language: fortran
-
+::
+  
+  !Switch
+  [rho, mu, lambda, plastCo, bulkFriction]: !ConstantMap
+    map:
+      rho:                 2700
+      mu:           2.9403e+010
+      lambda:        2.941e+010
+      plastCo:          5.0e+06
+      bulkFriction:        0.85
+  [s_xx, s_yy, s_zz, s_xy, s_yz, s_xz]: !Include tpv12_13_initial_stress.yaml
 
 Results
 ~~~~~~~
