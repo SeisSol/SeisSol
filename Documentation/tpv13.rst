@@ -3,7 +3,7 @@
 SCEC TPV13
 ==========
 
-TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. To run TPV13, it requires to recompile SeisSol with "plasticity = 'yes'" in the configuration python script. 
+TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. To run TPV13, it requires to recompile SeisSol with "-DPLASTICITY=ON" in the configuration python script. 
 
 The material is characterized by six constitutive parameters:
 
