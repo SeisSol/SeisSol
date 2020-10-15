@@ -31,7 +31,8 @@ the model.
    Line to the end: fault topography of each nodes (nx\*ny, in meters)
    
 
-The file can be created by using generate_mytopo_tpv29.py (https://github.com/SeisSol/Examples/blob/master/tpv29/generate_mytopo_tpv29.py). Save this file as *mytopo\_tpv29*.
+Using `generate_mytopo_tpv29.py <https://github.com/SeisSol/Examples/blob/master/tpv29/generate_mytopo_tpv29.py>`__ to create the topography data.
+
 
 2.Make a model with plane fault as Figure [fig:tpv29geo]. The Gmsh
 tpv29.geo file can be found at https://github.com/SeisSol/Examples/blob/master/tpv29/tpv29.geo. 
@@ -76,6 +77,9 @@ option optimize_netgen is necessary for optimizing meshing with good quality.
 
 
 The mesh can be created by using a bash script https://github.com/SeisSol/Examples/blob/master/tpv29/generating_the_mesh.sh.
+
+Here we show a fully opensource workflow which allows generating a mesh accounting for tpv29 rough fault geometry. This yields a mesh that does not properly account for the intersection between fault and the free-surface. We note that it is here not an important issue, as the tpv29 benchmark does not feature surface rupturing. Another drawback of this workflow is that the rate of mesh size coarsening is not easy parametrizable.
+A more straightforward and accurate way to generate a mesh would be to use simModeler. 
 
 Material parameters
 ~~~~~~~~~~~~~~~~~~~
