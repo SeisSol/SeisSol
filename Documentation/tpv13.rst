@@ -3,7 +3,9 @@
 SCEC TPV13
 ==========
 
-TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. TPV13 is using non-associative Drucker-Prager plasticity with yielding in shear. The material is characterized by six constitutive parameters:
+TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. To run TPV13, it requires to recompile SeisSol with "-DPLASTICITY=ON" in the configuration python script. 
+
+The material is characterized by six constitutive parameters:
 
  *Bulk friction = 0.85*
   *Fluid pressure = 1000 kg/m3*
@@ -52,7 +54,7 @@ Plasticity parameters
 ~~~~~~~~~~~~~~~~~~~~~
 
 To turn on plasticity in SeisSol, add the following lines in
-*parameter.par*:
+*parameter.par* (https://github.com/SeisSol/Examples/blob/master/tpv13/parameters.par):
 
 
 &SourceType
