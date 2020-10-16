@@ -54,7 +54,7 @@ Plasticity parameters
 ~~~~~~~~~~~~~~~~~~~~~
 
 To turn on plasticity in SeisSol, add the following lines in
-*parameter.par* (https://github.com/SeisSol/Examples/blob/master/tpv13/parameters.par):
+*parameter.par* (https://github.com/SeisSol/Examples/blob/master/tpv12_13/parameters.par):
 
 .. code-block:: Fortran
   
@@ -83,7 +83,7 @@ Results
 Figure [fig:tpv13compare] shows the comparison between TPV12 (elastic)
 and TPV13 (plastic). The peak slip rate in TPV12 is higher than
 TPV13. This difference attributes to the response of the off-fault
-plasticity. Refer to Wollherr et al. [2018] for detailed
+plasticity. Refer to Wollherr et al. (2018) for detailed
 discussions.
 
 .. figure:: LatexFigures/SRs_12_13.png
