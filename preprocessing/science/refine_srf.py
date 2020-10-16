@@ -144,8 +144,11 @@ def upsampleFault(p, spatial_order, spatial_zoom, temporal_zoom):
         for i in range(p2.nx):
             f = interpolate.interp1d(p.myt, aSRa[j, i, :], kind="quadratic")
             p2.aSR[j, i, :] = f(p2.myt)
+            if p2.slip1[j, i] < 0:
+                p2.aSR[j, i, :] = 0
+                continue
             # should be the SR
-            integral_STF = np.trapz(p2.aSR[j, i, :], dx=p2.dt)
+            integral_STF = np.trapz(np.abs(p2.aSR[j, i, :]), dx=p2.dt)
             if abs(integral_STF) > 0:
                 p2.aSR[j, i, :] = p2.slip1[j, i] * p2.aSR[j, i, :] / integral_STF
     return p2
