@@ -43,10 +43,10 @@ Material
 ~~~~~~~~
 
 To obtain the velocity structure for TPV34, we need to install and run 
-the SCEC Community Velocity Model `CVM-H <https://strike.scec.org/scecpedia/CVM-H>`_. For TPV34, we are using CVM-H 
-version 15.1.0 and we use `ASAGI <https://github.com/TUM-I5/ASAGI>`_ 
-to map related material properties for a SeisSol simulation. 
-Detailed explanations are provided at 
+the SCEC Community Velocity Model `CVM-H <https://strike.scec.org/scecpedia/CVM-H>`_. 
+For TPV34, we are using CVM-H version 15.1.0 and we use 
+`ASAGI <https://github.com/TUM-I5/ASAGI>`_ to map related material properties 
+for a SeisSol simulation. Detailed explanations are provided at 
 https://github.com/SeisSol/Examples/blob/master/tpv34/generate_ASAGI_file.sh
 
 .. code-block:: YAML
@@ -158,13 +158,11 @@ Results
 ~~~~~~~
 All examples here can be visualized in Paraview. The *output* folder contains a series of files for
 fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf), on-fault receiver (.dat) and
-off-fault receivers (.dat). The fault dynamic rupture and wavefield 
-files can be loaded in Paraview directly. For example, open Paraview and
-then go through File > import > 'prefix'-fault.xdmf.
+off-fault receivers (.dat). The fault dynamic rupture and wavefield files can be loaded in Paraview 
+directly. For example, open Paraview and then go through File > import > 'prefix'-fault.xdmf.
 
 .. figure:: LatexFigures/tpv34_SRs_3s.png
    :alt: Fault slip rate along-strike direction
    :width: 15.00000cm
 
-   Fault slip rate in the along-strike direction (SRs) at 3 seconds in
-   TPV34, illustrated in Paraview. 
+   Fault slip rate in the along-strike direction (SRs) at 3 seconds in TPV34, illustrated in Paraview. 
