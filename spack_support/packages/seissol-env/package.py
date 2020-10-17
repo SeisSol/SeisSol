@@ -101,5 +101,5 @@ class SeissolEnv(BundlePackage):
         env.prepend_path('PYTHONPATH', ":".join(filter(None, pythonpath)))
         
         # add pspamm while loading seissol-env
-        env.prepend_path('PYTHONPATH', self.spec.dependencies_dict()['pspamm'].spec.prefix)
-        env.prepend_path('PATH', self.spec.dependencies_dict()['pspamm'].spec.prefix)
+        env.prepend_path('PYTHONPATH', self.spec.dependencies_dict()['pspamm'].spec.prefix.pspamm)
+        env.prepend_path('PATH', self.spec.dependencies_dict()['pspamm'].spec.prefix.pspamm)
