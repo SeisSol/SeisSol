@@ -19,7 +19,7 @@ class Pspamm(Package):
     depends_on('py-scipy', when='+scipy')
 
     def install(self, spec, prefix):
-        install_tree('.', prefix)
+        install_tree('.', prefix.pspamm)
 
     def setup_run_environment(self, env):
-        env.prepend_path('PYTHONPATH', self.spec.prefix)
+        env.prepend_path('PYTHONPATH', self.spec.prefix.pspamm)
