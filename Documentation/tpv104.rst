@@ -92,7 +92,9 @@ sufficiently far outside this region. The transition occurs smoothly
 within a transition layer of width w = 3 km. Outside the transition
 layer, the fault is made velocity-strengthening by increasing :math:`a`
 by :math:`\triangle a= 0.01` and :math:`V_w` by
-:math:`\triangle V_{w0} = 0.9` . The exact format can be referred to.
+:math:`\triangle V_{w0} = 0.9` . 
+
+The input files of TPV104 can be found at https://github.com/SeisSol/Examples/tree/master/tpv104.
 
 .. figure:: LatexFigures/mesh104.png
    :alt: Diagram shows the tetrahedral meshing of TPV 104

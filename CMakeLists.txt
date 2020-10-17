@@ -139,7 +139,7 @@ target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
 # Libs
 include(ExternalProject)
 
-find_package(YAML-CPP 0.5.3)
+find_package(YAML-CPP 0.5.3 QUIET)
 if (YAML-CPP_FOUND)
   target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
   target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
@@ -148,10 +148,12 @@ else()
     SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
     INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
-    CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
     -DYAML_CPP_BUILD_TOOLS=OFF
     -DYAML_CPP_BUILD_TESTS=OFF
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
   )
   add_dependencies(SeisSol-lib yaml-cpp-build)
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
@@ -163,8 +165,10 @@ ExternalProject_Add(ImpalaJIT-build
   SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
   INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
-  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
   -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
 )
 add_dependencies(SeisSol-lib ImpalaJIT-build)
 target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")

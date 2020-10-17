@@ -7,7 +7,7 @@ In order to run SeisSol, you need to first install:
 -  Numpy (>= 1.12.0)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 8.0, gcc, g++, gfortran)
+-  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
@@ -150,7 +150,7 @@ Compile SeisSol with (e.g.)
 .. code-block:: bash
 
     mkdir build-release && cd build-release
-    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=skx -DPRECISION=double ..
+    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=skx -DPRECISION=double ..
     make -j48
 
 Here, the :code:`DCMAKE_INSTALL_PREFIX` controlls, in which folder the software is installed.
