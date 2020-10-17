@@ -51,11 +51,14 @@ class SeissolUtils(Package):
 
     depends_on("paraview+hdf5+qt", when="+paraview") 
     depends_on("mesa~llvm", when="+paraview") 
-    depends_on('scons@3.0.1:3.1.2')
+
+    depends_on('scons@3.0.1:3.1.2', type='build')
+    depends_on('cmake', type='build')
     
-    utils = {'gmsh2gambit': 'preprocessing/meshing/gmsh2gambit',
-             'cube_c': 'preprocessing/meshing/cube_c',
-             'rconv': 'preprocessing/science/rconv'}
+    scons_utils = {'gmsh2gambit': 'preprocessing/meshing/gmsh2gambit',
+                   'cube_c': 'preprocessing/meshing/cube_c'}
+
+    cmake_utils = {'rconv': 'preprocessing/science/rconv'}
 
     phases = ['build', 'install']
 
@@ -73,8 +76,8 @@ class SeissolUtils(Package):
         os.environ['CC'] = os.path.join(spec['mpi'].prefix.bin, c_compiler_name)
         os.environ['CXX'] = os.path.join(spec['mpi'].prefix.bin, cxx_compiler_name)
 
-        for util in SeissolUtils.utils:
-            path = join_path(self.stage.source_path, SeissolUtils.utils[util])
+        for util in SeissolUtils.scons_utils:
+            path = join_path(self.stage.source_path, SeissolUtils.scons_utils[util])
             with working_dir(path, create=False):
                 if util == 'rconv':
                     args = []
@@ -84,9 +87,17 @@ class SeissolUtils(Package):
                     scons(*args)
                 else:
                     scons()
-
+        
+        # restore env. variable to the state how it was before
         os.environ['CC'] = "" if CC == None else CC
         os.environ['CXX'] = "" if CXX == None else CXX
+
+
+        for util in SeissolUtils.cmake_utils:
+            path = join_path(self.stage.source_path, SeissolUtils.cmake_utils[util])
+            with working_dir(path, create=False):
+                cmake(".")
+                make()
 
     def install(self, spec, prefix):
         install_tree("cookbook", prefix.cookbook)
@@ -95,8 +106,11 @@ class SeissolUtils(Package):
             install_tree("benchmarks", prefix.benchmarks)
 
         copy_list = {}
-        for util in SeissolUtils.utils:
-            copy_list[util] = [os.path.join(self.stage.source_path, SeissolUtils.utils[util], "build", "bin"), None]
+        for util in SeissolUtils.scons_utils:
+            copy_list[util] = [os.path.join(self.stage.source_path, SeissolUtils.scons_utils[util], "build", "bin"), None]
+        
+        for util in SeissolUtils.cmake_utils:
+            copy_list[util] = [os.path.join(self.stage.source_path, SeissolUtils.cmake_utils[util]), None]
 
         copy_list['gmsh2gambit'][1] = prefix.gmsh2gambit
         copy_list['cube_c'][1] = prefix.cube_c
