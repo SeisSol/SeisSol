@@ -6,7 +6,7 @@
 
 from spack import *
 
-class Pumgen(SConsPackage):
+class Pumgen(CMakePackage):
     homepage = "https://github.com/SeisSol/PUMGen/wiki/How-to-compile-PUMGen"
     version('develop',
             git='https://github.com/SeisSol/PUMGen.git',
@@ -14,28 +14,26 @@ class Pumgen(SConsPackage):
             submodules=True)
 
     maintainers = ['ravil-mobile']
-    variant('simmetrix_support', default=False)
+    variant('with_simmetrix', default=False)
+    variant('with_netcdf', default=False)
+
     depends_on('mpi')
         
-    depends_on('netcdf-c +shared +mpi') # NOTE: only tested with 4.4.0 version
-    depends_on('hdf5 +fortran +shared +mpi') # NOTE: only tested with 1.8.21 version
-    depends_on('pumi +int64 +zoltan -fortran', when='~simmetrix_support')
-    depends_on('pumi +int64 simmodsuite=kernels +zoltan -fortran', when='+simmetrix_support')
+    depends_on('netcdf-c +shared +mpi', when='+with_netcdf') # NOTE: only tested with 4.4.0 version
+    depends_on('hdf5 +fortran +shared +hl +mpi') # NOTE: only tested with 1.8.21 version
+    depends_on('pumi +int64 +zoltan -fortran', when='~with_simmetrix')
+    depends_on('simmetrix-simmodsuite', when='+with_simmetrix')
+    depends_on('pumi +int64 simmodsuite=kernels +zoltan -fortran', when='+with_simmetrix')
     depends_on('zoltan@3.83 +parmetis+int64 -fortran')
 
-    def build_args(self, spec, prefix):                                                                               
-        args=[]                                                                                                                                                                                                                         
-        mpi_id = spec['mpi'].name + spec['mpi'].version.string                                                        
-        args.append('mpiLib=' + mpi_id)                                                                               
-        args.append('cc=mpicc')                                                                                       
-        args.append('cxx=mpicxx')                                                                                                                                                                                                   
-        if '+simmetrix_support' in spec:     
-            args.append('simModSuite=yes')                                                                            
-        return args                                                                                                   
-                                                                                                                  
-    def build(self, spec, prefix):                                                                                    
-        args = self.build_args(spec, prefix)                                                                          
-        scons(*args)                                                                                                  
-    
-    def install(self,spec,prefix):
-        install_tree('build',prefix.bin)
+    def cmake_args(self):
+        args = [
+            self.define_from_variant('SIMMETRIX', 'with_simmetrix'),
+            self.define_from_variant('NETCDF', 'with_netcdf')
+        ]
+        return args                                                                                                 
+
+    def install(self, spec, prefix):
+        self.cmake(spec, prefix)
+        self.build(spec, prefix)
+        install_tree(self.build_directory, prefix.bin)
