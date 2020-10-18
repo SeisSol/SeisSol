@@ -23,6 +23,11 @@ class SeissolUtils(Package):
 
     maintainers = ['ravil-mobile']
 
+    variant('cookbook', 
+            default=False, 
+            description="fetches cookbook. Be sure that you "
+                        "have access to the SeisSol LRZ-gitlab repo.")
+
     variant('benchmarks', 
             default=False, 
             description="fetches benchmarks. Be sure that you "
@@ -33,6 +38,7 @@ class SeissolUtils(Package):
 
     resource(name='cookbook', 
              git='https://github.com/daisy20170101/SeisSol_Cookbook',
+             when='+cookbook',
              placement='cookbook')
 
     resource(name='benchmarks', 
@@ -100,7 +106,9 @@ class SeissolUtils(Package):
                 make()
 
     def install(self, spec, prefix):
-        install_tree("cookbook", prefix.cookbook)
+
+        if "+cookbook" in spec:
+            install_tree("cookbook", prefix.cookbook)
 
         if "+benchmarks" in spec:
             install_tree("benchmarks", prefix.benchmarks)
@@ -135,7 +143,10 @@ class SeissolUtils(Package):
 
         env.prepend_path('PATH', ":".join(bins))
 
-        env.set('COOKBOOK', self.spec.prefix.cookbook)
+        if "+cookbook" in self.spec:
+            env.set('COOKBOOK', self.spec.prefix.cookbook)
+
+
         if "+benchmarks" in self.spec:
             env.set('BENCHMARKS', self.spec.prefix.benchmarks)
 
