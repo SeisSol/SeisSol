@@ -146,46 +146,47 @@ class FaultPlane:
                             self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
                             break
 
-    def upsample_fault(self, p, spatial_order, spatial_zoom, temporal_zoom):
+    def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom):
         # time vector
-        ndt2 = (p.ndt - 1) * temporal_zoom + 1
-        ny2, nx2 = p.ny * spatial_zoom, p.nx * spatial_zoom
+        ndt2 = (self.ndt - 1) * temporal_zoom + 1
+        ny2, nx2 = self.ny * spatial_zoom, self.nx * spatial_zoom
         # resampled source
-        self.init_spatial_arrays(nx2, ny2)
-        self.ndt = ndt2
-        self.init_aSR()
+        pf.init_spatial_arrays(nx2, ny2)
+        pf.ndt = ndt2
+        pf.init_aSR()
 
-        self.dt = p.dt / temporal_zoom
-        self.compute_time()
+        pf.dt = self.dt / temporal_zoom
+        pf.compute_time()
 
         # upsample spatially all these quantitites
-        allarr = np.array([p.x, p.y, p.depth, p.t0, p.slip1, p.strike, p.dip, p.rake])
+        allarr = np.array([self.x, self.y, self.depth, self.t0, self.slip1, self.strike, self.dip, self.rake])
         nd = allarr.shape[0]
-        allarr0 = np.zeros((nd, self.ny, self.nx))
+        allarr0 = np.zeros((nd, pf.ny, pf.nx))
 
         for k in range(nd):
             allarr0[k, :, :] = scipy.ndimage.zoom(allarr[k, :, :], spatial_zoom, order=spatial_order)
-        self.x, self.y, self.depth, self.t0, self.slip1, self.strike, self.dip, self.rake = allarr0
-        self.compute_latlon_from_xy(args.proj)
-        self.PSarea = p.PSarea / spatial_zoom ** 2
+        pf.x, pf.y, pf.depth, pf.t0, pf.slip1, pf.strike, pf.dip, pf.rake = allarr0
+        pf.compute_latlon_from_xy(args.proj)
+        pf.PSarea = self.PSarea / spatial_zoom ** 2
 
-        aSRa = np.zeros((self.ny, self.nx, p.ndt))
-        for k in range(p.ndt):
-            aSRa[:, :, k] = scipy.ndimage.zoom(p.aSR[:, :, k], spatial_zoom, order=spatial_order)
+        aSRa = np.zeros((pf.ny, pf.nx, self.ndt))
+        for k in range(self.ndt):
+            aSRa[:, :, k] = scipy.ndimage.zoom(self.aSR[:, :, k], spatial_zoom, order=spatial_order)
 
         # interpolate temporally the AST
-        for j in range(self.ny):
-            for i in range(self.nx):
-                f = interpolate.interp1d(p.myt, aSRa[j, i, :], kind="quadratic")
-                self.aSR[j, i, :] = f(self.myt)
+        for j in range(pf.ny):
+            for i in range(pf.nx):
+                f = interpolate.interp1d(self.myt, aSRa[j, i, :], kind="quadratic")
+                pf.aSR[j, i, :] = f(pf.myt)
                 # With a cubic interpolation, the interpolated slip1 may be negative which does not make sense.
-                if self.slip1[j, i] < 0:
-                    self.aSR[j, i, :] = 0
+                if pf.slip1[j, i] < 0:
+                    pf.aSR[j, i, :] = 0
                     continue
                 # should be the SR
-                integral_STF = np.trapz(np.abs(self.aSR[j, i, :]), dx=self.dt)
+                integral_STF = np.trapz(np.abs(pf.aSR[j, i, :]), dx=pf.dt)
                 if abs(integral_STF) > 0:
-                    self.aSR[j, i, :] = self.slip1[j, i] * self.aSR[j, i, :] / integral_STF
+                    pf.aSR[j, i, :] = pf.slip1[j, i] * pf.aSR[j, i, :] / integral_STF
+        return pf
 
 
 import argparse
@@ -203,8 +204,7 @@ p1.init_from_srf(args.filename)
 p1.compute_xy_from_latlon(args.proj)
 p1.compute_time()
 
-p2 = FaultPlane()
-p2.upsample_fault(p1, spatial_order=args.spatial_order[0], spatial_zoom=args.spatial_zoom[0], temporal_zoom=args.temporal_zoom[0])
+p2 = p1.upsample_fault(spatial_order=args.spatial_order[0], spatial_zoom=args.spatial_zoom[0], temporal_zoom=args.temporal_zoom[0])
 prefix, ext = os.path.splitext(args.filename)
 fnout = prefix + "_resampled" + ".srf"
 p2.write_srf(fnout)
