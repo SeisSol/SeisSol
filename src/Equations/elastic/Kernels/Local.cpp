@@ -235,23 +235,33 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                                init::INodal::view::type& boundaryDofs) {
           int offset = 0;
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const double mu = 6.0;
-            auto H = [mu](double t) -> double {
-              return t < mu ? 1.0 : 0.0;
-            };
-            const auto pi = std::acos(-1);
+            const auto T = 0.1;
+            const auto M_0 = T * std::exp(1);
+
             const auto x = nodes[offset+0];
             const auto y = nodes[offset+1];
+            const auto z = nodes[offset+2];
             offset += 3;
 
-            const double uAtBnd =
-               (1.0/(1.0/time*std::sqrt(2*pi)))*std::exp(-0.5*x*x + -0.5*y*y)*H(time);
-            const double vAtBnd = 0.0;
-            const double wAtBnd = 0.0;
+            const auto x_middle = 0.0;
+            const auto y_middle = 0.0;
+            const auto z_middle = -5.0;
+            const auto dist_squared = (x-x_middle)*(x-x_middle) 
+              + (y-y_middle)*(y-y_middle) 
+              + (z-z_middle)*(z-z_middle);
 
-            boundaryDofs(i,6) = 2 * uAtBnd - boundaryDofsInterior(i,6);
-            boundaryDofs(i,7) = 2 * vAtBnd - boundaryDofsInterior(i,7);
-            boundaryDofs(i,8) = 2 * wAtBnd - boundaryDofsInterior(i,8);
+            const auto t = 18 - std::sqrt(dist_squared) - time;
+
+            auto H = [](double t) -> double {
+              return t > 0 ? 1.0 : 0.0;
+            };
+            const double val =
+                M_0 * t / (T*T) * std::exp(-t/T) * H(t) * 
+                1 / dist_squared;
+
+            boundaryDofs(i,0) = 2 * val - boundaryDofsInterior(i,0);
+            boundaryDofs(i,1) = 2 * val - boundaryDofsInterior(i,1);
+            boundaryDofs(i,2) = 2 * val - boundaryDofsInterior(i,2);
           }
         };
 
