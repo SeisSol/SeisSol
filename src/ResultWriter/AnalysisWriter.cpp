@@ -49,7 +49,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 #endif
 
   for (unsigned sim = 0; sim < multipleSimulations; ++sim) {
-    logInfo(mpi.rank()) << "Analysis for simulation" << sim;
+    logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo(mpi.rank()) << "--------------------------";
 
     using ErrorArray_t = std::array<double, numberOfQuantities>;
@@ -59,6 +59,9 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     auto errL2Local = ErrorArray_t{0.0};
     auto errLInfLocal = ErrorArray_t{-1.0};
     auto elemLInfLocal = MeshIdArray_t{0};
+    auto analyticalL1Local = ErrorArray_t{0.0};
+    auto analyticalL2Local = ErrorArray_t{0.0};
+    auto analyticalLInfLocal = ErrorArray_t{-1.0};
 
 #ifdef _OPENMP
     const int numThreads = omp_get_max_threads();
@@ -71,6 +74,9 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     auto errsL2Local = std::vector<ErrorArray_t>(numThreads);
     auto errsLInfLocal = std::vector<ErrorArray_t>(numThreads, {-1});
     auto elemsLInfLocal = std::vector<MeshIdArray_t>(numThreads);
+    auto analyticalsL1Local = std::vector<ErrorArray_t>(numThreads);
+    auto analyticalsL2Local = std::vector<ErrorArray_t>(numThreads);
+    auto analyticalsLInfLocal = std::vector<ErrorArray_t>(numThreads, {-1});
 
     // Note: We iterate over mesh cells by id to avoid
     // cells that are duplicates.
@@ -126,13 +132,19 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
         for (size_t v = 0; v < numberOfQuantities; ++v) {
           const auto curError = std::abs(numSub(i,v) - analyticalSolution(i,v));
+          const auto curAnalytical = std::abs(analyticalSolution(i,v));
 
           errsL1Local[curThreadId][v] += curWeight * curError;
           errsL2Local[curThreadId][v] += curWeight * curError * curError;
+          analyticalsL1Local[curThreadId][v] += curWeight * curAnalytical;
+          analyticalsL2Local[curThreadId][v] += curWeight * curAnalytical * curAnalytical;
 
           if (curError > errsLInfLocal[curThreadId][v]) {
             errsLInfLocal[curThreadId][v] = curError;
             elemsLInfLocal[curThreadId][v] = meshId;
+          }
+          if (curAnalytical > analyticalsLInfLocal[curThreadId][v]) {
+            analyticalsLInfLocal[curThreadId][v] = curAnalytical;
           }
         }
       }
@@ -142,9 +154,14 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       for (unsigned v = 0; v < numberOfQuantities; ++v) {
         errL1Local[v] += errsL1Local[i][v];
         errL2Local[v] += errsL2Local[i][v];
+        analyticalL1Local[v] += analyticalsL1Local[i][v];
+        analyticalL2Local[v] += analyticalsL2Local[i][v];
         if (errsLInfLocal[i][v] > errLInfLocal[v]) {
           errLInfLocal[v] = errsLInfLocal[i][v];
           elemLInfLocal[v] = elemsLInfLocal[i][v];
+        }
+        if (analyticalsLInfLocal[i][v] > analyticalLInfLocal[v]) {
+           analyticalLInfLocal[v] = analyticalsLInfLocal[i][v];
         }
       }
     }
@@ -166,9 +183,13 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     // Reduce error over all MPI ranks.
     auto errL1MPI = ErrorArray_t{0.0};
     auto errL2MPI = ErrorArray_t{0.0};
+    auto analyticalL1MPI = ErrorArray_t{0.0};
+    auto analyticalL2MPI = ErrorArray_t{0.0};
 
     MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
     MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(analyticalL1Local.data(), analyticalL1MPI.data(), analyticalL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(analyticalL2Local.data(), analyticalL2MPI.data(), analyticalL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
 
     // Find maximum element and its location.
     auto errLInfSend = std::array<data, errLInfLocal.size()>{};
@@ -181,6 +202,10 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       MPI_DOUBLE_INT,
       MPI_MAXLOC,
       comm);
+
+    auto analyticalLInfMPI = ErrorArray_t{0.0};
+    MPI_Reduce(analyticalLInfLocal.data(), analyticalLInfMPI.data(), analyticalLInfLocal.size(), MPI_DOUBLE, MPI_MAX, 0, comm);
+
 
     for (unsigned int i = 0; i < numberOfQuantities; ++i) {
       VrtxCoords centerSend;
@@ -200,11 +225,11 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
         } else {
           MPI_Recv(centerRecv, 3, MPI_DOUBLE,  errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
         }
-        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1MPI[i];
-        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << std::sqrt(errL2MPI[i]);
-        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfRecv[i].val
+        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1MPI[i] << "	" << errL1MPI[i] / analyticalL1MPI[i];
+        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << std::sqrt(errL2MPI[i]) << "	" << std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
+        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfRecv[i].val << "	" << errLInfRecv[i].val / analyticalLInfMPI[i]
             << "at rank " << errLInfRecv[i].rank
-            << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
+            << "\tat [" << centerRecv[0] << "	" << centerRecv[1] << "	" << centerRecv[2] << "\t]";
 
       }
     }
@@ -215,10 +240,10 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
             vertices,
             center);
 
-      logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i];
-      logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]);
-      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i]
-          << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
+      logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i] << "	" << analyticalL1Local[i];
+      logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]) << "	" << std::sqrt(analyticalL2Local[i]);
+      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i << "	" << analyticalLInfLocal[i]]
+          << "\tat [" << center[0] << "	" << center[1] << "	" << center[2] << "\t]"
     }
 #endif // USE_MPI
   }
