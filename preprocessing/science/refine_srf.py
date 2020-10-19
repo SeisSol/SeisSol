@@ -71,7 +71,7 @@ class FaultPlane:
     def compute_time(self):
         self.myt = np.linspace(0, (self.ndt - 1) * self.dt, self.ndt)
 
-    def write_SRF(self, fname):
+    def write_srf(self, fname):
         with open(fname, "w") as fout:
             fout.write("1.0\n")
             fout.write("POINTS %d\n" % (self.nx * self.ny))
@@ -83,13 +83,13 @@ class FaultPlane:
                     fout.write("\n")
         print("done writing", fname)
 
-    def init_from_SRF(self, fname):
+    def init_from_srf(self, fname):
         with open(fname) as fid:
             # version
             line = fid.readline()
             version = float(line)
             if not (abs(version - 1.0) < 1e-03 or abs(version - 2.0) < 1e-03):
-                print("SRF version: %s not supported" % (line))
+                print("srf version: %s not supported" % (line))
                 raise
             # skip comments
             while True:
@@ -117,7 +117,7 @@ class FaultPlane:
                     if abs(version - 1.0) < 1e-03:
                         self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], dt = [float(v) for v in line.split()]
                     else:
-                        # SRF version 2 has also density and Vs in that line
+                        # srf version 2 has also density and Vs in that line
                         self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], dt = [float(v) for v in line.split()[0:-2]]
                     # second header line
                     line = fid.readline()
@@ -146,7 +146,7 @@ class FaultPlane:
                             self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
                             break
 
-    def upsampleFault(self, p, spatial_order, spatial_zoom, temporal_zoom):
+    def upsample_fault(self, p, spatial_order, spatial_zoom, temporal_zoom):
         # time vector
         ndt2 = (p.ndt - 1) * temporal_zoom + 1
         ny2, nx2 = p.ny * spatial_zoom, p.nx * spatial_zoom
@@ -198,12 +198,12 @@ parser.add_argument("--temporal_zoom", nargs=1, metavar=("temporal_zoom"), defau
 args = parser.parse_args()
 
 p1 = FaultPlane()
-p1.init_from_SRF(args.filename)
+p1.init_from_srf(args.filename)
 p1.compute_xy_from_latlon(args.proj)
 p1.compute_time()
 
 p2 = FaultPlane()
-p2.upsampleFault(p1, spatial_order=args.spatial_order[0], spatial_zoom=args.spatial_zoom[0], temporal_zoom=args.temporal_zoom[0])
+p2.upsample_fault(p1, spatial_order=args.spatial_order[0], spatial_zoom=args.spatial_zoom[0], temporal_zoom=args.temporal_zoom[0])
 prefix, ext = os.path.splitext(args.filename)
 fnout = prefix + "_resampled" + ".srf"
-p2.write_SRF(fnout)
+p2.write_srf(fnout)
