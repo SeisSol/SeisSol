@@ -151,6 +151,7 @@ class FaultPlane:
         ndt2 = (self.ndt - 1) * temporal_zoom + 1
         ny2, nx2 = self.ny * spatial_zoom, self.nx * spatial_zoom
         # resampled source
+        pf = FaultPlane()
         pf.init_spatial_arrays(nx2, ny2)
         pf.ndt = ndt2
         pf.init_aSR()
