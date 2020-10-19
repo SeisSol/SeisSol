@@ -178,6 +178,7 @@ class FaultPlane:
             for i in range(self.nx):
                 f = interpolate.interp1d(p.myt, aSRa[j, i, :], kind="quadratic")
                 self.aSR[j, i, :] = f(self.myt)
+                # With a cubic interpolation, the interpolated slip1 may be negative which does not make sense.
                 if self.slip1[j, i] < 0:
                     self.aSR[j, i, :] = 0
                     continue
