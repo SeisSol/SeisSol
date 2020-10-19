@@ -127,6 +127,7 @@ endif()
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
     set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
 endif()
+message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
