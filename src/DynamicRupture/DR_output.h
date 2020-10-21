@@ -53,9 +53,6 @@ public:
 
         DRFaceInformation*                    faceInformation = layerData.var(dynRup->faceInformation);
 
-        #ifdef _OPENMP
-        #pragma omp parallel for schedule(static)
-        #endif
         for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
             unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
             e_interoperability.copyFrictionOutputToFortran(ltsFace,  meshFace, mu, slip, slip1, slip2, slipRate1, slipRate2, rupture_time, peakSR, tracXY, tracXZ);
@@ -93,9 +90,6 @@ public:
         real  *averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
         real  (*dynStress_time)[ init::QInterpolated::Stop[0] ] = layerData.var(ConcreteLts->dynStress_time);
 
-        #ifdef _OPENMP
-        #pragma omp parallel for schedule(static)
-        #endif
         for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
             unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
             e_interoperability.copyFrictionOutputToFortranFL2(ltsFace,  meshFace,
@@ -155,9 +149,6 @@ public:
     real  (*dynStress_time)[ init::QInterpolated::Stop[0] ] = layerData.var(ConcreteLts->dynStress_time);
     real  (*stateVar)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->stateVar);
 
-    #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-    #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(ltsFace,  meshFace, averaged_Slip,  dynStress_time);
@@ -188,9 +179,6 @@ public:
     real  (*strength)[ init::QInterpolated::Stop[0] ] = layerData.var(ConcreteLts->strengthData);
 
 
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(ltsFace,  meshFace, averaged_Slip,  dynStress_time);
