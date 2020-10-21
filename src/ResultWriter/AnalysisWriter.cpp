@@ -225,11 +225,11 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
         } else {
           MPI_Recv(centerRecv, 3, MPI_DOUBLE,  errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
         }
-        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1MPI[i] << "	" << errL1MPI[i] / analyticalL1MPI[i];
-        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << std::sqrt(errL2MPI[i]) << "	" << std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
-        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfRecv[i].val << "	" << errLInfRecv[i].val / analyticalLInfMPI[i]
+        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1MPI[i] << "\t" << errL1MPI[i] / analyticalL1MPI[i];
+        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << std::sqrt(errL2MPI[i]) << "\t" << std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
+        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfRecv[i].val << "\t" << errLInfRecv[i].val / analyticalLInfMPI[i]
             << "at rank " << errLInfRecv[i].rank
-            << "\tat [" << centerRecv[0] << "	" << centerRecv[1] << "	" << centerRecv[2] << "\t]";
+            << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
 
       }
     }
@@ -240,10 +240,10 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
             vertices,
             center);
 
-      logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i] << "	" << analyticalL1Local[i];
-      logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]) << "	" << std::sqrt(analyticalL2Local[i]);
-      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i << "	" << analyticalLInfLocal[i]]
-          << "\tat [" << center[0] << "	" << center[1] << "	" << center[2] << "\t]"
+      logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i] << "\t" << errL1Local[i] / analyticalL1Local[i];
+      logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]) << "\t" << std::sqrt(errL2Local[i] / analyticalL2Local[i]);
+      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i << "\t" << errLInfLocal[i] /analyticalLInfLocal[i]]
+          << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
     }
 #endif // USE_MPI
   }
