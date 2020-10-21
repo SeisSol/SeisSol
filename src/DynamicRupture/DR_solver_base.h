@@ -6,7 +6,6 @@
 #define SEISSOL_DR_SOLVER_BASE_H
 
 #include "DR_math.h"
-#include "../../cmake-build-debug/src/generated_code/init.h"
 #include <yaml-cpp/yaml.h>
 #include <Kernels/DynamicRupture.h>
 
