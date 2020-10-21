@@ -6,6 +6,7 @@
 #define SEISSOL_DR_SOLVER_BASE_H
 
 #include "DR_math.h"
+#include "../../cmake-build-debug/src/generated_code/init.h"
 #include <yaml-cpp/yaml.h>
 #include <Kernels/DynamicRupture.h>
 
@@ -116,17 +117,51 @@ protected:
     unsigned int ltsFace
     ){
 
+    dynamicRupture::kernel::StressFromQInterpolated StressFromQInterpolatedKrnl;
+    StressFromQInterpolatedKrnl.eta_p = impAndEta[ltsFace].eta_p;
+    StressFromQInterpolatedKrnl.eta_s = impAndEta[ltsFace].eta_s;
+    StressFromQInterpolatedKrnl.inv_Zp =  impAndEta[ltsFace].inv_Zp;
+    StressFromQInterpolatedKrnl.inv_Zs =  impAndEta[ltsFace].inv_Zs;
+    StressFromQInterpolatedKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
+    StressFromQInterpolatedKrnl.inv_Zs_neig = impAndEta[ltsFace].inv_Zs_neig;
+    StressFromQInterpolatedKrnl.select0 = init::select0::Values;
+    StressFromQInterpolatedKrnl.select3 = init::select3::Values;
+    StressFromQInterpolatedKrnl.select5 = init::select5::Values;
+    StressFromQInterpolatedKrnl.select6 = init::select6::Values;
+    StressFromQInterpolatedKrnl.select7 = init::select7::Values;
+    StressFromQInterpolatedKrnl.select8 = init::select8::Values;
+
+    for(int j = 0; j < CONVERGENCE_ORDER; j++){
+      StressFromQInterpolatedKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
+      StressFromQInterpolatedKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
+      StressFromQInterpolatedKrnl.NorStressGP = faultStresses.NorStressGP[j];
+      StressFromQInterpolatedKrnl.XYStressGP = faultStresses.XYStressGP[j];
+      StressFromQInterpolatedKrnl.XZStressGP = faultStresses.XZStressGP[j];
+      StressFromQInterpolatedKrnl.execute();
+    }
+
+    /*
+    for(int j = 0; j < 9; j++){
+      //std::cout << "displs: " << init::selectZDisplacementFromDisplacements::Values[j]  << " j:" << j << std::endl;
+      //std::cout << StressFromQInterpolatedKrnl.select0[j] << std::endl;
+      //std::cout << "select6: "<< StressFromQInterpolatedKrnl.select6[j]  << " j:" << j  << std::endl;
+    }
+    real test;
     for(int j = 0; j < CONVERGENCE_ORDER; j++){
       auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
       auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
       for(int i = 0; i < numberOfPoints; i++){
         //Carsten Uphoff Thesis: EQ.: 4.53
-        faultStresses.NorStressGP[j][i] = impAndEta[ltsFace].eta_p * (QInterpolatedMinusView(i, 6) - QInterpolatedPlusView(i, 6) + QInterpolatedPlusView(i, 0) / impAndEta[ltsFace].Zp + QInterpolatedMinusView(i, 0) / impAndEta[ltsFace].Zp_neig);
+        test = impAndEta[ltsFace].eta_p * (QInterpolatedMinusView(i, 6) - QInterpolatedPlusView(i, 6) + QInterpolatedPlusView(i, 0) / impAndEta[ltsFace].Zp + QInterpolatedMinusView(i, 0) / impAndEta[ltsFace].Zp_neig);
+        //assert(faultStresses.NorStressGP[j][i] == test );
         faultStresses.XYStressGP[j][i]  = impAndEta[ltsFace].eta_s * (QInterpolatedMinusView(i, 7) - QInterpolatedPlusView(i, 7) + QInterpolatedPlusView(i, 3) / impAndEta[ltsFace].Zs + QInterpolatedMinusView(i, 3) / impAndEta[ltsFace].Zs_neig);
         faultStresses.XZStressGP[j][i] = impAndEta[ltsFace].eta_s * (QInterpolatedMinusView(i, 8) - QInterpolatedPlusView(i, 8) + QInterpolatedPlusView(i, 5) / impAndEta[ltsFace].Zs + QInterpolatedMinusView(i, 5) / impAndEta[ltsFace].Zs_neig);
       }
     }
+     */
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],"Different number of quadrature points?");
+
+
   }//End of precompute Function
 
 
@@ -143,33 +178,70 @@ protected:
       real timeWeights[CONVERGENCE_ORDER],
       unsigned int ltsFace
       ){
-    auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[ltsFace]);
-    auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[ltsFace]);
+    dynamicRupture::kernel::ImposedStateFromNewStress ImposedStateFromNewStressKrnl;
+    ImposedStateFromNewStressKrnl.select0 = init::select0::Values;
+    ImposedStateFromNewStressKrnl.select3 = init::select3::Values;
+    ImposedStateFromNewStressKrnl.select5 = init::select5::Values;
+    ImposedStateFromNewStressKrnl.select6 = init::select6::Values;
+    ImposedStateFromNewStressKrnl.select7 = init::select7::Values;
+    ImposedStateFromNewStressKrnl.select8 = init::select8::Values;
+    ImposedStateFromNewStressKrnl.inv_Zs =  impAndEta[ltsFace].inv_Zs;
+    ImposedStateFromNewStressKrnl.inv_Zs_neig =  impAndEta[ltsFace].inv_Zs_neig;
+    ImposedStateFromNewStressKrnl.inv_Zp = impAndEta[ltsFace].inv_Zp;
+    ImposedStateFromNewStressKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
+
+    //set imposed state to zero
+    for (int i = 0; i < tensor::QInterpolated::size(); i++) {
+      imposedStatePlus[ltsFace][i] = 0;
+      imposedStateMinus[ltsFace][i] = 0;
+    }
+    ImposedStateFromNewStressKrnl.imposedStatePlus= imposedStatePlus[ltsFace];
+    ImposedStateFromNewStressKrnl.imposedStateMinus = imposedStateMinus[ltsFace];
+
+    for (int j = 0; j < CONVERGENCE_ORDER; j++) {
+      ImposedStateFromNewStressKrnl.NorStressGP = faultStresses.NorStressGP[j];
+      ImposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.TractionGP_XY[j];
+      ImposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.TractionGP_XZ[j];
+      ImposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
+      ImposedStateFromNewStressKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
+      ImposedStateFromNewStressKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
+      ImposedStateFromNewStressKrnl.execute();
+    }
+
+
+    //auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[ltsFace]);
+    //auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[ltsFace]);
     //initialize to 0
-    imposedStateMinusView.setZero();
-    imposedStatePlusView.setZero();
+    //imposedStateMinusView.setZero();
+    //imposedStatePlusView.setZero();
+
+/*
+
+    real imposedStateMinusTest[numberOfPoints][9];
+    real imposedStatePlusTest[numberOfPoints][9];
 
     for (int j = 0; j < CONVERGENCE_ORDER; j++) {
       auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
       auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
       for (int i = 0; i < numberOfPoints; i++) {
         //Carsten Uphoff Thesis: EQ.: 4.60
-        imposedStateMinusView(i, 0) += timeWeights[j] * faultStresses.NorStressGP[j][i];
-        imposedStateMinusView(i, 3) += timeWeights[j] * faultStresses.TractionGP_XY[j][i];
-        imposedStateMinusView(i, 5) += timeWeights[j] * faultStresses.TractionGP_XZ[j][i];
-        imposedStateMinusView(i, 6) += timeWeights[j] * (QInterpolatedMinusView(i, 6) -  (faultStresses.NorStressGP[j][i] - QInterpolatedMinusView(i, 0))/  impAndEta[ltsFace].Zp_neig);
-        imposedStateMinusView(i, 7) += timeWeights[j] * (QInterpolatedMinusView(i, 7) -  (faultStresses.TractionGP_XY[j][i] - QInterpolatedMinusView(i, 3))/  impAndEta[ltsFace].Zs_neig);
-        imposedStateMinusView(i, 8) += timeWeights[j] * (QInterpolatedMinusView(i, 8) -  (faultStresses.TractionGP_XZ[j][i] - QInterpolatedMinusView(i, 5))/  impAndEta[ltsFace].Zs_neig);
+        imposedStateMinusTest[i][0] += timeWeights[j] * faultStresses.NorStressGP[j][i];
+        imposedStateMinusTest[i][3] += timeWeights[j] * faultStresses.TractionGP_XY[j][i];
+        imposedStateMinusTest[i][5] += timeWeights[j] * faultStresses.TractionGP_XZ[j][i];
+        imposedStateMinusTest[i][6] += timeWeights[j] * (QInterpolatedMinusView(i, 6) -  (faultStresses.NorStressGP[j][i] - QInterpolatedMinusView(i, 0))/  impAndEta[ltsFace].Zp_neig);
+        imposedStateMinusTest[i][7] += timeWeights[j] * (QInterpolatedMinusView(i, 7) -  (faultStresses.TractionGP_XY[j][i] - QInterpolatedMinusView(i, 3))/  impAndEta[ltsFace].Zs_neig);
+        imposedStateMinusTest[i][8] += timeWeights[j] * (QInterpolatedMinusView(i, 8) -  (faultStresses.TractionGP_XZ[j][i] - QInterpolatedMinusView(i, 5))/  impAndEta[ltsFace].Zs_neig);
 
-        imposedStatePlusView(i, 0) += timeWeights[j] * faultStresses.NorStressGP[j][i];
-        imposedStatePlusView(i, 3) += timeWeights[j] * faultStresses.TractionGP_XY[j][i];
-        imposedStatePlusView(i, 5) += timeWeights[j] * faultStresses.TractionGP_XZ[j][i];
-        imposedStatePlusView(i, 6) += timeWeights[j] * (QInterpolatedPlusView(i, 6) +  (faultStresses.NorStressGP[j][i] - QInterpolatedPlusView(i, 0)) /  impAndEta[ltsFace].Zp);
-        imposedStatePlusView(i, 7) += timeWeights[j] * (QInterpolatedPlusView(i, 7) +  (faultStresses.TractionGP_XY[j][i] - QInterpolatedPlusView(i, 3)) / impAndEta[ltsFace].Zs);
-        imposedStatePlusView(i, 8) += timeWeights[j] * (QInterpolatedPlusView(i, 8) +  (faultStresses.TractionGP_XZ[j][i] - QInterpolatedPlusView(i, 5)) / impAndEta[ltsFace].Zs);
+        imposedStatePlusTest[i][0] += timeWeights[j] * faultStresses.NorStressGP[j][i];
+        imposedStatePlusTest[i][3] += timeWeights[j] * faultStresses.TractionGP_XY[j][i];
+        imposedStatePlusTest[i][5] += timeWeights[j] * faultStresses.TractionGP_XZ[j][i];
+        imposedStatePlusTest[i][6] += timeWeights[j] * (QInterpolatedPlusView(i, 6) +  (faultStresses.NorStressGP[j][i] - QInterpolatedPlusView(i, 0)) /  impAndEta[ltsFace].Zp);
+        imposedStatePlusTest[i][7] += timeWeights[j] * (QInterpolatedPlusView(i, 7) +  (faultStresses.TractionGP_XY[j][i] - QInterpolatedPlusView(i, 3)) / impAndEta[ltsFace].Zs);
+        imposedStatePlusTest[i][8] += timeWeights[j] * (QInterpolatedPlusView(i, 8) +  (faultStresses.TractionGP_XZ[j][i] - QInterpolatedPlusView(i, 5)) / impAndEta[ltsFace].Zs);
       } //End numberOfPoints-loop
     } //End CONVERGENCE_ORDER-loop
 
+    //*/
   }
 
   /*

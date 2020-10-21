@@ -512,10 +512,14 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       impAndEta[ltsFace].Zs = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
       impAndEta[ltsFace].Zs_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
 
+      impAndEta[ltsFace].inv_Zp = 1/impAndEta[ltsFace].Zp;
+      impAndEta[ltsFace].inv_Zp_neig = 1/impAndEta[ltsFace].Zp_neig;
+      impAndEta[ltsFace].inv_Zs = 1/impAndEta[ltsFace].Zs;
+      impAndEta[ltsFace].inv_Zs_neig = 1/impAndEta[ltsFace].Zs_neig;
+
       impAndEta[ltsFace].eta_p = 1.0 / (1.0 / impAndEta[ltsFace].Zp + 1.0 / impAndEta[ltsFace].Zp_neig);
       impAndEta[ltsFace].inv_eta_s = 1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig;
       impAndEta[ltsFace].eta_s = 1.0 / (1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig);
-
 
 
       switch (plusMaterial->getMaterialType()) {

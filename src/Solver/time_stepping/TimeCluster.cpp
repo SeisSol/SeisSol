@@ -240,11 +240,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
-  //seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 *FL2 = dynamic_cast< seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 *>(m_FrictonLaw);
-  //FL2->evaluateFast(layerData, m_dynRup, m_fullUpdateTime, m_dynamicRuptureKernel, m_globalData);
-
-
-
   DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
@@ -253,7 +248,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
-/*
+
   //debugging:
   //TODO: delete these if not required for debugging anymore:
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
@@ -297,7 +292,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-/*
+
     // legacy code:
     //TODO remove - only for debugging:
     //int fortran_face = static_cast<int>(faceInformation[face].meshFace) + 1;
@@ -318,7 +313,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights);
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
-/*
+
   //debugging:
   const unsigned int numberOfPoints = tensor::QInterpolated::Shape[0];
   auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);

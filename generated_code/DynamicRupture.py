@@ -45,6 +45,7 @@ from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
+
 def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (aderdg.order+1)**2
@@ -71,18 +72,136 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   #Adrian Test Code:
   #frictionData = Tensor('frictionData', (numberOfPoints, aderdg.order) )
-  identiy = np.eye(aderdg.order)
-  frictionData = Tensor('frictionData', (aderdg.order, aderdg.order) , spp=identiy)
-  generator.add('calcfrictionData', frictionData['ij'] <= 2 * frictionData['ij'] )
-
+  #identiy = np.eye(aderdg.order)
+  #frictionData = Tensor('frictionData', (aderdg.order, aderdg.order) , spp=identiy)
+  #generator.add('calcfrictionData', frictionData['ij'] <= 2 * frictionData['ij'] )
   #parameter = Vector('parameter', (numberOfPoints) )
   #parameter = np.zeros(numberOfPoints)
+  #db.resample['ij']
+
+  #--- resample Parameter ---
   resamplePar = Tensor('resamplePar', (numberOfPoints,))
   resampledPar = Tensor('resampledPar', (numberOfPoints,))
   resampleM = Tensor('resampleM', (numberOfPoints, numberOfPoints) )
-  #db.resample['ij']
   resampleKernel = resampledPar['i'] <= resampleM['ij'] * resamplePar['j']
   generator.add('resampleParameter', resampleKernel )
+
+
+  #--- Precompute StressFromQInterpolatedKernel ----
+  QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  NorStressGP = Tensor('NorStressGP', (numberOfPoints,))
+  XYStressGP = Tensor('XYStressGP', (numberOfPoints,))
+  XZStressGP = Tensor('XZStressGP', (numberOfPoints,))
+  eta_p = Scalar('eta_p')
+  eta_s = Scalar('eta_s')
+  inv_Zp = Scalar('inv_Zp')
+  inv_Zp_neig = Scalar('inv_Zp_neig')
+  inv_Zs = Scalar('inv_Zs')
+  inv_Zs_neig = Scalar('inv_Zs_neig')
+
+  select0Spp = np.zeros(aderdg.numberOfQuantities())
+  select0Spp[0] = 1
+  select0 = Tensor('select0', select0Spp.shape, select0Spp,)
+
+  select6Spp = np.zeros(aderdg.numberOfQuantities())
+  select6Spp[6] = 1
+  select6 = Tensor('select6', select6Spp.shape, select6Spp,)
+
+  select7Spp = np.zeros(aderdg.numberOfQuantities())
+  select7Spp[7] = 1
+  select7 = Tensor('select7', select7Spp.shape, select7Spp,)
+
+  select8Spp = np.zeros(aderdg.numberOfQuantities())
+  select8Spp[8] = 1
+  select8 = Tensor('select8', select8Spp.shape, select8Spp,)
+
+  select3Spp = np.zeros(aderdg.numberOfQuantities())
+  select3Spp[3] = 1
+  select3 = Tensor('select3', select3Spp.shape, select3Spp,)
+
+  select5Spp = np.zeros(aderdg.numberOfQuantities())
+  select5Spp[5] = 1
+  select5 = Tensor('select5', select5Spp.shape, select5Spp,)
+
+  NorStressFromQInterpolatedKernel = NorStressGP['i'] <= eta_p *\
+  ( \
+    select6['k'] * QInterpolatedMinus['ik'] - select6['k'] * QInterpolatedPlus['ik'] + \
+    inv_Zp * select0['k'] * QInterpolatedPlus['ik'] + inv_Zp_neig * select0['k'] * QInterpolatedMinus['ik']  \
+  )
+
+  XYStressFromQInterpolatedKernel = XYStressGP['i'] <= eta_s * \
+  ( \
+    select7['k'] * QInterpolatedMinus['ik'] - select7['k'] * QInterpolatedPlus['ik'] + \
+    inv_Zs * select3['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select3['k']  * QInterpolatedMinus['ik'] \
+  )
+
+  XZStressFromQInterpolatedKernel = XZStressGP['i'] <= eta_s * \
+  ( \
+    select8['k'] * QInterpolatedMinus['ik'] - select8['k'] * QInterpolatedPlus['ik'] + \
+    inv_Zs * select5['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select5['k']  * QInterpolatedMinus['ik'] \
+  )
+
+  #generator.add('NorStressFromQInterpolatedKernel', NorStressFromQInterpolatedKernel)
+  #generator.add('XYStressFromQInterpolatedKernel', XYStressFromQInterpolatedKernel)
+  #generator.add('XZStressFromQInterpolatedKernel', XZStressFromQInterpolatedKernel)
+  generator.add('StressFromQInterpolated', [NorStressFromQInterpolatedKernel, XYStressFromQInterpolatedKernel, XZStressFromQInterpolatedKernel] )
+
+  #--- Postcompute ImposedStateFromNewStress  ----
+
+  Convergence_order = 6
+  timeWeights = Scalar('timeWeights')
+  TractionGP_XY = Tensor('TractionGP_XY', (numberOfPoints,))
+  TractionGP_XZ = Tensor('TractionGP_XZ', (numberOfPoints,))
+
+  imposedStatePlus = OptionalDimTensor('imposedStatePlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  imposedStateMinus = OptionalDimTensor('imposedStateMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+
+  #zero = Scalar('zero')
+  #imposedStatePlusToZero =  imposedStatePlus <= zero
+  #imposedStateMinusToZero =  imposedStateMinus <= zero
+  #generator.add('ImposedStateSetToZero', [imposedStatePlusToZero,imposedStateMinusToZero ] )
+
+  #imposedStateZeroSpp = np.zeros( (numberOfPoints, aderdg.numberOfQuantities() ) )
+  #imposedStateZero = Tensor('imposedStateZero', imposedStateZeroSpp.shape, imposedStateZeroSpp)
+  #imposedStateZeroKernel = imposedStatePlus['ik'] <= imposedStateZero['ik']
+  #generator.add('imposedStateZeroKernel', imposedStateZeroKernel)
+
+  imposedStatePlus0 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select0['k'] * timeWeights * NorStressGP['i']
+  imposedStatePlus3 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select3['k'] * timeWeights * TractionGP_XY['i']
+  imposedStatePlus5 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select5['k'] * timeWeights * TractionGP_XZ['i']
+  imposedStatePlus6 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select6['k'] * timeWeights * ( \
+    select6['l'] * QInterpolatedPlus['il'] + ( NorStressGP['i'] - select0['l']*QInterpolatedPlus['il'] ) * inv_Zp \
+  )
+  imposedStatePlus7 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select7['k'] * timeWeights * ( \
+            select7['l'] * QInterpolatedPlus['il'] +  ( TractionGP_XY['i'] - select3['l'] * QInterpolatedPlus['il'] ) * inv_Zs \
+    )
+  imposedStatePlus8 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select8['k'] * timeWeights * ( \
+            select8['l'] * QInterpolatedPlus['il'] +  ( TractionGP_XZ['i'] - select5['l']*QInterpolatedPlus['il'] ) * inv_Zs \
+    )
+
+  imposedStateMinus0 = imposedStateMinus['ik'] <= imposedStateMinus['ik'] + select0['k'] * timeWeights * NorStressGP['i']
+  imposedStateMinus3 = imposedStateMinus['ik'] <= imposedStateMinus['ik'] + select3['k'] * timeWeights * TractionGP_XY['i']
+  imposedStateMinus5 = imposedStateMinus['ik'] <= imposedStateMinus['ik'] + select5['k'] * timeWeights * TractionGP_XZ['i']
+  imposedStateMinus6 = imposedStateMinus['ik'] <= imposedStateMinus['ik'] + select6['k'] * timeWeights * ( \
+            select6['l'] * QInterpolatedMinus['il'] + ( select0['l']*QInterpolatedMinus['il'] - NorStressGP['i'] ) * inv_Zp_neig \
+    )
+  imposedStateMinus7 = imposedStateMinus['ik'] <= imposedStateMinus['ik'] + select7['k'] * timeWeights * ( \
+            select7['l'] * QInterpolatedMinus['il'] + ( select3['l']*QInterpolatedMinus['il'] - TractionGP_XY['i'] ) * inv_Zs_neig \
+    )
+  imposedStateMinus8 = imposedStateMinus['ik'] <= imposedStateMinus['ik'] + select8['k'] * timeWeights * ( \
+            select8['l'] * QInterpolatedMinus['il'] + ( select5['l']*QInterpolatedMinus['il'] - TractionGP_XZ['i'] ) * inv_Zs_neig \
+    )
+
+  #generator.add('imposedStatePlus0', imposedStatePlus0)
+  #generator.add('imposedStatePlus3', imposedStatePlus3)
+  #generator.add('imposedStatePlus5', imposedStatePlus5)
+  #generator.add('imposedStatePlus6', imposedStatePlus6)
+  #generator.add('ImposedStateFromNewStress',  [imposedStatePlus0, imposedStatePlus3, imposedStatePlus5, imposedStatePlus6, imposedStatePlus7, imposedStatePlus8] )
+  generator.add('ImposedStateFromNewStress', \
+    [imposedStatePlus0, imposedStatePlus3, imposedStatePlus5, imposedStatePlus6, imposedStatePlus7, imposedStatePlus8,\
+    imposedStateMinus0, imposedStateMinus3, imposedStateMinus5, imposedStateMinus6, imposedStateMinus7, imposedStateMinus8] )
+
   #--------------------------------------------------
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
