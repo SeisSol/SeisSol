@@ -265,84 +265,6 @@ module f_ctof_bind_interoperability
       domain%DISC%DynRup%OutputPointType = OutputPointType
     end subroutine f_interoperability_calcElementwiseFaultoutput
 
-    subroutine f_interoperability_computePlasticity( i_domain, i_timeStep, &
-            i_numberOfAlignedBasisFunctions, i_plasticParameters, i_initialLoading, io_dofs, io_Energy, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
-      use iso_c_binding
-      use typesDef
-      use plasticity_mod
-
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-
-      type(c_ptr), value                     :: i_timeStep
-      real*8, pointer                        :: l_timeStep
-
-      integer(kind=c_int), value             :: i_numberOfAlignedBasisFunctions
-
-      type(c_ptr), value                     :: i_plasticParameters
-      real*8, pointer                        :: l_plasticParameters(:)
-
-      type(c_ptr), value                     :: i_initialLoading
-      real*8, pointer                        :: l_initialLoading(:,:)
-
-      type(c_ptr), value                     :: io_dofs
-      real*8, pointer                        :: l_dofs(:,:)
-
-      type(c_ptr), value                     :: io_Energy
-      real*8, pointer                        :: l_Energy(:)
-
-      type(c_ptr), value                     :: io_pstrain
-      real*8, pointer                        :: l_pstrain(:)
-
-      ! convert c to fotran pointers
-      call c_f_pointer( i_domain,         l_domain                                         )
-      call c_f_pointer( i_timeStep,       l_timeStep                                       )
-      call c_f_pointer( i_plasticParameters, l_plasticParameters, [4]                      )
-      call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
-      call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,9])
-      call c_f_pointer( io_Energy,        l_Energy, [3]                             )
-      call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
-
-
-      select case(l_domain%eqn%PlastMethod) !two different methods to check plasticity
-
-      case(0) !values at internal GP = high-order points
-              call plasticity_3d_high( dgvar    = l_dofs, &
-                                  dofStress     = l_initialLoading, & !l_domain%eqn%inistress, & !l_initialLoading is the same as inistress for the high-order case
-                                  nDegFr        = NUMBER_OF_BASIS_FUNCTIONS, &
-                                  nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
-                                  tv            = l_domain%eqn%Tv, &
-                                  dt            = l_timeStep, &
-                                  mu            = l_domain%eqn%mu, &
-                                  lambda        = l_domain%eqn%lambda, &
-                                  parameters    = l_plasticParameters, &
-                                  Energy        = l_Energy, &
-                                  pstrain       = l_pstrain, &
-                                  intGaussP     = l_domain%disc%Galerkin%intGaussP_Tet,&
-                                  intGaussW     = l_domain%disc%Galerkin%intGaussW_Tet,&
-                                  disc          = l_domain%disc, &
-                                  nVar          = l_domain%eqn%nVar, &
-                                  nIntGP        =l_domain%disc%galerkin%nIntGP)
-
-      case(2) !average of an element
-              call plasticity_3d_avg( disc      = l_domain%disc, &
-                                  dgvar         = l_dofs, &
-                                  dofStress     = l_initialLoading, &
-                                  nDegFr        = NUMBER_OF_BASIS_FUNCTIONS, &
-                                  nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
-                                  tv            = l_domain%eqn%Tv, &
-                                  dt            = l_timeStep, &
-                                  mu            = l_domain%eqn%mu, &
-                                  lambda        = l_domain%eqn%lambda, &
-                                  parameters    = l_plasticParameters ,&
-                                  Energy        = l_Energy,&
-                                  pstrain       = l_pstrain )
-      end select
-
-
-    end subroutine
-
-
     subroutine f_interoperability_computeMInvJInvPhisAtSources( i_domain, i_x, i_y, i_z, i_elem, o_mInvJInvPhisAtSources ) bind( c, name='f_interoperability_computeMInvJInvPhisAtSources')
       use iso_c_binding
       use TypesDef
@@ -383,19 +305,19 @@ module f_ctof_bind_interoperability
                               z     = vz,     &
                               vType = l_domain%MESH%GlobalVrtxType )
 
-      do l_dof = 1, NUMBER_OF_BASIS_FUNCTIONS
-        call BaseFunc3D(l_mInvJInvPhisAtSources(l_dof),             &
-                        l_dof,                                      &
-                        l_xi,                                       &
-                        l_eta,                                      &
-                        l_zeta,                                     &
-                        l_domain%DISC%Galerkin%nPoly,               &
-                        l_domain%DISC%Galerkin%cPoly3D_Tet,         &
-                        l_domain%DISC%Galerkin%NonZeroCPoly_Tet,    &
-                        l_domain%DISC%Galerkin%NonZeroCPolyIndex_Tet)
+      !do l_dof = 1, NUMBER_OF_BASIS_FUNCTIONS
+        !call BaseFunc3D(l_mInvJInvPhisAtSources(l_dof),             &
+                        !l_dof,                                      &
+                        !l_xi,                                       &
+                        !l_eta,                                      &
+                        !l_zeta,                                     &
+                        !l_domain%DISC%Galerkin%nPoly,               &
+                        !l_domain%DISC%Galerkin%cPoly3D_Tet,         &
+                        !l_domain%DISC%Galerkin%NonZeroCPoly_Tet,    &
+                        !l_domain%DISC%Galerkin%NonZeroCPolyIndex_Tet)
 
-        l_mInvJInvPhisAtSources(l_dof) = l_mInvJInvPhisAtSources(l_dof) / ( 6.0d0 * l_domain%MESH%ELEM%Volume(l_elem) * l_domain%DISC%Galerkin%MassMatrix_Tet(l_dof, l_dof, l_domain%DISC%Galerkin%nPoly) )
-      end do
+        !l_mInvJInvPhisAtSources(l_dof) = l_mInvJInvPhisAtSources(l_dof) / ( 6.0d0 * l_domain%MESH%ELEM%Volume(l_elem) * l_domain%DISC%Galerkin%MassMatrix_Tet(l_dof, l_dof, l_domain%DISC%Galerkin%nPoly) )
+      !end do
     end subroutine
 
     subroutine f_interoperability_fitAttenuation( domain, rho, mu, lambda, Qp, Qs, materialFitted) bind( c, name='f_interoperability_fitAttenuation')

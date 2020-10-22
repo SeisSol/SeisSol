@@ -44,7 +44,7 @@ Import('env')
 solverFiles = [ 'calc_seissol.f90',
                 'close_seissol.f90',
                 'calc_deltat.f90',
-                'plasticity.f90',
+                #'plasticity.f90',
                 'prak_clif_mod.f90',
                 'f_ftoc_bind_interoperability.f90',
                 'f_ctof_bind_interoperability.f90',

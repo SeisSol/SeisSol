@@ -392,7 +392,7 @@ CONTAINS
     REAL                    :: zV(MESH%nVertexMax)
     REAL                    :: io_x, io_y, io_z                               ! temp store of receiver location
     REAL                    :: xi,eta,zeta,xi_n,eta_n,zeta_n,xi_GP,eta_GP,zeta_GP
-    REAL                    :: phi1,phi2
+    REAL                    :: phis(DISC%Galerkin%nDegFr)
     REAL                    :: distance, shortest
     REAL                    :: chi,tau
     REAL                    :: tmp_mat(6)                       ! temporary stress tensors
@@ -440,18 +440,10 @@ CONTAINS
        CALL TrafoXYZ2XiEtaZeta(xi_n,eta_n,zeta_n,io_x,io_y,io_z,xV,yV,zV,MESH%LocalVrtxType(iElem))
        !
        ! store basis functions
-       DO l=1,DISC%Galerkin%nDegFr
-          CALL BaseFunc3D(phi1,l,xi,eta,zeta,DISC%Galerkin%nPoly,       &
-          DISC%Galerkin%cPoly3D_Tet,                                    &
-          DISC%Galerkin%NonZeroCPoly_Tet,                               &
-          DISC%Galerkin%NonZeroCPolyIndex_Tet                           )
-          DynRup_output%OutEval(i,1,l,1) = phi1
-          CALL BaseFunc3D(phi2,l,xi_n,eta_n,zeta_n,DISC%Galerkin%nPoly, &
-          DISC%Galerkin%cPoly3D_Tet,                                    &
-          DISC%Galerkin%NonZeroCPoly_Tet,                               &
-          DISC%Galerkin%NonZeroCPolyIndex_Tet                           )
-          DynRup_output%OutEval(i,1,l,2) = phi2
-      ENDDO
+       call c_interoperability_evaluateBasisFunctions(phis, xi, eta, zeta, DISC%Galerkin%nPoly)
+       DynRup_output%OutEval(i,1,:,1) = phis
+       call c_interoperability_evaluateBasisFunctions(phis, xi_n, eta_n, zeta_n, DISC%Galerkin%nPoly)
+       DynRup_output%OutEval(i,1,:,2) = phis
       !
       ! Find nearest GP from which we will take MuVal, P_0, S_XY, S_XZ
       shortest = +2.0D0
@@ -1019,7 +1011,6 @@ CONTAINS
     REAL                    :: element_xi(MESH%nVertexMax)
     REAL                    :: element_eta(MESH%nVertexMax)
     REAL                    :: element_zeta(MESH%nVertexMax)
-    REAL                    :: phi1,phi2
     REAL                    :: distance, shortest
     REAL                    :: rotmat(1:6,1:6)                  ! rotation matrix for individual fault receiver
     REAL                    :: tmp_mat(6)                       ! temporary stress tensors

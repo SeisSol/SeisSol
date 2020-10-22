@@ -52,6 +52,7 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Equations/Setup.h>
+#include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
 
@@ -262,6 +263,11 @@ extern "C" {
 
   void c_interoperability_finalizeIO() {
 	  e_interoperability.finalizeIO();
+  }
+
+  void c_interoperability_evaluateBasisFunctions(double* phis, double xi, double eta, double zeta, int N) {
+    auto basis = seissol::basisFunction::SampledBasisFunctions<double>(N + 1, xi, eta, zeta);
+    std::copy(basis.m_data.begin(), basis.m_data.end(), phis);
   }
 
   // c to fortran

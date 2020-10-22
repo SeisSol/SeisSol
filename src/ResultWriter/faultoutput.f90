@@ -642,7 +642,7 @@ CONTAINS
                   ENDDO
                 ENDDO
                 DO iDegFr = 1,nDegFr2d
-                   projected_RT(iDegFr) =  projected_RT(iDegFr)/DISC%Galerkin%MassMatrix_Tri(iDegFr,iDegFr,DISC%Galerkin%nPoly)
+                   !projected_RT(iDegFr) =  projected_RT(iDegFr)/DISC%Galerkin%MassMatrix_Tri(iDegFr,iDegFr,DISC%Galerkin%nPoly)
                 ENDDO
 
                 !calculation of the spatial derivatives of the rupture time

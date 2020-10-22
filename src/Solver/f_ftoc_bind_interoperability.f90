@@ -341,4 +341,14 @@ module f_ftoc_bind_interoperability
     subroutine c_interoperability_finalizeIO() bind( C, name='c_interoperability_finalizeIO' )
     end subroutine
   end interface
+
+  interface c_interoperability_evaluateBasisFunctions
+      subroutine c_interoperability_evaluateBasisFunctions(phis, xi, eta, zeta, N) bind( C, name='c_interoperability_evaluateBasisFunctions' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta, zeta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
 end module

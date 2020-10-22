@@ -88,7 +88,7 @@ src/Solver/mpiexchangevalues.f90
 src/Solver/prak_clif_mod.f90
 src/Solver/calc_seissol.f90
 src/Solver/f_ctof_bind_interoperability.f90
-src/Solver/plasticity.f90
+#src/Solver/plasticity.f90
 src/Solver/f_ftoc_bind_interoperability.f90
 src/Numerical_aux/quadpoints.f90
 src/Numerical_aux/jacobinormal.f90
