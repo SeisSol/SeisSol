@@ -87,7 +87,7 @@ public:
 
         Output_Base::tiePointers(layerData, dynRup, e_interoperability);
 
-        seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
+        seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
 
         DRFaceInformation*                    faceInformation = layerData.var(ConcreteLts->faceInformation);
         real  *averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);

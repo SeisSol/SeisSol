@@ -47,7 +47,7 @@
 namespace seissol {
   namespace initializers {
     struct DynamicRupture;
-    struct DR_FL_2;
+    struct DR_linear;
     struct DR_FL_3;
     struct DR_FL_6;
     struct DR_FL_16;
@@ -143,7 +143,7 @@ public:
 };
 
 
-struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRupture {
+struct seissol::initializers::DR_linear : public seissol::initializers::DynamicRupture {
     Variable<real[ numOfPointsPadded ]>                   d_c;
     Variable<real[ numOfPointsPadded ]>                   mu_S;
     Variable<real[ numOfPointsPadded ]>                   mu_D;
@@ -164,12 +164,12 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
     }
 };
 
-struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_FL_2 {
+struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_linear {
   Variable<real[ numOfPointsPadded ]>                   forced_rupture_time;
   Variable<real>                                        tn;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DR_FL_2::addTo(tree);
+    seissol::initializers::DR_linear::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
@@ -256,12 +256,12 @@ struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::
 };
 
 
-struct seissol::initializers::DR_FL_6 : public seissol::initializers::DR_FL_2 {
+struct seissol::initializers::DR_FL_6 : public seissol::initializers::DR_linear {
 
   Variable<real[numOfPointsPadded]>                               strengthData;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DR_FL_2::addTo(tree);
+    seissol::initializers::DR_linear::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      strengthData,                   mask,                 1,      seissol::memory::Standard );
   }

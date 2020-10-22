@@ -13,6 +13,7 @@
 namespace seissol {
   namespace dr {
     namespace fr_law {
+      template <class Derived>
       class LinearSlipWeakeningSolver;
       class LinearSlipWeakeningSolverFL2;  //linear slip weakening
       class LinearSlipWeakeningSolverFL16; //Linear slip weakening forced time rapture
@@ -25,6 +26,7 @@ namespace seissol {
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions.
  */
+template <class Derived>
 class seissol::dr::fr_law::LinearSlipWeakeningSolver : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   real                    u_0  = 10e-14; //slip rate is considered as being zero for instaneous healing
@@ -42,7 +44,7 @@ protected:
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //TODO: change later to const_cast
-    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
+    seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
     d_c                                           = layerData.var(ConcreteLts->d_c);
     mu_S                                          = layerData.var(ConcreteLts->mu_S);
     mu_D                                          = layerData.var(ConcreteLts->mu_D);
@@ -51,15 +53,23 @@ protected:
     dynStress_time                                = layerData.var(ConcreteLts->dynStress_time);
   }
 
+
+  /*
+   * Hook for FL16 to set tn equal to m_fullUpdateTime outside the calculation loop
+   */
+  virtual void setTimeHook(unsigned int ltsFace) {}
+
   /*
    * compute the fault strength
    */
+  /*
   virtual void calcStrengthHook(
       std::array<real, numOfPointsPadded> &Strength,
       FaultStresses &faultStresses,
       unsigned int iTimeGP,
       unsigned int ltsFace
   ) = 0;
+*/
 
   /*
    *  compute the slip rate and the traction from the fault strength and fault stresses
@@ -113,18 +123,26 @@ protected:
    *  compute and output the state Variable:
    *  for linear slip weakening state variable = slip
    */
+  /*
   virtual void calcStateVariableHook(
       std::array<real, numOfPointsPadded> &stateVariablePsi,
       std::array<real, numOfPointsPadded> &outputSlip,
       dynamicRupture::kernel::resampleParameter &resampleKrnl,
       unsigned int iTimeGP,
       unsigned int ltsFace) = 0;
+*/
+
 
 /*
  * evaluate friction law: updated mu -> friction law
  * for example see Carsten Uphoff's thesis: Eq. 2.45
  */
-  virtual void frictionFunctionHook(std::array<real, numOfPointsPadded> &stateVariablePsi, unsigned int ltsFace) = 0;
+  virtual void frictionFunctionHook(std::array<real, numOfPointsPadded> &stateVariablePsi, unsigned int ltsFace) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP] - (mu_S[ltsFace][iBndGP] - mu_D[ltsFace][iBndGP]) * stateVariablePsi[iBndGP];
+    }
+  }
+
 
   /*
    * instantaneous healing option Reset Mu and Slip
@@ -181,16 +199,17 @@ public:
       std::array<real, numOfPointsPadded> outputSlip{0};
       std::array<real, numOfPointsPadded> stateVariablePsi{0};
       std::array<real, numOfPointsPadded> Strength{0};
+      setTimeHook(ltsFace);
 
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-        calcStrengthHook(Strength, faultStresses, iTimeGP, ltsFace);
+        static_cast<Derived*>(this)->calcStrengthHook(Strength, faultStresses, iTimeGP, ltsFace);
 
         calcSlipRateAndTraction(Strength, faultStresses, iTimeGP , ltsFace);
 
         //function g, output: stateVariablePsi & outputSlip
-        calcStateVariableHook(stateVariablePsi, outputSlip, resampleKrnl, iTimeGP, ltsFace);
+        static_cast<Derived*>(this)->calcStateVariableHook(stateVariablePsi, outputSlip, resampleKrnl, iTimeGP, ltsFace);
 
         //function f, output: calculated mu
         frictionFunctionHook(stateVariablePsi, ltsFace);
@@ -233,15 +252,16 @@ public:
 *     !> Specific conditions for SCEC TPV16/17
 *     !> basically, introduction of a time dependent forced rupture
 */
-class seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 : public seissol::dr::fr_law::LinearSlipWeakeningSolver {
-protected:
+
+class seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 : public seissol::dr::fr_law::LinearSlipWeakeningSolver<seissol::dr::fr_law::LinearSlipWeakeningSolverFL2> {
+public:
 
   virtual void calcStrengthHook(
       std::array<real, numOfPointsPadded> &Strength,
       FaultStresses &faultStresses,
       unsigned int iTimeGP,
       unsigned int ltsFace
-  ) override {
+  ) {
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //-------------------------------------
       //calculate Fault Strength
@@ -251,11 +271,11 @@ protected:
   }
 
   virtual void calcStateVariableHook(
-      std::array<real, numOfPointsPadded> &stateVariablePsi,
-      std::array<real, numOfPointsPadded> &outputSlip,
-      dynamicRupture::kernel::resampleParameter &resampleKrnl,
-      unsigned int iTimeGP,
-      unsigned int ltsFace) override {
+    std::array<real, numOfPointsPadded> &stateVariablePsi,
+    std::array<real, numOfPointsPadded> &outputSlip,
+    dynamicRupture::kernel::resampleParameter &resampleKrnl,
+    unsigned int iTimeGP,
+    unsigned int ltsFace) {
 
     real resampledSlipRate[numberOfPoints];
     resampleKrnl.resamplePar = locSlipRate[ltsFace];
@@ -280,13 +300,6 @@ protected:
     }
   }
 
-  //Carsten Thesis: Eq. 2.45
-  //evaluate friction law: updated mu -> friction law
-  void frictionFunctionHook(std::array<real, numOfPointsPadded> &stateVariablePsi, unsigned int ltsFace) override {
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP] - (mu_S[ltsFace][iBndGP] - mu_D[ltsFace][iBndGP]) * stateVariablePsi[iBndGP];
-    }
-  }
 
 };//End of Class
 
@@ -296,17 +309,6 @@ class seissol::dr::fr_law::LinearSlipWeakeningSolverFL16 : public seissol::dr::f
 protected:
   real                    (*forced_rupture_time)[numOfPointsPadded];
   real                    *tn;
-
-
-  virtual void precomputeStressFromQInterpolated(
-      FaultStresses &faultStresses,
-      real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      unsigned int ltsFace
-  ) override {
-    LinearSlipWeakeningSolverFL2::precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus, QInterpolatedMinus, ltsFace);
-    tn[ltsFace] = m_fullUpdateTime;
-  }
 
   /*
 * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -319,6 +321,10 @@ protected:
     seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
     forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
     tn                                            = layerData.var(ConcreteLts->tn);
+  }
+
+  virtual void setTimeHook(unsigned int ltsFace) override {
+    tn[ltsFace] = m_fullUpdateTime;
   }
 
   virtual void calcStateVariableHook(
@@ -346,38 +352,14 @@ protected:
   }
 };
 
-class seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6 : public seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 {
-protected:
-  //Attributes
-  real  (*strengthData)[numOfPointsPadded];
-
-  /*
- * copies all parameters from the DynamicRupture LTS to the local attributes
- */
-  void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
-    //first copy all Variables from the Base Lts dynRup tree
-    LinearSlipWeakeningSolverFL2::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
-    seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
-    strengthData = layerData.var(ConcreteLts->strengthData);
-  }
-
-  /*
-   * calculates strength
-   */
-  void prak_clif_mod(real &strength, real &sigma, real &LocSlipRate, real &mu, real &dt){
-    real expterm;
-    expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star)*dt/ m_Params->prakash_length);
-    strength =  strength*expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
-  }
-
-  virtual void calcStrengthHook(
+class seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6 : public seissol::dr::fr_law::LinearSlipWeakeningSolver<seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6> {
+public:
+  void calcStrengthHook(
       std::array<real, numOfPointsPadded> &Strength,
       FaultStresses &faultStresses,
       unsigned int iTimeGP,
       unsigned int ltsFace
-  ) override{
+  ) {
     std::array<real, numOfPointsPadded> LocSlipRate;
     std::array<real, numOfPointsPadded> sigma;
 
@@ -393,12 +375,12 @@ protected:
     }
   }
 
-  virtual void calcStateVariableHook(
+  void calcStateVariableHook(
       std::array<real, numOfPointsPadded> &stateVariablePsi,
       std::array<real, numOfPointsPadded> &outputSlip,
       dynamicRupture::kernel::resampleParameter &resampleKrnl,
       unsigned int iTimeGP,
-      unsigned int ltsFace) override {
+      unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + locSlipRate[ltsFace][iBndGP]*deltaT[iTimeGP];
       outputSlip[iBndGP] = slip[ltsFace][iBndGP];
@@ -409,6 +391,33 @@ protected:
       stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], 1.0);
     }
   }
+
+
+protected:
+  //Attributes
+  real  (*strengthData)[numOfPointsPadded];
+
+  /*
+ * copies all parameters from the DynamicRupture LTS to the local attributes
+ */
+  void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
+    //first copy all Variables from the Base Lts dynRup tree
+    LinearSlipWeakeningSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    //TODO: change later to const_cast
+    seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
+    strengthData = layerData.var(ConcreteLts->strengthData);
+  }
+
+  /*
+   * calculates strength
+   */
+  void prak_clif_mod(real &strength, real &sigma, real &LocSlipRate, real &mu, real &dt){
+    real expterm;
+    expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star)*dt/ m_Params->prakash_length);
+    strength =  strength*expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
+  }
+
 };
 
 

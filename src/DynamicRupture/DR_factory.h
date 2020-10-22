@@ -53,8 +53,8 @@ class seissol::dr::factory::Factory_FL_0 : public seissol::dr::factory::Abstract
 
 class seissol::dr::factory::Factory_FL_2 : public seissol::dr::factory::AbstractFactory {
   virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::DR_FL_2,
-                           new seissol::initializers::Init_FL_2,
+    return std::make_tuple(new seissol::initializers::DR_linear,
+                           new seissol::initializers::Init_linear,
                            new seissol::dr::fr_law::LinearSlipWeakeningSolverFL2,
                            new seissol::dr::output::Output_FL_2);
   }

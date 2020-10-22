@@ -15,7 +15,7 @@ namespace seissol {
     namespace initializers {
       struct BaseDrInitializer;
       struct Init_FL_0;
-      struct Init_FL_2;
+      struct Init_linear; //FL2
       struct Init_FL_3; //aging law
       struct Init_FL_6;
       struct Init_FL_16;
@@ -157,7 +157,7 @@ public:
 };
 
 
-class seissol::initializers::Init_FL_2 : public seissol::initializers::BaseDrInitializer {
+class seissol::initializers::Init_linear : public seissol::initializers::BaseDrInitializer {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
@@ -166,7 +166,7 @@ public:
         unsigned* ltsFaceToMeshFace,
         seissol::Interoperability &e_interoperability) override {
     BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
+    seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -203,7 +203,7 @@ public:
   }
 };
 
-class seissol::initializers::Init_FL_16 : public seissol::initializers::Init_FL_2 {
+class seissol::initializers::Init_FL_16 : public seissol::initializers::Init_linear {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -211,7 +211,7 @@ public:
                                               double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    Init_FL_2::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -416,7 +416,7 @@ public:
 };
 
 
-class seissol::initializers::Init_FL_6 : public seissol::initializers::Init_FL_2 {
+class seissol::initializers::Init_FL_6 : public seissol::initializers::Init_linear {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -424,7 +424,7 @@ public:
                                               double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    Init_FL_2::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
