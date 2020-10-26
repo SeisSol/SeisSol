@@ -88,7 +88,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
-      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,

@@ -370,6 +370,7 @@ CONTAINS
  SUBROUTINE eval_faultreceiver(DynRup_output,MESH,BND,DISC)
     !--------------------------------------------------------------------------!
     USE DGBasis_mod
+    use  f_ftoc_bind_interoperability
     !--------------------------------------------------------------------------!
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
@@ -525,11 +526,11 @@ CONTAINS
         LocalRecPoint(iFault)%Y = (yp(1)+yp(2)+yp(3))/3.0
         LocalRecPoint(iFault)%Z = (zp(1)+zp(2)+zp(3))/3.0
         DO j=1,3
-        	LocalRecPoint(iFault)%coordx(j)=xp(j)
-        	LocalRecPoint(iFault)%coordy(j)=yp(j)
-        	LocalRecPoint(iFault)%coordz(j)=zp(j)
+            LocalRecPoint(iFault)%coordx(j)=xp(j)
+            LocalRecPoint(iFault)%coordy(j)=yp(j)
+            LocalRecPoint(iFault)%coordz(j)=zp(j)
         END DO
-	CALL TrafoXYZ2XiEtaZeta( LocalRecPoint(iFault)%xi, LocalRecPoint(iFault)%eta, LocalRecPoint(iFault)%zeta, &
+        CALL TrafoXYZ2XiEtaZeta( LocalRecPoint(iFault)%xi, LocalRecPoint(iFault)%eta, LocalRecPoint(iFault)%zeta, &
                                  LocalRecPoint(iFault)%X, LocalRecPoint(iFault)%Y, LocalRecPoint(iFault)%Z, &
                                  xV,yV,zV,MESH%LocalVrtxType(element_index))
         local_index=iFault+1

@@ -265,9 +265,6 @@ CONTAINS
          IO             = IO                              )                    !
     !                                                                          !
     !
-    !T. Ulrich 08.2015 Read 2D basis Function for Vr output
-    CALL Read2dGF(DISC,IO)
-    !
     IF (EQN%linearized) THEN                                                   !
        CALL ini_MODEL(                                      &                  ! Initialize Local Linearized calculation
             MaterialVal    = OptionalFields%BackgroundValue,&                  ! Initialize Local Linearized calculation

@@ -636,7 +636,7 @@ CONTAINS
                   chi  = MESH%ELEM%BndGP_Tri(1,jBndGP)
                   tau  = MESH%ELEM%BndGP_Tri(2,jBndGP)
                   DO iDegFr = 1, nDegFr2d
-                     call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
+                     !call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
                      projected_RT(iDegFr) = projected_RT(iDegFr) + &
                         DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%output_rupture_time(jBndGP,iFace)*phiT
                   ENDDO
@@ -651,7 +651,7 @@ CONTAINS
                 dt_dchi=0d0
                 dt_dtau=0d0
                 DO iDegFr = 1, nDegFr2d
-                   call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
+                   !call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
                    dt_dchi = dt_dchi + projected_RT(iDegFr) * phi2T(1)
                    dt_dtau = dt_dtau + projected_RT(iDegFr) * phi2T(2)
                 ENDDO

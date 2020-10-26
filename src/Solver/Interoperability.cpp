@@ -265,7 +265,8 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
-  void c_interoperability_evaluateBasisFunctions(double* phis, double xi, double eta, double zeta, int N) {
+  void c_interoperability_evaluateBasisFunctions(double* phis, double xi, double eta, double zeta,
+                                                 int N) {
     auto basis = seissol::basisFunction::SampledBasisFunctions<double>(N + 1, xi, eta, zeta);
     std::copy(basis.m_data.begin(), basis.m_data.end(), phis);
   }
@@ -312,13 +313,6 @@ extern "C" {
                                                     double  *io_dofs,
 													double  *io_Energy,
 													double  *io_pstrain );
-
-  extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
-                                                               double   i_x,
-                                                               double   i_y,
-                                                               double   i_z,
-                                                               int      i_elem,
-                                                               double*  o_mInvJInvPhisAtSources );
 
   extern void f_interoperability_fitAttenuation(  void*  i_domain,
                                                   double  rho,
@@ -1025,15 +1019,3 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 }
 #endif
 
-void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()])
-{
-  double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
-
-  int elem = static_cast<int>(element);
-  f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
-
-  memset(mInvJInvPhisAtSources, 0, tensor::mInvJInvPhisAtSources::size() * sizeof(real));
-  for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
-    mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
-  }
-}

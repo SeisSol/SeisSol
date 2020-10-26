@@ -48,15 +48,6 @@ module DGBasis_mod
   private
   !---------------------------------------------------------------------------!
   ! Public procedures and functions
-  interface GetStateXiEta
-     module procedure GetStateXiEta
-  end interface
-  interface GetMaterialXiEta
-     module procedure GetMaterialXiEta
-  end interface
-  interface GetStateXiEtaZeta
-     module procedure GetStateXiEtaZeta
-  end interface
   interface XYInElement
      module procedure XYInElement
   end interface
@@ -126,8 +117,6 @@ module DGBasis_mod
 
   !---------------------------------------------------------------------------!
   ! 2D Tri
-  public  :: GetStateXiEta
-  public  :: GetMaterialXiEta
   public  :: XYInElement
   public  :: TriTrafoChi2XiEta
   public  :: TrafoXiEta2XY
@@ -142,7 +131,6 @@ module DGBasis_mod
   public  :: QuadTrafoXiEtaGrad
   ! 3D Tetra
   public  :: XYZInElement
-  public  :: GetStateXiEtaZeta
   public  :: TetraTrafoXiEtaZeta2XYZ
   public  :: TetraTrafoXiEtaZetaGrad
   public  :: TrafoXYZ2XiEtaZeta
@@ -397,138 +385,6 @@ contains
     end select 
 
   end function XYZInElement
-
-
-  ! ***************************************************************** !
-  ! *                                                               * !
-  ! * GetStateXiEta calculates the state vector                     * !
-  ! * on the given position xi/eta                                  * !
-  ! *                                                               * !
-  ! ***************************************************************** !
-
-  subroutine GetStateXiEta(state, Xi, Eta, nDegFr, nVar, DOF, EQN,DISC, eType)
-    !-------------------------------------------------------------------------!
-    
-    !-------------------------------------------------------------------------!
-    implicit none
-    !-------------------------------------------------------------------------!
-    ! Argument list declaration
-    type(tEquations)         :: EQN
-    type(tDiscretization)    :: DISC
-    real                     :: state(EQN%nVar)
-    real                     :: Xi, Eta, XiGLL, EtaGLL
-    integer                  :: nDegFr, nVar, eType
-    real                     :: DOF(nDegFr,nVar)
-    !-------------------------------------------------------------------------!
-    ! Local variable declaration
-    real                     :: phi
-    integer                  :: iDegFr        
-    !-------------------------------------------------------------------------!
-    intent(IN)               :: Xi, Eta, DOF, EQN, DISC, eType
-    intent(OUT)              :: state
-    !-------------------------------------------------------------------------!
-    state(:) = 0.
-    
-    if(eType.eq.3)then   !Triangle
-
-       do iDegFr = 1, nDegFr
-          call BaseFunc_Tri(phi,iDegFr,xi,eta,DISC%Galerkin%nPoly,DISC)
-          state(1:EQN%nVar) = state(1:EQN%nVar) + DOF(iDegFr,:)*phi
-       enddo
-
-    elseif(eType.eq.4)then
-
-       do iDegFr = 1, nDegFr
-          call BaseFunc_Quad(phi,iDegFr,xi,eta,DISC%Galerkin%nPoly,DISC)
-          state(1:EQN%nVar) = state(1:EQN%nVar) + DOF(iDegFr,:)*phi
-       enddo
-
-    endif
-
-  end subroutine GetStateXiEta
-
-  ! ***************************************************************** !
-  ! *                                                               * !
-  ! * GetMaterialXiEta calculates the material values               * !
-  ! * on the given position xi/eta                                  * !
-  ! *                                                               * !
-  ! ***************************************************************** !
-
-  subroutine GetMaterialXiEta(material, Xi, Eta, nDegFr, nVar, nPoly, DOF, LocElemType,DISC)
-    !-------------------------------------------------------------------------!
-    
-    !-------------------------------------------------------------------------!
-    implicit none
-    !-------------------------------------------------------------------------!
-    ! Argument list declaration
-    type(tDiscretization)    :: DISC
-    integer                  :: nDegFr, nVar, nPoly                           ! Number of Dof, Number of variables and Polynomial degree 
-    real                     :: material(nVar)                                ! Output material array
-    real                     :: Xi, Eta                                       ! Reference element coordinates
-    real                     :: DOF(nDegFr,nVar)                              ! Degrees of freedom describing the material
-    integer                  :: LocElemType                                   ! Type of basis function that describes the material
-    !-------------------------------------------------------------------------!
-    ! Local variable declaration
-    real                     :: phi
-    integer                  :: iDegFr        
-    !-------------------------------------------------------------------------!
-    intent(IN)               :: Xi, Eta, nDegFr, nVar, nPoly
-    intent(IN)               :: DOF, DISC
-    intent(OUT)              :: material
-    !-------------------------------------------------------------------------!
-    material(:) = 0.
-
-    do iDegFr = 1, nDegFr
-        select case(LocElemType)
-        case(3)
-            call BaseFunc_Tri(phi,iDegFr,xi,eta,nPoly,DISC)
-        case(4)
-            call BaseFunc_Quad(phi,iDegFr,xi,eta,nPoly,DISC)
-        ENDSELECT
-        material(1:nVar) = material(1:nVar) + DOF(iDegFr,1:nVar)*phi
-    enddo
-
-  end subroutine GetMaterialXiEta
-
-
-  ! ***************************************************************** !
-  ! *                                                               * !
-  ! * GetStateXiEtaZeta calculates the state vector                 * !
-  ! * on the given position xi/eta/zeta                             * !
-  ! *                                                               * !
-  ! ***************************************************************** !
-
-  subroutine GetStateXiEtaZeta(state, xi, eta, zeta, nDegFr, nVar, nPoly, DOF, &
-                               cPoly3D, NonZeroCPoly, NonZeroCPolyIndex        )
-    !-------------------------------------------------------------------------!
-    implicit none
-    !-------------------------------------------------------------------------!
-    ! Argument list declaration
-    real                     :: state(nVar)
-    real                     :: xi, eta, zeta
-    integer                  :: nDegFr, nVar, nPoly
-    real                     :: DOF(nDegFr,nVar)
-    real, pointer            :: cPoly3D(:,:,:,:,:)
-    integer, pointer         :: NonZeroCPoly(:,:)
-    integer, pointer         :: NonZeroCPolyIndex(:,:,:,:)
-    !-------------------------------------------------------------------------!
-    ! Local variable declaration
-    real                     :: phi
-    integer                  :: iDegFr
-    !-------------------------------------------------------------------------!
-    intent(IN)               :: xi, eta, zeta
-    intent(IN)               :: nDegFr, nVar, nPoly
-    intent(IN)               :: DOF 
-    intent(OUT)              :: state
-    !-------------------------------------------------------------------------!
-    state(:) = 0.
-
-    do iDegFr = 1, nDegFr
-       call BaseFunc3D(phi,iDegFr,xi,eta,zeta,nPoly,cPoly3D,NonZeroCPoly,NonZeroCPolyIndex)
-       state(1:nVar) = state(1:nVar) + DOF(iDegFr,:)*phi
-    enddo
-
-  end subroutine GetStateXiEtaZeta
 
 
   !

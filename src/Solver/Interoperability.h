@@ -409,22 +409,6 @@ class seissol::Interoperability {
 #endif
 
    /**
-    * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
-    * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
-    *
-    * @param x x coordinate
-    * @param y y coordinate
-    * @param z z coordinate
-    * @param element Number of element in that x, y, z resides
-    * @param mInvJInvPhisAtSources contains the output
-    */
-   void computeMInvJInvPhisAtSources( double x,
-                                      double y,
-                                      double z,
-                                      unsigned element,
-                                      real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()] );
-
-   /**
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.

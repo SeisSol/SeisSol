@@ -73,17 +73,15 @@
 #include "Manager.h"
 #include "NRFReader.h"
 #include "PointSource.h"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/kernel.h"
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
 
 #include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
 #include <utils/logger.h>
 #include <cstring>
-
-#if defined(__AVX__)
-#include <immintrin.h>
-#endif
-
-extern seissol::Interoperability e_interoperability;
 
 template<typename T>
 class index_sort_by_value
@@ -97,8 +95,36 @@ public:
     }
 };
 
+void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
+                                                       real mInvJInvPhisAtSources[],
+                                                       unsigned meshId,
+                                                       MeshReader const& mesh) {
+  auto const elements = mesh.getElements();
+  auto const vertices = mesh.getVertices();
+
+  double const* coords[4];
+  for (unsigned v = 0; v < 4; ++v) {
+    coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
+  }
+  auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
+          coords[0], coords[1], coords[2], coords[3], centre);
+  auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+          CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+
+  double volume = MeshTools::volume(elements[meshId], vertices);
+  double JInv = 1.0 / (6.0 * volume);
+
+  kernel::computeMInvJInvPhisAtSources krnl;
+  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
+  krnl.M3inv = init::M3inv::Values;
+  krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources;
+  krnl.JInv = JInv;
+  krnl.execute();
+}
+
 void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d const&    centre,
-                                                              unsigned                  element,
+                                                              unsigned                  meshId,
+                                                              MeshReader const&         mesh,
                                                               Subfault const&           subfault,
                                                               Offsets const&            offsets,
                                                               Offsets const&            nextOffsets,
@@ -107,11 +133,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
                                                               PointSources&             pointSources,
                                                               unsigned                  index )
 {
-  e_interoperability.computeMInvJInvPhisAtSources( centre(0),
-                                                   centre(1),
-                                                   centre(2),
-                                                   element,
-                                                   pointSources.mInvJInvPhisAtSources[index] );
+  computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   real* faultBasis = pointSources.tensor[index];
   faultBasis[0] = subfault.tan1(0);
@@ -303,11 +325,9 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
 
-      e_interoperability.computeMInvJInvPhisAtSources( centres3[fsrmIndex](0),
-                                                       centres3[fsrmIndex](1),
-                                                       centres3[fsrmIndex](2),
-                                                       meshIds[sourceIndex],
-                                                       sources[cluster].mInvJInvPhisAtSources[clusterSource] );
+      computeMInvJInvPhisAtSources(centres3[fsrmIndex],
+              sources[cluster].mInvJInvPhisAtSources[clusterSource],
+              meshIds[sourceIndex], mesh);
 
       transformMomentTensor( localMomentTensor,
                              localVelocityComponent,
@@ -405,6 +425,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
       unsigned nrfIndex = originalIndex[sourceIndex];
       transformNRFSourceToInternalSource( nrf.centres[nrfIndex],
                                           meshIds[sourceIndex],
+                                          mesh,
                                           nrf.subfaults[nrfIndex],
                                           nrf.sroffsets[nrfIndex],
                                           nrf.sroffsets[nrfIndex+1],
