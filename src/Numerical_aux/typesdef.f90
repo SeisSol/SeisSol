@@ -886,7 +886,6 @@ MODULE TypesDef
      REAL, POINTER                          :: PlastCo(:) => NULL()             !< Cohesion for the Drucker-Prager plasticity, element-dependent
      REAL,POINTER                           :: BulkFriction(:) => NULL()        !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
-     INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order points, (2) = average of an element
      REAL, POINTER                          :: IniStress(:,:) => NULL()         !< Initial stress (loading) for the whole domain, only used for plastic calculations
      INTEGER                                :: Adjoint                          !< (0) = no adjoint, (1) = adjoint reverse-time field is generated simultaneously to forward field
      INTEGER                                :: EndIteration                     !< The index of the last iteration in the simulation

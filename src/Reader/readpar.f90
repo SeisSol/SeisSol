@@ -230,11 +230,11 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
     REAL                       :: FreqCentral, FreqRatio, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
-                                           Tv, pmethod, &
+                                           Tv, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
@@ -275,7 +275,6 @@ CONTAINS
 #endif
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
-    pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialFileName    = ''
     BoundaryFileName    = ''
@@ -318,18 +317,7 @@ CONTAINS
         EQN%Plasticity = Plasticity
         !first constant, can be overwritten in ini_model
         EQN%Tv = Tv
-        EQN%PlastMethod = pmethod
-        SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
-        CASE(0)
-                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
-                 logInfo0(*) 'High-order points are used for plasticity. '
-        CASE(2)
-                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
-                 logInfo0(*) 'Average of an element is used for plasticity. '
-        CASE DEFAULT
-                 logError(*) 'ERROR: choose 0 or 2 as plasticity method'
-        stop
-        END SELECT
+        logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
       STOP

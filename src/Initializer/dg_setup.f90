@@ -774,8 +774,6 @@ CONTAINS
 
   SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
     !-------------------------------------------------------------------------!
-
-    USE DGBasis_mod
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
     !-------------------------------------------------------------------------!
@@ -806,9 +804,6 @@ CONTAINS
     REAL    :: phi                                                            ! Value of the base function at GP      !
     REAL    :: Einv, v                                                        ! Inverse of Young's modulus, Poisson ratio v
     !
-    REAL, POINTER :: IntGaussP(:,:)     =>NULL()
-    REAL, POINTER :: IntGaussW(:)       =>NULL()
-    REAL, POINTER :: MassMatrix(:,:)    =>NULL()
     ! temporary degrees of freedom
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
     REAL    :: oneRankedShaped_iniloading(NUMBER_OF_BASIS_FUNCTIONS*6)        ! l_iniloading to one rank array  (allows removing warning we running with plasticity))
@@ -860,60 +855,12 @@ CONTAINS
     nIntGP = DISC%Galerkin%nIntGP
     nDegFr = DISC%Galerkin%nDegFr
 
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, intGaussP, intGaussW, massMatrix,l_initialLoading,oneRankedShaped_iniloading, l_plasticParameters, iniGP_plast) default(none)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, l_initialLoading,oneRankedShaped_iniloading, l_plasticParameters, iniGP_plast) default(none)
     DO iElem = 1,MESH%nElem
         l_initialLoading=0
         l_plasticParameters=0
         
-        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
-          x = 0.; y = 0.; z = 0.;
-          eType = MESH%LocalElemType(iElem)
-          SELECT CASE(eType)
-          CASE(4)
-              DO iVert=1,MESH%nVertices_Tet
-                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-              ENDDO
-              ! Point to the corresponding:
-              ! Integration points
-              intGaussP     => DISC%Galerkin%intGaussP_Tet
-              intGaussW     => DISC%Galerkin%intGaussW_Tet
-              ! Basis func values
-          CASE(6)
-              DO iVert=1,MESH%nVertices_Hex
-                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-              ENDDO
-              ! Point to the corresponding:
-              ! Integration points
-              intGaussP     => DISC%Galerkin%intGaussP_Hex
-              intGaussW     => DISC%Galerkin%intGaussW_Hex
-              ! Basis func values
-          END SELECT
-
-          DO iIntGP = 1,nIntGP
-              IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
-              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
-                iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
-                DO iDegFr = 1, nDegFr
-                   !phi = IntGPBaseFunc(iDegFr,iIntGP)
-                   l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
-                ENDDO
-             ENDIF
-          ENDDO !iIntGP
-
-          DO iDegFr = 1, nDegFr
-            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-          ENDDO
-
-          NULLIFY(intGaussP)
-          NULLIFY(intGaussW)
-          NULLIFY(MassMatrix)
-        ENDIF
-
-        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
+        IF(EQN%Plasticity .EQ. 1) THEN !high-order points approach
         !elementwise assignement of the initial loading
            l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
         ENDIF
