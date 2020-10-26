@@ -108,7 +108,7 @@ Project geographic coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The geographic coordinates of the source model are projected to Cartesian
-coordinates wit the pre-processing tool `rconv 
+coordinates with the pre-processing tool `rconv 
 <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/rconv>`_.
 
 ::

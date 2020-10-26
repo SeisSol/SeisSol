@@ -1,13 +1,13 @@
 SCEC TPV34
 ==========
 
-The TPV34 benchmark uses a right-lateral, planar, vertical, strike-slip fault 
+The TPV34 benchmark features a right-lateral, planar, vertical, strike-slip fault 
 set in a half-space. The velocity structure is the actual 3D velocity structure 
 surrounding the Imperial Fault, as given by the SCEC Community Velocity Model
 `CVM-H <https://strike.scec.org/scecpedia/CVM-H>`_.
 
 .. figure:: LatexFigures/tpv34_imperialfault.png
-   :alt: The Imerial Fault.
+   :alt: The Imperial Fault.
    :width: 15.00000cm
 
    The Imperial Fault. The red line marks the Imperial Fault. It straddles the California-Mexico border, south of the Salton Sea. The Imperial Fault is approximately 45 km long and 15 km deep, with a nearly vertical dip angle ranging from 81 to 90 degrees according to the SCEC Community Fault Model CFM-4.
@@ -24,30 +24,32 @@ There is a circular nucleation zone on the fault surface. The hypocenter is
 located 15 km from the left edge of the fault, at a depth of 7.5 km.
 
 .. figure:: LatexFigures/tpv34.png
-   :alt: Diagram of TPV34.
+   :alt: TPV34 overview.
    :width: 15.00000cm
 
-   Diagram of TPV34. 
+   TPV34 overview. 
 
 The geometry is generated with `Gmsh <https://gmsh.info/>`_. All the files 
 that are needed for the simulation are provided at 
 https://github.com/SeisSol/Examples/tree/master/tpv34.
 
 .. figure:: LatexFigures/tpv34_gmshhalf.png
-   :alt: Diagram of TPV34 vertical fault in Gmsh.
+   :alt: Modeled TPV34 fault in Gmsh.
    :width: 15.00000cm
 
-   Diagram of TPV34 vertical fault in Gmsh.
+   Modeled TPV34 fault in Gmsh.
 
 Material
 ~~~~~~~~
 
 To obtain the velocity structure for TPV34, we need to install and run 
-the SCEC Community Velocity Model `CVM-H <https://strike.scec.org/scecpedia/CVM-H>`_. 
+the SCEC Community Velocity Model software distribution `CVM-H <https://strike.scec.org/scecpedia/CVM-H>`_. 
 For TPV34, we are using CVM-H version 15.1.0 and we use 
-`ASAGI <https://github.com/TUM-I5/ASAGI>`_ to map related material properties 
-for a SeisSol simulation. Detailed explanations are provided at 
-https://github.com/SeisSol/Examples/blob/master/tpv34/generate_ASAGI_file.sh
+`ASAGI <https://github.com/TUM-I5/ASAGI>`_ to map the material properties variations onto the mesh. 
+Detailed explanations are provided at 
+https://github.com/SeisSol/Examples/blob/master/tpv34/generate_ASAGI_file.sh. 
+We generate 2 netcdf files of different spatial resolution to map more finely the 3D material properties close to the fault. 
+The domain of validity of each netcdf files read by ASAGI is defined by the yaml tpv34-material.yaml file:
 
 .. code-block:: YAML
 
@@ -87,7 +89,9 @@ listed in Table below.
 +-------------+--------------------------------+------------+--------+
 
 The cohesion is 1.02 MPa at the earth’s surface. It is 0 MPa at depths 
-greater than 2400 m, and is linearly tapered in the uppermost 2400 m.
+greater than 2400 m, and is linearly tapered in the uppermost 2400 m. 
+The spatial dependence of the cohesion is straightforwardly mapped 
+using `Easi <https://github.com/SeisSol/easi>`_.
 
 .. code-block:: YAML
 
@@ -105,9 +109,12 @@ Initial stress
 ~~~~~~~~~~~~~~
 
 The initial shear stress on the fault is pure right-lateral. 
-The initial shear stress is :math:`\tau_0` = (30 MPa)(mux) 
-The initial normal stress on the fault is :math:`\sigma_0` = (60 MPa)(mux).
-With mux = :math:`\mu / \mu_0`, where 
+
+  The initial shear stress is :math:`\tau_0` = (30 MPa)(:math:`\mu_x`) 
+
+  The initial normal stress on the fault is :math:`\sigma_0` = (60 MPa)(:math:`\mu_x`).
+
+In above formulas, we define :math:`\mu_x = \mu / \mu_0`, where 
 :math:`\mu` is shear modulus and
 :math:`\mu_0` = 32.03812032 GPa.
 
@@ -158,11 +165,11 @@ Results
 ~~~~~~~
 All examples here can be visualized in Paraview. The *output* folder contains a series of files for
 fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf), on-fault receiver (.dat) and
-off-fault receivers (.dat). The fault dynamic rupture and wavefield files can be loaded in Paraview 
-directly. For example, open Paraview and then go through File > import > 'prefix'-fault.xdmf.
+off-fault receivers (.dat). The fault dynamic rupture and wavefield files can be loaded in Paraview. 
+For example, open Paraview and then go through File > import > 'prefix'-fault.xdmf.
 
 .. figure:: LatexFigures/tpv34_SRs_3s.png
    :alt: Fault slip rate along-strike direction
    :width: 15.00000cm
 
-   Fault slip rate in the along-strike direction (SRs) at 3 seconds in TPV34, illustrated in Paraview. 
+   Fault slip rate in the along-strike direction (SRs) at a rupture time of 3 seconds in TPV34, visualized using Paraview. 
