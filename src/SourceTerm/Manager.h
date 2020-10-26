@@ -52,7 +52,7 @@
 namespace seissol {
   namespace sourceterm {
     void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
-                                      real mInvJInvPhisAtSources[],
+                                      real* mInvJInvPhisAtSources,
                                       unsigned meshId,
                                       MeshReader const& mesh);
     void transformNRFSourceToInternalSource( Eigen::Vector3d const&   centre,

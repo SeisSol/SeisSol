@@ -96,11 +96,11 @@ public:
 };
 
 void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
-                                                       real mInvJInvPhisAtSources[],
+                                                       real* mInvJInvPhisAtSources,
                                                        unsigned meshId,
                                                        MeshReader const& mesh) {
-  auto const elements = mesh.getElements();
-  auto const vertices = mesh.getVertices();
+  auto const& elements = mesh.getElements();
+  auto const& vertices = mesh.getVertices();
 
   double const* coords[4];
   for (unsigned v = 0; v < 4; ++v) {

@@ -51,8 +51,8 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
                                                       MeshReader const&                 mesh,
                                                       seissol::initializers::Lut const& ltsLut,
                                                       seissol::initializers::LTS const& lts ) {
-  auto const elements = mesh.getElements();
-  auto const vertices = mesh.getVertices();
+  auto const& elements = mesh.getElements();
+  auto const& vertices = mesh.getVertices();
 
   double const* coords[4];
   for (unsigned v = 0; v < 4; ++v) {
