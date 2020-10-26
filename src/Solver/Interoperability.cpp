@@ -265,10 +265,43 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
-  void c_interoperability_evaluateBasisFunctions(double* phis, double xi, double eta, double zeta,
-                                                 int N) {
-    auto basis = seissol::basisFunction::SampledBasisFunctions<double>(N + 1, xi, eta, zeta);
-    std::copy(basis.m_data.begin(), basis.m_data.end(), phis);
+  void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int k = 0; k <= d; k++) {
+        for (unsigned int j = 0; j <= d - k; j++) {
+            phis[idx++] = seissol::functions::TetraDubinerP({d - j - k, j, k}, {xi, eta, zeta});
+        }
+      }
+    }
+  }
+
+  void c_interoperability_TriDubinerP(double* phis, double xi, double eta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int j = 0; j <= d; j++) {
+        phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      }
+    }
+  }
+
+  void c_interoperability_gradTriDubinerP(double* phis, double xi, double eta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int j = 0; j <= d; j++) {
+        auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
+        for (auto const& g : grad) {
+            phis[idx++] = g;
+        }
+      }
+    }
+  }
+
+  double c_interoperability_M2invDiagonal(int no) {
+      assert(no >= 0 && no < seissol::tensor::M2inv::Shape[0]);
+      auto M2inv = seissol::init::M2inv::view::create(
+        const_cast<double*>(seissol::init::M2inv::Values));
+      return M2inv(no, no);
   }
 
   // c to fortran

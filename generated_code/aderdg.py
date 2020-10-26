@@ -189,6 +189,7 @@ class ADERDGBase(ABC):
 
   def add_include_tensors(self, include_tensors):
     include_tensors.add(self.db.samplingDirections)
+    include_tensors.add(self.db.M2inv)
 
 
 class LinearADERDG(ADERDGBase):

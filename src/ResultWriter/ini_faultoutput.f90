@@ -441,9 +441,9 @@ CONTAINS
        CALL TrafoXYZ2XiEtaZeta(xi_n,eta_n,zeta_n,io_x,io_y,io_z,xV,yV,zV,MESH%LocalVrtxType(iElem))
        !
        ! store basis functions
-       call c_interoperability_evaluateBasisFunctions(phis, xi, eta, zeta, DISC%Galerkin%nPoly)
+       call c_interoperability_TetraDubinerP(phis, xi, eta, zeta, DISC%Galerkin%nPoly)
        DynRup_output%OutEval(i,1,:,1) = phis
-       call c_interoperability_evaluateBasisFunctions(phis, xi_n, eta_n, zeta_n, DISC%Galerkin%nPoly)
+       call c_interoperability_TetraDubinerP(phis, xi_n, eta_n, zeta_n, DISC%Galerkin%nPoly)
        DynRup_output%OutEval(i,1,:,2) = phis
       !
       ! Find nearest GP from which we will take MuVal, P_0, S_XY, S_XZ

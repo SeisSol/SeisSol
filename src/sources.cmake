@@ -13,6 +13,7 @@ src/Initializer/InitialFieldProjection.cpp
 src/Modules/Modules.cpp
 src/Modules/ModulesC.cpp
 src/Model/common.cpp
+src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Transformation.cpp
 src/Numerical_aux/Statistics.cpp
 
