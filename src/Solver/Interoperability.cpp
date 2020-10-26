@@ -305,15 +305,6 @@ extern "C" {
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
 
-  extern void f_interoperability_computePlasticity( void    *i_domain,
-                                                    double  *i_timestep,
-													int    numberOfAlignedBasisFunctions,
-													double  *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *io_dofs,
-													double  *io_Energy,
-													double  *io_pstrain );
-
   extern void f_interoperability_fitAttenuation(  void*  i_domain,
                                                   double  rho,
                                                   double  mu,
@@ -998,24 +989,3 @@ void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 {
 	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
 }
-
-
-#ifdef USE_PLASTICITY
-void seissol::Interoperability::computePlasticity(  double i_timeStep,
-		                                            double *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double *io_dofs,
-													double *io_Energy,
-													double *io_pstrain ) {
-  // call fortran routine
-  f_interoperability_computePlasticity(  m_domain,
-                                        &i_timeStep,
-										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-										 i_plasticParameters,
-                                         i_initialLoading,
-                                         io_dofs,
-										 io_Energy,
-										 io_pstrain );
-}
-#endif
-

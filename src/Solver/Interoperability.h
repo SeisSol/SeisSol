@@ -391,24 +391,6 @@ class seissol::Interoperability {
    void calcElementwiseFaultoutput( double time );
 
    /**
-    * Computes plasticity.
-    *
-    * @param i_timeStep time step of the previous update.
-    * @param i_plasticParameters cell dependent plasticity parameters
-    * @param i_initialLoading initial loading of the associated cell.
-    * @param io_dofs degrees of freedom (including alignment).
-    * @param io_pstrain plastic strain tensor
-    **/
-#ifdef USE_PLASTICITY
-   void computePlasticity( double   i_timeStep,
-		                   double  *i_plasticParameters,
-                           double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                           double  *io_dofs,
-						   double  *io_Energy,
-						   double  *io_pstrain );
-#endif
-
-   /**
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
