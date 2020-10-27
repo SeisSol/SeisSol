@@ -300,7 +300,7 @@ extern "C" {
   double c_interoperability_M2invDiagonal(int no) {
       assert(no >= 0 && no < seissol::tensor::M2inv::Shape[0]);
       auto M2inv = seissol::init::M2inv::view::create(
-        const_cast<double*>(seissol::init::M2inv::Values));
+        const_cast<real*>(seissol::init::M2inv::Values));
       return M2inv(no, no);
   }
 
