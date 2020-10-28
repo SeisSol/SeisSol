@@ -42,7 +42,7 @@ lines in parameter.par file.
   FileName=’northridge.nrf’
   /
 
-Download standard rupture format file (northridge.srf) can be found in https://scec.usc.edu/scecpedia/Standard_Rupture_Format.
+Download standard rupture format file (northridge.srf) can be found in https://strike.scec.org/scecpedia/Standard_Rupture_Format.
 Please note that the SCEC units are different with SeisSol units in some
 aspect.
 
@@ -52,7 +52,7 @@ The fault is divided into 20 grids along the strike and 25 grids
   
 ::
 
-  verison (1.0)
+  version (1.0)
   PLANE 1
   ELON ELAT NSTK NDIP LEN WID STK DIP DTOP SHYP DHYP
   POINTS 500
@@ -108,17 +108,21 @@ Project geographic coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The geographic coordinates of the source model are projected to Cartesian
-coordinates wit the pre-processing tool *rconv*.
+coordinates with the pre-processing tool `rconv 
+<https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/rconv>`_.
 
-rconv -i northridge.srf -o northridge.nrf -m "+proj=merc +lon\_0=-118
-+y\_0=-4050981.42 +x\_0=57329.54 +units=m +axis=enu" -x
-visualization.xdmf
+::
+
+  rconv -i northridge.srf -o northridge.nrf -m "+proj=merc +lon\_0=-118 +y\_0=-4050981.42 +x\_0=57329.54 +units=m +axis=enu" -x visualization.xdmf
+
 
 To find the center of fault, use *cs2cs* in *proj.4* to convert the
-cooridinates:
+coordinates:
 
-echo -118.5150 34.3440 0.0 \| cs2cs +proj=lonlat +axis=enu +units=m +to
-+proj=merc +lon\_0=-118 +axis=enu +units=m
+::
+
+  echo -118.5150 34.3440 0.0 | cs2cs +proj=lonlat +axis=enu +units=m +to +proj=merc +lon\_0=-118 +axis=enu +units=m
+  
 
 This cooperation will project the coordinates and shift the center of
 fault to the origin (0,0) in Cartesian coordinates.

@@ -37,8 +37,7 @@ side of the main fault. That is, the hypocenter is 8000 m from the
 junction point, and 10 000 m deep.
 
 Figure [fig:tpv24mesh] shows the fault model generated in Gmsh. The mesh
-file can be found at. The mesh can be generated following the detailed
-process in Section [sec:tpv5].
+file can be generated using https://github.com/SeisSol/Examples/blob/master/tpv24/generating_the_mesh.sh. 
 
 .. figure:: LatexFigures/tpv24mesh.png
    :alt: Geometry generated in Gmsh of TPV24. Main fault lies in y-plane.
