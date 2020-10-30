@@ -22,7 +22,7 @@ namespace seissol {
 }
 
 
-
+//TODO: RF-files (e.g. tpv5-RF-00000-TID-00) are missing in the C++ output
 class seissol::dr::output::Output_Base{
 protected:
   dr::DrParameterT *m_Params;
@@ -48,8 +48,6 @@ public:
         real  (*peakSR)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->peakSR);
         real  (*tracXY)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tracXY);
         real  (*tracXZ)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tracXZ);
-
-
 
         DRFaceInformation*                    faceInformation = layerData.var(dynRup->faceInformation);
 

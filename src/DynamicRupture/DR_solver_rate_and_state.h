@@ -841,7 +841,7 @@ public:
   virtual void copyLtsTreeToLocalRS(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
-    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    RateAndStateNucFL103::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
 
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
