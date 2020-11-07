@@ -29,10 +29,10 @@ namespace seissol {
           case rate_and_state_slip_law: return new Factory_FL_4;
           //! severe velocity weakening friction as in Ampuero&Ben-Zion2008
           case rate_and_state_velocity_weakening: return new Factory_FL_7;
-          //! specific conditions for SCEC TPV101 rate and state aging law + time and space dependent nucleation
+          //! specific conditions for SCEC TPV101 rate and state aging law + nucleation + time and space dependent
           case rate_and_state_aging_nucleation:
             throw std::runtime_error("friction law 101 currently disables");
-          //! specific conditions for SCEC TPV103 rate and state slip law + time and space dependent nucleation
+          //! specific conditions for SCEC TPV103 rate and state slip law + nucleation + time and space dependent parameters
           case rate_and_state_slip_nucleation:
             if(DynRupParameter->IsTermalPressureOn == false)
               //!without thermal pressure

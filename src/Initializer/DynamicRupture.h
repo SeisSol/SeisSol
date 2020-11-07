@@ -95,8 +95,8 @@ public:
   Variable<real[ numOfPointsPadded ]>                   slip1;
   Variable<real[ numOfPointsPadded ]>                   slip2;
   Variable<real[ numOfPointsPadded ]>                   locSlipRate;
-  Variable<real[ numOfPointsPadded ]>                   slipRate1;
-  Variable<real[ numOfPointsPadded ]>                   slipRate2;
+  Variable<real[ numOfPointsPadded ]>                   slipRate1;  // slip rate in Y-dirction (strike)
+  Variable<real[ numOfPointsPadded ]>                   slipRate2; // slip rate in Z-direction (dip)
   Variable<real[ numOfPointsPadded ]>                   rupture_time;
   Variable<bool[ numOfPointsPadded ]>                   RF;
   Variable<real[ numOfPointsPadded ]>                   peakSR;
