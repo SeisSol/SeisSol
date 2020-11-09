@@ -497,10 +497,10 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
-  auto calcWaveSpeeds = [] (seissol::model::Material* material, double* waveSpeeds) {
-    waveSpeeds[0] = material->getMaxWaveSpeed();
-    waveSpeeds[1] = material->getSWaveSpeed();
-    waveSpeeds[2] = material->getSWaveSpeed();
+  auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
+    waveSpeeds[pos] = material->getMaxWaveSpeed();
+    waveSpeeds[nElements + pos] = material->getSWaveSpeed();
+    waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
   if (anisotropy) { 
     if(anelasticity || plasticity) {
@@ -533,7 +533,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       materialVal[19*nElements + i] = materials[i].c55;
       materialVal[20*nElements + i] = materials[i].c56;
       materialVal[21*nElements + i] = materials[i].c66;
-      calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+      calcWaveSpeeds(&materials[i], i);
     }
   } else {
     if (anelasticity) {
@@ -547,7 +547,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[2*nElements + i] = materials[i].lambda;
         materialVal[3*nElements + i] = materials[i].Qp;
         materialVal[4*nElements + i] = materials[i].Qs;
-        calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+        calcWaveSpeeds(&materials[i], i);
       }
     } else {
       auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
@@ -558,7 +558,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[i] = materials[i].rho;
         materialVal[nElements + i] = materials[i].mu;
         materialVal[2*nElements + i] = materials[i].lambda;
-        calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+        calcWaveSpeeds(&materials[i], i);
       }
     } 
 
@@ -567,15 +567,16 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       auto materials = std::vector<seissol::model::Plasticity>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::Plasticity> parameterDB;
       parameterDB.setMaterialVector(&materials);
+      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         bulkFriction[i] = materials[i].bulkFriction;
         plastCo[i] = materials[i].plastCo;
-        iniStress[i+0*nElements] = materials[i].s_xx;
-        iniStress[i+1*nElements] = materials[i].s_yy;
-        iniStress[i+2*nElements] = materials[i].s_zz;
-        iniStress[i+3*nElements] = materials[i].s_xy;
-        iniStress[i+4*nElements] = materials[i].s_yz;
-        iniStress[i+5*nElements] = materials[i].s_xz;
+        iniStress[i*6+0] = materials[i].s_xx;
+        iniStress[i*6+1] = materials[i].s_yy;
+        iniStress[i*6+2] = materials[i].s_zz;
+        iniStress[i*6+3] = materials[i].s_xy;
+        iniStress[i*6+4] = materials[i].s_yz;
+        iniStress[i*6+5] = materials[i].s_xz;
       }
     } 
   }
@@ -801,16 +802,24 @@ void seissol::Interoperability::initializeIO(
 
   constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
 
+  // record the clustering info i.e., distribution of elements within an LTS tree
+  const std::vector<Element>& MeshElements = seissol::SeisSol::main.meshReader().getElements();
+  std::vector<unsigned> LtsClusteringData(MeshElements.size());
+  auto& LtsLayout = seissol::SeisSol::main.getLtsLayout();
+  for (const auto& Element: MeshElements) {
+    LtsClusteringData[Element.localId] = LtsLayout.getGlobalClusterId(Element.localId);
+  }
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
-			numberOfQuantities, CONVERGENCE_ORDER,
-			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-			seissol::SeisSol::main.meshReader(),
-			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
-			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
-			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			refinement, outputMask, outputRegionBounds,
+      numberOfQuantities, CONVERGENCE_ORDER,
+      NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+      seissol::SeisSol::main.meshReader(),
+      LtsClusteringData,
+      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+      seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
+      m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
+      refinement, outputMask, outputRegionBounds,
       type);
 
 	// Initialize free surface output

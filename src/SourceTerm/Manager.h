@@ -50,15 +50,15 @@
 
 namespace seissol {
   namespace sourceterm {
-    void transformNRFSourceToInternalSource( glm::dvec3 const&         centre,
-                                             unsigned                  element,
-                                             Subfault const&           subfault,
-                                             Offsets const&            offsets,
-                                             Offsets const&            nextOffsets,
-                                             double *const             sliprates[3],
+    void transformNRFSourceToInternalSource( Eigen::Vector3d const&   centre,
+                                             unsigned                 element,
+                                             Subfault const&          subfault,
+                                             Offsets const&           offsets,
+                                             Offsets const&           nextOffsets,
+                                             double *const            sliprates[3],
                                              seissol::model::Material* material,
-                                             PointSources&             pointSources,
-                                             unsigned                  index );
+                                             PointSources&            pointSources,
+                                             unsigned                 index );
     class Manager;
   }
 }

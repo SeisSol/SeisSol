@@ -77,4 +77,4 @@ python ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py --MP 4 prefix-su
 ```
 (assuming a 4 cores processors).
 
-The script can also be used on a high performance cluster, see Supermuc2CommandFileComputeGroundMotions.sh and SupermucNGCommandFileComputeGroundMotions.sh for examples of Job File on supermuc2 and supermugNG.
+The script can also be used on a high performance cluster, see SupermucNGCommandFileComputeGroundMotions.sh for an example of a job file on supermugNG.

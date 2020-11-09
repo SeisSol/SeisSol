@@ -1,5 +1,5 @@
 import argparse
-from submodules.pythonXdmfReader.pythonXdmfReader import *
+from pythonXdmfReader.pythonXdmfReader import *
 import numpy as np
 parser = argparse.ArgumentParser(description='estimate minimum cohesive length from fault output')
 parser.add_argument('filename', help='fault output filename (xdmf)')

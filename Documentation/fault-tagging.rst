@@ -1,15 +1,16 @@
 Fault tagging
 =============
 
-| In SeisSol, boundary conditions are historically tagged as:
+| In SeisSol, boundary conditions are tagged as:
 | 0: regular
 | 1: free surface
-| 3: dynamic rupture
+| 2: free surface + gravity (water surface)
+| 3 or n>64: dynamic rupture
 | 5: absorbing
 | 6: periodic
 
-Recently, we added the possibility to also tag dynamic rupture also with
-n>64. It is then possible to initialized fault parameters segment-wise
+Dynamic rupture can therefore be tagged using a range of possible tags.
+This allows initializing fault parameters segment-wise
 easily. For example, if we have 2 segments, and we want them to have
 different dynamic friction, we can tag them with 3 and 65 and then use:
 
@@ -28,9 +29,8 @@ different dynamic friction, we can tag them with 3 and 65 and then use:
            map:
              mu_d:    0.4
 
-Currently, the only way to tag fault faces using simModeler library and
-pumgen is to compile pumgen in the xml branch and make use of the xml
-feature. For example, to tag face 2 as 3 and face 8 and 9 as 65, we would
+Currently, the only way to tag fault faces other tags than 3 with SimModeler is to use the `--xml` option of pumgen. 
+For example, to tag face 2 as 3 and face 8 and 9 as 65, we would
 use:
 
 .. code-block:: xml
@@ -42,5 +42,5 @@ Then pumgen is run using the xml option:
 
 ::
 
-   poe pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
+   pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
 

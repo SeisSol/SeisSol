@@ -41,7 +41,7 @@
 #define INITIALIZER_POINTMAPPER_H_
 
 #include <Geometry/MeshReader.h>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 
 namespace seissol {
   namespace initializers {
@@ -49,7 +49,7 @@ namespace seissol {
      *  In "contained" we save if the point source is contained in the mesh.
      *  We use short here as bool. For MPI use cleanDoubles afterwards.
      */
-    void findMeshIds( glm::dvec3 const*  points,
+    void findMeshIds( Eigen::Vector3d const*  points,
                       MeshReader const& mesh,
                       unsigned          numPoints,
                       short*            contained,

@@ -57,7 +57,7 @@ Example 1: Initial stresses for a 60° dipping fault
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Following the SCEC benchmark description of
-`TPV10 <http://scecdata.usc.edu/cvws/download/TPV10_11_Description_v7.pdf>`__
+`TPV10 <http://strike.scec.org/cvws/download/TPV10_11_Description_v7.pdf>`__
 we need to transfer the following initial stresses given in fault
 coordinates in global coordinates for SeisSol:
 
@@ -91,8 +91,7 @@ Normal and shear stresses in fault coordinate system for strike-slip
 fault aligned with the x- or y-axis are already in the global
 coordinates. But if we have additional branches the initial stresses
 need to be rotated again. Following for example the SCEC benchmark
-description for [TPV14]
-(`http://scecdata.usc.edu/cvws/download/TPV14_15_Description_v08.pdf <http://scecdata.usc.edu/cvws/download/TPV14_15_Description_v08.pdf>`__),
+description for `TPV14 <http://strike.scec.org/cvws/download/TPV14_15_Description_v08.pdf>`__,
 the stresses for the right-lateral strike-slip fault in xz-plane are:
 
 ::

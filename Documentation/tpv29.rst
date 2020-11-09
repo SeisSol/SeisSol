@@ -31,10 +31,11 @@ the model.
    Line to the end: fault topography of each nodes (nx\*ny, in meters)
    
 
-Save this file as *mytopo\_tpv29*.
+Using `generate_mytopo_tpv29.py <https://github.com/SeisSol/Examples/blob/master/tpv29/generate_mytopo_tpv29.py>`__ to create the topography data.
+
 
 2.Make a model with plane fault as Figure [fig:tpv29geo]. The Gmsh
-tpv29.geo file can be found at
+tpv29.geo file can be found at https://github.com/SeisSol/Examples/blob/master/tpv29/tpv29.geo. 
 
 .. figure:: LatexFigures/tpv29geo.png
    :alt: Diagram showing the geometry of TPV 29.
@@ -49,8 +50,7 @@ fault according to positions given in *mytopo_tpv29*.
 
   $ ./gmsh_plane2topo interpol_topo.in
 
-This will generate a step1\_modified.msh file which containing rough
-  fault surface.
+This will generate a step1\_modified.msh file which containing rough fault surface.
 
 4.Make a new step2.geo file that contains the new rough fault and mesh
 following general Gmsh process.
@@ -62,11 +62,24 @@ following general Gmsh process.
    Diagram showing the geometry of TPV 29. The center of nucleation is at (-8, 0, -10) km on the main fault. 
    
 5. Generate MSH mesh with the command line:
+
 ::
 
   & gmsh tpv29_step2.geo -3 -optimize_netgen -o tpv29_step2.msh
   
 option optimize_netgen is necessary for optimizing meshing with good quality.
+
+6.Then convert the .msh file to 3D Gambit neutral file and PUML format as same as shown in TPV5
+
+::
+   $ gmsh2gambit -i tpv29_step2.msh -o tpv29.neu
+   $ pumgen tpv29.neu tpv29
+
+
+The mesh can be created by using the bash script https://github.com/SeisSol/Examples/blob/master/tpv29/generating_the_mesh.sh.
+
+Here we show a fully opensource workflow which allows generating a mesh accounting for tpv29 rough fault geometry. This yields a mesh that does not properly account for the intersection between fault and the free-surface. We note that it is here not an important issue, as the tpv29 benchmark does not feature surface rupturing. Another drawback of this workflow is that the rate of mesh size coarsening is not easy parametrizable.
+A more straightforward and accurate way to generate a mesh would be to use simModeler. 
 
 Material parameters
 ~~~~~~~~~~~~~~~~~~~

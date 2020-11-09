@@ -53,10 +53,10 @@
 
 #ifndef NETCDF_PASSIVE
 
+#include <netcdf.h>
 #ifdef USE_MPI
 #include <netcdf_par.h>
 #endif // USE_MPI
-#include <netcdf.h>
 
 #endif // NETCDF_PASSIVE
 

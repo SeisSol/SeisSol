@@ -99,6 +99,10 @@ def guessMemoryLayout(env):
   script_dir = os.path.dirname(os.path.abspath(__file__))
   path = os.path.join(script_dir, '..', 'auto_tuning', 'config')
 
+  if 'gpu' in env['targets']:
+    print('INFO: Found gpu as a target. Memory layout will fall back to all dense')
+    return os.path.join(path, 'dense.xml')
+
   # from least to most
   importance = ['precision', 'equations', 'order', 'pe', 'multipleSimulations']
   values = {

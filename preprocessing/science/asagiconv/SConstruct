@@ -167,7 +167,6 @@ else:
 
 # compiler flags for generated kernels
 env.Append(CXXFLAGS = ['-Wall', '-ansi', '-std=c++11'])
-env.Append(CPPDEFINES = ['GLM_FORCE_CXX98'])
 if env['compileMode'] == 'debug':
   env.Append(CXXFLAGS=['-O0','-g'])
 elif env['compileMode'] == 'release':
@@ -187,8 +186,8 @@ env.Tool('PrefixPathTool')
 # PStreams
 env.Append(CPPPATH=['#/submodules/pstreams'])
 
-# glm
-env.Append(CPPPATH=['#/submodules/glm'])
+# eigen3
+env.Append(CPPPATH=['#/submodules/eigen3'])
 
 # netCDF
 env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['mpi']), required=True)

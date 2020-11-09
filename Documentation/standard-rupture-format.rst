@@ -3,7 +3,7 @@ Standard Rupture Format
 
 SeisSol supports the Standard Rupture Format (SRF) for kinematic rupture
 models. Details about the file format can be found at the `SCEC
-Wiki <https://scec.usc.edu/scecpedia/Standard_Rupture_Format>`__. With
+Wiki <https://strike.scec.org/scecpedia/Standard_Rupture_Format>`_. With
 the help of the SRF format, one may specify several subfaults (point
 sources), where one may give individual source time function for each
 subfault. The location, however, is given in latitude, longitude, and
@@ -22,7 +22,7 @@ we opted for the second approach, because
 `krfviewer <https://github.com/SeisSol/Geodata/tree/master/krfviewer>`__
 to inspect Standard Rupture Format files and to test projections.
 
-| **Note:** There is a slit difference in SRF version 1.0 and 2.0.
+| **Note:** There is a slight difference in SRF version 1.0 and 2.0.
 | Point line 1 in 1.0: longitude latitude depth strike dip area tinit
   dt.
 | Point line 1 in 2.0: longitude latitude depth strike dip area tinit dt

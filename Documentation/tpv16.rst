@@ -33,7 +33,7 @@ which the fault is not allowed to rupture.
 
 In the example, a vertical fault is generated with Gmsh in Figure
 [fig:tpv16mesh]. All the files that are needed for the simulation are
-provided in .
+provided in https://github.com/SeisSol/Examples/tree/master/tpv16.
 
 .. figure:: LatexFigures/tpv16mesh.png
    :alt: Fault geometry of TPV16.

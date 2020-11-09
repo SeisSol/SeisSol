@@ -44,11 +44,13 @@ class Waveform:
     data = numpy.array(data)
     
     self.waveforms = dict()
+    self.norm = dict()
     for i in range(0, len(names)):
       if names[i] == 'Time':
         self.time = data[:,i]
       else:
         self.waveforms[ names[i] ] = data[:,i]
+        self.norm[ names[i] ] = numpy.max(numpy.abs(data[:,i]))
     
     self.coordinates = numpy.array(coordinates)
 
@@ -60,4 +62,9 @@ class Waveform:
       wf1 = numpy.interp(newTime, self.time, self.waveforms[name])
       self.waveforms[name] = wf1 - wf0
     self.time = newTime
+
+  def normalize(self):
+    for name, wf in self.waveforms.items():
+      if self.norm[name] > numpy.finfo(float).eps:
+        self.waveforms[name] = wf / self.norm[name]
     

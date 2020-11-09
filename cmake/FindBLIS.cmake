@@ -25,7 +25,7 @@ find_path(BLIS_INCLUDE_DIRS blis.h
 )
 
 find_library(BLIS_LIBRARIES
-  NAMES libblis.a
+  NAMES libblis.a libblis.so
   HINTS ENV BLIS_DIR
   PATH_SUFFIXES lib
   DOC "Directory where the BLIS library is located"
