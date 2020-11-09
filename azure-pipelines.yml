@@ -41,7 +41,7 @@ steps:
         else
             mechanisms=0
         fi
-        for precision in float double; do
+        for precision in single double; do
             for build_type in Debug Release; do
                 dirname="build_${equation}_${precision}_${build_type}"
                 echo "mkdir ${dirname}"
