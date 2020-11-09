@@ -1,6 +1,6 @@
 jobs:
   - job:
-    displayName: ${{ format('equation:{0} precision:{1} build_type:{2}', equation, precision, build_type) }}
+    displayName: seissol-documentation
     pool:
       vmImage: 'ubuntu-18.04'
     steps:
