@@ -1,7 +1,7 @@
 jobs:
     - ${{ each equation in parameters.equations }}:
-          - ${{ each precision in parameters.precision }}:
-            - ${{ each build_type in parameters.build_type }}:
+          - ${{ each precision in parameters.precisions }}:
+            - ${{ each build_type in parameters.build_types }}:
                 - job:
                       displayName: ${{ format('equation:{0} precision:{1} build_type:{2}', equation, precision, build_type) }}
                       pool:

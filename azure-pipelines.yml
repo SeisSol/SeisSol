@@ -4,6 +4,6 @@ trigger:
 jobs:
     - template: azure-pipelines-seissol-template.yml
       parameters:
-          build_type: ['Release', 'Debug']
-          precision: ['single', 'double']
-          equation: ['elastic', 'anisotropic', 'viscoelastic2']
+          build_types: ['Release', 'Debug']
+          precisions: ['single', 'double']
+          equations: ['elastic', 'anisotropic', 'viscoelastic2']
