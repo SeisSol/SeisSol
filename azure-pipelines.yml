@@ -6,6 +6,9 @@ pool:
 
 steps:
 - bash: |
+    set -euo pipefail
+    export IFS=$'\n\t'
+    export CTEST_OUTPUT_ON_FAILURE=1
     whoami
     pwd
     ls
@@ -32,24 +35,7 @@ steps:
     cd ..
 
     git submodule update --init
-    # Compile dependencies
-    
-    # Impala
-    cd submodules/ImpalaJIT
-    mkdir build && cd build
-    cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
-    make -j $(nproc) install
-
-    # yaml-cpp
-    cd ../../yaml-cpp
-    mkdir build && cd build
-    cmake -DCMAKE_INSTALL_PREFIX=$HOME -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF -- ..
-    make -j $(nproc) install
-
-    export CTEST_OUTPUT_ON_FAILURE=1
-    cd ../../../
-
-    for equation in elastic viscoelastic2 anisotropy; do
+    for equation in elastic viscoelastic2 anisotropic; do
         if [ "$equation" = viscoelastic2 ]; then
             mechanisms=3
         else
@@ -60,7 +46,7 @@ steps:
                 dirname="build_${equation}_${precision}_${build_type}"
                 echo "mkdir ${dirname}"
                 mkdir -p $dirname && cd $dirname
-                CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
+                CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
                 make -j $(nproc)
                 make test
                 cd ..
