@@ -9,7 +9,7 @@ jobs:
                       steps:
                         - bash: |
           set -euo pipefail
-          export IFS=\$'\n\t'
+          export IFS=${{ ''$'\n\t'' }}
           export CTEST_OUTPUT_ON_FAILURE=1
           whoami
           pwd
