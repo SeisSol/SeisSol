@@ -246,6 +246,9 @@ if (ADDRESS_SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
 endif() 
 
+find_package(Armadillo REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC ${ARMADILLO_LIBRARIES})
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules

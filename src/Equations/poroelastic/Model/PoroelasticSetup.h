@@ -1,8 +1,4 @@
-#include <stdexcept>
-#include <iostream>
-
-#include <Eigen/Eigen>
-#include <Eigen/Eigenvalues>
+#include <armadillo>
 
 #include <yateto/TensorView.h>
 
@@ -35,86 +31,68 @@ namespace seissol {
     {
       constexpr auto tolerance = 1.0e-4;
 
-      using Matrix = Eigen::Matrix<double, 13, 13, Eigen::ColMajor>;
-      using CMatrix = Eigen::Matrix<std::complex<double>, 13, 13, Eigen::ColMajor>;
-      auto eigenDecomposition = [&tolerance](PoroElasticMaterial const& material) {
-        Matrix t = Matrix::Zero();
-        getTransposedCoefficientMatrix(material, 0, t);
-        Eigen::EigenSolver<Matrix> es;
-        es.compute(t.transpose());
+      using Matrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using Vector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
+      struct eigenDecomposition { Vector eigenvalues; Matrix eigenvectors; };
+      auto getEigenDecomposition = [&tolerance](PoroElasticMaterial const& material) {
+        Matrix coeff(arma::fill::zeros);
+        getTransposedCoefficientMatrix(material, 0, coeff);
+
+	Matrix arma_eigenvectors(arma::fill::zeros);
+	Vector arma_eigenvalues(arma::fill::zeros);
+	arma::eig_gen(arma_eigenvalues, arma_eigenvectors, coeff.t());
 
 #ifndef NDEBUG
-        auto evs = es.eigenvalues();
         int ev_neg = 0;
         int ev_pos = 0;
-        for (int i = 0; i < 13; ++i) {
-          if (evs(i).real() < -tolerance) {
+        for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+          if (arma_eigenvalues(i).real() < -tolerance) {
             ++ev_neg;
-          } else if (evs(i).real() > tolerance) {
+          } else if (arma_eigenvalues(i).real() > tolerance) {
             ++ev_pos;
           }
         }
         assert(ev_neg == 4);
         assert(ev_pos == 4);
 #endif
-        return es;
+        return eigenDecomposition({arma_eigenvalues, arma_eigenvectors});
       };
-      auto eigen_local = eigenDecomposition(local);
-      auto eigen_neighbor = eigenDecomposition(neighbor); 
-      Matrix chi_minus = Matrix::Zero();
-      Matrix chi_plus = Matrix::Zero();
+      auto eigen_local = getEigenDecomposition(local);
+      auto eigen_neighbor = getEigenDecomposition(neighbor); 	
+
+      Matrix chi_minus(arma::fill::zeros);
+      Matrix chi_plus(arma::fill::zeros);
       for(int i = 0; i < 13; i++) {
-        if(eigen_local.eigenvalues()[i].real() < -tolerance) {
+        if(eigen_local.eigenvalues(i).real() < -tolerance) {
           chi_minus(i,i) = 1.0;
         }
-        if(eigen_neighbor.eigenvalues()[i].real() > tolerance) {
+        if(eigen_local.eigenvalues(i).real() > tolerance) {
           chi_plus(i,i) = 1.0;
         }
       }
-      CMatrix R;
-      //R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
-      R = eigen_local.eigenvectors();
+
+      //Matrix R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
+      Matrix R = eigen_local.eigenvectors;
       if (faceType == FaceType::freeSurface) {
         logWarning() << "Poroelastic Free Surface is not tested yet.";
-        Matrix R_real = R.real().eval();
-        getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
+        //Matrix R_real = R.real().eval();
+        //getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
       } else {
-        CMatrix godunov_minus = ((R*chi_minus)*R.inverse()).eval();
-        CMatrix godunov_plus = ((R*chi_plus)*R.inverse()).eval();
-
-        //std::cout << "R" << std::endl; 
-        //for (int i = 0; i < 13; i++) {
-        //  for (int j = 0; j < 13; j++) {
-        //    std::cout << R(i, j) << "; ";
-        //  }
-        //  std::cout << "\n"; 
-        //}
-        //std::cout << "\n"; 
-
-        //std::cout << "god minus" << std::endl; 
-        //for (int i = 0; i < 13; i++) {
-        //  for (int j = 0; j < 13; j++) {
-        //    std::cout << godunov_minus(i, j) << "; ";
-        //  }
-        //  std::cout << "\n"; 
-        //}
-        //std::cout << "\n"; 
+	Matrix R_inv = inv(R);
+        Matrix godunov_minus = R * chi_minus * R_inv;
+        Matrix godunov_plus =  R * chi_plus * R_inv;
 
         for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
           for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-            QgodLocal(i,j) = godunov_plus(j,i).real();
-            QgodNeighbor(i,j) = godunov_minus(j,i).real();
+            QgodLocal(j,i) = godunov_plus(i,j).real();
+            QgodNeighbor(j,i) = godunov_minus(i,j).real();
+#ifndef NDEBUG
+	    assert(std::abs(godunov_plus(j,i).imag()) < tolerance);
+	    assert(std::abs(godunov_minus(j,i).imag()) < tolerance);
+#endif
           }
         }
       }
-
-      QgodLocal.setZero();
-      QgodNeighbor.setZero();
-      for (unsigned i = 0; i < 13; ++i) {
-        QgodLocal(i,i) = 0.5;
-        QgodNeighbor(i,i) = 0.5;
-      }
-
     }
 
     inline void calcZinv( yateto::DenseTensorView<3, real, unsigned> &Zinv, 

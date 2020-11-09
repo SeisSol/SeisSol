@@ -33,7 +33,6 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-    //Planarwave(const CellMaterialData& materialData, double phase = 0.0, std::array<double, 3> kVec = {M_PI*0.001, M_PI*0.001, M_PI*0.001});
     Planarwave(const CellMaterialData& materialData, double phase = 0.0, std::array<double, 3> kVec = {M_PI, M_PI, M_PI});
 
       void evaluate(  double time,
@@ -46,7 +45,7 @@ namespace seissol {
       const double                                      m_phase;
       const std::array<double, 3>                       m_kVec;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
-      std::complex<double> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+      std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> m_eigenvectors;
     };
 
     //superimpose three planar waves travelling into different directions

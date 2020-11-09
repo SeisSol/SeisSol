@@ -1,7 +1,8 @@
 #include <cmath>
 #include <array>
 #include <numeric>
-#include <Eigen/Eigenvalues>
+
+#include <armadillo>
 
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
@@ -14,8 +15,8 @@
 extern seissol::Interoperability e_interoperability;
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
-  : m_varField{0, 1, 4},
-    m_ampField{1.0, 1.0, 1.0},
+  : m_varField{3, NUMBER_OF_QUANTITIES-2},
+    m_ampField{100.0, 100.0},
     m_phase(phase),
     m_kVec(kVec)
 {
@@ -24,29 +25,29 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, d
   std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator);
 
-  using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
+  using Matrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+  using Vector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
+
   Matrix op(planeWaveOperator);
-  Eigen::ComplexEigenSolver<Matrix> ces;
-  ces.compute(op);
+  Matrix arma_eigenvectors(arma::fill::zeros);
+  Vector arma_eigenvalues(arma::fill::zeros);
+  arma::eig_gen(arma_eigenvalues, arma_eigenvectors, op, "balance");
   
   //sort eigenvalues so that we know which eigenvalue corresponds to which mode
-  auto eigenvalues = ces.eigenvalues();
-  std::vector<size_t> sortedIndices(NUMBER_OF_QUANTITIES);
+  std::array<size_t, NUMBER_OF_QUANTITIES> sortedIndices;
   std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
-  std::sort(sortedIndices.begin(), sortedIndices.end(), [&eigenvalues](size_t a, size_t b) {
-    return eigenvalues[a].real() < eigenvalues[b].real();
+  std::sort(sortedIndices.begin(), sortedIndices.end(), [&arma_eigenvalues](size_t a, size_t b) {
+    return arma_eigenvalues(a).real() < arma_eigenvalues(b).real();
   });
 
   for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-    m_lambdaA[i] = eigenvalues(sortedIndices[i],0);
+    m_lambdaA[i] = arma_eigenvalues(sortedIndices[i]);
   }
 
-  auto eigenvectors = ces.eigenvectors();
-
-  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      R(i,j) = eigenvectors(i,sortedIndices[j]);
+      R(i,j) = arma_eigenvectors(i,sortedIndices[j]);
     }
   }
 }
@@ -58,22 +59,14 @@ void seissol::physics::Planarwave::evaluate(double time,
 {
   dofsQP.setZero();
 
-  auto R = yateto::DenseTensorView<2,std::complex<double>>(
-      const_cast<std::complex<double>*>(m_eigenvectors), 
-      {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES}
-      );
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
-        dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
+        dofsQP(i,j) += (R(j, m_varField[v]) * m_ampField[v] *
                         std::exp(std::complex<double>(0.0, 1.0) * (
-                          omega * time 
-                          - m_kVec[0]*points[i][0] 
-                          - m_kVec[1]*points[i][1] 
-                          - m_kVec[2]*points[i][2] 
-                          + std::complex<double>(m_phase, 0)
-                          ))).real();
+                          omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + std::complex<double>(m_phase, 0)))).real();
       }
     }
   }

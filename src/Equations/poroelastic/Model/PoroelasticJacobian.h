@@ -1,6 +1,7 @@
 #ifndef MODEL_POROELASTIC_JACOBIAN_H_
 #define MODEL_POROELASTIC_JACOBIAN_H_
 
+#include <armadillo>
 #include <Eigen/Eigen>
 
 namespace seissol {
@@ -8,11 +9,25 @@ namespace seissol {
     struct PoroElasticMaterial;
 
     template<typename T>
+    inline void setToZero(T& AT) {
+      AT.setZero();
+    };
+
+    template<>
+    inline void setToZero(arma::Mat<std::complex<double> >::fixed<13, 13>& AT) {
+      for (size_t row = 0; row < AT.n_rows; row++) {
+        for (size_t col = 0; col < AT.n_cols; col++) {
+          AT(row, col) = 0;
+        }
+      }
+    };
+
+    template<typename T>
     inline void getTransposedCoefficientMatrix( PoroElasticMaterial const& material,
         unsigned dim,
         T& AT)
     {
-      AT.setZero();
+      setToZero<T>(AT);
 
       Eigen::Matrix<double, 6, 1> alpha;
       alpha << 1 - (3*material.lambda + 2*material.mu) / (3*material.bulk_solid),
