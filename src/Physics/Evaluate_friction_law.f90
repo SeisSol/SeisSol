@@ -273,12 +273,6 @@ MODULE Eval_friction_law_mod
     tmpSlip = 0.0D0
     srFactor = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))
 
-    !where (ABS(absoluteSlip(:)).LT.DISC%DynRup%D_C(:,iFace))
-    ! DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace) - DISC%DynRup%Mu_D(:,iFace)) / DISC%DynRup%D_C(:,iFace) * ABS(absoluteSlip(:))
-    !elsewhere
-    ! DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_D(:,iFace)
-    !endwhere
-
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
 
