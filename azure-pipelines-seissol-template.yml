@@ -4,10 +4,10 @@ jobs:
             - ${{ each build_type in parameters.build_type }}:
                 - job:
                       displayName: ${{ format('equation:{0} precision:{1} build_type:{2}', equation, precision, build_type) }}
-                          pool:
-                              vmImage: 'ubuntu-18.04'
-                          steps:
-                            - bash: |
+                      pool:
+                        vmImage: 'ubuntu-18.04'
+                      steps:
+                        - bash: |
           set -euo pipefail
           export IFS=$'\n\t'
           export CTEST_OUTPUT_ON_FAILURE=1
