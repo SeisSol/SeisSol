@@ -268,8 +268,8 @@ extern "C" {
   void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
     unsigned idx = 0;
     for (unsigned int d = 0; d <= N; ++d) {
-      for (unsigned int k = 0; k <= d; k++) {
-        for (unsigned int j = 0; j <= d - k; j++) {
+      for (unsigned int k = 0; k <= d; ++k) {
+        for (unsigned int j = 0; j <= d - k; ++j) {
             phis[idx++] = seissol::functions::TetraDubinerP({d - j - k, j, k}, {xi, eta, zeta});
         }
       }
@@ -279,7 +279,7 @@ extern "C" {
   void c_interoperability_TriDubinerP(double* phis, double xi, double eta, int N) {
     unsigned idx = 0;
     for (unsigned int d = 0; d <= N; ++d) {
-      for (unsigned int j = 0; j <= d; j++) {
+      for (unsigned int j = 0; j <= d; ++j) {
         phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
       }
     }
@@ -288,7 +288,7 @@ extern "C" {
   void c_interoperability_gradTriDubinerP(double* phis, double xi, double eta, int N) {
     unsigned idx = 0;
     for (unsigned int d = 0; d <= N; ++d) {
-      for (unsigned int j = 0; j <= d; j++) {
+      for (unsigned int j = 0; j <= d; ++j) {
         auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
         for (auto const& g : grad) {
             phis[idx++] = g;
