@@ -130,7 +130,7 @@ module f_ctof_bind_interoperability
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
     end subroutine
 
-    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
+    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_absoluteSlip, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -153,6 +153,9 @@ module f_ctof_bind_interoperability
 
       type(c_ptr), value                     :: i_imposedStateMinus
       REAL_TYPE, pointer                     :: l_imposedStateMinus(:,:)
+
+      type(c_ptr), value                     :: i_absoluteSlip
+      REAL_TYPE, pointer                     :: l_absoluteSlip(:)
 
       type(c_ptr), value                     :: i_time
       real*8, pointer                        :: l_time
@@ -182,9 +185,11 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_godunov,            l_godunov, [i_godunovLd,9,CONVERGENCE_ORDER])
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
+      call c_f_pointer( i_absoluteSlip,       l_absoluteSlip, [i_godunovLd])
       call c_f_pointer( i_time,               l_time  )
       
       call copyDynamicRuptureState(l_domain, i_face, i_face)
+      l_domain%disc%DynRup%output_Slip(:,i_face) = l_absoluteSlip(:)
 
       iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
       iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
@@ -196,34 +201,34 @@ module f_ctof_bind_interoperability
 
       do j=1,CONVERGENCE_ORDER
         do i=1,i_numberOfPoints
-          NorStressGP(i,j) = l_godunov(i,1,j)
+          NorStressGP(i,j) = 0.9D0 * l_godunov(i,1,j)
           XYStressGP(i,j) = l_godunov(i,4,j)
           XZStressGP(i,j) = l_godunov(i,6,j)
         enddo
       enddo
 
-      call Eval_friction_law( TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
-                              NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
+      call Eval_friction_law( TractionGP_XY,TractionGP_XZ,                   & ! OUT: updated Traction
+                              NorStressGP,XYStressGP,XZStressGP,             & ! IN: Godunov status
                               i_face,iSide,iElem,l_time,timePoints,          & ! IN: element ID, time, inv Trafo
-                              rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
-                              l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd)
+                              rho,rho_neig,w_speed,w_speed_neig,             & ! IN: background values
+                              l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd, l_absoluteSlip)
 
       l_imposedStatePlus = 0.0
       l_imposedStateMinus = 0.0
 
       do j=1,CONVERGENCE_ORDER
         do i=1,i_numberOfPoints
-          l_imposedStateMinus(i,1) = l_imposedStateMinus(i,1) + timeWeights(j) * l_godunov(i,1,j)
+          l_imposedStateMinus(i,1) = l_imposedStateMinus(i,1) + timeWeights(j) * NorStressGP(i,j)
           l_imposedStateMinus(i,4) = l_imposedStateMinus(i,4) + timeWeights(j) * TractionGP_XY(i,j)
           l_imposedStateMinus(i,6) = l_imposedStateMinus(i,6) + timeWeights(j) * TractionGP_XZ(i,j)
-          l_imposedStateMinus(i,7) = l_imposedStateMinus(i,7) + timeWeights(j) * l_godunov(i,7,j)
+          l_imposedStateMinus(i,7) = l_imposedStateMinus(i,7) + timeWeights(j) * (l_godunov(i,7,j) - 1.0D0/(w_speed_neig(1)*rho_neig) * (NorStressGP(i,j)-l_godunov(i,1,j)))
           l_imposedStateMinus(i,8) = l_imposedStateMinus(i,8) + timeWeights(j) * (l_godunov(i,8,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XY(i,j)-l_godunov(i,4,j)))
           l_imposedStateMinus(i,9) = l_imposedStateMinus(i,9) + timeWeights(j) * (l_godunov(i,9,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XZ(i,j)-l_godunov(i,6,j)))
 
-          l_imposedStatePlus(i,1) = l_imposedStatePlus(i,1) + timeWeights(j) * l_godunov(i,1,j)
+          l_imposedStatePlus(i,1) = l_imposedStatePlus(i,1) + timeWeights(j) * NorStressGP(i,j)
           l_imposedStatePlus(i,4) = l_imposedStatePlus(i,4) + timeWeights(j) * TractionGP_XY(i,j)
           l_imposedStatePlus(i,6) = l_imposedStatePlus(i,6) + timeWeights(j) * TractionGP_XZ(i,j)
-          l_imposedStatePlus(i,7) = l_imposedStatePlus(i,7) + timeWeights(j) * l_godunov(i,7,j)
+          l_imposedStatePlus(i,7) = l_imposedStatePlus(i,7) + timeWeights(j) * (l_godunov(i,7,j) + 1.0D0/(w_speed(1)*rho) * (NorStressGP(i,j)-l_godunov(i,1,j)))
           l_imposedStatePlus(i,8) = l_imposedStatePlus(i,8) + timeWeights(j) * (l_godunov(i,8,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XY(i,j)-l_godunov(i,4,j)))
           l_imposedStatePlus(i,9) = l_imposedStatePlus(i,9) + timeWeights(j) * (l_godunov(i,9,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XZ(i,j)-l_godunov(i,6,j)))
         enddo
