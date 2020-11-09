@@ -1,6 +1,3 @@
-trigger:
-- azure-pipelines
-
 jobs:
     - template: azure-pipelines-doc-template.yml
     - template: azure-pipelines-seissol-template.yml
