@@ -5,7 +5,7 @@ jobs:
                 - job:
                   displayName: ${{ format('equation:{0} precision:{1} build_type:{2}', equation, precision, build_type) }}
                   pool:
-                    vmImage: 'ubuntu-18.04'
+                    vmImage: 'ubuntu-20.04'
                   steps:
                     - bash: |
                         set -euo pipefail
@@ -20,7 +20,7 @@ jobs:
                         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
                         sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
                         gcc --version
-                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-100 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest
+                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev
                         sudo pip3 install --upgrade pip
                         sudo pip3 install 'numpy>=1.12.0'
                         git clone https://github.com/hfp/libxsmm
