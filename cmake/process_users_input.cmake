@@ -79,8 +79,8 @@ set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
 
 
-set(GEMM_TOOLS_LIST "Eigen" CACHE STRING "choose a gemm tool(s) for the code generator")
-set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
+set(GEMM_TOOLS_LIST "auto" CACHE STRING "choose a gemm tool(s) for the code generator")
+set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
@@ -109,6 +109,26 @@ check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}"
 check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
+# deduce GEMM_TOOLS_LIST based on the host arch
+if (GEMM_TOOLS_LIST STREQUAL "auto")
+    set(X86_ARCHS wsm snb hsw knc knl skx)
+    set(WITH_AVX512_SUPPORT knl skx)
+
+    if (${HOST_ARCH} IN_LIST X86_ARCHS)
+        if (${HOST_ARCH} IN_LIST WITH_AVX512_SUPPORT)
+            set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM")
+        else()
+            set(GEMM_TOOLS_LIST "LIBXSMM")
+        endif()
+    else()
+        set(GEMM_TOOLS_LIST "Eigen")
+    endif()
+endif()
+
+if (NOT ${DEVICE_ARCH} STREQUAL "none")
+    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
+endif()
+message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")

@@ -122,7 +122,7 @@ set compiler options:
   $ cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
   $ make
   $ make install
-  (Know errors: 1.Numa could not found - turn off Numa by -DNONUMA=on . )
+  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
 
 4. Install SeisSol with cmake, e.g. with (more options with ccmake)
@@ -167,6 +167,7 @@ set compiler options:
   #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
   module load slurm_setup
+  
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
