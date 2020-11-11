@@ -352,7 +352,6 @@ MODULE TypesDef
                                                      !< 1 = Rusanov
     !< Important numbers
     INTEGER           :: nMinPoly                    !< Min. deg. of basis poly.
-    INTEGER           :: nMaxPoly                    !< Max. deg. of basis poly.
     INTEGER           :: nPoly                       !< Degree of the polynomials
     INTEGER           :: nPolyRec                    !< Degree of rec. polynomials
     INTEGER           :: nPolyMatOrig                !< Degree of A,B,C polynomial
@@ -394,13 +393,6 @@ MODULE TypesDef
     REAL, POINTER     :: geoTangent2(:,:,:) => NULL()!< Vector 2 in the side plane
     REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Triangle surface in 2D for fault
     !< Other variables related to the DG - Method
-    REAL, ALLOCATABLE :: cPoly(:,:,:,:)              !< Coeff. of base polynomials
-    REAL, ALLOCATABLE :: cPoly_Tri(:,:,:,:)          !< Coeff. of base polynomials
-    REAL, ALLOCATABLE :: cPoly_Quad(:,:,:,:)         !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D(:,:,:,:,:) => NULL()!< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D_Tet(:,:,:,:,:) => NULL() !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D_Hex(:,:,:,:,:) => NULL() !< Coeff. of base polynomials
-    REAL, POINTER     :: cPolyRec(:,:,:,:) => NULL() !< Coeff. of rec. polynomials
     REAL, POINTER     :: KMatrix(:,:) => NULL()      !< Precalculated i. integrals
     REAL, POINTER     :: F1Matrix(:,:) => NULL()     !< Precalculated b. integrals
     REAL, POINTER     :: F2Matrix(:,:) => NULL()     !< Precalculated b. integrals
@@ -430,24 +422,6 @@ MODULE TypesDef
     REAL, POINTER     :: bndGaussW_Hex(:)    => NULL()         !< Gaussweights on boundary
     REAL, POINTER     :: FR_GP(:,:)    => NULL()              !< Neighbor flux of GP of nc edge
     !<
-    REAL, ALLOCATABLE :: MassMatrix(:,:,:)           !< Mass Matrix
-    REAL, ALLOCATABLE :: iMassMatrix(:,:,:)          !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Tet(:,:,:) => NULL()      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Tet(:,:,:) => NULL()     !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Hex(:,:,:) => NULL()      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Hex(:,:,:) => NULL()     !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Tri(:,:,:) => NULL()      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Tri(:,:,:) => NULL()     !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Quad(:,:,:) => NULL()     !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Quad(:,:,:)  => NULL()   !< Inverse Mass Matrix
-    REAL, POINTER     :: FMatrix(:,:,:,:) => NULL()           !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix_Tri(:,:,:,:) => NULL()       !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D(:,:,:,:,:) => NULL()       !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D_Tet(:,:,:,:,:,:) => NULL() !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D_Hex(:,:,:,:,:,:) => NULL() !< Flux matrices (Quadfree)
-    REAL, POINTER     :: Kxi(:,:) => NULL()                   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta(:,:) => NULL()                  !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta(:,:) => NULL()                 !< Stiffness Matrix (zeta)
     REAL, POINTER     :: Coeff_level0(:,:,:,:) => NULL()      !< ADER DG Coefficients
     REAL, POINTER     :: Coeff_level03D(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
     REAL, POINTER     :: Coeff_level03D_Tet(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
@@ -462,16 +436,6 @@ MODULE TypesDef
     INTEGER, POINTER  :: NonZeroCoeffIndex_Tet(:,:) => NULL() !< Index into "
     INTEGER           :: NonZeroCoeff_Hex            !< Number of non-zero coeffs
     INTEGER, POINTER  :: NonZeroCoeffIndex_Hex(:,:) => NULL() !< Index into "
-    INTEGER, POINTER  :: NonZeroCPoly(:,:) => NULL()      !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPoly_Tet(:,:) => NULL()  !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPoly_Hex(:,:) => NULL()  !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPolyIndex(:,:,:,:) => NULL()
-    INTEGER, POINTER  :: NonZeroCPolyIndex_Tet(:,:,:,:) => NULL()
-    INTEGER, POINTER  :: NonZeroCPolyIndex_Hex(:,:,:,:)  => NULL()     !<
-    INTEGER, ALLOCATABLE  :: NonZeroCPoly_Tri(:,:)           !< Non zero coeff in cpoly
-    INTEGER, ALLOCATABLE  :: NonZeroCPolyIndex_Tri(:,:,:,:)  !<
-    INTEGER, ALLOCATABLE  :: NonZeroCPoly_Quad(:,:)          !< Non zero coeff in cpoly
-    INTEGER, ALLOCATABLE  :: NonZeroCPolyIndex_Quad(:,:,:,:) !<
 
     !<
     REAL              :: intGaussWSum                !< Sum of int. Gaussweights
@@ -484,19 +448,6 @@ MODULE TypesDef
     REAL, POINTER     :: Faculty(:) => NULL()                 !< Precalculated Faculties...
     REAL, POINTER     :: dtPowerFactor(:,:) => NULL()         !< dt^k/k!< for Taylor series
     REAL, POINTER     :: dtPowerFactorInt(:,:) => NULL()      !< dt^(k+1)/(k+1)!< for Taylor series
-    REAL, POINTER     :: IntGPBaseFunc(:,:,:) => NULL()       !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad(:,:,:,:) => NULL()     !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc(:,:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D(:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseFunc_Tet(:,:,:) => NULL()       !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad_Tet(:,:,:,:) => NULL()     !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc_Tet(:,:,:,:) => NULL()     !< Precalc. basis functions
-!    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseFunc_Hex(:,:,:) => NULL()       !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad_Hex(:,:,:,:) => NULL()     !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc_Hex(:,:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D_Hex(:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: RecIntGPBaseFunc(:,:) => NULL()      !< Precalc. basis functions
     INTEGER, POINTER  :: SectorPoints(:,:) => NULL()
     REAL, POINTER     :: UnitElementPoints(:,:) => NULL()
     REAL, POINTER     :: SectorVectors(:,:,:) => NULL()
@@ -543,9 +494,6 @@ MODULE TypesDef
     !<
     REAL, POINTER     :: MaxWaveSpeed(:) => NULL()           !< Max. wavespeed over edges
     REAL, POINTER     :: WaveSpeed(:,:) => NULL()           !< All Wavespeeds over edges
-    REAL, POINTER     :: cTimePoly(:,:,:) => NULL()           !< Coefficients and matrices
-    REAL, POINTER     :: TimeMassMatrix(:,:,:) => NULL()      !< for projection on series
-    REAL, POINTER     :: iTimeMassMatrix(:,:,:) => NULL()     !< in time. Basis: Legendre
 
     !<
     !< DG sponge layer for general 3D domains
@@ -594,56 +542,6 @@ MODULE TypesDef
     TYPE(tSparseTensor3), POINTER     :: BSpHexa(:) => NULL()        !< Sparse star tensor B
     TYPE(tSparseTensor3), POINTER     :: CSpHexa(:) => NULL()        !< Sparse star tensor C
     TYPE(tSparseTensor3), POINTER     :: ESpHexa(:) => NULL()        !< Sparse star tensor E
-
-
-    !<
-    !< Stiffness matrix (tensors)
-    REAL, POINTER     :: Kxi_k_Tet(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_k_Tet(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_k_Tet(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: Kxi_m_Tet(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_m_Tet(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_m_Tet(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: ADGxi_Tet(:,:,:)        =>NULL()   !< Transpose stiffness / mass in xi   (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGeta_Tet(:,:,:)       =>NULL()   !< Transpose stiffness / mass in eta  (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGzeta_Tet(:,:,:)      =>NULL()   !< Transpose stiffness / mass in zeta (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGklm_Tet(:,:,:)       =>NULL()   !< ADER-DG tensor for space dependent reaction term (= identical to identity matrix for constant material per element -> to be optimized!)
-    REAL, POINTER     :: FluxInt_Tet(:,:,:,:,:,:)=>NULL()   !< Flux matrices integrals
-    !<
-    REAL, POINTER     :: Kxi_k_Hex(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_k_Hex(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_k_Hex(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: Kxi_m_Hex(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_m_Hex(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_m_Hex(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: ADGxi_Hex(:,:,:)        =>NULL()   !< Stiff / Mass matrix (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGeta_Hex(:,:,:)       =>NULL()   !< Stiff / Mass matrix (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGzeta_Hex(:,:,:)      =>NULL()   !< Stiff / Mass matrix (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: FluxInt_Hex(:,:,:,:,:,:)=>NULL()   !< Flux matrices integrals
-
-    !< Sparse version of tensors
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_k_Tet_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_k_Tet_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_k_Tet_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_m_Tet_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_m_Tet_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_m_Tet_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGxi_Tet_Sp         =>NULL() !< Transpose stiffness / mass in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGeta_Tet_Sp        =>NULL() !< Transpose stiffness / mass in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGzeta_Tet_Sp       =>NULL() !< Transpose stiffness / mass in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGklm_Tet_Sp        =>NULL() !< ADER-DG tensor for space dependent reaction term (= identical to identity matrix for constant material per element -> to be optimized!)
-    TYPE(tSparseTensor3b), POINTER    :: FluxInt_Tet_Sp(:,:,:)=>NULL() !< Flux matrices integrals (sparse)
-    !<
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_k_Hex_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_k_Hex_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_k_Hex_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_m_Hex_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_m_Hex_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_m_Hex_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGxi_Hex_Sp         =>NULL() !< Transpose stiffness / mass in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGeta_Hex_Sp        =>NULL() !< Transpose stiffness / mass in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGzeta_Hex_Sp       =>NULL() !< Transpose stiffness / mass in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: FluxInt_Hex_Sp(:,:,:)=>NULL() !< Flux matrices integrals (sparse)
   END TYPE tGalerkin
 
   TYPE tAdjoint
@@ -988,7 +886,6 @@ MODULE TypesDef
      REAL, POINTER                          :: PlastCo(:) => NULL()             !< Cohesion for the Drucker-Prager plasticity, element-dependent
      REAL,POINTER                           :: BulkFriction(:) => NULL()        !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
-     INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order points, (2) = average of an element
      REAL, POINTER                          :: IniStress(:,:) => NULL()         !< Initial stress (loading) for the whole domain, only used for plastic calculations
      INTEGER                                :: Adjoint                          !< (0) = no adjoint, (1) = adjoint reverse-time field is generated simultaneously to forward field
      INTEGER                                :: EndIteration                     !< The index of the last iteration in the simulation

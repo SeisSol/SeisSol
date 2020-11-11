@@ -52,6 +52,7 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Equations/Setup.h>
+#include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
 
@@ -264,6 +265,45 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
+  void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int k = 0; k <= d; ++k) {
+        for (unsigned int j = 0; j <= d - k; ++j) {
+            phis[idx++] = seissol::functions::TetraDubinerP({d - j - k, j, k}, {xi, eta, zeta});
+        }
+      }
+    }
+  }
+
+  void c_interoperability_TriDubinerP(double* phis, double xi, double eta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int j = 0; j <= d; ++j) {
+        phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      }
+    }
+  }
+
+  void c_interoperability_gradTriDubinerP(double* phis, double xi, double eta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int j = 0; j <= d; ++j) {
+        auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
+        for (auto const& g : grad) {
+            phis[idx++] = g;
+        }
+      }
+    }
+  }
+
+  double c_interoperability_M2invDiagonal(int no) {
+      assert(no >= 0 && no < seissol::tensor::M2inv::Shape[0]);
+      auto M2inv = seissol::init::M2inv::view::create(
+        const_cast<real*>(seissol::init::M2inv::Values));
+      return M2inv(no, no);
+  }
+
   // c to fortran
   extern void f_interoperability_computeSource(  void   *i_domain,
                                                  int    *i_meshId,
@@ -297,22 +337,6 @@ extern "C" {
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
-
-  extern void f_interoperability_computePlasticity( void    *i_domain,
-                                                    double  *i_timestep,
-													int    numberOfAlignedBasisFunctions,
-													double  *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *io_dofs,
-													double  *io_Energy,
-													double  *io_pstrain );
-
-  extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
-                                                               double   i_x,
-                                                               double   i_y,
-                                                               double   i_z,
-                                                               int      i_elem,
-                                                               double*  o_mInvJInvPhisAtSources );
 
   extern void f_interoperability_fitAttenuation(  void*  i_domain,
                                                   double  rho,
@@ -997,37 +1021,4 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 {
 	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
-}
-
-
-#ifdef USE_PLASTICITY
-void seissol::Interoperability::computePlasticity(  double i_timeStep,
-		                                            double *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double *io_dofs,
-													double *io_Energy,
-													double *io_pstrain ) {
-  // call fortran routine
-  f_interoperability_computePlasticity(  m_domain,
-                                        &i_timeStep,
-										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-										 i_plasticParameters,
-                                         i_initialLoading,
-                                         io_dofs,
-										 io_Energy,
-										 io_pstrain );
-}
-#endif
-
-void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()])
-{
-  double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
-
-  int elem = static_cast<int>(element);
-  f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
-
-  memset(mInvJInvPhisAtSources, 0, tensor::mInvJInvPhisAtSources::size() * sizeof(real));
-  for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
-    mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
-  }
 }

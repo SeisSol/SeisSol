@@ -18,23 +18,17 @@ you are in the root directory of the code repository):
 
        cp build/SeisSol* launch_SeisSol/
 
-3. Write path to the Maple directory to a file called ``DGPATH``:
+3. Create your :doc:`parameter-file`
 
-   ::
-
-       echo $PWD/Maple/ > launch_SeisSol/DGPATH
-
-4. Create your :doc:`parameter-file`
-
-5. Copy any additional input files referenced in the parameter file (for
+4. Copy any additional input files referenced in the parameter file (for
    example file with receiver coordinates) to your launch directory
 
-6. (For large mesh only) Create symbolic links (ln -s) to the mesh
+5. (For large mesh only) Create symbolic links (ln -s) to the mesh
    file(s) in your launch directory
 
-7. Make sure output and checkpoint directories exist
+6. Make sure output and checkpoint directories exist
 
-8. Optional: set :doc:`environment-variables` for tuning
+7. Optional: set :doc:`environment-variables` for tuning
 
 Checklist for required files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -43,7 +37,6 @@ Necessary files
 ^^^^^^^^^^^^^^^
 
 -  SeisSol executable (compiled on the system where the job will run)
--  DGPATH
 -  Parameter file
 -  \*.yaml files for setting model parameters
 
