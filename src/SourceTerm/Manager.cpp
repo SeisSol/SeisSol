@@ -95,6 +95,10 @@ public:
     }
 };
 
+/**
+ * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
+ * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
+ */
 void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
                                                        real* mInvJInvPhisAtSources,
                                                        unsigned meshId,

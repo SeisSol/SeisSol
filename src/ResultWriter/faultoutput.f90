@@ -656,7 +656,6 @@ CONTAINS
                 dt_dchi=0d0
                 dt_dtau=0d0
                 DO iDegFr = 1, nDegFr2d
-                   !call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
                    dt_dchi = dt_dchi + projected_RT(iDegFr) * phiAtPoint(1 + 2*(iDegFr-1))
                    dt_dtau = dt_dtau + projected_RT(iDegFr) * phiAtPoint(2 + 2*(iDegFr-1))
                 ENDDO
