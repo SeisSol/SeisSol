@@ -73,11 +73,11 @@ namespace seissol {
                                             Lut*                   i_ltsLut,
                                             LTSTree*               dynRupTree,
                                             DynamicRupture*        dynRup,
-                                            std::unordered_map<std::string, double*> faultParameters,
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
     void initializeFrictionMatrices(    seissol::initializers::BaseDrInitializer* FrictionInitializer,
+                                        seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
                                         DynamicRupture *dynRup,
                                         LTSTree* dynRupTree,
                                         std::unordered_map<std::string, double*> faultParameters,

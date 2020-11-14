@@ -448,6 +448,15 @@ class seissol::Interoperability {
                                                 real *i_RS_sl0,
                                                 real *i_RS_sr0);
 
+  /**
+   * get initial values from fortran
+   * for FL103 Thermal Pressure (TP)
+   *
+   *
+   * @param TP_grid     grid for TP
+   * @param TP_DFinv    inverse Fourier coefficients
+   **/
+    void getDynRupTP(real TP_grid[TP_grid_nz],real TP_DFinv[TP_grid_nz]);
 
     void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
                                                                 real (*mu)[seissol::init::QInterpolated::Stop[0]],

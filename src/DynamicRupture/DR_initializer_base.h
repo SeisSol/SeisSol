@@ -9,19 +9,22 @@
 #include <Solver/Interoperability.h>
 #include <yaml-cpp/yaml.h>
 #include "Initializer/InputAux.hpp"
+#include "DR_solver_base.h"
+#include "DR_solver_rate_and_state.h"
 #include <DynamicRupture/DR_Parameters.h>
+
 
 namespace seissol {
     namespace initializers {
-      struct BaseDrInitializer;
-      struct Init_FL_0;
-      struct Init_linear; //FL2
-      struct Init_FL_3; //aging law
-      struct Init_FL_6;
-      struct Init_FL_16;
-      struct Init_FL_33;
-      struct Init_FL_103;
-      struct Init_FL_103_Thermal;
+      class BaseDrInitializer;
+      class Init_FL_0;
+      class Init_linear; //FL2
+      class Init_FL_3; //aging law
+      class Init_FL_6;
+      class Init_FL_16;
+      class Init_FL_33;
+      class Init_FL_103;
+      class Init_FL_103_Thermal;
     }
 }
 
@@ -40,9 +43,9 @@ public:
     m_Params = DynRupParameter;
   }
 
-
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
+        seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
         std::unordered_map<std::string,
         double*> faultParameters,
         unsigned* ltsFaceToMeshFace,
@@ -88,45 +91,45 @@ public:
         //get initial values from fortran
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
           if(faultParameters["T_n"] != NULL ){
-            iniBulkXX[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_n"][meshFace * numberOfPoints] );
+            iniBulkXX[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_n"][(meshFace) * numberOfPoints + iBndGP] );
             dynRup->IsFaultParameterizedByTraction = true;
           }
           else if(faultParameters["s_xx"] != NULL )
-            iniBulkXX[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xx"][meshFace * numberOfPoints] );
+            iniBulkXX[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xx"][(meshFace) * numberOfPoints + iBndGP] );
           else
             iniBulkXX[ltsFace][iBndGP] = 0.0;
 
           if(faultParameters["s_yy"] != NULL )
-            iniBulkYY[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_yy"][meshFace * numberOfPoints] );
+            iniBulkYY[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_yy"][(meshFace) * numberOfPoints + iBndGP] );
           else
             iniBulkYY[ltsFace][iBndGP] = 0.0;
 
           if(faultParameters["s_zz"] != NULL )
-            iniBulkZZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_zz"][meshFace * numberOfPoints] );
+            iniBulkZZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_zz"][(meshFace) * numberOfPoints + iBndGP] );
           else
             iniBulkZZ[ltsFace][iBndGP] = 0.0;
 
           if(faultParameters["T_s"] != NULL )
-            iniShearXY[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_s"][meshFace * numberOfPoints] );
+            iniShearXY[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_s"][(meshFace) * numberOfPoints + iBndGP] );
           else if(faultParameters["s_xy"] != NULL )
-            iniShearXY[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xy"][meshFace * numberOfPoints] );
+            iniShearXY[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xy"][(meshFace) * numberOfPoints + iBndGP] );
           else
             iniShearXY[ltsFace][iBndGP] = 0.0;
 
           if(faultParameters["T_d"] != NULL )
-            iniShearXZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_d"][meshFace * numberOfPoints] );
+            iniShearXZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_d"][(meshFace) * numberOfPoints + iBndGP] );
           else if(faultParameters["s_xz"] != NULL )
-            iniShearXZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xz"][meshFace * numberOfPoints] );
+            iniShearXZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xz"][(meshFace) * numberOfPoints + iBndGP] );
           else
             iniShearXZ[ltsFace][iBndGP] = 0.0;
 
           if(faultParameters["s_yz"] != NULL )
-            iniShearYZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_yz"][meshFace * numberOfPoints] );
+            iniShearYZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_yz"][(meshFace) * numberOfPoints + iBndGP] );
           else
             iniShearYZ[ltsFace][iBndGP] = 0.0;
 
           if(faultParameters["cohesion"] != NULL ){
-            cohesion[ltsFace][iBndGP] = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
+            cohesion[ltsFace][iBndGP] = static_cast<real>( faultParameters["cohesion"][(meshFace) * numberOfPoints + iBndGP] );
           }else{
             cohesion[ltsFace][iBndGP] = 0.0;
           }
@@ -148,11 +151,12 @@ class seissol::initializers::Init_FL_0: public seissol::initializers::BaseDrInit
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
+                                          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
                                           std::unordered_map<std::string,
                                               double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
   }
 };
 
@@ -161,11 +165,12 @@ class seissol::initializers::Init_linear : public seissol::initializers::BaseDrI
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
+        seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
         std::unordered_map<std::string,
         double*> faultParameters,
         unsigned* ltsFaceToMeshFace,
         seissol::Interoperability &e_interoperability) override {
-    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -188,9 +193,9 @@ public:
           mu_D[ltsFace][iBndGP]                   = 0.0;
         }
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
-          d_c[ltsFace][iBndGP]                    = static_cast<real>( faultParameters["d_c"][meshFace * numberOfPoints] );
-          mu_S[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_s"][meshFace * numberOfPoints] );
-          mu_D[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_d"][meshFace * numberOfPoints] );
+          d_c[ltsFace][iBndGP]                    = static_cast<real>( faultParameters["d_c"][(meshFace) * numberOfPoints+ iBndGP] );
+          mu_S[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_s"][(meshFace) * numberOfPoints+ iBndGP] );
+          mu_D[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_d"][(meshFace) * numberOfPoints+ iBndGP] );
         }
         averaged_Slip[ltsFace]= 0.0;
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
@@ -207,11 +212,11 @@ class seissol::initializers::Init_FL_16 : public seissol::initializers::Init_lin
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
-                                          std::unordered_map<std::string,
-                                              double*> faultParameters,
+                                          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
+                                          std::unordered_map<std::string, double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -230,7 +235,7 @@ public:
         }
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
           if(faultParameters["forced_rupture_time"] != NULL ){
-            forced_rupture_time[ltsFace][iBndGP]    = static_cast<real>( faultParameters["forced_rupture_time"][meshFace * numberOfPoints] );
+            forced_rupture_time[ltsFace][iBndGP]    = static_cast<real>( faultParameters["forced_rupture_time"][(meshFace) * numberOfPoints + iBndGP] );
           }
         }
         tn[ltsFace]= 0.0;
@@ -246,11 +251,11 @@ class seissol::initializers::Init_FL_3 : public seissol::initializers::BaseDrIni
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
-                                          std::unordered_map<std::string,
-                                              double*> faultParameters,
+                                          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
+                                          std::unordered_map<std::string, double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -282,11 +287,11 @@ class seissol::initializers::Init_FL_33 : public seissol::initializers::BaseDrIn
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
           initializers::LTSTree* dynRupTree,
-          std::unordered_map<std::string,
-          double*> faultParameters,
+          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
+          std::unordered_map<std::string, double*> faultParameters,
           unsigned* ltsFaceToMeshFace,
           seissol::Interoperability &e_interoperability) override {
-    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -312,11 +317,11 @@ class seissol::initializers::Init_FL_103 : public seissol::initializers::BaseDrI
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
-                                          std::unordered_map<std::string,
-                                              double*> faultParameters,
+                                          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
+                                          std::unordered_map<std::string, double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -346,9 +351,9 @@ public:
         averaged_Slip[ltsFace]= 0.0;
 
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
-          RS_a_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_a"][meshFace * numberOfPoints] );
-          RS_srW_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_srW"][meshFace * numberOfPoints] );
-          RS_sl0_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["RS_sl0"][meshFace * numberOfPoints] );
+          RS_a_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_a"][(meshFace) * numberOfPoints+ iBndGP] );
+          RS_srW_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_srW"][(meshFace) * numberOfPoints+ iBndGP] );
+          RS_sl0_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["RS_sl0"][(meshFace) * numberOfPoints+ iBndGP] );
         }
         //initialize padded elements for vectorization
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
@@ -369,14 +374,18 @@ public:
 
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
-                                          std::unordered_map<std::string,
-                                              double*> faultParameters,
+                                          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
+                                          std::unordered_map<std::string, double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
+
+
     //BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    Init_FL_103::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_FL_103::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
 
     seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
+    seissol::dr::fr_law::RateAndStateThermalFL103 *SolverFL103 = dynamic_cast<seissol::dr::fr_law::RateAndStateThermalFL103 *>(FrictionSolver);
+    SolverFL103->initializeTP(e_interoperability);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -396,12 +405,12 @@ public:
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
-        for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
+        for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
           temperature[ltsFace][iBndGP] = m_Params->IniTemp;
           pressure[ltsFace][iBndGP] = m_Params->IniPressure;
-          TP_half_width_shear_zone[ltsFace][iBndGP] = static_cast<real>( faultParameters["TP_half_width_shear_zone"][meshFace * numberOfPoints] );
-          alpha_hy[ltsFace][iBndGP] = static_cast<real>( faultParameters["alpha_hy"][meshFace * numberOfPoints] );
-          for (unsigned iTP_grid_nz = TP_grid_nz; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
+          TP_half_width_shear_zone[ltsFace][iBndGP] = static_cast<real>( faultParameters["TP_half_width_shear_zone"][(meshFace) * numberOfPoints + iBndGP] );
+          alpha_hy[ltsFace][iBndGP] = static_cast<real>( faultParameters["alpha_hy"][(meshFace) * numberOfPoints + iBndGP] );
+          for (unsigned iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
             TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = 0.0;
             TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = 0.0;
           }
@@ -418,11 +427,12 @@ class seissol::initializers::Init_FL_6 : public seissol::initializers::Init_line
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
+                                          seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
                                           std::unordered_map<std::string,
-                                              double*> faultParameters,
+                                          double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;

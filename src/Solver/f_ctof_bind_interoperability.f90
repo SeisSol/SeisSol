@@ -281,6 +281,15 @@ module f_ctof_bind_interoperability
         l_slipRate1(:)                  = l_domain%EQN%IniSlipRate1
         l_slipRate2(:)                  = l_domain%EQN%IniSlipRate2
         l_RF(:)                         = l_domain%DISC%DynRup%RF(:,iFace)
+
+        !TODO Test remove:
+        !do iFace = 1, l_domain%MESH%Fault%nSide
+          !do i=1,nBndGP
+          !  l_domain%DISC%DynRup%TP_half_width_shear_zone(i,iFace) = iFace * 1000 + i
+          !  l_mu(i) =  iFace * 1000 + i
+          !end do
+        !end do
+
     end subroutine
 
     subroutine f_interoperability_getDynRupStateVar(i_domain, iFace, i_stateVar) bind (c, name='f_interoperability_getDynRupStateVar')
@@ -365,6 +374,34 @@ module f_ctof_bind_interoperability
     end subroutine
 
 
+    subroutine f_interoperability_getDynRupTP(i_domain, i_TP_grid, i_TP_DFinv) bind (c, name='f_interoperability_getDynRupTP')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      integer                                :: TP_grid_nz
+      integer                                :: i, i_numberOfPoints, iFace
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      type(c_ptr), value                     :: i_TP_grid
+      REAL_TYPE, pointer                     :: l_TP_grid(:)
+      type(c_ptr), value                     :: i_TP_DFinv
+      REAL_TYPE, pointer                     :: l_TP_DFinv(:)
+
+
+      call c_f_pointer( i_domain,             l_domain)
+      TP_grid_nz = l_domain%DISC%DynRup%TP_grid_nz
+      i_numberOfPoints = l_domain%DISC%Galerkin%nBndGP
+
+      call c_f_pointer( i_TP_grid,       l_TP_grid , [TP_grid_nz])
+      call c_f_pointer( i_TP_DFinv,      l_TP_DFinv, [TP_grid_nz])
+
+      l_TP_grid(:)   = l_domain%DISC%DynRup%TP_grid(:)
+      l_TP_DFinv(:)  = l_domain%DISC%DynRup%TP_DFinv(:)
+    end subroutine
+
+
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutput(i_domain, i_face, &
               i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
@@ -379,7 +416,7 @@ module f_ctof_bind_interoperability
         INTEGER     :: i ,j, k
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
-        integer                                :: nSide , nBndGP
+        integer                                :: nSide , nBndGP, iBndGP
         integer(kind=c_int), value             :: i_face
 
         type(c_ptr), value                     :: i_mu
@@ -421,6 +458,16 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_tracXY, l_tracXY, [nBndGP])
         call c_f_pointer( i_tracXZ, l_tracXZ, [nBndGP])
 
+        !DO iBndGP = 1, nBndGP
+        !  IF (  ABS(l_domain%DISC%DynRup%SlipRate1(iBndGP,i_face)  - l_slipRate1(iBndGP) ) > 0.00001) THEN
+        !    write(*,*) "slip rate is different "
+        !    write(*,*) "slip rate fortran " ,  l_domain%DISC%DynRup%SlipRate1(iBndGP,i_face)
+        !    write(*,*) "slip rate c++ " ,   l_slipRate1(iBndGP)
+        !    write(*,*) "fortran face " ,  i_face
+        !    write(*,*) "iBndGP " ,  iBndGP
+        !  ENDIF
+        !ENDDO
+
 
         !copy to output
         l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:)
@@ -430,6 +477,7 @@ module f_ctof_bind_interoperability
         l_domain%DISC%DynRup%SlipRate1(:,i_face)                    = l_slipRate1(:)
         l_domain%DISC%DynRup%SlipRate2(:,i_face)                    = l_slipRate2(:)
         l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_rupture_time(:) !l_domain%DISC%DynRup%rupture_time(:,i_face)
+        l_domain%DISC%DynRup%rupture_time(:,i_face)          = l_rupture_time(:)
         l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSR(:)       !l_domain%DISC%DynRup%PeakSR(:,i_face)
         l_domain%DISC%DynRup%TracXY(:,i_face)                       = l_tracXY(:)
         l_domain%DISC%DynRup%TracXZ(:,i_face)                       = l_tracXZ(:)

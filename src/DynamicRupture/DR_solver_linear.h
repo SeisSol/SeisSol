@@ -92,19 +92,10 @@ protected:
       //-------------------------------------
       // calculate SlipRates
       locSlipRate[ltsFace][iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) * impAndEta[ltsFace].inv_eta_s);
-      //TODO: remove code like it was before:
-      //LocSlipRate[iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) / impAndEta[face].eta_s);
-
 
       slipRate1[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
       slipRate2[ltsFace][iBndGP]  = locSlipRate[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
-      //TODO: remove code like it was before:
-/*
-      slipRate1[face][iBndGP] = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) /
-                                (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
-      slipRate2[face][iBndGP]  = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) /
-                                 (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
-*/
+
       //-------------------------------------
       //calculateTraction
       faultStresses.TractionGP_XY[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRate1[ltsFace][iBndGP];
@@ -114,8 +105,8 @@ protected:
 
       //-------------------------------------
       //update Directional Slip
-      slip1[ltsFace][iBndGP] = slip1[ltsFace][iBndGP] + slipRate1[ltsFace][iBndGP] * deltaT[iTimeGP];
-      slip2[ltsFace][iBndGP] = slip2[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP] * deltaT[iTimeGP];
     }
   }
 

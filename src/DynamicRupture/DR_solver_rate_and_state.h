@@ -64,7 +64,6 @@ public:
       std::array<real, numOfPointsPadded> tmpSlip{0};   //required for averageSlip calculation
       std::array<real, numOfPointsPadded> normalStress{0};
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
-      std::array<real, numOfPointsPadded> LocSlipTmp{0};
       std::array<real, numOfPointsPadded> stateVarZero{0};
       std::array<real, numOfPointsPadded> SR_tmp{0};
       std::array<real, numOfPointsPadded> LocSV{0};
@@ -92,7 +91,7 @@ public:
         }
         static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, true, iTimeGP, ltsFace);
         static_cast<Derived*>(this)->calcSlipRateAndTraction(stateVarZero, SR_tmp, LocSV, normalStress,
-            TotalShearStressYZ, LocSlipTmp, tmpSlip, deltaStateVar, faultStresses, iTimeGP, ltsFace);
+            TotalShearStressYZ, tmpSlip, deltaStateVar, faultStresses, iTimeGP, ltsFace);
 
       } // End of iTimeGP-loop
 
@@ -288,12 +287,12 @@ public:
       std::array<real, numOfPointsPadded> &LocSV,
       std::array<real, numOfPointsPadded> &normalStress,
       std::array<real, numOfPointsPadded> &TotalShearStressYZ,
-      std::array<real, numOfPointsPadded> &LocSlipTmp,
       std::array<real, numOfPointsPadded> &tmpSlip,
       real deltaStateVar[numberOfPoints],
       FaultStresses &faultStresses,
       unsigned int iTimeGP,
       unsigned int ltsFace){
+    std::array<real, numOfPointsPadded> LocSlipRateMagnitude{0};
 
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
       //! SV from mean slip rate in tmp
@@ -317,13 +316,13 @@ public:
       slipRate2[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
       //!TU 07.07.16: correct locSlipRate1_2 to avoid numerical errors
-      LocSlipTmp[iBndGP] = sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2));
-      if (LocSlipTmp[iBndGP] != 0) {
-        slipRate1[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP] * slipRate1[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
-        slipRate2[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP] * slipRate2[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
+      LocSlipRateMagnitude[iBndGP] = sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2));
+      if (LocSlipRateMagnitude[iBndGP] != 0) {
+        slipRate1[ltsFace][iBndGP] *= locSlipRate[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
+        slipRate2[ltsFace][iBndGP] *= locSlipRate[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
       }
 
-      tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipTmp[iBndGP] * deltaT[iTimeGP];
+      tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRateMagnitude[iBndGP] * deltaT[iTimeGP];
 
       slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP] * deltaT[iTimeGP];
       slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP] * deltaT[iTimeGP];
@@ -331,7 +330,6 @@ public:
       //!Save traction for flux computation
       faultStresses.TractionGP_XY[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
       faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
-
 
       //TODO: Could be outside TimeLoop?
       deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[ltsFace][iBndGP];
@@ -591,13 +589,13 @@ protected:
   void updateMu(unsigned int ltsFace, unsigned int iBndGP, real LocSV){
     //! X in Asinh(x) for mu calculation
     real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) * locSlipRate[ltsFace][iBndGP];
-    //! mu from locSlipRate
+    //! mu from locSlipRate with SINH(X)=LOG(X+SQRT(X^2+1))
     mu[ltsFace][iBndGP] = RS_a_array[ltsFace][iBndGP] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
   }
 
 
 
-/*
+
 public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                         seissol::initializers::DynamicRupture *dynRup,
@@ -606,7 +604,7 @@ public:
                         real fullUpdateTime,
                         real timeWeights[CONVERGENCE_ORDER]) override {
     //first copy all Variables from the Base Lts dynRup tree
-    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    RateAndStateNucFL103::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
 
     Gnuc = 0;
     dt = 0;
@@ -819,8 +817,8 @@ protected:
   real (*TP_half_width_shear_zone)[numOfPointsPadded];
   real (*alpha_hy)[numOfPointsPadded];
 
-  std::array<real, TP_grid_nz> TP_grid{0};
-  std::array<real, TP_grid_nz> TP_DFinv{0};
+  real TP_grid[TP_grid_nz];
+  real TP_DFinv[TP_grid_nz];
 
   real Sh[numOfPointsPadded];
   real Theta_tmp[TP_grid_nz];
@@ -835,6 +833,10 @@ protected:
   real pressure_0; //= m_Params.IniPressure
   */
 public:
+  void initializeTP(seissol::Interoperability &e_interoperability){
+    e_interoperability.getDynRupTP(TP_grid, TP_DFinv);
+  }
+
   /*
  * copies all parameters from the DynamicRupture LTS to the local attributes
  */
@@ -856,14 +858,13 @@ public:
 protected:
   void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f, unsigned int ltsFace) override{
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-      P_f[iBndGP] = pressure[iBndGP][ltsFace];
+      P_f[iBndGP] = pressure[ltsFace][iBndGP];
     }
   }
 
   void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f,  FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
-      //TODO: Sh access race condition if run in parallel?
       Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
 
       for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
@@ -872,7 +873,7 @@ protected:
         Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][iBndGP][iTP_grid_nz];
       }
       //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-      Calc_ThermalPressure(iBndGP, ltsFace); //TODO: maybe move iBndGP loop inside this function
+      Calc_ThermalPressure(iBndGP, iTimeGP, ltsFace); //TODO: maybe move iBndGP loop inside this function
 
       P_f[iBndGP] = pressure[ltsFace][iBndGP];
       if(saveTmpInTP){
@@ -884,29 +885,35 @@ protected:
     }
   }
 
-  void Calc_ThermalPressure(unsigned int iBndGP, unsigned int ltsFace){
-    real tauV, Lambda_prime, tmp, omega, T, p, theta_current, sigma_current;
+  void Calc_ThermalPressure(unsigned int iBndGP, unsigned int iTimeGP, unsigned int ltsFace){
+    real tauV, Lambda_prime, T, p;
+    real tmp[TP_grid_nz];
+    real omega_theta[TP_grid_nz];
+    real omega_sigma[TP_grid_nz];
+    real theta_current[TP_grid_nz];
+    real sigma_current[TP_grid_nz];
 
     T = 0.0;
     p = 0.0;
 
+    tauV = Sh[iBndGP] * locSlipRate[ltsFace][iBndGP]; //!fault strenght*slip rate
+    Lambda_prime = m_Params->TP_lambda * m_Params->alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params->alpha_th);
+
     for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-      tauV = Sh[iBndGP] * locSlipRate[ltsFace][iBndGP]; //!fault strenght*slip rate
-      Lambda_prime = m_Params->TP_lambda * m_Params->alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params->alpha_th);
       //!Gaussian shear zone in spectral domain, normalized by w
-      tmp = seissol::dr::aux::power(TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP], 2);
+      tmp[iTP_grid_nz] = seissol::dr::aux::power(TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP], 2);
       //!1. Calculate diffusion of the field at previous timestep
 
       //!temperature
-      theta_current = Theta_tmp[iTP_grid_nz] * exp(-m_Params->alpha_th * dt * tmp);
+      theta_current[iTP_grid_nz] = Theta_tmp[iTP_grid_nz] * exp(-m_Params->alpha_th * deltaT[iTimeGP] * tmp[iTP_grid_nz]);
       //!pore pressure + lambda'*temp
-      sigma_current = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][iBndGP] * dt * tmp);
+      sigma_current[iTP_grid_nz] = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][iBndGP] * deltaT[iTimeGP] * tmp[iTP_grid_nz]);
 
       //!2. Add current contribution and get new temperature
-      omega = heat_source(tmp, m_Params->alpha_th, iTP_grid_nz);
-      Theta_tmp[iTP_grid_nz] = theta_current + (tauV / m_Params->rho_c) * omega;
-      omega = heat_source(tmp, alpha_hy[ltsFace][iBndGP], iTP_grid_nz);
-      Sigma_tmp[iTP_grid_nz] = sigma_current + ((m_Params->TP_lambda + Lambda_prime) * tauV) / (m_Params->rho_c) * omega;
+      omega_theta[iTP_grid_nz] = heat_source(tmp[iTP_grid_nz], m_Params->alpha_th, iTP_grid_nz, iTimeGP);
+      Theta_tmp[iTP_grid_nz] = theta_current[iTP_grid_nz] + (tauV / m_Params->rho_c) * omega_theta[iTP_grid_nz];
+      omega_sigma[iTP_grid_nz] = heat_source(tmp[iTP_grid_nz], alpha_hy[ltsFace][iBndGP], iTP_grid_nz, iTimeGP);
+      Sigma_tmp[iTP_grid_nz] = sigma_current[iTP_grid_nz] + ((m_Params->TP_lambda + Lambda_prime) * tauV) / (m_Params->rho_c) * omega_sigma[iTP_grid_nz];
 
       //!3. Recover temperature and pressure using inverse Fourier
       //! transformation with the calculated fourier coefficients
@@ -920,17 +927,17 @@ protected:
     p = p - Lambda_prime*T;
 
     //Temp and pore pressure change at single GP on the fault + initial values
-    temperature[iBndGP][ltsFace] = T + m_Params->IniTemp;
-    pressure[iBndGP][ltsFace] = -p + m_Params->IniPressure;
+    temperature[ltsFace][iBndGP] = T + m_Params->IniTemp;
+    pressure[ltsFace][iBndGP] = -p + m_Params->IniPressure;
   }
 
-  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz){
+  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int iTimeGP){
     //!original function in spatial domain
     //!omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
     //!function in the wavenumber domain *including additional factors in front of the heat source function*
     //!omega = 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**tmp))
     //!inserting Dwn/TP_half_width_shear_zone (scaled) for Dwn cancels out TP_half_width_shear_zone
-    return 1.0/(alpha*tmp*(sqrt(2.0*M_PI)))*exp(-0.5*seissol::dr::aux::power(TP_grid[iTP_grid_nz], 2))*(1.0 - exp(-alpha*dt*tmp));
+    return 1.0/(alpha*tmp*(sqrt(2.0*M_PI))) * exp(-0.5*seissol::dr::aux::power(TP_grid[iTP_grid_nz], 2)) * (1.0 - exp(-alpha*deltaT[iTimeGP]*tmp));
   }
 };
 

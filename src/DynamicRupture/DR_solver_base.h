@@ -8,7 +8,7 @@
 #include "DR_math.h"
 #include <yaml-cpp/yaml.h>
 #include <Kernels/DynamicRupture.h>
-
+#include "DR_Parameters.h"
 
 namespace seissol {
   namespace dr {
@@ -33,7 +33,6 @@ public:
   void setInputParam(dr::DrParameterT *DynRupParameter) {
     m_Params = DynRupParameter;
   }
-
 
 protected:
   static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP

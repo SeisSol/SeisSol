@@ -352,7 +352,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               Lut*                   i_ltsLut,
                                                               LTSTree*               dynRupTree,
                                                               DynamicRupture*        dynRup,
-                                                              std::unordered_map<std::string, double*> faultParameters,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
@@ -581,6 +580,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 //added by adrian
 void seissol::initializers::initializeFrictionMatrices(
     seissol::initializers::BaseDrInitializer* FrictionInitializer,
+    seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
     DynamicRupture *dynRup,
     LTSTree* dynRupTree,
     std::unordered_map<std::string, double*> faultParameters,
@@ -590,7 +590,9 @@ void seissol::initializers::initializeFrictionMatrices(
   FrictionInitializer->initializeFrictionMatrices(
       dynRup,
       dynRupTree,
+      FrictionSolver,
       faultParameters,
       ltsFaceToMeshFace,
       e_interoperability);
+
 }
