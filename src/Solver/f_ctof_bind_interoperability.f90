@@ -199,7 +199,7 @@ module f_ctof_bind_interoperability
       Zs_inv = 1d0 / (rho * sWaveVelocityPlus)
       Zs_neig_inv = 1d0 / (rho_neig * sWaveVelocityMinus)
 
-      eta_p = 1d0 / (Zp_inv + Zp_neig_inv)
+      eta_p = 0.9d0 / (Zp_inv + Zp_neig_inv)
       eta_s = 1d0 / (Zs_inv + Zs_neig_inv)
 
       do j=1,CONVERGENCE_ORDER
