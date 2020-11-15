@@ -61,7 +61,7 @@ protected:
   real                    (*imposedStatePlus)[tensor::QInterpolated::size()];
   real                    (*imposedStateMinus)[tensor::QInterpolated::size()];
 
-  //only for some FLs initialized:
+  //be careful only for some FLs initialized:
   real  *averaged_Slip;
 
   struct FaultStresses{
