@@ -321,7 +321,7 @@ public:
         slipRateStrike[ltsFace][iBndGP] *= SlipRateMagnitude[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
         slipRateDip[ltsFace][iBndGP] *= SlipRateMagnitude[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
       }
-      tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRateMagnitude[iBndGP] * deltaT[iTimeGP];
+      tmpSlip[iBndGP] += LocSlipRateMagnitude[iBndGP] * deltaT[iTimeGP];
 
       slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
       slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
