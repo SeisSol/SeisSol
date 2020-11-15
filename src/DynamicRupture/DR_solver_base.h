@@ -50,9 +50,9 @@ protected:
   real                    (*slip)[numOfPointsPadded];
   real                    (*slip1)[numOfPointsPadded];
   real                    (*slip2)[numOfPointsPadded];
-  real                    (*locSlipRate)[numOfPointsPadded];
-  real                    (*slipRate1)[numOfPointsPadded];
-  real                    (*slipRate2)[numOfPointsPadded];
+  real                    (*SlipRateMagnitude)[numOfPointsPadded];
+  real                    (*slipRateStrike)[numOfPointsPadded];
+  real                    (*slipRateDip)[numOfPointsPadded];
   real                    (*rupture_time)[numOfPointsPadded];
   bool                    (*RF)[numOfPointsPadded];
   real                    (*peakSR)[numOfPointsPadded];
@@ -65,9 +65,9 @@ protected:
   real  *averaged_Slip;
 
   struct FaultStresses{
-    real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+    real XYTractionResultGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+    real XZTractionResultGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+    real NormalStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
     real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
     real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
   };
@@ -85,9 +85,9 @@ protected:
     slip                                          = layerData.var(dynRup->slip);
     slip1                                         = layerData.var(dynRup->slip1);
     slip2                                         = layerData.var(dynRup->slip2);
-    locSlipRate                                   = layerData.var(dynRup->locSlipRate);
-    slipRate1                                     = layerData.var(dynRup->slipRate1);
-    slipRate2                                     = layerData.var(dynRup->slipRate2);
+    SlipRateMagnitude                             = layerData.var(dynRup->slipRateMagnitude);
+    slipRateStrike                                = layerData.var(dynRup->slipRateStrike);
+    slipRateDip                                     = layerData.var(dynRup->slipRateDip);
     rupture_time                                  = layerData.var(dynRup->rupture_time);
     RF                                            = layerData.var(dynRup->RF);
     peakSR                                        = layerData.var(dynRup->peakSR);
@@ -131,7 +131,7 @@ protected:
     for(int j = 0; j < CONVERGENCE_ORDER; j++){
       StressFromQInterpolatedKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
       StressFromQInterpolatedKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
-      StressFromQInterpolatedKrnl.NorStressGP = faultStresses.NorStressGP[j];
+      StressFromQInterpolatedKrnl.NorStressGP = faultStresses.NormalStressGP[j];
       StressFromQInterpolatedKrnl.XYStressGP = faultStresses.XYStressGP[j];
       StressFromQInterpolatedKrnl.XZStressGP = faultStresses.XZStressGP[j];
       //Carsten Uphoff Thesis: EQ.: 4.53
@@ -177,9 +177,9 @@ protected:
     ImposedStateFromNewStressKrnl.imposedStateMinus = imposedStateMinus[ltsFace];
 
     for (int j = 0; j < CONVERGENCE_ORDER; j++) {
-      ImposedStateFromNewStressKrnl.NorStressGP = faultStresses.NorStressGP[j];
-      ImposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.TractionGP_XY[j];
-      ImposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.TractionGP_XZ[j];
+      ImposedStateFromNewStressKrnl.NorStressGP = faultStresses.NormalStressGP[j];
+      ImposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.XYTractionResultGP[j];
+      ImposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.XZTractionResultGP[j];
       ImposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
       ImposedStateFromNewStressKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
       ImposedStateFromNewStressKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
@@ -228,7 +228,7 @@ protected:
       unsigned int ltsFace
   ){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (RF[ltsFace][iBndGP] && locSlipRate[ltsFace][iBndGP] > 0.001) {
+      if (RF[ltsFace][iBndGP] && SlipRateMagnitude[ltsFace][iBndGP] > 0.001) {
         rupture_time[ltsFace][iBndGP] = m_fullUpdateTime;
         RF[ltsFace][iBndGP] = false;
       }
@@ -239,8 +239,8 @@ protected:
   void savePeakSlipRateOutput(
       unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (locSlipRate[ltsFace][iBndGP] > peakSR[ltsFace][iBndGP]) {
-        peakSR[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP];
+      if (SlipRateMagnitude[ltsFace][iBndGP] > peakSR[ltsFace][iBndGP]) {
+        peakSR[ltsFace][iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
       }
     }
   }
@@ -309,8 +309,8 @@ public:
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP];
-          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP];
+          faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP];
+          faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP];
         }
       }
       //save stresses in imposedState
@@ -375,20 +375,20 @@ public:
 
           for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
             //!EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
-            faultStresses.TractionGP_XY[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][0] *Gnuc;
-            faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][1] *Gnuc;
-            slipRate1[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
-            slipRate2[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;
-            locSlipRate[ltsFace][iBndGP]  = std::sqrt( seissol::dr::aux::power(slipRate1[ltsFace][iBndGP],2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP],2));
+            faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
+            faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;
+            slipRateStrike[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
+            slipRateDip[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;
+            SlipRateMagnitude[ltsFace][iBndGP]  = std::sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
 
             //! Update slip
-            slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP]*time_inc;
-            slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP]*time_inc;
-            slip[ltsFace][iBndGP] += locSlipRate[ltsFace][iBndGP]*time_inc;
-            tmpSlip[iBndGP] += locSlipRate[ltsFace][iBndGP]*time_inc;
+            slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * time_inc;
+            slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * time_inc;
+            slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * time_inc;
+            tmpSlip[iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * time_inc;
 
-            tracXY[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
-            tracXZ[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
+            tracXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+            tracXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
           }
         }
         // output rupture front

@@ -42,8 +42,8 @@ public:
         real  (*slip)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slip);
         real  (*slip1)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slip1);
         real  (*slip2)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slip2);
-        real  (*slipRate1)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipRate1);
-        real  (*slipRate2)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipRate2);
+        real  (*slipRateStrike)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipRateStrike);
+        real  (*slipRateDip)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipRateDip);
         real  (*rupture_time)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->rupture_time);
         real  (*peakSR)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->peakSR);
         real  (*tracXY)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tracXY);
@@ -56,7 +56,7 @@ public:
         #endif
         for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
             unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-            e_interoperability.copyFrictionOutputToFortran(ltsFace,  meshFace, mu, slip, slip1, slip2, slipRate1, slipRate2, rupture_time, peakSR, tracXY, tracXZ);
+            e_interoperability.copyFrictionOutputToFortran(ltsFace, meshFace, mu, slip, slip1, slip2, slipRateStrike, slipRateDip, rupture_time, peakSR, tracXY, tracXZ);
         }
     }
 

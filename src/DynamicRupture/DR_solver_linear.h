@@ -159,22 +159,22 @@ protected:
 
       //-------------------------------------
       // calculate SlipRates
-      locSlipRate[ltsFace][iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) * impAndEta[ltsFace].inv_eta_s);
+      SlipRateMagnitude[ltsFace][iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) * impAndEta[ltsFace].inv_eta_s);
 
-      slipRate1[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
-      slipRate2[ltsFace][iBndGP]  = locSlipRate[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
+      slipRateStrike[ltsFace][iBndGP] = SlipRateMagnitude[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
+      slipRateDip[ltsFace][iBndGP]  = SlipRateMagnitude[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
 
       //-------------------------------------
       //calculateTraction
-      faultStresses.TractionGP_XY[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRate1[ltsFace][iBndGP];
-      faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRate2[ltsFace][iBndGP];
-      tracXY[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
-      tracXZ[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
+      faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][iBndGP];
+      faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][iBndGP];
+      tracXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+      tracXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
 
       //-------------------------------------
       //update Directional Slip
-      slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP] * deltaT[iTimeGP];
-      slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
     }
   }
 
@@ -208,7 +208,7 @@ protected:
    */
   virtual void instantaneousHealing(unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (locSlipRate[ltsFace][iBndGP] < u_0) {
+      if (SlipRateMagnitude[ltsFace][iBndGP] < u_0) {
         mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP];
         slip[ltsFace][iBndGP] = 0.0;
       }
@@ -258,7 +258,7 @@ public:
       //-------------------------------------
       //calculate Fault Strength
       //fault strength (Uphoff eq 2.44)
-      Strength[iBndGP] = cohesion[ltsFace][iBndGP] - mu[ltsFace][iBndGP] * std::min(initialStressInFaultCS[ltsFace][iBndGP][0] + faultStresses.NorStressGP[iTimeGP][iBndGP], 0.0);
+      Strength[iBndGP] = cohesion[ltsFace][iBndGP] - mu[ltsFace][iBndGP] * std::min(initialStressInFaultCS[ltsFace][iBndGP][0] + faultStresses.NormalStressGP[iTimeGP][iBndGP], 0.0);
     }
   }
 
@@ -270,7 +270,7 @@ public:
     unsigned int ltsFace) {
 
     real resampledSlipRate[numberOfPoints];
-    resampleKrnl.resamplePar = locSlipRate[ltsFace];
+    resampleKrnl.resamplePar = SlipRateMagnitude[ltsFace];
     resampleKrnl.resampledPar = resampledSlipRate;  //output from execute
 
     //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
@@ -283,7 +283,7 @@ public:
       //-------------------------------------
       //integrate Sliprate To Get Slip = State Variable
       slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + resampledSlipRate[iBndGP] * deltaT[iTimeGP];
-      outputSlip[iBndGP] = outputSlip[iBndGP] + locSlipRate[ltsFace][iBndGP] * deltaT[iTimeGP];
+      outputSlip[iBndGP] = outputSlip[iBndGP] + SlipRateMagnitude[ltsFace][iBndGP] * deltaT[iTimeGP];
 
       //-------------------------------------
       //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
@@ -358,8 +358,8 @@ public:
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //  modify strength according to prakash clifton
       // literature e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-      LocSlipRate[iBndGP] = std::sqrt(slipRate1[ltsFace][iBndGP]*slipRate1[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*slipRate2[ltsFace][iBndGP]);
-      sigma[iBndGP] = faultStresses.NorStressGP[iTimeGP][iBndGP]+initialStressInFaultCS[ltsFace][iBndGP][0];
+      LocSlipRate[iBndGP] = std::sqrt(slipRateStrike[ltsFace][iBndGP] * slipRateStrike[ltsFace][iBndGP] + slipRateDip[ltsFace][iBndGP] * slipRateDip[ltsFace][iBndGP]);
+      sigma[iBndGP] = faultStresses.NormalStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0];
       prak_clif_mod(strengthData[ltsFace][iBndGP], sigma[iBndGP], LocSlipRate[iBndGP], mu[ltsFace][iBndGP], deltaT[iTimeGP]);
 
       //TODO: add this line to make the FL6 actually functional: (this line is also missing in the master branch)
@@ -374,7 +374,7 @@ public:
       unsigned int iTimeGP,
       unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + locSlipRate[ltsFace][iBndGP]*deltaT[iTimeGP];
+      slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + SlipRateMagnitude[ltsFace][iBndGP] * deltaT[iTimeGP];
       outputSlip[iBndGP] = slip[ltsFace][iBndGP];
 
       //-------------------------------------

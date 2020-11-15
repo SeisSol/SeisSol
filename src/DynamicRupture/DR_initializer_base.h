@@ -65,9 +65,9 @@ public:
       real  (*slip)[ numOfPointsPadded ]          = it->var(dynRup->slip);                              // = 0
       real  (*slip1)[numOfPointsPadded ]          = it->var(dynRup->slip1);                             // = 0
       real  (*slip2)[ numOfPointsPadded ]         = it->var(dynRup->slip2);                             // = 0
-      real  (*locSlipRate)[ numOfPointsPadded ]     = it->var(dynRup->locSlipRate);                     // = 0
-      real  (*slipRate1)[ numOfPointsPadded ]     = it->var(dynRup->slipRate1);                         //get from fortran  EQN%IniSlipRate1
-      real  (*slipRate2)[numOfPointsPadded ]      = it->var(dynRup->slipRate2);                         //get from fortran  EQN%IniSlipRate2
+      real  (*slipRateMagnitude)[ numOfPointsPadded ]     = it->var(dynRup->slipRateMagnitude);                     // = 0
+      real  (*slipRateStrike)[ numOfPointsPadded ]     = it->var(dynRup->slipRateStrike);                         //get from fortran  EQN%IniSlipRate1
+      real  (*slipRateDip)[numOfPointsPadded ]      = it->var(dynRup->slipRateDip);                         //get from fortran  EQN%IniSlipRate2
       real  (*rupture_time)[ numOfPointsPadded ]  = it->var(dynRup->rupture_time);                      // = 0
       bool  (*RF)[ numOfPointsPadded ]            = it->var(dynRup->RF);                                //get from fortran
       real  (*peakSR)[ numOfPointsPadded ]        = it->var(dynRup->peakSR);                            // = 0
@@ -82,7 +82,7 @@ public:
           slip[ltsFace][iBndGP] = 0.0;
           slip1[ltsFace][iBndGP] = 0.0;
           slip2[ltsFace][iBndGP] = 0.0;
-          locSlipRate[ltsFace][iBndGP] = 0.0;
+          slipRateMagnitude[ltsFace][iBndGP] = 0.0;
           rupture_time[ltsFace][iBndGP] = 0.0;
           peakSR[ltsFace][iBndGP] = 0.0;
           tracXY[ltsFace][iBndGP] = 0.0;
@@ -138,7 +138,7 @@ public:
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
           cohesion[ltsFace][iBndGP]               = 0.0;
         }
-        e_interoperability.getDynRupParameters(ltsFace, meshFace, initialStressInFaultCS, mu, slipRate1, slipRate2, RF);
+        e_interoperability.getDynRupParameters(ltsFace, meshFace, initialStressInFaultCS, mu, slipRateStrike, slipRateDip, RF);
 
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();

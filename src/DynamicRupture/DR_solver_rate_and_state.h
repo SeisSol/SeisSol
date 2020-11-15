@@ -227,9 +227,9 @@ public:
       stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
       // The following process is adapted from that described by Kaneko et al. (2008)
-      locSlipRate[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2) );
-      locSlipRate[ltsFace][iBndGP] = std::max(AlmostZero, locSlipRate[ltsFace][iBndGP]);
-      SR_tmp[iBndGP] = locSlipRate[ltsFace][iBndGP];
+      SlipRateMagnitude[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2) );
+      SlipRateMagnitude[ltsFace][iBndGP] = std::max(AlmostZero, SlipRateMagnitude[ltsFace][iBndGP]);
+      SR_tmp[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
 
     }// End of iBndGP-loop
   }
@@ -251,7 +251,7 @@ public:
       //fault strength using LocMu and P_f from previous timestep/iteration
       //1.update SV using Vold from the previous time step
       updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], deltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
-      normalStress[iBndGP] = faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP];
+      normalStress[iBndGP] = faultStresses.NormalStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP];
     }// End of iBndGP-loop
 
     //2. solve for Vnew , applying the Newton-Raphson algorithm
@@ -263,10 +263,10 @@ public:
 
       // 3. update theta, now using V=(Vnew+Vold)/2
       // For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
-      SR_tmp[iBndGP] = 0.5 * (locSlipRate[ltsFace][iBndGP] + fabs(SRtest[iBndGP]));
+      SR_tmp[iBndGP] = 0.5 * (SlipRateMagnitude[ltsFace][iBndGP] + fabs(SRtest[iBndGP]));
 
       // 4. solve again for Vnew
-      locSlipRate[ltsFace][iBndGP] = fabs(SRtest[iBndGP]);
+      SlipRateMagnitude[ltsFace][iBndGP] = fabs(SRtest[iBndGP]);
 
       //!update LocMu
       updateMu(ltsFace, iBndGP, LocSV[iBndGP]);
@@ -274,7 +274,7 @@ public:
   }
 
   void executeIfNotConverged(std::array<real, numOfPointsPadded> &LocSV, unsigned ltsFace){
-    real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV[0] / RS_a_array[ltsFace][0]) * locSlipRate[ltsFace][0];
+    real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV[0] / RS_a_array[ltsFace][0]) * SlipRateMagnitude[ltsFace][0];
     //!logError(*) 'nonConvergence RS Newton', time
     //TODO: error logging : logError(*) 'NaN detected', time
     std::cout << "nonConvergence RS Newton, time: " << m_fullUpdateTime << std::endl;
@@ -309,27 +309,27 @@ public:
 
       //Compute slip
       //! ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
-      slip[ltsFace][iBndGP] += locSlipRate[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * deltaT[iTimeGP];
 
       //!Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-      slipRate1[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
-      slipRate2[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
+      slipRateStrike[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
+      slipRateDip[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
       //!TU 07.07.16: correct locSlipRate1_2 to avoid numerical errors
-      LocSlipRateMagnitude[iBndGP] = sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2));
+      LocSlipRateMagnitude[iBndGP] = sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
       if (LocSlipRateMagnitude[iBndGP] != 0) {
-        slipRate1[ltsFace][iBndGP] *= locSlipRate[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
-        slipRate2[ltsFace][iBndGP] *= locSlipRate[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
+        slipRateStrike[ltsFace][iBndGP] *= SlipRateMagnitude[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
+        slipRateDip[ltsFace][iBndGP] *= SlipRateMagnitude[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
       }
 
       tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRateMagnitude[iBndGP] * deltaT[iTimeGP];
 
-      slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP] * deltaT[iTimeGP];
-      slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
 
       //!Save traction for flux computation
-      faultStresses.TractionGP_XY[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
-      faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
+      faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
+      faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
 
       //TODO: Could be outside TimeLoop?
       deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[ltsFace][iBndGP];
@@ -433,7 +433,7 @@ protected:
     //TODO: padded?
     for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
       //! first guess = SR value of the previous step
-      SRtest[iBndGP] = locSlipRate[ltsFace][iBndGP];
+      SRtest[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
       tmp[iBndGP]   =  0.5 / m_Params->rs_sr0 *exp(LocSV[iBndGP]/RS_a_array[ltsFace][iBndGP]);
     }
 
@@ -503,8 +503,8 @@ protected:
     //TODO: padded?
     for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
       //TODO: change boundaries?
-      double a = locSlipRate[ltsFace][iBndGP] - impAndEta[ltsFace].inv_eta_s*sh_stress[iBndGP];
-      double b  = locSlipRate[ltsFace][iBndGP] + impAndEta[ltsFace].inv_eta_s*sh_stress[iBndGP];
+      double a = SlipRateMagnitude[ltsFace][iBndGP] - impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
+      double b  = SlipRateMagnitude[ltsFace][iBndGP] + impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
 
       double eps = std::numeric_limits<double>::epsilon();
       double Fa = F(a, iBndGP);
@@ -588,7 +588,7 @@ protected:
    */
   void updateMu(unsigned int ltsFace, unsigned int iBndGP, real LocSV){
     //! X in Asinh(x) for mu calculation
-    real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) * locSlipRate[ltsFace][iBndGP];
+    real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) * SlipRateMagnitude[ltsFace][iBndGP];
     //! mu from locSlipRate with SINH(X)=LOG(X+SQRT(X^2+1))
     mu[ltsFace][iBndGP] = RS_a_array[ltsFace][iBndGP] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
   }
@@ -674,9 +674,9 @@ public:
           stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
-          locSlipRate[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2) );
-          locSlipRate[ltsFace][iBndGP] = std::max(AlmostZero, locSlipRate[ltsFace][iBndGP]);
-          SR_tmp[iBndGP] = locSlipRate[ltsFace][iBndGP];
+          SlipRateMagnitude[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2) );
+          SlipRateMagnitude[ltsFace][iBndGP] = std::max(AlmostZero, SlipRateMagnitude[ltsFace][iBndGP]);
+          SR_tmp[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
 
         }// End of iBndGP-loop
 
@@ -691,7 +691,7 @@ public:
             //fault strength using LocMu and P_f from previous timestep/iteration
             //1.update SV using Vold from the previous time step
             updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], deltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
-            normalStress[iBndGP] = faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP];
+            normalStress[iBndGP] = faultStresses.NormalStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP];
           }// End of iBndGP-loop
 
           //2. solve for Vnew , applying the Newton-Raphson algorithm
@@ -703,10 +703,10 @@ public:
 
             // 3. update theta, now using V=(Vnew+Vold)/2
             // For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
-            SR_tmp[iBndGP] = 0.5 * (locSlipRate[ltsFace][iBndGP] + fabs(SRtest[iBndGP]));
+            SR_tmp[iBndGP] = 0.5 * (SlipRateMagnitude[ltsFace][iBndGP] + fabs(SRtest[iBndGP]));
 
             // 4. solve again for Vnew
-            locSlipRate[ltsFace][iBndGP] = fabs(SRtest[iBndGP]);
+            SlipRateMagnitude[ltsFace][iBndGP] = fabs(SRtest[iBndGP]);
 
             //!update LocMu
             updateMu(ltsFace, iBndGP, LocSV[iBndGP]);
@@ -739,27 +739,27 @@ public:
 
           //Compute slip
           //! ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
-          slip[ltsFace][iBndGP] += locSlipRate[ltsFace][iBndGP] * deltaT[iTimeGP];
+          slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * deltaT[iTimeGP];
 
           //!Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          slipRate1[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
-          slipRate2[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
+          slipRateStrike[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          slipRateDip[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
           //!TU 07.07.16: correct locSlipRate1_2 to avoid numerical errors
-          LocSlipTmp[iBndGP] = sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2));
+          LocSlipTmp[iBndGP] = sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
           if (LocSlipTmp[iBndGP] != 0) {
-            slipRate1[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP] * slipRate1[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
-            slipRate2[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP] * slipRate2[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
+            slipRateStrike[ltsFace][iBndGP] = SlipRateMagnitude[ltsFace][iBndGP] * slipRateStrike[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
+            slipRateDip[ltsFace][iBndGP] = SlipRateMagnitude[ltsFace][iBndGP] * slipRateDip[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
           }
 
           tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipTmp[iBndGP] * deltaT[iTimeGP];
 
-          slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP] * deltaT[iTimeGP];
-          slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP] * deltaT[iTimeGP];
+          slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
+          slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
 
           //!Save traction for flux computation
-          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
-          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
+          faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
+          faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
 
 
           //TODO: Could be outside TimeLoop?
@@ -865,7 +865,7 @@ protected:
   void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f,  FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
-      Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
+      Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NormalStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
 
       for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
         //!recover original values as it gets overwritten in the ThermalPressure routine
@@ -896,7 +896,7 @@ protected:
     T = 0.0;
     p = 0.0;
 
-    tauV = Sh[iBndGP] * locSlipRate[ltsFace][iBndGP]; //!fault strenght*slip rate
+    tauV = Sh[iBndGP] * SlipRateMagnitude[ltsFace][iBndGP]; //!fault strenght*slip rate
     Lambda_prime = m_Params->TP_lambda * m_Params->alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params->alpha_th);
 
     for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
@@ -976,8 +976,8 @@ public:
     real                    (*slip)[numOfPointsPadded]                            = layerData.var(ConcreteLts->slip);
     real                    (*slip1)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip1);
     real                    (*slip2)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip2);
-    real                    (*slipRate1)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRate1);
-    real                    (*slipRate2)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRate2);
+    real                    (*slipRate1)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRateStrike);
+    real                    (*slipRate2)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRateDip);
     real                    (*StateVar)[numOfPointsPadded]                        = layerData.var(ConcreteLts->stateVar);
 
     real                    (*tracXY)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXY);
@@ -1014,7 +1014,7 @@ public:
         P_0 = initialStressInFaultCS[ltsFace][iBndGP][0]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
 
         for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-          LocP = faultStresses.NorStressGP[iTimeGP][iBndGP];
+          LocP = faultStresses.NormalStressGP[iTimeGP][iBndGP];
           time_inc = deltaT[iTimeGP];
 
           //SignSR1   = SIGN(1.0,LocSR1)                    ! Gets the sign of the slip rate
@@ -1033,11 +1033,11 @@ public:
           SV0 = LocSV;    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
-          locSlipRate[ltsFace][iBndGP]      = std::sqrt(seissol::dr::aux::power(LocSR1,2) + seissol::dr::aux::power(LocSR2,2));
-          tmp        = fabs( locSlipRate[ltsFace][iBndGP]);
+          SlipRateMagnitude[ltsFace][iBndGP]      = std::sqrt(seissol::dr::aux::power(LocSR1, 2) + seissol::dr::aux::power(LocSR2, 2));
+          tmp        = fabs(SlipRateMagnitude[ltsFace][iBndGP]);
 
           for(unsigned int j = 0; j < nSVupdates; j++){ //!This loop corrects SV values
-            locSlipRate[ltsFace][iBndGP] = fabs( locSlipRate[ltsFace][iBndGP]);
+            SlipRateMagnitude[ltsFace][iBndGP] = fabs(SlipRateMagnitude[ltsFace][iBndGP]);
 
             // FL= 3 aging law and FL=4 slip law
             LocSV = calcStateVariableHook( SV0,  tmp,  time_inc,  RS_sl0[ltsFace]);
@@ -1050,7 +1050,7 @@ public:
             //             f = (mu*P_0-|S_0|)*S_0/|S_0|     (Coulomb's model of friction)
             //               where mu=a*asinh(SR/2/SR0*exp((F0+b*log(SR0*SV/L))/a (eq. 2a of Lapusta and Rice (2003))
 
-            SlipRateGuess = locSlipRate[ltsFace][iBndGP];   // SRtest: We use as first guess the SR value of the previous time step
+            SlipRateGuess = SlipRateMagnitude[ltsFace][iBndGP];   // SRtest: We use as first guess the SR value of the previous time step
 
             for(unsigned int i = 0; i < nSRupdates; i++){   //!This loop corrects SR values
               tmp          = 0.5 / RS_sr0[ltsFace] * exp((m_Params->rs_f0 + m_Params->rs_b * log(RS_sr0[ltsFace] * LocSV / RS_sl0[ltsFace]) ) / RS_a[ltsFace]);
@@ -1061,15 +1061,15 @@ public:
                              (fabs(P) * RS_a[ltsFace] / sqrt(1 + seissol::dr::aux::power(tmp2, 2)) * tmp) - 1.0;
               SlipRateGuess = fabs(SlipRateGuess-NR/dNR);             // no ABS needed around NR/dNR at least for aging law
             }   // End
-            tmp=0.5*( locSlipRate[ltsFace][iBndGP]+fabs(SlipRateGuess));  //! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
-            locSlipRate[ltsFace][iBndGP]=fabs(SlipRateGuess);
+            tmp=0.5*(SlipRateMagnitude[ltsFace][iBndGP] + fabs(SlipRateGuess));  //! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
+            SlipRateMagnitude[ltsFace][iBndGP]=fabs(SlipRateGuess);
           }   // End SV-Loop
 
           // FL= 3 aging law and FL=4 slip law
           LocSV= calcStateVariableHook( SV0,  tmp,  time_inc,  RS_sl0[ltsFace]);
 
           //TODO: reused calc from above -> simplify
-          tmp  = 0.5 * ( locSlipRate[ltsFace][iBndGP]) / RS_sr0[ltsFace] * exp((m_Params->rs_f0 + m_Params->rs_b * log(RS_sr0[ltsFace] * LocSV / RS_sl0[ltsFace])) / RS_a[ltsFace]);
+          tmp  = 0.5 * ( SlipRateMagnitude[ltsFace][iBndGP]) / RS_sr0[ltsFace] * exp((m_Params->rs_f0 + m_Params->rs_b * log(RS_sr0[ltsFace] * LocSV / RS_sl0[ltsFace])) / RS_a[ltsFace]);
 
           LocMu    = RS_a[ltsFace] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
 
@@ -1083,7 +1083,7 @@ public:
           LocTracXZ = LocTracXZ - initialStressInFaultCS[ltsFace][iBndGP][5];
 
           // Compute slip
-          LocSlip   = LocSlip  + ( locSlipRate[ltsFace][iBndGP])*time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+          LocSlip   = LocSlip  + ( SlipRateMagnitude[ltsFace][iBndGP]) * time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
 
           //Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
           LocSR1     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXY-faultStresses.XYStressGP[iTimeGP][iBndGP]);
@@ -1096,8 +1096,8 @@ public:
           //LocSR2     = SignSR2*ABS(LocSR2)
 
           //Save traction for flux computation
-          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
-          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
+          faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = LocTracXY;
+          faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = LocTracXZ;
         }//End of iTimeGP- loop
 
         mu[ltsFace][iBndGP]        = LocMu;
@@ -1220,12 +1220,12 @@ public:
         LocSlip = slip[ltsFace][iBndGP]; //DISC%DynRup%Slip(iBndGP,iFace)              //!< Slip path at given fault node
         LocSlip1 = slip1[ltsFace][iBndGP]; //DISC%DynRup%Slip1(iBndGP,iFace)            //!< Slip at given fault node along loc dir 1
         LocSlip2 = slip2[ltsFace][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
-        LocSR1 = slipRate1[ltsFace][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
-        LocSR2 = slipRate2[ltsFace][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
+        LocSR1 = slipRateStrike[ltsFace][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
+        LocSR2 = slipRateDip[ltsFace][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSV = stateVar[ltsFace][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)
         P_0 = initialStressInFaultCS[ltsFace][iBndGP][0]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
         for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-          LocP = faultStresses.NorStressGP[iTimeGP][iBndGP];
+          LocP = faultStresses.NormalStressGP[iTimeGP][iBndGP];
           time_inc = deltaT[iTimeGP];
 
 
@@ -1244,7 +1244,7 @@ public:
           nSRupdates = 5; //TODO: can be put outside of loop
           nSVupdates = 2;
 
-          locSlipRate[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1, 2) + seissol::dr::aux::power(LocSR2, 2)); //can be put outside of the loop
+          SlipRateMagnitude[ltsFace][iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1, 2) + seissol::dr::aux::power(LocSR2, 2)); //can be put outside of the loop
 
           //charact. time scale Tc
           Tc = RS_sl0[ltsFace] / m_Params->rs_sr0;
@@ -1252,9 +1252,9 @@ public:
           coeft= exp(-time_inc / Tc);
 
           for (int j = 0; j < nSVupdates; j++) { //!This loop corrects SV values
-            locSlipRate[ltsFace][iBndGP] = abs(locSlipRate[ltsFace][iBndGP]);
+            SlipRateMagnitude[ltsFace][iBndGP] = abs(SlipRateMagnitude[ltsFace][iBndGP]);
             //exact integration assuming constant V in this loop
-            LocSV=Tc*locSlipRate[ltsFace][iBndGP]*(1.0-coeft) + coeft*SV0;
+            LocSV= Tc * SlipRateMagnitude[ltsFace][iBndGP] * (1.0 - coeft) + coeft * SV0;
             //! Newton-Raphson algorithm to determine the value of the slip rate.
             //! We wish to find SR that fulfills g(SR)=f(SR), by building up the function NR=f-g , which has
             //!  a derivative dNR = d(NR)/d(SR). We can then find SR by iterating SR_{i+1}=SR_i-( NR_i / dNR_i ).
@@ -1263,7 +1263,7 @@ public:
             //!             f = (mu*P_0-|S_0|)*S_0/|S_0|     (Coulomb's model of friction)
             //!             where mu = mu_s + a V/(V+Vc) - b SV/(SV + Vc)
             //!
-            SRtest = locSlipRate[ltsFace][iBndGP];   // We use as first guess the SR value of the previous time step
+            SRtest = SlipRateMagnitude[ltsFace][iBndGP];   // We use as first guess the SR value of the previous time step
             for (int i = 0; i < nSRupdates; i++) {   //!This loop corrects SR values
               tmp = m_Params->rs_f0+ RS_a[ltsFace] *SRtest/(SRtest+m_Params->rs_sr0)-m_Params->rs_b*LocSV/(LocSV+RS_sl0[ltsFace]); //=mu
               NR = - impAndEta[ltsFace].inv_eta_s * (abs(P)*tmp-ShTest)-SRtest;
@@ -1271,12 +1271,12 @@ public:
                              (abs(P)*(RS_a[ltsFace]/(SRtest+m_Params->rs_sr0)-RS_a[ltsFace]*SRtest/seissol::dr::aux::power(SRtest+m_Params->rs_sr0,2))) -1.0;
               SRtest = SRtest-NR/dNR;
             }   // End nSRupdates-Loop
-            tmp=0.5*(locSlipRate[ltsFace][iBndGP]+abs(SRtest));  // For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
-            locSlipRate[ltsFace][iBndGP]=abs(SRtest);
+            tmp=0.5*(SlipRateMagnitude[ltsFace][iBndGP] + abs(SRtest));  // For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
+            SlipRateMagnitude[ltsFace][iBndGP]=abs(SRtest);
           }   // End nSVupdates-Loop -  This loop corrects SV values
 
           LocSV    = Tc*tmp*(1-coeft) + coeft*SV0;
-          tmp = 0.5 * (locSlipRate[ltsFace][iBndGP])/m_Params->rs_sr0 * exp((m_Params->rs_f0 + m_Params->rs_b*log(m_Params->rs_sr0*LocSV/RS_sl0[ltsFace])) / RS_a[ltsFace]);
+          tmp = 0.5 * (SlipRateMagnitude[ltsFace][iBndGP]) / m_Params->rs_sr0 * exp((m_Params->rs_f0 + m_Params->rs_b * log(m_Params->rs_sr0 * LocSV / RS_sl0[ltsFace])) / RS_a[ltsFace]);
 
           //! Ampuero and Ben-Zion 2008 (eq. 1):
           // LocMu = friction coefficient (mu_f)
@@ -1286,7 +1286,7 @@ public:
           // RS_sr0 = characteristic velocity scale (V_c)
           // RS_b = positive coefficient, quantifying  the evolution effect (beta)
           // RS_sl0 = characteristic velocity scale (V_c)
-          LocMu = m_Params->rs_f0+RS_a[ltsFace]*locSlipRate[ltsFace][iBndGP]/(locSlipRate[ltsFace][iBndGP]+m_Params->rs_sr0)-m_Params->rs_b*LocSV/(LocSV+RS_sl0[ltsFace]);
+          LocMu = m_Params->rs_f0 + RS_a[ltsFace] * SlipRateMagnitude[ltsFace][iBndGP] / (SlipRateMagnitude[ltsFace][iBndGP] + m_Params->rs_sr0) - m_Params->rs_b * LocSV / (LocSV + RS_sl0[ltsFace]);
 
           // update stress change
           LocTracXY = -((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / ShTest) *LocMu * P;
@@ -1295,7 +1295,7 @@ public:
           LocTracXZ = LocTracXZ - initialStressInFaultCS[ltsFace][iBndGP][5];
 
           // Compute slip
-          LocSlip = LocSlip + locSlipRate[ltsFace][iBndGP] * time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+          LocSlip = LocSlip + SlipRateMagnitude[ltsFace][iBndGP] * time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
 
           //Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
           LocSR1 = -impAndEta[ltsFace].inv_eta_s  * (LocTracXY - faultStresses.XYStressGP[iTimeGP][iBndGP]);
@@ -1306,13 +1306,13 @@ public:
 
 
           //Save traction for flux computation
-          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
-          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
+          faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = LocTracXY;
+          faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = LocTracXZ;
         } //End of iTimeGP loop
 
         mu[ltsFace][iBndGP] = LocMu;
-        slipRate1[ltsFace][iBndGP] = LocSR1;
-        slipRate2[ltsFace][iBndGP] = LocSR2;
+        slipRateStrike[ltsFace][iBndGP] = LocSR1;
+        slipRateDip[ltsFace][iBndGP] = LocSR2;
         slip[ltsFace][iBndGP] = LocSlip;
         slip1[ltsFace][iBndGP] = LocSlip1;
         slip2[ltsFace][iBndGP] = LocSlip2;
