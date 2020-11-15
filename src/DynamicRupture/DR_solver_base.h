@@ -224,9 +224,7 @@ protected:
   }
 
   // output rupture front
-  // outside of iTimeGP loop in order to safe an 'if' in a loop
-  // this way, no subtimestep resolution possible
-  void outputRuptureFront(
+  void saveRuptureFrontOutput(
       unsigned int ltsFace
   ){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
@@ -238,7 +236,7 @@ protected:
   }
 
 
-  void calcPeakSlipRate(
+  void savePeakSlipRateOutput(
       unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       if (locSlipRate[ltsFace][iBndGP] > peakSR[ltsFace][iBndGP]) {
@@ -251,7 +249,7 @@ protected:
   //    to this end, here the slip is computed and averaged per element
   //    in calc_seissol.f90 this value will be multiplied by the element surface
   //    and an output happened once at the end of the simulation
-  void calcAverageSlip(
+  void saveAverageSlipOutput(
       std::array<real, numOfPointsPadded> &tmpSlip,
       unsigned int ltsFace
   ){
@@ -396,16 +394,16 @@ public:
         // output rupture front
         // outside of iTimeGP loop in order to safe an 'if' in a loop
         // this way, no subtimestep resolution possible
-        outputRuptureFront(ltsFace);
+        saveRuptureFrontOutput(ltsFace);
 
         //output peak slip rate
-        calcPeakSlipRate(ltsFace);
+        savePeakSlipRateOutput(ltsFace);
 
         //---compute and store slip to determine the magnitude of an earthquake ---
         //    to this end, here the slip is computed and averaged per element
         //    in calc_seissol.f90 this value will be multiplied by the element surface
         //    and an output happened once at the end of the simulation
-        calcAverageSlip(tmpSlip, ltsFace);
+        saveAverageSlipOutput(tmpSlip, ltsFace);
 
         //save stresses in imposedState
         postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, timeWeights, ltsFace);
@@ -463,10 +461,10 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(ltsFace);
+      saveRuptureFrontOutput(ltsFace);
 
       //output peak slip rate
-      calcPeakSlipRate(ltsFace);
+      savePeakSlipRateOutput(ltsFace);
 
       //save stresses in imposedState
       postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, timeWeights, ltsFace);

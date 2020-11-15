@@ -35,7 +35,75 @@ protected:
   real                    (*mu_D)[numOfPointsPadded];
   bool                    (*DS)[numOfPointsPadded];
   real                    (*dynStress_time)[numOfPointsPadded];
+  
+public:
+  virtual void evaluate(seissol::initializers::Layer&  layerData,
+                        seissol::initializers::DynamicRupture *dynRup,
+                        real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real fullUpdateTime,
+                        real timeWeights[CONVERGENCE_ORDER]) override {
 
+    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+      //initialize struct for in/outputs stresses
+      FaultStresses faultStresses{};
+
+      //declare local variables
+      dynamicRupture::kernel::resampleParameter resampleKrnl;
+      resampleKrnl.resampleM = init::resample::Values;
+
+      std::array<real, numOfPointsPadded> outputSlip{0};
+      std::array<real, numOfPointsPadded> stateVariablePsi{0};
+      std::array<real, numOfPointsPadded> Strength{0};
+      setTimeHook(ltsFace);
+
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+
+      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
+        static_cast<Derived*>(this)->calcStrengthHook(Strength, faultStresses, iTimeGP, ltsFace);
+
+        calcSlipRateAndTraction(Strength, faultStresses, iTimeGP , ltsFace);
+
+        //function g, output: stateVariablePsi & outputSlip
+        static_cast<Derived*>(this)->calcStateVariableHook(stateVariablePsi, outputSlip, resampleKrnl, iTimeGP, ltsFace);
+
+        //function f, output: calculated mu
+        frictionFunctionHook(stateVariablePsi, ltsFace);
+
+        //instantaneous healing option Reset Mu and Slip
+        if (m_Params->IsInstaHealingOn == true) {
+          instantaneousHealing(ltsFace);
+        }
+      }//End of iTimeGP-Loop
+
+      // output rupture front
+      saveRuptureFrontOutput(ltsFace);
+
+      //output time when shear stress is equal to the dynamic stress after rupture arrived
+      //currently only for linear slip weakening
+      saveDynamicStressOutput(ltsFace);
+
+      //output peak slip rate
+      savePeakSlipRateOutput(ltsFace);
+
+      //---compute and store slip to determine the magnitude of an earthquake ---
+      //    to this end, here the slip is computed and averaged per element
+      //    in calc_seissol.f90 this value will be multiplied by the element surface
+      //    and an output happened once at the end of the simulation
+      saveAverageSlipOutput(outputSlip, ltsFace);
+
+      postcomputeImposedStateFromNewStress(
+          QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace],
+          faultStresses, timeWeights, ltsFace);
+    }//End of Loop over Faces
+  }//End of Function evaluate
+
+protected:
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
@@ -151,7 +219,7 @@ protected:
  * output time when shear stress is equal to the dynamic stress after rupture arrived
  * currently only for linear slip weakening
  */
-  virtual void outputDynamicStress(
+  virtual void saveDynamicStressOutput(
       unsigned int ltsFace
   ){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
@@ -166,74 +234,7 @@ protected:
     }
   }
 
-public:
-  virtual void evaluate(seissol::initializers::Layer&  layerData,
-                        seissol::initializers::DynamicRupture *dynRup,
-                        real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                        real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                        real fullUpdateTime,
-                        real timeWeights[CONVERGENCE_ORDER]) override {
 
-    copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      //initialize struct for in/outputs stresses
-      FaultStresses faultStresses{};
-
-      //declare local variables
-      dynamicRupture::kernel::resampleParameter resampleKrnl;
-      resampleKrnl.resampleM = init::resample::Values;
-
-      std::array<real, numOfPointsPadded> outputSlip{0};
-      std::array<real, numOfPointsPadded> stateVariablePsi{0};
-      std::array<real, numOfPointsPadded> Strength{0};
-      setTimeHook(ltsFace);
-
-      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
-
-      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-        static_cast<Derived*>(this)->calcStrengthHook(Strength, faultStresses, iTimeGP, ltsFace);
-
-        calcSlipRateAndTraction(Strength, faultStresses, iTimeGP , ltsFace);
-
-        //function g, output: stateVariablePsi & outputSlip
-        static_cast<Derived*>(this)->calcStateVariableHook(stateVariablePsi, outputSlip, resampleKrnl, iTimeGP, ltsFace);
-
-        //function f, output: calculated mu
-        frictionFunctionHook(stateVariablePsi, ltsFace);
-
-        //instantaneous healing option Reset Mu and Slip
-        if (m_Params->IsInstaHealingOn == true) {
-          instantaneousHealing(ltsFace);
-        }
-      }//End of iTimeGP-Loop
-
-      // output rupture front
-      // outside of iTimeGP loop in order to safe an 'if' in a loop
-      // this way, no subtimestep resolution possible
-      outputRuptureFront(ltsFace);
-
-      //output time when shear stress is equal to the dynamic stress after rupture arrived
-      //currently only for linear slip weakening
-      outputDynamicStress(ltsFace);
-
-      //output peak slip rate
-      calcPeakSlipRate(ltsFace);
-
-      //---compute and store slip to determine the magnitude of an earthquake ---
-      //    to this end, here the slip is computed and averaged per element
-      //    in calc_seissol.f90 this value will be multiplied by the element surface
-      //    and an output happened once at the end of the simulation
-      calcAverageSlip(outputSlip, ltsFace);
-
-      postcomputeImposedStateFromNewStress(
-          QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace],
-          faultStresses, timeWeights, ltsFace);
-    }//End of Loop over Faces
-  }//End of Function evaluate
 
 
 };//End of Class
