@@ -150,7 +150,7 @@ public:
       return curCorrectionSteps > lastCorrectionStepsInterior;
   }
 
-  bool setLastCorrectionStepsInterior(long steps) {
+  void setLastCorrectionStepsInterior(long steps) {
     lastCorrectionStepsInterior = steps;
   }
 
