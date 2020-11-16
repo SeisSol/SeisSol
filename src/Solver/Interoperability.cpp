@@ -905,6 +905,8 @@ void seissol::Interoperability::initInitialConditions()
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
+  } else if (m_initialConditionType == "Travelling") {
+    m_iniConds.emplace_back(new physics::TravellingWave(m_ltsLut.lookup(m_lts->material, 0)));
   } else if (m_initialConditionType == "Scholte") {
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {

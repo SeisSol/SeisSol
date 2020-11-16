@@ -14,9 +14,15 @@
 
 extern seissol::Interoperability e_interoperability;
 
+<<<<<<< HEAD
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
   : m_varField{0, NUMBER_OF_QUANTITIES-2},
     m_ampField{100.0, 100.0},
+=======
+seissol::physics::Planarwave::Planarwave(seissol::model::Material material, double phase, std::array<double, 3> kVec)
+  : m_varField{1,8},
+    m_ampField{1.0, 1.0},
+>>>>>>> origin/travellingWave
     m_phase(phase),
     m_kVec(kVec)
 {
@@ -72,6 +78,7 @@ void seissol::physics::Planarwave::evaluate(double time,
   }
 }
 
+<<<<<<< HEAD
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMaterialData& materialData, real phase)
   : m_kVec({{{M_PI, 0.0, 0.0},
              {0.0, M_PI, 0.0},
@@ -100,17 +107,13 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += dofsPW(i,j);
-      }
-    }
-  }
-}
-
-seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData)
+=======
+seissol::physics::TravellingWave::TravellingWave(seissol::model::Material material) 
   //set the wave number vector such that it points in the direction of intendet travelling
   //the magnitude of the vector is the inverse of the wavelength
-  : Planarwave(materialData, 0.0, {0.0, 0.0, -10}),
+  : Planarwave(material, 0.0, {0.0, 0.0, -0.001}),
   //origin is a point on the wavefront at time zero
-    m_origin({0.0, 0.0, -0.5})
+    m_origin({0.0, 0.0, 5000})
 {
 }
 
@@ -120,7 +123,7 @@ void seissol::physics::TravellingWave::evaluate(double time,
 				       	        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
   dofsQp.setZero();
 
-  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
@@ -134,6 +137,7 @@ void seissol::physics::TravellingWave::evaluate(double time,
         if(arg.imag() > -M_PI && arg.imag() < M_PI) {
           dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();
         }
+>>>>>>> origin/travellingWave
       }
     }
   }

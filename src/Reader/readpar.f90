@@ -601,7 +601,9 @@ CONTAINS
        logInfo(*) 'Planarwave initial condition'
    CASE('SuperimposedPlanarwave')
        logInfo(*) 'Superimposed Planarwave initial condition'
-   CASE('Scholte')
+    CASE('Travelling')                                                                ! CASE tPlanarwave
+       logInfo(*) 'Travelling wave initial condition'
+    CASE('Scholte')
        logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
    CASE('Snell')
        logInfo(*) 'Snells law (elastic-acoustic) initial condition'

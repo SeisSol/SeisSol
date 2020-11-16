@@ -33,17 +33,29 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
+<<<<<<< HEAD
     Planarwave(const CellMaterialData& materialData, double phase = 0.0, std::array<double, 3> kVec = {M_PI, M_PI, M_PI});
+=======
+      Planarwave(model::Material material, double phase = 0.0, std::array<double, 3> = {M_PI, M_PI, M_PI});
+>>>>>>> origin/travellingWave
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
                       const CellMaterialData& materialData,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
-    protected:
+<<<<<<< HEAD
+    private:
       const std::vector<int>                            m_varField;
       const std::vector<std::complex<double>>           m_ampField;
       const double                                      m_phase;
       const std::array<double, 3>                       m_kVec;
+=======
+    protected:
+      const std::vector<int>                                        m_varField;
+      const std::vector<std::complex<double>>                       m_ampField;
+      const double                                                  m_phase;
+      const std::array<double, 3>                                   m_kVec;
+>>>>>>> origin/travellingWave
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> m_eigenvectors;
     };
@@ -66,7 +78,7 @@ namespace seissol {
 
     class TravellingWave : public Planarwave{
     public:
-      TravellingWave(const CellMaterialData& materialData);
+      TravellingWave(model::Material material);
 
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
