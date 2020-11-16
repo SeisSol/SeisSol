@@ -137,6 +137,28 @@ struct NeighborCluster {
 
 };
 
+// TODO(Lukas) Remove/Find a better place for this
+class DynamicRuptureScheduler {
+  long lastCorrectionStepsInterior = -1;
+  long numberOfDynamicRuptureFaces;
+
+public:
+  explicit DynamicRuptureScheduler(long numberOfDynamicRuptureFaces) :
+    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces) {}
+
+  [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const {
+      return curCorrectionSteps > lastCorrectionStepsInterior;
+  }
+
+  bool setLastCorrectionStepsInterior(long steps) {
+    lastCorrectionStepsInterior = steps;
+  }
+
+  [[nodiscard]] bool hasDynamicRuptureFaces() const {
+    return numberOfDynamicRuptureFaces > 0;
+  }
+};
+
 }
 
 #endif //SEISSOL_ACTORSTATE_H

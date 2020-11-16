@@ -85,6 +85,17 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
          static_cast<long>(l_globalClusterId));
     const auto layerTypes = {Copy, Interior};
+
+    // Dynamic rupture
+    auto& dynRupTree = i_memoryManager.getDynamicRuptureTree()->child(localClusterId);
+    // Note: We need to include the Ghost part, as we need to compute its DR part as well.
+    const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
+        dynRupTree.child(Copy).getNumberOfCells() +
+        dynRupTree.child(Ghost).getNumberOfCells();
+
+    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(numberOfDynRupCells);
+
+
     for (auto type : layerTypes) {
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
@@ -97,9 +108,11 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
           timeStepRate,
           getTimeTolerance(),
           printProgress,
+          &drScheduler,
           l_globalData,
           &i_memoryManager.getLtsTree()->child(localClusterId).child(type),
-          &i_memoryManager.getDynamicRuptureTree()->child(localClusterId).child(type),
+          &dynRupTree.child(Interior),
+          &dynRupTree.child(Copy),
           i_memoryManager.getLts(),
           i_memoryManager.getDynamicRupture(),
           &m_loopStatistics)

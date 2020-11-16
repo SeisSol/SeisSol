@@ -105,7 +105,10 @@ class seissol::time_stepping::TimeManager {
     //std::vector<TimeCluster*> clusters;
     std::vector<std::unique_ptr<TimeCluster>> clusters;
 
-  //! all MPI (ghost) LTS clusters, which are under control of this time manager
+    //! one dynamic rupture scheduler per pair of interior/copy cluster
+    std::vector<DynamicRuptureScheduler> dynamicRuptureSchedulers;
+
+    //! all MPI (ghost) LTS clusters, which are under control of this time manager
     //std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
     std::unique_ptr<AbstractCommunicationManager> communicationManager;
 

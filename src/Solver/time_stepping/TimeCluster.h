@@ -139,7 +139,8 @@ private:
      * element data
      */     
     seissol::initializers::Layer* m_clusterData;
-    seissol::initializers::Layer* m_dynRupClusterData;
+    seissol::initializers::Layer* dynRupInteriorData;
+    seissol::initializers::Layer* dynRupCopyData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
 
@@ -152,14 +153,12 @@ private:
     //! Point sources
     sourceterm::PointSources const* m_pointSources;
 
-    //! true if dynamic rupture faces are present
-    bool m_dynamicRuptureFaces;
-
     enum class ComputePart {
       Local = 0,
       Neighbor,
       DRNeighbor,
-      DRFrictionLaw,
+      DRFrictionLawInterior,
+      DRFrictionLawCopy,
       PlasticityCheck,
       PlasticityYield,
       NUM_COMPUTE_PARTS
@@ -235,7 +234,9 @@ private:
 
     void computeNeighborIntegrationFlops(seissol::initializers::Layer &layerData);
 
-    void computeDynamicRuptureFlops(seissol::initializers::Layer& layerData);
+    void computeDynamicRuptureFlops(seissol::initializers::Layer &layerData,
+                                    long long& nonZeroFlops,
+                                    long long& hardwareFlops);
                                           
     void computeFlops();
     
@@ -268,19 +269,12 @@ public:
      * @param i_interiorCellData cell data in the interior.
      * @param i_cells degrees of freedom, time buffers, time derivatives.
      **/
-    TimeCluster(unsigned int i_clusterId,
-                unsigned int i_globalClusterId,
-                LayerType layerType,
-                double maxTimeStepSize,
-                long timeStepRate,
-                double timeTolerance,
-                bool printProgress,
-                struct GlobalData *i_globalData,
-                seissol::initializers::Layer *i_clusterData,
-                seissol::initializers::Layer *i_dynRupClusterData,
-                seissol::initializers::LTS *i_lts,
-                seissol::initializers::DynamicRupture *i_dynRup,
-                LoopStatistics *i_loopStatistics);
+    TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, LayerType layerType, double maxTimeStepSize,
+                long timeStepRate, double timeTolerance, bool printProgress,
+                DynamicRuptureScheduler* dynamicRuptureScheduler, struct GlobalData* i_globalData,
+                seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
+                seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
+                seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics);
 
     /**
      * Destructor of a LTS cluster.
@@ -323,6 +317,8 @@ public:
 
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
+
+    DynamicRuptureScheduler* dynamicRuptureScheduler;
 
     void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
     void reset() override;

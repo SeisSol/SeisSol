@@ -90,16 +90,14 @@
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
 
-seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
-                                                 unsigned int i_globalClusterId,
-                                                 LayerType layerType,
-                                                 double maxTimeStepSize,
-                                                 long timeStepRate,
-                                                 double timeTolerance,
-                                                 bool printProgress,
+seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
+                                                 LayerType layerType, double maxTimeStepSize,
+                                                 long timeStepRate, double timeTolerance, bool printProgress,
+                                                 DynamicRuptureScheduler *dynamicRuptureScheduler,
                                                  struct GlobalData *i_globalData,
                                                  seissol::initializers::Layer *i_clusterData,
-                                                 seissol::initializers::Layer *i_dynRupClusterData,
+                                                 seissol::initializers::Layer *dynRupInteriorData,
+                                                 seissol::initializers::Layer *dynRupCopyData,
                                                  seissol::initializers::LTS *i_lts,
                                                  seissol::initializers::DynamicRupture *i_dynRup,
                                                  LoopStatistics *i_loopStatistics) :
@@ -111,7 +109,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
     // global data
     m_globalData(i_globalData),
     m_clusterData(i_clusterData),
-    m_dynRupClusterData(i_dynRupClusterData),
+    dynRupInteriorData(dynRupInteriorData),
+    dynRupCopyData(dynRupCopyData),
     m_lts(i_lts),
     m_dynRup(i_dynRup),
     // cells
@@ -120,7 +119,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
     m_pointSources(nullptr),
     m_loopStatistics(i_loopStatistics),
     m_receiverCluster(nullptr),
-    printProgress(printProgress)
+    printProgress(printProgress),
+    dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     assert( m_globalData                               != nullptr);
     assert( m_clusterData                              != nullptr);
@@ -131,8 +131,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
 #endif
   // set timings to zero
   m_receiverTime                  = 0;
-
-  m_dynamicRuptureFaces = i_dynRupClusterData->getNumberOfCells() > 0;
 
   m_timeKernel.setGlobalData(m_globalData);
   m_localKernel.setGlobalData(m_globalData);
@@ -258,10 +256,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 }
 
 
-void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(seissol::initializers::Layer& layerData)
+void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(seissol::initializers::Layer &layerData,
+                                                                     long long& nonZeroFlops,
+                                                                     long long& hardwareFlops)
 {
-  auto& nonZeroFlops = m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];
-  auto& hardwareFlops = m_flops_hardware[static_cast<int>(ComputePart::DRNeighbor)];
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
@@ -486,8 +484,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
 void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(seissol::initializers::Layer& layerData) {
   auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
   auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
-  auto& drFlopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLaw)];
-  auto& drFlopsHardware = m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLaw)];
+  auto& drFlopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];
+  auto& drFlopsHardware = m_flops_hardware[static_cast<int>(ComputePart::DRNeighbor)];
   flopsNonZero = 0;
   flopsHardware = 0;
   drFlopsNonZero = 0;
@@ -518,7 +516,13 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(seisso
 void seissol::time_stepping::TimeCluster::computeFlops() {
   computeLocalIntegrationFlops(*m_clusterData);
   computeNeighborIntegrationFlops(*m_clusterData);
-  computeDynamicRuptureFlops(*m_dynRupClusterData);
+  // TODO(Lukas) Add flops for copy layer here!
+  computeDynamicRuptureFlops(*dynRupInteriorData,
+                             m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)],
+                             m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+  computeDynamicRuptureFlops(*dynRupCopyData,
+                             m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)],
+                             m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
   seissol::kernels::Plasticity::flopsPlasticity(
           m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)],
           m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)],
@@ -564,14 +568,24 @@ void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
 
   double subTimeStart = ct.correctionTime - lastSubTime;
-  // Note, the following is likely wrong
-  // TODO(Lukas) Check scheduling if this is correct
-  if (m_dynamicRuptureFaces) {
-    computeDynamicRupture(*m_dynRupClusterData);
-    g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLaw)];
-    g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLaw)];
-  }
 
+  // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int
+  // Otherwise, this is an interior layer actor and we need only the FL_Int
+  // We need to avoid to compute it twice.
+  if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
+    if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
+      computeDynamicRupture(*dynRupInteriorData);
+      g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)];
+      g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)];
+      dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
+    }
+    if (layerType == Copy) {
+      computeDynamicRupture(*dynRupCopyData);
+      g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)];
+      g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)];
+    }
+
+  }
   computeNeighboringIntegration(*m_clusterData, subTimeStart);
 
   g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
