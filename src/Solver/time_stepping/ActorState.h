@@ -99,7 +99,7 @@ struct ClusterTimes {
   long stepsSinceLastSync = 0;
   long predictionsSinceLastSync = 0;
   long predictionsSinceStart = 0;
-  long stepsSinceStart;
+  long stepsSinceStart = 0;
   long timeStepRate = -1;
 
   [[nodiscard]] double nextCorrectionTime(double syncTime) const {

@@ -93,8 +93,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
         dynRupTree.child(Copy).getNumberOfCells() +
         dynRupTree.child(Ghost).getNumberOfCells();
 
-    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(numberOfDynRupCells);
-
+    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells));
 
     for (auto type : layerTypes) {
       // We print progress only if it is the cluster with the largest time step on each rank.
@@ -108,7 +107,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
           timeStepRate,
           getTimeTolerance(),
           printProgress,
-          &drScheduler,
+          drScheduler.get(),
           l_globalData,
           &i_memoryManager.getLtsTree()->child(localClusterId).child(type),
           &dynRupTree.child(Interior),
