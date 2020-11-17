@@ -12,31 +12,30 @@ template <T> constexpr bool isEncodedConstant() {
   return std::is_same<FaceKinds, T>::value || std::is_same<KernelNames, T>::value ||
          std::is_same<FaceId, T>::value || std::is_same<FaceRelations, T>::value ||
          std::is_same<DrFaceRelations, T>::value || std::is_same<ComputationKind, T>::value ||
-         std::is_same<VariableID, T>::value || std::is_same<ExchangeInfo, T>::value;
+         std::is_same<EntityId, T>::value || std::is_same<ExchangeInfo, T>::value;
 }
 
 
-template<class T, class Enable = void> class Condition;
+template <class T, class Enable = void> class Condition;
 
-template <class T, typename std::enable_if<isEncodedConstant<T>()>::type>
-class Condition {
+template <class T, typename std::enable_if<isEncodedConstant<T>()>::type> class Condition {
 public:
   Condition() = delete;
   Condition(T initialEncoding) : encoding(static_cast<size_t>(initialEncoding)) {
     highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
   }
 
-  Condition& operator!() {
+  Condition &operator!() {
     value = highBitsMask & (~encoding);
     return *this;
   }
 
-  Condition& operator||(const Condition &other) {
+  Condition &operator||(const Condition &other) {
     encoding = encoding | other.encoding;
     return *this;
   }
 
-  Condition& negate() {
+  Condition &negate() {
     return !(*this);
   }
 
@@ -60,8 +59,8 @@ private:
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-typename std::enable_if<isEncodedConstant<T>(), size_t>::type
-operator||(const T &lhs, const T &rhs) {
+typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator||(const T &lhs,
+                                                                         const T &rhs) {
   return (static_cast<size_t>(lhs) | static_cast<size_t>(rhs));
 }
 
@@ -84,8 +83,7 @@ operator*(const T &condition) {
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-typename std::enable_if<isEncodedConstant<T>(), size_t>::type
-operator!(const T &condition) {
+typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator!(const T &condition) {
   size_t highBitsMask = ~((~encode_t(0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }

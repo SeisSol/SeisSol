@@ -1,19 +1,18 @@
 #ifndef SEISSOL_CONDITIONALKEY_HPP
 #define SEISSOL_CONDITIONALKEY_HPP
 
+#include <functional>
 #include <limits>
 #include <utility>
-#include <functional>
 
 namespace seissol {
 namespace initializers {
 namespace recording {
 struct ConditionalKey {
-  ConditionalKey(size_t kernel,
-                 size_t type = std::numeric_limits<size_t>::max(),
+  ConditionalKey(size_t kernel, size_t type = std::numeric_limits<size_t>::max(),
                  size_t face = std::numeric_limits<size_t>::max(),
                  size_t relation = std::numeric_limits<size_t>::max())
-    : kernelId(kernel), typeId(type), faceId(face), faceRelationId(relation){};
+      : kernelId(kernel), typeId(type), faceId(face), faceRelationId(relation){};
 
   bool operator==(const ConditionalKey &other) const {
     return ((kernelId == other.kernelId) && (typeId == other.typeId) && (faceId == other.faceId) &&

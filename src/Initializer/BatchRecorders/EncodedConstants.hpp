@@ -6,7 +6,7 @@ namespace seissol {
 namespace initializers {
 namespace recording {
 
-enum struct VariableID : size_t {
+enum struct EntityId : size_t {
   Dofs = 0,
   Idofs,
   Star,

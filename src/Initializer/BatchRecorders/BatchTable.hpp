@@ -27,7 +27,7 @@ public:
       : pointers(other.pointers), devicePtrs(nullptr) {
     if (!pointers.empty()) {
       if (other.devicePtrs != nullptr) {
-        devicePtrs = (real**)device.api->allocGlobMem(other.pointers.size() * sizeof(real *));
+        devicePtrs = (real **)device.api->allocGlobMem(other.pointers.size() * sizeof(real *));
         device.api->copyBetween(devicePtrs, other.devicePtrs,
                                 other.pointers.size() * sizeof(real *));
       }
@@ -55,24 +55,21 @@ private:
   real **devicePtrs{};
   DeviceInstance &device = DeviceInstance::getInstance();
 };
-} // namespace recording
-} // namespace initializers
-} // namespace seissol
 
-
-namespace seissol {
-namespace initializers {
-namespace recording {
+/**
+ * This class may seem redundant. But it provides strong guarantee of
+ * zero initialization of std::array. Note, there are some circumstances
+ * when it is not zero-initialized
+ * */
 struct BatchTable {
-
 public:
   BatchTable() {
     for (auto &item : content)
       item = nullptr;
   }
-
-  std::array<BatchPointers *, *VariableID::Count> content{};
+  std::array<BatchPointers *, *EntityId::Count> content{};
 };
+
 } // namespace recording
 } // namespace initializers
 } // namespace seissol
