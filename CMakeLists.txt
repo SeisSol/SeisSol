@@ -19,7 +19,7 @@ project(SeisSol LANGUAGES C CXX Fortran)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST
 #
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
@@ -99,6 +99,7 @@ add_custom_command(
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
+       src/generated_code/gpulike_subroutine.cpp
        src/generated_code/tensor.h
        src/generated_code/init.cpp
        src/generated_code/init.h
@@ -240,6 +241,13 @@ if (MEMKIND)
   target_include_directories(SeisSol-lib PUBLIC ${MEMKIND_INCLUDE_DIR})
   target_link_libraries(SeisSol-lib PUBLIC ${MEMKIND_LIBRARIES})
   target_compile_definitions(SeisSol-lib PUBLIC USE_MEMKIND)
+endif()
+
+if (WITH_GPU)
+  add_subdirectory(submodules/Device)
+  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
+  target_link_libraries(SeisSol-lib PUBLIC device)
+  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
 target_include_directories(SeisSol-lib PUBLIC

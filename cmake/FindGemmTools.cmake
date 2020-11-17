@@ -54,6 +54,8 @@ foreach(component ${_GEMM_TOOLS_LIST})
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
         set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_MODULE_PATH})
         find_package(GemmForge 0.0.201 REQUIRED)
+        set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
+        set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
 
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \

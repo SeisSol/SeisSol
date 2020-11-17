@@ -193,3 +193,34 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
 
 endif()
+
+
+if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
+  #[[
+  target_sources(SeisSol-lib PUBLIC
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording/LocalIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording/NeighbIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording/PlasticityRecorder.cpp
+          #${CMAKE_BINARY_DIR}/src/generated_code/device_kernel.cpp
+          )
+  target_include_directories(SeisSol-lib PUBLIC
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording
+          #${CMAKE_BINARY_DIR}/src/generated_code
+          )
+  ]]
+  find_package(CUDA REQUIRED)
+  set(CUDA_NVCC_FLAGS -std=c++11;
+                      -Xptxas -v;
+                      -arch=${DEVICE_SUB_ARCH};
+                      -O3;)
+
+  set(DEVICE_SRC ${DEVICE_SRC} ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp)
+  set_source_files_properties(${DEVICE_SRC} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
+
+  cuda_add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
+  target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
+                                                       ${CMAKE_BINARY_DIR}/src/generated_code)
+
+  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+
+endif()
