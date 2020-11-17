@@ -445,15 +445,15 @@ MODULE Eval_friction_law_mod
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
       tn=tn + time_inc
-      
-      P = EQN%InitialStressInFaultCS(:,1,iFace) + NorStressGP(:,iTimeGP)
-      
+
+      P = matmul(resampleMatrix, EQN%InitialStressInFaultCS(:,1,iFace))  + NorStressGP(:,iTimeGP)
+
       Strength = -DISC%DynRup%cohesion(:,iFace) - DISC%DynRup%Mu(:,iFace) * MIN(P,ZERO)      
-      ShTest = SQRT((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))**2 + (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))**2)
+      ShTest = SQRT((matmul(resampleMatrix, EQN%InitialStressInFaultCS(:,4,iFace)) + XYStressGP(:,iTimeGP))**2 + (matmul(resampleMatrix, EQN%InitialStressInFaultCS(:,6,iFace)) + XZStressGP(:,iTimeGP))**2)
 
       LocSR = max(0d0, (ShTest - Strength) / eta)
-      LocSR1 = LocSR * (EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
-      LocSR2 = LocSR * (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
+      LocSR1 = LocSR * (matmul(resampleMatrix, EQN%InitialStressInFaultCS(:,4,iFace)) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
+      LocSR2 = LocSR * (matmul(resampleMatrix, EQN%InitialStressInFaultCS(:,6,iFace)) + XZStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
       LocTracXY = XYStressGP(:,iTimeGP) - eta * LocSR1
       LocTracXZ = XZStressGP(:,iTimeGP) - eta * LocSR2
 
