@@ -5,8 +5,9 @@
 #include <assert.h>
 #include <type_traits>
 
-using namespace seissol::initializers::recording;
-using namespace seissol;
+namespace seissol {
+namespace initializers {
+namespace recording {
 
 template <T> constexpr bool isEncodedConstant() {
   return std::is_same<FaceKinds, T>::value || std::is_same<KernelNames, T>::value ||
@@ -21,6 +22,7 @@ template <class T, class Enable = void> class Condition;
 template <class T, typename std::enable_if<isEncodedConstant<T>()>::type> class Condition {
 public:
   Condition() = delete;
+
   Condition(T initialEncoding) : encoding(static_cast<size_t>(initialEncoding)) {
     highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
   }
@@ -48,7 +50,13 @@ private:
   size_t encoding;
   size_t count;
 };
+} // namespace recording
+} // namespace initializers
+} // namespace seissol
 
+
+using namespace seissol::initializers::recording;
+using namespace seissol;
 
 /** Implements "OR" operation.
  *
