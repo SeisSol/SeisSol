@@ -59,6 +59,10 @@ private:
 class LocalIntegrationRecorder : public AbstractRecorder {
 public:
   void record(LTS &handler, Layer &layer) override;
+protected:
+  void recordTimeIntegral();
+  void recordVolumeIntegral();
+  void recordLocalFluxIntegral();
 };
 
 

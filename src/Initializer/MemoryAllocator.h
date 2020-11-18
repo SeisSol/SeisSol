@@ -85,7 +85,10 @@ namespace seissol {
   namespace memory {
     enum Memkind {
       Standard = 0,
-      HighBandwidth = 1
+      HighBandwidth = 1,
+      DeviceGlobalMemory = 3,
+      DeviceUnifiedMemory = 4,
+      PinnedMemory = 5
     };
     void* allocate(size_t i_size, size_t i_alignment = 1, enum Memkind i_memkind = Standard);
     void free(void* i_pointer, enum Memkind i_memkind = Standard);   

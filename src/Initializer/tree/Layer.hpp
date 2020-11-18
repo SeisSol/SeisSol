@@ -65,6 +65,9 @@ namespace seissol {
     class Bucket;
     struct MemoryInfo;
     class Layer;
+#ifdef ACL_DEVICE
+    struct SharedData;
+#endif
   }
 }
 
@@ -81,6 +84,10 @@ struct seissol::initializers::Bucket {
 
   Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
+
+#ifdef ACL_DEVICE
+struct seissol::initializers::SharedData : public seissol::initializers::Bucket{};
+#endif
 
 struct seissol::initializers::MemoryInfo {
   size_t bytes;

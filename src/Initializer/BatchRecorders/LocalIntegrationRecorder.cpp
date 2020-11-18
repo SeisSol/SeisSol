@@ -11,4 +11,23 @@ void LocalIntegrationRecorder::record(LTS &handler, Layer &layer) {
   kernels::LocalData::Loader loader;
   loader.load(handler, layer);
   auto& conditionalTable = layer.getCondBatchTable();
+
+  recordTimeIntegral();
+  recordVolumeIntegral();
+  recordLocalFluxIntegral();
+}
+
+
+void LocalIntegrationRecorder::recordTimeIntegral() {
+
+}
+
+
+void LocalIntegrationRecorder::recordVolumeIntegral() {
+
+}
+
+
+void LocalIntegrationRecorder::recordLocalFluxIntegral() {
+
 }

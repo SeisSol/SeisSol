@@ -60,6 +60,13 @@ private:
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
 
+#ifdef ACL_DEVICE
+  std::vector<MemoryInfo> sharedDataInfo{};
+  std::vector<size_t> sharedDataSizes{};  /*!< sizes of variables within the entire tree in bytes */
+  void** sharedData;
+  std::vector<int> sharedDataIds{};
+#endif  // ACL_DEVICE
+
 public:
   LTSTree() : m_vars(NULL), m_buckets(NULL) {}
   
@@ -118,6 +125,16 @@ public:
     m.memkind = memkind;
     bucketInfo.push_back(m);
   }
+
+#ifdef ACL_DEVICE
+  void addSharedData(SharedData& handle, size_t alignment, seissol::memory::Memkind memkind) {
+    handle.index = sharedDataInfo.size();
+    MemoryInfo memoryInfo;
+    memoryInfo.alignment = alignment;
+    memoryInfo.memkind = memkind;
+    sharedDataInfo.push_back(memoryInfo);
+  }
+#endif // ACL_DEVICE
   
   void allocateVariables() {
     m_vars = new void*[varInfo.size()];
