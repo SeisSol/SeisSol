@@ -9,15 +9,13 @@ namespace seissol {
 namespace initializers {
 namespace recording {
 
-template <T> constexpr bool isEncodedConstant() {
+template <typename T> constexpr bool isEncodedConstant() {
   return std::is_same<FaceKinds, T>::value || std::is_same<KernelNames, T>::value ||
          std::is_same<FaceId, T>::value || std::is_same<FaceRelations, T>::value ||
          std::is_same<DrFaceRelations, T>::value || std::is_same<ComputationKind, T>::value ||
          std::is_same<EntityId, T>::value || std::is_same<ExchangeInfo, T>::value;
 }
 
-
-template <class T, class Enable = void> class Condition;
 
 template <class T, typename std::enable_if<isEncodedConstant<T>()>::type> class Condition {
 public:
@@ -28,7 +26,7 @@ public:
   }
 
   Condition &operator!() {
-    value = highBitsMask & (~encoding);
+    encoding = highBitsMask & (~encoding);
     return *this;
   }
 
@@ -41,7 +39,7 @@ public:
     return !(*this);
   }
 
-  encode_t getEncoding() {
+  size_t getEncoding() {
     return encoding;
   }
 
@@ -92,7 +90,7 @@ operator*(const T &condition) {
  */
 template <typename T>
 typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator!(const T &condition) {
-  size_t highBitsMask = ~((~encode_t(0)) << static_cast<size_t>(T::Count));
+  size_t highBitsMask = ~((~size_t (0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 

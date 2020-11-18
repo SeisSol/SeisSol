@@ -291,6 +291,10 @@ class seissol::initializers::MemoryManager {
     inline EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
     }
+
+#ifdef ACL_DEVICE
+  void recordExecutionPaths();
+#endif
 };
 
 

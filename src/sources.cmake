@@ -196,18 +196,15 @@ endif()
 
 
 if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
-  #[[
+
   target_sources(SeisSol-lib PUBLIC
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording/LocalIntegrationRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording/NeighbIntegrationRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording/PlasticityRecorder.cpp
-          #${CMAKE_BINARY_DIR}/src/generated_code/device_kernel.cpp
-          )
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp)
+
   target_include_directories(SeisSol-lib PUBLIC
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/recording
-          #${CMAKE_BINARY_DIR}/src/generated_code
-          )
-  ]]
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
+
   find_package(CUDA REQUIRED)
   set(CUDA_NVCC_FLAGS -std=c++11;
                       -Xptxas -v;

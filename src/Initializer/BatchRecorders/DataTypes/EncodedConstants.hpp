@@ -1,6 +1,7 @@
 #ifndef SEISSOL_ENCODINGCONSTANTS_HPP
 #define SEISSOL_ENCODINGCONSTANTS_HPP
 
+#include <cstdlib>
 
 namespace seissol {
 namespace initializers {

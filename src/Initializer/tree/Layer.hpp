@@ -46,6 +46,10 @@
 #include <limits>
 #include <cstring>
 
+#ifdef ACL_DEVICE
+#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#endif
+
 enum LayerType {
   Ghost    = (1 << 0),
   Copy     = (1 << 1),
@@ -193,6 +197,19 @@ public:
       }
     }
   }
+
+#ifdef ACL_DEVICE
+  ConditionalBatchTableT& getCondBatchTable() {
+    return conditionalBatchTable;
+  }
+
+  const ConditionalBatchTableT& getCondBatchTable() const {
+    return conditionalBatchTable;
+  }
+
+private:
+  ConditionalBatchTableT conditionalBatchTable{};
+#endif // ACL_DEVICE
 };
 
 #endif

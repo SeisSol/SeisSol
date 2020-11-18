@@ -41,6 +41,7 @@ template <> struct ConditionalHash<ConditionalKey> {
     hashCombine(result, key.faceRelationId);
     return result;
   }
+};
 
 } // namespace recording
 } // namespace recording

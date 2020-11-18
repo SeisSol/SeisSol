@@ -724,8 +724,10 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                     m_ltsTree,
                                                     m_lts,
                                                     &m_ltsLut);
- 
 
+#ifdef ACL_DEVICE
+  seissol::SeisSol::main.getMemoryManager().recordExecutionPaths();
+#endif
 }
 
 template<typename T>

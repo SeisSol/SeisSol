@@ -80,6 +80,10 @@
 #include <omp.h>
 #endif
 
+#ifdef ACL_DEVICE
+#include "BatchRecorders/Recorders.h"
+#endif //ACL_DEVICE
+
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
@@ -657,6 +661,25 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
   }
 }
 
+
+#ifdef ACL_DEVICE
+void seissol::initializers::MemoryManager::recordExecutionPaths() {
+  recording::CompositeRecorder recorder;
+
+  recorder.addRecorder(new recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new recording::NeighIntegrationRecorder);
+
+#ifdef USE_PLASTICITY
+  Recorder.addRecorder(new recording::PlasticityRecorder);
+#endif
+
+  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
+    recorder.record(m_lts, *it);
+  }
+}
+#endif // ACL_DEVICE
+
+
 bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
@@ -674,4 +697,3 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
           || f == FaceType::dirichlet
           || f == FaceType::analytical);
 }
-

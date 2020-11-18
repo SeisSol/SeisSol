@@ -1,6 +1,8 @@
 #ifndef SEISSOL_POINTERSTABLE_HPP
 #define SEISSOL_POINTERSTABLE_HPP
 
+#include "EncodedConstants.hpp"
+#include "Condition.hpp"
 #include <device.h>
 #include <string>
 #include <unordered_map>
@@ -15,15 +17,15 @@ namespace recording {
 
 class BatchPointers {
 public:
-  BatchPointers(const std::vector<real *> &collectedPointers)
-      : pointers(collectedPointers), devicePtrs(nullptr) {
+  explicit BatchPointers(std::vector<real *> collectedPointers)
+      : pointers(std::move(collectedPointers)), devicePtrs(nullptr) {
     if (!pointers.empty()) {
       devicePtrs = (real **)device.api->allocGlobMem(pointers.size() * sizeof(real *));
       device.api->copyTo(devicePtrs, pointers.data(), pointers.size() * sizeof(real *));
     }
   }
 
-  explicit BatchPointers(const BatchPointers &other)
+  BatchPointers(const BatchPointers &other)
       : pointers(other.pointers), devicePtrs(nullptr) {
     if (!pointers.empty()) {
       if (other.devicePtrs != nullptr) {
@@ -37,16 +39,16 @@ public:
   BatchPointers &operator=(const BatchPointers &Other) = delete;
 
   virtual ~BatchPointers() {
-    if (m_DevicePtrs != nullptr) {
+    if (devicePtrs != nullptr) {
       device.api->freeMem(devicePtrs);
       devicePtrs = nullptr;
     }
   }
 
   real **getPointers() {
-    return mevicePtrs;
+    return devicePtrs;
   }
-  index_t getSize() {
+  size_t getSize() {
     return pointers.size();
   }
 
