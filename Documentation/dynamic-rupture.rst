@@ -151,6 +151,9 @@ In SeisSol frictional failure is treated as an internal boundary condition for w
 
 Linear-Slip Weakening Friction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Dynamic rupture compares the absolute shear stress |tau| on the fault with the yield stress sigma_yield. Static failure occurs whenever the shear stress exceeds the static strength of the fault itself, or better said if the shear stress |tau| is greater than the fault yield stress. If this is the case, the strength of the fault becomes sigma_sliding and slip propagates along the fault, emitting seismic waves. This fault weakening is governed by the linear-slip weakening (LSW) friction law. Over the slip weakening distance D_c the friction coefficient mu decreases linearly from its static value mu_s until reaching the dynamic value mu_d. 
+
+During the slip both, rupture front and seismic wave emission are influenced by the traction of the fault. An increase of the shear traction and a decrease of the normal traction bring the fault closer to failure while a decrease of the shear traction and an increase of the normal traction lead to a higher difficulty to fail.
 
 
 Rate-and-State Friction
