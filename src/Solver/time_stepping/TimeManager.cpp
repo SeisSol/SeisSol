@@ -186,6 +186,14 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     return a->getPriority() < b->getPriority();
   };
   std::sort(clusters.begin(), clusters.end(), prioritySorter);
+  for (const auto& cluster : clusters) {
+    if (cluster->getPriority() > 0) { // TODO(Lukas) Refactor, reuse constant/use enum
+      highPrioClusters.emplace_back(cluster.get());
+    } else {
+      lowPrioClusters.emplace_back(cluster.get());
+    }
+  }
+
   std::sort(ghostClusters.begin(), ghostClusters.end(), prioritySorter);
 
 #ifdef USE_COMM_THREAD
@@ -225,19 +233,28 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
+  auto updateCluster = [&](auto* cluster) {
+    // A cluster yields once it is blocked by other cluster.
+    bool yield = false;
+    do {
+      yield = cluster->act();
+      // Check ghost cells often for communication progress
+      // Note: This replaces the need for a communication thread.
+      communicationManager->progression();
+    } while (!(yield || cluster->synced()));
+    return cluster->synced();
+  };
+
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
-    for (auto& cluster : clusters) {
-      // A cluster yields once it is blocked by other cluster.
-      bool yield = false;
-      do {
-        yield = cluster->act();
-        // Check ghost cells often for communication progress
-        // Note: This replaces the need for a communication thread.
-        communicationManager->progression();
-      } while (!(yield || cluster->synced()));
-      finished = finished && cluster->synced();
+    for (auto& lowPrioCluster : lowPrioClusters) {
+      for (auto& highPrioCluster : highPrioClusters) {
+        updateCluster(highPrioCluster);
+        finished = finished && highPrioCluster->synced();
+      }
+      updateCluster(lowPrioCluster);
+      finished = finished && lowPrioCluster->synced();
     }
     finished &= communicationManager->checkIfFinished();
   }

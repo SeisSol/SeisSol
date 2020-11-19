@@ -104,6 +104,8 @@ class seissol::time_stepping::TimeManager {
     //! all local (copy & interior) LTS clusters, which are under control of this time manager
     //std::vector<TimeCluster*> clusters;
     std::vector<std::unique_ptr<TimeCluster>> clusters;
+    std::vector<TimeCluster*> highPrioClusters;
+    std::vector<TimeCluster*> lowPrioClusters;
 
     //! one dynamic rupture scheduler per pair of interior/copy cluster
     std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers;
