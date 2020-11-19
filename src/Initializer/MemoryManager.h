@@ -187,6 +187,13 @@ class seissol::initializers::MemoryManager {
      * Derives the size of the displacement accumulation buffer.
      */
     void deriveDisplacementsBucket();
+
+#ifdef ACL_DEVICE
+    /**
+     * Derives the sizes of scratch memory required during the computations
+     */
+    void deriveRequiredScratchpadMemory();
+#endif
     
     /**
      * Initializes the displacement accumulation buffer.

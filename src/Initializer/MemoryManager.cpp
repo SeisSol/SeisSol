@@ -75,6 +75,7 @@
 
 #include <Kernels/common.hpp>
 #include <generated_code/tensor.h>
+#include <unordered_set>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -558,6 +559,58 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
   }
 }
 
+#ifdef ACL_DEVICE
+void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
+  constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  kernels::NeighborData::Loader loader;
+
+  for (auto layer = m_ltsTree.beginLeaf(Ghost); layer != m_ltsTree.endLeaf(); ++layer) {
+
+    CellLocalInformation *cellInformation = layer->var(m_lts.cellInformation);
+    std::unordered_set<real *> registry{};
+    real *(*FaceNeighbors)[4] = layer->var(m_lts.faceNeighbors);
+
+    unsigned derivativesCounter{0};
+    unsigned idofsCounter{0};
+
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+
+      bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
+      if (needsScratchMemForDerivatives) {
+        ++derivativesCounter;
+      }
+      ++idofsCounter;
+
+      // include data provided by ghost layers
+      for (unsigned face = 0; face < 4; ++face) {
+        real *neighbourBuffer = FaceNeighbors[cell][face];
+
+        // check whether a neighbour element idofs has not been counted twice
+        if ((registry.find(neighbourBuffer) == registry.end())) {
+
+          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+          if (neighbourBuffer != nullptr) {
+            if (cellInformation[cell].faceTypes[face] != FaceType::outflow &&
+                cellInformation[cell].faceTypes[face] != FaceType::dynamicRupture) {
+
+              bool IsNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
+              if (IsNeighbProvidesDerivatives) {
+                ++idofsCounter;
+              }
+              registry.insert(neighbourBuffer);
+            }
+          }
+        }
+      }
+    }
+    layer->setScratchpadSize(m_lts.idofsScratch,
+                             idofsCounter * tensor::I::size() * sizeof(real));
+    layer->setScratchpadSize(m_lts.derivativesScratch,
+                             derivativesCounter * totalDerivativesSize * sizeof(real));
+  }
+}
+#endif
+
 void seissol::initializers::MemoryManager::initializeDisplacements()
 {
   for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
@@ -643,6 +696,11 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 #endif
 
   initializeDisplacements();
+
+#ifdef ACL_DEVICE
+  deriveRequiredScratchpadMemory();
+  m_ltsTree.allocateScratchPads();
+#endif
 }
 
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,

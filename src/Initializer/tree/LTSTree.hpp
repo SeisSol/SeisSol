@@ -61,10 +61,10 @@ private:
   seissol::memory::ManagedAllocator m_allocator;
 
 #ifdef ACL_DEVICE
-  std::vector<MemoryInfo> sharedDataInfo{};
-  std::vector<size_t> sharedDataSizes{};  /*!< sizes of variables within the entire tree in bytes */
-  void** sharedData;
-  std::vector<int> sharedDataIds{};
+  std::vector<MemoryInfo> scratchpadMemInfo{};
+  std::vector<size_t> scratchpadMemSizes{};  /*!< sizes of variables within the entire tree in bytes */
+  void** scratchpadMemories;
+  std::vector<int> scratchpadMemIds{};
 #endif  // ACL_DEVICE
 
 public:
@@ -80,6 +80,9 @@ public:
     setPostOrderPointers();
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
+#ifdef ACL_DEVICE
+      it->allocateScratchpadArrays(scratchpadMemInfo.size());
+#endif
     }
   }
   
@@ -127,12 +130,12 @@ public:
   }
 
 #ifdef ACL_DEVICE
-  void addSharedData(SharedData& handle, size_t alignment, seissol::memory::Memkind memkind) {
-    handle.index = sharedDataInfo.size();
+  void addScratchpadMemory(ScratchpadMemory& handle, size_t alignment, seissol::memory::Memkind memkind) {
+    handle.index = scratchpadMemInfo.size();
     MemoryInfo memoryInfo;
     memoryInfo.alignment = alignment;
     memoryInfo.memkind = memkind;
-    sharedDataInfo.push_back(memoryInfo);
+    scratchpadMemInfo.push_back(memoryInfo);
   }
 #endif // ACL_DEVICE
   
@@ -173,12 +176,42 @@ public:
       it->addBucketSizes(bucketSizes);
     }
   }
+
+#ifdef ACL_DEVICE
+  // Walks through all leaves, computes the maximum amount of memory for each scratchpad entity,
+  // allocates all scratchpads based on evaluated max. scratchpad sizes, and, finally,
+  // redistributes scratchpads to all leaves.
+  //
+  // Note, all scratchpad entities are shared between leaves.
+  // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
+  void allocateScratchPads() {
+    scratchpadMemories = new void*[scratchpadMemInfo.size()];
+    scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
+
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->findMaxScratchpadSizes(scratchpadMemSizes);
+    }
+
+    for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
+      assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
+      scratchpadMemories[id] = m_allocator.allocateMemory(scratchpadMemSizes[id],
+                                                          scratchpadMemInfo[id].alignment,
+                                                          scratchpadMemInfo[id].memkind);
+    }
+
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->setMemoryRegionsForScratchpads(scratchpadMemories, scratchpadMemInfo.size());
+    }
+  }
+#endif
   
   void touchVariables() {
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->touchVariables(varInfo);
     }
   }
+
+
 };
 
 #endif

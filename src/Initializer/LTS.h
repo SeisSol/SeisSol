@@ -106,8 +106,8 @@ struct seissol::initializers::LTS {
 #ifdef ACL_DEVICE
   Variable<LocalIntegrationData>          localIntegrationOnDevice;
   Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
-  SharedData                              idofsScratch;
-  SharedData                              derivativesScratch;
+  ScratchpadMemory                        idofsScratch;
+  ScratchpadMemory                        derivativesScratch;
 #endif
   
   /// \todo Memkind
@@ -140,8 +140,8 @@ struct seissol::initializers::LTS {
 #ifdef ACL_DEVICE
     tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
     tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
-    tree.addSharedData(         idofsScratch,                      1,       seissol::memory::DeviceGlobalMemory);
-    tree.addSharedData(   derivativesScratch,                      1,       seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(  idofsScratch,                      1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
 #endif
   }
 };
