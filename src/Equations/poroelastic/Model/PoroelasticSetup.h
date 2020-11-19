@@ -29,7 +29,7 @@ namespace seissol {
         init::QgodLocal::view::type&      QgodLocal,
         init::QgodNeighbor::view::type&   QgodNeighbor )
     {
-      constexpr auto tolerance = 1.0e-4;
+      constexpr auto tolerance = 1.0e-10;
 
       using Matrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
       using Vector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
@@ -43,6 +43,7 @@ namespace seissol {
 	arma::eig_gen(arma_eigenvalues, arma_eigenvectors, coeff.t());
 
 #ifndef NDEBUG
+        //check number of eigenvalues
         int ev_neg = 0;
         int ev_pos = 0;
         for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
@@ -54,6 +55,18 @@ namespace seissol {
         }
         assert(ev_neg == 4);
         assert(ev_pos == 4);
+
+        //check whether eigensolver is good enough
+        const Matrix matrix_mult = coeff.t() * arma_eigenvectors;
+	Matrix eigenvalue_matrix(arma::fill::zeros);
+        for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+          eigenvalue_matrix(i,i) = arma_eigenvalues(i);
+        }
+        const Matrix vector_mult = arma_eigenvectors * eigenvalue_matrix;
+        const Matrix diff = matrix_mult - vector_mult;
+        const double norm = arma::norm(diff);
+        
+        assert(norm < tolerance);
 #endif
         return eigenDecomposition({arma_eigenvalues, arma_eigenvectors});
       };
