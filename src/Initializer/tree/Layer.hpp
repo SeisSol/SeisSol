@@ -45,6 +45,7 @@
 #include <bitset>
 #include <limits>
 #include <cstring>
+#include <iostream>
 
 #ifdef ACL_DEVICE
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
@@ -194,7 +195,10 @@ public:
   
   void touchVariables(std::vector<MemoryInfo> const& vars) {
     for (unsigned var = 0; var < vars.size(); ++var) {
-      if (!isMasked(vars[var].mask)) {
+
+      // NOTE: we don't touch device global memory because it is in a different address space
+      // we will do deep-copy from the host to a device later on
+      if (!isMasked(vars[var].mask) && (vars[var].memkind != seissol::memory::DeviceGlobalMemory)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif

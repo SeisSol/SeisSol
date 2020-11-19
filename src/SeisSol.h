@@ -59,6 +59,7 @@
 #include "ResultWriter/FaultWriter.h"
 
 #include "ResultWriter/AnalysisWriter.h"
+#include <memory>
 
 class MeshReader;
 
@@ -84,7 +85,7 @@ private:
 	 */
 	initializers::time_stepping::LtsLayout m_ltsLayout;
 
-	initializers::MemoryManager m_memoryManager;
+  std::unique_ptr<initializers::MemoryManager> m_memoryManager{nullptr};
 
 	//! time manager
 	time_stepping::TimeManager  m_timeManager;
@@ -128,7 +129,9 @@ private:
 	 */
 	SeisSol()
 		: m_meshReader(0L)
-	{}
+	{
+	  m_memoryManager = std::make_unique<initializers::MemoryManager>();
+	}
 
 public:
 	/**
@@ -157,7 +160,7 @@ public:
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
 
 	initializers::MemoryManager& getMemoryManager() {
-    return m_memoryManager;
+    return *(m_memoryManager.get());
   }
 
 	time_stepping::TimeManager& timeManager()
@@ -264,6 +267,15 @@ public:
 	MeshReader& meshReader()
 	{
 		return *m_meshReader;
+	}
+
+  /**
+   * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
+   * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
+   * at the very end of a program execution
+   */
+	void deleteMemoryManager() {
+    m_memoryManager.reset(nullptr);
 	}
 
 public:

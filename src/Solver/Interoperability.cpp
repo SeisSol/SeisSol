@@ -265,6 +265,10 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
+  void c_interoperability_deallocateMemoryManager() {
+    e_interoperability.deallocateMemoryManager();
+  }
+
   void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
     unsigned idx = 0;
     for (unsigned int d = 0; d <= N; ++d) {
@@ -975,6 +979,10 @@ void seissol::Interoperability::finalizeIO()
 	seissol::SeisSol::main.checkPointManager().close();
 	seissol::SeisSol::main.faultWriter().close();
 	seissol::SeisSol::main.freeSurfaceWriter().close();
+}
+
+void seissol::Interoperability::deallocateMemoryManager() {
+  seissol::SeisSol::main.deleteMemoryManager();
 }
 
 void seissol::Interoperability::faultOutput( double i_fullUpdateTime,

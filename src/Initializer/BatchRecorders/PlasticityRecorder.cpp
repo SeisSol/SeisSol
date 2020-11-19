@@ -10,6 +10,4 @@ void PlasticityRecorder::record(LTS &handler, Layer &layer) {
   kernels::LocalData::Loader loader;
   loader.load(handler, layer);
   auto& conditionalTable = layer.getCondBatchTable();
-
-
 }

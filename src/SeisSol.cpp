@@ -68,11 +68,15 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 	// Call pre MPI hooks
 	seissol::Modules::callHook<seissol::PRE_MPI>();
 
+#if defined(ACL_DEVICE) && defined(USE_MPI)
+  MPI::mpi.bindRankToDevice();
+#endif
+
 	MPI::mpi.init(argc, argv);
 
 	// TODO is there a reason to have this here?
 	// If not please move it to the end if this function
-	m_memoryManager.initialize();
+	m_memoryManager->initialize();
 
 	const int rank = MPI::mpi.rank();
 

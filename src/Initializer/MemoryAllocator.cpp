@@ -172,18 +172,7 @@ void seissol::memory::printMemoryAlignment( std::vector< std::vector<unsigned lo
 seissol::memory::ManagedAllocator::~ManagedAllocator()
 {
   for (AddressVector::const_iterator it = m_dataMemoryAddresses.begin(); it != m_dataMemoryAddresses.end(); ++it) {
-    const int rank = seissol::MPI::mpi.rank();
-    if (it->first == seissol::memory::DeviceGlobalMemory) {
-      logWarning(rank) << "Premature de-allocation of device global mem. in ~ManagedAllocator. "
-                       << "Dangerous, device driver might be disconnected";
-    }
-    else if (it->first == seissol::memory::DeviceUnifiedMemory) {
-      logWarning(rank) << "Premature de-allocation of device uniformed mem. in ~ManagedAllocator. "
-                       << "Dangerous, device driver might be disconnected";
-    }
-    else {
-      seissol::memory::free(it->second, it->first);
-    }
+    seissol::memory::free(it->second, it->first);
   }
 
   // reset memory vectors

@@ -206,7 +206,7 @@ if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
   find_package(CUDA REQUIRED)
-  set(CUDA_NVCC_FLAGS -std=c++11;
+  set(CUDA_NVCC_FLAGS -std=c++14;
                       -Xptxas -v;
                       -arch=${DEVICE_SUB_ARCH};
                       -O3;)

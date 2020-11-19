@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
+#include <iostream>
 using namespace device;
 
 namespace seissol {
@@ -66,9 +66,16 @@ private:
 struct BatchTable {
 public:
   BatchTable() {
-    for (auto &item : content)
+    for (auto &item : content) {
       item = nullptr;
+    }
   }
+  ~BatchTable() {
+    for (auto &item : content) {
+      delete item;
+    }
+  }
+
   std::array<BatchPointers *, *EntityId::Count> content{};
 };
 

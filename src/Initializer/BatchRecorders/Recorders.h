@@ -5,6 +5,7 @@
 #include "utils/logger.h"
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Layer.hpp>
+#include <Kernels/Interface.hpp>
 #include <vector>
 
 namespace seissol {
@@ -16,7 +17,7 @@ class AbstractRecorder {
 public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(seissol::initializers::LTS &handler, seissol::initializers::Layer &layer) = 0;
+  virtual void record(LTS &handler, Layer &layer) = 0;
 
 protected:
   void checkKey(const ConditionalBatchTableT &table, const ConditionalKey &key) {
@@ -25,6 +26,18 @@ protected:
           << "Table key conflict detected. Problems with hashing in batch recording subsystem";
     }
   }
+
+  void loadContext(LTS &handler, Layer &layer, kernels::LocalData::Loader& loader) {
+    currentLoader = &loader;
+    currentTable = &(layer.getCondBatchTable());
+    currentHandler = &(handler);
+    currentLayer = &(layer);
+  }
+
+  kernels::LocalData::Loader *currentLoader{nullptr};
+  ConditionalBatchTableT *currentTable{nullptr};
+  LTS *currentHandler{nullptr};
+  Layer *currentLayer{nullptr};
 };
 
 
@@ -59,10 +72,12 @@ private:
 class LocalIntegrationRecorder : public AbstractRecorder {
 public:
   void record(LTS &handler, Layer &layer) override;
-protected:
+
+private:
   void recordTimeIntegral();
   void recordVolumeIntegral();
   void recordLocalFluxIntegral();
+  void recordDisplacements();
 };
 
 

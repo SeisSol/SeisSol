@@ -401,6 +401,11 @@ class seissol::Interoperability {
     * Finalizes I/O
     */
    void finalizeIO();
+
+   /**
+    * Deallocates memory manager
+    */
+   void deallocateMemoryManager();
 };
 
 #endif
