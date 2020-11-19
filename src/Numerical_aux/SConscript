@@ -50,6 +50,7 @@ numericalAuxFiles = [ 'gauss.f90',
                       'jacobinormal.f90',
                       'quadpoints.f90',
                       'trilinearinterpolation.f90',
+                      'Functions.cpp',
                       'Transformation.cpp',
                       'Statistics.cpp' ]
 

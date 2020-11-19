@@ -210,7 +210,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* pr
         // Compute subtriangle average via quadrature
         double average = 0.0;
         for (unsigned qp = 0; qp < numQuadraturePoints; ++qp) {
-          average += weights[qp] * seissol::functions::TetraDubinerP(i, j, k, bfPoints[qp][0], bfPoints[qp][1], bfPoints[qp][2]);
+          average += weights[qp] * seissol::functions::TetraDubinerP({i, j, k}, {bfPoints[qp][0], bfPoints[qp][1], bfPoints[qp][2]});
         }
         // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
         average *= 2.0;

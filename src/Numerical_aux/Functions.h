@@ -1,23 +1,17 @@
 /**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -33,112 +27,141 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
  **/
+#ifndef FUNCTIONS_20201026_H
+#define FUNCTIONS_20201026_H
 
-//  TODO: Merge this file with BasisFunction.h
-#ifndef FUNCTIONS_H_
-#define FUNCTIONS_H_
-
-#include <cmath>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 
 namespace seissol {
-  namespace functions {
-    /** Computes n!
-     */
-    inline unsigned factorial(unsigned n)
-    {
-      unsigned f = 1;
-      while (n > 0) {
-        f *= n;
-        --n;
-      }
-      return f;
-    }
-    
-    /** Calculate Jacobi polynomial recursively at x.
-     *  See recurrence relation on https://en.wikipedia.org/wiki/Jacobi_polynomials
-     */
-    inline double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
-      if (n == 0) {
-        return 1.0;
-      }
-      double Pm_2;
-      double Pm_1 = 1.0;
-      double Pm = 0.5*a - 0.5*b + (1.0 + 0.5*(a+b)) * x;
-      double a2_b2 = static_cast<double>(a*a)-static_cast<double>(b*b);
-      for (unsigned m = 2; m <= n; ++m) {
-        Pm_2 = Pm_1;
-        Pm_1 = Pm;
-        Pm = ( (2.0*m+a+b-1.0)*(a2_b2 + (2.0*m+a+b)*(2.0*m+a+b-2.0)*x)*Pm_1 - 2.0*(m+a-1.0)*(m+b-1.0)*(2.0*m+a+b)*Pm_2 ) / (2.0*m*(m+a+b)*(2.0*m+a+b-2.0));
-      }      
-      return Pm;
-    }
-    
-    /** Computes JacobiP(n, a, b, x/y) * y^n.
-     *  Works for y = 0.
-     */
-    inline double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y) {
-      if (n == 0) {
-        return 1.0;
-      }
-      double Pm_2;
-      double Pm_1 = 1.0;
-      double Pm = (0.5*a - 0.5*b) * y + (1.0 + 0.5*(a+b)) * x;
-      double a2_b2 = static_cast<double>(a*a)-static_cast<double>(b*b);
-      for (unsigned m = 2; m <= n; ++m) {
-        Pm_2 = Pm_1;
-        Pm_1 = Pm;
-        Pm = ( (2.0*m+a+b-1.0)*(a2_b2*y + (2.0*m+a+b)*(2.0*m+a+b-2.0)*x)*Pm_1 - 2.0*y*y*(m+a-1.0)*(m+b-1.0)*(2.0*m+a+b)*Pm_2 ) / (2.0*m*(m+a+b)*(2.0*m+a+b-2.0));
-      }
-      return Pm;
-    }
+namespace functions {
 
-     /** Calculate first derivative of Jacobi polynomial at x.
-     */
-    inline double JacobiPFirstDerivative(unsigned n, unsigned a, unsigned b, double x) {
-      if (n == 0) {
-        return 0.0;
-      }
-      return 0.5*(n+a+b+1.0)*JacobiP(n-1, a+1, b+1, x);
-    }
+/**
+ * @brief Computes \prod_{i=from}^{to} i. Returns 1 if from > to.
+ */
+uint64_t rangeProduct(uint64_t from, uint64_t to);
 
-    inline double LineDubinerP(unsigned i, double xi) {
-        double r = 2*xi - 1;
-        return JacobiP(i, 0, 0, r);
-    }
-    
-    /** Evaluate Dubiner basis on triangle
-     *
-     * Singularity-free variant inspired by
-     * R. C. Kirby, "Singularity-free evaluation of collapsed-coordinate orthogonal polynomials",
-     * ACM TOMS 37.1, Article 5, doi: 10.1145/1644001.1644006
-     */
-    inline double TetraDubinerP(unsigned i, unsigned j, unsigned k, double xi, double eta, double zeta) {
-      double r_num = 2.0 * xi - 1.0 + eta + zeta;
-      double s_num = 2.0 * eta - 1.0 + zeta;
-      double t = 2.0 * zeta - 1.0;
-      double sigmatheta = 1.0 - eta - zeta;
-      double theta = 1.0 - zeta;
+/**
+ * @brief Factorial operation
+ *
+ * @param n
+ *
+ * @return n!
+ */
+inline uint64_t factorial(uint64_t n) { return rangeProduct(1, n); }
 
-      double ti = SingularityFreeJacobiP(i, 0, 0, r_num, sigmatheta);
-      double tij = SingularityFreeJacobiP(j, 2*i+1, 0, s_num, theta);
-      double tijk = SingularityFreeJacobiP(k, 2*i+2*j+2, 0, t, 1.0);
+/**
+ * @brief Evaluates Jacobi polynomial P_{n}^{(a,b)}(x).
+ */
+double JacobiP(unsigned n, unsigned a, unsigned b, double x);
 
-      return ti * tij * tijk;
-      // The following variant does not work for some points, that is, when the denominator is zero.
-      /*double r = 2.0 * xi / (1.0 - eta - zeta) - 1.0;
-      double s = 2.0 * eta / (1.0 - zeta) - 1.0;
-      double t = 2.0 * zeta - 1.0;
-      
-      double ti = JacobiP(i, 0, 0, r);
-      double tij = JacobiP(j, 2*i+1, 0, s) * std::pow(0.5*(1.0-s), i);
-      double tijk = JacobiP(k, 2*i+2*j+2, 0, t) * std::pow(0.5*(1.0-t), i+j);
-      
-      return ti * tij * tijk;*/
-    }
-  }
-}
+/**
+ * @brief Evaluates derivative of Jacobi polynomial.
+ */
+double JacobiPDerivative(unsigned n, unsigned a, unsigned b, double x);
 
-#endif
+/**
+ * @brief Factors in recursion formulas used by SingularityFreeJacobiP functions.
+ */
+std::array<double, 5> SingularityFreeJacobiPFactors(unsigned m, unsigned a, unsigned b);
+
+/**
+ * @brief Computes JacobiP(n, a, b, x/y) * y^n.
+ *
+ * @param Output of SingularityFreeJacobiPFactors
+ * @param Pm_1 JacobiP(n-1, a, b, x/y) * y^{n-1}
+ * @param Pm_2 JacobiP(n-2, a, b, x/y) * y^{n-2}
+ *
+ */
+double SingularityFreeJacobiPRecursion(double x, double y, std::array<double, 5> const& cm,
+                                       double Pm_1, double Pm_2);
+
+/**
+ * @brief Computes JacobiP(n, a, b, x/y) * y^n.
+ *
+ * Works for y = 0.
+ */
+double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y);
+
+/**
+ * @brief Singularity free Jacobi polynomial evaluation with derivatives.
+ *
+ * Computes K_{a,b}^n(x,y) = JacobiP(n, a, b, x/y) * y^n, dK_{a,b}^n/dx, and dK_{a,b}^n/dy.
+ *
+ * return {K, dKdx, dKdy}
+ */
+std::array<double, 3> SingularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b,
+                                                           double x, double y);
+
+/**
+ * @brief Evaluate Dubiner basis on reference triangle
+ *
+ * Reference triangle is (0,0), (1,0), (0,1).
+ *
+ * @param i multi-index specifying the polynomial degree
+ * @param point in reference triangle
+ *
+ * @return Function value at xi
+ */
+double TriDubinerP(std::array<unsigned, 2> const& i, std::array<double, 2> const& xi);
+
+/**
+ * @brief Gradient of Dubiner basis on triangle
+ *
+ * See TriDubinerP.
+ *
+ * @return Gradient at xi
+ */
+std::array<double, 2> gradTriDubinerP(std::array<unsigned, 2> const& i,
+                                      std::array<double, 2> const& xi);
+
+/**
+ * @brief Evaluate Dubiner basis on reference tetrahedron
+ *
+ * Reference tetrahedron is (0,0,0), (1,0,0), (0,1,0), (0,0,1).
+ *
+ * Singularity-free variant inspired by
+ * R. C. Kirby, "Singularity-free evaluation of collapsed-coordinate orthogonal polynomials",
+ * ACM TOMS 37.1, Article 5, doi: 10.1145/1644001.1644006
+ *
+ * @param i multi-index specifying the polynomial degree
+ * @param point in reference tetrahedron
+ *
+ * @return Function value at xi
+ */
+double TetraDubinerP(std::array<unsigned, 3> const& i, std::array<double, 3> const& xi);
+
+/**
+ * @brief Gradient of Dubiner basis on tetrahedron
+ *
+ * See TetraDubinerP.
+ *
+ * @return Gradient at xi
+ */
+std::array<double, 3> gradTetraDubinerP(std::array<unsigned, 3> const& i,
+                                        std::array<double, 3> const& xi);
+
+/**
+ * @brief Templated Dubiner basis for D=1,2,3.
+ *
+ * Reference element is given by vertices
+ * D = 1: (0), (1)
+ * D = 2: (0,0), (1,0), (0,1)
+ * D = 3: (0,0,0), (1,0,0), (0,1,0), (0,0,1)
+ */
+template <std::size_t D>
+double DubinerP(std::array<unsigned, D> const& i, std::array<double, D> const& xi);
+
+/**
+ * @brief Templated gradient for D=1,2,3.
+ */
+template <std::size_t D>
+std::array<double, D> gradDubinerP(std::array<unsigned, D> const& i,
+                                   std::array<double, D> const& xi);
+
+} // namespace functions
+} // namespace seissol
+
+#endif // FUNCTIONS_20201026_H

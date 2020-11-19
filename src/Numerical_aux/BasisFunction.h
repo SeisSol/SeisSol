@@ -202,7 +202,7 @@ T BasisFunctionGenerator<T>::operator()(unsigned int i,
 
     return  theta_a * theta_b * theta_c;
   */
-  return functions::TetraDubinerP(i, j, k, xi_, eta_, zeta_);
+  return functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
 }
 
 //------------------------------------------------------------------------------
@@ -225,7 +225,7 @@ public:
 
 template<class T>
 class SampledTimeBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value, "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic<T>::value, "Type T for SampledTimeBasisFunctions must be arithmetic.");
   
 public:
     std::vector<T> m_data;
@@ -261,7 +261,7 @@ T TimeBasisFunctionGenerator<T>::sampleJacobiPolynomial(T x, unsigned int n) {
 
 template<class T>
 T TimeBasisFunctionGenerator<T>::operator()(unsigned int i) const {
-  return functions::LineDubinerP(i, tau_);
+  return functions::DubinerP<1>({i}, {tau_});
 }
 
 } // namespace basisFunction

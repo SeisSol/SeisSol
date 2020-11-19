@@ -88,7 +88,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
-      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.executeSTP (timeStepWidth, receiver.data, timeEvaluated, stp);
       //TODO(SW): Fix Flop Counter
@@ -100,7 +100,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
         //eval time basis
         double tau = (time - expansionPoint) / timeStepWidth;
         seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
-        krnl.timeBasisFunctions = timeBasisFunctions.m_data.data();
+        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
         krnl.execute();
 
         receiver.output.push_back(receiverTime);
@@ -137,7 +137,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
-      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,
