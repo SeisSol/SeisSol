@@ -30,6 +30,7 @@ struct seissol::dr::DrParameterT {
   bool IsInstaHealingOn{false};
   real t_0{0.0};
   real rs_f0{0.0};
+  real rs_a{0.0};
   real rs_b{0.0};
   real rs_sr0{0.0};
   real mu_w{0.0};
@@ -60,6 +61,7 @@ struct seissol::dr::DrParameterT {
     IsInstaHealingOn = getParamIfExists(DrParams, "inst_healing", false);
     t_0 = getParamIfExists(DrParams, "t_0", 0.0);
     rs_f0 = getParamIfExists(DrParams, "rs_f0", 0.0);
+    rs_a = getParamIfExists(DrParams, "rs_a", 0.0);
     rs_b = getParamIfExists(DrParams, "rs_b", 0.0);
     rs_sr0 = getParamIfExists(DrParams, "rs_sr0", 0.0);
     mu_w = getParamIfExists(DrParams, "mu_w", 0.0);

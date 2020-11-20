@@ -271,6 +271,7 @@ public:
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
         //get initial values from fortran
+        //TODO RS_a, RS_b, rs_f0, RS_sl0, RS_sr0 could be obtained from paramter file
         e_interoperability.getDynRupFL_3(ltsFace, meshFace, RS_f0, RS_a, RS_b, RS_sl0, RS_sr0);
         e_interoperability.getDynRupStateVar(ltsFace, meshFace, stateVar);
 
@@ -365,7 +366,6 @@ public:
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop
-
   }
 };
 
