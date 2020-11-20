@@ -65,8 +65,8 @@ namespace seissol::initializers {
       for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
         const real scaleFactor = -1.0;
         device.api->scaleArray(const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
-            scaleFactor,
-            init::kDivMT::size(transposedStiffness));
+                               scaleFactor,
+                               init::kDivMT::size(transposedStiffness));
       }
     }
   #endif // ACL_DEVICE
@@ -79,24 +79,24 @@ namespace seissol::initializers {
     };
   } // namespace aux
 
-template<typename MatrixManipPolicy>
-void GlobalDataInitializer<MatrixManipPolicy>::init(GlobalData& globalData,
+template<typename MatrixManipPolicyT>
+void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                                     memory::ManagedAllocator& memoryAllocator,
                                                     enum seissol::memory::Memkind memkind) {
   aux::MemProperties prop{};
-  if constexpr (std::is_same_v<MatrixManipPolicy, matrixmanip::OnHost>) {
+  if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnHost>) {
     prop.alignment = ALIGNMENT;
     prop.pagesizeHeap = PAGESIZE_HEAP;
     prop.pagesizeStack = PAGESIZE_STACK;
   }
-  else if constexpr (std::is_same_v<MatrixManipPolicy, matrixmanip::OnDevice>) {
+  else if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnDevice>) {
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
     prop.alignment = device.api->getGlobMemAlignment();
     prop.pagesizeHeap = prop.alignment;
     prop.pagesizeStack = prop.alignment;
   }
   else {
-    assert(false && "MatrixManipPolicy should be either either OnHost or OnDevice");
+    assert(false && "MatrixManipPolicy must be either OnHost or OnDevice");
   }
 
   // We ensure that global matrices always start at an aligned memory address,
@@ -119,7 +119,7 @@ void GlobalDataInitializer<MatrixManipPolicy>::init(GlobalData& globalData,
                                                                             memkind));
 
   real* globalMatrixMemPtr = globalMatrixMem;
-  typename MatrixManipPolicy::CopyManagerT copyManager;
+  typename MatrixManipPolicyT::CopyManagerT copyManager;
   copyManager.template copyFamilyToMemAndSetPtr<init::kDivMT>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::kDivM>(globalMatrixMemPtr, globalData.stiffnessMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::rDivM>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);
@@ -135,7 +135,7 @@ void GlobalDataInitializer<MatrixManipPolicy>::init(GlobalData& globalData,
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
   // @TODO Integrate this step into the code generator
-  MatrixManipPolicy::negateStiffnessMatrix(globalData);
+  MatrixManipPolicyT::negateStiffnessMatrix(globalData);
 
   // Dynamic Rupture global matrices
   unsigned drGlobalMatrixMemSize = 0;
@@ -168,7 +168,7 @@ void GlobalDataInitializer<MatrixManipPolicy>::init(GlobalData& globalData,
 
   assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
 
-  if constexpr (std::is_same_v<MatrixManipPolicy, matrixmanip::OnHost>) {
+  if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnHost>) {
     // thread-local LTS integration buffers
     int l_numberOfThreads = 1;
 #ifdef _OPENMP
@@ -196,11 +196,11 @@ void GlobalDataInitializer<MatrixManipPolicy>::init(GlobalData& globalData,
 
     globalData.integrationBufferLTS = integrationBufferLTS;
   }
-  else if constexpr (std::is_same_v<MatrixManipPolicy, matrixmanip::OnDevice>) {
+  else if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnDevice>) {
     globalData.integrationBufferLTS = nullptr;
   }
   else {
-    assert(false && "MatrixManipPolicy should be either either OnHost or OnDevice");
+    assert(false && "MatrixManipPolicy must be either OnHost or OnDevice");
   }
 }
 

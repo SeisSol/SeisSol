@@ -75,7 +75,7 @@ namespace seissol {
     /**
      * Generalized Global data initializers of SeisSol.
     **/
-    template<typename MatrixManipPolicy>
+    template<typename MatrixManipPolicyT>
     struct GlobalDataInitializer {
       static void init(GlobalData &globalData, memory::ManagedAllocator &memoryAllocator, enum seissol::memory::Memkind memkind);
     };
