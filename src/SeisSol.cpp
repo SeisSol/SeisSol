@@ -42,6 +42,10 @@
 #include <unistd.h>
 #include <sys/resource.h>
 
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
@@ -107,6 +111,11 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #endif
 #endif
 #endif // _OPENMP
+
+#ifdef ACL_DEVICE
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->allocateStackMem();
+#endif
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.

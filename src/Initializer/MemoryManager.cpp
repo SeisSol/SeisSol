@@ -568,7 +568,7 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
 
     CellLocalInformation *cellInformation = layer->var(m_lts.cellInformation);
     std::unordered_set<real *> registry{};
-    real *(*FaceNeighbors)[4] = layer->var(m_lts.faceNeighbors);
+    real *(*faceNeighbors)[4] = layer->var(m_lts.faceNeighbors);
 
     unsigned derivativesCounter{0};
     unsigned idofsCounter{0};
@@ -583,7 +583,7 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
 
       // include data provided by ghost layers
       for (unsigned face = 0; face < 4; ++face) {
-        real *neighbourBuffer = FaceNeighbors[cell][face];
+        real *neighbourBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbour element idofs has not been counted twice
         if ((registry.find(neighbourBuffer) == registry.end())) {
@@ -593,8 +593,8 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
             if (cellInformation[cell].faceTypes[face] != FaceType::outflow &&
                 cellInformation[cell].faceTypes[face] != FaceType::dynamicRupture) {
 
-              bool IsNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
-              if (IsNeighbProvidesDerivatives) {
+              bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
+              if (isNeighbProvidesDerivatives) {
                 ++idofsCounter;
               }
               registry.insert(neighbourBuffer);

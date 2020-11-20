@@ -190,8 +190,6 @@ public:
 #else
       device.api->setDevice(m_deviceId);
 #endif
-
-      device.api->allocateStackMem();
     }
     int getDeviceID() { return m_deviceId; }
 #endif // ACL_DEVICE
