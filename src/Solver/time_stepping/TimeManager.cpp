@@ -182,10 +182,10 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
   }
 
   // Sort clusters by priority (higher ones first).
-  auto prioritySorter = [](const auto& a, const auto& b) {
-    return a->getPriority() < b->getPriority();
+  auto rateSorter = [](const auto& a, const auto& b) {
+    return a->timeStepRate < b->timeStepRate;
   };
-  std::sort(clusters.begin(), clusters.end(), prioritySorter);
+  std::sort(clusters.begin(), clusters.end(), rateSorter);
   for (const auto& cluster : clusters) {
     if (cluster->getPriority() > 0) { // TODO(Lukas) Refactor, reuse constant/use enum
       highPrioClusters.emplace_back(cluster.get());
@@ -194,7 +194,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     }
   }
 
-  std::sort(ghostClusters.begin(), ghostClusters.end(), prioritySorter);
+  std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
 #ifdef USE_COMM_THREAD
   bool useCommthread = true;
