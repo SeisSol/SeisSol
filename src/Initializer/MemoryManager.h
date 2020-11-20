@@ -149,6 +149,9 @@ class seissol::initializers::MemoryManager {
      */
     //! global data
     struct GlobalData     m_globalData;
+#ifdef ACL_DEVICE
+    GlobalData            m_globalDataOnDevice;
+#endif
 
     //! Memory organisation tree
     LTSTree               m_ltsTree;

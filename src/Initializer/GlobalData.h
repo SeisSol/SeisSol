@@ -42,14 +42,52 @@
 
 #include "MemoryAllocator.h"
 #include "typedefs.hpp"
+#include <yateto.h>
 
-/**
- * Global data initializers of SeisSol.
- **/
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif // ACL_DEVICE
+
 namespace seissol {
   namespace initializers {
-    void initializeGlobalData(GlobalData& globalData, memory::ManagedAllocator& memoryAllocator, enum seissol::memory::Memkind memkind);
-  }
-}
+    namespace matrixmanip {
+      struct OnHost {
+        static void negateStiffnessMatrix(GlobalData& globalData);
+        using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+      };
+#ifdef ACL_DEVICE
+      struct OnDevice {
+        static void negateStiffnessMatrix(GlobalData& globalData);
+        struct DeviceCopyPolicy {
+          real* copy(real const* first, real const* last, real*& mem) {
+            const unsigned bytes = (last - first) * sizeof(real);
+            device.api->copyTo(mem, first, bytes);
+            mem += (last - first);
+            return mem;
+          }
+          device::DeviceInstance& device = device::DeviceInstance::getInstance();
+        };
+        using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+      };
+#endif
+    }  // namespace matrixmanip
+
+    /**
+     * Generalized Global data initializers of SeisSol.
+    **/
+    template<typename MatrixManipPolicy>
+    struct GlobalDataInitializer {
+      static void init(GlobalData &globalData, memory::ManagedAllocator &memoryAllocator, enum seissol::memory::Memkind memkind);
+    };
+
+    /**
+     * Specific Global data initializers of SeisSol.
+     **/
+    using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
+#ifdef ACL_DEVICE
+    using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
+#endif
+  }  // namespace initializers
+} // namespace seissol
 
 #endif

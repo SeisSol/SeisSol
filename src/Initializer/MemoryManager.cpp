@@ -88,7 +88,10 @@
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
-  initializeGlobalData( m_globalData, m_memoryAllocator, MEMKIND_GLOBAL );
+  GlobalDataInitializerOnHost::init(m_globalData, m_memoryAllocator, MEMKIND_GLOBAL);
+#ifdef ACL_DEVICE
+  GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+#endif
 }
 
 void seissol::initializers::MemoryManager::correctGhostRegionSetups()

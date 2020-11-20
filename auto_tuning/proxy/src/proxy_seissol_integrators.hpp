@@ -146,7 +146,7 @@ void computeNeighboringIntegration() {
   {
   #pragma omp for schedule(static)
 #endif
-  for( int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+  for( unsigned l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     auto data = loader.entry(l_cell);
     seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
                                                     cellInformation[l_cell].ltsSetup,

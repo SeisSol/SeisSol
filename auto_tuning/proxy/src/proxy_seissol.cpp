@@ -134,7 +134,7 @@ void testKernel(unsigned kernel, unsigned timesteps) {
 int main(int argc, char* argv[]) {
   std::stringstream kernelHelp;
   kernelHelp << "Kernel: " << Kernels[0];
-  for (int k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
+  for (size_t k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
     kernelHelp << ", " << Kernels[k];
   }
 
@@ -173,7 +173,9 @@ int main(int argc, char* argv[]) {
   printf("...done\n\n");
 
   struct timeval start_time, end_time;
+#ifdef __USE_RDTSC
   size_t cycles_start, cycles_end;
+#endif
   double total = 0.0;
   double total_cycles = 0.0;
 
