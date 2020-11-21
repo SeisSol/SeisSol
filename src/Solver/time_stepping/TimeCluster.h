@@ -139,7 +139,8 @@ private:
      * global data
      */
      //! global data structures
-    struct GlobalData *m_globalData;
+    GlobalData *m_globalDataOnHost{nullptr};
+    GlobalData *m_globalDataOnDevice{nullptr};
 
     /*
      * element data and mpi queues
@@ -384,8 +385,8 @@ private:
      **/
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
-                 struct MeshStructure          *i_meshStructure,
-                 struct GlobalData             *i_globalData,
+                 MeshStructure          *i_meshStructure,
+                 std::pair<GlobalData*, GlobalData*> i_globalData,
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,

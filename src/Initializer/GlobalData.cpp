@@ -59,8 +59,9 @@ namespace seissol::initializers {
       }
     }
 
-    #ifdef ACL_DEVICE
+
     void OnDevice::negateStiffnessMatrix(GlobalData &globalData) {
+#ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
       for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
         const real scaleFactor = -1.0;
@@ -68,8 +69,18 @@ namespace seissol::initializers {
                                scaleFactor,
                                init::kDivMT::size(transposedStiffness));
       }
+#endif // ACL_DEVICE
     }
-  #endif // ACL_DEVICE
+    real* OnDevice::DeviceCopyPolicy::copy(real const* first, real const* last, real*& mem) {
+#ifdef ACL_DEVICE
+      device::DeviceInstance& device = device::DeviceInstance::getInstance();
+      const unsigned bytes = (last - first) * sizeof(real);
+      device.api->copyTo(mem, first, bytes);
+      mem += (last - first);
+      return mem;
+#endif // ACL_DEVICE
+    }
+
   } // namespace matrixmanip
   namespace aux {
     struct MemProperties {
@@ -78,6 +89,7 @@ namespace seissol::initializers {
       size_t pagesizeStack{1};
     };
   } // namespace aux
+
 
 template<typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
@@ -90,10 +102,14 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
     prop.pagesizeStack = PAGESIZE_STACK;
   }
   else if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnDevice>) {
+#ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
     prop.alignment = device.api->getGlobMemAlignment();
     prop.pagesizeHeap = prop.alignment;
     prop.pagesizeStack = prop.alignment;
+#else
+    assert(false && "error due to a call to a device functionality without compiling SeisSol for GPU execution");
+#endif // ACL_DEVICE
   }
   else {
     assert(false && "MatrixManipPolicy must be either OnHost or OnDevice");
@@ -208,9 +224,8 @@ template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globa
                                                                memory::ManagedAllocator& memoryAllocator,
                                                                enum memory::Memkind memkind);
 
-#ifdef ACL_DEVICE
 template void GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
                                                                  memory::ManagedAllocator& memoryAllocator,
                                                                  enum memory::Memkind memkind);
-#endif
+
 } // namespace seissol::initializers

@@ -97,8 +97,8 @@ extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
                                                   unsigned int                   i_globalClusterId,
-                                                  struct MeshStructure          *i_meshStructure,
-                                                  struct GlobalData             *i_globalData,
+                                                  MeshStructure                 *i_meshStructure,
+                                                  std::pair<GlobalData*, GlobalData*> i_globalData,
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
@@ -110,7 +110,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // mesh structure
  m_meshStructure(           i_meshStructure            ),
  // global data
- m_globalData(              i_globalData               ),
+ m_globalDataOnHost( std::get<SystemType::Host>(i_globalData) ),
+ m_globalDataOnDevice( std::get<SystemType::Device>(i_globalData) ),
  m_clusterData(             i_clusterData              ),
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
@@ -124,9 +125,12 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_receiverCluster(          nullptr                   )
 {
     // assert all pointers are valid
-    assert( m_meshStructure                            != NULL );
-    assert( m_globalData                               != NULL );
+    assert( m_meshStructure                            != nullptr );
     assert( m_clusterData                              != NULL );
+    assert( m_globalDataOnHost                         != nullptr );
+    if constexpr (seissol::isDeviceOn()) {
+        assert( m_globalDataOnDevice                   != nullptr );
+    }
 
   // default: no updates are allowed
   m_updatable.localCopy           = false;
@@ -150,11 +154,11 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
   
-  m_timeKernel.setGlobalData(m_globalData);
-  m_localKernel.setGlobalData(m_globalData);
+  m_timeKernel.setGlobalData(i_globalData);
+  m_localKernel.setGlobalData(i_globalData);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
-  m_neighborKernel.setGlobalData(m_globalData);
-  m_dynamicRuptureKernel.setGlobalData(m_globalData);
+  m_neighborKernel.setGlobalData(i_globalData);
+  m_dynamicRuptureKernel.setGlobalData(m_globalDataOnHost);
 
   computeFlops();
 
@@ -246,7 +250,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
-                                                    m_globalData,
+                                                    m_globalDataOnHost,
                                                    &godunovData[face],
                                                     timeDerivativePlus[face],
                                                     timeDerivativeMinus[face],
@@ -534,7 +538,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                    m_timeStepWidth,
                                                    faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
 #else
                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
 #endif

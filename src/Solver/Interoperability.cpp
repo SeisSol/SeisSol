@@ -448,7 +448,7 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
                                                     seissol::SeisSol::main.getMemoryManager() );
 
   // get backward coupling
-  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
 
 
   // initialize face lts trees
@@ -720,7 +720,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
                                                            seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
                                                            m_ltsFaceToMeshFace,
-                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
+                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost(),
                                                            m_timeStepping );
 
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),

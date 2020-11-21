@@ -148,10 +148,8 @@ class seissol::initializers::MemoryManager {
      * Cross-cluster
      */
     //! global data
-    struct GlobalData     m_globalData;
-#ifdef ACL_DEVICE
+    GlobalData            m_globalDataOnHost;
     GlobalData            m_globalDataOnDevice;
-#endif
 
     //! Memory organisation tree
     LTSTree               m_ltsTree;
@@ -253,10 +251,29 @@ class seissol::initializers::MemoryManager {
     void initializeMemoryLayout(bool enableFreeSurfaceIntegration);
 
     /**
-     * Gets the global data.
+     * Gets global data on the host.
      **/
-    struct GlobalData* getGlobalData() {
-      return &m_globalData;
+    GlobalData* getGlobalDataOnHost() {
+      return &m_globalDataOnHost;
+    }
+
+    /**
+     * Gets the global data on device.
+     **/
+    GlobalData* getGlobalDataOnDevice() {
+      assert(seissol::isDeviceOn() && "application is not compiled for acceleration device");
+      return &m_globalDataOnDevice;
+    }
+
+    /**
+     * Gets the global data on both host and device.
+    **/
+    std::pair<GlobalData*, GlobalData*> getGlobalData() {
+      GlobalData* globalDataOnDevice{nullptr};
+      if constexpr (seissol::isDeviceOn()) {
+        globalDataOnDevice = &m_globalDataOnDevice;
+      }
+      return std::make_pair(&m_globalDataOnHost, globalDataOnDevice);
     }
 
     /**
@@ -267,10 +284,8 @@ class seissol::initializers::MemoryManager {
      * @param o_globalData global data.
      * @param o_globalDataCopies several copies of global data
      **/
-    void getMemoryLayout( unsigned int                    i_cluster,
-                          struct MeshStructure          *&o_meshStructure,
-                          struct GlobalData             *&o_globalData
-                        );
+    std::pair<MeshStructure*, std::pair<GlobalData*, GlobalData*>>
+    getMemoryLayout(unsigned int i_cluster);
                           
     inline LTSTree* getLtsTree() {
       return &m_ltsTree;

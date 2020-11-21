@@ -55,38 +55,26 @@ namespace seissol {
         static void negateStiffnessMatrix(GlobalData& globalData);
         using CopyManagerT = typename yateto::DefaultCopyManager<real>;
       };
-#ifdef ACL_DEVICE
+
       struct OnDevice {
         static void negateStiffnessMatrix(GlobalData& globalData);
         struct DeviceCopyPolicy {
-          real* copy(real const* first, real const* last, real*& mem) {
-            const unsigned bytes = (last - first) * sizeof(real);
-            device.api->copyTo(mem, first, bytes);
-            mem += (last - first);
-            return mem;
-          }
-          device::DeviceInstance& device = device::DeviceInstance::getInstance();
+          real* copy(real const* first, real const* last, real*& mem);
         };
         using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
       };
-#endif
     }  // namespace matrixmanip
 
-    /**
-     * Generalized Global data initializers of SeisSol.
-    **/
+
+    //Generalized Global data initializers of SeisSol.
     template<typename MatrixManipPolicyT>
     struct GlobalDataInitializer {
       static void init(GlobalData &globalData, memory::ManagedAllocator &memoryAllocator, enum seissol::memory::Memkind memkind);
     };
 
-    /**
-     * Specific Global data initializers of SeisSol.
-     **/
+    // Specific Global data initializers of SeisSol.
     using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
-#ifdef ACL_DEVICE
     using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
-#endif
   }  // namespace initializers
 } // namespace seissol
 

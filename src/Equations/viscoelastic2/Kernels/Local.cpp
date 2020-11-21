@@ -51,7 +51,7 @@
 
 #include <yateto.h>
 
-void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
+void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
@@ -67,6 +67,10 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
   m_localKernelPrototype.selectEla = init::selectEla::Values;
   m_localKernelPrototype.selectAne = init::selectAne::Values;
+}
+
+void seissol::kernels::Local::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
+  setHostGlobalData(std::get<SystemType::Host>(global));
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],

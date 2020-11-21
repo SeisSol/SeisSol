@@ -88,9 +88,9 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   srand48(i_cells);
 
   seissol::initializers::GlobalDataInitializerOnHost::init(m_globalData, m_allocator, MEMKIND_GLOBAL);
-  m_timeKernel.setGlobalData(&m_globalData);
-  m_localKernel.setGlobalData(&m_globalData);
-  m_neighborKernel.setGlobalData(&m_globalData);
+  m_timeKernel.setHostGlobalData(&m_globalData);
+  m_localKernel.setHostGlobalData(&m_globalData);
+  m_neighborKernel.setHostGlobalData(&m_globalData);
   m_dynRupKernel.setGlobalData(&m_globalData);
   
   m_lts.addTo(m_ltsTree);

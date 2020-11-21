@@ -88,10 +88,10 @@
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalData, m_memoryAllocator, MEMKIND_GLOBAL);
-#ifdef ACL_DEVICE
-  GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
-#endif
+  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
+  if constexpr (seissol::isDeviceOn()) {
+    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+  }
 }
 
 void seissol::initializers::MemoryManager::correctGhostRegionSetups()
@@ -706,12 +706,16 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 #endif
 }
 
-void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
-                                                            struct MeshStructure          *&o_meshStructure,
-                                                            struct GlobalData             *&o_globalData
-                                                          ) {
-  o_meshStructure           =  m_meshStructure + i_cluster;
-  o_globalData              = &m_globalData;
+std::pair<MeshStructure *, std::pair<GlobalData*, GlobalData*>>
+seissol::initializers::MemoryManager::getMemoryLayout(unsigned int i_cluster) {
+  MeshStructure *meshStructure = m_meshStructure + i_cluster;
+
+  GlobalData* globalDataOnDevice{nullptr};
+  if constexpr (seissol::isDeviceOn()) {
+    globalDataOnDevice = &m_globalDataOnDevice;
+  }
+
+  return std::make_pair(meshStructure, std::make_pair(&m_globalDataOnHost, globalDataOnDevice));
 }
 
 void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {

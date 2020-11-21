@@ -61,17 +61,20 @@
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
+void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % alignment == 0 );
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % alignment == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % alignment == 0 );
   }
 #endif
+}
 
+void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
+  checkGlobalData(global, ALIGNMENT);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
@@ -80,6 +83,22 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+}
+
+void seissol::kernels::Local::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
+  setHostGlobalData(std::get<SystemType::Host>(global));
+
+#ifdef ACL_DEVICE
+  GlobalData* globalDataOnDevice = std::get<SystemType::Device>(global);
+  assert(globalDataOnDevice != nullptr);
+  const auto deviceAlignment = device.api->getGlobMemAlignment();
+  checkGlobalData(globalDataOnDevice, deviceAlignment);
+
+  deviceVolumeKernelPrototype.kDivM = globalDataOnDevice->stiffnessMatrices;
+  deviceLocalFluxKernelPrototype.rDivM = globalDataOnDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT = globalDataOnDevice->localChangeOfBasisMatricesTransposed;
+  deviceNodalLfKrnlPrototype.project2nFaceTo3m = globalDataOnDevice->project2nFaceTo3m;
+#endif
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],

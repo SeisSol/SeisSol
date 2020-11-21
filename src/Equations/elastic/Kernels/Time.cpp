@@ -103,15 +103,30 @@ seissol::kernels::TimeBase::TimeBase() {
   }
 }
 
-void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
+void seissol::kernels::TimeBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % alignment == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % alignment == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % alignment == 0 );
+}
 
+void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
+  checkGlobalData(global, ALIGNMENT);
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
   displacementAvgNodalPrototype.V3mTo2nFace = global->V3mTo2nFace;
   displacementAvgNodalPrototype.selectZDisplacementFromQuantities = init::selectZDisplacementFromQuantities::Values;
   displacementAvgNodalPrototype.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
+}
+
+void seissol::kernels::Time::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
+  setHostGlobalData(std::get<SystemType::Host>(global));
+
+#ifdef ACL_DEVICE
+  GlobalData* globalDataOnDevice = std::get<SystemType::Device>(global);
+  assert(globalDataOnDevice != nullptr);
+  const auto deviceAlignment = device.api->getGlobMemAlignment();
+  checkGlobalData(globalDataOnDevice, deviceAlignment);
+  deviceKrnlPrototype.kDivMT = globalDataOnDevice->stiffnessMatricesTransposed;
+#endif
 }
 
 void seissol::kernels::Time::computeAder(double i_timeStepWidth,

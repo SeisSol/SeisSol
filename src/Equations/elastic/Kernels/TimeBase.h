@@ -73,19 +73,31 @@
 
 #include <generated_code/kernel.h>
 
+#ifdef ACL_DEVICE
+#include <device.h>
+using namespace device;
+#endif // ACL_DEVICE
+
 namespace seissol {
   namespace kernels {
     class TimeBase;
   }
 }
+class GlobalData;
 
 class seissol::kernels::TimeBase {
   protected:
+    static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::derivative m_krnlPrototype;
     kernel::displacementAvgNodal displacementAvgNodalPrototype;
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
 
-  public:
+#ifdef ACL_DEVICE
+    kernel::gpu_derivative deviceKrnlPrototype;
+    DeviceInstance& device = DeviceInstance::getInstance();
+#endif
+
+public:
     /**
      * Constructor, which initializes the time kernel.
      **/
@@ -100,7 +112,6 @@ class seissol::kernels::TimeBase {
      *   ...
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
-
 };
 
 #endif

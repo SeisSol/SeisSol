@@ -72,17 +72,29 @@
 #define KERNELS_NEIGHBORBASE_H_
 
 #include <generated_code/kernel.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+using namespace device;
+#endif
 
 namespace seissol {
   namespace kernels {
     class NeighborBase;
   }
 }
+class GlobalData;
 
 class seissol::kernels::NeighborBase {
   protected:
+    static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::neighboringFlux m_nfKrnlPrototype;
     dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_neighboringFlux deviceNfKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
+  DeviceInstance& device = DeviceInstance::getInstance();
+#endif
 };
 
 #endif
