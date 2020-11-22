@@ -258,8 +258,8 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
 
   constexpr size_t MAX_TMP_MEM = (volKrnl.TmpMaxMemRequiredInBytes > localFluxKrnl.TmpMaxMemRequiredInBytes) \
                                    ? volKrnl.TmpMaxMemRequiredInBytes : localFluxKrnl.TmpMaxMemRequiredInBytes;
-  real* tmpMem = nullptr;
 
+  real* tmpMem = nullptr;
   if (table.find(key) != table.end()) {
     BatchTable &entry = table[key];
 

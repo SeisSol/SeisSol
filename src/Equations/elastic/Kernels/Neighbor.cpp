@@ -174,7 +174,6 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
-  //kernel::gpu_localFlux localFluxKrnl = deviceLfKrnlPrototype;
 
   real* tmpMem = nullptr;
   for(size_t face = 0; face < 4; face++) {
@@ -205,32 +204,6 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
       }
     }
 
-    // free surface
-    {
-      ConditionalKey key(*KernelNames::NeighborFlux,
-                         *FaceKinds::FreeSurface,
-                         face);
-
-      /*
-      if(table.find(key) != table.end()) {
-        BatchTable &entry = table[key];
-
-        const auto NUM_ELEMENTS = (entry.content[*EntityId::Dofs])->getSize();
-        localFluxKrnl.numElements = NUM_ELEMENTS;
-
-        localFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-        localFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
-        localFluxKrnl.AplusT = const_cast<const real **>((entry.content[*EntityId::AminusT])->getPointers());
-
-        tmpMem = (real*)(device.api->getStackMemory(localFluxKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
-        localFluxKrnl.linearAllocator.initialize(tmpMem);
-
-        localFluxKrnl.execute(face);
-        device.api->popStackMemory();
-      }
-      */
-    }
-
     // dynamic rupture
     for (unsigned faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
 
@@ -246,7 +219,7 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
         drKrnl.numElements = NUM_ELEMENTS;
 
         drKrnl.fluxSolver = const_cast<const real **>((entry.content[*EntityId::FluxSolver])->getPointers());
-        //drKrnl.godunovState = const_cast<const real **>((entry.content[*EntityId::Godunov])->getPointers());
+        drKrnl.QInterpolated = const_cast<real const**>((entry.content[*EntityId::Godunov])->getPointers());
         drKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
 
         tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));

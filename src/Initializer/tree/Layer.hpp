@@ -47,7 +47,6 @@
 #include <limits>
 #include <cstring>
 
-#include <iostream>
 
 enum LayerType {
   Ghost    = (1 << 0),

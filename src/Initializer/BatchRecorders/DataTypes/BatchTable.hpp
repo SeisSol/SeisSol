@@ -6,7 +6,6 @@
 #include "Condition.hpp"
 #include "EncodedConstants.hpp"
 #include <device.h>
-#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -44,6 +43,7 @@ public:
   }
 
   real **getPointers() {
+    assert(devicePtrs != nullptr && "requested batch has not been recorded");
     return devicePtrs;
   }
   size_t getSize() {
@@ -52,7 +52,7 @@ public:
 
 private:
   std::vector<real *> pointers{};
-  real **devicePtrs{};
+  real **devicePtrs{nullptr};
   DeviceInstance &device = DeviceInstance::getInstance();
 };
 
