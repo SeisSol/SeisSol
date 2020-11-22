@@ -1,19 +1,19 @@
 #ifndef SEISSOL_POINTERSTABLE_HPP
 #define SEISSOL_POINTERSTABLE_HPP
 
-#include "EncodedConstants.hpp"
+#ifdef ACL_DEVICE
+
 #include "Condition.hpp"
+#include "EncodedConstants.hpp"
 #include <device.h>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <iostream>
 using namespace device;
 
-namespace seissol {
-namespace initializers {
-namespace recording {
+namespace seissol::initializers::recording {
 
 class BatchPointers {
 public:
@@ -25,13 +25,11 @@ public:
     }
   }
 
-  BatchPointers(const BatchPointers &other)
-      : pointers(other.pointers), devicePtrs(nullptr) {
+  BatchPointers(const BatchPointers &other) : pointers(other.pointers), devicePtrs(nullptr) {
     if (!pointers.empty()) {
       if (other.devicePtrs != nullptr) {
         devicePtrs = (real **)device.api->allocGlobMem(other.pointers.size() * sizeof(real *));
-        device.api->copyBetween(devicePtrs, other.devicePtrs,
-                                other.pointers.size() * sizeof(real *));
+        device.api->copyBetween(devicePtrs, other.devicePtrs, other.pointers.size() * sizeof(real *));
       }
     }
   }
@@ -79,8 +77,13 @@ public:
   std::array<BatchPointers *, *EntityId::Count> content{};
 };
 
-} // namespace recording
-} // namespace initializers
-} // namespace seissol
+} // namespace seissol::initializers::recording
+
+#else  // ACL_DEVICE
+namespace seissol::initializers::recording {
+// Provide a dummy implementation for a pure CPU execution
+struct BatchTable {};
+} // namespace seissol::initializers::recording
+#endif // ACL_DEVICE
 
 #endif // SEISSOL_POINTERSTABLE_HPP

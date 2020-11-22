@@ -421,6 +421,7 @@ void seissol::time_stepping::TimeCluster::waitForInits() {
 
 #endif
 
+#ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -501,7 +502,55 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells());
 }
+#else // ACL_DEVICE
+void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
+  SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+  device.api->putProfilingMark("computeLocalIntegration", ProfilingColors::Yellow);
 
+  m_loopStatistics->begin(m_regionComputeLocalIntegration);
+
+  ConditionalBatchTableT& table = i_layerData.getCondBatchTable();
+  kernels::LocalTmp tmp;
+
+  m_timeKernel.computeBatchedAder(m_timeStepWidth, tmp, table);
+  m_localKernel.computeBatchedIntegral(table, tmp);
+
+  ConditionalKey key(*KernelNames::Displacements);
+  if (table.find(key) != table.end()) {
+    BatchTable &entry = table[key];
+    // NOTE: ivelocities have been computed implicitly, i.e
+    // it is 6th, 7the and 8th columns of idofs
+    device.api->accumulateBatchedData((entry.content[*EntityId::Ivelocities])->getPointers(),
+                                      (entry.content[*EntityId::Displacements])->getPointers(),
+                                      tensor::displacement::Size,
+                                      (entry.content[*EntityId::Displacements])->getSize());
+  }
+
+  key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
+  if (table.find(key) != table.end()) {
+    BatchTable &entry = table[key];
+
+    if (m_resetLtsBuffers) {
+      device.api->streamBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
+                                    (entry.content[*EntityId::Buffers])->getPointers(),
+                                    tensor::I::Size,
+                                    (entry.content[*EntityId::Idofs])->getSize());
+    }
+    else {
+      device.api->accumulateBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
+                                        (entry.content[*EntityId::Buffers])->getPointers(),
+                                        tensor::I::Size,
+                                        (entry.content[*EntityId::Idofs])->getSize());
+    }
+  }
+
+  device.api->synchDevice();
+  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells());
+  device.api->popLastProfilingMark();
+}
+#endif // ACL_DEVICE
+
+#ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -598,6 +647,38 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells());
 }
+#else // ACL_DEVICE
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
+  device.api->putProfilingMark("computeNeighboring", ProfilingColors::Red);
+  SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+  m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
+
+  ConditionalBatchTableT &table = i_layerData.getCondBatchTable();
+
+  seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
+                                                        m_subTimeStart,
+                                                        m_timeStepWidth,
+                                                        table);
+  m_neighborKernel.computeBatchedNeighborsIntegral(table);
+
+#ifdef USE_PLASTICITY
+  PlasticityData* Plasticity = i_layerData.var(m_lts->plasticity);
+  unsigned NumAdjustedDofs = seissol::kernels::Plasticity::computePlasticityWithinWorkItem(m_relaxTime,
+                                                                                           m_timeStepWidth,
+                                                                                           m_deviceGlobalData,
+                                                                                           Table,
+                                                                                           Plasticity);
+
+  g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + NumAdjustedDofs * m_flops_nonZero[PlasticityYield];
+  g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + NumAdjustedDofs * m_flops_hardware[PlasticityYield];
+
+#endif
+
+  device.api->synchDevice();
+  device.api->popLastProfilingMark();
+  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells());
+}
+#endif // ACL_DEVICE
 
 #ifdef USE_MPI
 bool seissol::time_stepping::TimeCluster::computeLocalCopy(){

@@ -141,6 +141,9 @@ private:
      //! global data structures
     GlobalData *m_globalDataOnHost{nullptr};
     GlobalData *m_globalDataOnDevice{nullptr};
+#ifdef ACL_DEVICE
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
 
     /*
      * element data and mpi queues

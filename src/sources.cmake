@@ -194,6 +194,8 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
 
 endif()
 
+target_include_directories(SeisSol-lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
 if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
 
@@ -201,9 +203,6 @@ if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp)
-
-  target_include_directories(SeisSol-lib PUBLIC
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
   find_package(CUDA REQUIRED)
   set(CUDA_NVCC_FLAGS -std=c++14;

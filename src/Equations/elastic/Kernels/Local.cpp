@@ -249,6 +249,61 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   }
 }
 
+void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &table, LocalTmp& tmp) {
+#ifdef ACL_DEVICE
+  // Volume integral
+  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype;
+
+  constexpr size_t MAX_TMP_MEM = (volKrnl.TmpMaxMemRequiredInBytes > localFluxKrnl.TmpMaxMemRequiredInBytes) \
+                                   ? volKrnl.TmpMaxMemRequiredInBytes : localFluxKrnl.TmpMaxMemRequiredInBytes;
+  real* tmpMem = nullptr;
+
+  if (table.find(key) != table.end()) {
+    BatchTable &entry = table[key];
+
+    unsigned MaxNumElements = (entry.content[*EntityId::Dofs])->getSize();
+    volKrnl.numElements = MaxNumElements;
+
+    // volume kernel always contains more elements than any local one
+    tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * MaxNumElements));
+
+    volKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
+    volKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
+
+    unsigned starOffset = 0;
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      volKrnl.star(i) = const_cast<const real **>((entry.content[*EntityId::Star])->getPointers());
+      volKrnl.extraOffset_star(i) = starOffset;
+      starOffset += tensor::star::size(i);
+    }
+    volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.execute();
+  }
+
+  // Local Flux Integral
+  for (unsigned face = 0; face < 4; ++face) {
+    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
+    if (table.find(key) != table.end()) {
+      BatchTable &entry = table[key];
+      localFluxKrnl.numElements = entry.content[*EntityId::Dofs]->getSize();
+      localFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
+      localFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
+      localFluxKrnl.AplusT = const_cast<const real **>(entry.content[*EntityId::AplusT]->getPointers());
+      localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.execute(face);
+    }
+  }
+  if (tmpMem != nullptr) {
+    device.api->popStackMemory();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}
+
 void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
                                             unsigned int &o_nonZeroFlops,
                                             unsigned int &o_hardwareFlops)

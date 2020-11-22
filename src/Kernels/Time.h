@@ -96,6 +96,10 @@ class seissol::kernels::Time : public TimeBase {
                       real                        o_timeIntegrated[tensor::I::size()],
                       real*                       o_timeDerivatives = NULL );
 
+    void computeBatchedAder(double i_timeStepWidth,
+                            LocalTmp& tmp,
+                            ConditionalBatchTableT &table);
+
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
 
@@ -106,6 +110,13 @@ class seissol::kernels::Time : public TimeBase {
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
                           real                                        o_timeIntegrated[tensor::I::size()] );
+
+    void computeBatchedIntegral(double i_expansionPoint,
+                                double i_integrationStart,
+                                double i_integrationEnd,
+                                const real** i_timeDerivatives,
+                                real ** o_timeIntegratedDofs,
+                                unsigned numElements);
 
     void computeTaylorExpansion( real         time,
                                  real         expansionPoint,

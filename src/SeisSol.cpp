@@ -175,6 +175,11 @@ void seissol::SeisSol::finalize()
 
 	const int rank = MPI::mpi.rank();
 
+#ifdef ACL_DEVICE
+	DeviceInstance &device = DeviceInstance::getInstance();
+	device.api->finalize();
+#endif
+
 	MPI::mpi.finalize();
 
 	logInfo(rank) << "SeisSol done. Goodbye.";

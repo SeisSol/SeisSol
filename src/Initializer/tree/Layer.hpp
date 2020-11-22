@@ -42,14 +42,12 @@
 
 #include "Node.hpp"
 #include <Initializer/MemoryAllocator.h>
+#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
 #include <bitset>
 #include <limits>
 #include <cstring>
-#include <iostream>
 
-#ifdef ACL_DEVICE
-#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
-#endif
+#include <iostream>
 
 enum LayerType {
   Ghost    = (1 << 0),
