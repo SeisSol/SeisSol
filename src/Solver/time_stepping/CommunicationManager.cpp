@@ -67,11 +67,14 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
   isFinished.store(false);
   AbstractCommunicationManager::reset(newSyncTime);
 
+  const auto freeMask = parallel::getFreeCPUsMask();
   // Start a new communication thread.
   // Note: Easier than keeping one alive, and not that expensive.
-  thread = std::thread([this](){
+  thread = std::thread([this, &freeMask](){
     // Pin this thread to the last core
-    parallel::pinToFreeCPUs();
+    // We compute the mask outside of the thread because otherwise
+    // it confuses profilers and debuggers!
+    parallel::pinToCPUMask(freeMask);
     while(!shouldReset.load() && !isFinished.load()) {
       isFinished.store(this->poll());
     }

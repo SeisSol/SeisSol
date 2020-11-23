@@ -86,6 +86,10 @@ void seissol::parallel::pinToFreeCPUs() {
   sched_setaffinity(0, sizeof(cpu_set_t), &set);
 }
 
+void seissol::parallel::pinToCPUMask(const cpu_set_t& set) {
+  sched_setaffinity(0, sizeof(cpu_set_t), &set);
+}
+
 std::string seissol::parallel::maskToString(cpu_set_t const& set) {
   std::stringstream st;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {

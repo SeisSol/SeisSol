@@ -49,6 +49,7 @@ namespace seissol {
     cpu_set_t getFreeCPUsMask();
     bool freeCPUsMaskEmpty(cpu_set_t const& set);
     void pinToFreeCPUs();
+    void pinToCPUMask(const cpu_set_t& set);
     std::string maskToString(cpu_set_t const& set);
   }
 }
