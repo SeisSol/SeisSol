@@ -31,6 +31,7 @@ public:
   virtual bool maySync();
   virtual void start() = 0;
   virtual void predict() = 0;
+  ActorState getState() const;
   virtual void correct() = 0;
   virtual bool processMessages();
   virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;

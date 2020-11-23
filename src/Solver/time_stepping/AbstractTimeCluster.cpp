@@ -245,4 +245,8 @@ void AbstractTimeCluster::setPriority(int priority) {
   this->priority = priority;
 }
 
+ActorState AbstractTimeCluster::getState() const {
+  return state;
+}
+
 }

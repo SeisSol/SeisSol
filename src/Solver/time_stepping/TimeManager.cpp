@@ -250,9 +250,21 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     finished = true;
     for (auto& lowPrioCluster : lowPrioClusters) {
       for (auto& highPrioCluster : highPrioClusters) {
-        updateCluster(highPrioCluster);
-        finished = finished && highPrioCluster->synced();
+        // Update interior first
+        if (highPrioCluster->getState() == ActorState::Corrected
+            || highPrioCluster->getState() == ActorState::Synced) {
+          updateCluster(highPrioCluster);
+          finished = finished && highPrioCluster->synced();
+        }
       }
+      for (auto& highPrioCluster : highPrioClusters) {
+        // Then neighbor
+        if (highPrioCluster->getState() == ActorState::Predicted) {
+          updateCluster(highPrioCluster);
+          finished = finished && highPrioCluster->synced();
+        }
+      }
+
       updateCluster(lowPrioCluster);
       finished = finished && lowPrioCluster->synced();
     }
