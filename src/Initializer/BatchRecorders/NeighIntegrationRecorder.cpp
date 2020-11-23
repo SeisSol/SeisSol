@@ -130,9 +130,6 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
             break;
           }
           case FaceType::freeSurface: {
-            freeSurfaceDofs[face].push_back(static_cast<real *>(data.dofs));
-            freeSurfaceIDofs[face].push_back(idofsAddressRegistry[neighbourBufferPtr]);
-            freeSurfaceAminusT[face].push_back(static_cast<real *>(data.neighIntegrationOnDevice.nAmNm1[face]));
             break;
           }
           case FaceType::dynamicRupture: {
@@ -180,16 +177,6 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         (*currentTable)[key].content[*EntityId::AminusT] =
             new BatchPointers(regularPeriodicAminusT[face][faceRelation]);
       }
-    }
-
-    // free surface
-    if (!freeSurfaceDofs[face].empty()) {
-      ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::FreeSurface, face);
-      checkKey(key);
-
-      (*currentTable)[key].content[*EntityId::Idofs] = new BatchPointers(freeSurfaceIDofs[face]);
-      (*currentTable)[key].content[*EntityId::Dofs] = new BatchPointers(freeSurfaceDofs[face]);
-      (*currentTable)[key].content[*EntityId::AminusT] = new BatchPointers(freeSurfaceAminusT[face]);
     }
 
     // dynamic rupture
