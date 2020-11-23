@@ -59,6 +59,8 @@ private:
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
+  std::vector<size_t> variableSizes{};  /*!< sizes of variables within the entire tree in bytes */
+  std::vector<size_t> bucketSizes{};    /*!< sizes of buckets within the entire tree in bytes */
 
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
@@ -141,7 +143,7 @@ public:
   
   void allocateVariables() {
     m_vars = new void*[varInfo.size()];
-    std::vector<size_t> variableSizes(varInfo.size(), 0);
+    variableSizes.resize(varInfo.size(), 0);
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->addVariableSizes(varInfo, variableSizes);
@@ -160,7 +162,7 @@ public:
   
   void allocateBuckets() {
     m_buckets = new void*[bucketInfo.size()];
-    std::vector<size_t> bucketSizes(bucketInfo.size(), 0);
+    bucketSizes.resize(bucketInfo.size(), 0);
     
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->addBucketSizes(bucketSizes);
@@ -211,7 +213,13 @@ public:
     }
   }
 
+  const std::vector<size_t>& getVariableSizes() {
+    return variableSizes;
+  }
 
+  const std::vector<size_t>& getBucketSizes() {
+    return bucketSizes;
+  }
 };
 
 #endif

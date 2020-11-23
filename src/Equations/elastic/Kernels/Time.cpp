@@ -388,7 +388,7 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
-  real* TmpMem = (real*)(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+  real* tmpMem = (real*)(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
 
   intKrnl.I = o_timeIntegratedDofs;
 
@@ -407,7 +407,7 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
 
     intKrnl.power = firstTerm - secondTerm;
     intKrnl.power /= factorial;
-    intKrnl.linearAllocator.initialize(TmpMem);
+    intKrnl.linearAllocator.initialize(tmpMem);
     intKrnl.execute(der);
   }
   device.api->popStackMemory();

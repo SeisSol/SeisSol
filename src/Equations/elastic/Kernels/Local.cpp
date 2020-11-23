@@ -273,7 +273,7 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
     volKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
 
     unsigned starOffset = 0;
-    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
       volKrnl.star(i) = const_cast<const real **>((entry.content[*EntityId::Star])->getPointers());
       volKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
