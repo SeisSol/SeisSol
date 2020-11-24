@@ -120,7 +120,7 @@ bool GhostTimeCluster::testForCopyLayerSends(){
   return sendQueue.empty();
 }
 
-bool GhostTimeCluster::act() {
+ActResult GhostTimeCluster::act() {
   // Always check for receives/send for quicker MPI progression.
   testForGhostLayerReceives();
   testForCopyLayerSends();

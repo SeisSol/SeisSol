@@ -25,7 +25,7 @@ public:
   AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, long timeStepRate);
   virtual ~AbstractTimeCluster() = default;
 
-  virtual bool act();
+  virtual ActResult act();
   virtual bool mayPredict();
   virtual bool mayCorrect();
   virtual bool maySync();

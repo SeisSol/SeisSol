@@ -159,6 +159,11 @@ public:
   }
 };
 
+struct ActResult {
+  bool yield;
+  bool isStateChanged;
+};
+
 }
 
 #endif //SEISSOL_ACTORSTATE_H

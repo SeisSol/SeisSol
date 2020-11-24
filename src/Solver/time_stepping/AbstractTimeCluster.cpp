@@ -14,9 +14,9 @@ AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTole
   ct.timeStepRate = timeStepRate;
 }
 
-bool AbstractTimeCluster::act() {
+ActResult AbstractTimeCluster::act() {
+  ActResult result{false, false};
   auto stateBefore = state;
-  bool yield = false;
   switch (state) {
   case ActorState::Corrected: {
     if (maySync()) {
@@ -50,7 +50,7 @@ bool AbstractTimeCluster::act() {
       }
       state = ActorState::Predicted;
     } else {
-      yield = !processMessages();
+      result.yield = !processMessages();
     }
     break;
   }
@@ -76,7 +76,7 @@ bool AbstractTimeCluster::act() {
       }
       state = ActorState::Corrected;
     } else {
-      yield = !processMessages();
+      result.yield = !processMessages();
     }
     break;
   }
@@ -86,13 +86,14 @@ bool AbstractTimeCluster::act() {
       start();
       state = ActorState::Corrected;
     } else {
-      yield = true;
+      result.yield = true;
     }
     break;
   default: throw;
   }
   const auto currentTime = std::chrono::steady_clock::now();
-  if (stateBefore == state) {
+  result.isStateChanged = stateBefore != state;
+  if (!result.isStateChanged) {
     const auto timeSinceLastUpdate = currentTime - lastStateChange;
     if (timeSinceLastUpdate > timeout && !alreadyPrintedTimeOut) {
         alreadyPrintedTimeOut = true;
@@ -102,7 +103,7 @@ bool AbstractTimeCluster::act() {
     lastStateChange = currentTime;
     alreadyPrintedTimeOut = false;
   }
-  return yield;
+  return result;
 }
 
 

@@ -237,7 +237,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     // A cluster yields once it is blocked by other cluster.
     bool yield = false;
     do {
-      yield = cluster->act();
+      yield = cluster->act().yield;
       // Check ghost cells often for communication progress
       // Note: This replaces the need for a communication thread.
       communicationManager->progression();
@@ -245,28 +245,35 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     return cluster->synced();
   };
 
+  beginAgain:
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
+    // Iterate over all clusters
+    // break loop if updated, and begin again.
+    // Assume that stuff is sorted by a useful metric
+    // TODO(Lukas) Maybe change sorting.
+    for (auto& highPrioCluster : highPrioClusters) {
+      bool yield = false;
+      while (!yield) {
+        const auto result = highPrioCluster->act();
+        yield = result.yield;
+        if (result.isStateChanged) {
+          goto beginAgain;
+        }
+      }
+      finished &= highPrioCluster->synced();
+    }
     for (auto& lowPrioCluster : lowPrioClusters) {
-      for (auto& highPrioCluster : highPrioClusters) {
-        // Update interior first
-        if (highPrioCluster->getState() == ActorState::Corrected
-            || highPrioCluster->getState() == ActorState::Synced) {
-          updateCluster(highPrioCluster);
-          finished = finished && highPrioCluster->synced();
+      bool yield = false;
+      while (!yield) {
+        const auto result = lowPrioCluster->act();
+        yield = result.yield;
+        if (result.isStateChanged) {
+          goto beginAgain;
         }
       }
-      for (auto& highPrioCluster : highPrioClusters) {
-        // Then neighbor
-        if (highPrioCluster->getState() == ActorState::Predicted) {
-          updateCluster(highPrioCluster);
-          finished = finished && highPrioCluster->synced();
-        }
-      }
-
-      updateCluster(lowPrioCluster);
-      finished = finished && lowPrioCluster->synced();
+      finished &= lowPrioCluster->synced();
     }
     finished &= communicationManager->checkIfFinished();
   }

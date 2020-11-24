@@ -28,7 +28,7 @@ class GhostTimeCluster : public AbstractTimeCluster {
                    int otherGlobalTimeClusterId,
                    const MeshStructure* meshStructure
   );
-  bool act() override;
+  ActResult act() override;
 
   void start() override;
   void predict() override;
