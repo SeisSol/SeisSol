@@ -105,7 +105,9 @@ protected:
    * input:
    * QInterpolatedPlus, QInterpolatedMinus, eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig
    *
-   * Calculate stress from jump of plus and minus side
+   * Calculate godunov state from jump of plus and minus side
+   * using equations (A2) from Pelites et al. 2014
+   * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
    */
   virtual void precomputeStressFromQInterpolated(
     FaultStresses &faultStresses,
