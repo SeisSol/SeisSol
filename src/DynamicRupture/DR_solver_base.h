@@ -87,7 +87,7 @@ protected:
     slip2                                         = layerData.var(dynRup->slip2);
     SlipRateMagnitude                             = layerData.var(dynRup->slipRateMagnitude);
     slipRateStrike                                = layerData.var(dynRup->slipRateStrike);
-    slipRateDip                                     = layerData.var(dynRup->slipRateDip);
+    slipRateDip                                   = layerData.var(dynRup->slipRateDip);
     rupture_time                                  = layerData.var(dynRup->rupture_time);
     RF                                            = layerData.var(dynRup->RF);
     peakSR                                        = layerData.var(dynRup->peakSR);
