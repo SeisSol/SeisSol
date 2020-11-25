@@ -257,6 +257,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       bool yield = false;
       while (!yield) {
         const auto result = highPrioCluster->act();
+        communicationManager->progression();
         yield = result.yield;
         if (result.isStateChanged) {
           goto beginAgain;
@@ -268,6 +269,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       bool yield = false;
       while (!yield) {
         const auto result = lowPrioCluster->act();
+        communicationManager->progression();
         yield = result.yield;
         if (result.isStateChanged) {
           goto beginAgain;

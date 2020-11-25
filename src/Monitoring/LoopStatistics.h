@@ -40,20 +40,24 @@
 #ifndef MONITORING_LOOPSTATISTICS_H_
 #define MONITORING_LOOPSTATISTICS_H_
 
+#include <algorithm>
 #include <unordered_map>
 #include <fstream>
 #include <iomanip>
-#include <utils/env.h>
+#include <time.h>
+#include <vector>
 
-#include "Stopwatch.h"
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
 
 namespace seissol {
 class LoopStatistics {
 public:
   void addRegion(std::string const& name) {
     m_regions.push_back(name);
-    m_stopwatch.push_back(Stopwatch());
-    m_times.push_back(std::vector<Sample>());
+    m_begin.push_back(timespec{});
+    m_times.push_back(std::vector<Sample>{});
   }
   
   unsigned getRegion(std::string const& name) {
@@ -63,13 +67,15 @@ public:
   }
   
   void begin(unsigned region) {
-    m_stopwatch[region].start();
+    clock_gettime(CLOCK_REALTIME, &m_begin[region]);
   }
   
-  void end(unsigned region, unsigned numIterations) {
+  void end(unsigned region, unsigned numIterations, unsigned subRegion) {
     Sample sample;
-    sample.time = m_stopwatch[region].stop();
+    clock_gettime(CLOCK_REALTIME, &sample.end);
+    sample.begin = m_begin[region];
     sample.numIters = numIterations;
+    sample.subRegion = subRegion;
     m_times[region].push_back(sample);
   }
 
@@ -81,11 +87,13 @@ public:
   
 private:
   struct Sample {
-    double time;
+    timespec begin;
+    timespec end;
     unsigned numIters;
+    unsigned subRegion;
   };
   
-  std::vector<Stopwatch> m_stopwatch;
+  std::vector<timespec> m_begin;
   std::vector<std::string> m_regions;
   std::vector<std::vector<Sample>> m_times;
 };
