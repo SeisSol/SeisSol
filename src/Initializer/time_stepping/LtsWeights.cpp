@@ -157,6 +157,9 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
 #ifdef USE_ANISOTROPIC
   std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
   seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
+#elif defined(USE_POROELASTIC)
+  std::vector<seissol::model::PoroElasticMaterial> materials(cells.size());
+  seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial> parameterDB;
 #else
   std::vector<seissol::model::ElasticMaterial> materials(cells.size());
   seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
