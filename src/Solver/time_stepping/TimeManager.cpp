@@ -299,6 +299,10 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     updateClusterDependencies(l_cluster);
   }
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->putProfilingMark("advanceInTime", ProfilingColors::Blue);
+#endif
   // iterate until all queues are empty and the next synchronization point in time is reached
   while( !( m_localCopyQueue.empty()       && m_localInteriorQueue.empty() &&
             m_neighboringCopyQueue.empty() && m_neighboringInteriorQueue.empty() ) ) {
@@ -351,6 +355,9 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
                          << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
     }
   }
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime()

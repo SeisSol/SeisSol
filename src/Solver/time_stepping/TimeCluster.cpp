@@ -191,6 +191,9 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {
+#ifdef ACL_DEVICE
+  device.api->putProfilingMark("computeSources", ProfilingColors::Blue);
+#endif
   SCOREP_USER_REGION( "computeSources", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // Return when point sources not initialised. This might happen if there
@@ -225,6 +228,9 @@ void seissol::time_stepping::TimeCluster::computeSources() {
       }
     }
   }
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
 }
 
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
