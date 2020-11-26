@@ -339,9 +339,6 @@ protected:
     seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS);
     averaged_Slip             = layerData.var(ConcreteLts->averaged_Slip);
-    /*
-     * Add new LTS parameter specific for this
-     */
   }
 
 public:
