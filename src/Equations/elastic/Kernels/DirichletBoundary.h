@@ -65,19 +65,20 @@ class DirichletBoundary {
     std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes, boundaryDofs);
   }
 
-  template<typename Func, typename MappingKrnl>
-  void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
-			     int faceIdx,
-			     const CellBoundaryMapping &boundaryMapping,
-			     MappingKrnl&& projectKernelPrototype,
-			     Func&& evaluateBoundaryCondition,
-			     real* dofsFaceBoundaryNodal,
-			     double startTime,
-			     double timeStepWidth) const {
+  template<typename TimeDependentFunc, typename TimeIntegratedFunc, typename MappingKrnl>
+  void evaluateTimeDependent(const real* dofsVolumeInteriorModalIntegrated,
+                             int faceIdx,
+                             const CellBoundaryMapping &boundaryMapping,
+                             MappingKrnl&& projectKernelPrototype,
+                             TimeDependentFunc&& evaluateBoundaryConditionOnTimePoints,
+                             TimeIntegratedFunc&& evaluateBoundaryConditionOnIntegrated,
+                             real* dofsFaceBoundaryNodal,
+                             double startTime,
+                             double timeStepWidth) const {
     alignas(ALIGNMENT) real dofsFaceBoundaryNodalInterior[tensor::INodal::size()];
     auto projectKrnl = projectKernelPrototype;
     addRotationToProjectKernel(projectKrnl, boundaryMapping);
-    projectKrnl.I = dofsVolumeInteriorModal;
+    projectKrnl.I = dofsVolumeInteriorModalIntegrated;
     projectKrnl.INodal = dofsFaceBoundaryNodalInterior;
     projectKrnl.execute(faceIdx);
 
@@ -102,23 +103,31 @@ class DirichletBoundary {
   
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
-  
+
     auto updateKernel = kernel::updateINodal{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
-    // Evaluate boundary conditions at precomputed nodes (in global coordinates).
-  
+
+    // Note: We assume that the bc is separable into two components:
+    // 1) That only depends on space-time-coords but not on the interior values
+    // 2) That only depends on the time integrated values computed by 1) and on the time integrated
+    //    values of the interior cell.
+    // This is justified because the inverse Riemann problem is linear w.r.t. interior values
+
+    // Evaluate 1) at precomputed nodes (in global coordinates).
     for (int i = 0; i < CONVERGENCE_ORDER; ++i) {
       boundaryDofsTmp.setZero();
-      std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
-						    timePoints[i],
-						    boundaryDofsInterior,
-						    boundaryDofsTmp);
-    
+      std::forward<TimeDependentFunc>(evaluateBoundaryConditionOnTimePoints)(boundaryMapping.nodes,
+                                                                             timePoints[i],
+                                                                             boundaryDofsTmp);
       updateKernel.factor = timeWeights[i];
       updateKernel.execute();
     }
-  
+    // Now we need to add the effect of 2)
+    std::forward<TimeIntegratedFunc>(
+        evaluateBoundaryConditionOnIntegrated)(boundaryMapping.nodes,
+                                               boundaryDofsInterior,
+                                               boundaryDofs);
   }
 
  private:

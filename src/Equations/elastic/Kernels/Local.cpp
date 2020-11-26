@@ -196,7 +196,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       assert(cellBoundaryMapping != nullptr);
       auto applyAnalyticalSolution = [materialData, this](const real* nodes,
                                                     double time,
-                                                    init::INodal::view::type&,
                                                     init::INodal::view::type& boundaryDofs) {
           auto nodesVec = std::vector<std::array<double, 3>>{};
           int offset = 0;
@@ -218,6 +217,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               (*cellBoundaryMapping)[face],
                                               m_projectKrnlPrototype,
                                               applyAnalyticalSolution,
+                                              []
+                                              (const real* nodes, init::INodal::view::type&, init::INodal::view::type&)
+                                              {}, // Does not act on time-avg quantities.
                                               dofsFaceBoundaryNodal,
                                               time,
                                               timeStepWidth);
@@ -231,7 +233,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         // Comments of Dirichlet bc are also valid for this!
         auto applyInlet = [materialData, this](const real* nodes,
                                                double time,
-                                               init::INodal::view::type& boundaryDofsInterior,
                                                init::INodal::view::type& boundaryDofs) {
           int offset = 0;
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
@@ -244,23 +245,49 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             const auto y = nodes[offset+1];
             offset += 3;
 
-            const double uAtBnd =
-               (1.0/(1.0/time*std::sqrt(2*pi)))*std::exp(-0.5*x*x + -0.5*y*y)*H(time);
-            const double vAtBnd = 0.0;
-            const double wAtBnd = 0.0;
+            const double uAtBnd = 2.0;
+               //(1.0/(1.0/time*std::sqrt(2*pi)))*std::exp(-0.5*x*x + -0.5*y*y)*H(time);
+            const double vAtBnd = 2.0;
+            const double wAtBnd = 2.0;
 
-            boundaryDofs(i,6) = 2 * uAtBnd - boundaryDofsInterior(i,6);
-            boundaryDofs(i,7) = 2 * vAtBnd - boundaryDofsInterior(i,7);
-            boundaryDofs(i,8) = 2 * wAtBnd - boundaryDofsInterior(i,8);
+            for (int j = 0; j < 6; ++j) {
+              boundaryDofs(i,j) = 0;
+            }
+            boundaryDofs(i,6) = 2 * uAtBnd;
+            boundaryDofs(i,7) = 2 * vAtBnd;
+            boundaryDofs(i,8) = 2 * wAtBnd;
           }
         };
-
+        auto adjustWithInteriorValues = [](const real* nodes,
+                                           // TODO(Lukas) Check order!
+                                           init::INodal::view::type& boundaryDofsInteriorIntegrated,
+                                           init::INodal::view::type& boundaryDofsGhostIntegrated) {
+          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+            /*
+            std::cout << "Before:" << std::endl;
+            std::cout << "ghost i=" << i << " = " << boundaryDofsGhostIntegrated(i,6) << std::endl;
+            std::cout << "interior i=" << i << " = " << boundaryDofsInteriorIntegrated(i,6) << std::endl;
+             */
+            for (int j = 0; j < 6; ++j) {
+              boundaryDofsGhostIntegrated(i,j) = boundaryDofsInteriorIntegrated(i,j);
+            }
+            boundaryDofsGhostIntegrated(i,6) -= boundaryDofsInteriorIntegrated(i,6);
+            boundaryDofsGhostIntegrated(i,7) -= boundaryDofsInteriorIntegrated(i,7);
+            boundaryDofsGhostIntegrated(i,8) -= boundaryDofsInteriorIntegrated(i,8);
+            /*
+            std::cout << "After:" << std::endl;
+            std::cout << "ghost i=" << i << " = " << boundaryDofsGhostIntegrated(i,6) << std::endl;
+            std::cout << "interior i=" << i << " = " << boundaryDofsInteriorIntegrated(i,6) << std::endl;
+             */
+          }
+        };
         dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
                                                 face,
                                                 (*cellBoundaryMapping)[face],
                                                 m_projectRotatedKrnlPrototype,
                                                 //m_projectKrnlPrototype,
                                                 applyInlet,
+                                                adjustWithInteriorValues,
                                                 dofsFaceBoundaryNodal,
                                                 time,
                                                 timeStepWidth);
