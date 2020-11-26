@@ -69,9 +69,8 @@ cpu_set_t seissol::parallel::getFreeCPUsMask() {
   cpu_set_t workerUnion = getWorkerUnionMask();
   cpu_set_t set;
   CPU_ZERO(&set);
-  for (int i = 0; i < get_nprocs() ; ++i) {
-    CPU_SET(i, &set);
-  }
+  // Should include cpu mask, e.g. when running multiple MPI-ranks per node
+  sched_getaffinity(0, sizeof(cpu_set_t), &set);
   CPU_XOR(&set, &set, &workerUnion);
 
   return set;
