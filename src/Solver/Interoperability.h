@@ -484,6 +484,10 @@ class seissol::Interoperability {
                                            real  (*strength)[init::QInterpolated::Stop[0]]
   );
 
+  void copyFrictionOutputToFortranInitialStressInFaultCS(unsigned ltsFace, unsigned meshFace,
+                                                         real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]
+  );
+
 
    /**
     * Prepare element wise faultoutput

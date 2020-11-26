@@ -477,14 +477,10 @@ module f_ctof_bind_interoperability
         l_domain%DISC%DynRup%SlipRate1(:,i_face)                    = l_slipRate1(:)
         l_domain%DISC%DynRup%SlipRate2(:,i_face)                    = l_slipRate2(:)
         l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_rupture_time(:) !l_domain%DISC%DynRup%rupture_time(:,i_face)
-        l_domain%DISC%DynRup%rupture_time(:,i_face)          = l_rupture_time(:)
+        l_domain%DISC%DynRup%rupture_time(:,i_face)                 = l_rupture_time(:)
         l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSR(:)       !l_domain%DISC%DynRup%PeakSR(:,i_face)
         l_domain%DISC%DynRup%TracXY(:,i_face)                       = l_tracXY(:)
         l_domain%DISC%DynRup%TracXZ(:,i_face)                       = l_tracXZ(:)
-
-        !TODO implement for other friction laws:
-        !l_domain%disc%DynRup%output_Strength                       =  l_Strength(:,i_face)
-        !l_domain%disc%DynRup%output_StateVar(:,:)                  =  l_StateVar(:,i_face)
     end subroutine
 
     !!Code added by ADRIAN
@@ -584,6 +580,32 @@ module f_ctof_bind_interoperability
 
       l_domain%DISC%DynRup%output_Strength(:,i_face) = l_strength(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
     end subroutine
+
+    !!Code added by ADRIAN
+    !TODO remove?
+    subroutine f_interoperability_setFrictionOutputInitialStress(i_domain, iFace, i_InitialStressInFaultCS) bind (c, name='f_interoperability_setFrictionOutputInitialStress')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      integer                                :: i ,j, k, nBndGP
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer(kind=c_int), value             :: iFace
+      type(c_ptr), value                     :: i_InitialStressInFaultCS
+      REAL_TYPE, pointer                     :: l_InitialStressInFaultCS(:,:)
+
+      call c_f_pointer( i_domain,             l_domain)
+      nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+      call c_f_pointer( i_InitialStressInFaultCS, l_InitialStressInFaultCS, [6,nBndGP])
+      DO i = 1, 6
+        l_domain%EQN%InitialStressInFaultCS(:,i,iFace) = l_InitialStressInFaultCS(i,:)
+      END DO
+
+    end subroutine
+
 
 
     subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")

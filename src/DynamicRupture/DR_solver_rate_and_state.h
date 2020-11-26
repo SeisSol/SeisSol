@@ -59,8 +59,8 @@ public:
 
       //initialize local variables inside parallel face loop
       bool has_converged = false;
-      FaultStresses faultStresses;
-      real deltaStateVar[numberOfPoints];
+      FaultStresses faultStresses = {};
+      real deltaStateVar[numberOfPoints] = {0};
       std::array<real, numOfPointsPadded> tmpSlip{0};   //required for averageSlip calculation
       std::array<real, numOfPointsPadded> normalStress{0};
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
@@ -340,9 +340,9 @@ public:
       real deltaStateVar[numberOfPoints],
       unsigned int ltsFace){
 
-    dynamicRupture::kernel::resampleParameter resampleKrnl;
+    dynamicRupture::kernel::resampleParameter resampleKrnl = {};
     resampleKrnl.resampleM = init::resample::Values;
-    real resampledDeltaStateVar[numberOfPoints];
+    real resampledDeltaStateVar[numberOfPoints] = {0};
     resampleKrnl.resamplePar = deltaStateVar;
     resampleKrnl.resampledPar = resampledDeltaStateVar;  //output from execute
     resampleKrnl.execute();
@@ -593,7 +593,7 @@ protected:
   }
 
 
-
+/*
 
 public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,
@@ -621,7 +621,7 @@ public:
 
       //initialize local variables inside parallel face loop
       bool has_converged = false;
-      FaultStresses faultStresses;
+      FaultStresses faultStresses = {};
       dynamicRupture::kernel::resampleParameter resampleKrnl;
       resampleKrnl.resampleM = init::resample::Values;
       real resampledDeltaStateVar[numberOfPoints];
@@ -634,6 +634,8 @@ public:
       std::array<real, numOfPointsPadded> SR_tmp{0};
       std::array<real, numOfPointsPadded> LocSV{0};
       std::array<real, numOfPointsPadded> SRtest{0};
+      std::array<real, numOfPointsPadded> locTracXY{0};
+      std::array<real, numOfPointsPadded> locTracXZ{0};
 
       //for thermalPressure
       std::array<real, numOfPointsPadded> P_f{0};
@@ -731,18 +733,18 @@ public:
           updateMu(ltsFace, iBndGP, LocSV[iBndGP]);
 
           //! update stress change
-          tracXY[ltsFace][iBndGP] = -((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP]) * mu[ltsFace][iBndGP] * normalStress[iBndGP];
-          tracXZ[ltsFace][iBndGP] = -((initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP]) * mu[ltsFace][iBndGP] * normalStress[iBndGP];
-          tracXY[ltsFace][iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][3];
-          tracXZ[ltsFace][iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][5];
+          locTracXY[iBndGP] = -((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP]) * mu[ltsFace][iBndGP] * normalStress[iBndGP];
+          locTracXZ[iBndGP] = -((initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP]) * mu[ltsFace][iBndGP] * normalStress[iBndGP];
+          locTracXY[iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][3];
+          locTracXZ[iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][5];
 
           //Compute slip
           //! ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
           slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * deltaT[iTimeGP];
 
           //!Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          slipRateStrike[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
-          slipRateDip[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
+          slipRateStrike[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (locTracXY[iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          slipRateDip[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (locTracXZ[iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
           //!TU 07.07.16: correct locSlipRate1_2 to avoid numerical errors
           LocSlipTmp[iBndGP] = sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
@@ -757,8 +759,8 @@ public:
           slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
 
           //!Save traction for flux computation
-          faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
-          faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
+          faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = locTracXY[iBndGP];
+          faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = locTracXZ[iBndGP];
 
 
           //TODO: Could be outside TimeLoop?
@@ -994,7 +996,7 @@ public:
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
 
-      FaultStresses faultStresses{};
+      FaultStresses faultStresses = {};
 
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
@@ -1185,7 +1187,7 @@ public:
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
-      FaultStresses faultStresses{};
+      FaultStresses faultStresses = {};
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);

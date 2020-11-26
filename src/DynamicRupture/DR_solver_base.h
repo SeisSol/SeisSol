@@ -304,7 +304,7 @@ public:
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
-      FaultStresses faultStresses{};
+      FaultStresses faultStresses = {};
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
@@ -359,7 +359,7 @@ public:
 #endif
       for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
         //initialize struct for in/outputs stresses
-        FaultStresses faultStresses{};
+        FaultStresses faultStresses = {};
 
         //declare local variables
         std::array<real, numOfPointsPadded> tmpSlip{0};
@@ -449,7 +449,7 @@ public:
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
-      FaultStresses faultStresses{};
+      FaultStresses faultStresses = {};
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);

@@ -292,7 +292,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 /*
-
     // legacy code:
     //TODO remove - only for debugging:
     //int fortran_face = static_cast<int>(faceInformation[face].meshFace) + 1;

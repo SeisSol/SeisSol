@@ -318,6 +318,8 @@ extern "C" {
 
   extern void f_interoperability_setFrictionOutputStrength( void*  i_domain, int i_face, real* strength);
 
+  extern void f_interoperability_setFrictionOutputInitialStress( void*  i_domain, int i_face, real* i_InitialStressInFaultCS);
+
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
@@ -1143,6 +1145,14 @@ void seissol::Interoperability::copyFrictionOutputToFortranStrength(unsigned int
 ){
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
+}
+
+
+
+void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(unsigned int ltsFace, unsigned int meshFace,  real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]
+){
+  int fFace = meshFace + 1;
+  f_interoperability_setFrictionOutputInitialStress( m_domain, fFace, &initialStressInFaultCS[ltsFace][0][0]);
 }
 
 

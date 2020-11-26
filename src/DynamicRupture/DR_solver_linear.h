@@ -51,7 +51,7 @@ public:
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
-      FaultStresses faultStresses{};
+      FaultStresses faultStresses = {};
 
       //declare local variables
       dynamicRupture::kernel::resampleParameter resampleKrnl;
