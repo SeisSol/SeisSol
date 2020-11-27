@@ -36,8 +36,6 @@ public:
 
 protected:
   static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
-  //TODO: is init::QInterpolated::Start[0] always 0?
-  //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
   //YAML::Node m_InputParam;
   dr::DrParameterT        *m_Params;
@@ -335,7 +333,7 @@ protected:
                           real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
+
     seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS);
     averaged_Slip             = layerData.var(ConcreteLts->averaged_Slip);
@@ -411,6 +409,9 @@ public:
 };
 
 
+/*
+ * examplary implementation of a new friction law structure. Can be used as template to create new friction laws.
+ */
 class seissol::dr::fr_law::SolverBluePrint : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
@@ -423,15 +424,13 @@ protected:
                           seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
+
     //seissol::initializers::DR_lts_template *ConcreteLts = dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
     /*
      * Add new LTS parameter specific for this
      */
   }
-
-
 
 public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,

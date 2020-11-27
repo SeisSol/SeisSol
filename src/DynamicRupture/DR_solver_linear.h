@@ -111,7 +111,7 @@ protected:
                           seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
+
     seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
     d_c                                           = layerData.var(ConcreteLts->d_c);
     mu_S                                          = layerData.var(ConcreteLts->mu_S);
