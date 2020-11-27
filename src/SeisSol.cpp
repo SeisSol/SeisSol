@@ -99,13 +99,19 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
-  logInfo(rank) << "Worker affinity              :" << parallel::maskToString(parallel::getWorkerUnionMask());
+  logInfo(rank) << "Overall affinity            :" << parallel::Pinning::maskToString(
+      pinning.getWorkerUnionMask());
 #ifdef USE_MPI
+  logInfo(rank) << "Using MPI with #ranks" << MPI::mpi.size();
 #ifdef USE_COMM_THREAD
-  logInfo(rank) << "Running with communication thread in hybrid mode.";
-  auto freeCpus = parallel::getFreeCPUsMask();
-  logInfo(rank) << "Communication thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
-  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
+  logInfo(rank) << "Running with communication thread";
+  pinning.init();
+  logInfo(rank) << "Pinning reduced number of OMP #threads/rank to" << omp_get_max_threads();
+  auto freeCpus = pinning.getFreeCPUsMask();
+  logInfo(rank) << "OpenMP worker affinity       :" << parallel::Pinning::maskToString(
+      pinning.getWorkerUnionMask());
+  logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+  if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }
 #endif

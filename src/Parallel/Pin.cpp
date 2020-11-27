@@ -40,11 +40,45 @@
 
 #include "Pin.h"
 
+#include <iostream>
 #include <sys/sysinfo.h>
 #include <sched.h>
 #include <sstream>
+#include <omp.h>
 
-cpu_set_t seissol::parallel::getWorkerUnionMask() {
+seissol::parallel::Pinning::Pinning() : isInitialized(false) {
+  CPU_ZERO(&pthreadSet);
+}
+void seissol::parallel::Pinning::init() {
+  if (isInitialized) return; // Don't init twice!
+
+  // The idea is simple:
+  // 1) Compute a pinning mask with all openMP threads
+  // 2) Reduce the number of openmp thread by 1/2 (if using HT)
+  // 3) Compute pinning mask again
+  // 4) Take the difference between -> these are threads we can pin to
+
+  // Note: We can be sure that the OpenMP threads are pinned correctly after
+  // changing the number of threads, as the pining is static.
+  // See https://www.openmp.org/spec-html/5.0/openmpsu36.html#x56-900002.6.2
+  // for more details.
+
+  cpu_set_t workerUnion = getWorkerUnionMask();
+  // Note: Assumes that the OpenMP threads are pinned!
+  const auto oldNumThreads = omp_get_max_threads();
+  const auto places = omp_get_num_places();
+  const auto threadsPerPlace = oldNumThreads / places;
+  const auto newNumThreads = oldNumThreads - threadsPerPlace;
+  omp_set_num_threads(newNumThreads);
+  cpu_set_t newMask = getWorkerUnionMask();
+
+  CPU_ZERO(&pthreadSet);
+  CPU_XOR(&pthreadSet, &workerUnion, &newMask);
+
+  isInitialized = true;
+}
+
+cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
 #ifdef _OPENMP
@@ -65,27 +99,20 @@ cpu_set_t seissol::parallel::getWorkerUnionMask() {
   return workerUnion;
 }
 
-cpu_set_t seissol::parallel::getFreeCPUsMask() {
-  cpu_set_t workerUnion = getWorkerUnionMask();
-  cpu_set_t set;
-  CPU_ZERO(&set);
-  // Should include cpu mask, e.g. when running multiple MPI-ranks per node
-  sched_getaffinity(0, sizeof(cpu_set_t), &set);
-  CPU_XOR(&set, &set, &workerUnion);
-
-  return set;
+cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
+  if (!isInitialized) throw -1; // TODO(Lukas) Error handling.
+  return pthreadSet;
 }
 
-bool seissol::parallel::freeCPUsMaskEmpty(cpu_set_t const& set) {
+bool seissol::parallel::Pinning::freeCPUsMaskEmpty(cpu_set_t const& set) {
   return CPU_COUNT(&set) == 0;
 }
 
-void seissol::parallel::pinToFreeCPUs() {
-  cpu_set_t set = getFreeCPUsMask();
-  sched_setaffinity(0, sizeof(cpu_set_t), &set);
+void seissol::parallel::Pinning::pinToFreeCPUs() const {
+  sched_setaffinity(0, sizeof(cpu_set_t), &pthreadSet);
 }
 
-std::string seissol::parallel::maskToString(cpu_set_t const& set) {
+std::string seissol::parallel::Pinning::maskToString(cpu_set_t const& set) {
   std::stringstream st;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
     if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs()-1) {

@@ -45,11 +45,21 @@
 
 namespace seissol {
   namespace parallel {
-    cpu_set_t getWorkerUnionMask();
-    cpu_set_t getFreeCPUsMask();
-    bool freeCPUsMaskEmpty(cpu_set_t const& set);
-    void pinToFreeCPUs();
-    std::string maskToString(cpu_set_t const& set);
+class Pinning {
+private:
+  bool isInitialized;
+  cpu_set_t pthreadSet{};
+public:
+  Pinning();
+  void init();
+
+  cpu_set_t getPthreadMask() const { return pthreadSet; };
+  cpu_set_t getWorkerUnionMask() const;
+  cpu_set_t getFreeCPUsMask() const;
+  static bool freeCPUsMaskEmpty(cpu_set_t const& set);
+  void pinToFreeCPUs() const;
+  static std::string maskToString(cpu_set_t const& set);
+};
   }
 }
 

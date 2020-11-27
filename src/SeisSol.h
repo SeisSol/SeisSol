@@ -61,6 +61,8 @@
 #include "ResultWriter/AnalysisWriter.h"
 #include <memory>
 
+#include "Parallel/Pin.h"
+
 class MeshReader;
 
 namespace seissol
@@ -122,6 +124,7 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
+  parallel::Pinning pinning;
 
 private:
 	/**
@@ -134,7 +137,11 @@ private:
 	}
 
 public:
-	/**
+  parallel::Pinning getPinning() {
+	  return pinning;
+	}
+
+  /**
 	 * Cleanup data structures
 	 */
 	virtual ~SeisSol()
