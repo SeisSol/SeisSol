@@ -131,7 +131,9 @@ src/DynamicRupture/DR_output.h
 src/DynamicRupture/DR_factory.cpp
 src/DynamicRupture/DR_solver_rate_and_state.h
 src/DynamicRupture/DR_Parameters.h
-src/DynamicRupture/DR_solver_linear.h)
+src/DynamicRupture/DR_solver_linear.h
+src/DynamicRupture/DR_solver_legacy_RS.h
+)
 
 
 

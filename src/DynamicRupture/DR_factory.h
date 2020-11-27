@@ -14,6 +14,7 @@
 #include "DR_output.h"
 #include "DR_solver_rate_and_state.h"
 #include "DR_solver_linear.h"
+#include "DR_solver_legacy_RS.h"
 
 
 namespace seissol {
