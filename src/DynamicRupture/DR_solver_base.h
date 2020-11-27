@@ -255,7 +255,7 @@ protected:
   ){
     real sum_tmpSlip = 0;
     if (m_Params->IsMagnitudeOutputOn) {
-      for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++)
+      for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++)
         sum_tmpSlip += tmpSlip[iBndGP];
       averaged_Slip[ltsFace] = averaged_Slip[ltsFace] + sum_tmpSlip / numberOfPoints;
     }
@@ -308,7 +308,7 @@ public:
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-        for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+        for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
           faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP];
           faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP];
         }
@@ -370,7 +370,7 @@ public:
           tn = tn + time_inc;
           Gnuc = Calc_SmoothStepIncrement(tn, time_inc)/time_inc;
 
-          for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+          for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
             //!EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
             faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
             faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;

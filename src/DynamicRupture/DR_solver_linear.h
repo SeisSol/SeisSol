@@ -269,7 +269,7 @@ public:
     unsigned int iTimeGP,
     unsigned int ltsFace) {
 
-    real resampledSlipRate[numberOfPoints];
+    real resampledSlipRate[numOfPointsPadded];
     resampleKrnl.resamplePar = SlipRateMagnitude[ltsFace];
     resampleKrnl.resampledPar = resampledSlipRate;  //output from execute
 
@@ -279,7 +279,7 @@ public:
     resampleKrnl.execute();
 
     //TODO: does not work with padded Points bc of resampleMatrix is not padded
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //-------------------------------------
       //integrate Sliprate To Get Slip = State Variable
       slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + resampledSlipRate[iBndGP] * deltaT[iTimeGP];
@@ -328,7 +328,7 @@ protected:
     LinearSlipWeakeningSolverFL2::calcStateVariableHook(stateVariablePsi, outputSlip, resampleKrnl, iTimeGP, ltsFace);
     tn[ltsFace] += deltaT[iTimeGP];
 
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       real f2 = 0.0;
       if (m_Params->t_0 == 0) {
         if (tn[ltsFace] >= forced_rupture_time[ltsFace][iBndGP] ) {

@@ -57,7 +57,7 @@ public:
       //initialize local variables inside parallel face loop
       bool has_converged = false;
       FaultStresses faultStresses = {};
-      real deltaStateVar[numberOfPoints] = {0};
+      real deltaStateVar[numOfPointsPadded] = {0};
       std::array<real, numOfPointsPadded> tmpSlip{0};   //required for averageSlip calculation
       std::array<real, numOfPointsPadded> normalStress{0};
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
@@ -184,7 +184,7 @@ public:
   void setInitialValues(std::array<real, numOfPointsPadded> &LocSV, unsigned int ltsFace){
     if (m_fullUpdateTime <= m_Params->t_0) {
       //TODO: test padded
-      for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+      for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
         for (int i = 0; i < 6; i++) {
           initialStressInFaultCS[ltsFace][iBndGP][i] += nucleationStressInFaultCS[ltsFace][iBndGP][i] * Gnuc;
         }
@@ -192,7 +192,7 @@ public:
     } //end If-Tnuc
 
 
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       LocSV[iBndGP] = stateVar[ltsFace][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)      //local varriable required
     }
   }
@@ -206,8 +206,7 @@ public:
       unsigned int iTimeGP,
       unsigned int ltsFace){
 
-    //TODO: test padded:
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
       // friction develops as                    mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
       // state variable SV develops as          dSV / dt = -(V - L) * (SV - SV_ss)
@@ -244,7 +243,7 @@ public:
                                     unsigned int iTimeGP,
                                     unsigned int ltsFace){
     //TODO: test for padded:
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //fault strength using LocMu and P_f from previous timestep/iteration
       //1.update SV using Vold from the previous time step
       updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], deltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
@@ -255,8 +254,7 @@ public:
     //effective normal stress including initial stresses and pore fluid pressure
     has_converged = IterativelyInvertSR(ltsFace, nSRupdates, LocSV, normalStress, TotalShearStressYZ, SRtest);
 
-    //TODO: test padded
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
       // 3. update theta, now using V=(Vnew+Vold)/2
       // For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
@@ -285,13 +283,13 @@ public:
       std::array<real, numOfPointsPadded> &normalStress,
       std::array<real, numOfPointsPadded> &TotalShearStressYZ,
       std::array<real, numOfPointsPadded> &tmpSlip,
-      real deltaStateVar[numberOfPoints],
+      real deltaStateVar[numOfPointsPadded],
       FaultStresses &faultStresses,
       unsigned int iTimeGP,
       unsigned int ltsFace){
     std::array<real, numOfPointsPadded> LocSlipRateMagnitude{0};
 
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //! SV from mean slip rate in tmp
       updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], deltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
 
@@ -334,18 +332,17 @@ public:
   }
 
   void resampleStateVar(
-      real deltaStateVar[numberOfPoints],
+      real deltaStateVar[numOfPointsPadded],
       unsigned int ltsFace){
 
     dynamicRupture::kernel::resampleParameter resampleKrnl = {};
     resampleKrnl.resampleM = init::resample::Values;
-    real resampledDeltaStateVar[numberOfPoints] = {0};
+    real resampledDeltaStateVar[numOfPointsPadded] = {0};
     resampleKrnl.resamplePar = deltaStateVar;
     resampleKrnl.resampledPar = resampledDeltaStateVar;  //output from execute
     resampleKrnl.execute();
 
-    //TODO: test padded
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //write back State Variable to lts tree
       stateVar[ltsFace][iBndGP] = stateVar[ltsFace][iBndGP] + resampledDeltaStateVar[iBndGP];
     }
@@ -370,7 +367,7 @@ public:
   }
 
   virtual void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f, unsigned int ltsFace){
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       P_f[iBndGP] = 0.0;
     }
   }
@@ -400,7 +397,7 @@ protected:
     exp1 = exp(-SR_tmp*(time_inc/RS_sl0) );
     LocSV = SVss*(1.0-exp1)+exp1*SV0;
 
-    assert( !std::isnan(LocSV) && "NaN detected");
+    assert( !(std::isnan(LocSV) && iBndGP < numberOfPoints ) && "NaN detected");
   }
 
   /*
@@ -412,7 +409,7 @@ protected:
                             std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                             std::array<real, numOfPointsPadded> &sh_stress, std::array<real, numOfPointsPadded> &SRtest ){
 
-    double tmp[numberOfPoints], tmp2[numberOfPoints], tmp3[numberOfPoints], mu_f[numberOfPoints], dmu_f[numberOfPoints], NR[numberOfPoints], dNR[numberOfPoints];
+    double tmp[numOfPointsPadded], tmp2[numOfPointsPadded], tmp3[numOfPointsPadded], mu_f[numOfPointsPadded], dmu_f[numOfPointsPadded], NR[numOfPointsPadded], dNR[numOfPointsPadded];
     //double AlmostZero = 1e-45;
     bool has_converged = false;
 
@@ -427,7 +424,7 @@ protected:
     //!  where mu = friction coefficient, dependening on the RSF law used
 
     //TODO: padded?
-    for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+    for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
       //! first guess = SR value of the previous step
       SRtest[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
       tmp[iBndGP]   =  0.5 / m_Params->rs_sr0 *exp(LocSV[iBndGP]/RS_a_array[ltsFace][iBndGP]);
@@ -435,7 +432,7 @@ protected:
 
     for(int i = 0; i < nSRupdates; i++){
       //TODO: padded?
-      for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+      for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
 
         //!f = ( tmp2 * ABS(LocP+P_0)- ABS(S_0))*(S_0)/ABS(S_0)
         //!g = SRtest * 1.0/(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) + ABS(ShTest)
@@ -452,7 +449,7 @@ protected:
 
       //TODO: padded?
       //max element of NR must be smaller then aTolF
-      for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+      for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
         if (fabs(NR[iBndGP]) >= aTolF ){
           has_converged = false;
           break;
@@ -461,7 +458,7 @@ protected:
       if(has_converged){
         return has_converged;
       }
-      for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+      for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
 
         //!derivative of NR
         dNR[iBndGP]   = -impAndEta[ltsFace].inv_eta_s * (fabs(n_stress[iBndGP]) * dmu_f[iBndGP]) - 1.0;
@@ -497,7 +494,7 @@ protected:
     };
 
     //TODO: padded?
-    for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+    for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
       //TODO: change boundaries?
       double a = SlipRateMagnitude[ltsFace][iBndGP] - impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
       double b  = SlipRateMagnitude[ltsFace][iBndGP] + impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
@@ -633,13 +630,13 @@ public:
 
 protected:
   void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f, unsigned int ltsFace) override{
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       P_f[iBndGP] = pressure[ltsFace][iBndGP];
     }
   }
 
   void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f,  FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
       Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NormalStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
 
