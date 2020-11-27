@@ -129,10 +129,6 @@ CONTAINS
     !Temp and pore pressure change at single GP on the fault + initial values
     temp = T + EQN%Temp_0
     pressure = -p + EQN%Pressure_0
-
-    IF (pressure .ne. EQN%Pressure_0) THEN
-      pressure = pressure
-    END IF
  
   END SUBROUTINE Calc_ThermalPressure
 

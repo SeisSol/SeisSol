@@ -44,7 +44,7 @@ from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
-#adrian numpy added for testing:
+#adrian numpy added:
 import numpy as np
 
 def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):

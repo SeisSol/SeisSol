@@ -1303,8 +1303,6 @@ MODULE Eval_friction_law_mod
     !-------------------------------------------------------------------------!
     USE Thermalpressure_mod
     USE NucleationFunctions_mod
-    !use, intrinsic :: ISO_FORTRAN_ENV, only : dp=>REAL64, stdout=>OUTPUT_UNIT
-    use ISO_Fortran_env, only: stdout => OUTPUT_UNIT, compiler_version, compiler_options
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1446,11 +1444,6 @@ MODULE Eval_friction_law_mod
              !fault strength using LocMu and P_f from previous timestep/iteration
              !1.update SV using Vold from the previous time step
              CALL updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
-
-             !if(iFace .eq. 48 .and. iTimeGP .eq. 1) then
-             !   write(*,*) "Fortran: change in StateVar[face=9,iTimeGP=0,iBndGP=0] 1: " , LocSV(1)
-             !endif
-
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                  S = -LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
@@ -1513,12 +1506,6 @@ MODULE Eval_friction_law_mod
          ! mu from LocSR
          LocMu  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
 
-         !if(iFace .eq. 48 .and. iTimeGP .eq. 1) then
-         !    write(*,*) "Fortran: change in tmp[face=9,iTimeGP=0,iBndGP=0] 1: " , tmp(1)
-         !    write(*,*) "Fortran: change in tmp2[face=9,iTimeGP=0,iBndGP=0] 1: " , tmp2(1)
-         !    write(*,*) "Fortran: change in LocMu[face=9,iTimeGP=0,iBndGP=0] 1: " , LocMu(1)
-         !endif
-
          ! update stress change
          LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
          LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
@@ -1548,10 +1535,6 @@ MODULE Eval_friction_law_mod
          !Save traction for flux computation
          TractionGP_XY(:,iTimeGP) = LocTracXY
          TractionGP_XZ(:,iTimeGP) = LocTracXZ
-
-         !if(iFace .eq. 48) then
-         !    write(*,*) "Fortran: change in LocTracXZ[face=9,iTimeGP=", iTimeGP,",iBndGP=0] 1: " , LocTracXZ(1)
-         !endif
          !
      ENDDO ! iTimeGP=1,DISC%Galerkin%nTimeGP
      !
@@ -1601,7 +1584,6 @@ MODULE Eval_friction_law_mod
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
     REAL                     :: SV0(nBndGP), time_inc, SR_tmp(nBndGP)                  !changing during iterations
     REAL                     :: flv(nBndGP), fss(nBndGP), SVss(nBndGP), LocSV(nBndGP)                 !calculated in this routine
-    REAL                     :: exp1(nBndGP)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, &
                      RS_sl0, SV0, time_inc, SR_tmp
@@ -1617,7 +1599,6 @@ MODULE Eval_friction_law_mod
     SVss = RS_a * LOG(2.0D0*RS_sr0/SR_tmp * (EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
 
     ! exact integration of dSV/dt DGL, assuming constant V over integration step
-    exp1 = EXP(-SR_tmp*time_inc/RS_sl0)
     LocSV = Svss*(1.0D0-EXP(-SR_tmp*time_inc/RS_sl0))+EXP(-SR_tmp*time_inc/RS_sl0)*SV0
 
 
