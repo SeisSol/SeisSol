@@ -81,6 +81,7 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: Tutorials
   
+  simmodelerCAD-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
@@ -98,6 +99,7 @@ Characteristics of the SeisSol simulation software are:
   tpv16
   tpv24
   tpv29
+  tpv34
   tpv104
   pointsource
   kinematic

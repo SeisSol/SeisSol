@@ -38,15 +38,16 @@
 # @section DESCRIPTION
 #
 
-#adrian numpy added for testing:
-import numpy as np
 
+
+from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
+#adrian numpy added for testing:
+import numpy as np
 
-
-def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
+def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (aderdg.order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
@@ -71,13 +72,6 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
   #Adrian Test Code:
-  #frictionData = Tensor('frictionData', (numberOfPoints, aderdg.order) )
-  #identiy = np.eye(aderdg.order)
-  #frictionData = Tensor('frictionData', (aderdg.order, aderdg.order) , spp=identiy)
-  #generator.add('calcfrictionData', frictionData['ij'] <= 2 * frictionData['ij'] )
-  #parameter = Vector('parameter', (numberOfPoints) )
-  #parameter = np.zeros(numberOfPoints)
-  #db.resample['ij']
 
   #--- resample Parameter ---
   resamplePar = Tensor('resamplePar', (numberOfPoints,))
@@ -124,32 +118,27 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   select5Spp[5] = 1
   select5 = Tensor('select5', select5Spp.shape, select5Spp,)
 
-  NorStressFromQInterpolatedKernel = NorStressGP['i'] <= eta_p *\
-  ( \
-    select6['k'] * QInterpolatedMinus['ik'] - select6['k'] * QInterpolatedPlus['ik'] + \
-    inv_Zp * select0['k'] * QInterpolatedPlus['ik'] + inv_Zp_neig * select0['k'] * QInterpolatedMinus['ik']  \
-  )
+  NorStressFromQInterpolatedKernel = NorStressGP['i'] <= eta_p * \
+                                     ( \
+                                               select6['k'] * QInterpolatedMinus['ik'] - select6['k'] * QInterpolatedPlus['ik'] + \
+                                               inv_Zp * select0['k'] * QInterpolatedPlus['ik'] + inv_Zp_neig * select0['k'] * QInterpolatedMinus['ik'] \
+                                       )
 
   XYStressFromQInterpolatedKernel = XYStressGP['i'] <= eta_s * \
-  ( \
-    select7['k'] * QInterpolatedMinus['ik'] - select7['k'] * QInterpolatedPlus['ik'] + \
-    inv_Zs * select3['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select3['k']  * QInterpolatedMinus['ik'] \
-  )
+                                    ( \
+                                              select7['k'] * QInterpolatedMinus['ik'] - select7['k'] * QInterpolatedPlus['ik'] + \
+                                              inv_Zs * select3['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select3['k']  * QInterpolatedMinus['ik'] \
+                                      )
 
   XZStressFromQInterpolatedKernel = XZStressGP['i'] <= eta_s * \
-  ( \
-    select8['k'] * QInterpolatedMinus['ik'] - select8['k'] * QInterpolatedPlus['ik'] + \
-    inv_Zs * select5['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select5['k']  * QInterpolatedMinus['ik'] \
-  )
+                                    ( \
+                                              select8['k'] * QInterpolatedMinus['ik'] - select8['k'] * QInterpolatedPlus['ik'] + \
+                                              inv_Zs * select5['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select5['k']  * QInterpolatedMinus['ik'] \
+                                      )
 
-  #generator.add('NorStressFromQInterpolatedKernel', NorStressFromQInterpolatedKernel)
-  #generator.add('XYStressFromQInterpolatedKernel', XYStressFromQInterpolatedKernel)
-  #generator.add('XZStressFromQInterpolatedKernel', XZStressFromQInterpolatedKernel)
   generator.add('StressFromQInterpolated', [NorStressFromQInterpolatedKernel, XYStressFromQInterpolatedKernel, XZStressFromQInterpolatedKernel] )
 
   #--- Postcompute ImposedStateFromNewStress  ----
-
-  Convergence_order = 6
   timeWeights = Scalar('timeWeights')
   TractionGP_XY = Tensor('TractionGP_XY', (numberOfPoints,))
   TractionGP_XZ = Tensor('TractionGP_XZ', (numberOfPoints,))
@@ -157,22 +146,12 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   imposedStatePlus = OptionalDimTensor('imposedStatePlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   imposedStateMinus = OptionalDimTensor('imposedStateMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
-  #zero = Scalar('zero')
-  #imposedStatePlusToZero =  imposedStatePlus <= zero
-  #imposedStateMinusToZero =  imposedStateMinus <= zero
-  #generator.add('ImposedStateSetToZero', [imposedStatePlusToZero,imposedStateMinusToZero ] )
-
-  #imposedStateZeroSpp = np.zeros( (numberOfPoints, aderdg.numberOfQuantities() ) )
-  #imposedStateZero = Tensor('imposedStateZero', imposedStateZeroSpp.shape, imposedStateZeroSpp)
-  #imposedStateZeroKernel = imposedStatePlus['ik'] <= imposedStateZero['ik']
-  #generator.add('imposedStateZeroKernel', imposedStateZeroKernel)
-
   imposedStatePlus0 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select0['k'] * timeWeights * NorStressGP['i']
   imposedStatePlus3 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select3['k'] * timeWeights * TractionGP_XY['i']
   imposedStatePlus5 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select5['k'] * timeWeights * TractionGP_XZ['i']
   imposedStatePlus6 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select6['k'] * timeWeights * ( \
-    select6['l'] * QInterpolatedPlus['il'] + ( NorStressGP['i'] - select0['l']*QInterpolatedPlus['il'] ) * inv_Zp \
-  )
+            select6['l'] * QInterpolatedPlus['il'] + ( NorStressGP['i'] - select0['l']*QInterpolatedPlus['il'] ) * inv_Zp \
+    )
   imposedStatePlus7 = imposedStatePlus['ik'] <= imposedStatePlus['ik'] + select7['k'] * timeWeights * ( \
             select7['l'] * QInterpolatedPlus['il'] +  ( TractionGP_XY['i'] - select3['l'] * QInterpolatedPlus['il'] ) * inv_Zs \
     )
@@ -193,14 +172,9 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
             select8['l'] * QInterpolatedMinus['il'] + ( select5['l']*QInterpolatedMinus['il'] - TractionGP_XZ['i'] ) * inv_Zs_neig \
     )
 
-  #generator.add('imposedStatePlus0', imposedStatePlus0)
-  #generator.add('imposedStatePlus3', imposedStatePlus3)
-  #generator.add('imposedStatePlus5', imposedStatePlus5)
-  #generator.add('imposedStatePlus6', imposedStatePlus6)
-  #generator.add('ImposedStateFromNewStress',  [imposedStatePlus0, imposedStatePlus3, imposedStatePlus5, imposedStatePlus6, imposedStatePlus7, imposedStatePlus8] )
   generator.add('ImposedStateFromNewStress', \
-    [imposedStatePlus0, imposedStatePlus3, imposedStatePlus5, imposedStatePlus6, imposedStatePlus7, imposedStatePlus8,\
-    imposedStateMinus0, imposedStateMinus3, imposedStateMinus5, imposedStateMinus6, imposedStateMinus7, imposedStateMinus8] )
+                [imposedStatePlus0, imposedStatePlus3, imposedStatePlus5, imposedStatePlus6, imposedStatePlus7, imposedStatePlus8, \
+                 imposedStateMinus0, imposedStateMinus3, imposedStateMinus5, imposedStateMinus6, imposedStateMinus7, imposedStateMinus8] )
 
   #--------------------------------------------------
 
@@ -217,6 +191,13 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
-  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
+
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.addFamily(f'{name_prefix}nodalFlux',
+                        simpleParameterSpace(4,4),
+                        nodalFluxGenerator,
+                        nodalFluxPrefetch,
+                        target=target)
 
   return {db.resample}

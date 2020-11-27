@@ -91,10 +91,10 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
+  logInfo(rank) << "Worker affinity              :" << parallel::maskToString(parallel::getWorkerUnionMask());
 #ifdef USE_MPI
 #ifdef USE_COMM_THREAD
   logInfo(rank) << "Running with communication thread in hybrid mode.";
-  logInfo(rank) << "Worker affinity              :" << parallel::maskToString(parallel::getWorkerUnionMask());
   auto freeCpus = parallel::getFreeCPUsMask();
   logInfo(rank) << "Communication thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
   if (parallel::freeCPUsMaskEmpty(freeCpus)) {
