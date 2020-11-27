@@ -128,18 +128,6 @@ protected:
   virtual void setTimeHook(unsigned int ltsFace) {}
 
   /*
-   * compute the fault strength
-   */
-  /*
-  virtual void calcStrengthHook(
-      std::array<real, numOfPointsPadded> &Strength,
-      FaultStresses &faultStresses,
-      unsigned int iTimeGP,
-      unsigned int ltsFace
-  ) = 0;
-*/
-
-  /*
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
@@ -177,19 +165,6 @@ protected:
       slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
     }
   }
-
-  /*
-   *  compute and output the state Variable:
-   *  for linear slip weakening state variable = slip
-   */
-  /*
-  virtual void calcStateVariableHook(
-      std::array<real, numOfPointsPadded> &stateVariablePsi,
-      std::array<real, numOfPointsPadded> &outputSlip,
-      dynamicRupture::kernel::resampleParameter &resampleKrnl,
-      unsigned int iTimeGP,
-      unsigned int ltsFace) = 0;
-*/
 
 
 /*
@@ -278,7 +253,6 @@ public:
     //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
     resampleKrnl.execute();
 
-    //TODO: does not work with padded Points bc of resampleMatrix is not padded
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //-------------------------------------
       //integrate Sliprate To Get Slip = State Variable
@@ -309,7 +283,7 @@ protected:
                           seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
     LinearSlipWeakeningSolverFL2::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
+    //maybe change later to const_cast?
     seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
     forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
     tn                                            = layerData.var(ConcreteLts->tn);
@@ -396,7 +370,7 @@ protected:
                           seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) override {
     //first copy all Variables from the Base Lts dynRup tree
     LinearSlipWeakeningSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
+    //maybe change later to const_cast?
     seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
     strengthData = layerData.var(ConcreteLts->strengthData);
   }

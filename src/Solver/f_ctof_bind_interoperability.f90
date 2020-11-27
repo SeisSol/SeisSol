@@ -251,7 +251,7 @@ module f_ctof_bind_interoperability
         use f_ftoc_bind_interoperability
         implicit none
 
-        integer                                :: i ,j, k, nBndGP
+        integer                                :: nBndGP
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
         integer(kind=c_int), value             :: iFace
@@ -281,15 +281,6 @@ module f_ctof_bind_interoperability
         l_slipRate1(:)                  = l_domain%EQN%IniSlipRate1
         l_slipRate2(:)                  = l_domain%EQN%IniSlipRate2
         l_RF(:)                         = l_domain%DISC%DynRup%RF(:,iFace)
-
-        !TODO Test remove:
-        !do iFace = 1, l_domain%MESH%Fault%nSide
-          !do i=1,nBndGP
-          !  l_domain%DISC%DynRup%TP_half_width_shear_zone(i,iFace) = iFace * 1000 + i
-          !  l_mu(i) =  iFace * 1000 + i
-          !end do
-        !end do
-
     end subroutine
 
     subroutine f_interoperability_getDynRupStateVar(i_domain, iFace, i_stateVar) bind (c, name='f_interoperability_getDynRupStateVar')
@@ -319,7 +310,7 @@ module f_ctof_bind_interoperability
       use f_ftoc_bind_interoperability
       implicit none
 
-      integer                                :: nBndGP, i
+      integer                                :: nBndGP
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
@@ -355,7 +346,6 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_RS_sr0
       real*8, pointer                        :: l_RS_sr0
 
-
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
@@ -381,14 +371,13 @@ module f_ctof_bind_interoperability
       implicit none
 
       integer                                :: TP_grid_nz
-      integer                                :: i, i_numberOfPoints, iFace
+      integer                                :: i_numberOfPoints, iFace
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       type(c_ptr), value                     :: i_TP_grid
       REAL_TYPE, pointer                     :: l_TP_grid(:)
       type(c_ptr), value                     :: i_TP_DFinv
       REAL_TYPE, pointer                     :: l_TP_DFinv(:)
-
 
       call c_f_pointer( i_domain,             l_domain)
       TP_grid_nz = l_domain%DISC%DynRup%TP_grid_nz
@@ -407,7 +396,6 @@ module f_ctof_bind_interoperability
               i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
               i_PeakSR, i_tracXY, i_tracXZ)&
               bind (c, name='f_interoperability_setFrictionOutput')
-
         use iso_c_binding
         use typesDef
         use f_ftoc_bind_interoperability
@@ -441,7 +429,6 @@ module f_ctof_bind_interoperability
         type(c_ptr), value                     :: i_tracXZ
         REAL_TYPE, pointer                     :: l_tracXZ(:)
 
-
         ! convert c to fortran pointers
         call c_f_pointer( i_domain,             l_domain)
         nSide = l_domain%MESH%Fault%nSide
@@ -457,17 +444,6 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_PeakSR, l_PeakSR, [nBndGP])
         call c_f_pointer( i_tracXY, l_tracXY, [nBndGP])
         call c_f_pointer( i_tracXZ, l_tracXZ, [nBndGP])
-
-        !DO iBndGP = 1, nBndGP
-        !  IF (  ABS(l_domain%DISC%DynRup%SlipRate1(iBndGP,i_face)  - l_slipRate1(iBndGP) ) > 0.00001) THEN
-        !    write(*,*) "slip rate is different "
-        !    write(*,*) "slip rate fortran " ,  l_domain%DISC%DynRup%SlipRate1(iBndGP,i_face)
-        !    write(*,*) "slip rate c++ " ,   l_slipRate1(iBndGP)
-        !    write(*,*) "fortran face " ,  i_face
-        !    write(*,*) "iBndGP " ,  iBndGP
-        !  ENDIF
-        !ENDDO
-
 
         !copy to output
         l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:)
@@ -503,8 +479,6 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_dynStress_time
       REAL_TYPE, pointer                     :: l_dynStress_time(:)
 
-      !integer :: nSide
-
       ! convert c to fortran pointers
       call c_f_pointer( i_domain,             l_domain)
       nSide = l_domain%MESH%Fault%nSide
@@ -512,9 +486,9 @@ module f_ctof_bind_interoperability
 
       !call c_f_pointer( i_averaged_Slip,   l_averaged_Slip)
       call c_f_pointer( i_dynStress_time, l_dynStress_time, [nBndGP])
-      !copy to output
 
-      !TODO: average slip only copy back if allocated
+      !copy to output
+      ! average slip only copied back if allocated
       IF (l_domain%DISC%DynRup%magnitude_output_on.EQ.1) THEN
         l_domain%DISC%DynRup%averaged_Slip(i_face)        = l_averaged_Slip
       ENDIF
@@ -524,7 +498,6 @@ module f_ctof_bind_interoperability
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutputStateVar(i_domain, i_face, i_stateVar)&
             bind (c, name='f_interoperability_setFrictionOutputStateVar')
-
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -555,7 +528,6 @@ module f_ctof_bind_interoperability
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutputStrength(i_domain, i_face, i_strength)&
             bind (c, name='f_interoperability_setFrictionOutputStrength')
-
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -582,14 +554,13 @@ module f_ctof_bind_interoperability
     end subroutine
 
     !!Code added by ADRIAN
-    !TODO remove?
     subroutine f_interoperability_setFrictionOutputInitialStress(i_domain, iFace, i_InitialStressInFaultCS) bind (c, name='f_interoperability_setFrictionOutputInitialStress')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
       implicit none
 
-      integer                                :: i ,j, k, nBndGP
+      integer                                :: i, nBndGP
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace

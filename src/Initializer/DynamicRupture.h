@@ -57,7 +57,7 @@ namespace seissol {
   }
 }
 
-//TODO: remove space independent parameters:  rs_f0, rs_b, rs_sr0
+
 
 
 struct seissol::initializers::DynamicRupture {
@@ -178,6 +178,7 @@ struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_linear
 
 
 struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRupture {
+  //TODO: remove space independent parameters:  rs_f0, rs_b, rs_sr0 and use instead values from m_Param
   Variable<real>                                                  RS_f0;                      //face independent
   Variable<real>                                                  RS_a;                       //face independent
   Variable<real>                                                  RS_b;                       //face independent

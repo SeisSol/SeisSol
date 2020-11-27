@@ -158,7 +158,7 @@ public:
                           seissol::initializers::DynamicRupture *dynRup, real fullUpdateTime) {
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    //TODO: change later to const_cast
+    //maybe change later to const_cast?
     seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
 
@@ -183,7 +183,6 @@ public:
 
   void setInitialValues(std::array<real, numOfPointsPadded> &LocSV, unsigned int ltsFace){
     if (m_fullUpdateTime <= m_Params->t_0) {
-      //TODO: test padded
       for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
         for (int i = 0; i < 6; i++) {
           initialStressInFaultCS[ltsFace][iBndGP][i] += nucleationStressInFaultCS[ltsFace][iBndGP][i] * Gnuc;
@@ -218,7 +217,7 @@ public:
           seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP], 2) +
           seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP], 2));
 
-      // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
+      // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996)
       // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
       stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
@@ -242,7 +241,6 @@ public:
                                     FaultStresses &faultStresses,
                                     unsigned int iTimeGP,
                                     unsigned int ltsFace){
-    //TODO: test for padded:
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //fault strength using LocMu and P_f from previous timestep/iteration
       //1.update SV using Vold from the previous time step
@@ -271,7 +269,6 @@ public:
   void executeIfNotConverged(std::array<real, numOfPointsPadded> &LocSV, unsigned ltsFace){
     real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV[0] / RS_a_array[ltsFace][0]) * SlipRateMagnitude[ltsFace][0];
     //!logError(*) 'nonConvergence RS Newton', time
-    //TODO: error logging : logError(*) 'NaN detected', time
     std::cout << "nonConvergence RS Newton, time: " << m_fullUpdateTime << std::endl;
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
@@ -325,7 +322,7 @@ public:
       faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
       faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = tracXZ[ltsFace][iBndGP];
 
-      //TODO: Could be outside TimeLoop?
+      //Could be outside TimeLoop, since only last time result is used later
       deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[ltsFace][iBndGP];
     } // End of BndGP-loop
 
@@ -423,7 +420,6 @@ protected:
     //!         f = (mu*P_0-|S_0|)*S_0/|S_0|     (Coulomb's model of friction)
     //!  where mu = friction coefficient, dependening on the RSF law used
 
-    //TODO: padded?
     for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
       //! first guess = SR value of the previous step
       SRtest[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
@@ -431,7 +427,6 @@ protected:
     }
 
     for(int i = 0; i < nSRupdates; i++){
-      //TODO: padded?
       for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
 
         //!f = ( tmp2 * ABS(LocP+P_0)- ABS(S_0))*(S_0)/ABS(S_0)
@@ -447,7 +442,6 @@ protected:
 
       has_converged = true;
 
-      //TODO: padded?
       //max element of NR must be smaller then aTolF
       for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
         if (fabs(NR[iBndGP]) >= aTolF ){
@@ -493,7 +487,6 @@ protected:
       return -invEta * (fabs(n_stress[iBndGP])*mu_f-sh_stress[iBndGP])-SR;
     };
 
-    //TODO: padded?
     for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++){
       //TODO: change boundaries?
       double a = SlipRateMagnitude[ltsFace][iBndGP] - impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
@@ -618,7 +611,7 @@ public:
     //first copy all Variables from the Base Lts dynRup tree
     RateAndStateNucFL103::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
 
-    //TODO: change later to const_cast
+    //maybe change later to const_cast?
     seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
     temperature               = layerData.var(ConcreteLts->temperature);
     pressure                  = layerData.var(ConcreteLts->pressure);
@@ -646,7 +639,7 @@ protected:
         Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][iBndGP][iTP_grid_nz];
       }
       //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-      Calc_ThermalPressure(iBndGP, iTimeGP, ltsFace); //TODO: maybe move iBndGP loop inside this function
+      Calc_ThermalPressure(iBndGP, iTimeGP, ltsFace);
 
       P_f[iBndGP] = pressure[ltsFace][iBndGP];
       if(saveTmpInTP){

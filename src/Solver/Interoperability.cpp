@@ -724,8 +724,6 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            m_timeStepping );
 
   //added by adrian
-  //indirect call
-  //TODO: maybe put this function into the MemoryManager.cpp
   seissol::initializers::initializeFrictionMatrices(
       seissol::SeisSol::main.getMemoryManager().getDrInitializer(),
       seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
@@ -735,15 +733,6 @@ void seissol::Interoperability::initializeCellLocalMatrices()
       m_ltsFaceToMeshFace,
       e_interoperability);
 
-  /* direct call
-  seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices(
-          seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
-          seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-          m_faultParameters,
-          m_ltsFaceToMeshFace,
-          e_interoperability
-          );
-*/
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
                                                     seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
                                                     m_ltsTree,
