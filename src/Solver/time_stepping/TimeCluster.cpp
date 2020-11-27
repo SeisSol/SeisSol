@@ -234,6 +234,9 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 }
 
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
+#ifdef ACL_DEVICE
+  device.api->putProfilingMark("computeDynamic", ProfilingColors::Cyan);
+#endif
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
@@ -278,6 +281,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   }
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
 }
 
 
