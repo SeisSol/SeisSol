@@ -169,6 +169,10 @@ CONTAINS
       call c_interoperability_enableDynamicRupture()
     endif
 
+    ! check whether the device memory allocated at this point
+    ! exceeds the maximum avaliable on a current device
+    call c_interoperability_report_device_memory_status()
+
     ! do the simulation
     call c_interoperability_simulate( i_finalTime = disc%endTime );
     ! End time is currently the only supported abort criteria by GK

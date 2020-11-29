@@ -265,6 +265,10 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
+void c_interoperability_report_device_memory_status() {
+  e_interoperability.reportDeviceMemoryStatus();
+}
+
   void c_interoperability_deallocateMemoryManager() {
     e_interoperability.deallocateMemoryManager();
   }
@@ -708,29 +712,38 @@ void seissol::Interoperability::setTv(double tv) {
 void seissol::Interoperability::initializeCellLocalMatrices()
 {
   // \todo Move this to some common initialization place
-  seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
+  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+  seissol::initializers::initializeCellLocalMatrices( meshReader,
                                                       m_ltsTree,
                                                       m_lts,
                                                       &m_ltsLut );
 
-  seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
+  initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
+  seissol::initializers::initializeDynamicRuptureMatrices( meshReader,
                                                            m_ltsTree,
                                                            m_lts,
                                                            &m_ltsLut,
-                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           memoryManager.getDynamicRuptureTree(),
+                                                           memoryManager.getDynamicRupture(),
                                                            m_ltsFaceToMeshFace,
-                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost(),
+                                                           *memoryManager.getGlobalDataOnHost(),
                                                            m_timeStepping );
 
-  seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
-                                                    seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
+  seissol::initializers::initializeBoundaryMappings(meshReader,
+                                                    memoryManager.getEasiBoundaryReader(),
                                                     m_ltsTree,
                                                     m_lts,
                                                     &m_ltsLut);
 
 #ifdef ACL_DEVICE
-  seissol::SeisSol::main.getMemoryManager().recordExecutionPaths();
+  initializers::copyCellMatricesToDevice(m_ltsTree,
+                                         m_lts,
+                                         memoryManager.getDynamicRuptureTree(),
+                                         memoryManager.getDynamicRupture(),
+                                         memoryManager.getBoundaryTree(),
+                                         memoryManager.getBoundary());
+
+  memoryManager.recordExecutionPaths();
 #endif
 }
 
@@ -1031,4 +1044,26 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 {
 	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
+}
+
+void seissol::Interoperability::reportDeviceMemoryStatus() {
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  constexpr size_t GB = 1024 * 1024 * 1024;
+  const auto rank = seissol::MPI::mpi.rank();
+  if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
+    std::stringstream stream;
+
+    stream << "Device(" << rank << ")  memory is overloaded.\n"
+           << "Totally allocated device memory, GB: " << device.api->getCurrentlyOccupiedMem() / GB << '\n'
+           << "Allocated unified memory, GB: " << device.api->getCurrentlyOccupiedUnifiedMem() / GB << '\n'
+           << "Memory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
+
+    logError() << stream.str();
+  }
+  else {
+    double fraction = device.api->getCurrentlyOccupiedMem() / static_cast<double>(device.api->getMaxAvailableMem());
+    logInfo(rank) << "occupied memory on device: " << fraction * 100.0 << "%";
+  }
+#endif
 }

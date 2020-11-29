@@ -346,19 +346,6 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
       }
     }
     ltsToMesh += it->getNumberOfCells();
-#ifdef ACL_DEVICE
-    // Byte-copy of element static data from the host to device
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    const std::vector<size_t > &variableSizes = io_ltsTree->getVariableSizes();
-
-    device.api->copyTo(io_ltsTree->var(i_lts->localIntegrationOnDevice),
-                       io_ltsTree->var(i_lts->localIntegration),
-                       variableSizes[i_lts->localIntegration.index]);
-
-    device.api->copyTo(io_ltsTree->var(i_lts->neighIntegrationOnDevice),
-                       io_ltsTree->var(i_lts->neighboringIntegration),
-                       variableSizes[i_lts->neighboringIntegration.index]);
-#endif
   }
 }
 
@@ -571,4 +558,25 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
+}
+
+void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                                     LTS*              lts,
+                                                     LTSTree*          dynRupTree,
+                                                     DynamicRupture*   dynRup,
+                                                     LTSTree*          boundaryTree,
+                                                     Boundary*         boundary) {
+#ifdef ACL_DEVICE
+  // Byte-copy of element compute-static data from the host to device
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
+
+  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
+                     ltsTree->var(lts->localIntegration),
+                     variableSizes[lts->localIntegration.index]);
+
+  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
+                     ltsTree->var(lts->neighboringIntegration),
+                     variableSizes[lts->neighboringIntegration.index]);
+#endif
 }
