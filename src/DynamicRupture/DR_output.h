@@ -21,7 +21,9 @@ namespace seissol {
     }
 }
 
-
+/*
+ * Currently this class only copies values computed in C++ dynamic rupture back to Fortran to have it availabe for the output writer
+ */
 class seissol::dr::output::Output_Base{
 protected:
   dr::DrParameterT *m_Params;
