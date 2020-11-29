@@ -92,16 +92,16 @@ public:
   Variable<real[ numOfPointsPadded ]>                   cohesion;
   Variable<real[ numOfPointsPadded ]>                   mu;
   Variable<real[ numOfPointsPadded ]>                   slip;
-  Variable<real[ numOfPointsPadded ]>                   slip1;
-  Variable<real[ numOfPointsPadded ]>                   slip2;
+  Variable<real[ numOfPointsPadded ]>                   slipStrike; // = Slip1
+  Variable<real[ numOfPointsPadded ]>                   slipDip;    // = Slip2
   Variable<real[ numOfPointsPadded ]>                   slipRateMagnitude;
   Variable<real[ numOfPointsPadded ]>                   slipRateStrike;  // slip rate in Y-dirction (strike) Fortran: slipRate1
   Variable<real[ numOfPointsPadded ]>                   slipRateDip; // slip rate in Z-direction (dip) Fortran: slipRate2
   Variable<real[ numOfPointsPadded ]>                   rupture_time;
   Variable<bool[ numOfPointsPadded ]>                   RF;
   Variable<real[ numOfPointsPadded ]>                   peakSR;
-  Variable<real[ numOfPointsPadded ]>                   tracXY;
-  Variable<real[ numOfPointsPadded ]>                   tracXZ;
+  Variable<real[ numOfPointsPadded ]>                   tractionXY;
+  Variable<real[ numOfPointsPadded ]>                   tractionXZ;
 
   virtual void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
@@ -123,14 +123,14 @@ public:
     tree.addVar(      RF,                             mask,                 1,      seissol::memory::Standard );
     tree.addVar(      mu,                             mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slip,                           mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      slip1,                          mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      slip2,                          mask,                 1,      seissol::memory::Standard );
+    tree.addVar(slipStrike, mask, 1, seissol::memory::Standard );
+    tree.addVar(slipDip, mask, 1, seissol::memory::Standard );
     tree.addVar(slipRateMagnitude, mask, 1, seissol::memory::Standard );
     tree.addVar(slipRateStrike, mask, 1, seissol::memory::Standard );
     tree.addVar(slipRateDip, mask, 1, seissol::memory::Standard );
     tree.addVar(      peakSR,                         mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      tracXY,                         mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      tracXZ,                         mask,                 1,      seissol::memory::Standard );
+    tree.addVar(tractionXY, mask, 1, seissol::memory::Standard );
+    tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard );
 
     //only for output:
     tree.addVar(      iniBulkXX,                      mask,                 1,      seissol::memory::Standard );

@@ -496,7 +496,7 @@ struct BoundaryFaceInformation {
 enum Friction_law_type{
     no_fault = 0,
     linear_slip_weakening = 2,
-    linear_slip_weakening_forced_time_rapture = 16,
+    linear_slip_weakening_forced_time_rupture = 16,
 
     rate_and_state_aging_law = 3,
     rate_and_state_slip_law = 4,

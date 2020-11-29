@@ -55,14 +55,14 @@ public:
 
     real                    (*mu)[numOfPointsPadded]                              = layerData.var(ConcreteLts->mu);
     real                    (*slip)[numOfPointsPadded]                            = layerData.var(ConcreteLts->slip);
-    real                    (*slip1)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip1);
-    real                    (*slip2)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip2);
+    real                    (*slip1)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slipStrike);
+    real                    (*slip2)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slipDip);
     real                    (*slipRate1)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRateStrike);
     real                    (*slipRate2)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRateDip);
     real                    (*StateVar)[numOfPointsPadded]                        = layerData.var(ConcreteLts->stateVar);
 
-    real                    (*tracXY)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXY);
-    real                    (*tracXZ)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXZ);
+    real                    (*tracXY)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tractionXY);
+    real                    (*tracXZ)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tractionXZ);
 
 
     //loop parameter are fixed, not variable??
@@ -299,8 +299,8 @@ public:
       for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
         LocSlip = slip[ltsFace][iBndGP]; //DISC%DynRup%Slip(iBndGP,iFace)              //!< Slip path at given fault node
-        LocSlip1 = slip1[ltsFace][iBndGP]; //DISC%DynRup%Slip1(iBndGP,iFace)            //!< Slip at given fault node along loc dir 1
-        LocSlip2 = slip2[ltsFace][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
+        LocSlip1 = slipStrike[ltsFace][iBndGP]; //DISC%DynRup%Slip1(iBndGP,iFace)            //!< Slip at given fault node along loc dir 1
+        LocSlip2 = slipDip[ltsFace][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
         LocSR1 = slipRateStrike[ltsFace][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSR2 = slipRateDip[ltsFace][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSV = stateVar[ltsFace][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)
@@ -395,11 +395,11 @@ public:
         slipRateStrike[ltsFace][iBndGP] = LocSR1;
         slipRateDip[ltsFace][iBndGP] = LocSR2;
         slip[ltsFace][iBndGP] = LocSlip;
-        slip1[ltsFace][iBndGP] = LocSlip1;
-        slip2[ltsFace][iBndGP] = LocSlip2;
+        slipStrike[ltsFace][iBndGP] = LocSlip1;
+        slipDip[ltsFace][iBndGP] = LocSlip2;
         stateVar[ltsFace][iBndGP] = LocSV;
-        tracXY[ltsFace][iBndGP] = LocTracXY;
-        tracXZ[ltsFace][iBndGP] = LocTracXZ;
+        tractionXY[ltsFace][iBndGP] = LocTracXY;
+        tractionXZ[ltsFace][iBndGP] = LocTracXZ;
       }//End of iBndGP-loop
 
       // output rupture front

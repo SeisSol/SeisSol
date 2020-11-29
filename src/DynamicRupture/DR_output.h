@@ -39,14 +39,14 @@ public:
 
         real  (*mu)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->mu);
         real  (*slip)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slip);
-        real  (*slip1)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slip1);
-        real  (*slip2)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slip2);
+        real  (*slipStrike)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipStrike);
+        real  (*slipDip)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipDip);
         real  (*slipRateStrike)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipRateStrike);
         real  (*slipRateDip)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->slipRateDip);
         real  (*rupture_time)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->rupture_time);
         real  (*peakSR)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->peakSR);
-        real  (*tracXY)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tracXY);
-        real  (*tracXZ)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tracXZ);
+        real  (*tractionXY)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tractionXY);
+        real  (*tractionXZ)[ init::QInterpolated::Stop[0] ] = layerData.var(dynRup->tractionXZ);
 
         DRFaceInformation*                    faceInformation = layerData.var(dynRup->faceInformation);
 
@@ -55,7 +55,7 @@ public:
         #endif
         for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
             unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-            e_interoperability.copyFrictionOutputToFortran(ltsFace, meshFace, mu, slip, slip1, slip2, slipRateStrike, slipRateDip, rupture_time, peakSR, tracXY, tracXZ);
+            e_interoperability.copyFrictionOutputToFortran(ltsFace, meshFace, mu, slip, slipStrike, slipDip, slipRateStrike, slipRateDip, rupture_time, peakSR, tractionXY, tractionXZ);
         }
     }
 

@@ -129,7 +129,7 @@ protected:
 
   /*
    *  compute the slip rate and the traction from the fault strength and fault stresses
-   *  also updates the directional slip1 and slip2
+   *  also updates the directional slipStrike and slipDip
    */
   virtual void calcSlipRateAndTraction(
       std::array<real, numOfPointsPadded> &Strength,
@@ -156,13 +156,13 @@ protected:
       //calculateTraction
       faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][iBndGP];
       faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][iBndGP];
-      tracXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
-      tracXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+      tractionXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+      tractionXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
 
       //-------------------------------------
       //update Directional Slip
-      slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
-      slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slipStrike[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
+      slipDip[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
     }
   }
 

@@ -63,16 +63,16 @@ public:
       real  (*cohesion)[numOfPointsPadded]                  = it->var(dynRup->cohesion);                //get from faultParameters
       real  (*mu)[ numOfPointsPadded ]            = it->var(dynRup->mu);                                //get from fortran  EQN%IniMu(:,:)
       real  (*slip)[ numOfPointsPadded ]          = it->var(dynRup->slip);                              // = 0
-      real  (*slip1)[numOfPointsPadded ]          = it->var(dynRup->slip1);                             // = 0
-      real  (*slip2)[ numOfPointsPadded ]         = it->var(dynRup->slip2);                             // = 0
+      real  (*slipStrike)[numOfPointsPadded ]          = it->var(dynRup->slipStrike);                            // = 0
+      real  (*slipDip)[ numOfPointsPadded ]         = it->var(dynRup->slipDip);                             // = 0
       real  (*slipRateMagnitude)[ numOfPointsPadded ]     = it->var(dynRup->slipRateMagnitude);                     // = 0
       real  (*slipRateStrike)[ numOfPointsPadded ]     = it->var(dynRup->slipRateStrike);                         //get from fortran  EQN%IniSlipRate1
       real  (*slipRateDip)[numOfPointsPadded ]      = it->var(dynRup->slipRateDip);                         //get from fortran  EQN%IniSlipRate2
       real  (*rupture_time)[ numOfPointsPadded ]  = it->var(dynRup->rupture_time);                      // = 0
       bool  (*RF)[ numOfPointsPadded ]            = it->var(dynRup->RF);                                //get from fortran
       real  (*peakSR)[ numOfPointsPadded ]        = it->var(dynRup->peakSR);                            // = 0
-      real  (*tracXY)[ numOfPointsPadded ]        = it->var(dynRup->tracXY);                            // = 0
-      real  (*tracXZ)[ numOfPointsPadded ]        = it->var(dynRup->tracXZ);                            // = 0
+      real  (*tractionXY)[ numOfPointsPadded ]        = it->var(dynRup->tractionXY);                            // = 0
+      real  (*tractionXZ)[ numOfPointsPadded ]        = it->var(dynRup->tractionXZ);                            // = 0
 
       dynRup->IsFaultParameterizedByTraction = false;
 
@@ -80,13 +80,13 @@ public:
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
         for (unsigned iBndGP = 0; iBndGP < init::QInterpolated::Stop[0]; ++iBndGP) {    //loop includes padded elements
           slip[ltsFace][iBndGP] = 0.0;
-          slip1[ltsFace][iBndGP] = 0.0;
-          slip2[ltsFace][iBndGP] = 0.0;
+          slipStrike[ltsFace][iBndGP] = 0.0;
+          slipDip[ltsFace][iBndGP] = 0.0;
           slipRateMagnitude[ltsFace][iBndGP] = 0.0;
           rupture_time[ltsFace][iBndGP] = 0.0;
           peakSR[ltsFace][iBndGP] = 0.0;
-          tracXY[ltsFace][iBndGP] = 0.0;
-          tracXZ[ltsFace][iBndGP] = 0.0;
+          tractionXY[ltsFace][iBndGP] = 0.0;
+          tractionXZ[ltsFace][iBndGP] = 0.0;
         }
         //get initial values from fortran
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {

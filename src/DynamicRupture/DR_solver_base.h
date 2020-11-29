@@ -15,8 +15,8 @@ namespace seissol {
     namespace fr_law {
       class BaseFrictionSolver;
       class SolverNoFaultFL0;
-      class Solver_FL_33; //ImposedSlipRateOnDRBoundary
-      class SolverBluePrint;
+      class SolverImposedSlipRatesFL33; //ImposedSlipRateOnDRBoundary
+      class SolverBluePrint;  //Template to create new friction laws (if not required can be deleted, has no functionality otherwise)
     }
   }
 }
@@ -24,9 +24,6 @@ namespace seissol {
 class seissol::dr::fr_law::BaseFrictionSolver {
 
 public:
-  //TODO: remove (later) only for debugging:
-  int numberOfFunctionCalls = 0;
-
   virtual ~BaseFrictionSolver() {}
 
   //set the parameters from .par file with yaml to this class attributes.
@@ -46,16 +43,16 @@ protected:
   real                    (*cohesion)[numOfPointsPadded];
   real                    (*mu)[numOfPointsPadded];
   real                    (*slip)[numOfPointsPadded];
-  real                    (*slip1)[numOfPointsPadded];
-  real                    (*slip2)[numOfPointsPadded];
+  real                    (*slipStrike)[numOfPointsPadded];
+  real                    (*slipDip)[numOfPointsPadded];
   real                    (*SlipRateMagnitude)[numOfPointsPadded];
   real                    (*slipRateStrike)[numOfPointsPadded];
   real                    (*slipRateDip)[numOfPointsPadded];
   real                    (*rupture_time)[numOfPointsPadded];
   bool                    (*RF)[numOfPointsPadded];
   real                    (*peakSR)[numOfPointsPadded];
-  real                    (*tracXY)[numOfPointsPadded];
-  real                    (*tracXZ)[numOfPointsPadded];
+  real                    (*tractionXY)[numOfPointsPadded];
+  real                    (*tractionXZ)[numOfPointsPadded];
   real                    (*imposedStatePlus)[tensor::QInterpolated::size()];
   real                    (*imposedStateMinus)[tensor::QInterpolated::size()];
 
@@ -81,16 +78,16 @@ protected:
     cohesion                                      = layerData.var(dynRup->cohesion);
     mu                                            = layerData.var(dynRup->mu);
     slip                                          = layerData.var(dynRup->slip);
-    slip1                                         = layerData.var(dynRup->slip1);
-    slip2                                         = layerData.var(dynRup->slip2);
+    slipStrike                                         = layerData.var(dynRup->slipStrike);
+    slipDip                                         = layerData.var(dynRup->slipDip);
     SlipRateMagnitude                             = layerData.var(dynRup->slipRateMagnitude);
     slipRateStrike                                = layerData.var(dynRup->slipRateStrike);
     slipRateDip                                   = layerData.var(dynRup->slipRateDip);
     rupture_time                                  = layerData.var(dynRup->rupture_time);
     RF                                            = layerData.var(dynRup->RF);
     peakSR                                        = layerData.var(dynRup->peakSR);
-    tracXY                                        = layerData.var(dynRup->tracXY);
-    tracXZ                                        = layerData.var(dynRup->tracXZ);
+    tractionXY                                        = layerData.var(dynRup->tractionXY);
+    tractionXZ                                        = layerData.var(dynRup->tractionXZ);
     imposedStatePlus                              = layerData.var(dynRup->imposedStatePlus);
     imposedStateMinus                             = layerData.var(dynRup->imposedStateMinus);
     m_fullUpdateTime                              = fullUpdateTime;
@@ -169,7 +166,7 @@ protected:
     ImposedStateFromNewStressKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
 
     //set imposed state to zero
-    for (int i = 0; i < tensor::QInterpolated::size(); i++) {
+    for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
       imposedStatePlus[ltsFace][i] = 0;
       imposedStateMinus[ltsFace][i] = 0;
     }
@@ -321,7 +318,7 @@ public:
 
 
 
-class seissol::dr::fr_law::Solver_FL_33 : public seissol::dr::fr_law::BaseFrictionSolver {
+class seissol::dr::fr_law::SolverImposedSlipRatesFL33 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
   real  (*nucleationStressInFaultCS)[numOfPointsPadded][6];
@@ -379,13 +376,13 @@ public:
             SlipRateMagnitude[ltsFace][iBndGP]  = std::sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
 
             //! Update slip
-            slip1[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * time_inc;
-            slip2[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * time_inc;
+            slipStrike[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * time_inc;
+            slipDip[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * time_inc;
             slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * time_inc;
             tmpSlip[iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * time_inc;
 
-            tracXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
-            tracXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+            tractionXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+            tractionXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
           }
         }
         // output rupture front

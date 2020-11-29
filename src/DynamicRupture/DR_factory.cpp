@@ -18,7 +18,7 @@ namespace seissol {
           //!---- linear slip weakening -----
           //! coulomb model for linear slip weakening
           case linear_slip_weakening: return new Factory_FL_2;
-          case linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
+          case linear_slip_weakening_forced_time_rupture: return new Factory_FL_16;
           //! Coulomb model for linear slip weakening and bimaterial
           case linear_slip_weakening_bimaterial: return new Factory_FL_6;
 

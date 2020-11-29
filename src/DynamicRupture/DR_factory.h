@@ -110,7 +110,7 @@ class seissol::dr::factory::Factory_FL_33 : public seissol::dr::factory::Abstrac
   virtual products produce() override {
     return std::make_tuple(new seissol::initializers::DR_FL_33,
                            new seissol::initializers::Init_FL_33,
-                           new seissol::dr::fr_law::Solver_FL_33,
+                           new seissol::dr::fr_law::SolverImposedSlipRatesFL33,
                            new seissol::dr::output::Output_FL_33);
   }
 };

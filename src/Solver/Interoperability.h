@@ -373,6 +373,10 @@ class seissol::Interoperability {
     **/
    void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
 
+
+   /*
+    * Not in use any more
+    */
    void evaluateFrictionLaw(  int face,
                               real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
                               real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
@@ -385,46 +389,46 @@ class seissol::Interoperability {
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
 
 
-    /**
-    * Code added by Adrian
-    */
+  /**
+  * Code added by Adrian
+   * Get function are only required as long as the dynRup Initializtation is still written in Fortran
+  */
+
+  /**
+   * get initial values from fortran
+   * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+   * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h
+   *
+   * @param ltsFace current ltsFace to get Parameters
+   * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters saved in DRFaceInformation[ltsFace].meshFace
+   * @param initialStressInFaultCS gets initialStressInFaultCS
+   * @param mu gets initial mu
+   * @param slipRate1 gets initial sliprate in direction 1
+   * @param slipRate2 gets initial sliprate in direction 2
+   * @param RF gets intial value (bool) of rupture front output per GP
+   **/
+  void getDynRupParameters(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
+      real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]],
+      real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] );
+
+  /**
+   * get initial values from fortran
+   * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+   *
+   * @param stateVar    State variable used at Rate-and-state friction laws, gets EQN%IniStateVar
+   *
+   **/
+  void getDynRupStateVar(int ltsFace, unsigned meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]);
 
 
-    /**
-     * get initial values from fortran
-     * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
-     * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h
-     *
-     * @param ltsFace current ltsFace to get Parameters
-     * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters saved in DRFaceInformation[ltsFace].meshFace
-     * @param initialStressInFaultCS gets initialStressInFaultCS
-     * @param mu gets initial mu
-     * @param slipRate1 gets initial sliprate in direction 1
-     * @param slipRate2 gets initial sliprate in direction 2
-     * @param RF gets intial value (bool) of rupture front output per GP
-     **/
-    void getDynRupParameters(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-        real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]],
-        real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] );
-
-    /**
-     * get initial values from fortran
-     * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
-     *
-     * @param stateVar    State variable used at Rate-and-state friction laws, gets EQN%IniStateVar
-     *
-     **/
-    void getDynRupStateVar(int ltsFace, unsigned meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]);
-
-
-    /**
-     * get initial values from fortran
-     * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
-     *
-     * @param nucleationStressInFaultCS gets nucleationStressInFaultCS
-     *
-     **/
-    void getDynRupNucStress(int ltsFace, unsigned meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
+  /**
+   * get initial values from fortran
+   * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+   *
+   * @param nucleationStressInFaultCS gets nucleationStressInFaultCS
+   *
+   **/
+  void getDynRupNucStress(int ltsFace, unsigned meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
 
 
 
@@ -441,12 +445,12 @@ class seissol::Interoperability {
  * @param i_RS_sl0    Reference slip
  * @param i_RS_sr0    Reference slip rate
  **/
-    void getDynRupFL_3(int ltsFace,  unsigned meshFace,
-                                                real *i_RS_f0,
-                                                real *i_RS_a,
-                                                real *i_RS_b,
-                                                real *i_RS_sl0,
-                                                real *i_RS_sr0);
+  void getDynRupFL_3(int ltsFace,  unsigned meshFace,
+                                              real *i_RS_f0,
+                                              real *i_RS_a,
+                                              real *i_RS_b,
+                                              real *i_RS_sl0,
+                                              real *i_RS_sr0);
 
   /**
    * get initial values from fortran
@@ -456,25 +460,30 @@ class seissol::Interoperability {
    * @param TP_grid     grid for TP
    * @param TP_DFinv    inverse Fourier coefficients
    **/
-    void getDynRupTP(real TP_grid[TP_grid_nz],real TP_DFinv[TP_grid_nz]);
+  void getDynRupTP(real TP_grid[TP_grid_nz],real TP_DFinv[TP_grid_nz]);
 
-    void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
-                                                                real (*mu)[seissol::init::QInterpolated::Stop[0]],
-                                                                real  (*slip)[init::QInterpolated::Stop[0]],
-                                                                real  (*slip1)[init::QInterpolated::Stop[0]],
-                                                                real  (*slip2)[init::QInterpolated::Stop[0]],
-                                                                real  (*slipRate1)[init::QInterpolated::Stop[0]],
-                                                                real  (*slipRate2)[init::QInterpolated::Stop[0]],
-                                                                real  (*rupture_time)[init::QInterpolated::Stop[0]],
-                                                                real  (*peakSR)[init::QInterpolated::Stop[0]],
-                                                                real  (*tracXY)[init::QInterpolated::Stop[0]],
-                                                                real  (*tracXZ)[init::QInterpolated::Stop[0]]
-    );
 
-    void copyFrictionOutputToFortranFL2(unsigned ltsFace, unsigned meshFace,
-            real  *averaged_Slip,
-            real  (*dynStress_time)[init::QInterpolated::Stop[0]]
-    );
+  /**
+   * Temporary Interoperability function for Dynamic rupture outputs
+   * copy values from C++ computation back to Fortran output writer.
+   **/
+  void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
+                                                              real (*mu)[seissol::init::QInterpolated::Stop[0]],
+                                                              real  (*slip)[init::QInterpolated::Stop[0]],
+                                                              real  (*slip1)[init::QInterpolated::Stop[0]],
+                                                              real  (*slip2)[init::QInterpolated::Stop[0]],
+                                                              real  (*slipRate1)[init::QInterpolated::Stop[0]],
+                                                              real  (*slipRate2)[init::QInterpolated::Stop[0]],
+                                                              real  (*rupture_time)[init::QInterpolated::Stop[0]],
+                                                              real  (*peakSR)[init::QInterpolated::Stop[0]],
+                                                              real  (*tracXY)[init::QInterpolated::Stop[0]],
+                                                              real  (*tracXZ)[init::QInterpolated::Stop[0]]
+  );
+
+  void copyFrictionOutputToFortranFL2(unsigned ltsFace, unsigned meshFace,
+          real  *averaged_Slip,
+          real  (*dynStress_time)[init::QInterpolated::Stop[0]]
+  );
 
   void copyFrictionOutputToFortranStateVar(unsigned ltsFace, unsigned meshFace,
                                       real  (*stateVar)[init::QInterpolated::Stop[0]]
