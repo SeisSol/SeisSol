@@ -269,13 +269,14 @@ CONTAINS
     ! Parameters used for calculating Vr
     LOGICAL :: compute_Vr
     INTEGER :: nDegFr2d, jBndGP, i1, j1
-    REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
+    REAL    :: chi, tau, Slowness, dt_dchi, dt_dtau, Vr
     REAL    :: dt_dx1, dt_dy1
     REAL    :: Tnuc, Gnuc, eta
     REAL    :: xV(4), yV(4), zV(4)
     REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
     REAL    :: NucleationStressXYZ(1:6), NucleationStressLocalCS(1:6)
     REAL, ALLOCATABLE  :: projected_RT(:)
+    real, allocatable  :: phiAtPoint(:)
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiElem_ptr ! no: it's not a pointer..
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiNeigh_ptr ! no pointer again
     !-------------------------------------------------------------------------!
@@ -630,30 +631,33 @@ CONTAINS
                 nDegFr2d = (DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2)/2
                 !projection of the rupture time on the basis functions
                 ALLOCATE(projected_RT(nDegFr2d))
+                ALLOCATE(phiAtPoint(2 * nDegFr2d))
                 projected_RT(:)=0.
 
                 DO jBndGP = 1,DISC%Galerkin%nBndGP
                   chi  = MESH%ELEM%BndGP_Tri(1,jBndGP)
                   tau  = MESH%ELEM%BndGP_Tri(2,jBndGP)
+                  call c_interoperability_TriDubinerP(phiAtPoint, chi, tau, DISC%Galerkin%nPoly)
                   DO iDegFr = 1, nDegFr2d
-                     call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
                      projected_RT(iDegFr) = projected_RT(iDegFr) + &
-                        DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%output_rupture_time(jBndGP,iFace)*phiT
+                        DISC%Galerkin%BndGaussW_Tet(jBndGP) * &
+                        DISC%DynRup%output_rupture_time(jBndGP,iFace) * phiAtPoint(iDegFr)
                   ENDDO
                 ENDDO
                 DO iDegFr = 1,nDegFr2d
-                   projected_RT(iDegFr) =  projected_RT(iDegFr)/DISC%Galerkin%MassMatrix_Tri(iDegFr,iDegFr,DISC%Galerkin%nPoly)
+                   projected_RT(iDegFr) = projected_RT(iDegFr) * &
+                       c_interoperability_M2invDiagonal(iDegFr-1)
                 ENDDO
 
                 !calculation of the spatial derivatives of the rupture time
                 chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
                 tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+                call c_interoperability_gradTriDubinerP(phiAtPoint, chi, tau, DISC%Galerkin%nPoly)
                 dt_dchi=0d0
                 dt_dtau=0d0
                 DO iDegFr = 1, nDegFr2d
-                   call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
-                   dt_dchi = dt_dchi + projected_RT(iDegFr) * phi2T(1)
-                   dt_dtau = dt_dtau + projected_RT(iDegFr) * phi2T(2)
+                   dt_dchi = dt_dchi + projected_RT(iDegFr) * phiAtPoint(1 + 2*(iDegFr-1))
+                   dt_dtau = dt_dtau + projected_RT(iDegFr) * phiAtPoint(2 + 2*(iDegFr-1))
                 ENDDO
 
                 !For calculating the 2d Jacobian matrix we will need the nodal coordinates
@@ -707,6 +711,7 @@ CONTAINS
                   Vr=1d0/Slowness
                 ENDIF
                 DEALLOCATE(projected_RT)
+                DEALLOCATE(phiAtPoint)
                 iBndGP = DynRup_output%OutInt(iOutPoints,1)
                 ENDIF
 

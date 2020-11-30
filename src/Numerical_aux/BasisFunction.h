@@ -202,7 +202,7 @@ T BasisFunctionGenerator<T>::operator()(unsigned int i,
 
     return  theta_a * theta_b * theta_c;
   */
-  return functions::TetraDubinerP(i, j, k, xi_, eta_, zeta_);
+  return functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
 }
 
 //------------------------------------------------------------------------------

@@ -51,7 +51,12 @@ def addKernels(generator, aderdg):
   mSlip = Tensor('mSlip', (3,))
   mNormal = Tensor('mNormal', (3,))
   mArea = Scalar('mArea')
+  basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
+  JInv = Scalar('JInv')
+
+  generator.add('computeMInvJInvPhisAtSources',
+    mInvJInvPhisAtSources['k'] <= JInv * aderdg.db.M3inv['kl'] * basisFunctionsAtPoint['l'])
 
   #extract the moment tensors entries in SeisSol ordering (xx, yy, zz, xy, yz, xz)
   assert(numberOfQuantities >= 6)
@@ -81,7 +86,6 @@ def addKernels(generator, aderdg):
   generator.add('sourceFSRM', sourceFSRM)
 
   ## Receiver output
-  basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
   QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
   evaluateDOFSAtPoint = QAtPoint['p'] <= aderdg.Q['kp'] * basisFunctionsAtPoint['k']
   generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
