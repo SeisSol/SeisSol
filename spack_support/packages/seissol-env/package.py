@@ -26,12 +26,13 @@ class SeissolEnv(BundlePackage):
             multi=True)
     variant('python', default=False, description="installs python, pip, numpy and scipy")
     variant('building_tools', default=True, description="installs scons and cmake")
+    variant('x86', default=True, description="installs extra packages for x86 platform")
     
 
     depends_on('mpi', when="+mpi")
     depends_on('parmetis', when="+mpi")
     depends_on('metis +int64', when="+mpi")
-    depends_on('libxsmm +generator')
+    depends_on('libxsmm +generator', when="+x86")
 
     depends_on('hdf5@1.8.21 +fortran +shared ~mpi', when="~mpi")
     depends_on('hdf5@1.8.21 +fortran +shared +mpi', when="+mpi")
@@ -46,7 +47,7 @@ class SeissolEnv(BundlePackage):
     depends_on('openblas threads=none', when="extra_blas=openblas")
     depends_on('blis threads=none', when="extra_blas=blis")
 
-    depends_on('memkind')
+    depends_on('memkind', when="+x86")
     depends_on('pspamm')
     depends_on('impalajit')
     depends_on('yaml-cpp@0.6.2')
