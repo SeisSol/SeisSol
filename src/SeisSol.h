@@ -74,6 +74,10 @@ namespace seissol
 class SeisSol
 {
 private:
+  // Note: This HAS to be the first member so that it is initialized before all others!
+  // Otherwise it will NOT work.
+  parallel::Pinning pinning;
+
 	/** The name of the parameter file */
 	std::string m_parameterFile;
 
@@ -124,7 +128,6 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
-  parallel::Pinning pinning;
 
 private:
 	/**

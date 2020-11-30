@@ -47,7 +47,6 @@ namespace seissol {
   namespace parallel {
 class Pinning {
 private:
-  bool isInitialized;
   cpu_set_t processMask{};
   cpu_set_t pthreadMask{};
   cpu_set_t openmpMask;

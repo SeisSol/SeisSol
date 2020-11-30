@@ -46,14 +46,11 @@
 #include <sstream>
 #include <omp.h>
 
-seissol::parallel::Pinning::Pinning() : isInitialized(false) {
+seissol::parallel::Pinning::Pinning() {
   CPU_ZERO(&pthreadMask);
+  init();
 }
 void seissol::parallel::Pinning::init() {
-  if (isInitialized) return; // Don't init twice!
-
-  isInitialized = true;
-
   // Affinity mask of the entire process
   sched_getaffinity(0, sizeof(cpu_set_t), &processMask);
 
@@ -86,7 +83,6 @@ cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
 }
 
 cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
-  if (!isInitialized) throw -1; // TODO(Lukas) Error handling.
   return pthreadMask;
 }
 
