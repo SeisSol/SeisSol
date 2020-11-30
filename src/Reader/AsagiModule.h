@@ -133,7 +133,6 @@ public:
 #endif // USE_MPI
 	}
 
-private:
 	static AsagiModule& getInstance() {
 	  static AsagiModule instance;
 	  return instance;
