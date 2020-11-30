@@ -77,11 +77,12 @@ private:
 
 	/** The total number of threads (including the communication thread */
 	int m_totalThreads;
-
-private:
-	AsagiModule();
+  AsagiModule();
 
 public:
+  AsagiModule(const AsagiModule&) = delete;
+  void operator=(const AsagiModule&)  = delete;
+
 	void preMPI()
 	{
 		// Communication threads required
@@ -133,8 +134,10 @@ public:
 	}
 
 private:
-	/** The only instance of this module */
-	static AsagiModule instance;
+	static AsagiModule& getInstance() {
+	  static AsagiModule instance;
+	  return instance;
+	}
 
 private:
 	/**
@@ -157,7 +160,7 @@ public:
 	 */
 	static MPI_Mode mpiMode()
 	{
-		return instance.m_mpiMode;
+		return getInstance().m_mpiMode;
 	}
 
 	/**
@@ -165,7 +168,7 @@ public:
 	 */
 	static int totalThreads()
 	{
-		return instance.m_totalThreads;
+		return getInstance().m_totalThreads;
 	}
 
 private:
