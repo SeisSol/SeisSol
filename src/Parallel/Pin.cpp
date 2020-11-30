@@ -48,12 +48,11 @@
 
 seissol::parallel::Pinning::Pinning() {
   CPU_ZERO(&pthreadMask);
-  init();
-}
-void seissol::parallel::Pinning::init() {
+
   // Affinity mask of the entire process
   sched_getaffinity(0, sizeof(cpu_set_t), &processMask);
-
+}
+void seissol::parallel::Pinning::init() {
   // Affinity mask for the OpenMP workers
   openmpMask = getWorkerUnionMask();
 
