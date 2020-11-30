@@ -48,12 +48,15 @@ namespace seissol {
 class Pinning {
 private:
   bool isInitialized;
-  cpu_set_t pthreadSet{};
+  cpu_set_t processMask{};
+  cpu_set_t pthreadMask{};
+  cpu_set_t openmpMask;
 public:
   Pinning();
   void init();
 
-  cpu_set_t getPthreadMask() const { return pthreadSet; };
+  cpu_set_t getProcessMask() const { return processMask; };
+  cpu_set_t getPthreadMask() const { return pthreadMask; };
   cpu_set_t getWorkerUnionMask() const;
   cpu_set_t getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(cpu_set_t const& set);

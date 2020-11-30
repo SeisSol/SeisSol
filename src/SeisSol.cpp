@@ -62,6 +62,10 @@
 
 bool seissol::SeisSol::init(int argc, char* argv[])
 {
+  // Initialize pinning. Needs to be called before the first OpenMP rank!
+  // (Doesn't actually pin anything, yet!)
+  pinning.init();
+
 	// Check if we need threadsafe MPI
 #ifdef USE_COMM_THREAD
 	MPI::mpi.requireThreadsafe();
@@ -100,13 +104,12 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
   logInfo(rank) << "Overall affinity            :" << parallel::Pinning::maskToString(
-      pinning.getWorkerUnionMask());
+      pinning.getProcessMask());
 #ifdef USE_MPI
-  logInfo(rank) << "Using MPI with #ranks" << MPI::mpi.size();
+  logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
 #ifdef USE_COMM_THREAD
   logInfo(rank) << "Running with communication thread";
   pinning.init();
-  logInfo(rank) << "Pinning reduced number of OMP #threads/rank to" << omp_get_max_threads();
   auto freeCpus = pinning.getFreeCPUsMask();
   logInfo(rank) << "OpenMP worker affinity       :" << parallel::Pinning::maskToString(
       pinning.getWorkerUnionMask());
