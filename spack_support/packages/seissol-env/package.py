@@ -25,7 +25,7 @@ class SeissolEnv(BundlePackage):
             values=('mkl', 'openblas', 'blis', 'none'), 
             multi=True)
     variant('python', default=False, description="installs python, pip, numpy and scipy")
-    variant('building_tools', default=True, description="installs scons and cmake")
+    variant('building_tools', default=False, description="installs scons and cmake")
     variant('x86', default=True, description="installs extra packages for x86 platform")
     
 
