@@ -14,6 +14,10 @@ namespace seissol {
   }
 }
 
+/*
+ * Saves all dynamic rupture parameter read from parameter.par file
+ * if values are not defined they are set to an inital value (mostly 0)
+ */
 struct seissol::dr::DrParameterT {
   static constexpr unsigned int TP_grid_nz = 60;
   int OutputPointType{3};

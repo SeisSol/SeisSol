@@ -13,9 +13,9 @@
 namespace seissol {
   namespace dr {
     namespace fr_law {
-      class BaseFrictionSolver;
-      class SolverNoFaultFL0;
-      class SolverImposedSlipRatesFL33; //ImposedSlipRateOnDRBoundary
+      class BaseFrictionSolver;     //Base class, has implementations of methods that are used by each friction law
+      class SolverNoFaultFL0;         // no friction computation at all
+      class SolverImposedSlipRatesFL33; //imposed slip rate on the boundary (through initial nucleation stress)
       class SolverBluePrint;  //Template to create new friction laws (if not required can be deleted, has no functionality otherwise)
     }
   }
@@ -24,16 +24,22 @@ namespace seissol {
 class seissol::dr::fr_law::BaseFrictionSolver {
 
 public:
+  /*
+   * Destructor, if if memory is allocated in this class, deallocate it here
+   */
   virtual ~BaseFrictionSolver() {}
 
-  //set the parameters from .par file with yaml to this class attributes.
+  /*
+   * set the parameters from .par file with yaml to this class attributes.
+   * this function is called at initialisation time. could be extended to intialize more parameters if needed.
+   */
   void setInputParam(dr::DrParameterT *DynRupParameter) {
     m_Params = DynRupParameter;
   }
 
 protected:
-  static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
-  static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
+  static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0]; // DISC%Galerkin%nBndGP
+  static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];  //number of points padded to next dividable number by four
   //YAML::Node m_InputParam;
   dr::DrParameterT        *m_Params;
   ImpedancesAndEta*       impAndEta;
@@ -59,6 +65,12 @@ protected:
   //be careful only for some FLs initialized:
   real  *averaged_Slip;
 
+  /*
+   * Struct that contains all input stresses and output stresses
+   * IN: NormalStressGP, XYStressGP, XZStressGP (Godunov stresses computed by precomputeStressFromQInterpolated)
+   * OUT: XYTractionResultGP, XZTractionResultGP and NormalStressGP (used to compute resulting +/- sided stress results by
+   * postcomputeImposedStateFromNewStress)
+   */
   struct FaultStresses{
     real XYTractionResultGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
     real XZTractionResultGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
@@ -110,7 +122,10 @@ protected:
     real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     unsigned int ltsFace
     ){
-
+    //this initialization of the kernel could be moved to the initializer,
+    //since all inputs outside the j-loop are time independent
+    //set inputParam could be extendent for this
+    //the kernel then could be a class attribute (but be careful of race conditions since this is computed in parallel!!)
     dynamicRupture::kernel::StressFromQInterpolated StressFromQInterpolatedKrnl;
     StressFromQInterpolatedKrnl.eta_p = impAndEta[ltsFace].eta_p;
     StressFromQInterpolatedKrnl.eta_s = impAndEta[ltsFace].eta_s;
@@ -145,6 +160,8 @@ protected:
    *
    * Integrate over all Time points with the time weights and calculate the traction vor each side according to
    * Carsten Uphoff Thesis: EQ.: 4.60
+   * IN: NormalStressGP, XYTractionResultGP, XZTractionResultGP
+   * OUT: imposedStatePlus, imposedStateMinus
    */
   void postcomputeImposedStateFromNewStress(
       real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -153,6 +170,10 @@ protected:
       real timeWeights[CONVERGENCE_ORDER],
       unsigned int ltsFace
       ){
+    //this initialization of the kernel could be moved to the initializer
+    //set inputParam could be extendent for this (or create own function)
+    //the kernel then could be a class attribute and following values are only set once
+    //(but be careful of race conditions since this is computed in parallel for each face!!)
     dynamicRupture::kernel::ImposedStateFromNewStress ImposedStateFromNewStressKrnl;
     ImposedStateFromNewStressKrnl.select0 = init::select0::Values;
     ImposedStateFromNewStressKrnl.select3 = init::select3::Values;
@@ -204,7 +225,7 @@ protected:
   }
 
   /*
-  * Function in NucleationFunctions_mod.f90
+  * Function from NucleationFunctions_mod.f90
   */
   real Calc_SmoothStep(real current_time){
     real Gnuc;
@@ -220,7 +241,10 @@ protected:
     return Gnuc;
   }
 
-  // output rupture front
+  /*
+   * output rupture front, saves update time of the rupture front
+   * rupture front is the first registered change in slip rates that exceeds 0.001
+   */
   void saveRuptureFrontOutput(
       unsigned int ltsFace
   ){
@@ -232,7 +256,9 @@ protected:
     }
   }
 
-
+  /*
+   * save the maximal computed slip rate magnitude in peakSR
+   */
   void savePeakSlipRateOutput(
       unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
@@ -261,6 +287,7 @@ protected:
 public:
   /*
    * evaluates the current friction model
+   * Friction laws (child classes) implement this function
    */
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                          seissol::initializers::DynamicRupture *dynRup,
@@ -283,7 +310,10 @@ public:
 
 };  //End BaseFrictionSolver Class
 
-
+/*
+ * No friction computation
+ * input stress XYStressGP, XZStressGP equals output XYTractionResultGP, XZTractionResultGP
+ */
 class seissol::dr::fr_law::SolverNoFaultFL0 : public seissol::dr::fr_law::BaseFrictionSolver {
 
 public:
@@ -317,7 +347,9 @@ public:
 };
 
 
-
+/*
+ * Slip rates are set fixed values (defined by nucleationStressInFaultCS)
+ */
 class seissol::dr::fr_law::SolverImposedSlipRatesFL33 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
@@ -331,7 +363,7 @@ protected:
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-    seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
+    seissol::initializers::LTS_ImposedSlipRatesFL33 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesFL33 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS);
     averaged_Slip             = layerData.var(ConcreteLts->averaged_Slip);
   }
@@ -451,6 +483,7 @@ public:
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
         /*
          * add friction law calculation here:
+         * computed slip rates, traction, friction coefficients and state variables
          */
       }
       // output rupture front

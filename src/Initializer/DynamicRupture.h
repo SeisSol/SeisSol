@@ -47,17 +47,15 @@
 namespace seissol {
   namespace initializers {
     struct DynamicRupture;
-    struct DR_linear;
-    struct DR_FL_3;
-    struct DR_FL_6;
-    struct DR_FL_16;
-    struct DR_FL_33;
-    struct DR_FL_103;
-    struct DR_FL_103_Thermal;
+    struct LTS_LinearSlipWeakeningFL2;
+    struct LTS_RateAndStateFL3;
+    struct LTS_LinearBimaterialFL6;
+    struct LTS_LinearSlipWeakeningFL16;
+    struct LTS_ImposedSlipRatesFL33;
+    struct LTS_RateAndStateFL103;
+    struct LTS_RateAndStateFL103TP;
   }
 }
-
-
 
 
 struct seissol::initializers::DynamicRupture {
@@ -143,7 +141,7 @@ public:
 };
 
 
-struct seissol::initializers::DR_linear : public seissol::initializers::DynamicRupture {
+struct seissol::initializers::LTS_LinearSlipWeakeningFL2 : public seissol::initializers::DynamicRupture {
     Variable<real[ numOfPointsPadded ]>                   d_c;
     Variable<real[ numOfPointsPadded ]>                   mu_S;
     Variable<real[ numOfPointsPadded ]>                   mu_D;
@@ -164,12 +162,12 @@ struct seissol::initializers::DR_linear : public seissol::initializers::DynamicR
     }
 };
 
-struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_linear {
+struct seissol::initializers::LTS_LinearSlipWeakeningFL16 : public seissol::initializers::LTS_LinearSlipWeakeningFL2 {
   Variable<real[ numOfPointsPadded ]>                   forced_rupture_time;
   Variable<real>                                        tn;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DR_linear::addTo(tree);
+    seissol::initializers::LTS_LinearSlipWeakeningFL2::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
@@ -177,7 +175,7 @@ struct seissol::initializers::DR_FL_16 : public seissol::initializers::DR_linear
 };
 
 
-struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRupture {
+struct seissol::initializers::LTS_RateAndStateFL3 : public seissol::initializers::DynamicRupture {
   //TODO: remove space independent parameters:  rs_f0, rs_b, rs_sr0 and use instead values from m_Param
   Variable<real>                                                  RS_f0;                      //face independent
   Variable<real>                                                  RS_a;                       //face independent
@@ -199,7 +197,7 @@ struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRup
 };
 
 
-struct seissol::initializers::DR_FL_33 : public seissol::initializers::DynamicRupture {
+struct seissol::initializers::LTS_ImposedSlipRatesFL33 : public seissol::initializers::DynamicRupture {
   Variable<real[numOfPointsPadded][6]>                            nucleationStressInFaultCS;
   Variable<real>                                                  averaged_Slip;
 
@@ -211,7 +209,7 @@ struct seissol::initializers::DR_FL_33 : public seissol::initializers::DynamicRu
     }
 };
 
-struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicRupture {
+struct seissol::initializers::LTS_RateAndStateFL103 : public seissol::initializers::DynamicRupture {
   Variable<real[numOfPointsPadded][6]>                            nucleationStressInFaultCS;
   Variable<real[ numOfPointsPadded ]>                             RS_sl0_array;
   Variable<real[ numOfPointsPadded ]>                             RS_a_array;
@@ -235,7 +233,7 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
   }
 };
 
-struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::DR_FL_103 {
+struct seissol::initializers::LTS_RateAndStateFL103TP : public seissol::initializers::LTS_RateAndStateFL103 {
 
   Variable<real[numOfPointsPadded]>                               temperature;  //this is TP[1] in fortran
   Variable<real[numOfPointsPadded]>                               pressure;     //this is TP[2] in fortran
@@ -245,7 +243,7 @@ struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::
   Variable<real[numOfPointsPadded]>                               alpha_hy;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DR_FL_103::addTo(tree);
+    seissol::initializers::LTS_RateAndStateFL103::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      temperature,                mask,                 1,      seissol::memory::Standard );
     tree.addVar(      pressure,                   mask,                 1,      seissol::memory::Standard );
@@ -257,12 +255,12 @@ struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::
 };
 
 
-struct seissol::initializers::DR_FL_6 : public seissol::initializers::DR_linear {
+struct seissol::initializers::LTS_LinearBimaterialFL6 : public seissol::initializers::LTS_LinearSlipWeakeningFL2 {
 
   Variable<real[numOfPointsPadded]>                               strengthData;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DR_linear::addTo(tree);
+    seissol::initializers::LTS_LinearSlipWeakeningFL2::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      strengthData,                   mask,                 1,      seissol::memory::Standard );
   }

@@ -14,22 +14,22 @@ namespace seissol {
   namespace dr {
     namespace fr_law {
       template <class Derived>
-      class LinearSlipWeakeningSolver;
+      class LinearSlipWeakeningSolver;      //generalization of Linear slip weakening laws
       class LinearSlipWeakeningSolverFL2;  //linear slip weakening
       class LinearSlipWeakeningSolverFL16; //Linear slip weakening forced time rapture
-      class LinearSlipWeakSolverBimaterialFL6;
+      class LinearSlipWeakSolverBimaterialFL6;  //solver for bimaterial faults, currently has a bug, solution to the bug inside the function
     }
   }
 }
 
 /*
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
- * specific implementation is done by overriding and implementing the hook functions.
+ * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
 template <class Derived>
 class seissol::dr::fr_law::LinearSlipWeakeningSolver : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
-  real                    u_0  = 10e-14; //slip rate is considered as being zero for instaneous healing
+  static constexpr real   u_0  = 10e-14;   //critical velocity at which slip rate is considered as being zero for instaneous healing
   real                    (*d_c)[numOfPointsPadded];
   real                    (*mu_S)[numOfPointsPadded];
   real                    (*mu_D)[numOfPointsPadded];
@@ -65,8 +65,10 @@ public:
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
+        //computes fault strength, which is the critical value whether active slip exists.
         static_cast<Derived*>(this)->calcStrengthHook(Strength, faultStresses, iTimeGP, ltsFace);
 
+        //computes resulting slip rates, traction and slip dependent on current friction coefficient and Strength
         calcSlipRateAndTraction(Strength, faultStresses, iTimeGP , ltsFace);
 
         //function g, output: stateVariablePsi & outputSlip
@@ -112,7 +114,7 @@ protected:
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-    seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
+    seissol::initializers::LTS_LinearSlipWeakeningFL2 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL2 *>(dynRup);
     d_c                                           = layerData.var(ConcreteLts->d_c);
     mu_S                                          = layerData.var(ConcreteLts->mu_S);
     mu_D                                          = layerData.var(ConcreteLts->mu_D);
@@ -210,19 +212,19 @@ protected:
   }
 
 
-
-
-};//End of Class
+};//End of Class LinearSlipWeakeningSolver
 
 /*
 *     !> friction case 16,17
 *     !> Specific conditions for SCEC TPV16/17
 *     !> basically, introduction of a time dependent forced rupture
 */
-
 class seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 : public seissol::dr::fr_law::LinearSlipWeakeningSolver<seissol::dr::fr_law::LinearSlipWeakeningSolverFL2> {
 public:
 
+  /*
+   * compute fault strength
+   */
   virtual void calcStrengthHook(
       std::array<real, numOfPointsPadded> &Strength,
       FaultStresses &faultStresses,
@@ -232,11 +234,14 @@ public:
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //-------------------------------------
       //calculate Fault Strength
-      //fault strength (Uphoff eq 2.44)
+      //fault strength (Uphoff eq 2.44) with addition cohesion term
       Strength[iBndGP] = cohesion[ltsFace][iBndGP] - mu[ltsFace][iBndGP] * std::min(initialStressInFaultCS[ltsFace][iBndGP][0] + faultStresses.NormalStressGP[iTimeGP][iBndGP], 0.0);
     }
   }
 
+  /*
+   * compute state variable
+   */
   virtual void calcStateVariableHook(
     std::array<real, numOfPointsPadded> &stateVariablePsi,
     std::array<real, numOfPointsPadded> &outputSlip,
@@ -284,7 +289,7 @@ protected:
     //first copy all Variables from the Base Lts dynRup tree
     LinearSlipWeakeningSolverFL2::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //maybe change later to const_cast?
-    seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
+    seissol::initializers::LTS_LinearSlipWeakeningFL16 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL16 *>(dynRup);
     forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
     tn                                            = layerData.var(ConcreteLts->tn);
   }
@@ -318,6 +323,11 @@ protected:
   }
 };
 
+/*
+ * Solver for Bimaterial faults, implements strength regularization (according to prakash clifton)
+ * currently regularized strength is not used (bug)
+ * State variable (slip) is not resampled in this friction law!
+ */
 class seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6 : public seissol::dr::fr_law::LinearSlipWeakeningSolver<seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6> {
 public:
   void calcStrengthHook(
@@ -371,7 +381,7 @@ protected:
     //first copy all Variables from the Base Lts dynRup tree
     LinearSlipWeakeningSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     //maybe change later to const_cast?
-    seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
+    seissol::initializers::LTS_LinearBimaterialFL6 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_LinearBimaterialFL6 *>(dynRup);
     strengthData = layerData.var(ConcreteLts->strengthData);
   }
 

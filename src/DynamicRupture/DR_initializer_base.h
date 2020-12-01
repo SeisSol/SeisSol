@@ -14,20 +14,27 @@
 #include <DynamicRupture/DR_Parameters.h>
 
 
+
+
 namespace seissol {
     namespace initializers {
-      class BaseDrInitializer;
-      class Init_FL_0;
-      class Init_linear; //FL2
-      class Init_FL_3; //aging law
-      class Init_FL_6;
-      class Init_FL_16;
-      class Init_FL_33;
-      class Init_FL_103;
-      class Init_FL_103_Thermal;
+      class BaseDrInitializer;            //general parameters initialized that are required by all friction laws
+      class Init_NoFaultFL0;              //No SolverNoFaultFL0
+      class Init_LinearSlipWeakeningFL2;  //general initialization for linear slip laws
+      class Init_RateAndStateFL3;         //aging law (need revisit)
+      class Init_LinearBimaterialFL6;     //for bimaterial faults
+      class Init_LinearSlipWeakeningFL16; //FL2 extended by forced rupture time
+      class Init_ImposedSlipRatesFL33;    //imposed slip rates on bounday
+      class Init_RateAndStateFL103;       //rate and state with time and space dependent nucleation parameter
+      class Init_RateAndStateFL103TP;     //Fl103 extended with thermal pressurization
     }
 }
-
+/*
+ * initial values are obtain
+ * from m_Params (direct in read from parameter.par file)
+ * from std::unordered_map<std::string, double*> faultParameters -> allocated matrices in Fortran with C++ pointer from Easi inread.
+ * from interoperabilty functions that access Fortran values and copy them in C++ memory (copy by value) (e.g. e_interoperability.getDynRupParameters())
+ */
 class seissol::initializers::BaseDrInitializer {
 protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
@@ -46,8 +53,7 @@ public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
         seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
-        std::unordered_map<std::string,
-        double*> faultParameters,
+        std::unordered_map<std::string, double*> faultParameters,
         unsigned* ltsFaceToMeshFace,
         seissol::Interoperability &e_interoperability) {
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
@@ -147,7 +153,10 @@ public:
 
 };
 
-class seissol::initializers::Init_FL_0: public seissol::initializers::BaseDrInitializer {
+/*
+ * only base initialization
+ */
+class seissol::initializers::Init_NoFaultFL0: public seissol::initializers::BaseDrInitializer {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -160,8 +169,10 @@ public:
   }
 };
 
-
-class seissol::initializers::Init_linear : public seissol::initializers::BaseDrInitializer {
+/*
+ * additional parameters for linear slip weakening
+ */
+class seissol::initializers::Init_LinearSlipWeakeningFL2 : public seissol::initializers::BaseDrInitializer {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
@@ -171,7 +182,7 @@ public:
         unsigned* ltsFaceToMeshFace,
         seissol::Interoperability &e_interoperability) override {
     BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_linear *ConcreteLts = dynamic_cast<seissol::initializers::DR_linear *>(dynRup);
+    seissol::initializers::LTS_LinearSlipWeakeningFL2 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL2 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -208,7 +219,10 @@ public:
   }
 };
 
-class seissol::initializers::Init_FL_16 : public seissol::initializers::Init_linear {
+/*
+ * forced rupture times initialized
+ */
+class seissol::initializers::Init_LinearSlipWeakeningFL16 : public seissol::initializers::Init_LinearSlipWeakeningFL2 {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -216,8 +230,8 @@ public:
                                           std::unordered_map<std::string, double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
+    Init_LinearSlipWeakeningFL2::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    seissol::initializers::LTS_LinearSlipWeakeningFL16 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL16 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -247,8 +261,10 @@ public:
 
 
 
-
-class seissol::initializers::Init_FL_33 : public seissol::initializers::BaseDrInitializer {
+/*
+ * nucleationStressInFaultCS initialized which is used to impose slip rates on the fault surface
+ */
+class seissol::initializers::Init_ImposedSlipRatesFL33 : public seissol::initializers::BaseDrInitializer {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
           initializers::LTSTree* dynRupTree,
@@ -257,7 +273,7 @@ public:
           unsigned* ltsFaceToMeshFace,
           seissol::Interoperability &e_interoperability) override {
     BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
+    seissol::initializers::LTS_ImposedSlipRatesFL33 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesFL33 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -278,7 +294,11 @@ public:
   }
 };
 
-class seissol::initializers::Init_FL_103 : public seissol::initializers::BaseDrInitializer {
+/*
+ * time and space dependent nucleation parameter for FL103
+ * plus state Variable and dynamic stress required for rate and state friction laws
+ */
+class seissol::initializers::Init_RateAndStateFL103 : public seissol::initializers::BaseDrInitializer {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -287,7 +307,7 @@ public:
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
     BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
+    seissol::initializers::LTS_RateAndStateFL103 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateFL103 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -333,7 +353,10 @@ public:
   }
 };
 
-class seissol::initializers::Init_FL_103_Thermal : public seissol::initializers::Init_FL_103 {
+/*
+ * initialize all thermal pressure parameters
+ */
+class seissol::initializers::Init_RateAndStateFL103TP : public seissol::initializers::Init_RateAndStateFL103 {
 public:
 
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
@@ -345,9 +368,9 @@ public:
 
 
     //BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    Init_FL_103::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_RateAndStateFL103::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
 
-    seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
+    seissol::initializers::LTS_RateAndStateFL103TP *ConcreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateFL103TP *>(dynRup);
     seissol::dr::fr_law::RateAndStateThermalFL103 *SolverFL103 = dynamic_cast<seissol::dr::fr_law::RateAndStateThermalFL103 *>(FrictionSolver);
     SolverFL103->initializeTP(e_interoperability);
 
@@ -386,8 +409,10 @@ public:
   }
 };
 
-
-class seissol::initializers::Init_FL_6 : public seissol::initializers::Init_linear {
+/*
+ * strength data is additionally initialized by computing it from friction and inital normal stress
+ */
+class seissol::initializers::Init_LinearBimaterialFL6 : public seissol::initializers::Init_LinearSlipWeakeningFL2 {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -396,8 +421,8 @@ public:
                                           double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    Init_linear::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
+    Init_LinearSlipWeakeningFL2::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    seissol::initializers::LTS_LinearBimaterialFL6 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_LinearBimaterialFL6 *>(dynRup);
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -421,8 +446,9 @@ public:
 
 /*
  * should be revisted !
+ * parameter could be obtain with m_Param (but initializer in Fortran does currently not suppport this friction law and FL4,7)
  */
-class seissol::initializers::Init_FL_3 : public seissol::initializers::BaseDrInitializer {
+class seissol::initializers::Init_RateAndStateFL3 : public seissol::initializers::BaseDrInitializer {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
@@ -431,7 +457,7 @@ public:
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
     BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, FrictionSolver, faultParameters, ltsFaceToMeshFace, e_interoperability);
-    seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
+    seissol::initializers::LTS_RateAndStateFL3 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateFL3 *>(dynRup);
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
@@ -455,8 +481,6 @@ public:
     }//leaf_iterator loop
   }
 };
-
-
 
 
 

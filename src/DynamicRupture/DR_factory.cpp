@@ -19,7 +19,7 @@ namespace seissol {
           //! coulomb model for linear slip weakening
           case linear_slip_weakening: return new Factory_FL_2;
           case linear_slip_weakening_forced_time_rupture: return new Factory_FL_16;
-          //! Coulomb model for linear slip weakening and bimaterial
+          //! Coulomb model for linear slip weakening and bimaterial (see pelties 2014)
           case linear_slip_weakening_bimaterial: return new Factory_FL_6;
 
           //!---- rate and state -----
@@ -38,7 +38,7 @@ namespace seissol {
               //!without thermal pressure
               return new Factory_FL_103;
             else
-              //!with thermal pressure
+              //!with thermal pressure (see Noda and Lapusta 2010)
               return new Factory_FL_103_Thermal;
 
           default:

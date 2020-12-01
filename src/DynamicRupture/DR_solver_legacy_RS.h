@@ -42,7 +42,7 @@ public:
                         real timeWeights[CONVERGENCE_ORDER]) override {
 
 
-    seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
+    seissol::initializers::LTS_RateAndStateFL3 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateFL3 *>(dynRup);
 
     seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus                           = layerData.var(ConcreteLts->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus                          = layerData.var(ConcreteLts->waveSpeedsMinus);
@@ -242,7 +242,7 @@ protected:
     //TODO: change later to const_cast
     //seissol::initializers::DR_lts_template *ConcreteLts = dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
-    seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
+    seissol::initializers::LTS_RateAndStateFL3 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateFL3 *>(dynRup);
     stateVar                        = layerData.var(ConcreteLts->stateVar);
     RS_sl0                          = layerData.var(ConcreteLts->RS_sl0);
     RS_a                            = layerData.var(ConcreteLts->RS_a);
