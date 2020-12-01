@@ -117,7 +117,7 @@ using asagiconv
 
 Asagiconv (Located
 `here <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/asagiconv>`__)
-allow querying data, vizualising and exporting to NetCDF data from the
+allows querying data, vizualising and exporting to NetCDF data from the
 3D Velocity Model for Southern California. For more detail, see `ASAGI
 docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
 
