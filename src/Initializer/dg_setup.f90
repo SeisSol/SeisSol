@@ -512,18 +512,23 @@ CONTAINS
       ! TODO: Transpose StateVar
       ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       !
-      DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
-      DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
-      DISC%DynRup%Slip          = 0.0D0
-      DISC%DynRup%Slip1         = 0.0D0
-      DISC%DynRup%Slip2         = 0.0D0
-      DISC%DynRup%TracXY        = 0.0D0
-      DISC%DynRup%TracXZ        = 0.0D0
-      DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-      DISC%DynRup%StateVar(:,:) = EQN%IniStateVar
-      DISC%DynRup%PeakSR        = 0.0D0
-      DISC%DynRup%rupture_time  = 0.0D0
-      DISC%DynRup%dynStress_time = 0.0D0
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          DISC%DynRup%SlipRate1(:, i) = 0.0
+          DISC%DynRup%SlipRate2(:, i) = 0.0
+          DISC%DynRup%Slip(:,i) = 0.0
+          DISC%DynRup%Slip1(:,i) = 0.0
+          DISC%DynRup%Slip2(:,i) = 0.0
+          DISC%DynRup%TracXY(:,i) = 0.0
+          DISC%DynRup%TracXZ(:,i) = 0.0
+          DISC%DynRup%Mu(:,i) = 0.0
+          DISC%DynRup%PeakSR(:,i) = 0.0
+          DISC%DynRup%rupture_time(:,i) = 0.0
+          DISC%DynRup%dynStress_time(:,i) = 0.0
+          DISC%DynRup%StateVar(:,i) = 0.0
+      END DO
 
       allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
@@ -534,6 +539,20 @@ CONTAINS
       allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
       allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          disc%DynRup%output_Mu(:,i) = 0.0
+          disc%DynRup%output_Strength(:,i) = 0.0
+          disc%DynRup%output_Slip(:,i) = 0.0
+          disc%DynRup%output_Slip1(:,i) = 0.0
+          disc%DynRup%output_Slip2(:,i) = 0.0
+          disc%DynRup%output_rupture_time(:,i) = 0.0
+          disc%DynRup%output_PeakSR(:,i) = 0.0
+          disc%DynRup%output_dynStress_time(:,i) = 0.0
+          disc%DynRup%output_StateVar(:,i) = 0.0
+      END DO
 
     else
         ! Allocate dummy arrays to avoid debug errors

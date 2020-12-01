@@ -345,11 +345,11 @@ MODULE ini_model_DR_mod
          ! Initialize w/ first-touch
          !$omp parallel do schedule(static)
          DO i=1,MESH%fault%nSide
-             DISC%DynRup%TP_Theta(DISC%Galerkin%nBndGP, i, nz) = 0.0
-             DISC%DynRup%TP_Sigma(DISC%Galerkin%nBndGP, i, nz) = 0.0
-             DISC%DynRup%TP(DISC%Galerkin%nBndGP, i, :) = 0.0
-             DISC%DynRup%alpha_hy(DISC%Galerkin%nBndGP, i) = 0.0
-             DISC%DynRup%TP_half_width_shear_zone(DISC%Galerkin%nBndGP, i) = 0.0
+             DISC%DynRup%TP_Theta(:, i, :) = 0.0
+             DISC%DynRup%TP_Sigma(:, i, :) = 0.0
+             DISC%DynRup%TP(:, i, :) = 0.0
+             DISC%DynRup%alpha_hy(:, i) = 0.0
+             DISC%DynRup%TP_half_width_shear_zone(:, i) = 0.0
          END DO
 
         call c_interoperability_addFaultParameter("alpha_hy" // c_null_char, DISC%DynRup%alpha_hy)
