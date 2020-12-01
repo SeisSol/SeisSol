@@ -50,6 +50,7 @@ Characteristics of the SeisSol simulation software are:
   environment-variables
   supermuc
   memory-requirements
+
 .. toctree::
   :maxdepth: 2
   :caption: Output
