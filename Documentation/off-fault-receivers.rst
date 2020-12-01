@@ -14,7 +14,6 @@ commented example:
   pickDtType = 1 ! Pickpoint Type
   nRecordPoints = 22 ! number of Record points which are read from file
   RFileName = 'receivers.dat' ! Record Points in extra file
-  iOutputMask = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1
   /
 
 If pickDtType = 2, the output is generated every N time steps, where N is
@@ -31,7 +30,9 @@ the form:
   (...)
   xn yn zn
 
-:ref:`wavefield-iouputmask` acts as well on the wavefield output.
+
+The receivers files contain the time-histories of the stress tensor (6 variables) and the particle velocities (3).
+Currently, there is no way to write only a subset of these variables.
 
 Placing free-surface receivers
 ------------------------------
