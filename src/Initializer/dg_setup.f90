@@ -516,18 +516,18 @@ CONTAINS
       ! Initialize w/ first-touch
       !$omp parallel do schedule(static)
       DO i=1,MESH%fault%nSide
-          DISC%DynRup%SlipRate1(:, i) = 0.0
-          DISC%DynRup%SlipRate2(:, i) = 0.0
+          DISC%DynRup%SlipRate1(:,i) = EQN%IniSlipRate1
+          DISC%DynRup%SlipRate2(:,i) = EQN%IniSlipRate2
           DISC%DynRup%Slip(:,i) = 0.0
           DISC%DynRup%Slip1(:,i) = 0.0
           DISC%DynRup%Slip2(:,i) = 0.0
           DISC%DynRup%TracXY(:,i) = 0.0
           DISC%DynRup%TracXZ(:,i) = 0.0
-          DISC%DynRup%Mu(:,i) = 0.0
+          DISC%DynRup%StateVar(:,i) = EQN%IniStateVar(:,i)
+          DISC%DynRup%Mu(:,i) = EQN%IniMu(:,i)
           DISC%DynRup%PeakSR(:,i) = 0.0
           DISC%DynRup%rupture_time(:,i) = 0.0
           DISC%DynRup%dynStress_time(:,i) = 0.0
-          DISC%DynRup%StateVar(:,i) = 0.0
       END DO
 
       allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
