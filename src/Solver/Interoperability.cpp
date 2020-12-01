@@ -1063,7 +1063,7 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
   }
   else {
     double fraction = device.api->getCurrentlyOccupiedMem() / static_cast<double>(device.api->getMaxAvailableMem());
-    logInfo(rank) << "occupied memory on device: " << fraction * 100.0 << "%";
+    logInfo() << "occupied memory on device: " << fraction * 100.0 << "%";
   }
 #endif
 }
