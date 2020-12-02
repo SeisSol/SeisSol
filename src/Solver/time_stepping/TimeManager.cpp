@@ -301,7 +301,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
 
 #ifdef ACL_DEVICE
   device::DeviceInstance &device = device::DeviceInstance::getInstance();
-  device.api->putProfilingMark("advanceInTime", ProfilingColors::Blue);
+  device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
   // iterate until all queues are empty and the next synchronization point in time is reached
   while( !( m_localCopyQueue.empty()       && m_localInteriorQueue.empty() &&

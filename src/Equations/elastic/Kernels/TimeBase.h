@@ -75,7 +75,6 @@
 
 #ifdef ACL_DEVICE
 #include <device.h>
-using namespace device;
 #endif // ACL_DEVICE
 
 namespace seissol {
@@ -94,7 +93,7 @@ class seissol::kernels::TimeBase {
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;
-    DeviceInstance& device = DeviceInstance::getInstance();
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
 public:

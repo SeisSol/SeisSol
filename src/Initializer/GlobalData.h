@@ -53,11 +53,19 @@ namespace seissol {
     namespace matrixmanip {
       struct OnHost {
         static void negateStiffnessMatrix(GlobalData& globalData);
+        static void initLTSIntegrationBuffers(GlobalData& globalData,
+                                              memory::ManagedAllocator& allocator,
+                                              size_t alignment,
+                                              seissol::memory::Memkind memkind);
         using CopyManagerT = typename yateto::DefaultCopyManager<real>;
       };
 
       struct OnDevice {
         static void negateStiffnessMatrix(GlobalData& globalData);
+        static void initLTSIntegrationBuffers(GlobalData& globalData,
+                                              memory::ManagedAllocator& allocator,
+                                              size_t alignment,
+                                              seissol::memory::Memkind memkind);
         struct DeviceCopyPolicy {
           real* copy(real const* first, real const* last, real*& mem);
         };

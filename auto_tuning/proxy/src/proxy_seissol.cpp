@@ -91,9 +91,9 @@ extern long long pspamm_num_total_flops;
 #endif
 
 #ifdef ACL_DEVICE
-#define COMPUTE_NAMESPACE proxy::device
+using namespace proxy::device;
 #else
-#define COMPUTE_NAMESPACE proxy::cpu
+using namespace proxy::cpu;
 #endif
 
 enum Kernel { all = 0, local, neigh, ader, localwoader, neigh_dr, godunov_dr };
@@ -104,29 +104,29 @@ void testKernel(unsigned kernel, unsigned timesteps) {
   switch (kernel) {
     case all:
       for (; t < timesteps; ++t) {
-        COMPUTE_NAMESPACE::computeLocalIntegration();
-        COMPUTE_NAMESPACE::computeNeighboringIntegration();
+        computeLocalIntegration();
+        computeNeighboringIntegration();
       }
       break;
     case local:
       for (; t < timesteps; ++t) {
-        COMPUTE_NAMESPACE::computeLocalIntegration();
+        computeLocalIntegration();
       }
       break;
     case neigh:
     case neigh_dr:
       for (; t < timesteps; ++t) {
-        COMPUTE_NAMESPACE::computeNeighboringIntegration();
+        computeNeighboringIntegration();
       }
       break;
     case ader:
       for (; t < timesteps; ++t) {
-        COMPUTE_NAMESPACE::computeAderIntegration();
+        computeAderIntegration();
       }
       break;
     case localwoader:
       for (; t < timesteps; ++t) {
-        COMPUTE_NAMESPACE::computeLocalWithoutAderIntegration();
+        computeLocalWithoutAderIntegration();
       }
       break;    
     case godunov_dr:
@@ -134,7 +134,7 @@ void testKernel(unsigned kernel, unsigned timesteps) {
       printf("godunov_dr has not been implemented for acl. device");
 #else
       for (; t < timesteps; ++t) {
-        COMPUTE_NAMESPACE::computeDynRupGodunovState();
+        computeDynRupGodunovState();
       }
 #endif
       break;
@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
   }
 
 #ifdef ACL_DEVICE
-  DeviceInstance &device = DeviceInstance::getInstance();
+  deviceT &device = deviceT::getInstance();
   device.api->initialize();
   device.api->setDevice(0);
   device.api->allocateStackMem();

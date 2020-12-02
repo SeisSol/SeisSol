@@ -59,6 +59,38 @@ namespace seissol::initializers {
       }
     }
 
+    void OnHost::initLTSIntegrationBuffers(GlobalData& globalData,
+                                           memory::ManagedAllocator& allocator,
+                                           size_t alignment,
+                                           seissol::memory::Memkind memkind) {
+      // thread-local LTS integration buffers
+      int l_numberOfThreads = 1;
+#ifdef _OPENMP
+        l_numberOfThreads = omp_get_max_threads();
+#endif
+        real *integrationBufferLTS
+          = (real *) allocator.allocateMemory(l_numberOfThreads * (4 * tensor::I::size()) * sizeof(real),
+                                                          alignment,
+                                                          memkind);
+
+      // initialize w.r.t. NUMA
+      #ifdef _OPENMP
+      #pragma omp parallel
+      {
+        size_t l_threadOffset = omp_get_thread_num() * (4 * tensor::I::size());
+      #else
+        size_t l_threadOffset = 0;
+      #endif
+        for (unsigned int l_dof = 0; l_dof < (4 * tensor::I::size()); l_dof++) {
+          integrationBufferLTS[l_dof + l_threadOffset] = (real) 0.0;
+        }
+      #ifdef _OPENMP
+      }
+      #endif
+
+      globalData.integrationBufferLTS = integrationBufferLTS;
+    }
+
 
     void OnDevice::negateStiffnessMatrix(GlobalData &globalData) {
 #ifdef ACL_DEVICE
@@ -70,6 +102,12 @@ namespace seissol::initializers {
                                init::kDivMT::size(transposedStiffness));
       }
 #endif // ACL_DEVICE
+    }
+    void OnDevice::initLTSIntegrationBuffers(GlobalData& globalData,
+                                             memory::ManagedAllocator& allocator,
+                                             size_t alignment,
+                                             seissol::memory::Memkind memkind) {
+    /*empty on purpose*/
     }
     real* OnDevice::DeviceCopyPolicy::copy(real const* first, real const* last, real*& mem) {
 #ifdef ACL_DEVICE
@@ -93,8 +131,8 @@ namespace seissol::initializers {
 
 template<typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
-                                                    memory::ManagedAllocator& memoryAllocator,
-                                                    enum seissol::memory::Memkind memkind) {
+                                                     memory::ManagedAllocator& memoryAllocator,
+                                                     enum seissol::memory::Memkind memkind) {
   aux::MemProperties prop{};
   if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnHost>) {
     prop.alignment = ALIGNMENT;
@@ -184,40 +222,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
 
-  if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnHost>) {
-    // thread-local LTS integration buffers
-    int l_numberOfThreads = 1;
-#ifdef _OPENMP
-    l_numberOfThreads = omp_get_max_threads();
-#endif
-    real *integrationBufferLTS
-        = (real *) memoryAllocator.allocateMemory(l_numberOfThreads * (4 * tensor::I::size()) * sizeof(real),
-                                                  prop.pagesizeStack,
-                                                  memkind);
-
-    // initialize w.r.t. NUMA
-#ifdef _OPENMP
-#pragma omp parallel
-    {
-      size_t l_threadOffset = omp_get_thread_num() * (4 * tensor::I::size());
-#else
-      size_t l_threadOffset = 0;
-#endif
-      for (unsigned int l_dof = 0; l_dof < (4 * tensor::I::size()); l_dof++) {
-        integrationBufferLTS[l_dof + l_threadOffset] = (real) 0.0;
-      }
-#ifdef _OPENMP
-    }
-#endif
-
-    globalData.integrationBufferLTS = integrationBufferLTS;
-  }
-  else if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnDevice>) {
-    globalData.integrationBufferLTS = nullptr;
-  }
-  else {
-    assert(false && "MatrixManipPolicy must be either OnHost or OnDevice");
-  }
+  MatrixManipPolicyT::initLTSIntegrationBuffers(globalData, memoryAllocator, prop.pagesizeStack, memkind);
 }
 
 template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,

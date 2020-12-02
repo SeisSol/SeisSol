@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-using namespace device;
 
 namespace seissol::initializers::recording {
 
@@ -53,7 +52,7 @@ public:
 private:
   std::vector<real *> pointers{};
   real **devicePtrs{nullptr};
-  DeviceInstance &device = DeviceInstance::getInstance();
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
 };
 
 /**

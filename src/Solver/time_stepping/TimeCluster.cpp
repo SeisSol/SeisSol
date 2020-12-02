@@ -192,7 +192,7 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
 
 void seissol::time_stepping::TimeCluster::computeSources() {
 #ifdef ACL_DEVICE
-  device.api->putProfilingMark("computeSources", ProfilingColors::Blue);
+  device.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
 #endif
   SCOREP_USER_REGION( "computeSources", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -235,7 +235,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
 #ifdef ACL_DEVICE
-  device.api->putProfilingMark("computeDynamic", ProfilingColors::Cyan);
+  device.api->putProfilingMark("computeDynamic", device::ProfilingColors::Cyan);
 #endif
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -517,7 +517,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 #else // ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
-  device.api->putProfilingMark("computeLocalIntegration", ProfilingColors::Yellow);
+  device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
@@ -661,7 +661,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 }
 #else // ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
-  device.api->putProfilingMark("computeNeighboring", ProfilingColors::Red);
+  device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 

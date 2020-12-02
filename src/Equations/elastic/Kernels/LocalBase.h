@@ -51,7 +51,6 @@
 
 #ifdef ACL_DEVICE
 #include <device.h>
-using namespace device;
 #endif
 
 namespace seissol {
@@ -77,7 +76,7 @@ class seissol::kernels::LocalBase {
   kernel::gpu_volume deviceVolumeKernelPrototype;
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
-  DeviceInstance& device = DeviceInstance::getInstance();
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
     const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
