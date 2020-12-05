@@ -65,8 +65,8 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.selectEla = init::selectEla::Values;
 }
 
-void seissol::kernels::Time::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
-  setHostGlobalData(std::get<SystemType::Host>(global));
+void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 }
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,

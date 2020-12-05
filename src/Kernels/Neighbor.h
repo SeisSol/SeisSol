@@ -84,7 +84,7 @@ namespace seissol {
 class seissol::kernels::Neighbor : public NeighborBase {
   public:
     void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const std::pair<GlobalData*, GlobalData*>& global);
+    void setGlobalData(const CompoundGlobalData& global);
 
     void computeNeighborsIntegral(NeighborData& data,
                                   CellDRMapping const (&cellDrMapping)[4],

@@ -284,7 +284,7 @@ class seissol::initializers::MemoryManager {
      * @param o_globalData global data.
      * @param o_globalDataCopies several copies of global data
      **/
-    std::pair<MeshStructure*, std::pair<GlobalData*, GlobalData*>>
+    std::pair<MeshStructure*, CompoundGlobalData>
     getMemoryLayout(unsigned int i_cluster);
                           
     inline LTSTree* getLtsTree() {

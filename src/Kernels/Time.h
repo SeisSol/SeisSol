@@ -88,7 +88,7 @@ namespace seissol {
 class seissol::kernels::Time : public TimeBase {
   public:
     void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const std::pair<GlobalData*, GlobalData*>& global);
+    void setGlobalData(const CompoundGlobalData& global);
 
     void computeAder( double                      i_timeStepWidth,
                       LocalData&                  data,

@@ -52,32 +52,38 @@ namespace seissol {
   namespace initializers {
     namespace matrixmanip {
       struct OnHost {
-        static void negateStiffnessMatrix(GlobalData& globalData);
-        static void initLTSIntegrationBuffers(GlobalData& globalData,
-                                              memory::ManagedAllocator& allocator,
-                                              size_t alignment,
-                                              seissol::memory::Memkind memkind);
         using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+        static MemoryProperties getProperties();
+        static void negateStiffnessMatrix(GlobalData& globalData);
+        static void initSpecificGlobalData(GlobalData& globalData,
+                                           memory::ManagedAllocator& allocator,
+                                           CopyManagerT& copyManager,
+                                           size_t alignment,
+                                           seissol::memory::Memkind memkind);
       };
 
       struct OnDevice {
-        static void negateStiffnessMatrix(GlobalData& globalData);
-        static void initLTSIntegrationBuffers(GlobalData& globalData,
-                                              memory::ManagedAllocator& allocator,
-                                              size_t alignment,
-                                              seissol::memory::Memkind memkind);
         struct DeviceCopyPolicy {
           real* copy(real const* first, real const* last, real*& mem);
         };
         using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+        static MemoryProperties getProperties();
+        static void negateStiffnessMatrix(GlobalData& globalData);
+        static void initSpecificGlobalData(GlobalData& globalData,
+                                           memory::ManagedAllocator& allocator,
+                                           CopyManagerT& copyManager,
+                                           size_t alignment,
+                                           seissol::memory::Memkind memkind);
       };
     }  // namespace matrixmanip
 
 
-    //Generalized Global data initializers of SeisSol.
+    // Generalized Global data initializers of SeisSol.
     template<typename MatrixManipPolicyT>
     struct GlobalDataInitializer {
-      static void init(GlobalData &globalData, memory::ManagedAllocator &memoryAllocator, enum seissol::memory::Memkind memkind);
+      static void init(GlobalData &globalData,
+                       memory::ManagedAllocator &memoryAllocator,
+                       enum memory::Memkind memkind);
     };
 
     // Specific Global data initializers of SeisSol.

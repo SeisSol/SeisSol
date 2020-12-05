@@ -78,8 +78,8 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Neighbor::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
-  setHostGlobalData(std::get<SystemType::Host>(global));
+void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,

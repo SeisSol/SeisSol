@@ -82,7 +82,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
     MeshStructure* l_meshStructure = nullptr;
-    std::pair<GlobalData*, GlobalData*> l_globalData{nullptr, nullptr};
+    CompoundGlobalData l_globalData;
 
     // get memory layout of this cluster
     std::tie(l_meshStructure, l_globalData) = i_memoryManager.getMemoryLayout(l_cluster);

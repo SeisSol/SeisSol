@@ -57,7 +57,7 @@ namespace seissol {
 class seissol::kernels::Local : public LocalBase {
   public:
     void setHostGlobalData(GlobalData const* global);
-    void setGlobalData(const std::pair<GlobalData*, GlobalData*>& global);
+    void setGlobalData(const CompoundGlobalData& global);
 
     void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                          LocalData& data,

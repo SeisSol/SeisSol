@@ -98,7 +98,7 @@ extern seissol::Interoperability e_interoperability;
 seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
                                                   unsigned int                   i_globalClusterId,
                                                   MeshStructure                 *i_meshStructure,
-                                                  std::pair<GlobalData*, GlobalData*> i_globalData,
+                                                  CompoundGlobalData             i_globalData,
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
@@ -110,8 +110,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // mesh structure
  m_meshStructure(           i_meshStructure            ),
  // global data
- m_globalDataOnHost( std::get<SystemType::Host>(i_globalData) ),
- m_globalDataOnDevice( std::get<SystemType::Device>(i_globalData) ),
+ m_globalDataOnHost( i_globalData.onHost ),
+ m_globalDataOnDevice(i_globalData.onDevice ),
  m_clusterData(             i_clusterData              ),
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),

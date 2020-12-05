@@ -319,7 +319,7 @@ struct GlobalData {
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
    **/
-  real *integrationBufferLTS;
+  real *integrationBufferLTS{nullptr};
   
    /** 
    * Addresses of the global nodal flux matrices
@@ -359,14 +359,19 @@ struct GlobalData {
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
-  real* evalAtQPMatrix;
+  real* evalAtQPMatrix{nullptr};
 
   //! Project function evaluated at quadrature points to modal basis
-  real* projectQPMatrix;
+  real* projectQPMatrix{nullptr};
   
   //! Switch to nodal for plasticity
-  real* vandermondeMatrix;
-  real* vandermondeMatrixInverse;
+  real* vandermondeMatrix{nullptr};
+  real* vandermondeMatrixInverse{nullptr};
+};
+
+struct CompoundGlobalData {
+  GlobalData* onHost{nullptr};
+  GlobalData* onDevice{nullptr};
 };
 
 // data for the cell local integration
@@ -493,6 +498,13 @@ struct BoundaryFaceInformation {
   real TinvData[seissol::tensor::Tinv::size()];
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+};
+
+
+struct MemoryProperties {
+  size_t alignment{1};
+  size_t pagesizeHeap{1};
+  size_t pagesizeStack{1};
 };
 
 #endif

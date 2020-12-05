@@ -388,8 +388,8 @@ private:
      **/
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
-                 MeshStructure          *i_meshStructure,
-                 std::pair<GlobalData*, GlobalData*> i_globalData,
+                 MeshStructure                  *i_meshStructure,
+                 CompoundGlobalData             i_globalData,
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,

@@ -117,15 +117,14 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   displacementAvgNodalPrototype.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
 }
 
-void seissol::kernels::Time::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
-  setHostGlobalData(std::get<SystemType::Host>(global));
+void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
-  GlobalData* globalDataOnDevice = std::get<SystemType::Device>(global);
-  assert(globalDataOnDevice != nullptr);
+  assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(globalDataOnDevice, deviceAlignment);
-  deviceKrnlPrototype.kDivMT = globalDataOnDevice->stiffnessMatricesTransposed;
+  checkGlobalData(global.onDevice, deviceAlignment);
+  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
 #endif
 }
 

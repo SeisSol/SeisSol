@@ -106,19 +106,18 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
 }
 
-void seissol::kernels::Neighbor::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
-  setHostGlobalData(std::get<SystemType::Host>(global));
+void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
-  GlobalData* globalDataOnDevice = std::get<SystemType::Device>(global);
-  assert(globalDataOnDevice != nullptr);
+  assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(globalDataOnDevice, deviceAlignment);
+  checkGlobalData(global.onDevice, deviceAlignment);
 
-  deviceNfKrnlPrototype.rDivM = globalDataOnDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = globalDataOnDevice->neighbourChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = globalDataOnDevice->neighbourFluxMatrices;
-  deviceDrKrnlPrototype.V3mTo2nTWDivM = globalDataOnDevice->nodalFluxMatrices;
+  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
 }
 

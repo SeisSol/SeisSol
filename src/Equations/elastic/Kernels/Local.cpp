@@ -85,19 +85,18 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
 
-void seissol::kernels::Local::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
-  setHostGlobalData(std::get<SystemType::Host>(global));
+void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
-  GlobalData* globalDataOnDevice = std::get<SystemType::Device>(global);
-  assert(globalDataOnDevice != nullptr);
+  assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(globalDataOnDevice, deviceAlignment);
+  checkGlobalData(global.onDevice, deviceAlignment);
 
-  deviceVolumeKernelPrototype.kDivM = globalDataOnDevice->stiffnessMatrices;
-  deviceLocalFluxKernelPrototype.rDivM = globalDataOnDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = globalDataOnDevice->localChangeOfBasisMatricesTransposed;
-  deviceNodalLfKrnlPrototype.project2nFaceTo3m = globalDataOnDevice->project2nFaceTo3m;
+  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
 #endif
 }
 

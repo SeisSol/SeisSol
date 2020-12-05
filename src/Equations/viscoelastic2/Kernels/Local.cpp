@@ -69,8 +69,8 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Local::setGlobalData(const std::pair<GlobalData*, GlobalData*>& global) {
-  setHostGlobalData(std::get<SystemType::Host>(global));
+void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],

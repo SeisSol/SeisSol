@@ -95,14 +95,15 @@ void initGlobalData() {
                                                            *m_allocator,
                                                            MEMKIND_GLOBAL);
 
-  GlobalData* deviceGlobalData = nullptr;
+  CompoundGlobalData globalData{};
+  globalData.onHost = &m_globalDataOnHost;
+  globalData.onDevice = nullptr;
   if constexpr (seissol::isDeviceOn()) {
     seissol::initializers::GlobalDataInitializerOnDevice::init(m_globalDataOnDevice,
                                                                *m_allocator,
                                                                seissol::memory::DeviceGlobalMemory);
-    deviceGlobalData = &m_globalDataOnDevice;
+    globalData.onDevice = &m_globalDataOnDevice;
   }
-  auto globalData = std::make_pair(&m_globalDataOnHost, deviceGlobalData);
   m_timeKernel.setGlobalData(globalData);
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);

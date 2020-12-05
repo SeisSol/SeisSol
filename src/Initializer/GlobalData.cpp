@@ -50,6 +50,14 @@ namespace init = seissol::init;
 
 namespace seissol::initializers {
   namespace matrixmanip {
+    MemoryProperties OnHost::getProperties() {
+      MemoryProperties prop{};
+      prop.alignment = ALIGNMENT;
+      prop.pagesizeHeap = PAGESIZE_HEAP;
+      prop.pagesizeStack = PAGESIZE_STACK;
+      return prop;
+    }
+
     void OnHost::negateStiffnessMatrix(GlobalData &globalData) {
       for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
         real *matrix = const_cast<real *>(globalData.stiffnessMatricesTransposed(transposedStiffness));
@@ -59,10 +67,11 @@ namespace seissol::initializers {
       }
     }
 
-    void OnHost::initLTSIntegrationBuffers(GlobalData& globalData,
-                                           memory::ManagedAllocator& allocator,
-                                           size_t alignment,
-                                           seissol::memory::Memkind memkind) {
+    void OnHost::initSpecificGlobalData(GlobalData& globalData,
+                                        memory::ManagedAllocator& allocator,
+                                        CopyManagerT& copyManager,
+                                        size_t alignment,
+                                        seissol::memory::Memkind memkind) {
       // thread-local LTS integration buffers
       int l_numberOfThreads = 1;
 #ifdef _OPENMP
@@ -91,6 +100,16 @@ namespace seissol::initializers {
       globalData.integrationBufferLTS = integrationBufferLTS;
     }
 
+    MemoryProperties OnDevice::getProperties() {
+      MemoryProperties prop{};
+#ifdef ACL_DEVICE
+      device::DeviceInstance& device = device::DeviceInstance::getInstance();
+      prop.alignment = device.api->getGlobMemAlignment();
+      prop.pagesizeHeap = prop.alignment;
+      prop.pagesizeStack = prop.alignment;
+#endif
+      return prop;
+    }
 
     void OnDevice::negateStiffnessMatrix(GlobalData &globalData) {
 #ifdef ACL_DEVICE
@@ -103,12 +122,14 @@ namespace seissol::initializers {
       }
 #endif // ACL_DEVICE
     }
-    void OnDevice::initLTSIntegrationBuffers(GlobalData& globalData,
-                                             memory::ManagedAllocator& allocator,
-                                             size_t alignment,
-                                             seissol::memory::Memkind memkind) {
-    /*empty on purpose*/
+    void OnDevice::initSpecificGlobalData(GlobalData& globalData,
+                                          memory::ManagedAllocator& allocator,
+                                          CopyManagerT& copyManager,
+                                          size_t alignment,
+                                          seissol::memory::Memkind memkind) {
+      /*empty on purpose*/
     }
+
     real* OnDevice::DeviceCopyPolicy::copy(real const* first, real const* last, real*& mem) {
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -120,38 +141,13 @@ namespace seissol::initializers {
     }
 
   } // namespace matrixmanip
-  namespace aux {
-    struct MemProperties {
-      size_t alignment{1};
-      size_t pagesizeHeap{1};
-      size_t pagesizeStack{1};
-    };
-  } // namespace aux
 
 
 template<typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
                                                      enum seissol::memory::Memkind memkind) {
-  aux::MemProperties prop{};
-  if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnHost>) {
-    prop.alignment = ALIGNMENT;
-    prop.pagesizeHeap = PAGESIZE_HEAP;
-    prop.pagesizeStack = PAGESIZE_STACK;
-  }
-  else if constexpr (std::is_same_v<MatrixManipPolicyT, matrixmanip::OnDevice>) {
-#ifdef ACL_DEVICE
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    prop.alignment = device.api->getGlobMemAlignment();
-    prop.pagesizeHeap = prop.alignment;
-    prop.pagesizeStack = prop.alignment;
-#else
-    assert(false && "error due to a call to a device functionality without compiling SeisSol for GPU execution");
-#endif // ACL_DEVICE
-  }
-  else {
-    assert(false && "MatrixManipPolicy must be either OnHost or OnDevice");
-  }
+  MemoryProperties prop = MatrixManipPolicyT::getProperties();
 
   // We ensure that global matrices always start at an aligned memory address,
   // such that mixed cases with aligned and non-aligned global matrices do also work.
@@ -222,7 +218,11 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
 
-  MatrixManipPolicyT::initLTSIntegrationBuffers(globalData, memoryAllocator, prop.pagesizeStack, memkind);
+  MatrixManipPolicyT::initSpecificGlobalData(globalData,
+                                             memoryAllocator,
+                                             copyManager,
+                                             prop.pagesizeStack,
+                                             memkind);
 }
 
 template void GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
