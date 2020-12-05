@@ -97,9 +97,9 @@ namespace seissol::initializers {
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
       for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
         const real scaleFactor = -1.0;
-        device.api->scaleArray(const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
-                               scaleFactor,
-                               init::kDivMT::size(transposedStiffness));
+        device.algorithms.scaleArray(const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
+                                     scaleFactor,
+                                     init::kDivMT::size(transposedStiffness));
       }
 #endif // ACL_DEVICE
     }
