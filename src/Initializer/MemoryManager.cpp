@@ -737,7 +737,7 @@ void seissol::initializers::MemoryManager::recordExecutionPaths() {
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
 #ifdef USE_PLASTICITY
-  Recorder.addRecorder(new recording::PlasticityRecorder);
+  recorder.addRecorder(new recording::PlasticityRecorder);
 #endif
 
   for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {

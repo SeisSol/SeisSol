@@ -674,16 +674,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   m_neighborKernel.computeBatchedNeighborsIntegral(table);
 
 #ifdef USE_PLASTICITY
-  PlasticityData* Plasticity = i_layerData.var(m_lts->plasticity);
-  unsigned NumAdjustedDofs = seissol::kernels::Plasticity::computePlasticityWithinWorkItem(m_relaxTime,
-                                                                                           m_timeStepWidth,
-                                                                                           m_deviceGlobalData,
-                                                                                           Table,
-                                                                                           Plasticity);
-
-  g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + NumAdjustedDofs * m_flops_nonZero[PlasticityYield];
-  g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + NumAdjustedDofs * m_flops_hardware[PlasticityYield];
-
+  assert(false && "plasticity is not currently supported for batched computations");
 #endif
 
   device.api->synchDevice();
