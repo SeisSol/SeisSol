@@ -639,7 +639,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 #ifdef USE_PLASTICITY
   numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
                                                                                      m_timeStepWidth,
-                                                                                     m_globalData,
+                                                                                     m_globalDataOnHost,
                                                                                      &plasticity[l_cell],
                                                                                      data.dofs,
                                                                                      pstrain[l_cell] );
