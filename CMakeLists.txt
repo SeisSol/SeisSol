@@ -220,6 +220,10 @@ endif()
 
 # Parmetis
 if (METIS)
+  find_package(METIS REQUIRED)
+  if (NOT METIS_64_BIT_INTEGER)
+    message(WARNING "Found METIS which does not support IDXTYPEWIDTH = 64. But this is required for SeisSol.")
+  endif()
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
