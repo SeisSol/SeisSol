@@ -12,19 +12,21 @@ void PlasticityRecorder::record(LTS &handler, Layer &layer) {
   setUpContext(handler, layer, loader);
 
   real(*pstrains)[7] = currentLayer->var(currentHandler->pstrain);
-  size_t NodalStressTensorCounter = 0;
+  size_t nodalStressTensorCounter = 0;
   real *scratchMem = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
   if (currentLayer->getNumberOfCells()) {
     std::vector<real *> dofsPtrs{};
     std::vector<real *> qstressNodalPtrs{};
     std::vector<real *> pstransPtrs{};
+    std::vector<real *> initialLoadPtrs{};
 
     for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
-      auto Data = currentLoader->entry(cell);
-      dofsPtrs.push_back(static_cast<real *>(Data.dofs));
-      qstressNodalPtrs.push_back(&scratchMem[NodalStressTensorCounter]);
-      NodalStressTensorCounter += tensor::QStressNodal::size();
+      auto data = currentLoader->entry(cell);
+      dofsPtrs.push_back(static_cast<real *>(data.dofs));
+      qstressNodalPtrs.push_back(&scratchMem[nodalStressTensorCounter]);
+      nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs.push_back(static_cast<real *>(pstrains[cell]));
+      initialLoadPtrs.push_back(static_cast<real *>(data.plasticity.initialLoading));
     }
     if (!dofsPtrs.empty()) {
       ConditionalKey key(*KernelNames::Plasticity);
@@ -32,6 +34,7 @@ void PlasticityRecorder::record(LTS &handler, Layer &layer) {
       (*currentTable)[key].content[*EntityId::Dofs] = new BatchPointers(dofsPtrs);
       (*currentTable)[key].content[*EntityId::NodalStressTensor] = new BatchPointers(qstressNodalPtrs);
       (*currentTable)[key].content[*EntityId::Pstrains] = new BatchPointers(pstransPtrs);
+      (*currentTable)[key].content[*EntityId::InitialLoad] = new BatchPointers(initialLoadPtrs);
     }
   }
 }

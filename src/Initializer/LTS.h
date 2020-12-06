@@ -138,8 +138,8 @@ struct seissol::initializers::LTS {
     tree.addBucket(displacementsBuffer,                         PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE
-    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
-    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
+    tree.addVar(   localIntegrationOnDevice,           LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
+    tree.addVar(   neighIntegrationOnDevice,           LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
     tree.addScratchpadMemory(  idofsScratch,                      1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
 #endif
