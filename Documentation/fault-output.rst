@@ -107,6 +107,12 @@ iOutputMask
 
 same as for ParaView output.
 
+
+seissolxdmf
+~~~~~~~~~~~
+
+SeisSol paraview files (XDMF/Hdf5 or XDMF/binary files, describing the fault outputs and the free-surface/volume wavefield) can also be read using our python module `seissolxdmf <https://pypi.org/project/seissolxdmf/>`__.
+
 Additional Ascii output
 -----------------------
 

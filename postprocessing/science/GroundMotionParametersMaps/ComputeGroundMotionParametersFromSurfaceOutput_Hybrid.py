@@ -52,7 +52,7 @@ import argparse
 from multiprocessing import Pool,cpu_count,Manager
 import time
 import lxml.etree as ET
-from pythonXdmfReader.pythonXdmfReader import *
+import seissolxdmf as sx
 
 sys.path.append("%s/gmpe-smtk/" %(os.path.dirname(sys.argv[0])))
 try:
@@ -168,8 +168,8 @@ if args.ipp:
 else:
    myfunc = gmrotdpp_withPG
 
-dt = ReadTimeStep(args.filename)
-nElements = ReadNElements(args.filename)
+dt = sx.ReadTimeStep(args.filename)
+nElements = sx.ReadNElements(args.filename)
 
 #split the input array in nranks inputs
 inputs0 = np.arange(0, nElements)
@@ -178,8 +178,9 @@ inputs = inputsi[irank]
 nElements_i = len(inputs)
 
 #This reads only the chunk of horizontal velocity data required by the rank
-u,data_prec=LoadData(args.filename, 'u', nElements_i,oneDtMem=False, firstElement=inputsi[irank][0])
-v,data_prec=LoadData(args.filename, 'v', nElements_i,oneDtMem=False, firstElement=inputsi[irank][0])
+u = sx.ReadDataChunk(args.filename, 'u', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
+v = sx.ReadDataChunk(args.filename, 'v', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
+
 u=np.transpose(u)
 v=np.transpose(v)
 ndt = u.shape[1]
@@ -264,12 +265,12 @@ if irank==0:
 
   # Copy connect and geometry: 
   h5f.create_dataset('mesh0/connect', (nElements,3), dtype='i8')
-  connect = ReadConnect(args.filename)
+  connect = sx.ReadConnect(args.filename)
   h5f['mesh0/connect'][:,:] = connect[:,:]
   del connect
   h5f.close()
   h5f = h5py.File(prefixGME + '-surface_vertex.h5','w')
-  xyz = ReadGeometry(args.filename)
+  xyz = sx.ReadGeometry(args.filename)
   Nvertex=xyz.shape[0]
   h5f.create_dataset('mesh0/geometry', xyz.shape, dtype='d')
   h5f['mesh0/geometry'][:,:] = xyz[:,:]

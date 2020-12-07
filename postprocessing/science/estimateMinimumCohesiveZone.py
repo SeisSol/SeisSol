@@ -1,5 +1,5 @@
 import argparse
-from pythonXdmfReader.pythonXdmfReader import *
+import seissolxdmf as sx
 import numpy as np
 parser = argparse.ArgumentParser(description='estimate minimum cohesive length from fault output')
 parser.add_argument('filename', help='fault output filename (xdmf)')
@@ -7,12 +7,12 @@ args = parser.parse_args()
 
 
 xdmfFilename = args.filename
-ndt = ReadNdt(xdmfFilename)
-nElements = ReadNElements(xdmfFilename)
-DS, data_prec = LoadData(xdmfFilename, 'DS', nElements, ndt-1, oneDtMem=True)
-Vr, data_prec = LoadData(xdmfFilename, 'Vr', nElements, ndt-1, oneDtMem=True)
-RT, data_prec = LoadData(xdmfFilename, 'RT', nElements, ndt-1, oneDtMem=True)
-ASl, data_prec = LoadData(xdmfFilename, 'RT', nElements, ndt-1, oneDtMem=True)
+ndt = sx.ReadNdt(xdmfFilename)
+nElements = sx.ReadNElements(xdmfFilename)
+DS = sx.ReadData(xdmfFilename, 'DS', ndt-1)
+Vr = sx.ReadData(xdmfFilename, 'Vr', ndt-1)
+RT = sx.ReadData(xdmfFilename, 'RT', ndt-1)
+ASl = sx.ReadData(xdmfFilename, 'ASl', ndt-1)
 cohesiveZoneWidth = (DS-RT)*Vr
 cohesiveZoneWidth = cohesiveZoneWidth[DS>0]
 

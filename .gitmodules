@@ -28,9 +28,6 @@
 [submodule "submodules/yateto"]
 	path = submodules/yateto
 	url = ../../SeisSol/yateto.git
-[submodule "submodules/pythonXdmfReader"]
-	path = submodules/pythonXdmfReader
-	url = ../../Thomas-Ulrich/pythonXdmfReader
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
 	url = ../../eigenteam/eigen-git-mirror
