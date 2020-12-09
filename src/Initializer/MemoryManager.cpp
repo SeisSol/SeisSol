@@ -75,15 +75,23 @@
 
 #include <Kernels/common.hpp>
 #include <generated_code/tensor.h>
+#include <unordered_set>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+#ifdef ACL_DEVICE
+#include "BatchRecorders/Recorders.h"
+#endif //ACL_DEVICE
+
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
-  initializeGlobalData( m_globalData, m_memoryAllocator, MEMKIND_GLOBAL );
+  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
+  if constexpr (seissol::isDeviceOn()) {
+    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+  }
 }
 
 void seissol::initializers::MemoryManager::correctGhostRegionSetups()
@@ -554,6 +562,58 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
   }
 }
 
+#ifdef ACL_DEVICE
+void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
+  constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  kernels::NeighborData::Loader loader;
+
+  for (auto layer = m_ltsTree.beginLeaf(Ghost); layer != m_ltsTree.endLeaf(); ++layer) {
+
+    CellLocalInformation *cellInformation = layer->var(m_lts.cellInformation);
+    std::unordered_set<real *> registry{};
+    real *(*faceNeighbors)[4] = layer->var(m_lts.faceNeighbors);
+
+    unsigned derivativesCounter{0};
+    unsigned idofsCounter{0};
+
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+
+      bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
+      if (needsScratchMemForDerivatives) {
+        ++derivativesCounter;
+      }
+      ++idofsCounter;
+
+      // include data provided by ghost layers
+      for (unsigned face = 0; face < 4; ++face) {
+        real *neighbourBuffer = faceNeighbors[cell][face];
+
+        // check whether a neighbour element idofs has not been counted twice
+        if ((registry.find(neighbourBuffer) == registry.end())) {
+
+          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+          if (neighbourBuffer != nullptr) {
+            if (cellInformation[cell].faceTypes[face] != FaceType::outflow &&
+                cellInformation[cell].faceTypes[face] != FaceType::dynamicRupture) {
+
+              bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
+              if (isNeighbProvidesDerivatives) {
+                ++idofsCounter;
+              }
+              registry.insert(neighbourBuffer);
+            }
+          }
+        }
+      }
+    }
+    layer->setScratchpadSize(m_lts.idofsScratch,
+                             idofsCounter * tensor::I::size() * sizeof(real));
+    layer->setScratchpadSize(m_lts.derivativesScratch,
+                             derivativesCounter * totalDerivativesSize * sizeof(real));
+  }
+}
+#endif
+
 void seissol::initializers::MemoryManager::initializeDisplacements()
 {
   for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
@@ -639,14 +699,25 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 #endif
 
   initializeDisplacements();
+
+#ifdef ACL_DEVICE
+  deriveRequiredScratchpadMemory();
+  m_ltsTree.allocateScratchPads();
+#endif
 }
 
-void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
-                                                            struct MeshStructure          *&o_meshStructure,
-                                                            struct GlobalData             *&o_globalData
-                                                          ) {
-  o_meshStructure           =  m_meshStructure + i_cluster;
-  o_globalData              = &m_globalData;
+std::pair<MeshStructure *, CompoundGlobalData>
+seissol::initializers::MemoryManager::getMemoryLayout(unsigned int i_cluster) {
+  MeshStructure *meshStructure = m_meshStructure + i_cluster;
+
+  CompoundGlobalData globalData{};
+  globalData.onHost = &m_globalDataOnHost;
+  globalData.onDevice = nullptr;
+  if constexpr (seissol::isDeviceOn()) {
+    globalData.onDevice = &m_globalDataOnDevice;
+  }
+
+  return std::make_pair(meshStructure, globalData);
 }
 
 void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
@@ -656,6 +727,25 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
     m_easiBoundary = EasiBoundary(fileNameStr);
   }
 }
+
+
+#ifdef ACL_DEVICE
+void seissol::initializers::MemoryManager::recordExecutionPaths() {
+  recording::CompositeRecorder recorder;
+
+  recorder.addRecorder(new recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new recording::NeighIntegrationRecorder);
+
+#ifdef USE_PLASTICITY
+  recorder.addRecorder(new recording::PlasticityRecorder);
+#endif
+
+  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
+    recorder.record(m_lts, *it);
+  }
+}
+#endif // ACL_DEVICE
+
 
 bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
@@ -674,4 +764,3 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
           || f == FaceType::dirichlet
           || f == FaceType::analytical);
 }
-

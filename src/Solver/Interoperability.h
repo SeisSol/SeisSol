@@ -401,6 +401,16 @@ class seissol::Interoperability {
     * Finalizes I/O
     */
    void finalizeIO();
+
+   /**
+    * reports memory consumed by each device i.e., GPUs
+    */
+   void reportDeviceMemoryStatus();
+
+   /**
+    * Deallocates memory manager
+    */
+   void deallocateMemoryManager();
 };
 
 #endif

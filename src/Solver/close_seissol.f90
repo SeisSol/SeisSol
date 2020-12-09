@@ -108,6 +108,8 @@ CONTAINS
        STOP                                                         ! Programmabbruch
     END IF                                                          !
 
+    call c_interoperability_deallocateMemoryManager()
+
     logInfo(*) '<--------------------------------------------------------->'  !
     logInfo(*) '<     close_SeisSol successfully finished                 >'  !
     logInfo(*) '<--------------------------------------------------------->'  !

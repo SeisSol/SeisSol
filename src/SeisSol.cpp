@@ -42,6 +42,10 @@
 #include <unistd.h>
 #include <sys/resource.h>
 
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
@@ -68,11 +72,15 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 	// Call pre MPI hooks
 	seissol::Modules::callHook<seissol::PRE_MPI>();
 
+#if defined(ACL_DEVICE) && defined(USE_MPI)
+  MPI::mpi.bindRankToDevice();
+#endif
+
 	MPI::mpi.init(argc, argv);
 
 	// TODO is there a reason to have this here?
 	// If not please move it to the end if this function
-	m_memoryManager.initialize();
+	m_memoryManager->initialize();
 
 	const int rank = MPI::mpi.rank();
 
@@ -103,6 +111,11 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #endif
 #endif
 #endif // _OPENMP
+
+#ifdef ACL_DEVICE
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->allocateStackMem();
+#endif
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
@@ -161,6 +174,11 @@ void seissol::SeisSol::finalize()
 	m_asyncIO.finalize();
 
 	const int rank = MPI::mpi.rank();
+
+#ifdef ACL_DEVICE
+	device::DeviceInstance &device = device::DeviceInstance::getInstance();
+	device.api->finalize();
+#endif
 
 	MPI::mpi.finalize();
 

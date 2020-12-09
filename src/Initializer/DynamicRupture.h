@@ -50,6 +50,12 @@ namespace seissol {
   }
 }
 
+#ifndef ACL_DEVICE
+#	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::Standard
+#else
+#	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::DeviceUnifiedMemory
+#endif
+
 struct seissol::initializers::DynamicRupture {
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
@@ -67,11 +73,11 @@ struct seissol::initializers::DynamicRupture {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );
-    tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );
-    tree.addVar(             godunovData,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(          fluxSolverPlus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(         fluxSolverMinus,             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      MEMKIND_NEIGHBOUR_INTEGRATION );
+    tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      MEMKIND_NEIGHBOUR_INTEGRATION );
+    tree.addVar(             godunovData,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
+    tree.addVar(          fluxSolverPlus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
+    tree.addVar(         fluxSolverMinus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );

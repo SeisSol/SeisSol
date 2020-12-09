@@ -56,7 +56,8 @@ namespace seissol {
 
 class seissol::kernels::Local : public LocalBase {
   public:
-    void setGlobalData(GlobalData const* global);
+    void setHostGlobalData(GlobalData const* global);
+    void setGlobalData(const CompoundGlobalData& global);
 
     void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                          LocalData& data,
@@ -65,6 +66,8 @@ class seissol::kernels::Local : public LocalBase {
                          CellBoundaryMapping const (*cellBoundaryMapping)[4],
                          double time,
                          double timeStepWidth);
+
+    void computeBatchedIntegral(ConditionalBatchTableT &table, LocalTmp& tmp);
 
     void flopsIntegral(FaceType const i_faceTypes[4],
                        unsigned int &o_nonZeroFlops,

@@ -42,14 +42,54 @@
 
 #include "MemoryAllocator.h"
 #include "typedefs.hpp"
+#include <yateto.h>
 
-/**
- * Global data initializers of SeisSol.
- **/
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif // ACL_DEVICE
+
 namespace seissol {
   namespace initializers {
-    void initializeGlobalData(GlobalData& globalData, memory::ManagedAllocator& memoryAllocator, enum seissol::memory::Memkind memkind);
-  }
-}
+    namespace matrixmanip {
+      struct OnHost {
+        using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+        static MemoryProperties getProperties();
+        static void negateStiffnessMatrix(GlobalData& globalData);
+        static void initSpecificGlobalData(GlobalData& globalData,
+                                           memory::ManagedAllocator& allocator,
+                                           CopyManagerT& copyManager,
+                                           size_t alignment,
+                                           seissol::memory::Memkind memkind);
+      };
+
+      struct OnDevice {
+        struct DeviceCopyPolicy {
+          real* copy(real const* first, real const* last, real*& mem);
+        };
+        using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+        static MemoryProperties getProperties();
+        static void negateStiffnessMatrix(GlobalData& globalData);
+        static void initSpecificGlobalData(GlobalData& globalData,
+                                           memory::ManagedAllocator& allocator,
+                                           CopyManagerT& copyManager,
+                                           size_t alignment,
+                                           seissol::memory::Memkind memkind);
+      };
+    }  // namespace matrixmanip
+
+
+    // Generalized Global data initializers of SeisSol.
+    template<typename MatrixManipPolicyT>
+    struct GlobalDataInitializer {
+      static void init(GlobalData &globalData,
+                       memory::ManagedAllocator &memoryAllocator,
+                       enum memory::Memkind memkind);
+    };
+
+    // Specific Global data initializers of SeisSol.
+    using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
+    using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
+  }  // namespace initializers
+} // namespace seissol
 
 #endif

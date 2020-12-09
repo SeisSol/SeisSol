@@ -342,6 +342,16 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface c_interoperability_report_device_memory_status
+    subroutine c_interoperability_report_device_memory_status() bind( C, name='c_interoperability_report_device_memory_status' )
+    end subroutine
+  end interface
+
+  interface c_interoperability_deallocateMemoryManager
+    subroutine c_interoperability_deallocateMemoryManager() bind( C, name='c_interoperability_deallocateMemoryManager' )
+    end subroutine
+  end interface
+
   interface c_interoperability_TetraDubinerP
       subroutine c_interoperability_TetraDubinerP(phis, xi, eta, zeta, N) bind( C, name='c_interoperability_TetraDubinerP' )
           use iso_c_binding

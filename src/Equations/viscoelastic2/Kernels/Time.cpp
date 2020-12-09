@@ -55,7 +55,7 @@ extern long long libxsmm_num_total_flops;
 #include <Kernels/denseMatrixOps.hpp>
 #include <generated_code/init.h>
 
-void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
+void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
@@ -63,6 +63,10 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
   m_krnlPrototype.selectAne = init::selectAne::Values;
   m_krnlPrototype.selectEla = init::selectEla::Values;
+}
+
+void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 }
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,

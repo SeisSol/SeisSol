@@ -52,7 +52,7 @@
 
 #include <generated_code/init.h>
 
-void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
+void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % ALIGNMENT == 0 );
@@ -76,6 +76,10 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
   m_nKrnlPrototype.selectEla = init::selectEla::Values;
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
+}
+
+void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,

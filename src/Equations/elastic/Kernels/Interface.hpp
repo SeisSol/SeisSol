@@ -48,8 +48,13 @@ namespace seissol {
     struct LocalTmp {
         alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
     };
+#ifndef ACL_DEVICE
     LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
+#else
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements, localIntegrationOnDevice)
+    LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
+#endif
   }
 }
 
