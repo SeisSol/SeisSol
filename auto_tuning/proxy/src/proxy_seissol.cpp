@@ -79,6 +79,7 @@ extern long long pspamm_num_total_flops;
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include "utils/logger.h"
 
 // seissol_kernel includes
 #include "proxy_seissol_tools.hpp"
@@ -131,7 +132,7 @@ void testKernel(unsigned kernel, unsigned timesteps) {
       break;    
     case godunov_dr:
 #ifdef ACL_DEVICE
-      printf("godunov_dr has not been implemented for acl. device");
+      logError() << "godunov_dr has not been implemented for acl. device";
 #else
       for (; t < timesteps; ++t) {
         computeDynRupGodunovState();

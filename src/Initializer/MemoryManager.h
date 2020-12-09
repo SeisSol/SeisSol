@@ -268,12 +268,14 @@ class seissol::initializers::MemoryManager {
     /**
      * Gets the global data on both host and device.
     **/
-    std::pair<GlobalData*, GlobalData*> getGlobalData() {
-      GlobalData* globalDataOnDevice{nullptr};
+    CompoundGlobalData getGlobalData() {
+      CompoundGlobalData global{};
+      global.onHost = &m_globalDataOnHost;
+      global.onDevice = nullptr;
       if constexpr (seissol::isDeviceOn()) {
-        globalDataOnDevice = &m_globalDataOnDevice;
+        global.onDevice = &m_globalDataOnDevice;
       }
-      return std::make_pair(&m_globalDataOnHost, globalDataOnDevice);
+      return global;
     }
 
     /**

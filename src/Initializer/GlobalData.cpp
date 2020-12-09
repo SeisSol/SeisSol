@@ -51,11 +51,8 @@ namespace init = seissol::init;
 namespace seissol::initializers {
   namespace matrixmanip {
     MemoryProperties OnHost::getProperties() {
-      MemoryProperties prop{};
-      prop.alignment = ALIGNMENT;
-      prop.pagesizeHeap = PAGESIZE_HEAP;
-      prop.pagesizeStack = PAGESIZE_STACK;
-      return prop;
+      // returns MemoryProperties initialized with default values i.e., CPU memory properties
+      return MemoryProperties();
     }
 
     void OnHost::negateStiffnessMatrix(GlobalData &globalData) {

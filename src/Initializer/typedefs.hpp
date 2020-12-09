@@ -495,11 +495,18 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
-
+/*
+ * \class MemoryProperties
+ *
+ * \brief An auxiliary data structure for a policy-based design
+ *
+ * Attributes are initialized with CPU memory properties by default.
+ * See, an example of a policy-based design in GlobalData.cpp
+ * */
 struct MemoryProperties {
-  size_t alignment{1};
-  size_t pagesizeHeap{1};
-  size_t pagesizeStack{1};
+  size_t alignment{ALIGNMENT};
+  size_t pagesizeHeap{PAGESIZE_HEAP};
+  size_t pagesizeStack{PAGESIZE_STACK};
 };
 
 #endif
