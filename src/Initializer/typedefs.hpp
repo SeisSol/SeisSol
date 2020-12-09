@@ -102,11 +102,6 @@ enum class FaceType {
   analytical = 7
 };
 
-enum SystemType {
-  Host = 0,
-  Device = 1
-};
-
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
