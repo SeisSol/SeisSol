@@ -33,4 +33,4 @@
 	url = ../../eigenteam/eigen-git-mirror
 [submodule "submodules/Device"]
 	path = submodules/Device
-	url = https://github.com/SeisSol/Device.git
+	url = ../../SeisSol/Device.git
