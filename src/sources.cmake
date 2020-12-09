@@ -222,7 +222,7 @@ if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
                                                        ${CMAKE_CURRENT_SOURCE_DIR}/src
                                                        ${CUDA_TOOLKIT_ROOT_DIR})
 
-  add_dependencies(Seissol-device-lib build-time-make-directory)
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+  add_dependencies(Seissol-device-lib SeisSol-lib)
 
 endif()

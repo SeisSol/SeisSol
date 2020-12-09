@@ -98,7 +98,7 @@
 #endif
 
 #ifndef CONVERGENCE_ORDER
-#error  Preprocessor flag ONVERGENCE_ORDER not set.
+#error  Preprocessor flag CONVERGENCE_ORDER not set.
 #endif
 
 #if 0

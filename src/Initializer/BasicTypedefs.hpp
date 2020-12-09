@@ -65,10 +65,4 @@ struct PlasticityData {
   real mufactor;
 };
 
-struct MemoryProperties {
-  size_t alignment{1};
-  size_t pagesizeHeap{1};
-  size_t pagesizeStack{1};
-};
-
 #endif //SEISSOL_BASICTYPEDEFS_HPP
