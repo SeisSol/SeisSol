@@ -40,31 +40,23 @@
 
 #include "Pin.h"
 
-#include <iostream>
 #include <sys/sysinfo.h>
 #include <sched.h>
 #include <sstream>
-#include <omp.h>
 
 seissol::parallel::Pinning::Pinning() {
-  CPU_ZERO(&pthreadMask);
-
   // Affinity mask of the entire process
   sched_getaffinity(0, sizeof(cpu_set_t), &processMask);
-}
-void seissol::parallel::Pinning::init() {
+
   // Affinity mask for the OpenMP workers
   openmpMask = getWorkerUnionMask();
-
-  // Affinity mask of the pthreads -> all free cores
-  CPU_XOR(&pthreadMask, &processMask, &openmpMask);
 }
 
 cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
 #ifdef _OPENMP
-  #pragma omp parallel
+  #pragma omp parallel default(none) shared(workerUnion)
   {
     cpu_set_t worker;
     CPU_ZERO(&worker);
@@ -82,7 +74,10 @@ cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
 }
 
 cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
-  return pthreadMask;
+  // Affinity mask of the pthreads -> all free cores
+  cpu_set_t freeMask{};
+  CPU_XOR(&freeMask, &processMask, &openmpMask);
+  return freeMask;
 }
 
 bool seissol::parallel::Pinning::freeCPUsMaskEmpty(cpu_set_t const& set) {
@@ -90,7 +85,8 @@ bool seissol::parallel::Pinning::freeCPUsMaskEmpty(cpu_set_t const& set) {
 }
 
 void seissol::parallel::Pinning::pinToFreeCPUs() const {
-  sched_setaffinity(0, sizeof(cpu_set_t), &pthreadMask);
+  auto freeMask = getFreeCPUsMask();
+  sched_setaffinity(0, sizeof(cpu_set_t), &freeMask);
 }
 
 std::string seissol::parallel::Pinning::maskToString(cpu_set_t const& set) {

@@ -76,6 +76,10 @@ class SeisSol
 private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
+  // The reason for this is simple yet weird:
+  // MPI sets the affinity mask for the process
+  // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
+  // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
 
 	/** The name of the parameter file */
@@ -140,7 +144,7 @@ private:
 	}
 
 public:
-  parallel::Pinning getPinning() {
+  const parallel::Pinning& getPinning() {
 	  return pinning;
 	}
 
