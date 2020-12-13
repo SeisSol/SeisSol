@@ -101,7 +101,7 @@ vars.AddVariables(
 Help(vars.GenerateHelpText(env))
 if '-h' in sys.argv or '--help' in sys.argv:
   import SCons
-  print SCons.Script.help_text
+  print(SCons.Script.help_text)
   env.Exit()
   
 # handle unknown, maybe misspelled variables
@@ -113,7 +113,7 @@ if 'buildVariablesFile' in unknownVariables:
   
 # exit in the case of unknown variables
 if unknownVariables:
-  print "*** The following build variables are unknown: " + str(unknownVariables.keys())
+  print("*** The following build variables are unknown: " + str(unknownVariables.keys()))
   env.Exit(1)
   
 # set environment
