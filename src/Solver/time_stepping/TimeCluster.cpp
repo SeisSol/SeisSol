@@ -81,7 +81,6 @@
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
-#include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
 
 #include <cassert>
@@ -491,7 +490,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );
-    
+
+    // TODO(Lukas) Remove!
+    /*
     // Update displacement
     if (displacements[l_cell] != nullptr) {
       kernel::addVelocity krnl;
@@ -500,6 +501,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       krnl.displacement = displacements[l_cell];
       krnl.execute();
     }
+     */
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel

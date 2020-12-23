@@ -44,6 +44,7 @@
 #include <cassert>
 
 #include <Initializer/ParameterDB.h>
+#include "Initializer/MemoryManager.h"
 #include <Numerical_aux/Transformation.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
@@ -263,6 +264,7 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
+    auto* material = it->var(i_lts->material);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP
@@ -275,7 +277,9 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
         coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-        if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
+        if (!initializers::requiresDisplacement(cellInformation[cell],
+                                                material[cell],
+                                                side)
             && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
             && cellInformation[cell].faceTypes[side] != FaceType::analytical) {
           continue;

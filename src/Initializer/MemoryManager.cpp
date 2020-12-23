@@ -507,6 +507,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto* cellInformation = layer->var(m_lts.cellInformation);
     auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
     auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation);
+    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
 
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
@@ -525,11 +526,20 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
           boundaryMapping[cell][face].easiBoundaryMap = nullptr;
           boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
         }
+        // TODO(Lukas) Check if the following is correct:
+        /*
+        if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+          boundaryMapping[cell][face].displacement = faceInformation[boundaryFace].displacement;
+        } else {
+          boundaryMapping[cell][face].displacement = nullptr;
+        }
+         */
       }
     }
   }
 }
 
+// TODO(Lukas) Rework that!
 void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
 {
   for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
@@ -543,9 +553,9 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       for (unsigned int face = 0; face < 4; ++face) {
         const auto faceType = cellInformation[cell].faceTypes[face];
         hasFreeSurface = hasFreeSurface
-                         || faceType == FaceType::freeSurface
-                         || faceType == FaceType::freeSurfaceGravity
-                         || isAtElasticAcousticInterface(cellMaterialData[cell], face);
+                         || requiresDisplacement(cellInformation[cell],
+                                                 cellMaterialData[cell],
+                                                 face);
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
@@ -559,6 +569,35 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       }
     }
     layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * tensor::displacement::size() * sizeof(real));
+  }
+}
+
+void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
+{
+  for (auto layer = m_ltsTree.beginLeaf(m_lts.faceDisplacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+    real* (*displacements)[4] = layer->var(m_lts.faceDisplacements);
+    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
+
+    unsigned numberOfFaces = 0;
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      for (unsigned int face = 0; face < 4; ++face) {
+        if (requiresDisplacement(cellInformation[cell],
+                                 cellMaterialData[cell],
+                                 face)) {
+          // We add the base address later when the bucket is allocated
+          // +1 is necessary as we want to reserve the nullptr for cell without displacement.
+          // Thanks to this hack, the array contains a constant plus the offset of the current
+          // cell.
+          displacements[cell][face] =
+              static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
+          ++numberOfFaces;
+        } else {
+          displacements[cell][face] = nullptr;
+        }
+      }
+    }
+    layer->setBucketSize(m_lts.displacementsBuffer, numberOfFaces * tensor::faceDisplacement::size() * sizeof(real));
   }
 }
 
@@ -642,6 +681,36 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
   }
 }
 
+void seissol::initializers::MemoryManager::initializeFaceDisplacements()
+{
+  for (auto layer = m_ltsTree.beginLeaf(m_lts.faceDisplacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    if (layer->getBucketSize(m_lts.faceDisplacementsBuffer) == 0) {
+      continue;
+    }
+    real* (*displacements)[4] = layer->var(m_lts.faceDisplacements);
+    real* bucket = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer));
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif // _OPENMP
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      for (unsigned face = 0; face < 4; ++face) {
+        if (displacements[cell][face] != nullptr) {
+          // Remove constant part that was added in deriveDisplacementsBucket.
+          // We then have the pointer offset that needs to be added to the bucket.
+          // The final value of this pointer then points to a valid memory address
+          // somewhere in the bucket.
+          displacements[cell][face] = bucket + ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
+          for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
+            // zero displacements
+            displacements[cell][face][dof] = static_cast<real>(0.0);
+          }
+        }
+      }
+    }
+  }
+}
+
 void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFreeSurfaceIntegration)
 {
   // correct LTS-information in the ghost layer
@@ -674,6 +743,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   }
 
   deriveDisplacementsBucket();
+  deriveFaceDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
 
@@ -699,6 +769,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 #endif
 
   initializeDisplacements();
+  initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
   deriveRequiredScratchpadMemory();
@@ -757,6 +828,15 @@ bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &mater
 #else
   return false;
 #endif
+}
+
+bool seissol::initializers::requiresDisplacement(CellLocalInformation cellLocalInformation,
+                                                 CellMaterialData &material,
+                                                 unsigned int face) {
+  const auto faceType = cellLocalInformation.faceTypes[face];
+  return faceType == FaceType::freeSurface
+  || faceType == FaceType::freeSurfaceGravity
+  || isAtElasticAcousticInterface(material, face);
 }
 
 bool seissol::initializers::requiresNodalFlux(FaceType f) {

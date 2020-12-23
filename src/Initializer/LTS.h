@@ -100,8 +100,10 @@ struct seissol::initializers::LTS {
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
   Variable<real[7]>                       pstrain;
   Variable<real*>                         displacements;
+  Variable<real*[4]>                      faceDisplacements;
   Bucket                                  buffersDerivatives;
   Bucket                                  displacementsBuffer;
+  Bucket                                  faceDisplacementsBuffer;
 
 #ifdef ACL_DEVICE
   Variable<LocalIntegrationData>          localIntegrationOnDevice;

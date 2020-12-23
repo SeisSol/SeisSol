@@ -183,7 +183,12 @@ class seissol::initializers::MemoryManager {
      * Initializes the pointers of the internal state.
      **/
     void initializeBuffersDerivatives();
-    
+
+    /**
+    * Derives the size of the displacement accumulation buffer.
+    */
+    void deriveFaceDisplacementsBucket();
+
     /**
      * Derives the size of the displacement accumulation buffer.
      */
@@ -200,6 +205,11 @@ class seissol::initializers::MemoryManager {
      * Initializes the displacement accumulation buffer.
      */
     void initializeDisplacements();
+
+    /**
+      * Initializes the displacement accumulation buffer.
+    */
+  void initializeFaceDisplacements();
 
     /**
      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
@@ -328,6 +338,9 @@ class seissol::initializers::MemoryManager {
 namespace seissol {
     namespace initializers {
         bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+        bool requiresDisplacement(CellLocalInformation cellLocalInformation,
+                                  CellMaterialData &material,
+                                  unsigned int face);
         bool requiresNodalFlux(FaceType f);
     }
 }

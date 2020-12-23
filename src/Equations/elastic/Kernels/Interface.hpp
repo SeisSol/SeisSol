@@ -46,10 +46,10 @@
 namespace seissol {
   namespace kernels {
     struct LocalTmp {
-        alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
+        alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::averageNormalDisplacement::size()];
     };
 #ifndef ACL_DEVICE
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements, faceDisplacements, boundaryMapping, material)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
 #else
     LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements, localIntegrationOnDevice)

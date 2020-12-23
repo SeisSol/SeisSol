@@ -48,17 +48,34 @@ def addKernels(generator, aderdg):
   maxDepth = 3
 
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
+
   selectVelocitySpp = np.zeros((numberOfQuantities, 3))
   selectVelocitySpp[6:9,0:3] = np.eye(3)
   selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
   displacement = OptionalDimTensor('displacement', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOf3DBasisFunctions, 3), alignStride=True)
-  generator.add('addVelocity', displacement['kp'] <= displacement['kp'] + aderdg.I['kq'] * selectVelocity['qp'])
+  faceDisplacement = OptionalDimTensor('faceDisplacement',
+                                       aderdg.Q.optName(),
+                                       aderdg.Q.optSize(),
+                                       aderdg.Q.optPos(),
+                                       (numberOf2DBasisFunctions, 3),
+                                       alignStride=True)
+  averageNormalDisplacement = OptionalDimTensor('averageNormalDisplacement',
+                                                aderdg.Q.optName(),
+                                                aderdg.Q.optSize(),
+                                                aderdg.Q.optPos(),
+                                                (numberOf2DBasisFunctions,),
+                                                alignStride=True)
+  #generator.add('addVelocity', displacement['kp'] <= displacement['kp'] + aderdg.I['kq'] * selectVelocity['qp'])
+  generator.add('addVelocityFace', faceDisplacement['ij'] <= faceDisplacement['ij'])  # TODO(Lukas) Remove!
+  generator.add('addAverageNormalDisplacment', averageNormalDisplacement['i'] <= averageNormalDisplacement['i'])  # TODO(Lukas) Remove
 
   subTriangleDofs = [OptionalDimTensor('subTriangleDofs({})'.format(depth), aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (4**depth, 3), alignStride=True) for depth in range(maxDepth+1)]
   subTriangleProjection = [Tensor('subTriangleProjection({})'.format(depth), (4**depth, numberOf3DBasisFunctions), alignStride=True) for depth in range(maxDepth+1)]
 
+  # TODO(Lukas) Fix this - we use 2D displacement data now. Also need to rotate it probably...
   subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * displacement['lp']
   subTriangleVelocity     = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
 
