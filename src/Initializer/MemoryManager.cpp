@@ -481,6 +481,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
        layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
        ++layer, ++boundaryLayer) {
     CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+    CellMaterialData* material = layer->var(m_lts.material);
 
     unsigned numberOfBoundaryFaces = 0;
 #ifdef _OPENMP
@@ -488,7 +489,10 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+        if (initializers::requiresDisplacement(cellInformation[cell],
+                                                material[cell],
+                                                face)
+            || requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
         }
       }
@@ -512,7 +516,8 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])
+        || requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
           boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
           boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
@@ -553,16 +558,17 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       for (unsigned int face = 0; face < 4; ++face) {
         const auto faceType = cellInformation[cell].faceTypes[face];
         hasFreeSurface = hasFreeSurface
-                         || requiresDisplacement(cellInformation[cell],
-                                                 cellMaterialData[cell],
-                                                 face);
+                         || faceType == FaceType::freeSurface
+                         || faceType == FaceType::freeSurfaceGravity
+                         || isAtElasticAcousticInterface(cellMaterialData[cell], face);
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
         // +1 is necessary as we want to reserve the nullptr for cell without displacement.
         // Thanks to this hack, the array contains a constant plus the offset of the current
         // cell.
-        displacements[cell] = static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
+        displacements[cell] = reinterpret_cast<real*>(1ul + numberOfCells * tensor::displacement::size());
+            //static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
         displacements[cell] = nullptr;
@@ -589,15 +595,17 @@ void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
           // +1 is necessary as we want to reserve the nullptr for cell without displacement.
           // Thanks to this hack, the array contains a constant plus the offset of the current
           // cell.
-          displacements[cell][face] =
-              static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
+          //displacements[cell][face] =
+              //static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
+
+          displacements[cell][face] = reinterpret_cast<real*>(1ul + numberOfFaces * tensor::faceDisplacement::size());
           ++numberOfFaces;
         } else {
           displacements[cell][face] = nullptr;
         }
       }
     }
-    layer->setBucketSize(m_lts.displacementsBuffer, numberOfFaces * tensor::faceDisplacement::size() * sizeof(real));
+    layer->setBucketSize(m_lts.faceDisplacementsBuffer, numberOfFaces * tensor::faceDisplacement::size() * sizeof(real));
   }
 }
 
@@ -663,7 +671,7 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
     real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (displacements[cell] != nullptr) {
@@ -671,7 +679,8 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
         // We then have the pointer offset that needs to be added to the bucket.
         // The final value of this pointer then points to a valid memory address
         // somewhere in the bucket.
-        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(nullptr)) - 1);
+        displacements[cell] = reinterpret_cast<real*>(reinterpret_cast<std::ptrdiff_t>(bucket) + reinterpret_cast<std::ptrdiff_t>(displacements[cell]) - 1ul);
+
         for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
           // zero displacements
           displacements[cell][dof] = static_cast<real>(0.0);
@@ -700,7 +709,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
           // We then have the pointer offset that needs to be added to the bucket.
           // The final value of this pointer then points to a valid memory address
           // somewhere in the bucket.
-          displacements[cell][face] = bucket + ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
+          displacements[cell][face] = reinterpret_cast<real*>(reinterpret_cast<std::ptrdiff_t>(bucket) + reinterpret_cast<std::ptrdiff_t>(displacements[cell][face]) - 1ul);
           for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
             // zero displacements
             displacements[cell][face][dof] = static_cast<real>(0.0);

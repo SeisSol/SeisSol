@@ -95,7 +95,8 @@ class seissol::kernels::Time : public TimeBase {
                      LocalTmp& tmp,
                      real o_timeIntegrated[tensor::I::size()],
                      real* o_timeDerivatives = nullptr,
-                     double startTime = 0.0);
+                     double startTime = 0.0,
+                     bool updateDisplacement = false);
 
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,

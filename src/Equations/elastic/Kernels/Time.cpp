@@ -133,20 +133,22 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
                                          real* o_timeDerivatives,
-                                         double startTime) {
+                                         double startTime,
+                                         bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
   // Only a fraction of cells need the average displacement
-  const bool needsDisplacement = std::any_of(std::begin(data.cellInformation.faceTypes),
-                                             std::end(data.cellInformation.faceTypes),
-                                             [](FaceType faceType) {
-                                               // TODO(Lukas) Also check for elastic-acoustic interface here!
-                                               return faceType == FaceType::freeSurface
-                                                      || faceType == FaceType::freeSurfaceGravity;
-                                             });
+  const bool needsDisplacement = updateDisplacement
+      && std::any_of(std::begin(data.cellInformation.faceTypes),
+                     std::end(data.cellInformation.faceTypes),
+                     [](FaceType faceType) {
+                       // TODO(Lukas) Also check for elastic-acoustic interface here!
+                       return faceType == FaceType::freeSurface
+                              || faceType == FaceType::freeSurfaceGravity;
+                     });
 
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
@@ -192,25 +194,29 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   // Compute average displacement over timestep if needed.
-  //alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
-
   if (needsDisplacement) {
     auto bc = GravitationalFreeSurfaceBc();
     for (unsigned face = 0; face < 4; ++face) {
       if (data.faceDisplacements[face] == nullptr) continue;
+
       bc.evaluate(
           face,
           projectRotatedKrnlPrototype,
           data.boundaryMapping[face],
-          data.faceDisplacements[face], // TODO(Lukas) Is correct?
-          tmp.nodalAvgDisplacements[face],
+          data.faceDisplacements[face],
+          tmp.nodalAvgDisplacements[face].data(),
           *this, //timeKernel,
           derivativesBuffer,
-          0.0, //startTime,
+          startTime,
           i_timeStepWidth,
           data.material,
           data.cellInformation.faceTypes[face]
       );
+      for (unsigned i = 0; i < init::averageNormalDisplacement::size(); ++i) {
+        //std::cout << *(data.faceDisplacements[face] + i) << ", " << std::endl;
+        //std::cout << tmp.nodalAvgDisplacements[face][i] << ", " << std::endl;
+      }
+      //std::cout << std::endl;
     }
 
 

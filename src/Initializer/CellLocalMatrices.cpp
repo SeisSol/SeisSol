@@ -214,7 +214,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
         }

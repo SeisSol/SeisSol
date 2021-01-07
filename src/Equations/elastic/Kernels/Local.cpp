@@ -150,8 +150,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       {
       assert(cellBoundaryMapping != nullptr);
       assert(materialData != nullptr);
-      auto* displ = tmp.nodalAvgDisplacements[face];
-      auto displacement = init::INodalDisplacement::view::create(displ);
+      auto* displ = tmp.nodalAvgDisplacements[face].data();
+      auto displacement = init::averageNormalDisplacement::view::create(displ);
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
@@ -169,7 +169,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
-                                 m_projectKrnlPrototype,
+                                 m_projectRotatedKrnlPrototype,
                                  applyFreeSurfaceBc,
                                  dofsFaceBoundaryNodal);
 

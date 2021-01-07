@@ -478,7 +478,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                              data,
                              tmp,
                              l_bufferPointer,
-                             derivatives[l_cell]);
+                             derivatives[l_cell],
+                             m_fullUpdateTime,
+                             true);
 
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
