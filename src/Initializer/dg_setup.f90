@@ -460,8 +460,10 @@ CONTAINS
     case(42)
       call c_interoperability_setupNRFPointSources(trim(SOURCE%NRFFileName) // c_null_char)
     case(50)
-      call c_interoperability_setupFSRMPointSources( momentTensor      = SOURCE%RP%MomentTensor,      &
-                                                     velocityComponent = SOURCE%RP%VelocityComponent, &
+      call c_interoperability_setupFSRMPointSources( momentTensor           = SOURCE%RP%MomentTensor,      &
+                                                     solidVelocityComponent = SOURCE%RP%SolidVelocityComponent, &
+                                                     pressureComponent      = SOURCE%RP%PressureComponent, &
+                                                     fluidVelocityComponent = SOURCE%RP%FluidVelocityComponent, &
                                                      numberOfSources   = SOURCE%RP%nSbfs(1),          &
                                                      centres           = SOURCE%RP%SpacePosition,     &
                                                      strikes           = SOURCE%RP%Strks,             &

@@ -159,7 +159,9 @@ class seissol::Interoperability {
 
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
-                               double const* velocityComponent,
+                               double const* solidVelocityComponent,
+                               double const* pressureComponent,
+                               double const* fluidVelocityComponent,
                                int           numberOfSources,
                                double const* centres,
                                double const* strikes,
