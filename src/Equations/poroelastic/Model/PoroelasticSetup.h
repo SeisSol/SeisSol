@@ -216,7 +216,6 @@ namespace seissol {
       const additionalPoroelasticParameters params = getAdditionalParameters(material);
       const double e_1 = params.beta_1 * material.viscosity / (params.rho_1 * material.permeability);
       const double e_2 = params.beta_2 * material.viscosity / (params.rho_2 * material.permeability);
-      std::cout << std::setprecision(16) << "e_1 = " << e_1 << ", e_2 = " << e_2 << std::endl;
 
       ET.setZero();
       ET(10,10) = e_1;
@@ -237,14 +236,15 @@ namespace seissol {
     {
       constexpr auto tolerance = 1.0e-10;
 
-      using Matrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using CMatrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using Matrix = typename arma::Mat<double>;
       using Vector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
-      struct eigenDecomposition { Vector eigenvalues; Matrix eigenvectors; };
+      struct eigenDecomposition { Vector eigenvalues; CMatrix eigenvectors; };
       auto getEigenDecomposition = [&tolerance](PoroElasticMaterial const& material) {
-        Matrix coeff(arma::fill::zeros);
+        CMatrix coeff(arma::fill::zeros);
         getTransposedCoefficientMatrix(material, 0, coeff);
 
-	Matrix arma_eigenvectors(arma::fill::zeros);
+	CMatrix arma_eigenvectors(arma::fill::zeros);
 	Vector arma_eigenvalues(arma::fill::zeros);
 	arma::eig_gen(arma_eigenvalues, arma_eigenvectors, coeff.t());
 
@@ -263,13 +263,13 @@ namespace seissol {
         assert(ev_pos == 4);
 
         //check whether eigensolver is good enough
-        const Matrix matrix_mult = coeff.t() * arma_eigenvectors;
-	Matrix eigenvalue_matrix(arma::fill::zeros);
+        const CMatrix matrix_mult = coeff.t() * arma_eigenvectors;
+	CMatrix eigenvalue_matrix(arma::fill::zeros);
         for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
           eigenvalue_matrix(i,i) = arma_eigenvalues(i);
         }
-        const Matrix vector_mult = arma_eigenvectors * eigenvalue_matrix;
-        const Matrix diff = matrix_mult - vector_mult;
+        const CMatrix vector_mult = arma_eigenvectors * eigenvalue_matrix;
+        const CMatrix diff = matrix_mult - vector_mult;
         const double norm = arma::norm(diff);
         
         assert(norm < tolerance);
@@ -279,8 +279,8 @@ namespace seissol {
       auto eigen_local = getEigenDecomposition(local);
       auto eigen_neighbor = getEigenDecomposition(neighbor); 	
 
-      Matrix chi_minus(arma::fill::zeros);
-      Matrix chi_plus(arma::fill::zeros);
+      CMatrix chi_minus(arma::fill::zeros);
+      CMatrix chi_plus(arma::fill::zeros);
       for(int i = 0; i < 13; i++) {
         if(eigen_local.eigenvalues(i).real() < -tolerance) {
           chi_minus(i,i) = 1.0;
@@ -291,15 +291,14 @@ namespace seissol {
       }
 
       //Matrix R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
-      Matrix R = eigen_local.eigenvectors;
+      CMatrix R = eigen_local.eigenvectors;
       if (faceType == FaceType::freeSurface) {
-        logWarning() << "Poroelastic Free Surface is not tested yet.";
-        //Matrix R_real = R.real().eval();
-        //getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
+        Matrix R_real = arma::real(R);
+        getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
       } else {
-	Matrix R_inv = inv(R);
-        Matrix godunov_minus = R * chi_minus * R_inv;
-        Matrix godunov_plus =  R * chi_plus * R_inv;
+	CMatrix R_inv = inv(R);
+        CMatrix godunov_minus = R * chi_minus * R_inv;
+        CMatrix godunov_plus =  R * chi_plus * R_inv;
 
         for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
           for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {

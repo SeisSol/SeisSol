@@ -42,6 +42,7 @@
 #define MODEL_COMMON_HPP_
 
 #include <Eigen/Eigen>
+#include <armadillo>
 
 #include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
@@ -147,6 +148,25 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
   }
 }
 
+template<typename T, typename Tmatrix, typename Tarray1, typename Tarray2>
+void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocity_indices) {
+    //set lower left block
+    int row = 0;
+    for (auto &t: traction_indices) {
+      int col = 0;
+      for (auto &v: velocity_indices) {
+        QgodLocal(t, v) = S(row, col);
+        col++;
+      }
+      row++;
+    }
+
+    //set lower right block
+    for (auto &v : velocity_indices) {
+      QgodLocal(v, v) = 1.0;
+    }
+}
+
 template<typename T, typename Tmatrix>
 void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
                                                            T&        QgodLocal,
@@ -166,40 +186,24 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
     QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
     QgodLocal(6, 6) = 1.0;
   } else {
-#ifdef USE_POROELASTIC
-//TODO: SW
-    std::array<int, 4> traction_indices = {0,3,5,9};
-    std::array<int, 6> velocity_indices = {6,7,8,10,11,12};
-    using Matrix44 = Eigen::Matrix<double, 4, 4>;
-    using Matrix64 = Eigen::Matrix<double, 6, 4>;
-    Matrix44 R11 = R(traction_indices, {0,1,2,3});
-    Matrix64 R21 = R(velocity_indices, {0,1,2,3});
-    Matrix64 S = (-(R21 * R11.inverse())).eval();
-#else
-    std::array<int, 3> traction_indices = {0,3,5};
-    std::array<int, 3> velocity_indices = {6,7,8};
-    using Matrix33 = Eigen::Matrix<double, 3, 3>;
-    Matrix33 R11 = R(traction_indices, {0,1,2});
-    Matrix33 R21 = R(velocity_indices, {0,1,2});
-    Matrix33 S = (-(R21 * R11.inverse())).eval();
-#endif
-
-    //set lower left block
-    int row = 0;
-    for (auto &t: traction_indices) {
-      int col = 0;
-      for (auto &v: velocity_indices) {
-        QgodLocal(t, v) = S(row, col);
-        col++;
-      }
-      row++;
-    }
-
-    //set lower right block
-    for (auto &v : velocity_indices) {
-      QgodLocal(v, v) = 1.0;
+    if constexpr(std::is_same<Tmatrix, arma::Mat<double>>::value) {
+      arma::uvec traction_indices = {0,3,5,9};
+      arma::uvec velocity_indices = {6,7,8,10,11,12};
+      arma::uvec column_indices = {0,1,2,3};
+      arma::mat R11 = R.submat(traction_indices, column_indices);
+      arma::mat R21 = R.submat(velocity_indices, column_indices);
+      arma::mat S = (-(R21 * inv(R11))).eval();
+      setBlocks(QgodLocal, S, traction_indices, velocity_indices);
+    } else {
+      std::array<int, 3> traction_indices = {0,3,5};
+      std::array<int, 3> velocity_indices = {6,7,8};
+      using Matrix33 = Eigen::Matrix<double, 3, 3>;
+      Matrix33 R11 = R(traction_indices, {0,1,2});
+      Matrix33 R21 = R(velocity_indices, {0,1,2});
+      Matrix33 S = (-(R21 * R11.inverse())).eval();
+      setBlocks(QgodLocal, S, traction_indices, velocity_indices);
     }
   }
 }
-  
+
 #endif
