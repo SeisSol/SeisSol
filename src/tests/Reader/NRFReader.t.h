@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <cxxtest/TestSuite.h>
 
 #include <SourceTerm/NRFReader.h>
@@ -43,11 +44,11 @@ public:
     TS_ASSERT_DELTA(nrf.subfaults[0].mu, 0.0, epsilon);
     TS_ASSERT_EQUALS(nrf.source, 1);
 
-    for (unsigned i = 0; i < slipRates.size(); i++) {
-      //NRF File is in cm
-      TS_ASSERT_DELTA(nrf.sliprates[0][i], slipRates[i]/100, epsilon);
-      TS_ASSERT_DELTA(nrf.sliprates[1][i], 0, epsilon);
-      TS_ASSERT_DELTA(nrf.sliprates[2][i], 0, epsilon);
+    for (size_t dim = 0; dim < 3; dim++) {
+      for (unsigned i = 0; i < std::min((size_t)nrf.sroffsets[1][dim] - nrf.sroffsets[0][dim], slipRates[dim].size()); i++) {
+        //NRF File is in cm
+        TS_ASSERT_DELTA(nrf.sliprates[dim][i], slipRates[dim][i]/100, epsilon);
+      }
     }
 
 

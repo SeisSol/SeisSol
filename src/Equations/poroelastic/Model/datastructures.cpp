@@ -4,6 +4,7 @@
 using namespace seissol::model;
 PoroElasticMaterial::PoroElasticMaterial( double* i_materialVal, int i_numMaterialVals)
 { 
+#ifdef USE_POROELASTIC
   assert(i_numMaterialVals == 10);
 
   this->bulk_solid = i_materialVal[0];
@@ -16,12 +17,15 @@ PoroElasticMaterial::PoroElasticMaterial( double* i_materialVal, int i_numMateri
   this->bulk_fluid = i_materialVal[7];
   this->rho_fluid = i_materialVal[8];
   this->viscosity = i_materialVal[9];  
+#endif
 }
 
 void PoroElasticMaterial::getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
+#ifdef USE_POROELASTIC
   double elasticMaterialVals[] = {this->rho, this->mu, this->lambda};
   ElasticMaterial em(elasticMaterialVals, 3);
   em.getFullStiffnessTensor(fullTensor);
+#endif
 }
 
 double PoroElasticMaterial::getMaxWaveSpeed() const {
@@ -29,6 +33,7 @@ double PoroElasticMaterial::getMaxWaveSpeed() const {
 }
 
 double PoroElasticMaterial::getPWaveSpeed() const {
+#ifdef USE_POROELASTIC
   Eigen::Matrix<double, 13, 13> AT = Eigen::Matrix<double, 13, 13>::Zero();
   seissol::model::getTransposedCoefficientMatrix(*this, 0, AT);
   Eigen::ComplexEigenSolver<Eigen::Matrix<double, 13, 13>> ces;
@@ -40,10 +45,17 @@ double PoroElasticMaterial::getPWaveSpeed() const {
   }
 
   return max_ev;
+#else
+  return 0;
+#endif
 }
 
 double PoroElasticMaterial::getSWaveSpeed() const {
+#ifdef USE_POROELASTIC
   return std::sqrt(mu / rho);
+#else
+  return 0;
+#endif
 }
 
 MaterialType PoroElasticMaterial::getMaterialType() const {

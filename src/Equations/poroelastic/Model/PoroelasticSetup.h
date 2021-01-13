@@ -11,6 +11,7 @@
 
 namespace seissol {
   namespace model {
+#ifdef USE_POROELASTIC
     struct additionalPoroelasticParameters {
       Eigen::Matrix<double, 6, 1> alpha;
       double K_bar; 
@@ -351,5 +352,6 @@ namespace seissol {
 
       localData->typicalTimeStepWidth = timeStepWidth;
     }
+#endif
   }
 }

@@ -1,4 +1,6 @@
 add_library(SeisSol-lib
+src/Equations/poroelastic/Model/datastructures.cpp
+
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/GlobalData.cpp
@@ -202,7 +204,6 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Time.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Model/datastructures.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
   target_compile_definitions(SeisSol-lib PUBLIC USE_STP)

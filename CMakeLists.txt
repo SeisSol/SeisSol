@@ -381,7 +381,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
 	      ${SeisSol_NETCDF_TEST_FILES}
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
@@ -391,11 +391,8 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
   )
   if(${EQUATIONS} STREQUAL "poroelastic")
-    CXXTEST_ADD_TEST_MPI(
-            test_serial_test_suite
-            1
-            test_serial.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
+    target_sources(test_serial_test_suite PUBLIC
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
   )
   endif()
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)

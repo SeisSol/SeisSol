@@ -173,8 +173,9 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
                                                            T&        QgodNeighbor,
                                                            Tmatrix&  R)
 {
-  for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-    for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
+  constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+  for (size_t i = 0; i < relevant_quantities; i++) {
+    for (size_t j = 0; j < relevant_quantities; j++) {
       QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
     }
   }
