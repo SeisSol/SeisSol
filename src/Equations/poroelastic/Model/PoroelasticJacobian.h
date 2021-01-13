@@ -1,6 +1,7 @@
 #ifndef MODEL_POROELASTIC_JACOBIAN_H_
 #define MODEL_POROELASTIC_JACOBIAN_H_
 
+#define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 #include <Eigen/Eigen>
 
