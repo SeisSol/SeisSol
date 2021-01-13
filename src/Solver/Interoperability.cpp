@@ -98,7 +98,9 @@ extern "C" {
   }
 
   void c_interoperability_setupFSRMPointSources( double*  momentTensor,
-                                                 double*  velocityComponent,
+                                                 double*  solidVelocityComponent,
+                                                 double*  pressureComponent,
+                                                 double*  fluidVelocityComponent,
                                                  int      numberOfSources,
                                                  double*  centres,
                                                  double*  strikes,
@@ -111,7 +113,9 @@ extern "C" {
                                                  double*  timeHistories )
   {
     e_interoperability.setupFSRMPointSources( momentTensor,
-                                              velocityComponent,
+                                              solidVelocityComponent,
+                                              pressureComponent,
+                                              fluidVelocityComponent,
                                               numberOfSources,
                                               centres,
                                               strikes,
@@ -469,7 +473,9 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 #endif
 
 void seissol::Interoperability::setupFSRMPointSources( double const* momentTensor,
-                                                       double const* velocityComponent,
+                                                       double const* solidVelocityComponent,
+                                                       double const* pressureComponent,
+                                                       double const* fluidVelocityComponent,
                                                        int           numberOfSources,
                                                        double const* centres,
                                                        double const* strikes,
@@ -483,7 +489,9 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
 {
   SeisSol::main.sourceTermManager().loadSourcesFromFSRM(
     momentTensor,
-    velocityComponent,
+    solidVelocityComponent,
+    pressureComponent,
+    fluidVelocityComponent,
     numberOfSources,
     centres,
     strikes,

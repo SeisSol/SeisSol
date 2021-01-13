@@ -65,7 +65,9 @@ namespace seissol {
      *
      **/    
     void transformMomentTensor(real const i_localMomentTensor[3][3],
-                               real const i_localVelocityComponent[3],
+                               real const i_localSolidVelocityComponent[3],
+                               real const i_localPressureComponent[1],
+                               real const i_localFluidVelocityComponent[3],
                                real strike,
                                real dip,
                                real rake,

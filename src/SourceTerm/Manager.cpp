@@ -246,7 +246,9 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
-                                                        double const*                   velocityComponent,
+                                                        double const*                   solidVelocityComponent,
+                                                        double const*                   pressureComponent,
+                                                        double const*                   fluidVelocityComponent,
                                                         int                             numberOfSources,
                                                         double const*                   centres,
                                                         double const*                   strikes,
@@ -306,9 +308,15 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
-  real localVelocityComponent[3];
+  real localSolidVelocityComponent[3];
   for (unsigned i = 0; i < 3; i++) {
-    localVelocityComponent[i] = velocityComponent[i];
+    localSolidVelocityComponent[i] = solidVelocityComponent[i];
+  }
+  real localPressureComponent[1];
+  localPressureComponent[0] = pressureComponent[0];
+  real localFluidVelocityComponent[3];
+  for (unsigned i = 0; i < 3; i++) {
+    localFluidVelocityComponent[i] = fluidVelocityComponent[i];
   }
   
   sources = new PointSources[ltsTree->numChildren()];
@@ -332,15 +340,17 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       computeMInvJInvPhisAtSources(centres3[fsrmIndex],
               sources[cluster].mInvJInvPhisAtSources[clusterSource],
               meshIds[sourceIndex], mesh);
-
+      std::cout << centres[fsrmIndex] << std::endl;
       transformMomentTensor( localMomentTensor,
-                             localVelocityComponent,
+                             localSolidVelocityComponent,
+                             localPressureComponent,
+                             localFluidVelocityComponent,
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
                              sources[cluster].tensor[clusterSource]);
 
-      for (unsigned i = 0; i < 9; ++i) {
+      for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
       }
 #ifndef USE_POROELASTIC
@@ -348,6 +358,8 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       for (unsigned i = 0; i < 3; ++i) {
         sources[cluster].tensor[clusterSource][6+i] /= material.rho;
       }
+#else
+      logWarning() << "For the poroelastic equation we do not scale the force components with the density. Make sure you know what you do.";
 #endif
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],

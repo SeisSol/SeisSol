@@ -1323,7 +1323,9 @@ MODULE TypesDef
      REAL, POINTER                   :: n_dip(:)                                !< Normal vector along dip
      REAL, POINTER                   :: corner(:)                               !< Position of the top left corner of the rupture plane
      REAL                            :: MomentTensor(3,3)                       !< The seismic moment tensor
-     REAL                            :: VelocityComponent(3)                    !< The source velocity component
+     REAL                            :: SolidVelocityComponent(3)               !< The source solid velocity component
+     REAL                            :: PressureComponent(1)                    !< The source pressure component
+     REAL                            :: FluidVelocityComponent(3)               !< The source fluid velocity component
      REAL                            :: TensorRotation(3,3)                     !< The rotation matrix of the moment tensor
      REAL                            :: TensorRotationT(3,3)                    !< The transpose rotation matrix of the moment tensor
      REAL, POINTER                   :: TWindowStart(:)                         !< Point in Time when a Time Window starts

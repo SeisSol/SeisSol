@@ -1,5 +1,6 @@
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
+#include <iomanip>
 
 #include <yateto/TensorView.h>
 
@@ -7,20 +8,225 @@
 #include "Kernels/common.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "generated_code/init.h"
-#include "PoroelasticJacobian.h"
 
 namespace seissol {
   namespace model {
+    struct additionalPoroelasticParameters {
+      Eigen::Matrix<double, 6, 1> alpha;
+      double K_bar; 
+      double M; 
+      double m; 
+      Eigen::Matrix<double, 6, 6> c_bar; 
+      double rho_bar; 
+      double rho_1; 
+      double rho_2; 
+      double beta_1; 
+      double beta_2; 
+    };
+
+    inline additionalPoroelasticParameters getAdditionalParameters(const PoroElasticMaterial& material) {
+      Eigen::Matrix<double, 6, 1> alpha;
+      alpha << 1 - (3*material.lambda + 2*material.mu) / (3*material.bulk_solid),
+        1 - (3*material.lambda + 2*material.mu) / (3*material.bulk_solid),
+        1 - (3*material.lambda + 2*material.mu) / (3*material.bulk_solid),
+        -0.0,
+        -0.0,
+        -0.0;
+
+      Eigen::Matrix<double, 6, 6> c;
+      c << material.lambda + 2*material.mu , material.lambda , material.lambda , 0 , 0 , 0,
+         material.lambda , material.lambda + 2*material.mu , material.lambda , 0 , 0 , 0,
+         material.lambda , material.lambda , material.lambda + 2*material.mu , 0 , 0 , 0,
+         0 , 0 , 0 , material.mu , 0 , 0,
+         0 , 0 , 0 , 0 , material.mu , 0,
+         0 , 0 , 0 , 0 , 0 , material.mu;
+
+      double K_bar = material.lambda + 2*material.mu/3;
+      double M = material.bulk_solid / (1 - material.porosity - K_bar / material.bulk_solid + material.porosity * material.bulk_solid / material.bulk_fluid);
+      double m =  material.rho_fluid * material.tortuosity / material.porosity;
+
+      Eigen::Matrix<double, 6, 6> c_bar = c + M * alpha * alpha.transpose();
+
+      double rho_bar = (1 - material.porosity) * material.rho + material.porosity * material.rho_fluid;
+      double rho_1 = rho_bar - material.rho_fluid*material.rho_fluid / m;
+      double rho_2 = material.rho_fluid - m * rho_bar/material.rho_fluid;
+      double beta_1 = material.rho_fluid / m;
+      double beta_2 = rho_bar / material.rho_fluid;
+
+      return {alpha, K_bar, M, m, c_bar, rho_bar, rho_1, rho_2, beta_1, beta_2};
+    }
+
+    template<typename T>
+    inline void setToZero(T& AT) {
+      AT.setZero();
+    }
+
+    template<>
+    inline void setToZero(arma::Mat<std::complex<double> >::fixed<13, 13>& AT) {
+      for (size_t row = 0; row < AT.n_rows; row++) {
+        for (size_t col = 0; col < AT.n_cols; col++) {
+          AT(row, col) = 0;
+        }
+      }
+    }
+
+    template<typename T>
+    inline void getTransposedCoefficientMatrix( PoroElasticMaterial const& material,
+        unsigned dim,
+        T& AT)
+    {
+      setToZero<T>(AT);
+      const additionalPoroelasticParameters params = getAdditionalParameters(material);
+      switch(dim){
+        case 0:
+          AT(0,6)  = -1 / params.rho_1;
+          AT(0,10) = -1 / params.rho_2;
+          AT(3,7)  = -1 / params.rho_1;
+          AT(3,11) = -1 / params.rho_2;
+          AT(5,8)  = -1 / params.rho_1;
+          AT(5,12) = -1 / params.rho_2;
+
+          AT(6, 0) = -params.c_bar(0, 0);
+          AT(6, 1) = -params.c_bar(1, 0); AT(6, 2) = -params.c_bar(2, 0);
+          AT(6, 3) = -params.c_bar(5, 0);
+          AT(6, 4) = -params.c_bar(3, 0);
+          AT(6, 5) = -params.c_bar(4, 0);
+          AT(6, 9) = params.M * params.alpha(0);
+
+          AT(7, 0) = -params.c_bar(0, 5);
+          AT(7, 1) = -params.c_bar(1, 5);
+          AT(7, 2) = -params.c_bar(2, 5);
+          AT(7, 3) = -params.c_bar(5, 5);
+          AT(7, 4) = -params.c_bar(3, 5);
+          AT(7, 5) = -params.c_bar(4, 5);
+          AT(7, 9) = params.M * params.alpha(5);
+
+          AT(8, 0) = -params.c_bar(0, 4);
+          AT(8, 1) = -params.c_bar(1, 4);
+          AT(8, 2) = -params.c_bar(2, 4);
+          AT(8, 3) = -params.c_bar(5, 4);
+          AT(8, 4) = -params.c_bar(3, 4);
+          AT(8, 5) = -params.c_bar(4, 4);
+          AT(8, 9) = params.M * params.alpha(4);
+
+          AT(9,6)  = - params.beta_1 / params.rho_1;
+          AT(9,10) = - params.beta_2 / params.rho_2;
+
+          AT(10,0) = - params.M*params.alpha(0);
+          AT(10,1) = - params.M*params.alpha(1);
+          AT(10,2) = - params.M*params.alpha(2);
+          AT(10,3) = - params.M*params.alpha(5);
+          AT(10,4) = - params.M*params.alpha(3);
+          AT(10,5) = - params.M*params.alpha(4);
+          AT(10,9) = params.M;
+          break;
+        case 1:
+          AT(1,7)  = -1 / params.rho_1;
+          AT(1,11) = -1 / params.rho_2;
+          AT(3,6)  = -1 / params.rho_1;
+          AT(3,10) = -1 / params.rho_2;
+          AT(4,8)  = -1 / params.rho_1;
+          AT(4,12) = -1 / params.rho_2;
+
+          AT(6, 0) = -params.c_bar(0, 5);
+          AT(6, 1) = -params.c_bar(1, 5);
+          AT(6, 2) = -params.c_bar(2, 5);
+          AT(6, 3) = -params.c_bar(5, 5);
+          AT(6, 4) = -params.c_bar(3, 5);
+          AT(6, 5) = -params.c_bar(4, 5);
+          AT(6, 9) = params.M * params.alpha(5);
+
+          AT(7, 0) = -params.c_bar(0, 1);
+          AT(7, 1) = -params.c_bar(1, 1);
+          AT(7, 2) = -params.c_bar(2, 1);
+          AT(7, 3) = -params.c_bar(5, 1);
+          AT(7, 4) = -params.c_bar(3, 1);
+          AT(7, 5) = -params.c_bar(4, 1);
+          AT(7, 9) = params.M * params.alpha(1);
+
+          AT(8, 0) = -params.c_bar(0, 3);
+          AT(8, 1) = -params.c_bar(1, 3);
+          AT(8, 2) = -params.c_bar(2, 3);
+          AT(8, 3) = -params.c_bar(5, 3);
+          AT(8, 4) = -params.c_bar(3, 3);
+          AT(8, 5) = -params.c_bar(4, 3);
+          AT(8, 9) = params.M * params.alpha(3);
+
+          AT(9,7)  = - params.beta_1 / params.rho_1;
+          AT(9,11) = - params.beta_2 / params.rho_2;
+
+          AT(11,0) = - params.M*params.alpha(0);
+          AT(11,1) = - params.M*params.alpha(1);
+          AT(11,2) = - params.M*params.alpha(2);
+          AT(11,3) = - params.M*params.alpha(5);
+          AT(11,4) = - params.M*params.alpha(3);
+          AT(11,5) = - params.M*params.alpha(4);
+          AT(11,9) = params.M;
+          break;
+        case 2:
+          AT(2,8)  = -1 / params.rho_1;
+          AT(2,12) = -1 / params.rho_2;
+          AT(4,7)  = -1 / params.rho_1;
+          AT(4,11) = -1 / params.rho_2;
+          AT(5,6)  = -1 / params.rho_1;
+          AT(5,10) = -1 / params.rho_2;
+
+          AT(6, 0) = -params.c_bar(0, 4);
+          AT(6, 1) = -params.c_bar(1, 4);
+          AT(6, 2) = -params.c_bar(2, 4);
+          AT(6, 3) = -params.c_bar(5, 4);
+          AT(6, 4) = -params.c_bar(3, 4);
+          AT(6, 5) = -params.c_bar(4, 4);
+          AT(6, 9) = params.M * params.alpha(4);
+
+          AT(7, 0) = -params.c_bar(0, 3);
+          AT(7, 1) = -params.c_bar(1, 3);
+          AT(7, 2) = -params.c_bar(2, 3);
+          AT(7, 3) = -params.c_bar(5, 3);
+          AT(7, 4) = -params.c_bar(3, 3);
+          AT(7, 5) = -params.c_bar(4, 3);
+          AT(7, 9) = params.M * params.alpha(3);
+
+          AT(8, 0) = -params.c_bar(0, 2);
+          AT(8, 1) = -params.c_bar(1, 2);
+          AT(8, 2) = -params.c_bar(2, 2);
+          AT(8, 3) = -params.c_bar(5, 2);
+          AT(8, 4) = -params.c_bar(3, 2);
+          AT(8, 5) = -params.c_bar(4, 2);
+          AT(8, 9) = params.M * params.alpha(2);
+
+          AT(9,8)  = - params.beta_1 / params.rho_1;
+          AT(9,12) = - params.beta_2 / params.rho_2;
+
+          AT(12,0) = - params.M*params.alpha(0);
+          AT(12,1) = - params.M*params.alpha(1);
+          AT(12,2) = - params.M*params.alpha(2);
+          AT(12,3) = - params.M*params.alpha(5);
+          AT(12,4) = - params.M*params.alpha(3);
+          AT(12,5) = - params.M*params.alpha(4);
+          AT(12,9) = params.M;
+          break;
+
+        default:
+          break;
+      }
+    }
+
     template<typename T>
     inline void getTransposedSourceCoefficientTensor( PoroElasticMaterial const& material, T& ET) {
-      ET.setZero();
-      ET(10,10) = material.viscosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
-      ET(11,11) = material.viscosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
-      ET(12,12) = material.viscosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
+      const additionalPoroelasticParameters params = getAdditionalParameters(material);
+      const double e_1 = params.beta_1 * material.viscosity / (params.rho_1 * material.permeability);
+      const double e_2 = params.beta_2 * material.viscosity / (params.rho_2 * material.permeability);
+      std::cout << std::setprecision(16) << "e_1 = " << e_1 << ", e_2 = " << e_2 << std::endl;
 
-      ET(10,6) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
-      ET(11,7) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
-      ET(12,8) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
+      ET.setZero();
+      ET(10,10) = e_1;
+      ET(11,11) = e_1;
+      ET(12,12) = e_1;
+
+      ET(10,6) = e_2;
+      ET(11,7) = e_2;
+      ET(12,8) = e_2;
     }
 
     template<>
