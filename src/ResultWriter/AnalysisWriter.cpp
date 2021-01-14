@@ -242,7 +242,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
       logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i] << "\t" << errL1Local[i] / analyticalL1Local[i];
       logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]) << "\t" << std::sqrt(errL2Local[i] / analyticalL2Local[i]);
-      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i << "\t" << errLInfLocal[i] /analyticalLInfLocal[i]]
+      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i] << "\t" << errLInfLocal[i] /analyticalLInfLocal[i]
           << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
     }
 #endif // USE_MPI

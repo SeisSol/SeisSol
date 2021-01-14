@@ -1,0 +1,15 @@
+!ConstantMap
+map:
+  #  from Josep's thesis
+  bulk_solid:   40.0e9
+  rho:           2.5e3
+  lambda:       12.0e9
+  mu:           10.0e9
+  porosity:      0.2
+  permeability:  6.0e-13
+  tortuosity:    3
+  bulk_fluid:    2.5e9
+  rho_fluid:     1.04e3
+  viscosity:     0.001 
+  #viscosity:     0.0
+
