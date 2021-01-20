@@ -163,15 +163,39 @@ MODULE ini_model_DR_mod
     ALLOCATE(  DISC%DynRup%DS(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
     ALLOCATE(  DISC%DynRup%cohesion(DISC%Galerkin%nBndGP,MESH%Fault%nSide)  )
 
-    ! Allocate and initialize magnitude output
+    ! Allocate magnitude output
     ALLOCATE(  DISC%DynRup%magnitude_out(MESH%Fault%nSide)                  )
-    DISC%DynRup%magnitude_out(:) = .FALSE.
 
-    IF (DISC%DynRup%magnitude_output_on.EQ.1) THEN
+
+    ! Initialize w/ first-touch
+    !$omp parallel do schedule(static)
+    DO i=1,MESH%fault%nSide
+        EQN%IniMu(:,i) = 0.0
+        EQN%IniBulk_xx(:,i) = 0.0
+        EQN%IniBulk_yy(:,i) = 0.0
+        EQN%IniBulk_zz(:,i) = 0.0
+        EQN%IniStateVar(:,i) = 0.0
+        EQN%IniShearXY(:,i) = 0.0
+        EQN%IniShearYZ(:,i) = 0.0
+        EQN%IniShearXZ(:,i) = 0.0
+        DISC%DynRup%Strength(:,i) = 0.0
+        DISC%DynRup%RF(:,i) = .FALSE.
+        DISC%DynRup%DS(:,i) = .FALSE.
+        DISC%DynRup%cohesion(:,i) = 0.0
+
+        ! Initialize magnitude output
+        DISC%DynRup%magnitude_out(i) = .FALSE.
+    END DO
+
+    IF (DISC%DynRup%magnitude_output_on == 1) THEN
        ALLOCATE(  DISC%DynRup%averaged_Slip(MESH%Fault%nSide)        )
        !ini magnitude output
-       DISC%DynRup%magnitude_out(:) = .TRUE.
-       DISC%DynRup%averaged_Slip(:) = 0.0D0
+
+       !$omp parallel do schedule(static)
+       DO i=1,MESH%fault%nSide
+           DISC%DynRup%magnitude_out(i) = .TRUE.
+           DISC%DynRup%averaged_Slip(i) = 0.0D0
+       END DO
     ENDIF
 
     ! ini rupture front output
@@ -189,13 +213,13 @@ MODULE ini_model_DR_mod
               ENDIF
            ENDDO
      ELSEIF ((DISC%DynRup%RFtime_on .EQ. 1) .AND. (DISC%DynRup%DS_output_on .EQ. 0 )) THEN
-           DO i = 1, MESH%Fault%nSide
+        DO i = 1, MESH%Fault%nSide
               IF (MESH%FAULT%Face(i,1,1) .NE. 0) THEN
                  DISC%DynRup%RF(:,i) = .TRUE.
               ENDIF
           ENDDO
     ENDIF
-    if (EQN%FL .NE. 33) then !33 is ImposedSlipRateOnDRBoundary
+    if (EQN%FL /= 33) then !33 is ImposedSlipRateOnDRBoundary
         faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
         
         if (faultParameterizedByTraction) then
@@ -223,26 +247,49 @@ MODULE ini_model_DR_mod
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
+       ! Initialize w/ first-touch
+       !$omp parallel do schedule(static)
+       DO i=1,MESH%fault%nSide
+           DISC%DynRup%D_C(:,i) = 0.0
+           DISC%DynRup%Mu_S(:,i) = 0.0
+           DISC%DynRup%Mu_D(:,i) = 0.0
+       END DO
        call c_interoperability_addFaultParameter("cohesion" // c_null_char, DISC%DynRup%cohesion)
        call c_interoperability_addFaultParameter("d_c" // c_null_char, DISC%DynRup%D_C)
        call c_interoperability_addFaultParameter("mu_s" // c_null_char, DISC%DynRup%Mu_S)
        call c_interoperability_addFaultParameter("mu_d" // c_null_char, DISC%DynRup%Mu_D)
        if (EQN%FL == 16) then
          ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+         ! Initialize w/ first-touch
+         !$omp parallel do schedule(static)
+         DO i=1,MESH%fault%nSide
+             DISC%DynRup%forced_rupture_time(:,i) = 0.0
+         END DO
          call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
        end if
 
     CASE(33) ! ImposedSlipRateOnDRBoundary
         allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
-        nuc_xx(:,:) = 0.0d0
-        nuc_yy(:,:) = 0.0d0
+
+        ! Initialize w/ first-touch
+        !$omp parallel do schedule(static)
+        DO i=1,MESH%fault%nSide
+            nuc_xx(:,i) = 0.0d0
+            nuc_yy(:,i) = 0.0d0
+        END DO
+
         call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
         call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
 
     CASE(3,4,7,101,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
-      call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          DISC%DynRup%rs_a_array(:,i) = 0.0
+      END DO
+          call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
       if (EQN%FL == 103) then
         nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
         allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
@@ -253,6 +300,20 @@ MODULE ini_model_DR_mod
                   nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+
+        ! Initialize w/ first-touch
+        !$omp parallel do schedule(static)
+        DO i=1,MESH%fault%nSide
+            DISC%DynRup%RS_srW_array(:,i) = 0.0
+            DISC%DynRup%RS_sl0_array(:,i) = 0.0
+            nuc_xx(:,i) = 0.0
+            nuc_yy(:,i) = 0.0
+            nuc_zz(:,i) = 0.0
+            nuc_xy(:,i) = 0.0
+            nuc_yz(:,i) = 0.0
+            nuc_xz(:,i) = 0.0
+        END DO
+
         call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
         if (nucleationParameterizedByTraction) then
@@ -271,7 +332,7 @@ MODULE ini_model_DR_mod
           call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
         endif
       end if
-      if (DISC%DynRup%ThermalPress.EQ.1) THEN
+      if (DISC%DynRup%ThermalPress == 1) THEN
          nz = DISC%DynRup%TP_grid_nz !number of grid points for the advection equation perpendicular to the fault, currently fixed to 60.0 but requires more testing
         ALLOCATE(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
                  DISC%DynRup%TP_Theta(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
@@ -280,6 +341,17 @@ MODULE ini_model_DR_mod
         ! use this for advanced initialization
         ALLOCATE(DISC%DynRup%alpha_hy(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
                  DISC%DynRup%TP_half_width_shear_zone(DISC%Galerkin%nBndGP, MESH%Fault%nSide))
+
+         ! Initialize w/ first-touch
+         !$omp parallel do schedule(static)
+         DO i=1,MESH%fault%nSide
+             DISC%DynRup%TP_Theta(:, i, :) = 0.0
+             DISC%DynRup%TP_Sigma(:, i, :) = 0.0
+             DISC%DynRup%TP(:, i, :) = 0.0
+             DISC%DynRup%alpha_hy(:, i) = 0.0
+             DISC%DynRup%TP_half_width_shear_zone(:, i) = 0.0
+         END DO
+
         call c_interoperability_addFaultParameter("alpha_hy" // c_null_char, DISC%DynRup%alpha_hy)
         call c_interoperability_addFaultParameter("TP_half_width_shear_zone" // c_null_char, DISC%DynRup%TP_half_width_shear_zone)
 
@@ -306,12 +378,27 @@ MODULE ini_model_DR_mod
 
     if (EQN%FL == 103) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          EQN%NucleationStressInFaultCS(:,:,i) = 0.0
+      END DO
+
       call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,nucleationParameterizedByTraction)
       deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
     end if
 
     if (EQN%FL == 33) then !ImposedSlipRateOnDRBoundary
         allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,2,MESH%Fault%nSide))
+
+        ! Initialize w/ first-touch
+        !$omp parallel do schedule(static)
+        DO i=1,MESH%fault%nSide
+            EQN%NucleationStressInFaultCS(:,:,i) = 0.0
+        END DO
+
         call rotateSlipToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,EQN%NucleationStressInFaultCS)
         deallocate(nuc_xx,nuc_yy)
     endif
