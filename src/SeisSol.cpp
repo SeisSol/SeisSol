@@ -110,13 +110,13 @@ bool seissol::SeisSol::init(int argc, char* argv[])
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
   logInfo(rank) << "Overall affinity            :" << parallel::Pinning::maskToString(
       pinning.getProcessMask());
+  logInfo(rank) << "OpenMP worker affinity       :" << parallel::Pinning::maskToString(
+      pinning.getWorkerUnionMask());
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
 #ifdef USE_COMM_THREAD
   logInfo(rank) << "Running with communication thread";
   auto freeCpus = pinning.getFreeCPUsMask();
-  logInfo(rank) << "OpenMP worker affinity       :" << parallel::Pinning::maskToString(
-      pinning.getWorkerUnionMask());
   logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
   if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
