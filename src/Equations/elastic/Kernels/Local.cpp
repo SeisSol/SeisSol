@@ -148,10 +148,10 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
     switch (data.cellInformation.faceTypes[face]) {
     case FaceType::freeSurfaceGravity:
       {
-      assert(cellBoundaryMapping != nullptr);
-      assert(materialData != nullptr);
-      auto* displ = tmp.nodalAvgDisplacements[face].data();
-      auto displacement = init::averageNormalDisplacement::view::create(displ);
+        assert(cellBoundaryMapping != nullptr);
+        assert(materialData != nullptr);
+        auto* displ = tmp.nodalAvgDisplacements[face].data();
+        auto displacement = init::averageNormalDisplacement::view::create(displ);
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {

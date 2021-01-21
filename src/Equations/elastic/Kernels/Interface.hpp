@@ -49,7 +49,7 @@ namespace seissol {
         alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
     };
 #ifndef ACL_DEVICE
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements, faceDisplacements, boundaryMapping, material)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
 #else
     LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements, localIntegrationOnDevice)

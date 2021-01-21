@@ -36,7 +36,7 @@ public:
             stage1(stage1),
             fEvalHeun(fEvalHeun),
             updateHeun(updateHeun),
-            config(std::move(config)) {}
+            config(config) {}
 private:
   ODEVector& fEval;
   ODEVector& stage1;
@@ -51,30 +51,21 @@ public:
              TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
-    //curValue = initialValue;
     double dt = config.initialDt;
-    //std::cout << "Begin ODE solve" << std::endl;
     while (curTime < timeSpan.end) {
       if (dt < config.minimumDt) {
         throw std::runtime_error("ODE solver: time step size smaller than minimal acceptable. Aborting!");
       }
       const double adjustedDt = std::min(dt, timeSpan.end - timeSpan.begin);
-      //std::cout << "\ncurValue\n";
-      //curValue.print();
-      //std::cout << "\nfEval\n";
-      f(fEval, curValue, curTime);
-      //fEval.print();
 
-      //const auto stage1 = curValue + curDt * fEval;
+      f(fEval, curValue, curTime);
+
       stage1 = fEval; // = f(x_n, t_n)
       stage1 *= adjustedDt; // \hat{x_n+1} = adjustedDt * f(x_n, t_n)
       stage1 += curValue; // \hat{x_n+1} = curValue + adjustedDt * f(x_n, t_n)
 
       // TODO(Lukas) Can be optimized a lot...
       f(fEvalHeun, stage1, curTime + adjustedDt);
-      //const auto updateHeun = curValue + 0.5 * dt * (
-          //fEval + f(stage1, curTime)
-          //);
       updateHeun = fEvalHeun;  // x_n+1 = f(\hat[x_n+1}, t_n+1)
       updateHeun += fEval;  // x_n+1 = f(\hat[x_n+1}, t_n+1) + f(x_n, t_n)
       updateHeun *= 0.5 * adjustedDt; // x_n+1 = 1/2 * dt * (f(\hat[x_n+1}, t_n+1) + f(x_n, t_n))
@@ -89,8 +80,7 @@ public:
         std::cout << "Error estimate: " << errorEstimate << " new dt = " << dt/2 << std::endl;
         dt /= 2;
       } else {
-        //curValue = updateHeun;
-        curValue = updateHeun; // TODO(Lukas) Use Heun update!
+        curValue = updateHeun; // Update with extrapolation
         curTime += adjustedDt;
       }
     }

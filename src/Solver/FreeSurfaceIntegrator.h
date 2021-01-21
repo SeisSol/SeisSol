@@ -74,6 +74,7 @@ private:
   real* projectionMatrix[4];
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
+  kernel::subTriangleDisplacement subTriangleDisplacementPrototype;
   
   bool m_enabled;
   
@@ -100,6 +101,7 @@ public:
   ~FreeSurfaceIntegrator();
   
   void initialize(  unsigned maxRefinementDepth,
+                    GlobalData* globalData,
                     seissol::initializers::LTS* lts,
                     seissol::initializers::LTSTree* ltsTree,
                     seissol::initializers::Lut* ltsLut );

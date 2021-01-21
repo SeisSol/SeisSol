@@ -446,7 +446,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   real** buffers = i_layerData.var(m_lts->buffers);
   real** derivatives = i_layerData.var(m_lts->derivatives);
-  real** displacements = i_layerData.var(m_lts->displacements);
   CellMaterialData* materialData = i_layerData.var(m_lts->material);
 
   kernels::LocalData::Loader loader;
@@ -492,18 +491,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );
-
-    // TODO(Lukas) Remove!
-    /*
-    // Update displacement
-    if (displacements[l_cell] != nullptr) {
-      kernel::addVelocity krnl;
-      krnl.I = l_bufferPointer;
-      krnl.selectVelocity = init::selectVelocity::Values;
-      krnl.displacement = displacements[l_cell];
-      krnl.execute();
-    }
-     */
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel

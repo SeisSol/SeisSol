@@ -99,10 +99,8 @@ struct seissol::initializers::LTS {
   Variable<CellDRMapping[4]>              drMapping;
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
   Variable<real[7]>                       pstrain;
-  Variable<real*>                         displacements;
   Variable<real*[4]>                      faceDisplacements;
   Bucket                                  buffersDerivatives;
-  Bucket                                  displacementsBuffer;
   Bucket                                  faceDisplacementsBuffer;
 
 #ifdef ACL_DEVICE
@@ -135,10 +133,10 @@ struct seissol::initializers::LTS {
     tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
     tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
-    tree.addVar(           displacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
+    //tree.addVar(           displacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
     
     tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
-    tree.addBucket(displacementsBuffer,                         PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    //tree.addBucket(displacementsBuffer,                         PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE

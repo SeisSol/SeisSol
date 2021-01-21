@@ -791,6 +791,7 @@ void seissol::Interoperability::enableFreeSurfaceOutput(int maxRefinementDepth)
 	seissol::SeisSol::main.freeSurfaceWriter().enable();
 
 	seissol::SeisSol::main.freeSurfaceIntegrator().initialize( maxRefinementDepth,
+								m_globalData,
 								m_lts,
 								m_ltsTree,
 								&m_ltsLut );

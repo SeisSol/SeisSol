@@ -106,13 +106,15 @@ public:
   }
 
   void print() {
+    const auto delim = "----------- print() -----------";
     for (std::size_t i = 0; i < storages.size(); ++i) {
-      std::cout << "-------------------------------------" << std::endl;
+      std::cout << delim << std::endl;
       for (std::size_t j = 0; j < sizes[i]; ++j) {
         std::cout << storages[i][j] << ", ";
       }
       std::cout << std::endl;
     }
+    std::cout << delim << std::endl;
   }
 };
 

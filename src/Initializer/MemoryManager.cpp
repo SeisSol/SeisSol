@@ -531,50 +531,8 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
           boundaryMapping[cell][face].easiBoundaryMap = nullptr;
           boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
         }
-        // TODO(Lukas) Check if the following is correct:
-        /*
-        if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
-          boundaryMapping[cell][face].displacement = faceInformation[boundaryFace].displacement;
-        } else {
-          boundaryMapping[cell][face].displacement = nullptr;
-        }
-         */
       }
     }
-  }
-}
-
-// TODO(Lukas) Rework that!
-void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
-{
-  for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
-    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
-    real** displacements = layer->var(m_lts.displacements);
-    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
-
-    unsigned numberOfCells = 0;
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      bool hasFreeSurface = false;
-      for (unsigned int face = 0; face < 4; ++face) {
-        const auto faceType = cellInformation[cell].faceTypes[face];
-        hasFreeSurface = hasFreeSurface
-                         || faceType == FaceType::freeSurface
-                         || faceType == FaceType::freeSurfaceGravity
-                         || isAtElasticAcousticInterface(cellMaterialData[cell], face);
-      }
-      if (hasFreeSurface) {
-        // We add the base address later when the bucket is allocated
-        // +1 is necessary as we want to reserve the nullptr for cell without displacement.
-        // Thanks to this hack, the array contains a constant plus the offset of the current
-        // cell.
-        displacements[cell] = reinterpret_cast<real*>(1ul + numberOfCells * tensor::displacement::size());
-            //static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
-        ++numberOfCells;
-      } else {
-        displacements[cell] = nullptr;
-      }
-    }
-    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * tensor::displacement::size() * sizeof(real));
   }
 }
 
@@ -595,17 +553,15 @@ void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
           // +1 is necessary as we want to reserve the nullptr for cell without displacement.
           // Thanks to this hack, the array contains a constant plus the offset of the current
           // cell.
-          //displacements[cell][face] =
-              //static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
-
-          displacements[cell][face] = reinterpret_cast<real*>(1ul + numberOfFaces * tensor::faceDisplacement::size());
+          displacements[cell][face] =
+              static_cast<real*>(nullptr) + 1 + numberOfFaces * tensor::faceDisplacement::size();
           ++numberOfFaces;
         } else {
           displacements[cell][face] = nullptr;
         }
       }
     }
-    layer->setBucketSize(m_lts.faceDisplacementsBuffer, numberOfFaces * tensor::faceDisplacement::size() * sizeof(real));
+    layer->setBucketSize(m_lts.faceDisplacementsBuffer, numberOfFaces * 1 * tensor::faceDisplacement::size() * sizeof(real));
   }
 }
 
@@ -661,35 +617,6 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
 }
 #endif
 
-void seissol::initializers::MemoryManager::initializeDisplacements()
-{
-  for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
-    if (layer->getBucketSize(m_lts.displacementsBuffer) == 0) {
-      continue;
-    }
-    real** displacements = layer->var(m_lts.displacements);
-    real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif // _OPENMP
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      if (displacements[cell] != nullptr) {
-        // Remove constant part that was added in deriveDisplacementsBucket.
-        // We then have the pointer offset that needs to be added to the bucket.
-        // The final value of this pointer then points to a valid memory address
-        // somewhere in the bucket.
-        displacements[cell] = reinterpret_cast<real*>(reinterpret_cast<std::ptrdiff_t>(bucket) + reinterpret_cast<std::ptrdiff_t>(displacements[cell]) - 1ul);
-
-        for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
-          // zero displacements
-          displacements[cell][dof] = static_cast<real>(0.0);
-        }
-      }
-    }
-  }
-}
-
 void seissol::initializers::MemoryManager::initializeFaceDisplacements()
 {
   for (auto layer = m_ltsTree.beginLeaf(m_lts.faceDisplacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
@@ -700,7 +627,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
     real* bucket = static_cast<real*>(layer->bucket(m_lts.faceDisplacementsBuffer));
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
@@ -709,7 +636,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
           // We then have the pointer offset that needs to be added to the bucket.
           // The final value of this pointer then points to a valid memory address
           // somewhere in the bucket.
-          displacements[cell][face] = reinterpret_cast<real*>(reinterpret_cast<std::ptrdiff_t>(bucket) + reinterpret_cast<std::ptrdiff_t>(displacements[cell][face]) - 1ul);
+          displacements[cell][face] = bucket + ((displacements[cell][face] - static_cast<real*>(nullptr)) - 1);
           for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
             // zero displacements
             displacements[cell][face][dof] = static_cast<real>(0.0);
@@ -751,7 +678,6 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
 
-  deriveDisplacementsBucket();
   deriveFaceDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
@@ -777,7 +703,6 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   initializeCommunicationStructure();
 #endif
 
-  initializeDisplacements();
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE

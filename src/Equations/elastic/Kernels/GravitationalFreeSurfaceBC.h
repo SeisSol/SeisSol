@@ -18,7 +18,7 @@ public:
 
 
   template<typename MappingKrnl>
-  void evaluate(int faceIdx,
+  void evaluate(unsigned faceIdx,
                 MappingKrnl&& projectKernelPrototype,
                 const CellBoundaryMapping& boundaryMapping,
                 real* displacementNodal,
@@ -54,8 +54,8 @@ public:
     auto dofsVolumeInteriorModal = init::I::view::create(dofsVolumeInteriorModalStorage);
 
     // Temporary buffer to store nodal face dofs at some time t
-    alignas(ALIGNMENT) real dofsFaceNodal[tensor::INodal::size()];
-    auto dofsFaceNodalView = init::INodal::view::create(dofsFaceNodal);
+    alignas(ALIGNMENT) real dofsFaceNodalStorage[tensor::INodal::size()];
+    auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     auto f = [&](
         ODEVector& du,
@@ -63,7 +63,7 @@ public:
         double time) {
       // Evaluate Taylor series at time
       dofsVolumeInteriorModal.setZero();
-      dofsFaceNodalView.setZero();
+      dofsFaceNodal.setZero();
 
       timeKernel.computeTaylorExpansion(time,
                                         startTime,
@@ -72,7 +72,7 @@ public:
 
       // Project to face and rotate into face-normal aligned coordinate system.
       projectKernel.I = dofsVolumeInteriorModal.data();
-      projectKernel.INodal = dofsFaceNodal;
+      projectKernel.INodal = dofsFaceNodal.data();
       projectKernel.execute(faceIdx);
 
       // Unpack du
@@ -104,12 +104,13 @@ public:
 
         // dH/dt = etaN,
         // dEtaN/dt =  u_r - 1/Z ( p_r - pressureAtBnd ),
-        const auto uInside = dofsFaceNodalView(i, uIdx+0);
-        const auto vInside = dofsFaceNodalView(i, uIdx+1);
-        const auto wInside = dofsFaceNodalView(i, uIdx+2);
-        const auto pressureInside = dofsFaceNodalView(i, pIdx);
+        const auto uInside = dofsFaceNodal(i, uIdx+0);
+        const auto vInside = dofsFaceNodal(i, uIdx+1);
+        const auto wInside = dofsFaceNodal(i, uIdx+2);
+        const auto pressureInside = dofsFaceNodal(i, pIdx);
         if ((faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
-          dEta(i,0) = uInside; // - 1/Z * (pressureInside - pressureAtBnd);
+          // TODO(Lukas) Check sign
+          dEta(i,0) = uInside + 1/Z * (pressureInside - pressureAtBnd);
         } else {
           assert(faceType == FaceType::regular || faceType == FaceType::periodic);
           // Elastic-acoustic interface => no penalty term
@@ -118,9 +119,7 @@ public:
         dEta(i,1) = vInside;
         dEta(i,2) = wInside;
         dEtaIntegrated(i) = eta(i,0);
-        //std::cout << "i = " << i << "\teta = " << eta(i,0) << std::endl;
       }
-      //std::cout << std::endl;
 
 
     };
@@ -152,8 +151,8 @@ public:
     // Setup ODE solver
     ode::TimeSpan timeSpan = {startTime, startTime + timeStepWidth};
     auto odeSolverConfig = ode::ODESolverConfig(timeStepWidth);
-    odeSolverConfig.initialDt = timeStepWidth / 50;
-    odeSolverConfig.acceptableError = 1e-10;
+    odeSolverConfig.initialDt = timeStepWidth / 2;
+    odeSolverConfig.acceptableError = 1e-9;
     odeSolverConfig.minimumDt = 1e-12;
 
     auto solver = ode::ODESolver(fEval, stage1, fEvalHeun, updateHeun, odeSolverConfig);

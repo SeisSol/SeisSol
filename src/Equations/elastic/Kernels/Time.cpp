@@ -193,53 +193,30 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     intKrnl.execute(der);
   }
 
-  // Compute average displacement over timestep if needed.
+  // Compute integrated displacement over time step if needed.
   if (needsDisplacement) {
     auto bc = GravitationalFreeSurfaceBc();
     for (unsigned face = 0; face < 4; ++face) {
-      if (data.faceDisplacements[face] == nullptr) continue;
-
-      bc.evaluate(
-          face,
-          projectRotatedKrnlPrototype,
-          data.boundaryMapping[face],
-          data.faceDisplacements[face],
-          tmp.nodalAvgDisplacements[face].data(),
-          *this, //timeKernel,
-          derivativesBuffer,
-          startTime,
-          i_timeStepWidth,
-          data.material,
-          data.cellInformation.faceTypes[face]
-      );
-      for (unsigned i = 0; i < init::averageNormalDisplacement::size(); ++i) {
-        //std::cout << *(data.faceDisplacements[face] + i) << ", " << std::endl;
-        //std::cout << tmp.nodalAvgDisplacements[face][i] << ", " << std::endl;
+      if (data.faceDisplacements[face] != nullptr) {
+        std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
+        bc.evaluate(
+            face,
+            projectRotatedKrnlPrototype,
+            data.boundaryMapping[face],
+            data.faceDisplacements[face],
+            tmp.nodalAvgDisplacements[face].data(),
+            *this,
+            derivativesBuffer,
+            startTime,
+            i_timeStepWidth,
+            data.material,
+            data.cellInformation.faceTypes[face]
+        );
       }
-      //std::cout << std::endl;
+
     }
 
 
-    /*
-    kernels::computeAverageDisplacement(i_timeStepWidth,
-                                        derivativesBuffer,
-                                        m_derivativesOffsets,
-                                        twiceTimeIntegrated);
-
-    for (int side = 0; side < 4; ++side) {
-      if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
-        assert(data.displacements != nullptr);
-
-        auto krnl = displacementAvgNodalPrototype;
-        krnl.dt = i_timeStepWidth;
-        krnl.I = twiceTimeIntegrated;
-        krnl.displacement = data.displacements;
-
-        krnl.INodalDisplacement = tmp.nodalAvgDisplacements[side];
-        krnl.execute(side);
-      }
-    }
-     */
   }
 }
 
