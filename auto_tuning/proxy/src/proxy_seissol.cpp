@@ -68,6 +68,10 @@ extern long long pspamm_num_total_flops;
 #include <hbwmalloc.h>
 #endif
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
+
 #include <utils/args.h>
 
 #ifdef __MIC__
@@ -132,6 +136,9 @@ void testKernel(unsigned kernel, unsigned timesteps) {
 }
 
 int main(int argc, char* argv[]) {
+#ifdef USE_MPI
+  MPI_Init(&argc, &argv);
+#endif
   std::stringstream kernelHelp;
   kernelHelp << "Kernel: " << Kernels[0];
   for (int k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
@@ -256,6 +263,10 @@ int main(int argc, char* argv[]) {
   printf("=================================================\n");
   printf("\n");
   
+#ifdef USE_MPI
+  MPI_Finalize();
+#endif
+
   return 0;
 }
 
