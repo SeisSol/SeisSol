@@ -115,7 +115,7 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
     m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
-    m_krnlPrototype.selectQuantity_Z(k) = init::selectQuantity_Z::Values[tensor::selectQuantity_Z::index(k)];
+    //m_krnlPrototype.selectQuantity_Z(k) = init::selectQuantity_Z::Values[tensor::selectQuantity_Z::index(k)];
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
@@ -149,15 +149,17 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   //Itf the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
  
-  if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-    auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
-    real ZinvData[NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER*CONVERGENCE_ORDER];
-    auto Zinv = init::Zinv::view::create(ZinvData);
-    model::calcZinv(Zinv, sourceMatrix, i_timeStepWidth);
-    krnl.Zinv = ZinvData;
-  } else {
-    krnl.Zinv = data.localIntegration.specific.Zinv;
+//  if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+//    auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
+//    real ZinvData[NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER*CONVERGENCE_ORDER];
+//    auto Zinv = init::Zinv::view::create(ZinvData);
+//    model::calcZinv(Zinv, sourceMatrix, i_timeStepWidth);
+//    krnl.Zinv = ZinvData;
+//  } else {
+  for(size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
   }
+//  }
 
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;

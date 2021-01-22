@@ -315,29 +315,45 @@ namespace seissol {
       }
     }
 
-    inline void calcZinv( yateto::DenseTensorView<3, real, unsigned> &Zinv, 
+    inline void calcZinv( yateto::DenseTensorView<2, real, unsigned> &Zinv, 
         yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
+        size_t quantity,
         real timeStepWidth) {
       using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
       using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
-      for(int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-        Matrix Z(init::Z::Values);
-        if(i >= 10) {
-          for(int j = 0; j < CONVERGENCE_ORDER; j++) {
-            Z(j,j) = Z(j,j) - timeStepWidth * sourceMatrix(i,i);
-          }
+
+      Matrix Z(init::Z::Values);
+      if(quantity >= 10) {
+        for(int j = 0; j < CONVERGENCE_ORDER; j++) {
+          Z(j,j) = Z(j,j) - timeStepWidth * sourceMatrix(quantity, quantity);
         }
-        auto solver = Z.colPivHouseholderQr();
-        for(int col = 0; col < CONVERGENCE_ORDER; col++) {
-          Vector rhs = Vector::Zero();
-          rhs(col) = 1.0;
-          auto Zinv_col = solver.solve(rhs);
-          for(int row = 0; row < CONVERGENCE_ORDER; row++) {
-            Zinv(i,row,col) = Zinv_col(row);
-          }
+      }
+
+      auto solver = Z.colPivHouseholderQr();
+      for(int col = 0; col < CONVERGENCE_ORDER; col++) {
+        Vector rhs = Vector::Zero();
+        rhs(col) = 1.0;
+        auto Zinv_col = solver.solve(rhs);
+        for(int row = 0; row < CONVERGENCE_ORDER; row++) {
+          Zinv(row,col) = Zinv_col(row);
         }
       }
     }
+
+    //constexpr for loop since we need to instatiate the view templates
+     template<size_t i_start, size_t i_end>
+     struct for_loop {
+       for_loop(PoroelasticLocalData* ld,
+           yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
+           real timeStepWidth) {
+         std::cout << i_start << std::endl;
+         auto Zinv = init::Zinv::view<i_start>::create(ld->Zinv[i_start]); 
+         calcZinv(Zinv, sourceMatrix, i_start, timeStepWidth);
+         if constexpr(i_start < i_end-1) {
+           for_loop<i_start+1, i_end>(ld, sourceMatrix, timeStepWidth);
+         }
+       };
+     };
 
     inline void initializeSpecificLocalData( PoroElasticMaterial const& material,
         real timeStepWidth,
@@ -347,8 +363,7 @@ namespace seissol {
       sourceMatrix.setZero();
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-      auto Zinv = init::Zinv::view::create(localData->Zinv); 
-      calcZinv(Zinv, sourceMatrix, timeStepWidth);
+      for_loop<0, NUMBER_OF_QUANTITIES>(localData, sourceMatrix, timeStepWidth);
 
       localData->typicalTimeStepWidth = timeStepWidth;
     }

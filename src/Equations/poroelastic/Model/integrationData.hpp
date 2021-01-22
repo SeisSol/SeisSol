@@ -9,7 +9,7 @@ namespace seissol {
     struct PoroelasticLocalData {
       real sourceMatrix[seissol::tensor::ET::size()];
       real typicalTimeStepWidth;
-      real Zinv[NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER*CONVERGENCE_ORDER];
+      real Zinv[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
     };
     struct PoroelasticNeighborData {};
   }

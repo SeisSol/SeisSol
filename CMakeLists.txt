@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.9)
 
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
 if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
 endif()
@@ -329,6 +332,10 @@ add_executable(SeisSol-proxy
 )
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+if(MPI)
+  target_link_libraries(SeisSol-proxy PUBLIC MPI::MPI_C)
+  target_link_libraries(SeisSol-proxy PUBLIC MPI::MPI_Fortran)
+endif()
 
 
 if (TESTING)
@@ -389,12 +396,13 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
   )
-  if(${EQUATIONS} STREQUAL "poroelastic")
-    target_sources(test_serial_test_suite PUBLIC
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
-  )
-  endif()
+#  if(${EQUATIONS} STREQUAL "poroelastic")
+#    target_sources(test_serial_test_suite PUBLIC
+#      ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
+#  )
+#  endif()
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 

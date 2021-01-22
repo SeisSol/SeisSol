@@ -44,7 +44,7 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     }
   }
   
-  void prepareModel(double* starMatrices0, double*starMatrices1, double* starMatrices2, double* sourceMatrix, double* zMatrix) {
+  void prepareModel(double* starMatrices0, double*starMatrices1, double* starMatrices2, double* sourceMatrix, double zMatrix[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER]) {
     //prepare Material
     std::array<real, 10> materialVals = {{40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
     model::PoroElasticMaterial material(materialVals.data(), 10);
@@ -78,9 +78,33 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     auto ET = init::ET::view::create(sourceMatrix);
     model::getTransposedSourceCoefficientTensor(material, ET);
 
-    //preaper Zinv
-    auto Zinv = init::Zinv::view::create(zMatrix);
-    model::calcZinv(Zinv, ET, dt);
+    //prepare Zinv
+    auto Zinv = init::Zinv::view<0>::create(zMatrix[0]);
+    model::calcZinv(Zinv, ET, 0, dt);
+    auto Zinv1 = init::Zinv::view<1>::create(zMatrix[1]);
+    model::calcZinv(Zinv1, ET, 1, dt);
+    auto Zinv2 = init::Zinv::view<2>::create(zMatrix[2]);
+    model::calcZinv(Zinv2, ET, 2, dt);
+    auto Zinv3 = init::Zinv::view<3>::create(zMatrix[3]);
+    model::calcZinv(Zinv3, ET, 3, dt);
+    auto Zinv4 = init::Zinv::view<4>::create(zMatrix[4]);
+    model::calcZinv(Zinv4, ET, 4, dt);
+    auto Zinv5 = init::Zinv::view<5>::create(zMatrix[5]);
+    model::calcZinv(Zinv5, ET, 5, dt);
+    auto Zinv6 = init::Zinv::view<6>::create(zMatrix[6]);
+    model::calcZinv(Zinv6, ET, 6, dt);
+    auto Zinv7 = init::Zinv::view<7>::create(zMatrix[7]);
+    model::calcZinv(Zinv7, ET, 7, dt);
+    auto Zinv8 = init::Zinv::view<8>::create(zMatrix[8]);
+    model::calcZinv(Zinv8, ET, 8, dt);
+    auto Zinv9 = init::Zinv::view<9>::create(zMatrix[9]);
+    model::calcZinv(Zinv9, ET, 9, dt);
+    auto Zinv10 = init::Zinv::view<10>::create(zMatrix[10]);
+    model::calcZinv(Zinv10, ET, 10, dt);
+    auto Zinv11 = init::Zinv::view<11>::create(zMatrix[11]);
+    model::calcZinv(Zinv11, ET, 11, dt);
+    auto Zinv12 = init::Zinv::view<12>::create(zMatrix[12]);
+    model::calcZinv(Zinv12, ET, 12, dt);
   }
 
   void prepareKernel(seissol::kernel::stp& m_krnlPrototype) { 
@@ -95,7 +119,7 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
       m_krnlPrototype.selectQuantity(k) = seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
       m_krnlPrototype.selectQuantity_G(k) = seissol::init::selectQuantity_G::Values[seissol::tensor::selectQuantity_G::index(k)];
-      m_krnlPrototype.selectQuantity_Z(k) = seissol::init::selectQuantity_Z::Values[seissol::tensor::selectQuantity_Z::index(k)];
+      //m_krnlPrototype.selectQuantity_Z(k) = seissol::init::selectQuantity_Z::Values[seissol::tensor::selectQuantity_Z::index(k)];
     }
     m_krnlPrototype.timeInt = seissol::init::timeInt::Values;
     m_krnlPrototype.wHat = seissol::init::wHat::Values;
@@ -125,14 +149,16 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     real starMatrices1[tensor::star::size(1)];
     real starMatrices2[tensor::star::size(2)];
     real sourceMatrix[tensor::ET::size()];
-    real zMatrix[tensor::Zinv::size()];
+    real zMatrix[NUMBER_OF_QUANTITIES][tensor::Zinv::size(0)];
     prepareModel(starMatrices0, starMatrices1, starMatrices2, sourceMatrix, zMatrix);
 
     krnl.star(0) = starMatrices0;
     krnl.star(1) = starMatrices1;
     krnl.star(2) = starMatrices2;
     krnl.G = sourceMatrix;
-    krnl.Zinv = zMatrix;
+    for(size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+      krnl.Zinv(i)  = zMatrix[i];
+    }
 
     real QData[NUMBER_OF_QUANTITIES*NUMBER_OF_BASIS_FUNCTIONS];
     prepareQ(QData);
@@ -148,6 +174,8 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
   public:
     void testSTP() {
 #if CONVERGENCE_ORDER < 3 || CONVERGENCE_ORDER > 6
+      std::cout << "STP test for order <3 or >6 not available" << std::endl;
+      TS_ASSERT(false);
       return;
 #endif
       double stp[seissol::tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
