@@ -1502,6 +1502,7 @@ MODULE TypesDef
      LOGICAL                                :: CauchyKovalewski                 !< Use Cauchy-Kovalewski procedure for sourceterms?
      CHARACTER(LEN=600)                     :: FSRMFileName                     !< Filename of Finite Source Rupture Model
      character(len=600)                     :: NRFFileName                      !< Filename of Netcdf rupture format source description
+     character(len=600)                     :: TRDirName                        !< Dirname for time reversal boundary condition
   END TYPE tSource
   !<--- Optinal Fields --------------------------------------------------------
   TYPE tUnstructOptionalFields

@@ -422,3 +422,15 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   logInfo(rank) << ".. finished point source initialization.";
 }
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
+
+void seissol::sourceterm::Manager::loadTRSources(char const* dirName) {
+  freeSources();
+
+  int rank = seissol::MPI::mpi.rank();
+
+  logInfo(rank) << "<--------------------------------------------------------->";
+  logInfo(rank) << "<                      Time Reversal BCs                  >";
+  logInfo(rank) << "<--------------------------------------------------------->";
+  logInfo(rank) << "Read receiver files from " << dirName;
+
+}

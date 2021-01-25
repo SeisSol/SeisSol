@@ -108,6 +108,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  ! Don't forget to add // c_null_char to TRDirName when using this interface
+  interface
+    subroutine c_interoperability_setupTRSources( TRDirName ) bind( C, name='c_interoperability_setupTRSources' )
+      use iso_c_binding, only: c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: TRDirName
+    end subroutine
+  end interface
+
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
     subroutine c_interoperability_setupFSRMPointSources( momentTensor, velocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )

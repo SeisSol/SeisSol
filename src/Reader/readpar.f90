@@ -1843,6 +1843,10 @@ CONTAINS
       stop
 #endif
 
+    case(43) ! Time Reversal source
+      logInfo(*) 'Use time reversed boundary conditions'
+      SOURCE%TRDirName = FileName
+
     CASE(50) !Finite sources with individual slip rate history for each subfault
 
        ALLOCATE ( SOURCE%RP%nSbfs(1) )

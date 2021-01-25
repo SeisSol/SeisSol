@@ -96,6 +96,11 @@ extern "C" {
 #endif
   }
 
+  void c_interoperability_setupTRSources(char* trDirName)
+  {
+    e_interoperability.setupTRSources(trDirName);
+  }
+
   void c_interoperability_setupFSRMPointSources( double*  momentTensor,
                                                  double*  velocityComponent,
                                                  int      numberOfSources,
@@ -441,6 +446,18 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
   );
 }
 #endif
+
+void seissol::Interoperability::setupTRSources( char const* dirName )
+{
+  SeisSol::main.sourceTermManager().loadTRSources(dirName);
+  // add additional parameters, if needed
+  //  seissol::SeisSol::main.meshReader(),
+  //  m_ltsTree,
+  //  m_lts,
+  //  &m_ltsLut,
+  //  seissol::SeisSol::main.timeManager()
+  //);
+}
 
 void seissol::Interoperability::setupFSRMPointSources( double const* momentTensor,
                                                        double const* velocityComponent,

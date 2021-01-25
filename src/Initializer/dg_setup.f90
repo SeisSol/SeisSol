@@ -596,6 +596,8 @@ CONTAINS
       ! Do nothing
     case(42)
       call c_interoperability_setupNRFPointSources(trim(SOURCE%NRFFileName) // c_null_char)
+    case(43)
+      call c_interoperability_setupTRSources(trim(SOURCE%TRDirName) // c_null_char)
     case(50)
       call c_interoperability_setupFSRMPointSources( momentTensor      = SOURCE%RP%MomentTensor,      &
                                                      velocityComponent = SOURCE%RP%VelocityComponent, &

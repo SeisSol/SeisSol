@@ -157,6 +157,8 @@ class seissol::Interoperability {
    void setupNRFPointSources( char const* fileName );
 #endif
 
+   void setupTRSources( char const* dirName );
+
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
                                double const* velocityComponent,

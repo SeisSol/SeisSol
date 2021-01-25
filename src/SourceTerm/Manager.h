@@ -106,6 +106,7 @@ public:
                             seissol::initializers::Lut*     ltsLut,
                             time_stepping::TimeManager&     timeManager );
 #endif
+  void loadTRSources(char const* dirName);
 };
 
 #endif
