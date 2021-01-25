@@ -381,28 +381,28 @@ if (TESTING)
   set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
   endif()
 
+  set(test_sources ${test_sources} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+    ${SeisSol_NETCDF_TEST_FILES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
+    )
+  if(${EQUATIONS} STREQUAL "poroelastic")
+    set(test_sources ${test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h)
+  endif()
   CXXTEST_ADD_TEST_MPI(
-          test_serial_test_suite
-          1
-          test_serial.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-	      ${SeisSol_NETCDF_TEST_FILES}
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
-  )
-#  if(${EQUATIONS} STREQUAL "poroelastic")
-#    target_sources(test_serial_test_suite PUBLIC
-#      ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h
-#  )
-#  endif()
+    test_serial_test_suite
+    1
+    test_serial.cpp
+    ${test_sources}
+    )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 

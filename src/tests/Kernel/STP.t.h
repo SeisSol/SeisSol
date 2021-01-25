@@ -21,7 +21,6 @@ namespace seissol {
 class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
 {
   private:
-
   const int N = NUMBER_OF_QUANTITIES*NUMBER_OF_BASIS_FUNCTIONS*CONVERGENCE_ORDER;
   double epsilon = std::numeric_limits<real>::epsilon();
 
@@ -44,16 +43,16 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     }
   }
   
-  void prepareModel(double* starMatrices0, double*starMatrices1, double* starMatrices2, double* sourceMatrix, double zMatrix[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER]) {
+  void prepareModel(real* starMatrices0, real*starMatrices1, real* starMatrices2, real* sourceMatrix, real zMatrix[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER]) {
     //prepare Material
-    std::array<real, 10> materialVals = {{40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
+    std::array<double, 10> materialVals = {{40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
     model::PoroElasticMaterial material(materialVals.data(), 10);
 
     //prepare Geometry
     std::srand(0);
-    double x[] = {(double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX};
-    double y[] = {(double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX};
-    double z[] = {(double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX};
+    real x[] = {(real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX};
+    real y[] = {(real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX};
+    real z[] = {(real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX};
     real gradXi[3];
     real gradEta[3];
     real gradZeta[3];
@@ -125,21 +124,21 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     m_krnlPrototype.wHat = seissol::init::wHat::Values;
   }
 
-  void prepareQ(double* QData) {
+  void prepareQ(real* QData) {
     //scale quantities to make it more realistic
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto Q = init::Q::view::create(QData);
     std::srand(1234);
     for (int  q = 0; q < NUMBER_OF_QUANTITIES; q++) {
       for (int bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; bf++) {
-        Q(bf, q) = (double)std::rand()/RAND_MAX*factor.at(q);
+        Q(bf, q) = (real)std::rand()/RAND_MAX*factor.at(q);
       }
     }
   }
 
-  void solveWithKernel(double stp[]) {
-    double o_timeIntegrated[seissol::tensor::I::size()];
-    double stpRhs[seissol::tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  void solveWithKernel(real stp[]) {
+    real o_timeIntegrated[seissol::tensor::I::size()];
+    real stpRhs[seissol::tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
     std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
     seissol::kernel::stp krnl;
@@ -178,7 +177,7 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
       TS_ASSERT(false);
       return;
 #endif
-      double stp[seissol::tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+      real stp[seissol::tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
       std::fill(std::begin(stp), std::end(stp), 0);
       solveWithKernel(stp);
       auto withKernel = init::stp::view::create(stp);
