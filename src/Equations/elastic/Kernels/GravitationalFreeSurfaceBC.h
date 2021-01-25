@@ -124,25 +124,9 @@ public:
 
     };
 
-    // Allocate storage
-    // TODO(Lukas) Do this in ODEInt!
     constexpr auto integratedEtaSize = init::averageNormalDisplacement::size();
     constexpr auto etaSize = init::faceDisplacement::size();
 
-    alignas(ALIGNMENT) real fEvalIntegrated[integratedEtaSize] = {};
-    alignas(ALIGNMENT) real stage1Integrated[integratedEtaSize] = {};
-    alignas(ALIGNMENT) real fEvalHeunIntegrated[integratedEtaSize] = {};
-    alignas(ALIGNMENT) real updateHeunIntegrated[integratedEtaSize] = {};
-
-    alignas(ALIGNMENT) real fEvalEta[etaSize] = {};
-    alignas(ALIGNMENT) real stage1Eta[etaSize] = {};
-    alignas(ALIGNMENT) real fEvalHeunEta[etaSize] = {};
-    alignas(ALIGNMENT) real updateHeunEta[etaSize] = {};
-
-    auto fEval = ODEVector{{fEvalIntegrated, fEvalEta}, {integratedEtaSize, etaSize}};
-    auto stage1 = ODEVector{{stage1Integrated, stage1Eta}, {integratedEtaSize, etaSize}};
-    auto fEvalHeun = ODEVector{{fEvalHeunIntegrated, fEvalHeunEta}, {integratedEtaSize, etaSize}};
-    auto updateHeun = ODEVector{{updateHeunIntegrated, updateHeunEta}, {integratedEtaSize, etaSize}};
     auto curValue = ODEVector{{ integratedDisplacementNodal, displacementNodal }, {integratedEtaSize, etaSize}};
 
     // Apply boundary condition to integrated displacement (start from 0 each PDE timestep)
@@ -152,10 +136,11 @@ public:
     ode::TimeSpan timeSpan = {startTime, startTime + timeStepWidth};
     auto odeSolverConfig = ode::ODESolverConfig(timeStepWidth);
     odeSolverConfig.initialDt = timeStepWidth / 2;
+    // TODO(Lukas) Following currently not supported!
     odeSolverConfig.acceptableError = 1e-9;
     odeSolverConfig.minimumDt = 1e-12;
 
-    auto solver = ode::ODESolver(fEval, stage1, fEvalHeun, updateHeun, odeSolverConfig);
+    auto solver = ode::RungeKuttaODESolver({integratedEtaSize, etaSize}, odeSolverConfig);
     solver.solve(f, curValue, timeSpan);
   }
 

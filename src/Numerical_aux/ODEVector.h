@@ -6,7 +6,6 @@
 #include <tuple>
 
 class ODEVector {
-  using real = double;
   // A simple vector, patched together from multiple smaller vectors.
   std::vector<real*> storages;
   std::vector<std::size_t> sizes;
@@ -25,9 +24,23 @@ class ODEVector {
     assert(false); // Unreachable!
   }
 public:
+  // TODO(Lukas) Delete - wrong abstraction!
+  ODEVector() {};
+
   ODEVector(std::vector<real*> storages,
             std::vector<std::size_t> sizes)
       : storages(std::move(storages)), sizes(std::move(sizes)) {
+    std::size_t curOffset = 0;
+    for (unsigned long size : this->sizes) {
+      offsets.push_back(curOffset);
+      curOffset += size;
+    }
+  }
+
+  void updateStoragesAndSizes(std::vector<real*> newStorages, std::vector<std::size_t> newSizes) {
+    storages = std::move(newStorages);
+    sizes = std::move(newSizes);
+    offsets.clear();
     std::size_t curOffset = 0;
     for (unsigned long size : this->sizes) {
       offsets.push_back(curOffset);
@@ -65,6 +78,17 @@ public:
       }
     }
     return *this;
+  }
+
+  // this += weight * rhs
+  void weightedAddInplace(double weight, const ODEVector& rhs) {
+    if (weight == 0.0) return;
+    for (std::size_t i = 0; i < storages.size(); ++i) {
+      assert(sizes[i] == rhs.sizes[i]);
+      for (std::size_t j = 0; j < sizes[i]; ++j) {
+        storages[i][j] += weight * rhs.storages[i][j];
+      }
+    }
   }
 
   ODEVector& operator=(const ODEVector& other) {

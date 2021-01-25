@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <tuple>
 
+#include "Eigen/Dense"
+
 #include "ODEVector.h"
 
 namespace seissol::ode {
@@ -24,31 +26,71 @@ struct ODESolverConfig {
   explicit ODESolverConfig(double initialDt) : initialDt(initialDt) {};
 };
 
-class ODESolver {
-public:
-  ODESolver(ODEVector& fEval,
-            ODEVector& stage1,
-            ODEVector& fEvalHeun,
-            ODEVector& updateHeun,
-            ODESolverConfig config
-            ) :
-            fEval(fEval),
-            stage1(stage1),
-            fEvalHeun(fEvalHeun),
-            updateHeun(updateHeun),
-            config(config) {}
+class RungeKuttaODESolver {
 private:
-  ODEVector& fEval;
-  ODEVector& stage1;
-  ODEVector& fEvalHeun;
-  ODEVector& updateHeun;
   ODESolverConfig config;
+  int numberOfStages;
+
+  // Coefficients
+  Eigen::MatrixXd a;
+  Eigen::VectorXd b;
+  Eigen::VectorXd c;
+
+  // Temporary storage
+  std::vector<ODEVector> stages;
+  std::vector<std::vector<real>> storages;
+  ODEVector buffer;
+
+public:
+  RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
+                      ODESolverConfig config)
+                      : config(config), numberOfStages(4) {
+    // Initialize coefficients
+    a = Eigen::MatrixXd(numberOfStages, numberOfStages);
+    b = Eigen::VectorXd(numberOfStages);
+    c = Eigen::VectorXd(numberOfStages);
+
+    a(1,0) = 1.0/2.0;
+    a(2,0) = 0.0;
+    a(2,1) = 1.0/2.0;
+    a(3,0) = 0.0;
+    a(3,1) = 0.0;
+    a(3,2) = 1.0;
+
+    b(0) = 1.0/6.0;
+    b(1) = 1.0/3.0;
+    b(2) = 1.0/3.0;
+    b(3) = 1.0/6.0;
+
+    c(0) = 0.0;
+    c(1) = 1.0/2.0;
+    c(2) = 1.0/2.0;
+    c(3) = 1.0;
+
+    // Initialize storages for stages
+    stages.reserve(numberOfStages);
+    storages.reserve((numberOfStages + 1) * storageSizes.size()); // +1 due to buffer
+    auto curStoragePtrs = std::vector<real*>(storageSizes.size());
+    for (auto i = 0; i < numberOfStages; ++i) {
+      curStoragePtrs.clear();
+      for (auto j = 0U; j < storageSizes.size(); ++j) {
+        curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSizes[j])).data());
+      }
+      stages.push_back(ODEVector(curStoragePtrs, storageSizes));
+    }
+
+    // Initialize buffer
+    curStoragePtrs.clear();
+    for (auto j = 0U; j < storageSizes.size(); ++j) {
+      curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSizes[j])).data());
+    }
+    buffer.updateStoragesAndSizes(curStoragePtrs, storageSizes);
+
+  }
 
 public:
   template <typename Func>
-  void solve(Func f,
-             ODEVector& curValue,
-             TimeSpan timeSpan) {
+  void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
     double dt = config.initialDt;
@@ -56,33 +98,25 @@ public:
       if (dt < config.minimumDt) {
         throw std::runtime_error("ODE solver: time step size smaller than minimal acceptable. Aborting!");
       }
-      const double adjustedDt = std::min(dt, timeSpan.end - timeSpan.begin);
+      const double adjustedDt = std::min(dt, timeSpan.end - curTime);
 
-      f(fEval, curValue, curTime);
+      for (auto i = 0U; i < stages.size(); ++i) {
+        buffer = curValue;
+        // j < i due to explict RK scheme
+        for (auto j = 0U; j < i; ++j) {
+          const auto curWeight = a(i,j) * adjustedDt;
+          buffer.weightedAddInplace(curWeight, stages[j]);
+        }
 
-      stage1 = fEval; // = f(x_n, t_n)
-      stage1 *= adjustedDt; // \hat{x_n+1} = adjustedDt * f(x_n, t_n)
-      stage1 += curValue; // \hat{x_n+1} = curValue + adjustedDt * f(x_n, t_n)
-
-      // TODO(Lukas) Can be optimized a lot...
-      f(fEvalHeun, stage1, curTime + adjustedDt);
-      updateHeun = fEvalHeun;  // x_n+1 = f(\hat[x_n+1}, t_n+1)
-      updateHeun += fEval;  // x_n+1 = f(\hat[x_n+1}, t_n+1) + f(x_n, t_n)
-      updateHeun *= 0.5 * adjustedDt; // x_n+1 = 1/2 * dt * (f(\hat[x_n+1}, t_n+1) + f(x_n, t_n))
-      updateHeun += curValue; // x_n+1 = x_n + 1/2 * dt * (f(\hat[x_n+1}, t_n+1) + f(x_n, t_n))
-
-      const auto errorEstimate = updateHeun.normDifferenceTo(stage1);
-      const auto updateSizeHeun = updateHeun.normDifferenceTo(curValue);
-      const auto updateSizeEuler = stage1.normDifferenceTo(curValue);
-      const auto fVal = fEval.norm();
-
-      if (errorEstimate > config.acceptableError) {
-        std::cout << "Error estimate: " << errorEstimate << " new dt = " << dt/2 << std::endl;
-        dt /= 2;
-      } else {
-        curValue = updateHeun; // Update with extrapolation
-        curTime += adjustedDt;
+        const double tEval = curTime + c[i] * adjustedDt;
+        f(stages[i], buffer, tEval);
       }
+
+      for (auto i = 0; i < numberOfStages; ++i) {
+        const auto curWeight = b[i] * adjustedDt;
+        curValue.weightedAddInplace(curWeight, stages[i]);
+      }
+      curTime += adjustedDt;
     }
   }
 };
