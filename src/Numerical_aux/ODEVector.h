@@ -81,7 +81,7 @@ public:
   }
 
   // this += weight * rhs
-  void weightedAddInplace(double weight, const ODEVector& rhs) {
+  void weightedAddInplace(real weight, const ODEVector& rhs) {
     if (weight == 0.0) return;
     for (std::size_t i = 0; i < storages.size(); ++i) {
       assert(sizes[i] == rhs.sizes[i]);
@@ -109,7 +109,7 @@ public:
     for (std::size_t i = 0; i < storages.size(); ++i) {
       assert(sizes[i] == other.sizes[i]);
       for (std::size_t j = 0; j < sizes[i]; ++j) {
-        const double curDiff = storages[i][j] - other.storages[i][j];
+        const real curDiff = storages[i][j] - other.storages[i][j];
         error += curDiff * curDiff;
         maxError = std::max(std::abs(curDiff), maxError);
       }
