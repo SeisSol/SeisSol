@@ -74,18 +74,15 @@ def addKernels(generator, aderdg):
 
   subTriangleDofs = [OptionalDimTensor('subTriangleDofs({})'.format(depth), aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (4**depth, 3), alignStride=True) for depth in range(maxDepth+1)]
   subTriangleProjection = [Tensor('subTriangleProjection({})'.format(depth), (4**depth, numberOf3DBasisFunctions), alignStride=True) for depth in range(maxDepth+1)]
+  subTriangleProjectionFromFace = [Tensor('subTriangleProjectionFromFace({})'.format(depth),
+                                          (4**depth, numberOf2DBasisFunctions),
+                                          alignStride=True) for depth in range(maxDepth+1)]
 
-  # TODO(Lukas) Fix this - we use 2D displacement data now. Also need to rotate it probably...
-  #subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * displacement['lp']
-  subTriangleVelocity     = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
+  rotateVelocityToGlobal = Tensor('rotateVelocityToGlobal', (3,3), alignStride=True)
+  subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= \
+                                          subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.V2nTo2m['lm'] * faceDisplacement['mn'] * rotateVelocityToGlobal['pn']
+  subTriangleVelocity = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
 
-  #generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)
+  generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)
   generator.addFamily('subTriangleVelocity', simpleParameterSpace(maxDepth+1), subTriangleVelocity)
 
-  # TODO(Lukas) Rotation?
-  # TODO(Lukas) There's a better way than to project to modal coordinates...
-  subTriangleDisplacement = lambda depth, face: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.db.project2nFaceTo3m[face]['lm'] * faceDisplacement['mp']
-                                              #self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
-  generator.addFamily('subTriangleDisplacement',
-                      simpleParameterSpace(maxDepth+1, 4),
-                      subTriangleDisplacement)

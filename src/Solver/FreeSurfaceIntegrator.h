@@ -40,6 +40,8 @@
 #ifndef FREE_SURFACE_INTEGRATOR_H
 #define FREE_SURFACE_INTEGRATOR_H
 
+#include <memory>
+
 #include <Geometry/MeshReader.h>
 #include <Geometry/refinement/TriangleRefiner.h>
 #include <Kernels/precision.hpp>
@@ -66,23 +68,30 @@ private:
     seissol::initializers::Variable<real*> displacementDofs;
     seissol::initializers::Variable<unsigned> side;
     seissol::initializers::Variable<unsigned> meshId;
-    
+    seissol::initializers::Variable<CellBoundaryMapping*> boundaryMapping;
+
     void addTo(seissol::initializers::LTSTree& surfaceLtsTree);
   };
 
-  real* projectionMatrixMemory;
+  std::unique_ptr<real> projectionMatrixMemory;
   real* projectionMatrix[4];
+  std::unique_ptr<real> projectionMatrixFromFaceMemory;
+  real* projectionMatrixFromFace[4];
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
   kernel::subTriangleDisplacement subTriangleDisplacementPrototype;
-  
+
+  static constexpr auto polyDegree = CONVERGENCE_ORDER-1;
+  static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
   bool m_enabled;
   
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
-  void computeSubTriangleAverages(  real* projectionMatrixRow,
-                                    double const (*bfPoints)[3],
-                                    double const* weights,
-                                    unsigned numQuadraturePoints  );
+  void computeSubTriangleAverages(real* projectionMatrixRow,
+                                  const std::array<std::array<double, 3>,numQuadraturePoints>& bfPoints,
+                                  double const* weights) const;
+  void computeSubTriangleAveragesFromFaces(real* projectionMatrixFromFaceRow,
+                                           const std::array<std::array<double, 2>,numQuadraturePoints>& bfPoints,
+                                           double const* weights) const;
   void initializeSurfaceLTSTree(  seissol::initializers::LTS* lts,
                                   seissol::initializers::LTSTree* ltsTree,
                                   seissol::initializers::Lut* ltsLut );
