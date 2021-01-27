@@ -10,7 +10,7 @@ namespace seissol::unit_test {
 
 class seissol::unit_test::ODEIntTestSuite : public CxxTest::TestSuite {
 private:
-  double eps = 10e-10;
+  double eps = 10e-11;
 public:
   ODEIntTestSuite() {};
  void testSimpleIntegration() {
@@ -18,31 +18,18 @@ public:
    constexpr auto sizeIntegratedSolution = sizeSolution;
 
    alignas(ALIGNMENT) real curUSolutionIntegrated[sizeIntegratedSolution] = {};
-   alignas(ALIGNMENT) real fEvalIntegrated[sizeIntegratedSolution] = {};
-   alignas(ALIGNMENT) real stage1Integrated[sizeIntegratedSolution] = {};
-   alignas(ALIGNMENT) real fEvalHeunIntegrated[sizeIntegratedSolution] = {};
-   alignas(ALIGNMENT) real updateHeunIntegrated[sizeIntegratedSolution] = {};
-
    alignas(ALIGNMENT) real curUSolution[sizeSolution] = {};
-   alignas(ALIGNMENT) real fEvalEta[sizeSolution] = {};
-   alignas(ALIGNMENT) real stage1Eta[sizeSolution] = {};
-   alignas(ALIGNMENT) real fEvalHeunEta[sizeSolution] = {};
-   alignas(ALIGNMENT) real updateHeunEta[sizeSolution] = {};
 
    auto curU = ODEVector{{curUSolutionIntegrated, curUSolution}, {sizeIntegratedSolution, sizeSolution}};
-   auto fEval = ODEVector{{fEvalIntegrated, fEvalEta}, {sizeIntegratedSolution, sizeSolution}};
-   auto stage1 = ODEVector{{stage1Integrated, stage1Eta}, {sizeIntegratedSolution, sizeSolution}};
-   auto fEvalHeun = ODEVector{{fEvalHeunIntegrated, fEvalHeunEta}, {sizeIntegratedSolution, sizeSolution}};
-   auto updateHeun = ODEVector{{updateHeunIntegrated, updateHeunEta}, {sizeIntegratedSolution, sizeSolution}};
 
    // Setup ODE solver
    const auto timeSpan = ode::TimeSpan{0, 2};
-   const double dt = (timeSpan.end - timeSpan.begin) / 1;
+   const double dt = 0.0005;
    auto odeSolverConfig = ode::ODESolverConfig(dt);
    odeSolverConfig.acceptableError = 1e-10;
    odeSolverConfig.minimumDt = 1e-12;
 
-   auto solver = ode::ODESolver(fEval, stage1, fEvalHeun, updateHeun, odeSolverConfig);
+   auto solver = ode::RungeKuttaODESolver({sizeIntegratedSolution, sizeSolution}, odeSolverConfig);
    auto f = [&](ODEVector& du,
                ODEVector& u,
                double time) {
@@ -68,8 +55,6 @@ public:
        dUStorage[i] = 2 * uStorage[i];
      }
 
-     //du.print();
-     //std::cout << "\n\n";
    };
    for (int i = 0; i < sizeSolution; ++i) {
      curUSolution[i] = 1.0;
@@ -82,6 +67,7 @@ public:
    for (int i = 0; i < sizeSolution; ++i) {
      TS_ASSERT_DELTA(curUSolution[i], uShould, eps);
      TS_ASSERT_DELTA(curUSolutionIntegrated[i], uIntegratedShould, eps);
+     std::cout << std::abs(curUSolutionIntegrated[i] - uIntegratedShould) << std::endl;
    }
 
  }
