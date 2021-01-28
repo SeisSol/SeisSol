@@ -140,15 +140,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
-  // Only a fraction of cells need the average displacement
+  // Only a fraction of cells need the displacement
   const bool needsDisplacement = updateDisplacement
-      && std::any_of(std::begin(data.cellInformation.faceTypes),
-                     std::end(data.cellInformation.faceTypes),
-                     [](FaceType faceType) {
-                       // TODO(Lukas) Also check for elastic-acoustic interface here!
-                       return faceType == FaceType::freeSurface
-                              || faceType == FaceType::freeSurfaceGravity;
-                     });
+                                 && std::any_of(std::begin(data.faceDisplacements),
+                                                std::end(data.faceDisplacements),
+                                                [](real* ptr) { return ptr != nullptr; });
 
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
