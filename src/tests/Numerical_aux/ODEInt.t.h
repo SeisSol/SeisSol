@@ -10,7 +10,11 @@ namespace seissol::unit_test {
 
 class seissol::unit_test::ODEIntTestSuite : public CxxTest::TestSuite {
 private:
-  double eps = 10e-11;
+#if SINGLE_PRECISION
+  real eps = 10e-5;
+#else
+  real eps = 10e-11;
+#endif
 public:
   ODEIntTestSuite() {};
  void testSimpleIntegration() {
