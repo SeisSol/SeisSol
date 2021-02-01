@@ -1860,26 +1860,22 @@ CONTAINS
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(1,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
-       write(*,*) Source%RP%MomentTensor
        READ(IO%UNIT%other01,'(a15)') char_dummy                          ! Read comment
        SOURCE%RP%SolidVelocityComponent(:) = 0.
        IF( index(char_dummy, 'solid').gt.0 ) THEN                        ! Check for solid velocity component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read solid velocity component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
-       write(*,*) Source%RP%SolidVelocityComponent
        SOURCE%RP%PressureComponent(:) = 0.
        IF( index(char_dummy, 'pressure').gt.0 ) THEN                     ! Check for pressure component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%PressureComponent           ! Read pressure component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
-       write(*,*) Source%RP%PressureComponent
        SOURCE%RP%FluidVelocityComponent(:) = 0.
        IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
-       write(*,*) Source%RP%FluidVelocityComponent
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
        READ(IO%UNIT%other01,*)                                           ! Read comment 
        ALLOCATE ( dummy(8) )

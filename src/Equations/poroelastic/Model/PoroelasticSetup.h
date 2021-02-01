@@ -346,7 +346,6 @@ namespace seissol {
        for_loop(PoroelasticLocalData* ld,
            yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
            real timeStepWidth) {
-         std::cout << i_start << std::endl;
          auto Zinv = init::Zinv::view<i_start>::create(ld->Zinv[i_start]); 
          calcZinv(Zinv, sourceMatrix, i_start, timeStepWidth);
          if constexpr(i_start < i_end-1) {
