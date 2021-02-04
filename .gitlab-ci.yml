@@ -1,0 +1,11 @@
+stages:
+    - build
+
+build_sing:
+    stage: build
+    tags:
+        - atsccs68-shell
+    script:
+        - whoami
+        - pwd
+        - ls
