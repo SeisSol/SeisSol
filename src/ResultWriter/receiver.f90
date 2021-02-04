@@ -92,7 +92,7 @@ CONTAINS
            IF (allocStat .NE. 0) THEN
                  logError(*) 'could not allocate',&
                  ' PGMarray for PGM output! '
-                 STOP
+                 call exit(134)
            END IF
            MPI%PGMarray = 0.
         !ENDIF
