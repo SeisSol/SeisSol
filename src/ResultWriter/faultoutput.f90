@@ -842,7 +842,7 @@ CONTAINS
             IF( stat.NE.0) THEN
                logError(*) 'cannot open ',ptsoutfile
                logError(*) 'Error status: ', stat
-               STOP
+               call exit(134)
             END IF
             !
             DO k=1,DISC%DynRup%DynRup_out_atPickpoint%CurrentPick(iOutPoints)

@@ -271,7 +271,7 @@ CONTAINS
 !~         posx_min.LT.xf_min .OR. posz_min.LT.zf_min)THEN
 !~         logError(*) 'Background stress field ',TRIM(IO%FileName_BackgroundStress),   &
 !~                     ' does not fully include the entire fault!'
-!~         STOP
+!~         call exit(134)
 !~     ENDIF
 
     ! Interpolation of the background field onto the barycenter of the elements fault face
@@ -310,7 +310,7 @@ CONTAINS
 !            write(111,*) posx(i),posz(i),EQN%IniShearXY(i,1)
 !            enddo
 !            close(111)
-!            stop
+!            call exit(134)
         
     ELSEIF (GPwise == 1) THEN
         counter = 0
@@ -342,7 +342,7 @@ CONTAINS
 !            enddo
 !            enddo
 !            close(111)
-!            stop             
+!            call exit(134)             
     ENDIF ! GPwise
 
 
