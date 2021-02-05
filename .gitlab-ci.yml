@@ -15,6 +15,7 @@ build_sing:
     script:
         - whoami
         - pwd
+        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - ls
         - cat /etc/os-release
         - cat test_singularity.sh
