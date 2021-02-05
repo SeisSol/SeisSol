@@ -20,3 +20,4 @@ build_sing:
         - chmod +x test_singularity.sh
         - which singularity 
         - singularity --version
+        - singularity pull library://7bits-register/collection/seissol-base.sif
