@@ -22,4 +22,4 @@ build_sing:
         - which singularity 
         - singularity --version
         - singularity pull --arch arm64 library://7bits-register/collection/seissol-base.sif:ubuntu-18.04_aarch64_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol-ivybridge.sif ./test_singularity.sh
+        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol--base.sif:ubuntu-18.04_aarch64_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2 ./test_singularity.sh
