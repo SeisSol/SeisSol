@@ -16,5 +16,7 @@ build_sing:
         - whoami
         - pwd
         - ls
+        - cat test_singularity.sh
+        - chmod +x test_singularity.sh
         - which singularity 
         - singularity --version
