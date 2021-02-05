@@ -69,8 +69,7 @@ private:
 
   std::unique_ptr<real> projectionMatrixMemory;
   real* projectionMatrix[4];
-  std::unique_ptr<real> projectionMatrixFromFaceMemory;
-  real* projectionMatrixFromFace[4];
+  std::unique_ptr<real> projectionMatrixFromFace;
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
   kernel::subTriangleDisplacement subTriangleDisplacementPrototype;

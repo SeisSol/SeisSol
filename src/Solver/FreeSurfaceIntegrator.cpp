@@ -152,7 +152,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       kernel::subTriangleDisplacement dkrnl = subTriangleDisplacementPrototype;
       dkrnl.faceDisplacement = displacementDofs[face];
       dkrnl.V2nTo2m = nodal::init::V2nTo2m::Values;
-      dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace[ side[face] ];
+      dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace.get();
       dkrnl.rotateVelocityToGlobal = rotateVelocityToGlobalData;
       dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
       dkrnl.execute(triRefiner.maxDepth);
@@ -174,22 +174,21 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
 
   assert(numberOfSubTriangles == (1u << (2u*maxRefinementDepth)));
 
-  const auto projectionMatrixMemorySize = 4 * tensor::subTriangleProjection::size(maxRefinementDepth) * sizeof(real);
-  const auto projectionMatrixFromFaceMemorySize =
-      4 * tensor::subTriangleProjectionFromFace::size(maxRefinementDepth) * sizeof(real);
+  const auto projectionMatrixNumberOfReals = 4 * tensor::subTriangleProjection::size(maxRefinementDepth);
+  const auto projectionMatrixMemorySize = projectionMatrixNumberOfReals * sizeof(real);
+  const auto projectionMatrixFromFaceMemoryNumberOfReals = tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
+  const auto projectionMatrixFromFaceMemorySize =projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
   projectionMatrixMemory =
       std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT)));
-  projectionMatrixFromFaceMemory =
+  projectionMatrixFromFace =
       std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, ALIGNMENT)));
 
-  std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixMemorySize);
-  std::fill_n(projectionMatrixFromFaceMemory.get(), 0, projectionMatrixFromFaceMemorySize);
+  std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixNumberOfReals);
+  std::fill_n(projectionMatrixFromFace.get(), 0, projectionMatrixFromFaceMemoryNumberOfReals);
 
   for (unsigned face = 0; face < 4; ++face) {
     projectionMatrix[face] = projectionMatrixMemory.get() + face * tensor::subTriangleProjection::size(maxRefinementDepth);
-    projectionMatrixFromFace[face] =
-        projectionMatrixFromFaceMemory.get() + face * tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
   }
 
   // Triangle quadrature points and weights
@@ -215,7 +214,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
         points2D[qp] = chiTau;
       }
       computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
-      computeSubTriangleAveragesFromFaces(projectionMatrixFromFace[face] + tri, points2D, weights);
+      if (face == 0) {
+        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace.get() + tri, points2D, weights);
+      }
     }
   }
 
