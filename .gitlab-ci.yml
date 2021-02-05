@@ -16,3 +16,5 @@ build_sing:
         - whoami
         - pwd
         - ls
+        - which singularity 
+        - singularity --version
