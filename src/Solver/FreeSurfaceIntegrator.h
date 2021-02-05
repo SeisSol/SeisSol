@@ -53,13 +53,7 @@
 #define FREESURFACE_MAX_REFINEMENT 3
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
 
-namespace seissol
-{
-  namespace solver
-  {
-    class FreeSurfaceIntegrator;
-  }
-}
+namespace seissol::solver { class FreeSurfaceIntegrator; }
 
 class seissol::solver::FreeSurfaceIntegrator {
 private:

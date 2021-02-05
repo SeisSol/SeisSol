@@ -197,7 +197,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   auto weights = new double[numQuadraturePoints];
   seissol::quadrature::TriangleQuadrature(points, weights, polyDegree);
 
-  auto points3D = std::array<std::array<double, 3>, numQuadraturePoints>{}; // Points for eval of 2D basis
+  auto points3D = std::array<std::array<double, 3>, numQuadraturePoints>{}; // Points for eval of 3D basis
   auto points2D = std::array<std::array<double, 2>, numQuadraturePoints>{}; // Points for eval of 2D basis
 
   // Compute projection matrices
@@ -212,14 +212,12 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
             subTri.x[0][1]
         };
         seissol::transformations::chiTau2XiEtaZeta(face, chiTau.data(), points3D[qp].data());
+        points2D[qp] = chiTau;
       }
       computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
       computeSubTriangleAveragesFromFaces(projectionMatrixFromFace[face] + tri, points2D, weights);
     }
   }
-
-
-
 
   delete[] points;
   delete[] weights;
@@ -257,7 +255,6 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
   unsigned nbf = 0;
   for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
-
       // Compute subtriangle average via quadrature
       double average = 0.0;
       for (unsigned qp = 0; qp < numQuadraturePoints; ++qp) {
