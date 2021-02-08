@@ -10,10 +10,10 @@ class ODEIntTestSuite;
 
 class seissol::unit_test::ODEIntTestSuite : public CxxTest::TestSuite {
 private:
-#if SINGLE_PRECISION
-  real eps = 10e-5;
+#ifdef SINGLE_PRECISION
+  const real eps = 10e-5;
 #else
-  real eps = 10e-11;
+  const real eps = 10e-11;
 #endif
 public:
   ODEIntTestSuite() {};
