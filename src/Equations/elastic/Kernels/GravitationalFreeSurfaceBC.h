@@ -100,7 +100,12 @@ public:
         if (faceType == FaceType::freeSurfaceGravity) {
           pressureAtBnd = -1 * rho * g * eta(i, 0);
         }
+#ifdef USE_ELASTIC
         const double Z = std::sqrt(materialData.local.lambda / rho);
+        bool isAcoustic = std::abs(materialData.local.mu) < 1e-15;
+#else
+        bool isAcoustic = false;
+#endif
 
         // dH/dt = etaN,
         // dEtaN/dt =  u_r - 1/Z ( p_r - pressureAtBnd ),
@@ -108,17 +113,17 @@ public:
         const auto vInside = dofsFaceNodal(i, uIdx + 1);
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
-        if ((faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
+        if (isAcoustic
+            && (faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
           // TODO(Lukas) Check sign
-          dEta(i,0) = uInside + 1/Z * (pressureInside - pressureAtBnd);
+          dEta(i, 0) = uInside + 1 / Z * (pressureInside - pressureAtBnd);
         } else {
-          assert(faceType == FaceType::regular || faceType == FaceType::periodic);
-          // Elastic-acoustic interface => no penalty term
-          dEta(i,0) = uInside;
+          // If not on acoustic boundary, just use values inside
+          dEta(i, 0) = uInside;
         }
-        dEta(i,1) = vInside;
-        dEta(i,2) = wInside;
-        dEtaIntegrated(i) = eta(i,0);
+        dEta(i, 1) = vInside;
+        dEta(i, 2) = wInside;
+        dEtaIntegrated(i) = eta(i, 0);
       }
 
 
