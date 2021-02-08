@@ -1,146 +1,49 @@
 #ifndef SEISSOL_ODEVECTOR_H
 #define SEISSOL_ODEVECTOR_H
-#include <utility>
-#include <vector>
-#include <cassert>
-#include <tuple>
+
+#include "Kernels/precision.hpp"
+
+namespace seissol::ode {
 
 class ODEVector {
   // A simple vector, patched together from multiple smaller vectors.
-  std::vector<real*> storages;
-  std::vector<std::size_t> sizes;
-  std::vector<std::size_t> offsets;
+  std::vector<real*> storages{};
+  std::vector<std::size_t> sizes{};
+  std::vector<std::size_t> offsets{};
 
-  [[nodiscard]] std::pair<std::size_t, std::size_t> index(std::size_t idx) const {
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      const auto begin = offsets[i];
-      const auto end = begin + sizes[i];
-      assert(begin <= idx);
-      // TODO(Lukas) Verify this logic!
-      if (idx < end) {
-        return {i, idx - begin};
-      }
-    }
-    assert(false); // Unreachable!
-  }
+  [[nodiscard]] std::pair<std::size_t, std::size_t> index(std::size_t idx) const;
+
 public:
-  // TODO(Lukas) Delete - wrong abstraction!
-  ODEVector() {};
+  ODEVector() = default;
 
   ODEVector(std::vector<real*> storages,
-            std::vector<std::size_t> sizes)
-      : storages(std::move(storages)), sizes(std::move(sizes)) {
-    std::size_t curOffset = 0;
-    for (unsigned long size : this->sizes) {
-      offsets.push_back(curOffset);
-      curOffset += size;
-    }
-  }
+            std::vector<std::size_t> sizes);
 
-  void updateStoragesAndSizes(std::vector<real*> newStorages, std::vector<std::size_t> newSizes) {
-    storages = std::move(newStorages);
-    sizes = std::move(newSizes);
-    offsets.clear();
-    std::size_t curOffset = 0;
-    for (unsigned long size : this->sizes) {
-      offsets.push_back(curOffset);
-      curOffset += size;
-    }
-  }
 
-  std::pair<real*, size_t> getSubvector(size_t storageIdx) {
-    return {storages[storageIdx], sizes[storageIdx]};
-  }
+  void updateStoragesAndSizes(std::vector<real*> newStorages, std::vector<std::size_t> newSizes);
 
-  real& operator[](std::size_t idx) {
-    const auto idxPair = index(idx);
-    return storages[idxPair.first][idxPair.second];
-  }
-  const real& operator[](std::size_t idx) const {
-    const auto idxPair = index(idx);
-    return storages[idxPair.first][idxPair.second];
-  }
+  std::pair<real*, size_t> getSubvector(size_t storageIdx);
 
-  ODEVector& operator+=(ODEVector& rhs) {
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      assert(sizes[i] == rhs.sizes[i]);
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        storages[i][j] += rhs.storages[i][j];
-      }
-    }
-    return *this;
-  }
+  real& operator[](std::size_t idx);
 
-  ODEVector& operator*=(real rhs) {
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        storages[i][j] *= rhs;
-      }
-    }
-    return *this;
-  }
+  const real& operator[](std::size_t idx) const;
+
+  ODEVector& operator+=(ODEVector& rhs);
+
+  ODEVector& operator*=(real rhs);
 
   // this += weight * rhs
-  void weightedAddInplace(real weight, const ODEVector& rhs) {
-    if (weight == 0.0) return;
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      assert(sizes[i] == rhs.sizes[i]);
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        storages[i][j] += weight * rhs.storages[i][j];
-      }
-    }
-  }
+  void weightedAddInplace(real weight, const ODEVector& rhs);
 
-  ODEVector& operator=(const ODEVector& other) {
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      assert(sizes[i] == other.sizes[i]);
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        storages[i][j] = other.storages[i][j];
-      }
-    }
-    return *this;
-  }
+  ODEVector& operator=(const ODEVector& other);
 
+  real normDifferenceTo(ODEVector& other, bool useLInfNorm = true);
 
-  real normDifferenceTo(ODEVector& other, bool useLInfNorm = true) {
-    // Computes the L2 or LInf norm of the difference between two vectors.
-    real error = 0.0;
-    real maxError = -1;
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      assert(sizes[i] == other.sizes[i]);
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        const real curDiff = storages[i][j] - other.storages[i][j];
-        error += curDiff * curDiff;
-        maxError = std::max(std::abs(curDiff), maxError);
-      }
-    }
-    if (useLInfNorm) return maxError;
-    return std::sqrt(error);
-  }
+  real norm();
 
-  real norm() {
-    // Computes the L2 norm.
-    real norm = 0.0;
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        norm += storages[i][j] * storages[i][j];
-      }
-    }
-    return std::sqrt(norm);
-  }
-
-  void print() {
-    const auto delim = "----------- print() -----------";
-    for (std::size_t i = 0; i < storages.size(); ++i) {
-      std::cout << delim << std::endl;
-      for (std::size_t j = 0; j < sizes[i]; ++j) {
-        std::cout << storages[i][j] << ", ";
-      }
-      std::cout << std::endl;
-    }
-    std::cout << delim << std::endl;
-  }
+  void print();
 };
 
+} // namespace seissol::ode
 
 #endif //SEISSOL_ODEVECTOR_H

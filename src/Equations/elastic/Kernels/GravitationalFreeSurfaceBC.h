@@ -58,8 +58,8 @@ public:
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     auto f = [&](
-        ODEVector& du,
-        ODEVector& u,
+        ode::ODEVector& du,
+        ode::ODEVector& u,
         double time) {
       // Evaluate Taylor series at time
       dofsVolumeInteriorModal.setZero();
@@ -76,15 +76,15 @@ public:
       projectKernel.execute(faceIdx);
 
       // Unpack du
-      auto [dEtaIntegratedStorage, dEtaIntegratedSize] = du.getSubvector(0);
+      auto[dEtaIntegratedStorage, dEtaIntegratedSize] = du.getSubvector(0);
       assert(dEtaIntegratedSize == init::averageNormalDisplacement::size());
       auto dEtaIntegrated = init::averageNormalDisplacement::view::create(dEtaIntegratedStorage);
-      auto [dEtaStorage, dEtaSize] = du.getSubvector(1);
+      auto[dEtaStorage, dEtaSize] = du.getSubvector(1);
       assert(dEtaSize == init::faceDisplacement::size());
       auto dEta = init::faceDisplacement::view::create(dEtaStorage);
 
       // Unpack u
-      auto [etaStorage, etaSize] = u.getSubvector(1);
+      auto[etaStorage, etaSize] = u.getSubvector(1);
       assert(etaSize == init::faceDisplacement::size());
       auto eta = init::faceDisplacement::view::create(etaStorage);
 
@@ -104,9 +104,9 @@ public:
 
         // dH/dt = etaN,
         // dEtaN/dt =  u_r - 1/Z ( p_r - pressureAtBnd ),
-        const auto uInside = dofsFaceNodal(i, uIdx+0);
-        const auto vInside = dofsFaceNodal(i, uIdx+1);
-        const auto wInside = dofsFaceNodal(i, uIdx+2);
+        const auto uInside = dofsFaceNodal(i, uIdx + 0);
+        const auto vInside = dofsFaceNodal(i, uIdx + 1);
+        const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
         if ((faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
           // TODO(Lukas) Check sign
@@ -127,7 +127,8 @@ public:
     constexpr auto integratedEtaSize = init::averageNormalDisplacement::size();
     constexpr auto etaSize = init::faceDisplacement::size();
 
-    auto curValue = ODEVector{{ integratedDisplacementNodal, displacementNodal }, {integratedEtaSize, etaSize}};
+    auto curValue = ode::ODEVector{{integratedDisplacementNodal, displacementNodal},
+                                   {integratedEtaSize,           etaSize}};
 
     // Apply boundary condition to integrated displacement (start from 0 each PDE timestep)
     std::fill_n(integratedDisplacementNodal, integratedEtaSize, 0.0);
@@ -135,10 +136,7 @@ public:
     // Setup ODE solver
     ode::TimeSpan timeSpan = {startTime, startTime + timeStepWidth};
     auto odeSolverConfig = ode::ODESolverConfig(timeStepWidth);
-    odeSolverConfig.initialDt = timeStepWidth / 2;
-    // TODO(Lukas) Following currently not supported!
-    odeSolverConfig.acceptableError = 1e-9;
-    odeSolverConfig.minimumDt = 1e-12;
+    odeSolverConfig.initialDt = timeStepWidth;
 
     auto solver = ode::RungeKuttaODESolver({integratedEtaSize, etaSize}, odeSolverConfig);
     solver.solve(f, curValue, timeSpan);
