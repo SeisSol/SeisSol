@@ -220,13 +220,13 @@ namespace seissol {
       const double e_2 = params.beta_2 * material.viscosity / (params.rho_2 * material.permeability);
 
       ET.setZero();
-      ET(10,10) = e_1;
-      ET(11,11) = e_1;
-      ET(12,12) = e_1;
+      ET(10,6) = e_1;
+      ET(11,7) = e_1;
+      ET(12,8) = e_1;
 
-      ET(10,6) = e_2;
-      ET(11,7) = e_2;
-      ET(12,8) = e_2;
+      ET(10,10) = e_2;
+      ET(11,11) = e_2;
+      ET(12,12) = e_2;
     }
 
     template<>
