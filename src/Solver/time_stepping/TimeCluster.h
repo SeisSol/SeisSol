@@ -112,6 +112,7 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
+    void setDatReader ( seissol::sourceterm::DAT* dat );
 private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
@@ -156,6 +157,7 @@ private:
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
 
+    seissol::sourceterm::DAT* m_dat;
     //! time step width of the performed time step.
     double m_timeStepWidth;
     
@@ -390,7 +392,8 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics );
+                 LoopStatistics*                        i_loopStatistics,
+                 seissol::sourceterm::DAT* i_dat  );
 
     /**
      * Destructor of a LTS cluster.

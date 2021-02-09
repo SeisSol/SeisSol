@@ -61,7 +61,7 @@
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
+void seissol::kernels::Local::setGlobalData(GlobalData const* global, seissol::sourceterm::DAT* dat) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
@@ -80,6 +80,21 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+
+  if (dat == nullptr)
+    std::cout << "setGlobalData called with nullptr\n";
+  else
+    std::cout << "setGlobalData called with !nullptr.\n";
+
+  //m_dat = dat;
+}
+
+void seissol::kernels::Local::setDatReader( seissol::sourceterm::DAT* dat ) {
+  m_dat = dat;
+  if (dat == nullptr)
+    std::cout << "setDatReader in Local.cpp called with nullptr\n";
+  else
+    std::cout << "setDatReader in Local.cpp called with !nullptr.\n";
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -235,30 +250,70 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                                init::INodal::view::type& boundaryDofs) {
           int offset = 0;
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const auto T = 0.1;
-            const auto M_0 = T * std::exp(1);
+            const auto T = 30.0;
+            // const auto M_0 = T * std::exp(1);
 
+
+            // Only able to measure the pressure field during a finite time-interval [0, T]
+            // T = ENDTIME as defined in paramters.par
+
+
+            // x, y, z: points on the surface
             const auto x = nodes[offset+0];
             const auto y = nodes[offset+1];
             const auto z = nodes[offset+2];
             offset += 3;
+            
+            std::vector<double> pos = {x, y, z};
 
-            const auto x_middle = 0.0;
-            const auto y_middle = 0.0;
-            const auto z_middle = -5.0;
-            const auto dist_squared = (x-x_middle)*(x-x_middle) 
-              + (y-y_middle)*(y-y_middle) 
-              + (z-z_middle)*(z-z_middle);
-
-            const auto t = 18 - std::sqrt(dist_squared) - time;
-
+            
             auto H = [](double t) -> double {
               return t > 0 ? 1.0 : 0.0;
             };
-            const double val =
-                M_0 * t / (T*T) * std::exp(-t/T) * H(t) * 
-                1 / dist_squared;
 
+            //std::cout << "Before calling m_dat for the first time (assert nullptr).\n";
+            
+
+            //assert(!m_dat);
+            
+            //std::cout << "After asserting nullptr\n";
+
+            //std::cout << m_dat->pos[0][0] << "\n";
+            
+            //std::cout << "Before calling getSigma\n";
+            // assert(m_dat->pos.size() == 0);
+
+            double val = 
+                m_dat->getSigmaXX(pos, T - time) * H(T - time);
+
+
+            //std::cout << "After calling getSigma\n";
+
+
+            // const auto x_middle = 0.0;
+            // const auto y_middle = 0.0;
+            // const auto z_middle = -5.0;
+            // const auto dist_squared = (x-x_middle)*(x-x_middle) 
+            //   + (y-y_middle)*(y-y_middle) 
+            //   + (z-z_middle)*(z-z_middle);
+
+            // const auto t = 18 - std::sqrt(dist_squared) - time;
+
+            // auto H = [](double t) -> double {
+            //   return t > 0 ? 1.0 : 0.0;
+            // };
+            // const double val =
+            //     M_0 * t / (T*T) * std::exp(-t/T) * H(t) * 
+            //     1 / dist_squared;
+
+
+            
+
+
+            // val = readDat(vector,  T - time) * H(T - time)
+
+
+            // What exactly does this do? See meeting notes 18.01.
             boundaryDofs(i,0) = 2 * val - boundaryDofsInterior(i,0);
             boundaryDofs(i,1) = 2 * val - boundaryDofsInterior(i,1);
             boundaryDofs(i,2) = 2 * val - boundaryDofsInterior(i,2);
