@@ -61,7 +61,7 @@
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-void seissol::kernels::Local::setGlobalData(GlobalData const* global, seissol::sourceterm::DAT* dat) {
+void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
@@ -86,7 +86,6 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global, seissol::s
   else
     std::cout << "setGlobalData called with !nullptr.\n";
 
-  //m_dat = dat;
 }
 
 void seissol::kernels::Local::setDatReader( seissol::sourceterm::DAT* dat ) {

@@ -444,12 +444,4 @@ void seissol::sourceterm::Manager::loadTRSources( char const* dirName,
   std::cerr << dat->pos[0][1] << "\n";
 
   timeManager.setDatReader(dat);
-
-  
-  
-
-
-
-
-
 }

@@ -112,7 +112,6 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
-    void setDatReader ( seissol::sourceterm::DAT* dat );
 private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
@@ -157,7 +156,6 @@ private:
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
 
-    seissol::sourceterm::DAT* m_dat;
     //! time step width of the performed time step.
     double m_timeStepWidth;
     
