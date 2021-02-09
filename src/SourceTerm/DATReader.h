@@ -11,7 +11,8 @@ namespace seissol {
 			std::vector<std::vector<double>> time;
 			std::vector<std::vector<double>> sigma_xx;
 
-		
+			double endtime = 0;
+
 			double getSigmaXX(std::vector<double> const& position, double time);
 
 		};

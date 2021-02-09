@@ -84,13 +84,15 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 				current_sigmaxx.push_back(std::stod(tmp.at(1)));
 			}
 		}
-		
+
 		// Save current data 
 		dat->pos.push_back(current_pos);
 		dat->time.push_back(current_time);
 		dat->sigma_xx.push_back(current_sigmaxx);
 
 	}
+
+	endtime = dat->pos[0].back();
 
 
 	assert(dat->sigma_xx.size() != 0);
