@@ -80,12 +80,6 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-
-  if (dat == nullptr)
-    std::cout << "setGlobalData called with nullptr\n";
-  else
-    std::cout << "setGlobalData called with !nullptr.\n";
-
 }
 
 void seissol::kernels::Local::setDatReader( seissol::sourceterm::DAT* dat ) {

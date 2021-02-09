@@ -152,7 +152,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 
   m_timeKernel.setGlobalData(m_globalData);
   std::cout << "Calling setGlobalData from TimeCluster (with !nullptr)\n";
-  m_localKernel.setGlobalData(m_globalData);
+  m_localKernel.setGlobalData(m_globalData, m_dat);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(m_globalData);
   m_dynamicRuptureKernel.setGlobalData(m_globalData);
@@ -179,6 +179,10 @@ void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPoi
   m_pointSources = i_pointSources;
 }
 
+void seissol::time_stepping::TimeCluster::setDatReader ( seissol::sourceterm::DAT* dat )
+{
+  m_localKernel.setDatReader(dat);
+}
 
 void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION( "writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION )

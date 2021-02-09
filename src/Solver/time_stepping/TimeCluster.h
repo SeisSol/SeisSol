@@ -112,6 +112,7 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
+    void setDatReader ( seissol::sourceterm::DAT* dat );
 private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;

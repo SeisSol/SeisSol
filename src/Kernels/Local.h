@@ -59,6 +59,7 @@ namespace seissol {
 
 class seissol::kernels::Local : public LocalBase {
   public:
+    seissol::sourceterm::DAT* m_dat = nullptr;
     void setGlobalData(GlobalData const* global);
     void setDatReader( seissol::sourceterm::DAT* dat );
 
