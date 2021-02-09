@@ -152,7 +152,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 
   m_timeKernel.setGlobalData(m_globalData);
   std::cout << "Calling setGlobalData from TimeCluster (with !nullptr)\n";
-  m_localKernel.setGlobalData(m_globalData, m_dat);
+  m_localKernel.setGlobalData(m_globalData);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(m_globalData);
   m_dynamicRuptureKernel.setGlobalData(m_globalData);

@@ -391,8 +391,7 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics,
-                 seissol::sourceterm::DAT* i_dat  );
+                 LoopStatistics*                        i_loopStatistics);
 
     /**
      * Destructor of a LTS cluster.
