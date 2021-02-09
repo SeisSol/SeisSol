@@ -49,6 +49,7 @@
 #include <Eigen/Dense>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
+#include <SourceTerm/DATReader.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
@@ -425,6 +426,9 @@ class seissol::Interoperability {
                                       double z,
                                       unsigned element,
                                       real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()] );
+
+
+
 
    /**
     * Simulates until the final time is reached.

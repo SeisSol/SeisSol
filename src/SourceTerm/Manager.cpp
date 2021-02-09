@@ -73,6 +73,7 @@
 #include "Manager.h"
 #include "NRFReader.h"
 #include "PointSource.h"
+#include "DATReader.h"
 
 #include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
@@ -423,7 +424,8 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
 }
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 
-void seissol::sourceterm::Manager::loadTRSources(char const* dirName) {
+void seissol::sourceterm::Manager::loadTRSources( char const* dirName,
+                                                  time_stepping::TimeManager& timeManager ) {
   freeSources();
 
   int rank = seissol::MPI::mpi.rank();
@@ -432,5 +434,22 @@ void seissol::sourceterm::Manager::loadTRSources(char const* dirName) {
   logInfo(rank) << "<                      Time Reversal BCs                  >";
   logInfo(rank) << "<--------------------------------------------------------->";
   logInfo(rank) << "Read receiver files from " << dirName;
+
+
+  DAT *dat = new DAT();
+  readDAT(dirName, dat);
+
+  logInfo(rank) << " Done reading receiver files.";
+
+  std::cerr << dat->pos[0][1] << "\n";
+
+  timeManager.setDatReader(dat);
+
+  
+  
+
+
+
+
 
 }

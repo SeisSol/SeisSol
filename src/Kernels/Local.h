@@ -48,15 +48,21 @@
 #include <Kernels/LocalBase.h>
 #include <generated_code/tensor.h>
 
+#include "SourceTerm/DATReader.h"
+
 namespace seissol {
   namespace kernels {
     class Local;
   }
 }
 
+
 class seissol::kernels::Local : public LocalBase {
+        
   public:
-    void setGlobalData(GlobalData const* global);
+    seissol::sourceterm::DAT* m_dat;
+    void setGlobalData(GlobalData const* global, seissol::sourceterm::DAT* dat=nullptr);
+    void setDatReader( seissol::sourceterm::DAT* dat );
 
     void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                          LocalData& data,

@@ -103,7 +103,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
-                                                  LoopStatistics*                        i_loopStatistics ):
+                                                  LoopStatistics*                        i_loopStatistics,
+                                                  seissol::sourceterm::DAT*       i_dat ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -115,6 +116,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
  m_dynRup(                  i_dynRup                   ),
+ m_dat(                     i_dat                      ),
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
@@ -149,9 +151,10 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
-  
+
   m_timeKernel.setGlobalData(m_globalData);
-  m_localKernel.setGlobalData(m_globalData);
+  std::cout << "Calling setGlobalData from TimeCluster (with !nullptr)\n";
+  m_localKernel.setGlobalData(m_globalData, m_dat);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(m_globalData);
   m_dynamicRuptureKernel.setGlobalData(m_globalData);
@@ -176,6 +179,11 @@ void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPoi
   m_cellToPointSources = i_cellToPointSources;
   m_numberOfCellToPointSourcesMappings = i_numberOfCellToPointSourcesMappings;
   m_pointSources = i_pointSources;
+}
+
+void seissol::time_stepping::TimeCluster::setDatReader ( seissol::sourceterm::DAT* dat )
+{
+  m_localKernel.setDatReader(dat);
 }
 
 void seissol::time_stepping::TimeCluster::writeReceivers() {

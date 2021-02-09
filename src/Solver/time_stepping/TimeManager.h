@@ -100,6 +100,9 @@ class seissol::time_stepping::TimeManager {
     //! Stopwatch
     LoopStatistics m_loopStatistics;
     
+
+    seissol::sourceterm::DAT* m_dat;
+
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
      * If this is true:
@@ -185,6 +188,8 @@ class seissol::time_stepping::TimeManager {
      */
     void setTv(double tv);
 
+
+    void setDatReader( sourceterm::DAT* dat );
     /**
      * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
      * Required only if different from zero, for example in checkpointing.
