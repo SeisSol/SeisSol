@@ -191,7 +191,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   // Compute integrated displacement over time step if needed.
   if (needsDisplacement) {
-    auto bc = GravitationalFreeSurfaceBc();
+    auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (unsigned face = 0; face < 4; ++face) {
       if (data.faceDisplacements[face] != nullptr) {
         std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);

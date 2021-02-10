@@ -42,11 +42,13 @@
 
 #include <Initializer/tree/InterfaceHelper.hpp>
 #include <Initializer/LTS.h>
+#include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
-namespace seissol {
-  namespace kernels {
+namespace seissol::kernels {
     struct LocalTmp {
         alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+
     };
 #ifndef ACL_DEVICE
     LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
@@ -56,6 +58,5 @@ namespace seissol {
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
 #endif
   }
-}
 
 #endif

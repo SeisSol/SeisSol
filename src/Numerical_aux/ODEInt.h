@@ -55,6 +55,8 @@ public:
   RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
                       ODESolverConfig config);
 
+  void setConfig(ODESolverConfig newConfig);
+
   template<typename Func>
   void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);

@@ -9,26 +9,28 @@
 
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/ODEInt.h"
-#include "Kernels/Time.h"
 
 namespace seissol {
 class GravitationalFreeSurfaceBc {
 public:
-  GravitationalFreeSurfaceBc() = default;
+  GravitationalFreeSurfaceBc()
+      : odeSolver(ode::RungeKuttaODESolver(
+      {init::averageNormalDisplacement::size(),
+       init::faceDisplacement::size()}, ode::ODESolverConfig(1.0)
+  )) {}
 
-
-  template<typename MappingKrnl>
+  template<typename TimeKrnl, typename MappingKrnl>
   void evaluate(unsigned faceIdx,
                 MappingKrnl&& projectKernelPrototype,
                 const CellBoundaryMapping& boundaryMapping,
                 real* displacementNodal,
                 real* integratedDisplacementNodal,
-                seissol::kernels::Time& timeKernel,
+                TimeKrnl& timeKernel,
                 real* derivatives,
                 double startTime,
                 double timeStepWidth,
                 CellMaterialData& materialData,
-                FaceType faceType) const {
+                FaceType faceType) {
     // This function does two things:
     // 1: Compute eta (for all three dimensions) at the end of the timestep
     // 2: Compute the integral of eta in normal direction (called H) over the timestep
@@ -104,6 +106,7 @@ public:
         const double Z = std::sqrt(materialData.local.lambda / rho);
         bool isAcoustic = std::abs(materialData.local.mu) < 1e-15;
 #else
+        const real Z = 0.0; // Sets penalty term effectively to zero
         bool isAcoustic = false;
 #endif
 
@@ -125,8 +128,6 @@ public:
         dEta(i, 2) = wInside;
         dEtaIntegrated(i) = eta(i, 0);
       }
-
-
     };
 
     constexpr auto integratedEtaSize = init::averageNormalDisplacement::size();
@@ -143,12 +144,12 @@ public:
     auto odeSolverConfig = ode::ODESolverConfig(timeStepWidth);
     odeSolverConfig.initialDt = timeStepWidth;
 
-    auto solver = ode::RungeKuttaODESolver({integratedEtaSize, etaSize}, odeSolverConfig);
-    solver.solve(f, curValue, timeSpan);
+    odeSolver.setConfig(odeSolverConfig);
+    odeSolver.solve(f, curValue, timeSpan);
   }
 
 private:
-  //ode::ODESolver odeSolver;
+  ode::RungeKuttaODESolver odeSolver;
 };
 
 } // namespace seissol

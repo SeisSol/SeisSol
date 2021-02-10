@@ -169,7 +169,7 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
   }
 }
 
-seissol::ode::RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
+RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
                                                        ODESolverConfig config)
     : config(config) {
   initializeRungeKuttaScheme(config.solver, numberOfStages, a, b, c);
@@ -179,18 +179,23 @@ seissol::ode::RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::si
   auto curStoragePtrs = std::vector<real*>(storageSizes.size());
   for (auto i = 0; i < numberOfStages; ++i) {
     curStoragePtrs.clear();
-    for (auto j = 0U; j < storageSizes.size(); ++j) {
-      curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSizes[j])).data());
+    for (unsigned long storageSize : storageSizes) {
+      curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSize)).data());
     }
-    stages.push_back(ODEVector(curStoragePtrs, storageSizes));
+    stages.emplace_back(curStoragePtrs, storageSizes);
   }
 
   // Initialize buffer
   curStoragePtrs.clear();
-  for (auto j = 0U; j < storageSizes.size(); ++j) {
-    curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSizes[j])).data());
+  for (unsigned long storageSize : storageSizes) {
+    curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSize)).data());
   }
   buffer.updateStoragesAndSizes(curStoragePtrs, storageSizes);
+}
+
+
+void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) {
+  config = newConfig;
 }
 
 } // namespace seissol::ode
