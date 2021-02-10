@@ -43,6 +43,7 @@
 #include <sys/sysinfo.h>
 #include <sched.h>
 #include <sstream>
+#include <iostream>
 
 seissol::parallel::Pinning::Pinning() {
   // Affinity mask of the entire process
@@ -102,4 +103,22 @@ std::string seissol::parallel::Pinning::maskToString(cpu_set_t const& set) {
     }
   }
   return st.str();
+}
+
+void seissol::parallel::Pinning::setProcessMaskFromString(const std::string& processMaskString) {
+  CPU_ZERO(&processMask);
+  auto curBit = 0;
+  // TODO(Lukas) Maybe do not reverse iteration order?
+  for (auto it = processMaskString.crbegin() ; it != processMaskString.crend(); ++it) {
+    const auto val = static_cast<unsigned>(std::stoi(std::string{*it}, nullptr, 16));
+    for (auto i = 0U; i < 4U; ++i) {
+      bool isSet =  val & (1U << i);
+      //std::cout << "Setting bit " << curBit << " to " << isSet << std::endl;
+      if (isSet) {
+        CPU_SET(curBit, &processMask);
+      }
+      ++curBit;
+    }
+  }
+
 }

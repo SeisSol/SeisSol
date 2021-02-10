@@ -53,6 +53,7 @@ public:
   Pinning();
 
   cpu_set_t getProcessMask() const { return processMask; };
+  void setProcessMaskFromString(const std::string& processMaskString);
   cpu_set_t getWorkerUnionMask() const;
   cpu_set_t getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(cpu_set_t const& set);

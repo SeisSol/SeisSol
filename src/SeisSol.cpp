@@ -95,7 +95,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2020, SeisSol Group";
+  logInfo(rank) << "Copyright (c) 2012-2021, SeisSol Group";
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
   logInfo(rank) << "Version:" << VERSION_STRING;
 
@@ -104,6 +104,26 @@ bool seissol::SeisSol::init(int argc, char* argv[])
     char hostname[hostNameMaxLength+1];
     if (gethostname(hostname, hostNameMaxLength+1) == 0)
       logInfo() << "Running on:" << hostname;
+  }
+
+  // Parse command line arguments
+  utils::Args args;
+  args.addAdditionalOption("file", "The parameter file", false);
+  args.addAdditionalOption("affinity-mask", "The affinity mask of the entire SeisSol process", false);
+  switch (args.parse(argc, argv)) {
+    case utils::Args::Help:
+    case utils::Args::Error:
+      MPI::mpi.finalize();
+      exit(1);
+      break;
+    case utils::Args::Success:
+      break;
+  }
+
+  if (args.isSetAdditional("affinity-mask")) {
+    const auto processMaskString = args.getAdditionalArgument<std::string>("affinity-mask");
+    std::cout << processMaskString << std::endl;
+    pinning.setProcessMaskFromString(processMaskString);
   }
 
 #ifdef _OPENMP
@@ -158,19 +178,6 @@ bool seissol::SeisSol::init(int argc, char* argv[])
   
   // Call post MPI initialization hooks
   seissol::Modules::callHook<seissol::POST_MPI_INIT>();
-
-  // Parse command line arguments
-  utils::Args args;
-  args.addAdditionalOption("file", "The parameter file", false);
-  switch (args.parse(argc, argv)) {
-  case utils::Args::Help:
-  case utils::Args::Error:
-	  MPI::mpi.finalize();
-	  exit(1);
-	  break;
-  case utils::Args::Success:
-	  break;
-  }
 
   // Initialize the ASYNC I/O library
   if (!m_asyncIO.init())
