@@ -79,9 +79,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs) % ALIGNMboolENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated) %bool ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeDerivatives) bool% ALIGNMENT == 0 || o_timeDerivatives == NULL );
+  assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)o_timeIntegrated) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)o_timeDerivatives) % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
   /*
    * compute ADER scheme.
