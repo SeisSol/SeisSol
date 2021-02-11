@@ -128,7 +128,7 @@ CONTAINS
     !
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'closeGalerkin: SeisSol Interface not initialized!!'
-       STOP
+       call exit(134)
     ENDIF
     !
     logInfo(*) 'Enter closeGalerkin...'
@@ -301,7 +301,7 @@ CONTAINS
     l_gts = minval( optionalFields%dt_convectiv(:) )
     if (l_gts .le. 0.0) then
       logError(*) 'Invalid timestep width'
-      stop
+      call exit(134)
     endif
 
 #ifdef PERIODIC_LTS_SCALING
@@ -382,7 +382,7 @@ CONTAINS
          STAT = allocstat                                                                       )
     IF(allocStat .NE. 0) THEN
        logError(*) 'could not allocate all variables!'
-       STOP
+       call exit(134)
     END IF
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
@@ -390,7 +390,7 @@ CONTAINS
                   STAT = allocstat )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate DISC%Galerkin%DGTayl.'
-           STOP
+           call exit(134)
         END IF
     ENDIF
 
@@ -474,12 +474,12 @@ CONTAINS
                                                      timeHistories     = SOURCE%RP%TimeHist       )
     case default
       logError(*) 'Generated Kernels: Unsupported source type: ', SOURCE%Type
-      stop
+      call exit(134)
   end select
 
   if (DISC%Galerkin%FluxMethod .ne. 0) then
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
-    stop
+    call exit(134)
   endif
 
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
@@ -512,18 +512,23 @@ CONTAINS
       ! TODO: Transpose StateVar
       ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       !
-      DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
-      DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
-      DISC%DynRup%Slip          = 0.0D0
-      DISC%DynRup%Slip1         = 0.0D0
-      DISC%DynRup%Slip2         = 0.0D0
-      DISC%DynRup%TracXY        = 0.0D0
-      DISC%DynRup%TracXZ        = 0.0D0
-      DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-      DISC%DynRup%StateVar(:,:) = EQN%IniStateVar
-      DISC%DynRup%PeakSR        = 0.0D0
-      DISC%DynRup%rupture_time  = 0.0D0
-      DISC%DynRup%dynStress_time = 0.0D0
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          DISC%DynRup%SlipRate1(:,i) = EQN%IniSlipRate1
+          DISC%DynRup%SlipRate2(:,i) = EQN%IniSlipRate2
+          DISC%DynRup%Slip(:,i) = 0.0
+          DISC%DynRup%Slip1(:,i) = 0.0
+          DISC%DynRup%Slip2(:,i) = 0.0
+          DISC%DynRup%TracXY(:,i) = 0.0
+          DISC%DynRup%TracXZ(:,i) = 0.0
+          DISC%DynRup%StateVar(:,i) = EQN%IniStateVar(:,i)
+          DISC%DynRup%Mu(:,i) = EQN%IniMu(:,i)
+          DISC%DynRup%PeakSR(:,i) = 0.0
+          DISC%DynRup%rupture_time(:,i) = 0.0
+          DISC%DynRup%dynStress_time(:,i) = 0.0
+      END DO
 
       allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
@@ -534,6 +539,20 @@ CONTAINS
       allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
       allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          disc%DynRup%output_Mu(:,i) = 0.0
+          disc%DynRup%output_Strength(:,i) = 0.0
+          disc%DynRup%output_Slip(:,i) = 0.0
+          disc%DynRup%output_Slip1(:,i) = 0.0
+          disc%DynRup%output_Slip2(:,i) = 0.0
+          disc%DynRup%output_rupture_time(:,i) = 0.0
+          disc%DynRup%output_PeakSR(:,i) = 0.0
+          disc%DynRup%output_dynStress_time(:,i) = 0.0
+          disc%DynRup%output_StateVar(:,i) = 0.0
+      END DO
 
     else
         ! Allocate dummy arrays to avoid debug errors
@@ -562,7 +581,7 @@ CONTAINS
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
-        STOP
+        call exit(134)
         !
     ENDIF
   END SUBROUTINE iniGalerkin3D_us_level2_new
@@ -657,12 +676,12 @@ CONTAINS
 
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'iniGalerkin: SeisSol Interface not initialized!!'
-       STOP
+       call exit(134)
     ENDIF
 
     IF(MESH%nElem_Tet.EQ.0 .AND. MESH%nElem_Hex.EQ.0) THEN
        logError(*) 'Quadraturefree ADER-DG is only implemented for tetrahedral and hexahedral.'
-       STOP
+       call exit(134)
     ENDIF
 
     ! Reading polynomial coefficients and mass matrices
@@ -678,7 +697,7 @@ CONTAINS
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
-           STOP
+           call exit(134)
         END IF
     ENDIF ! Tets
 
@@ -742,19 +761,19 @@ CONTAINS
         ! assert contant material parameters per element
         if ( disc%galerkin%nDegFrMat .ne. 1 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, disc%galerkin%nDegFrMat not equal 1.', disc%galerkin%nDegFrMat
-          stop
+          call exit(134)
         endif
 
         ! assert 4 sides for tetrahedrons
         if ( mesh%nSides_tet .ne. 4 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nSides_tet not equal 4.', mesh%nSides_tet
-          stop
+          call exit(134)
         endif
 
         ! assert 3 vertices for triangles
          if ( mesh%nVertices_tri .ne. 3 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nVertices_tri not equal 3.', mesh%nVertices_tri
-          stop
+          call exit(134)
         endif
 #endif
     ENDIF ! Tetras
@@ -812,7 +831,7 @@ CONTAINS
     !
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'icGalerkin: SeisSol Interface not initialized!!'
-       STOP
+       call exit(134)
     ENDIF
     !
     ALLOCATE(EQN%Energy(3,1:MESH%nElem))
@@ -1013,7 +1032,7 @@ CONTAINS
               STAT=allocstat )
     IF (allocStat .NE. 0) THEN
        logError(*) 'Interface SeisSol: could not allocate all variables!'
-       STOP
+       call exit(134)
     END IF
 
     ! Calculating boundary surfaces (3D)
@@ -1135,7 +1154,7 @@ CONTAINS
     IF(minv.LE.1e-15) THEN
         logError(*) 'Mesh contains a singular tetrahedron with radius ', minv
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
-        STOP
+        call exit(134)
     ENDIF
     DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
     DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
@@ -1268,7 +1287,7 @@ CONTAINS
                      END SELECT
                 ELSE
                    PRINT *, ' ERROR: local order must not be less or equal to zero! ', iLayer
-                   STOP
+                   call exit(134)
                 ENDIF
             ELSE
                 !

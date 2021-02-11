@@ -140,7 +140,7 @@ contains
                                     disc%galerkin%clusteredLts                  )
         else
             logError(*) 'Unknown mesh reader'
-            stop
+            call exit(134)
         endif
 
         ! Set additional SeisSol variables

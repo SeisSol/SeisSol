@@ -127,7 +127,7 @@ CONTAINS
        ALLOCATE(IntGaussP(2,nIntGP),STAT=allocstat)
        IF (allocStat .NE. 0) THEN
           logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-          STOP
+          call exit(134)
        END IF
     ENDIF
     IF(.NOT.ASSOCIATED(IntGaussW)) THEN
@@ -139,14 +139,14 @@ CONTAINS
        ALLOCATE(IntGaussW(nIntGP),STAT=allocstat)
        IF (allocStat .NE. 0) THEN
           logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-          STOP
+          call exit(134)
        END IF
     ENDIF
 
     ALLOCATE(mu1(M), mu2(M), A1(M), A2(M), STAT = allocstat)
     IF (allocStat .NE. 0) THEN
        logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-       STOP
+       call exit(134)
     END IF
 
     !CALL gaujac(mu1,A1,M,1.,0.)     ! Get the Gauss-Jacobi positions and weights
@@ -233,7 +233,7 @@ CONTAINS
        ALLOCATE(IntGaussP(3,nIntGP),STAT=allocstat)
        IF (allocStat .NE. 0) THEN
           logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-          STOP
+          call exit(134)
        END IF
     ENDIF
     IF(.NOT.ASSOCIATED(IntGaussW)) THEN
@@ -243,14 +243,14 @@ CONTAINS
        ALLOCATE(IntGaussW(nIntGP),STAT=allocstat)
        IF (allocStat .NE. 0) THEN
           logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-          STOP
+          call exit(134)
        END IF
     ENDIF
 
     ALLOCATE(mu1(M), mu2(M), mu3(M), A1(M), A2(M), A3(M), STAT = allocstat)
     IF (allocStat .NE. 0) THEN
        logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-       STOP
+       call exit(134)
     END IF
 
     !CALL gaujac(mu1,A1,M,2.,0.)     ! Get the Gauss-Jacobi positions and weights
@@ -351,7 +351,7 @@ CONTAINS
           logError(*)                             &               !
                'Error in HypercubeQuadraturePoints: ',        &               !
                'could not allocate all variables!'                            !
-          STOP                                                                !
+          call exit(134)                                                                !
        END IF                                                                 !
     ENDIF                                                                     !
     IF(.NOT.ASSOCIATED(IntGaussW)) THEN                                       !
@@ -365,7 +365,7 @@ CONTAINS
           logError(*)                             &               !
                'Error in HypercubeQuadraturePoints: ',        &               !
                'could not allocate all variables!'                            !
-          STOP                                                                !
+          call exit(134)                                                                !
        END IF                                                                 !
     ENDIF                                                                     !
     !                                                                         !
@@ -375,7 +375,7 @@ CONTAINS
        logError(*)                               &                !
             'Error in HypercubeQuadraturePoints: ',          &                !
             'could not allocate all variables!'                               !
-       STOP                                                                   !
+       call exit(134)                                                                   !
     END IF                                                                    !
     !                                                                         !
     DO iDim = 1, nDim                                                         !
@@ -440,7 +440,7 @@ CONTAINS
        ALLOCATE(Points(nPoints,2),STAT=allocstat)
        IF (allocStat .NE. 0) THEN
           logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-          STOP
+          call exit(134)
        END IF
     ENDIF
 
@@ -473,7 +473,7 @@ CONTAINS
        counter = counter  + 1
        IF(counter.GT.nPoints) THEN
           logError(*) 'Error in Divide. counter > nPoints', counter
-          STOP
+          call exit(134)
        ENDIF
        Points(counter,:) = 1./3.*(XY(1,:)+XY(2,:)+XY(3,:))
        RETURN

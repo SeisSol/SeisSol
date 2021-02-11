@@ -147,7 +147,7 @@ CONTAINS
              STAT = allocstat                                                             )
     IF(allocstat.NE.0) THEN
       logError(*) 'Allocate Error 1 in CPU ', MPI%myrank
-      STOP
+      call exit(134)
     ENDIF
     
     !CALL allocate_ncmesh_level0_1( & !allocating array for nc_elem
@@ -205,7 +205,7 @@ CONTAINS
     ALLOCATE(DomainInfo(0:nNeighborCPU-1), STAT = allocstat)
     IF(allocstat.NE.0) THEN
        logError(*) 'MPIExtractMesh ALLOCATE Error 1 in CPU ', MPI%myrank
-       STOP 
+       call exit(134) 
     ENDIF
     !
     ! Init data structure
@@ -340,7 +340,7 @@ CONTAINS
              STAT = allocstat)
     IF(allocstat.NE.0) THEN
        logError(*) 'MPIExtractMesh ALLOCATE Error 2 in CPU ', MPI%myrank
-       STOP 
+       call exit(134) 
     ENDIF
     !
     MESH%ELEM%MPINumber(:,:)    = -1
@@ -384,7 +384,7 @@ CONTAINS
                     IF(iDomain.EQ.-1) THEN
                         logError(*) 'ERROR: CPU ', CPU2, ' not found in list for CPU ', CPU1, ' ! ', &
                            '# domains ', DomainInfo(CPU1)%nCPU, ' list: ', DomainInfo(CPU1)%CPU(:)
-                        STOP
+                        call exit(134)
                     ELSE
                         MESH%ELEM%BoundaryToObject(iSide,iElem) = iDomain
                     ENDIF
@@ -412,7 +412,7 @@ CONTAINS
          !               IF(iDomain.EQ.-1) THEN
          !                   PRINT *, 'ERROR: CPU ', CPU2, ' not found in list for CPU ', CPU1, ' ! ', & 
          !                     '# domains ', DomainInfo(CPU1)%nCPU, ' list: ', DomainInfo(CPU1)%CPU(:)
-         !                   STOP
+         !                   call exit(134)
          !               ELSE
          !                   MESH%ELEM%NC_BoundaryToObject(iNCboundary,iBndGP) = iDomain
          !               ENDIF
@@ -532,7 +532,7 @@ CONTAINS
                  stat = allocstat  )
        IF(allocstat.NE.0) THEN
           logError(*) 'Could not allocate all MPI boundary fields in domain ', iDomain
-          STOP
+          call exit(134)
        ENDIF      
        !
        ! The CPU with the lower number enforces the order of the boundary elements for conforming boundaries!
@@ -574,7 +574,7 @@ CONTAINS
                  MESH%ELEM%MPINumber_DR(iSide,iElem) = DR_list
                  IF (DR_list .GT. BND%ObjMPI(iDomain)%nFault_MPI) THEN
                      PRINT*,'DR_list too large!'
-                     STOP
+                     call exit(134)
                  ENDIF
                  BND%ObjMPI(iDomain)%Domain_Fault_Elem(DR_list) = iElem
               ENDIF
@@ -584,7 +584,7 @@ CONTAINS
          IF(MAXVAL(MESH%ELEM%MPINumber(:,iElem)).EQ.-1) THEN
             logError(*) 'ERROR in building MPI communication structure. '
             logError(*) i,iElem,iNeighbor,MESH%ELEM%SideNeighbor(:,iElem)
-            STOP
+            call exit(134)
          ENDIF
        ENDDO
 
@@ -770,7 +770,7 @@ CONTAINS
           IF( (NewMESH%ELEM%Vertex(iNode,iElem).LE.0             ) .OR. &
               (NewMESH%ELEM%Vertex(iNode,iElem).GT.NewMesh%nNode )      )  THEN
              logError(*) iElem, iNode, MESH%ELEM%Vertex(iNode,Elementlist(iELem)), NewMESH%ELEM%Vertex(iNode,iElem)
-             STOP
+             call exit(134)
           ENDIF
        ENDDO
        !
@@ -1108,7 +1108,7 @@ CONTAINS
           MESH%LocalElemIndex_Hex(iElem) = MESH%nElem_Hex
       CASE DEFAULT
           logError(*) 'Mixed mesh does not contain only tets and hexas!'
-          STOP 
+          call exit(134) 
       END SELECT
     ENDDO
 #endif

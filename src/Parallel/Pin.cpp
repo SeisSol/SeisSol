@@ -44,11 +44,19 @@
 #include <sched.h>
 #include <sstream>
 
-cpu_set_t seissol::parallel::getWorkerUnionMask() {
+seissol::parallel::Pinning::Pinning() {
+  // Affinity mask of the entire process
+  sched_getaffinity(0, sizeof(cpu_set_t), &processMask);
+
+  // Affinity mask for the OpenMP workers
+  openmpMask = getWorkerUnionMask();
+}
+
+cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
 #ifdef _OPENMP
-  #pragma omp parallel
+  #pragma omp parallel default(none) shared(workerUnion)
   {
     cpu_set_t worker;
     CPU_ZERO(&worker);
@@ -65,28 +73,23 @@ cpu_set_t seissol::parallel::getWorkerUnionMask() {
   return workerUnion;
 }
 
-cpu_set_t seissol::parallel::getFreeCPUsMask() {
-  cpu_set_t workerUnion = getWorkerUnionMask();
-  cpu_set_t set;
-  CPU_ZERO(&set);
-  for (int i = 0; i < get_nprocs() ; ++i) {
-    CPU_SET(i, &set);
-  }
-  CPU_XOR(&set, &set, &workerUnion);
-
-  return set;
+cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
+  // Affinity mask of the pthreads -> all free cores
+  cpu_set_t freeMask{};
+  CPU_XOR(&freeMask, &processMask, &openmpMask);
+  return freeMask;
 }
 
-bool seissol::parallel::freeCPUsMaskEmpty(cpu_set_t const& set) {
+bool seissol::parallel::Pinning::freeCPUsMaskEmpty(cpu_set_t const& set) {
   return CPU_COUNT(&set) == 0;
 }
 
-void seissol::parallel::pinToFreeCPUs() {
-  cpu_set_t set = getFreeCPUsMask();
-  sched_setaffinity(0, sizeof(cpu_set_t), &set);
+void seissol::parallel::Pinning::pinToFreeCPUs() const {
+  auto freeMask = getFreeCPUsMask();
+  sched_setaffinity(0, sizeof(cpu_set_t), &freeMask);
 }
 
-std::string seissol::parallel::maskToString(cpu_set_t const& set) {
+std::string seissol::parallel::Pinning::maskToString(cpu_set_t const& set) {
   std::stringstream st;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
     if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs()-1) {

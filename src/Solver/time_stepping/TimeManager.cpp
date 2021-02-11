@@ -44,6 +44,7 @@
 #include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
+#include "SeisSol.h"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <Parallel/Pin.h>
@@ -409,7 +410,7 @@ void seissol::time_stepping::TimeManager::pollForCommunication() {
   // pin this thread to the last core
   volatile unsigned int l_signalSum = 0;
 
-  parallel::pinToFreeCPUs();
+  seissol::SeisSol::main.getPinning().pinToFreeCPUs();
 
 #ifdef ACL_DEVICE
   // pthread should also get pinned to a dedicated device

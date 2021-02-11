@@ -106,6 +106,19 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
   }
 }
 
+void seissol::writer::FreeSurfaceWriter::setUp()	{
+    setExecutor(m_executor);
+    if (isAffinityNecessary()) {
+      const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+      logInfo(seissol::MPI::mpi.rank()) << "Free surface writer thread affinity:" <<
+        parallel::Pinning::maskToString(freeCpus);
+      if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+        logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+      }
+    }
+}
+
+
 void seissol::writer::FreeSurfaceWriter::enable()
 {
 	m_enabled = true;
