@@ -72,7 +72,6 @@ private:
   std::unique_ptr<real> projectionMatrixFromFace;
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
-  kernel::subTriangleDisplacement subTriangleDisplacementPrototype;
 
   static constexpr auto polyDegree = CONVERGENCE_ORDER-1;
   static constexpr auto numQuadraturePoints = polyDegree*polyDegree;

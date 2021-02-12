@@ -115,7 +115,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     auto boundaryMapping = surfaceLayer->var(surfaceLts.boundaryMapping);
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, boundaryMapping, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
       real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
@@ -149,7 +149,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
         }
       }
 
-      kernel::subTriangleDisplacement dkrnl = subTriangleDisplacementPrototype;
+      kernel::subTriangleDisplacement dkrnl;
       dkrnl.faceDisplacement = displacementDofs[face];
       dkrnl.V2nTo2m = nodal::init::V2nTo2m::Values;
       dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace.get();
@@ -177,7 +177,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   const auto projectionMatrixNumberOfReals = 4 * tensor::subTriangleProjection::size(maxRefinementDepth);
   const auto projectionMatrixMemorySize = projectionMatrixNumberOfReals * sizeof(real);
   const auto projectionMatrixFromFaceMemoryNumberOfReals = tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
-  const auto projectionMatrixFromFaceMemorySize =projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
+  const auto projectionMatrixFromFaceMemorySize = projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
   projectionMatrixMemory =
       std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT)));
@@ -319,7 +319,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
     real (*dofs)[tensor::Q::size()] = layer->var(lts->dofs);
-    real* (*displacements)[4] = layer->var(lts->faceDisplacements);
+    real* (*faceDisplacements)[4] = layer->var(lts->faceDisplacements);
     real** surfaceDofs = surfaceLayer->var(surfaceLts.dofs);
     real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
     CellMaterialData* cellMaterialData = layer->var(lts->material);
@@ -335,7 +335,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
           assert(displacements[cell][face] != nullptr);
 
           surfaceDofs[surfaceCell]      = dofs[cell];
-          displacementDofs[surfaceCell] = displacements[cell][face];
+          displacementDofs[surfaceCell] = faceDisplacements[cell][face];
           side[surfaceCell]             = face;
           meshId[surfaceCell]           = ltsToMesh[cell];
           surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
