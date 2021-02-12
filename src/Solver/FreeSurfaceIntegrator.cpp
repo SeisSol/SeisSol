@@ -332,7 +332,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (initializers::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
-          assert(displacements[cell][face] != nullptr);
+          assert(faceDisplacements[cell][face] != nullptr);
 
           surfaceDofs[surfaceCell]      = dofs[cell];
           displacementDofs[surfaceCell] = faceDisplacements[cell][face];
