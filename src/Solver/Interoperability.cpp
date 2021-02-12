@@ -903,6 +903,7 @@ void seissol::Interoperability::copyDynamicRuptureState()
 
 void seissol::Interoperability::initInitialConditions()
 {
+  auto initialConditionDescription = m_initialConditionType;
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
@@ -923,15 +924,24 @@ void seissol::Interoperability::initInitialConditions()
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else if (m_initialConditionType == "Scholte") {
+    initialConditionDescription = "Scholte wave (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {
+    initialConditionDescription = "Snell's law (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::SnellsLaw());
-  } else if (m_initialConditionType == "Ocean") {
-    m_iniConds.emplace_back(new physics::Ocean());
+  } else if (m_initialConditionType.rfind("Ocean", 0) == 0) {
+    // Accept variants such as Ocean_0, Ocean_1
+    const auto delimiter = std::string{"_"};
+    const auto modeStr = m_initialConditionType.substr(m_initialConditionType.find(delimiter)+1);
+    const auto mode = std::stoi(modeStr);
+    initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode " + modeStr + ")";
+    m_iniConds.emplace_back(new physics::Ocean(mode));
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }
+  logInfo(MPI::mpi.rank()) << "Using initial condition " << initialConditionDescription << ".";
+
 }
 
 void seissol::Interoperability::projectInitialField()

@@ -186,6 +186,11 @@ void seissol::physics::SnellsLaw::evaluate(double time,
 #endif
 }
 
+seissol::physics::Ocean::Ocean(int mode): mode(mode) {
+  if (mode < 0 || mode > 0) {
+    throw std::runtime_error("Wave mode " + std::to_string(mode) + " is not supported.");
+  }
+}
 void seissol::physics::Ocean::evaluate(double time,
                                        std::vector<std::array<double, 3>> const& points,
                                        const CellMaterialData& materialData,
