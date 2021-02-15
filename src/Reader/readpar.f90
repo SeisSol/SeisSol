@@ -231,13 +231,13 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
-    REAL                       :: FreqCentral, FreqRatio, Tv
+    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
-                                           FreqRatio, AdjFileName
+                                           FreqRatio, AdjFileName, GravitationalAcceleration
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -273,6 +273,7 @@ CONTAINS
 #else
     Anelasticity        = 0
 #endif
+    GravitationalAcceleration = 9.81
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
@@ -397,6 +398,7 @@ CONTAINS
     !
     EQN%MaterialFileName = MaterialFileName
     EQN%BoundaryFileName = BoundaryFileName
+    EQN%GravitationalAcceleration = GravitationalAcceleration
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0

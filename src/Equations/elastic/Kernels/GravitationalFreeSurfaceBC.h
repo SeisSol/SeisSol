@@ -11,6 +11,10 @@
 #include "Numerical_aux/ODEInt.h"
 
 namespace seissol {
+
+// Used to avoid including SeisSo.h here as this leads to all sorts of issues
+double getGravitationalAcceleration();
+
 class GravitationalFreeSurfaceBc {
 public:
   GravitationalFreeSurfaceBc()
@@ -97,7 +101,7 @@ public:
       dEtaIntegrated.setZero();
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         const double rho = materialData.local.rho;
-        const double g = 9.81; // [m/s^2]
+        const double g = getGravitationalAcceleration(); // [m/s^2]
         double pressureAtBnd = 0;
         if (faceType == FaceType::freeSurfaceGravity) {
           pressureAtBnd = -1 * rho * g * eta(i, 0);

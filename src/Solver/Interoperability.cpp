@@ -85,6 +85,10 @@ extern "C" {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
   }
 
+  void c_interoperability_initializeGravitationalAcceleration(double gravitationalAcceleration) {
+    seissol::SeisSol::main.getGravitationSetup().acceleration = gravitationalAcceleration;
+  }
+
   void c_interoperability_setInitialConditionType(char* type)
   {
     e_interoperability.setInitialConditionType(type);
@@ -935,7 +939,9 @@ void seissol::Interoperability::initInitialConditions()
     const auto modeStr = m_initialConditionType.substr(m_initialConditionType.find(delimiter)+1);
     const auto mode = std::stoi(modeStr);
     initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode " + modeStr + ")";
-    m_iniConds.emplace_back(new physics::Ocean(mode));
+    const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
+
+    m_iniConds.emplace_back(new physics::Ocean(mode, g));
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());

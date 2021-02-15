@@ -123,7 +123,10 @@ src/ResultWriter/receiver.f90
 src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
-src/Parallel/mpiF.f90)
+src/Parallel/mpiF.f90
+
+src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+)
 
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC

@@ -51,6 +51,7 @@
 #include <array>
 #include <cassert>
 #include <stdint.h>
+#include "GravitationalFreeSurfaceBC.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -157,7 +158,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local.rho;
-            const double g = 9.81; // [m/s^2]
+            const double g = getGravitationalAcceleration(); // [m/s^2]
             const double pressureAtBnd = -1 * rho * g * displacement(i);
 
             boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
