@@ -209,10 +209,10 @@ void seissol::physics::Ocean::evaluate(double time,
     assert(materialData.local.mu == 0); // has to be acoustic
     const double rho = materialData.local.rho;
 
-    const double Lx = 10.000; // km
-    const double Ly = 10.000; // km
-    const double k_x = pi / Lx; // 1/m
-    const double k_y = pi / Ly; // 1/m
+    const double Lx = 10.0; // km
+    const double Ly = 10.0; // km
+    const double k_x = pi / Lx; // 1/km
+    const double k_y = pi / Ly; // 1/km
 
     constexpr auto k_stars = std::array<double, 3>{
         0.443381374884124,
@@ -221,10 +221,14 @@ void seissol::physics::Ocean::evaluate(double time,
     };
     const auto k_star = k_stars[mode];
 
-    const auto omega = std::sqrt(sqrt(g * k_star * std::tanh(k_star * 1)));
+    double omega;
+    if (mode == 0) {
+      omega = sqrt(g*k_star*std::tanh(k_star)); // 1/s
+    } else {
+      omega = sqrt(-g*k_star*std::tan(k_star)); // 1/s
+    }
     const auto B = g * k_star / (omega * omega);
-    //constexpr auto scalingFactor = 1000000;
-    constexpr auto scalingFactor = 1;
+    constexpr auto scalingFactor = 1000000;
 
     // Shear stresses are zero for elastic
     dofsQp(i, 3) = 0.0;
