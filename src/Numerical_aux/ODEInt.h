@@ -18,11 +18,12 @@ enum class RungeKuttaVariant {
   RK4_3_8,
   RK4_Ralston,
   RK6_Butcher_1,
-  RK6_Butcher_2
+  RK6_Butcher_2,
+  RK7_VernerMostEfficient
 };
 
 struct ODESolverConfig {
-  RungeKuttaVariant solver = RungeKuttaVariant::RK6_Butcher_2;
+  RungeKuttaVariant solver = RungeKuttaVariant::RK7_VernerMostEfficient;
   double initialDt;
 
   ODESolverConfig() = delete;

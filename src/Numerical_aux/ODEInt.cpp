@@ -13,7 +13,8 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
       {RungeKuttaVariant::RK4_Ralston,   4},
       {RungeKuttaVariant::RK4_3_8,       4},
       {RungeKuttaVariant::RK6_Butcher_1, 7},
-      {RungeKuttaVariant::RK6_Butcher_2, 7}
+      {RungeKuttaVariant::RK6_Butcher_2, 7},
+      {RungeKuttaVariant::RK7_VernerMostEfficient, 10}
   };
   numberOfStages = variantToNumberOfStages[variant];
 
@@ -21,6 +22,10 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
   a = Eigen::MatrixXd(numberOfStages, numberOfStages);
   b = Eigen::VectorXd(numberOfStages);
   c = Eigen::VectorXd(numberOfStages);
+
+  a.setZero();
+  b.setZero();
+  c.setZero();
 
   switch (variant) {
     case RungeKuttaVariant::RK4:
@@ -165,6 +170,65 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
       c(4) = 1.0 / 2.0;
       c(5) = 1.0 / 2.0;
       c(6) = 1.0;
+      break;
+    case RungeKuttaVariant::RK7_VernerMostEfficient:
+      // From Jim Verner:
+      // http://people.math.sfu.ca/~jverner/
+      // Here without order 6 estimate and without interpolation
+      a(1, 0) = 0.005;
+      a(2, 0) = -1.07679012345679;
+      a(3, 0) = 0.04083333333333333;
+      a(4, 0) = 0.6389139236255726;
+      a(5, 0) = -2.6615773750187572;
+      a(6, 0) = 6.067741434696772;
+      a(7, 0) = 12.054670076253203;
+      a(8, 0) = 10.138146522881808;
+      a(9, 0) = -45.030072034298676;
+      a(2, 1) = 1.185679012345679;
+      a(3, 2) = 0.1225;
+      a(4, 2) = -2.455672638223657;
+      a(5, 2) = 10.804513886456137;
+      a(6, 2) = -24.711273635911088;
+      a(7, 2) = -49.75478495046899;
+      a(8, 2) = -42.6411360317175;
+      a(9, 2) = 187.3272437654589;
+      a(4, 3) = 2.272258714598084;
+      a(5, 3) = -8.3539146573962;
+      a(6, 3) = 20.427517930788895;
+      a(7, 3) = 41.142888638604674;
+      a(8, 3) = 35.76384003992257;
+      a(9, 3) = -154.02882369350186;
+      a(5, 4) = 0.820487594956657;
+      a(6, 4) = -1.9061579788166472;
+      a(7, 4) = -4.461760149974004;
+      a(8, 4) = -4.3480228403929075;
+      a(9, 4) = 18.56465306347536;
+      a(6, 5) = 1.006172249242068;
+      a(7, 5) = 2.042334822239175;
+      a(8, 5) = 2.0098622683770357;
+      a(9, 5) = -7.141809679295079;
+      a(7, 6) = -0.09834843665406107;
+      a(8, 6) = 0.3487490460338272;
+      a(9, 6) = 1.3088085781613787;
+      a(8, 7) = -0.27143900510483127;
+
+      b(0) = 0.04715561848627222;
+      b(3) = 0.25750564298434153;
+      b(4) = 0.2621665397741262;
+      b(5) = 0.15216092656738558;
+      b(6) = 0.49399691700324844;
+      b(7) = -0.29430311714032503;
+      b(8) = 0.0813174723249511;
+
+      c(1) = 0.005;
+      c(2) = 0.10888888888888888;
+      c(3) = 0.16333333333333333;
+      c(4) = 0.4555;
+      c(5) = 0.6095094489978381;
+      c(6) = 0.884;
+      c(7) = 0.925;
+      c(8) = 1.0;
+      c(9) = 1.0;
       break;
   }
 }
