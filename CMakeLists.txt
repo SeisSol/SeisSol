@@ -326,7 +326,6 @@ set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PRE
 
 add_executable(SeisSol-proxy
         auto_tuning/proxy/src/proxy_seissol.cpp
-        auto_tuning/proxy/src/flop_counter.cpp
 )
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
