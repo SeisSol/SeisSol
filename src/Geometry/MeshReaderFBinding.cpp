@@ -221,7 +221,6 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 			int localID = mpiNeighbors.at(i->first).localID;
 
 			int* bndfaultelements;
-			setbndfaultnelem(localID + 1, i->second.size());
 
 			allocbndobjfault(localID + 1, i->second.size());
 

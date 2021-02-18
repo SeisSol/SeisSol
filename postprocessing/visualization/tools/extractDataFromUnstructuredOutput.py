@@ -83,6 +83,7 @@ if write2Binary:
     output_file.close()
     print("done writing " + fn3)
 else:
+    import h5py
     # write geometry to hdf5 format
     h5fv = h5py.File(prefix_new + "_vertex.h5", "w")
     geometry = sx.ReadGeometry()

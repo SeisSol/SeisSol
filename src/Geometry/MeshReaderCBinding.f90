@@ -627,15 +627,6 @@ contains
         ptr = c_loc(m_mesh%Fault%geoTangent2(1,1))
     end subroutine getFaultTangent2
 
-    subroutine setBndFaultNElem(i, n) bind(C)
-        implicit none
-
-        integer( kind=c_int ), value :: i
-        integer( kind=c_int ), value :: n
-
-        m_bnd%ObjMPI(i)%nFault_MPI = n
-    end subroutine setBndFaultNElem
-
     subroutine getBndFaultElements(i, s, ptr) bind(C)
         implicit none
 

@@ -80,7 +80,6 @@ src/ResultWriter/FreeSurfaceWriter.cpp
 
 # Fortran:
 src/Monitoring/bindMonitoring.f90
-src/Geometry/mpiextractmesh.f90
 src/Geometry/allocate_mesh.f90
 src/Geometry/MeshReaderCBinding.f90
 src/Solver/close_seissol.f90
