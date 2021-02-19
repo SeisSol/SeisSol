@@ -16,6 +16,8 @@ dbuilder:
         - whoami
         - pwd
         - echo $PATH
+        - echo $NAME_TEST
+        - echo $TEST_VAR
 
 build_sing:
     stage: build
@@ -39,6 +41,6 @@ build_sing:
         - chmod +x test_singularity.sh
         - which singularity 
         - singularity --version
-        - singularity pull library://7bits-register/collection/seissol-base.sif:sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820
+        #- singularity pull library://7bits-register/collection/seissol-base.sif:sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820
         - ls
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol-base.sif_sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820.sif ./test_singularity.sh
+        #- singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol-base.sif_sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820.sif ./test_singularity.sh
