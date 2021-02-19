@@ -5,16 +5,13 @@
 #include <vector>
 #include <string>
 #include <regex>
+#include <algorithm>
 
 // Includes to read content of a directory
 #include <sys/types.h>
 #include <dirent.h>
 
 #include "DATReader.h"
-
-// std::vector<std::vector<double>> seissol::sourceterm::DAT::pos;
-// std::vector<std::vector<double>> seissol::sourceterm::DAT::time;
-// std::vector<std::vector<double>> seissol::sourceterm::DAT::sigma_xx;
 
 
 
@@ -54,7 +51,6 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 
 		assert(dat_file.is_open());
 		
-
 		std::string line;
 
 		while (!dat_file.eof())
@@ -92,20 +88,19 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 
 	}
 
-	endtime = dat->pos[0].back();
-
-
-	assert(dat->sigma_xx.size() != 0);
-
-
-
-	std::cout << "Reading data successful\n";
+	dat->endtime = dat->time[0].back();
 
 }
 
 /*
- *	Return sigma_xx at the given timestamp using linear interpolation.
- *	For now: nearest neighbor
+ * 	Input:
+ *  	- position vector3d
+ * 		- timestamp
+ * 	Output:
+ * 		- Sigma_xx value
+ * 	Interpolation:
+ * 		- Linear in time
+ * 		- Inverse Weighted Distance (IWD) in space
  */ 
 
 double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position, double timestamp)
@@ -115,56 +110,97 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 	double pos_y = position[1];
 	double pos_z = position[2];
 	
+	
+	// IWD with n neighbours
+	const int n = 4;
 
-	double min_dist = 1e+10;
-	int min_idx = -1;
+	// From all available receivers hold values needed for IWD with n neighbors
+	std::vector<int> rec_idx;			
+	std::vector<double> rec_distance;
+	std::vector<double> rec_sigma;
 
-	for (int i = 0; i < pos.size(); ++i) {
+	for (int z=0; z < n; ++z) {
+		rec_idx.push_back(-1);
+		rec_sigma.push_back(0);
+		rec_distance.push_back(1e+10);
+	}
+
+	for (int i=0; i < pos.size(); ++i) {
+
 		double l2_dist = ((pos[i][0] - pos_x) * (pos[i][0] - pos_x) + (pos[i][1] - pos_y) * (pos[i][1] - pos_y) 
 					+ (pos[i][2] - pos_z) * (pos[i][2] - pos_z));
-		
-		if (l2_dist < min_dist ) {
-			min_dist = l2_dist;
-			min_idx = i;
+
+		for (int j=0; j < n; ++j){
+			if (l2_dist < rec_distance[j] && !std::count(rec_idx.begin(), rec_idx.end(), i)) {
+				rec_distance[j] = l2_dist;
+				rec_idx[j] = i;
+			}
 		}
 	}
 
 
-	auto const it = std::lower_bound(time[min_idx].begin(), time[min_idx].end(), timestamp);
-	if (it == time[min_idx].end()) {return -1;}
+	// Linear interpolation in time
+	// Linear interpolation between two known points (x0, y0) and (x1, y1) for a value x:
+    // y = y0 + (x - x0) * (y1 - y0) / (x1 - x0) | Here: x = time , y = sigma_xx
+	for (int i=0; i < n; ++i) {
 
-	int idx = it - time[min_idx].begin();
+		auto const lower_it = std::lower_bound(time[rec_idx[i]].begin(), time[rec_idx[i]].end(), timestamp);
+		auto const upper_it = std::upper_bound(time[rec_idx[i]].begin(), time[rec_idx[i]].end(), timestamp);
 
+		int lower_idx = lower_it - time[rec_idx[i]].begin();
+		int upper_idx = upper_it - time[rec_idx[i]].begin();
 
+		if (lower_idx == upper_idx) {
+			--lower_idx;
+			rec_sigma[i] = sigma_xx[rec_idx[i]][lower_idx] + (timestamp - time[rec_idx[i]][lower_idx]) * (sigma_xx[rec_idx[i]][upper_idx] - sigma_xx[rec_idx[i]][lower_idx])
+							/ (time[rec_idx[i]][upper_idx] - time[rec_idx[i]][lower_idx]);
+		} else {
+			rec_sigma[i] = sigma_xx[rec_idx[i]][timestamp];
+		}
+	}
 
-	// std::cout << "Extracted index: " << idx << std::endl;
-	// std::cout << "Extracted time: " << time[min_idx][idx] << std::endl;
-	// std::cout << "Extracted sigma: " << sigma_xx[min_idx][idx] << std::endl;
+	std::cout << rec_sigma[0] << "; " << rec_sigma[1] << '\n'; 
 
+	// rec_sigma now stores the linearly interpolated values for all n receivers.
+	// Apply IWD with n neighbors (=rec_sigma.size) with power 2
 
-	// std::cout << sigma_xx[min_idx][idx] << '\n';
+	if (rec_distance[0] == 0) {
+		return rec_sigma[rec_idx[0]];
+	}
 
-	return sigma_xx[min_idx][idx];
+	else {
+		double numerator = 0;
+		double denominator = 0;
+
+		for (int i=0; i < rec_sigma.size(); ++i){
+			double w_i = 1 / (rec_distance[i] * rec_distance[i]);
+			numerator += rec_sigma[i] * w_i;
+			denominator += w_i;
+		}
+
+		return numerator / denominator;
+	}
 
 }
 
 
-// int main( int argc, const char* argv[] )
-// {
+int main( int argc, const char* argv[] )
+{
 	
-// 	seissol::sourceterm::DAT dat; 
+	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
 
-// 	double time = 1.039000000000014e+01;
+	double time = 1.5248e+01; // Expected Result: 1.081081636151335e-01 = 0.1081
 
-// 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/cube_forward/output-sin4",
-// 			 dat );
+	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/TRC/output-sin_5e-01Hz_involume",
+			 dat );
 
 
-// 	std::vector<double> pos = {-4.5, 4.5, 0.1};
+	std::vector<double> pos = {5.0, 4.5, 0.1};
 
-// 	double returned_sigma = dat.getSigmaXX(pos, time);
+	double returned_sigma = dat->getSigmaXX(pos, time);
 
-// 	std::cout << returned_sigma << std::endl;
+	std::cout << returned_sigma << std::endl;
 
-// 	return 0;
-// }
+
+	return 0;
+}

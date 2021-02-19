@@ -439,7 +439,7 @@ void seissol::sourceterm::Manager::loadTRSources( char const* dirName,
   DAT *dat = new DAT();
   readDAT(dirName, dat);
 
-  logInfo(rank) << " Done reading receiver files.";
+  logInfo(rank) << " Read receiver files. Done.";
 
   std::cerr << dat->pos[0][1] << "\n";
 

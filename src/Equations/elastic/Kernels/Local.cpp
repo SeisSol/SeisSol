@@ -247,7 +247,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             
             
             // Only able to measure the pressure field during a finite time-interval [0, T]
-            // T = ENDTIME as defined in paramters.par
+            // T = ENDTIME as defined in paramters.par, and thereby equal to the last time entry
+            // of the receivers.
             const auto T = m_dat->endtime;
 
             // x, y, z: points on the surface
