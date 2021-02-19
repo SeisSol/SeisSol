@@ -262,7 +262,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
         average += weights[qp] * seissol::functions::TriDubinerP({d - j, j}, {bfPoints[qp][0], bfPoints[qp][1]});
       }
       // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
-      average *= 4.0; // TODO(Lukas) Why 4?
+      average *= 2.0;
 
       projectionMatrixFromFaceRow[nbf * numberOfAlignedSubTriangles] = average;
       ++nbf;
