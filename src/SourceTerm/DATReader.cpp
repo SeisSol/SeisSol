@@ -184,23 +184,23 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 }
 
 
-int main( int argc, const char* argv[] )
-{
+// int main( int argc, const char* argv[] )
+// {
 	
-	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
+// 	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
 
-	double time = 1.5248e+01; // Expected Result: 1.081081636151335e-01 = 0.1081
+// 	double time = 1.5248e+01; // Expected Result: 1.081081636151335e-01 = 0.1081
 
-	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/TRC/output-sin_5e-01Hz_involume",
-			 dat );
-
-
-	std::vector<double> pos = {5.0, 4.5, 0.1};
-
-	double returned_sigma = dat->getSigmaXX(pos, time);
-
-	std::cout << returned_sigma << std::endl;
+// 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/TRC/output-sin_5e-01Hz_involume",
+// 			 dat );
 
 
-	return 0;
-}
+// 	std::vector<double> pos = {5.0, 4.5, 0.1};
+
+// 	double returned_sigma = dat->getSigmaXX(pos, time);
+
+// 	std::cout << returned_sigma << std::endl;
+
+
+// 	return 0;
+// }
