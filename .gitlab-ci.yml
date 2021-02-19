@@ -1,7 +1,7 @@
 stages:
     - build
     
-dbuilder:
+d_builder:
     stage: build
     tags:
         - dbuilder_cc
@@ -17,18 +17,3 @@ dbuilder:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
-        - echo $TEST_VAR
-        - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
-        - git submodule update --init --recursive
-        - cmake --version
-        - set -euo pipefail
-        - export IFS=$'\n\t'
-        - export CTEST_OUTPUT_ON_FAILURE=1
-        - equation=elastic
-        - mechanisms=0
-        - precision=double
-        - build_type=Release 
-        - dirname="build_${equation}_${precision}_${build_type}"
-        - echo "mkdir $dirname"
-        - mkdir -p $dirname && cd $dirname
-        - pwd
