@@ -1,10 +1,10 @@
 stages:
     - build
     
-docker_cc:
+dbuilder:
     stage: build
     tags:
-        - docker_cc
+        - dbuilder_cc
     before_script:
         - git branch -vva
         - git log --format="%H" -n 1
