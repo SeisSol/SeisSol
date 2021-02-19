@@ -151,7 +151,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
 
   m_timeKernel.setGlobalData(m_globalData);
-  std::cout << "Calling setGlobalData from TimeCluster (with !nullptr)\n";
   m_localKernel.setGlobalData(m_globalData);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(m_globalData);

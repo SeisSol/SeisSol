@@ -36,10 +36,8 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 
 
 	for (const auto& filename : v) {
-		// std::cout << filename << std::endl;
 
 		std::string file_path = path_str + "/" + filename;
-
 
 		// Save values from current file
 		std::vector<double> current_pos;
@@ -159,7 +157,6 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 		}
 	}
 
-	std::cout << rec_sigma[0] << "; " << rec_sigma[1] << '\n'; 
 
 	// rec_sigma now stores the linearly interpolated values for all n receivers.
 	// Apply IWD with n neighbors (=rec_sigma.size) with power 2

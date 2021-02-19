@@ -84,10 +84,6 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Local::setDatReader( seissol::sourceterm::DAT* dat ) {
   m_dat = dat;
-  if (dat == nullptr)
-    std::cout << "setDatReader in Local.cpp called with nullptr\n";
-  else
-    std::cout << "setDatReader in Local.cpp called with !nullptr.\n";
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
