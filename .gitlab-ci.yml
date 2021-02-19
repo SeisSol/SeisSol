@@ -16,4 +16,6 @@ ci_builder:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
+        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
+        - git clone https://github.com/7bits-register/convergence-tests.git tests
         - singularity pull --arch amd64 library://7bits-register/collection/seissol-base.sif:gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243_stable
