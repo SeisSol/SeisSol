@@ -16,3 +16,4 @@ ci_builder:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
+        - singularity pull --arch amd64 library://7bits-register/collection/seissol-base.sif:gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243_stable
