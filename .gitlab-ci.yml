@@ -31,6 +31,8 @@ dbuilder:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+        - cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
+        - make -j $(nproc);
     script:
         - whoami
         - pwd
@@ -74,6 +76,4 @@ build_sing:
         - chmod +x test_singularity.sh
         - which singularity 
         - singularity --version
-        #- singularity pull library://7bits-register/collection/seissol-base.sif:sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820
-        - ls
-        #- singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol-base.sif_sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820.sif ./test_singularity.sh
+    
