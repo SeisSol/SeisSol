@@ -89,8 +89,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                      l_meshStructure,
                                      l_globalData
                                      );
-    // std::cerr << "In TimeManager before new TimeCluster\n";
-    // std::cerr << m_dat->pos[0][0] << "\n";
 
     // add this time cluster
     m_clusters.push_back( new TimeCluster( l_cluster,
@@ -130,10 +128,6 @@ void seissol::time_stepping::TimeManager::stopCommunicationThread() {
 
 void seissol::time_stepping::TimeManager::setDatReader( seissol::sourceterm::DAT* dat ) {
   m_dat = dat;
-  std::cerr << "In TimeManager setDatReader()\n";
-  std::cerr << m_dat->pos[0][0] << "\n";
-
-  std::cerr << "Calling TimeCluster from TimeManager\n";
   for( unsigned l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
       m_clusters[l_cluster]->setDatReader(m_dat);
   }

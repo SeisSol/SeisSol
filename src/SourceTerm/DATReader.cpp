@@ -120,19 +120,19 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 	for (int z=0; z < n; ++z) {
 		rec_idx.push_back(-1);
 		rec_sigma.push_back(0);
-		rec_distance.push_back(1e+10);
+		rec_distance.push_back(1e+20);
 	}
 
+	// Use L2-norm to find the n receivers closest to the current position
 	for (int i=0; i < pos.size(); ++i) {
-
 		double l2_dist = ((pos[i][0] - pos_x) * (pos[i][0] - pos_x) + (pos[i][1] - pos_y) * (pos[i][1] - pos_y) 
 					+ (pos[i][2] - pos_z) * (pos[i][2] - pos_z));
 
-		for (int j=0; j < n; ++j){
-			if (l2_dist < rec_distance[j] && !std::count(rec_idx.begin(), rec_idx.end(), i)) {
-				rec_distance[j] = l2_dist;
-				rec_idx[j] = i;
-			}
+		int idx_tmp = std::max_element(rec_distance.begin(), rec_distance.end()) - rec_distance.begin();
+
+		if (rec_distance[idx_tmp] > l2_dist) {
+			rec_distance[idx_tmp] = l2_dist;
+			rec_idx[idx_tmp] = i;
 		}
 	}
 
@@ -141,7 +141,6 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 	// Linear interpolation between two known points (x0, y0) and (x1, y1) for a value x:
     // y = y0 + (x - x0) * (y1 - y0) / (x1 - x0) | Here: x = time , y = sigma_xx
 	for (int i=0; i < n; ++i) {
-
 		auto const lower_it = std::lower_bound(time[rec_idx[i]].begin(), time[rec_idx[i]].end(), timestamp);
 		auto const upper_it = std::upper_bound(time[rec_idx[i]].begin(), time[rec_idx[i]].end(), timestamp);
 
@@ -157,27 +156,23 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 		}
 	}
 
-
 	// rec_sigma now stores the linearly interpolated values for all n receivers.
 	// Apply IWD with n neighbors (=rec_sigma.size) with power 2
 
-	if (rec_distance[0] == 0) {
-		return rec_sigma[rec_idx[0]];
-	}
+	int idx_tmp = std::min_element(rec_distance.begin(), rec_distance.end()) - rec_distance.begin();
 
-	else {
+	if (rec_distance[idx_tmp] == 0) {
+		return rec_sigma[rec_idx[idx_tmp]];
+	} else {
 		double numerator = 0;
 		double denominator = 0;
-
 		for (int i=0; i < rec_sigma.size(); ++i){
 			double w_i = 1 / (rec_distance[i] * rec_distance[i]);
 			numerator += rec_sigma[i] * w_i;
 			denominator += w_i;
 		}
-
 		return numerator / denominator;
 	}
-
 }
 
 
@@ -186,13 +181,13 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 	
 // 	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
 
-// 	double time = 1.5248e+01; // Expected Result: 1.081081636151335e-01 = 0.1081
+// 	double time = 15.16; // Expected Result: 1.081081636151335e-01 = 0.1081
 
 // 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/TRC/output-sin_5e-01Hz_involume",
 // 			 dat );
 
 
-// 	std::vector<double> pos = {5.0, 4.5, 0.1};
+// 	std::vector<double> pos = {-5.0, -4.5, -0.5};
 
 // 	double returned_sigma = dat->getSigmaXX(pos, time);
 

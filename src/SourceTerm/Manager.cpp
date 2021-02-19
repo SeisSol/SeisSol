@@ -441,7 +441,5 @@ void seissol::sourceterm::Manager::loadTRSources( char const* dirName,
 
   logInfo(rank) << " Read receiver files. Done.";
 
-  std::cerr << dat->pos[0][1] << "\n";
-
   timeManager.setDatReader(dat);
 }
