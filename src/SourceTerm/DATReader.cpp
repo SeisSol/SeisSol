@@ -6,7 +6,6 @@
 #include <string>
 #include <regex>
 #include <algorithm>
-
 // Includes to read content of a directory
 #include <sys/types.h>
 #include <dirent.h>
@@ -158,20 +157,21 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 
 	// rec_sigma now stores the linearly interpolated values for all n receivers.
 	// Apply IWD with n neighbors (=rec_sigma.size) with power 2
-
+  	
 	int idx_tmp = std::min_element(rec_distance.begin(), rec_distance.end()) - rec_distance.begin();
 
-	if (rec_distance[idx_tmp] == 0) {
-		return rec_sigma[rec_idx[idx_tmp]];
+	if (rec_distance[idx_tmp] == 0.0) {
+		return rec_sigma[idx_tmp];
 	} else {
 		double numerator = 0;
 		double denominator = 0;
-		for (int i=0; i < rec_sigma.size(); ++i){
+		for (int i=0; i < n; ++i){
 			double w_i = 1 / (rec_distance[i] * rec_distance[i]);
 			numerator += rec_sigma[i] * w_i;
 			denominator += w_i;
 		}
-		return numerator / denominator;
+		
+		return (numerator / denominator);
 	}
 }
 
