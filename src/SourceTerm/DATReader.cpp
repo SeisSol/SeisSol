@@ -102,6 +102,10 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 
 double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position, double timestamp)
 {
+	// timestamp < 0 --> past recording time of forward receivers.
+	if (timestamp < 0) {
+		return 0;
+	}
 
 	double pos_x = position[0];
 	double pos_y = position[1];
@@ -147,7 +151,11 @@ double seissol::sourceterm::DAT::getSigmaXX(std::vector<double> const& position,
 		int upper_idx = upper_it - time[rec_idx[i]].begin();
 
 		if (lower_idx == upper_idx) {
-			--lower_idx;
+			if (lower_idx == 0) {
+				upper_idx = 1;
+			} else {
+				--lower_idx;
+			}
 			rec_sigma[i] = sigma_xx[rec_idx[i]][lower_idx] + (timestamp - time[rec_idx[i]][lower_idx]) * (sigma_xx[rec_idx[i]][upper_idx] - sigma_xx[rec_idx[i]][lower_idx])
 							/ (time[rec_idx[i]][upper_idx] - time[rec_idx[i]][lower_idx]);
 		} else {
