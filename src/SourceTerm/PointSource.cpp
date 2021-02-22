@@ -51,7 +51,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
                                                 real strike,
                                                 real dip,
                                                 real rake,
-                                                real o_forceComponents[NUMBER_OF_QUANTITIES])
+                                                real o_forceComponents[seissol::sourceterm::PointSources::TensorSize])
 {
   real cstrike = cos(strike);
   real sstrike = sin(strike);
@@ -108,7 +108,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   o_forceComponents[7] = f[1];
   o_forceComponents[8] = f[2];
 
-  for (unsigned m = 9; m < NUMBER_OF_QUANTITIES; ++m) {
+  for (unsigned m = 9; m < seissol::sourceterm::PointSources::TensorSize; ++m) {
     o_forceComponents[m] = 0.0;
   }
 }
