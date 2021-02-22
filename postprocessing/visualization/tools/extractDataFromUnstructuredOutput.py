@@ -11,8 +11,9 @@ parser.add_argument("xdmfFilename", help="xdmf output file")
 parser.add_argument("--add2prefix", help="string to append to prefix for new file", type=str, default="_resampled")
 parser.add_argument("--Data", nargs="+", metavar=("variable"), default=(""), help="Data to resample (example SRs)")
 parser.add_argument("--downsample", help="write one out of n output", type=int)
-parser.add_argument("--float", dest="float", default=False, action="store_true", help="convert to float")
-parser.add_argument("--hdf5", dest="hdf5", default=False, action="store_true", help="output as hdf5")
+parser.add_argument("--precision", type=str, choices=["float", "double"], default="float", help="precision of output file")
+parser.add_argument("--backend", type=str, choices=["hdf5", "raw"], default="hdf5", help="backend used: raw (.bin file), hdf5 (.h5)")
+parser.add_argument("--last", dest="last", default=False, action="store_true", help="output last time step")
 parser.add_argument("--idt", nargs="+", help="list of time step to write (ex $(seq 7 3 28))", type=int)
 args = parser.parse_args()
 
@@ -21,13 +22,19 @@ connect = sx.ReadConnect()
 nElements = sx.nElements
 ndt = sx.ndt
 
-if (args.idt != None) and (args.downsample != None):
-    print("idt and downsample options cannot be used together")
-    exit()
-elif args.downsample == None:
-    indices = args.idt
+if args.last:
+    indices = [ndt - 1]
+    if (args.idt != None) or (args.downsample != None):
+        print("last option cannot be used together with idt and downsample options")
+        exit()
 else:
-    indices = range(0, ndt, args.downsample)
+    if (args.idt != None) and (args.downsample != None):
+        print("idt and downsample options cannot be used together")
+        exit()
+    elif args.downsample == None:
+        indices = args.idt
+    else:
+        indices = range(0, ndt, args.downsample)
 
 # Check if input is in hdf5 format or not
 dataLocation, data_prec, MemDimension = sx.GetDataLocationPrecisionMemDimension("partition")
@@ -37,17 +44,17 @@ if len(splitArgs) == 2:
 else:
     isHdf5 = False
 
-if args.float:
-    myDtype = "float32"
-    myprec = 4
-else:
+if args.precision == "double":
     myDtype = "float64"
     myprec = 8
-
-if args.hdf5:
-    write2Binary = False
 else:
+    myDtype = "float32"
+    myprec = 4
+
+if args.backend == "raw":
     write2Binary = True
+else:
+    write2Binary = False
 
 prefix = os.path.splitext(args.xdmfFilename)[0]
 prefix_new = generate_new_prefix(prefix, args.add2prefix)
@@ -84,6 +91,7 @@ if write2Binary:
     print("done writing " + fn3)
 else:
     import h5py
+
     # write geometry to hdf5 format
     h5fv = h5py.File(prefix_new + "_vertex.h5", "w")
     geometry = sx.ReadGeometry()
