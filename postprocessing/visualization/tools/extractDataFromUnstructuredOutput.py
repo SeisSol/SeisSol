@@ -12,7 +12,7 @@ parser.add_argument("--add2prefix", help="string to append to prefix for new fil
 parser.add_argument("--Data", nargs="+", metavar=("variable"), default=(""), help="Data to resample (example SRs)")
 parser.add_argument("--downsample", help="write one out of n output", type=int)
 parser.add_argument("--precision", type=str, choices=["float", "double"], default="float", help="precision of output file")
-parser.add_argument("--backend", type=str, choices=["hdf5", "posix"], default="hdf5", help="backend used: posix (.bin file), hdf5 (.h5)")
+parser.add_argument("--backend", type=str, choices=["hdf5", "raw"], default="hdf5", help="backend used: raw (.bin file), hdf5 (.h5)")
 parser.add_argument("--last", dest="last", default=False, action="store_true", help="output last time step")
 parser.add_argument("--idt", nargs="+", help="list of time step to write (ex $(seq 7 3 28))", type=int)
 args = parser.parse_args()
@@ -51,7 +51,7 @@ else:
     myDtype = "float32"
     myprec = 4
 
-if args.backend == "posix":
+if args.backend == "raw":
     write2Binary = True
 else:
     write2Binary = False
