@@ -71,6 +71,10 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
+#include "Numerical_aux/Functions.h"
+#include "Numerical_aux/Quadrature.h"
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
@@ -93,7 +97,7 @@ extern long long libxsmm_num_total_flops;
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-seissol::kernels::TimeBase::TimeBase() {
+seissol::kernels::TimeBase::TimeBase(){
   m_derivativesOffsets[0] = 0;
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
     if (order > 0) {
@@ -119,6 +123,7 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
+
 #else
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
@@ -184,15 +189,16 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
+
 #ifdef USE_STP
-  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  real temporaryBuffer[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  real* stp = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
   executeSTP( i_timeStepWidth, data, o_timeIntegrated, stp );
 #else
   /*
    * compute ADER scheme.
    */
   // temporary result
-  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
   real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
@@ -243,6 +249,8 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 #ifdef USE_STP
   o_nonZeroFlops = kernel::stp::NonZeroFlops;
   o_hardwareFlops = kernel::stp::HardwareFlops;
+
+  //TODO add time integration
 #else
   o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
   o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
@@ -277,8 +285,9 @@ void seissol::kernels::Time::computeIntegral( double                            
                                               double                            i_integrationStart,
                                               double                            i_integrationEnd,
                                               const real*                       i_timeDerivatives,
-                                              real                              o_timeIntegrated[tensor::I::size()] )
+                                              real                              o_timeIntegrated[tensor::I::size()])
 {
+
   /*
    * assert alignments.
    */
