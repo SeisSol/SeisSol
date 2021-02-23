@@ -123,7 +123,7 @@ public:
         if (isAcoustic
             && (faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
           // TODO(Lukas) Check sign
-          dEta(i, 0) = uInside + 1 / Z * (pressureInside - pressureAtBnd);
+          dEta(i, 0) = uInside + 1 / Z * (pressureAtBnd - pressureInside);
         } else {
           // If not on acoustic boundary, just use values inside
           dEta(i, 0) = uInside;
