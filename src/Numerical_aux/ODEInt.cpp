@@ -3,11 +3,8 @@
 #include <cassert>
 
 namespace seissol::ode {
-void initializeRungeKuttaScheme(RungeKuttaVariant variant,
-                                int& numberOfStages,
-                                Eigen::MatrixXd& a,
-                                Eigen::VectorXd& b,
-                                Eigen::VectorXd& c) {
+
+int getNumberOfStages(RungeKuttaVariant variant) {
   std::unordered_map<RungeKuttaVariant, int> variantToNumberOfStages = {
       {RungeKuttaVariant::RK4,           4},
       {RungeKuttaVariant::RK4_Ralston,   4},
@@ -16,7 +13,14 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
       {RungeKuttaVariant::RK6_Butcher_2, 7},
       {RungeKuttaVariant::RK7_VernerMostEfficient, 10}
   };
-  numberOfStages = variantToNumberOfStages[variant];
+  return variantToNumberOfStages[variant];
+}
+void initializeRungeKuttaScheme(RungeKuttaVariant variant,
+                                int& numberOfStages,
+                                Eigen::MatrixXd& a,
+                                Eigen::VectorXd& b,
+                                Eigen::VectorXd& c) {
+  numberOfStages = getNumberOfStages(variant);
 
   // Initialize coefficients
   a = Eigen::MatrixXd(numberOfStages, numberOfStages);

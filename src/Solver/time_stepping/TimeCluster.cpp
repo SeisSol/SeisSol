@@ -884,23 +884,35 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   m_updatable.neighboringInterior = false;
 }
 
-void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned                    numberOfCells,
-                                                                        CellLocalInformation const* cellInformation,
-                                                                        long long&                  nonZeroFlops,
-                                                                        long long&                  hardwareFlops  )
+void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(
+    unsigned numberOfCells,
+    CellLocalInformation const* cellInformation,
+    real* (*faceDisplacements)[4],
+    long long& nonZeroFlops,
+    long long& hardwareFlops  )
 {
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
     unsigned cellNonZero, cellHardware;
-    // TODO(Lukas) Maybe include avg. displacement computation here at some point.
     m_timeKernel.flopsAder(cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
     m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
+    // Contribution from displacement/integrated displacement
+    for (unsigned face = 0; face < 4; ++face) {
+      if (faceDisplacements[cell][face] != nullptr) {
+        const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
+        GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
+                                                             cellInformation[cell].faceTypes[face],
+                                                             m_timeKernel);
+        nonZeroFlops += nonZeroFlopsDisplacement;
+        hardwareFlops += hardwareFlopsDisplacement;
+      }
+    }
   }
 }
 
@@ -942,12 +954,14 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 #ifdef USE_MPI
   computeLocalIntegrationFlops( m_meshStructure->numberOfCopyCells,
                                 m_clusterData->child<Copy>().var(m_lts->cellInformation),
+                                m_clusterData->child<Copy>().var(m_lts->faceDisplacements),
                                 m_flops_nonZero[LocalCopy],
                                 m_flops_hardware[LocalCopy] );
 #endif
 
   computeLocalIntegrationFlops( m_meshStructure->numberOfInteriorCells,
                                 m_clusterData->child<Interior>().var(m_lts->cellInformation),
+                                m_clusterData->child<Interior>().var(m_lts->faceDisplacements),
                                 m_flops_nonZero[LocalInterior],
                                 m_flops_hardware[LocalInterior] );
 

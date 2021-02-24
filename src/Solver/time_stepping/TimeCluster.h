@@ -296,10 +296,11 @@ private:
      **/
     void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData );
 
-    void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
-                                        CellLocalInformation const* cellInformation,
-                                        long long&                  nonZeroFlops,
-                                        long long&                  hardwareFlops  );
+    void computeLocalIntegrationFlops(unsigned numberOfCells,
+                                      CellLocalInformation const* cellInformation,
+                                      real* (*faceDisplacements)[4],
+                                      long long& nonZeroFlops,
+                                      long long& hardwareFlops);
 
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,

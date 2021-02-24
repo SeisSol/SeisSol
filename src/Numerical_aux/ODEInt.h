@@ -31,6 +31,8 @@ struct ODESolverConfig {
   explicit ODESolverConfig(double initialDt) : initialDt(initialDt) {};
 };
 
+int getNumberOfStages(RungeKuttaVariant variant);
+
 void initializeRungeKuttaScheme(RungeKuttaVariant variant,
                                 int& numberOfStages,
                                 Eigen::MatrixXd& a,

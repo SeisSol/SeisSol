@@ -17,11 +17,48 @@ double getGravitationalAcceleration();
 
 class GravitationalFreeSurfaceBc {
 public:
+  // TODO(Lukas) Make configurable!
   GravitationalFreeSurfaceBc()
       : odeSolver(ode::RungeKuttaODESolver(
       {init::averageNormalDisplacement::size(),
        init::faceDisplacement::size()}, ode::ODESolverConfig(1.0)
   )) {}
+
+  template <typename TimeKrnl>
+  static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
+                                                                  [[maybe_unused]] FaceType faceType,
+                                                                  TimeKrnl& timeKrnl) {
+    const auto config = ode::ODESolverConfig(1.0); // Use default config
+    const auto numStages = ode::getNumberOfStages(config.solver);
+    const auto numDofs  = init::faceDisplacement::size() + init::averageNormalDisplacement::size();
+
+    long long nonZeroFlopsTaylor, hardwareFlopsTaylor;
+    timeKrnl.flopsTaylorExpansion(nonZeroFlopsTaylor, hardwareFlopsTaylor);
+
+    const auto nonZeroFlopsFunctionEvaluation =
+        nonZeroFlopsTaylor +
+        kernel::projectToNodalBoundaryRotated::NonZeroFlops[face];
+    const auto hardwareFlopsFunctionEvaluation =
+        hardwareFlopsTaylor +
+        kernel::projectToNodalBoundaryRotated::HardwareFlops[face];
+
+    const auto nonZeroFlopsFunctionEvaluations = numStages * nonZeroFlopsFunctionEvaluation;
+    const auto hardwareFlopsFunctionEvaluations = numStages * hardwareFlopsFunctionEvaluation;
+
+    // TODO(Lukas) Maybe consider actual non-zeros of the a matrix
+    // e.g. for RK4 we could save some flops!
+    const auto nnzRKAMatrix = numStages * (numStages + 1) / 2;
+    const auto flopsRKStages = nnzRKAMatrix * numDofs * 2; // One mul to scale with a_{ij}*h, one add
+    const auto flopsRKFinalValue = numStages * 2 * numDofs; // One mul to scale with ch, one add
+
+    const auto hardwareFlopsRK = flopsRKStages + flopsRKFinalValue;
+    const auto nonZeroFlopsRK = hardwareFlopsRK;
+
+    const auto nonZeroFlops = nonZeroFlopsFunctionEvaluations + nonZeroFlopsRK;
+    const auto hardwareFlops = hardwareFlopsFunctionEvaluations + hardwareFlopsRK;
+
+    return {nonZeroFlops, hardwareFlops};
+  }
 
   template<typename TimeKrnl, typename MappingKrnl>
   void evaluate(unsigned faceIdx,
@@ -122,7 +159,6 @@ public:
         const auto pressureInside = dofsFaceNodal(i, pIdx);
         if (isAcoustic
             && (faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
-          // TODO(Lukas) Check sign
           dEta(i, 0) = uInside + 1 / Z * (pressureAtBnd - pressureInside);
         } else {
           // If not on acoustic boundary, just use values inside
