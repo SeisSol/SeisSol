@@ -230,7 +230,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
       }
     }
     
-    m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture + displacementToCellRatio)
+    m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture + displacementToCellRatio*requiresDisplacement)
         * ipow(m_rate, maxCluster - cluster[cell]);
     //m_vertexWeights[m_ncon * cell + 1] = (dynamicRupture > 0) ? 1 : 0;
   }
