@@ -169,9 +169,9 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     for(size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i)  = zMatrix[i];
     }
-    krnl.Gk = sourceView(6, 10) * dt;
-    krnl.Gl = sourceView(7, 11) * dt;
-    krnl.Gm = sourceView(8, 12) * dt;
+    krnl.Gk = sourceView(10, 6) * dt;
+    krnl.Gl = sourceView(11, 7) * dt;
+    krnl.Gm = sourceView(12, 8) * dt;
 
     krnl.Q = QData;
     krnl.I = o_timeIntegrated;
@@ -224,9 +224,6 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
 
       compute_lhs(stp, lhs);
       compute_rhs(stp, QData, rhs);
-
-      auto lhs_view = init::test_lhs::view::create(lhs);      
-      auto rhs_view = init::test_rhs::view::create(rhs);      
 
       double diff_norm = 0;
       double ref_norm = 0;
