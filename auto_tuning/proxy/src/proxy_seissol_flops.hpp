@@ -35,7 +35,7 @@ seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
 
-  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  auto&                 layer           = m_ltsTree->child(0).child<Interior>();
   unsigned              nrOfCells       = layer.getNumberOfCells();
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
@@ -57,7 +57,7 @@ seissol_flops flops_ader_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  unsigned nrOfCells = m_ltsTree.child(0).child<Interior>().getNumberOfCells();
+  unsigned nrOfCells = m_ltsTree->child(0).child<Interior>().getNumberOfCells();
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     // get flops
@@ -78,7 +78,7 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  auto&                 layer           = m_ltsTree->child(0).child<Interior>();
   unsigned              nrOfCells       = layer.getNumberOfCells();
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
   CellDRMapping        (*drMapping)[4]  = layer.var(m_lts.drMapping);
@@ -103,7 +103,7 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
+  seissol::initializers::Layer& interior = m_dynRupTree->child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
   for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
     long long l_drNonZeroFlops, l_drHardwareFlops;

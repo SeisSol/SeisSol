@@ -83,6 +83,7 @@ extern long long pspamm_num_total_flops;
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include "utils/logger.h"
 
 // seissol_kernel includes
 #include "proxy_seissol_tools.hpp"
@@ -90,7 +91,15 @@ extern long long pspamm_num_total_flops;
 #include "proxy_seissol_flops.hpp"
 #include "proxy_seissol_bytes.hpp"
 #include "proxy_seissol_integrators.hpp"
+#ifdef ACL_DEVICE
+#include "proxy_seissol_device_integrators.hpp"
+#endif
 
+#ifdef ACL_DEVICE
+using namespace proxy::device;
+#else
+using namespace proxy::cpu;
+#endif
 
 enum Kernel { all = 0, local, neigh, ader, localwoader, neigh_dr, godunov_dr };
 char const* Kernels[] = {"all", "local", "neigh", "ader", "localwoader", "neigh_dr", "godunov_dr"};
@@ -126,9 +135,13 @@ void testKernel(unsigned kernel, unsigned timesteps) {
       }
       break;    
     case godunov_dr:
+#ifdef ACL_DEVICE
+      logError() << "godunov_dr has not been implemented for acl. device";
+#else
       for (; t < timesteps; ++t) {
         computeDynRupGodunovState();
       }
+#endif
       break;
     default:
       break;
@@ -141,7 +154,7 @@ int main(int argc, char* argv[]) {
 #endif
   std::stringstream kernelHelp;
   kernelHelp << "Kernel: " << Kernels[0];
-  for (int k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
+  for (size_t k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
     kernelHelp << ", " << Kernels[k];
   }
 
@@ -173,14 +186,31 @@ int main(int argc, char* argv[]) {
     enableDynamicRupture = true;
   }
 
+#ifdef ACL_DEVICE
+  deviceT &device = deviceT::getInstance();
+  device.api->initialize();
+  device.api->setDevice(0);
+  device.api->allocateStackMem();
+#endif
+
+  m_ltsTree = new seissol::initializers::LTSTree;
+  m_dynRupTree = new seissol::initializers::LTSTree;
+  m_allocator = new seissol::memory::ManagedAllocator;
+
   print_hostname();
 
   printf("Allocating fake data...\n");
-  cells = init_data_structures(cells, enableDynamicRupture);
+  initGlobalData();
+  cells = initDataStructures(cells, enableDynamicRupture);
+#ifdef ACL_DEVICE
+  initDataStructuresOnDevice();
+#endif // ACL_DEVICE
   printf("...done\n\n");
 
   struct timeval start_time, end_time;
+#ifdef __USE_RDTSC
   size_t cycles_start, cycles_end;
+#endif
   double total = 0.0;
   double total_cycles = 0.0;
 
@@ -262,6 +292,14 @@ int main(int argc, char* argv[]) {
   printf("GiB/s (estimate) for seissol proxy  : %f\n", (bytes_estimate/(1024.0*1024.0*1024.0))/total);
   printf("=================================================\n");
   printf("\n");
+
+  delete m_ltsTree;
+  delete m_dynRupTree;
+  delete m_allocator;
+
+#ifdef ACL_DEVICE
+  device.finalize();
+#endif
   
 #ifdef USE_MPI
   MPI_Finalize();

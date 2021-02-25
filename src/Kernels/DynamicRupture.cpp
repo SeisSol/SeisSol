@@ -64,7 +64,7 @@ void seissol::kernels::DynamicRupture::setGlobalData(GlobalData const* global) {
 
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
 
-  m_timeKernel.setGlobalData(global);
+  m_timeKernel.setHostGlobalData(global);
 }
 
 

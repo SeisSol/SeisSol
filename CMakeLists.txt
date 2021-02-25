@@ -22,7 +22,7 @@ project(SeisSol LANGUAGES C CXX Fortran)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST
 #
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
@@ -104,6 +104,7 @@ add_custom_command(
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
+       src/generated_code/gpulike_subroutine.cpp
        src/generated_code/tensor.h
        src/generated_code/init.cpp
        src/generated_code/init.h
@@ -225,6 +226,10 @@ endif()
 
 # Parmetis
 if (METIS)
+  find_package(METIS REQUIRED)
+  if (NOT METIS_64_BIT_INTEGER)
+    message(WARNING "Found METIS which does not support IDXTYPEWIDTH = 64. But this is required for SeisSol.")
+  endif()
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
@@ -253,8 +258,16 @@ if (ADDRESS_SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
 endif() 
 
+# TODO: Only needed for poroelasticity
 find_package(Armadillo REQUIRED)
 target_link_libraries(SeisSol-lib PUBLIC ${ARMADILLO_LIBRARIES})
+
+if (WITH_GPU)
+  add_subdirectory(submodules/Device)
+  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
+  target_link_libraries(SeisSol-lib PUBLIC device)
+  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
+endif()
 
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -406,17 +419,17 @@ if (TESTING)
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
-  #CXXTEST_ADD_TEST_MPI(
-  #        test_parallel_test_suite
-  #        4
-  #        test_parallel.cpp
-  #        ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-  #)
-  #target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
-  #target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
-  #target_compile_definitions(test_parallel_test_suite PRIVATE
-  #  SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
-  #  )
+  CXXTEST_ADD_TEST_MPI(
+          test_parallel_test_suite
+          4
+          test_parallel.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
+  )
+  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
+  target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  target_compile_definitions(test_parallel_test_suite PRIVATE
+    SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
+    )
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/

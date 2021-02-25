@@ -105,8 +105,10 @@ CONTAINS
     DEALLOCATE (pvar,cvar,STAT=deallocStat)
     IF (deallocStat .NE. 0) THEN                                    ! Falls ein Fehler
        logError(*) 'cannot deallocate all arrays!'                  ! aufgetreten ist
-       STOP                                                         ! Programmabbruch
+       call exit(134)                                                         ! Programmabbruch
     END IF                                                          !
+
+    call c_interoperability_deallocateMemoryManager()
 
     logInfo(*) '<--------------------------------------------------------->'  !
     logInfo(*) '<     close_SeisSol successfully finished                 >'  !

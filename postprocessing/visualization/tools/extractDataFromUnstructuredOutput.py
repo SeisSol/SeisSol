@@ -1,6 +1,6 @@
 import os
 import os.path
-from pythonXdmfReader.pythonXdmfReader import *
+import seissolxdmf
 import shutil
 from recreateXdmf import *
 
@@ -16,9 +16,10 @@ parser.add_argument("--hdf5", dest="hdf5", default=False, action="store_true", h
 parser.add_argument("--idt", nargs="+", help="list of time step to write (ex $(seq 7 3 28))", type=int)
 args = parser.parse_args()
 
-connect = ReadConnect(args.xdmfFilename)
-nElements = ReadNElements(args.xdmfFilename)
-ndt = ReadNdt(args.xdmfFilename)
+sx = seissolxdmf.seissolxdmf(args.xdmfFilename)
+connect = sx.ReadConnect()
+nElements = sx.nElements
+ndt = sx.ndt
 
 if (args.idt != None) and (args.downsample != None):
     print("idt and downsample options cannot be used together")
@@ -29,7 +30,7 @@ else:
     indices = range(0, ndt, args.downsample)
 
 # Check if input is in hdf5 format or not
-dataLocation, data_prec, MemDimension = GetDataLocationAndPrecision(args.xdmfFilename, "partition")
+dataLocation, data_prec, MemDimension = sx.GetDataLocationPrecisionMemDimension("partition")
 splitArgs = dataLocation.split(":")
 if len(splitArgs) == 2:
     isHdf5 = True
@@ -75,16 +76,17 @@ if write2Binary:
         shutil.copy2(os.path.splitext(args.xdmfFilename)[0] + "_cell/mesh0/connect.bin", fn2)
     print("done writing " + fn2)
     # write geometry
-    geometry = ReadGeometry(args.xdmfFilename)
+    geometry = sx.ReadGeometry()
     fn3 = prefix_new + "_vertex/mesh0/geometry.bin"
     output_file = open(fn3, "wb")
     geometry.tofile(output_file)
     output_file.close()
     print("done writing " + fn3)
 else:
+    import h5py
     # write geometry to hdf5 format
     h5fv = h5py.File(prefix_new + "_vertex.h5", "w")
-    geometry = ReadGeometry(args.xdmfFilename)
+    geometry = sx.ReadGeometry()
     h5fv.create_dataset("/mesh0/geometry", data=geometry)
     h5fv.close()
     print("done writing " + prefix_new + "_vertex.h5")
@@ -105,7 +107,7 @@ for ida, sdata in enumerate(args.Data):
         if i >= ndt:
             print("ignoring index %d>=ndt=%d" % (i, ndt))
             continue
-        myData, prec = LoadData(args.xdmfFilename, args.Data[ida], nElements, idt=i, oneDtMem=True)
+        myData = sx.ReadData(args.Data[ida], idt=i)
         if write2Binary:
             myData.astype(myDtype).tofile(output_file)
         else:

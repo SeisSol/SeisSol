@@ -51,6 +51,9 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 #include <utils/logger.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -566,5 +569,26 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
+#endif
+}
+
+void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                                     LTS*              lts,
+                                                     LTSTree*          dynRupTree,
+                                                     DynamicRupture*   dynRup,
+                                                     LTSTree*          boundaryTree,
+                                                     Boundary*         boundary) {
+#ifdef ACL_DEVICE
+  // Byte-copy of element compute-static data from the host to device
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
+
+  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
+                     ltsTree->var(lts->localIntegration),
+                     variableSizes[lts->localIntegration.index]);
+
+  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
+                     ltsTree->var(lts->neighboringIntegration),
+                     variableSizes[lts->neighboringIntegration.index]);
 #endif
 }

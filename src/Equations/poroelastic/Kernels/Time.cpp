@@ -106,7 +106,7 @@ seissol::kernels::TimeBase::TimeBase(){
   }
 }
 
-void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
+void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
 #ifdef USE_STP
   for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
     if (n > 0) {
@@ -118,8 +118,6 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   }
   for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    //m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
-    //m_krnlPrototype.selectQuantity_Z(k) = init::selectQuantity_Z::Values[tensor::selectQuantity_Z::index(k)];
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
@@ -130,6 +128,14 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+#endif
+}
+
+void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
+
+#ifdef ACL_DEVICE
+  logError() << "Poroelasticity does not work on GPUs.";
 #endif
 }
 

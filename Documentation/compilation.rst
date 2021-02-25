@@ -39,9 +39,13 @@ Installing CMake
 
 .. code-block:: bash
 
+  # you will need at least version 3.10.2 for GNU Compiler Collection 
   (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.10.2/cmake-3.10.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.10.2-Linux-x86_64" "${HOME}/bin/cmake")
+  
+  # use version 3.16.2 for Intel Compiler Collection
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.16.2-Linux-x86_64" "${HOME}/bin/cmake")
+  
   ln -s ${HOME}/bin/cmake/bin/cmake ${HOME}/bin
-
 
 Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
   
@@ -97,8 +101,8 @@ Installing PSpaMM
    git clone https://github.com/peterwauligmann/PSpaMM.git
    ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
 
-Installing GemmForge
---------------------
+Installing GemmForge (for GPU)
+------------------------------
 
 
 .. code-block:: bash
@@ -114,7 +118,7 @@ Installing ParMetis (Optional: PUML mesh format)
 .. code-block:: bash
 
   wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
-  tar -xvf parmetis-4.0.3
+  tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
   make config cc=mpicc cxx=mpiCC prefix=$HOME 

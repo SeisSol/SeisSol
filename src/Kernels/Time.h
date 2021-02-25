@@ -87,7 +87,8 @@ namespace seissol {
 
 class seissol::kernels::Time : public TimeBase {
   public:
-    void setGlobalData(GlobalData const* global);
+    void setHostGlobalData(GlobalData const* global);
+    void setGlobalData(const CompoundGlobalData& global);
 
     void computeAder( double                      i_timeStepWidth,
                       LocalData&                  data,
@@ -96,11 +97,14 @@ class seissol::kernels::Time : public TimeBase {
                       real*                       o_timeDerivatives = NULL );
 
 #ifdef USE_STP
-void executeSTP( double     i_timeStepWidth,
-                 LocalData& data,
-                 real       o_timeIntegrated[tensor::I::size()],
-                 real*      stp );
+    void executeSTP( double     i_timeStepWidth,
+                     LocalData& data,
+                     real       o_timeIntegrated[tensor::I::size()],
+                     real*      stp );
 #endif
+    void computeBatchedAder(double i_timeStepWidth,
+                            LocalTmp& tmp,
+                            ConditionalBatchTableT &table);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
@@ -112,6 +116,13 @@ void executeSTP( double     i_timeStepWidth,
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
                           real                                        o_timeIntegrated[tensor::I::size()] );
+
+    void computeBatchedIntegral(double i_expansionPoint,
+                                double i_integrationStart,
+                                double i_integrationEnd,
+                                const real** i_timeDerivatives,
+                                real ** o_timeIntegratedDofs,
+                                unsigned numElements);
 
     void computeTaylorExpansion( real         time,
                                  real         expansionPoint,

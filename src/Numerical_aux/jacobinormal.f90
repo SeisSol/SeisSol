@@ -760,13 +760,13 @@ CONTAINS
     !checksum  = SUM((TEST(:,:)-Unity(:,:))**2)
     !IF(checksum.GT.1e-6) THEN
     !  print *, 'fatal error: iR*R .NE. 1 but ', checksum, W0(:)
-    !  stop
+    !  call exit(134)
     !ENDIF
     !TEST(:,:) = MATMUL(MATMUL(iRA,A),RA)
     !checksum  = SUM((TEST(:,:)-LA(:,:))**2)
     !IF(checksum.GT.1e-6) THEN
     !  print *, 'fatal error: iR*A*R .NE. Lambda'
-    !  stop
+    !  call exit(134)
     !ENDIF
 
     !absA  = MATMUL(MATMUL(RA,ABS(LA)),iRA)

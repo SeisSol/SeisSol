@@ -663,7 +663,7 @@ contains
         if(count>20) then
             write(*,*) ' | Error in QuadTrafoXY2XiEta. '
             write(*,*) ' |  Inverse of Jacobian not founded.'
-            stop
+            call exit(134)
         endif
     enddo
     

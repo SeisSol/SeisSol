@@ -249,7 +249,7 @@ CONTAINS
     !                                                                          !
     IF (allocStat .NE. 0) THEN                                                 ! Error Handling
        logError(*) 'could not allocate all variables!'      !
-       STOP                                                                    ! STOP
+       call exit(134)     
     END IF                                                                     !
     !                                                                          !
     pvar(:,:)  = 0.                                                            ! Initialize
@@ -299,7 +299,7 @@ CONTAINS
 
         IF(BND%periodic.NE.0)THEN
            logError(*) 'MetisWeights can only be computed for non-periodic boundary conditions!'
-           STOP
+           call exit(134)
         ENDIF
 
         ALLOCATE(MetisWeight(MESH%nElem))
@@ -361,7 +361,7 @@ CONTAINS
         logInfo(*) 'Metis weights computed successfully!'
         logInfo(*) 'weighted graph file written to ',TRIM(IO%MetisFile) // '.dgraph.weighted'
         logInfo(*) 'Terminating Programm !'
-        STOP
+        call exit(134)
     ENDIF
 #endif
 

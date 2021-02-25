@@ -38,37 +38,35 @@ it seems necessary to limit the number of clusters of the local time stepping.
 Else, very large elements, rarely updated by the LTS, get unstable.
 This can be achieved by using the following patch, which in most cases should not affect the LTS speed-up.
 
-.. code:: cpp
+.. code:: diff
 
-   --- a/src/Initializer/time_stepping/MultiRate.hpp
-   +++ b/src/Initializer/time_stepping/MultiRate.hpp
-   @@ -77,8 +77,12 @@ class seissol::initializers::time_stepping::MultiRate {
-          // first multi-rate interval
-          double l_lower = i_minimumTimeStepWidth;
-          double l_upper = i_multiRate*l_lower;
-   -
-   -      for( unsigned int l_id = 0; ; l_id++ ) {
-   +#if NUMBER_OF_QUANTITIES > 9
-   +      unsigned int l_id_max=6;
-   +#else
-   +      unsigned int l_id_max=std::numeric_limits<unsigned int>::max();
-   +#endif
-   +      for( unsigned int l_id = 0; l_id_max; l_id++ ) {
-            // the first cluster with an upper bound above the time step width is our
-            if( l_upper > i_timeStepWidth ) {
-              o_clusterTimeStepWidth = l_lower;
-   @@ -89,6 +93,11 @@ class seissol::initializers::time_stepping::MultiRate {
-            // update interval and continue searching
-            l_lower = l_upper;
-            l_upper = i_multiRate * l_lower;
-   +#if NUMBER_OF_QUANTITIES > 9
-   +        if(l_id==l_id_max-1) {
-   +          l_upper = std::numeric_limits<double>::max();
-   +          }
-   +#endif
-          }
-        }
-    
+    --- a/src/Initializer/time_stepping/MultiRate.hpp
+    +++ b/src/Initializer/time_stepping/MultiRate.hpp
+    @@ -78,7 +78,12 @@ class seissol::initializers::time_stepping::MultiRate {
+           double l_lower = i_minimumTimeStepWidth;
+           double l_upper = i_multiRate*l_lower;
+     
+    +#if NUMBER_OF_QUANTITIES > 9
+    +      unsigned int l_id_max=6;
+    +#endif
+    +
+           for( unsigned int l_id = 0; ; l_id++ ) {
+    +
+             // the first cluster with an upper bound above the time step width is our
+             if( l_upper > i_timeStepWidth ) {
+               o_clusterTimeStepWidth = l_lower;
+    @@ -89,6 +94,11 @@ class seissol::initializers::time_stepping::MultiRate {
+             // update interval and continue searching
+             l_lower = l_upper;
+             l_upper = i_multiRate * l_lower;
+    +#if NUMBER_OF_QUANTITIES > 9
+    +        if( l_id == l_id_max-1 ) {
+    +          l_upper = std::numeric_limits<double>::max();
+    +         }
+    +#endif
+           }
+         }
+
 
 l_id_max, the maximum cluster id, is here hardcoded to 6. 
 This probably depends on the minimum mesh size and the order of accuracy used.
@@ -79,18 +77,12 @@ Compiling
 ---------
 
 
-In SeisSol build configuration script replace
+In ccmake, use:
 
-.. code:: python
+.. code::
 
-   equations = 'elastic' 
-
-by
-
-.. code:: python
-
-   equations = 'viscoelastic2'
-   numberOfMechanisms = 3
+    EQUATIONS                        viscoelastic2
+    NUMBER_OF_MECHANISMS             3   
 
 Note that the equations='viscoelastic' is operational but deprecated.
 

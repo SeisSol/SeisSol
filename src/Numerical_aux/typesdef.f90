@@ -806,9 +806,7 @@ MODULE TypesDef
      TYPE(tSparseTensor3), POINTER          :: FLStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      TYPE(tSparseTensor3), POINTER          :: FRStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      !< Dynamic Rupture variables to exchange dgvar values of MPI-fault elements since the Taylor derivatives are needed in friction
-     INTEGER                                :: nFault_MPI                       !< Nr of MPI boundary elements which are also fault elements for Dynamic Rupture
      INTEGER, POINTER                       :: Domain_Fault_Elem(:)             !< Numbers of the elements adjacent to an MPI boundary (inside)
-     REAL, POINTER                          :: MPI_DR_dgvar(:,:,:)              !< dgvar values of MPI-fault elements
   END TYPE tMPIBoundary
 
   TYPE tRealMessage                                                             !< Defines a vector message of type real

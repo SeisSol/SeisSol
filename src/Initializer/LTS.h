@@ -49,6 +49,7 @@
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
 #endif
 
+#ifndef ACL_DEVICE
 #   define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
 #if CONVERGENCE_ORDER <= 7
 #   define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
@@ -65,6 +66,14 @@
 #else
 #   define MEMKIND_DOFS     seissol::memory::Standard
 #endif
+# define MEMKIND_UNIFIED  seissol::memory::Standard
+#else // ACL_DEVICE
+#	define MEMKIND_GLOBAL   seissol::memory::Standard
+#	define MEMKIND_CONSTANT seissol::memory::Standard
+#	define MEMKIND_DOFS     seissol::memory::DeviceUnifiedMemory
+#	define MEMKIND_TIMEDOFS seissol::memory::DeviceUnifiedMemory
+# define MEMKIND_UNIFIED  seissol::memory::DeviceUnifiedMemory
+#endif // ACL_DEVICE
 
 namespace seissol {
   namespace initializers {
@@ -93,6 +102,13 @@ struct seissol::initializers::LTS {
   Variable<real*>                         displacements;
   Bucket                                  buffersDerivatives;
   Bucket                                  displacementsBuffer;
+
+#ifdef ACL_DEVICE
+  Variable<LocalIntegrationData>          localIntegrationOnDevice;
+  Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
+  ScratchpadMemory                        idofsScratch;
+  ScratchpadMemory                        derivativesScratch;
+#endif
   
   /// \todo Memkind
   void addTo(LTSTree& tree) {
@@ -112,14 +128,21 @@ struct seissol::initializers::LTS {
     tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
-    tree.addVar(              plasticity,   plasticityMask,                 1,      seissol::memory::Standard );
+    tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
     tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
+    tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
     tree.addVar(           displacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
     
     tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
     tree.addBucket(displacementsBuffer,                         PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+
+#ifdef ACL_DEVICE
+    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
+    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory );
+    tree.addScratchpadMemory(  idofsScratch,                      1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
+#endif
   }
 };
 #endif
