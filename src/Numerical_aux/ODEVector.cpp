@@ -59,6 +59,7 @@ const real& ODEVector::operator[](std::size_t idx) const {
 ODEVector& ODEVector::operator+=(ODEVector& rhs) {
   for (std::size_t i = 0; i < storages.size(); ++i) {
     assert(sizes[i] == rhs.sizes[i]);
+#pragma omp simd
     for (std::size_t j = 0; j < sizes[i]; ++j) {
       storages[i][j] += rhs.storages[i][j];
     }
@@ -68,6 +69,7 @@ ODEVector& ODEVector::operator+=(ODEVector& rhs) {
 
 ODEVector& ODEVector::operator*=(real rhs) {
   for (std::size_t i = 0; i < storages.size(); ++i) {
+#pragma omp simd
     for (std::size_t j = 0; j < sizes[i]; ++j) {
       storages[i][j] *= rhs;
     }
@@ -79,6 +81,7 @@ void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
   if (weight == 0.0) return;
   for (std::size_t i = 0; i < storages.size(); ++i) {
     assert(sizes[i] == rhs.sizes[i]);
+#pragma omp simd
     for (std::size_t j = 0; j < sizes[i]; ++j) {
       storages[i][j] += weight * rhs.storages[i][j];
     }
@@ -88,6 +91,7 @@ void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
 ODEVector& ODEVector::operator=(const ODEVector& other) {
   for (std::size_t i = 0; i < storages.size(); ++i) {
     assert(sizes[i] == other.sizes[i]);
+#pragma omp simd
     for (std::size_t j = 0; j < sizes[i]; ++j) {
       storages[i][j] = other.storages[i][j];
     }
