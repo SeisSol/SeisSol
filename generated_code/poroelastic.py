@@ -100,9 +100,10 @@ class PoroelasticADERDG(LinearADERDG):
     quantityShape = (self.numberOfQuantities(), self.numberOfQuantities())
     stpRhs = OptionalDimTensor('stpRhs', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
     stp = OptionalDimTensor('stp', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
-    #G = Tensor('G', quantityShape, spp=self.db.ET.spp().as_ndarray())
-    Zinv = Tensor('Zinv', (self.numberOfQuantities(), self.order, self.order))
+    test_rhs = OptionalDimTensor('test_rhs', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
+    test_lhs = OptionalDimTensor('test_lhs', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
     timestep = Scalar('timestep')
+    G = {10: Scalar('Gk'),11: Scalar('Gl'),12: Scalar('Gm')}
 
     def modeRange(n):
       Bn_1 = choose(n-1+3,3)
@@ -120,25 +121,9 @@ class PoroelasticADERDG(LinearADERDG):
       selectSpp[o,o] = 1
       return Tensor('selectQuantity({})'.format(o), selectSpp.shape, spp = selectSpp)
 
-    def selectQuantity_G(o):
-      selectSpp = np.zeros((self.numberOfQuantities(),))
-      selectSpp[o-4] = 1
-      return Tensor('selectQuantity_G({})'.format(o), selectSpp.shape, spp = selectSpp)
-
-#    def G(o):
-#      number_to_char = {0:'a', 1:'b', 2:'c', 3:'d', 4:'e', 5:'f', 6:'g', 7:'h', 8:'i', 9:'j', 10:'k', 11:'l', 12:'m'}
-#      return Scalar('G{}'.format(number_to_char[o]))
-    G = {10: Scalar('Gk'),11: Scalar('Gl'),12: Scalar('Gm')}
-
-
 
     def Zinv(o):
         return Tensor('Zinv({})'.format(o), (self.order, self.order))
-
-    def selectQuantity_Z(o):
-      selectSpp = np.zeros((self.numberOfQuantities(),))
-      selectSpp[o] = 1
-      return Tensor('selectQuantity_Z({})'.format(o), selectSpp.shape, spp = selectSpp)
 
     def kSub(d,n):
       Bn_1, Bn = modeRange(n)
@@ -164,6 +149,22 @@ class PoroelasticADERDG(LinearADERDG):
     kernels.append( self.I['kp'] <= timestep * stp['kpt'] * self.db.timeInt['t'] )
 
     generator.add('stp', kernels)
+
+    # Test to see if the kernel acutally solves the system of equations
+    deltaSpp_large = np.eye(self.numberOfQuantities())
+    delta_large = Tensor('delta_large', deltaSpp_large.shape, spp = deltaSpp_large)
+    deltaSpp_small = np.eye(self.order)
+    delta_small = Tensor('delta_small', deltaSpp_small.shape, spp = deltaSpp_small)
+    minus = Scalar('minus')
+
+    lhs = delta_large['oq'] * self.db.Z['uk'] * stp['lqk']
+    lhs += minus * self.sourceMatrix()['qo'] * delta_small['uk'] * stp['lqk']
+    generator.add('stp_test_lhs', test_lhs['lou'] <= lhs)
+
+    rhs = self.Q['lo'] * self.db.wHat['u']
+    for d in range(3):
+      rhs += minus * self.starMatrix(d)['qo'] * self.db.kDivMT[d]['lm'] * stp['mqu']
+    generator.add('stp_test_rhs', test_rhs['lou'] <= rhs)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

@@ -164,16 +164,6 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   for(size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
     krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
   }
-  //krnl.Ga = data.localIntegration.specific.G[0] * i_timeStepWidth;
-  //krnl.Gb = data.localIntegration.specific.G[1] * i_timeStepWidth;
-  //krnl.Gc = data.localIntegration.specific.G[2] * i_timeStepWidth;
-  //krnl.Gd = data.localIntegration.specific.G[3] * i_timeStepWidth;
-  //krnl.Ge = data.localIntegration.specific.G[4] * i_timeStepWidth;
-  //krnl.Gf = data.localIntegration.specific.G[5] * i_timeStepWidth;
-  //krnl.Gg = data.localIntegration.specific.G[6] * i_timeStepWidth;
-  //krnl.Gh = data.localIntegration.specific.G[7] * i_timeStepWidth;
-  //krnl.Gi = data.localIntegration.specific.G[8] * i_timeStepWidth;
-  //krnl.Gj = data.localIntegration.specific.G[9] * i_timeStepWidth;
   krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
   krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
   krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
@@ -181,7 +171,6 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
 
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;
-  //krnl.G = data.localIntegration.specific.sourceMatrix;
   krnl.timestep = i_timeStepWidth;
   krnl.stp = stp;
   krnl.stpRhs = stpRhs;
