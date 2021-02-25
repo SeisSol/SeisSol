@@ -77,5 +77,5 @@ Once you submit your PR, one or two SeisSol maintainers will review it with you.
 - There is no merge conflicts with the latest SeisSol master branch
 - All CI tests are passed
 
-### Step 9
+### Step 6
 Congratulations, your PR is merged! The whole SeisSol community thanks you.
