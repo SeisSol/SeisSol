@@ -363,6 +363,10 @@ namespace seissol {
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
       for_loop<0, NUMBER_OF_QUANTITIES>(localData, sourceMatrix, timeStepWidth);
+      std::fill(localData->G, localData->G+NUMBER_OF_QUANTITIES, 0.0);
+      localData->G[10] = sourceMatrix(6, 10);
+      localData->G[11] = sourceMatrix(7, 11);
+      localData->G[12] = sourceMatrix(8, 12);
 
       localData->typicalTimeStepWidth = timeStepWidth;
     }

@@ -100,7 +100,7 @@ class PoroelasticADERDG(LinearADERDG):
     quantityShape = (self.numberOfQuantities(), self.numberOfQuantities())
     stpRhs = OptionalDimTensor('stpRhs', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
     stp = OptionalDimTensor('stp', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
-    G = Tensor('G', quantityShape, spp=self.db.ET.spp().as_ndarray())
+    #G = Tensor('G', quantityShape, spp=self.db.ET.spp().as_ndarray())
     Zinv = Tensor('Zinv', (self.numberOfQuantities(), self.order, self.order))
     timestep = Scalar('timestep')
 
@@ -116,14 +116,21 @@ class PoroelasticADERDG(LinearADERDG):
       return Tensor('selectModes({})'.format(n), fullShape, spp=selectModesSpp)
 
     def selectQuantity(o):
-      selectSpp = np.zeros((self.numberOfQuantities(),))
-      selectSpp[o] = 1
+      selectSpp = np.zeros((self.numberOfQuantities(),self.numberOfQuantities()))
+      selectSpp[o,o] = 1
       return Tensor('selectQuantity({})'.format(o), selectSpp.shape, spp = selectSpp)
 
     def selectQuantity_G(o):
       selectSpp = np.zeros((self.numberOfQuantities(),))
       selectSpp[o-4] = 1
       return Tensor('selectQuantity_G({})'.format(o), selectSpp.shape, spp = selectSpp)
+
+#    def G(o):
+#      number_to_char = {0:'a', 1:'b', 2:'c', 3:'d', 4:'e', 5:'f', 6:'g', 7:'h', 8:'i', 9:'j', 10:'k', 11:'l', 12:'m'}
+#      return Scalar('G{}'.format(number_to_char[o]))
+    G = {10: Scalar('Gk'),11: Scalar('Gl'),12: Scalar('Gm')}
+
+
 
     def Zinv(o):
         return Tensor('Zinv({})'.format(o), (self.order, self.order))
@@ -144,9 +151,11 @@ class PoroelasticADERDG(LinearADERDG):
     kernels.append( stpRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t'] )
     for n in range(self.order-1,-1,-1):
       for o in range(self.numberOfQuantities()-1,-1,-1):
-        kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['p'] * stpRhs['lpu'] * Zinv(o)['tu'] )
+        kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * stpRhs['lqu'] * Zinv(o)['tu'] )
+        #G only has one relevant non-zero entry in each iteration, so we make it a scalar
+        #G[i,j] = E[i, j-4] * timestep
         if o >= 10:
-          kernels.append( stpRhs['kpt'] <= stpRhs['kpt'] + timestep * selectQuantity_G(o)['p'] * selectQuantity(o)['u'] * G['up'] * selectModes(n)['kl'] * stp['lut'] )
+          kernels.append( stpRhs['kpt'] <= stpRhs['kpt'] + G[o] * selectModes(n)['kl'] * selectQuantity(o)['pv'] * stp['lvt'] )
       if n > 0:
         derivativeSum = stpRhs['kpt']
         for d in range(3):
