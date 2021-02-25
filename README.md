@@ -4,3 +4,7 @@ This is a development version of SeisSol (www.seissol.org).
 
 For further information on running SeisSol and a first example see our
 [Documentation](https://seissol.readthedocs.io)
+
+# Code of Conduct
+We follow a [**Code of Conduct**](CODE_OF_CONDUCT.md).
+Please follow the rules when participating in our community.
