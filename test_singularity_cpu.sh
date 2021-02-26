@@ -28,4 +28,4 @@ for build_type in Release Debug; do
     done
 done
 ​
-set
+set +u
