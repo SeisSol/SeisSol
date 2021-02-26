@@ -11,6 +11,8 @@ atsccs68:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
+        - du -h -d1
+        - df -h
         
 atscc68_2:
     stage:  build
