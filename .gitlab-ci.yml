@@ -30,9 +30,9 @@ atscc68_2:
         #- singularity pull --arch amd64 library://7bits-register/collection/seissol-base.sif:gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243_stable
         #- singularity pull library://7bits-register/collection/seissol-base.sif:sha256.3dfa7466a4dbe097a755e2779d8612a71e81d60522bff9b90a35b4b1dc5b97c9
         #- singularity pull --arch amd64 library://7bits-register/collection/seissol_base_amd64.sif:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
-        - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        #- singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         - ls
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64.sif_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243.sif ./test_singularity.sh
+        #- singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64.sif_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243.sif ./test_singularity.sh
         
 dbuilder:
     stage: pre_test
@@ -62,7 +62,8 @@ dbuilder_2:
         #- wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         #- wget -q https://github.com/hfp/libxsmm/archive/master.zip
         #- sudo apt-get install gcc-8 g++-8 gfortran-8
-        - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
+        #- singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
+        - cp /home/ubuntu/singularity/seissol*sif .
         
 ci_builder:
     stage: pre_test
