@@ -51,7 +51,7 @@ dbuilder:
         #- git --no-pager show -s --format='%ae' $commit_id
         #- commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
-        - cat test_cpu.sh
+        - cat test_singularity_cpu.sh
         
 dbuilder_2:
     stage: build
