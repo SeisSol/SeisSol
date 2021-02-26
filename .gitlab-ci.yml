@@ -72,6 +72,7 @@ dbuilder_2:
         #- singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
         - cp /home/ubuntu/singularity/seissol*sif .
         - ls -lh
+        - - singularity run --nv -B $PWD:/home/$(whoami) ./seissol_base_amd64_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5.sif ./test_singularity_cpu.sh
         
 ci_builder:
     stage: pre_test
