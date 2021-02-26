@@ -1,5 +1,5 @@
 stages:
-    - test
+    - pre_test
     - build 
     
 atsccs68:
@@ -11,9 +11,24 @@ atsccs68:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
+    stage:  build
+    tags:
+        - atsccs68-shell
+    script:
+        - whoami
+        - pwd
+        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
+        - git clone https://github.com/7bits-register/convergence-tests.git tests
+        - ls
+        - cat /etc/os-release
+        - cat test_singularity.sh
+        - chmod +x test_singularity.sh
+        - which singularity 
+        - singularity --version
+        - singularity pull --arch amd64 library://7bits-register/collection/seissol-base.sif:gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243_stable
         
 ci_builder:
-    stage: build
+    stage: pre_test
     tags:
         - ci_testing_cc
     before_script:
@@ -30,4 +45,4 @@ ci_builder:
         - echo $NAME_TEST
         #- git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         #- git clone https://github.com/7bits-register/convergence-tests.git tests
-        - singularity pull --arch amd64 library://7bits-register/collection/seissol-base.sif:gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243_stable
+        #- singularity pull --arch amd64 library://7bits-register/collection/seissol-base.sif:gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243_stable
