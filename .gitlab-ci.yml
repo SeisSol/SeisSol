@@ -11,6 +11,8 @@ atsccs68:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
+        
+atscc68_2:
     stage:  build
     tags:
         - atsccs68-shell
@@ -40,6 +42,8 @@ dbuilder:
         #- git --no-pager show -s --format='%ae' $commit_id
         #- commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
+        
+dbuilder2:
     stage: build
     tags:
         - dbuilder_cc
@@ -51,7 +55,7 @@ dbuilder:
         - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
         - git submodule --quiet sync --recursive
-        - git submodule --quiet update --init --recursive
+        #- git submodule --quiet update --init --recursive
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
         - sudo apt-get install gcc-8 g++-8 gfortran-8
