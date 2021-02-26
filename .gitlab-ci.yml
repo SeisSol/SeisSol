@@ -61,6 +61,7 @@ dbuilder_2:
         #- wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         #- wget -q https://github.com/hfp/libxsmm/archive/master.zip
         #- sudo apt-get install gcc-8 g++-8 gfortran-8
+        - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
         
 ci_builder:
     stage: pre_test
