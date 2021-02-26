@@ -33,6 +33,9 @@ atscc68_2:
         #- singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         - du -h -d1
         - ls
+        - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        - du -h -d1
+        - ls
         #- singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64.sif_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243.sif ./test_singularity.sh
         
 dbuilder:
@@ -65,8 +68,7 @@ dbuilder_2:
         #- sudo apt-get install gcc-8 g++-8 gfortran-8
         #- singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
         - cp /home/ubuntu/singularity/seissol*sif .
-        - ls
-        - ll -h
+        - ls -lh
         
 ci_builder:
     stage: pre_test
