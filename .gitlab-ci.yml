@@ -32,8 +32,8 @@ atsccs68:
 dbuilder:
     stage: pre_test
     tags:
-        - ci_testing_cc
-    before_script:
+        - dbuilder_cc
+    script:
         - git branch -vva
         #- git log --format="%H" -n 1
         #- git log --format="%H" -n 1 > commit_id
@@ -43,7 +43,7 @@ dbuilder:
     stage: build
     tags:
         - dbuilder_cc
-    before_script:
+    script:
         - git branch -vva
         - git log --format="%H" -n 1
         - git log --format="%H" -n 1 > commit_id
