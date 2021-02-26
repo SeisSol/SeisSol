@@ -43,7 +43,7 @@ dbuilder:
         #- commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
         
-dbuilder2:
+dbuilder_2:
     stage: build
     tags:
         - dbuilder_cc
