@@ -37,7 +37,7 @@ atscc68_2:
         - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         - du -h -d1
         - ls
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64.sif_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243.sif ./test_singularity.sh
+        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243.sif ./test_singularity.sh
         
 dbuilder:
     stage: pre_test
