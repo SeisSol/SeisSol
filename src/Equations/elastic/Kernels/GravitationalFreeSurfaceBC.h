@@ -78,9 +78,9 @@ public:
     // TODO(Lukas) Values below only correct for acoustic!
     // We do this by solving the following set of ODEs (described only for 1 point here!)
     // pressureAtBnd = 0 (for free surface)
-    // pressureAtBnd = \rho \eta g (for gravitational free surface)
+    // pressureAtBnd = -\rho \eta g (for gravitational free surface)
     // dH/dt = etaN,
-    // dEtaN/dt =  u_r - 1/Z ( p_r - pressureAtBnd ),
+    // dEtaN/dt =  u_r + 1/Z ( pressureAtBnd - pressureInside ),
     // dEtaS/dt = v_r
     // dEtaT/dt = w_r
     // where the vales u_r/p_r are boundary extrapolated from the interior
@@ -144,7 +144,7 @@ public:
           pressureAtBnd = -1 * rho * g * eta(i, 0);
         }
 #ifdef USE_ELASTIC
-        const double Z = std::sqrt(materialData.local.lambda / rho);
+        const double Z = std::sqrt(materialData.local.lambda * rho) ;
         bool isAcoustic = std::abs(materialData.local.mu) < 1e-15;
 #else
         const real Z = 0.0; // Sets penalty term effectively to zero
