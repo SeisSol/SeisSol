@@ -66,7 +66,6 @@ MODULE ini_model_DR_mod
   PRIVATE :: DR_basic_ini
   private :: rotateStressToFaultCS
   !---------------------------------------------------------------------------!
-  PRIVATE :: friction_RSF34
   PRIVATE :: friction_RSF7
   PRIVATE :: friction_RSF101
   PRIVATE :: friction_RSF103
@@ -102,9 +101,6 @@ MODULE ini_model_DR_mod
     CASE(2,16)
       ! Initialization of friction for linear slip weakening
       CALL friction_LSW(DISC,EQN,MESH,BND)
-    CASE(3,4)
-      ! Initialization of initial slip rate and friction for rate and state friction
-      CALL friction_RSF34(DISC,EQN,MESH,BND)
     CASE(6)
       ! Initialization of friction and fault strength for bi-material linear slip weakening
       CALL friction_LSW6(DISC,EQN,MESH,BND)
@@ -114,7 +110,7 @@ MODULE ini_model_DR_mod
     CASE(101)
      ! Initialization of initial slip rate and friction for SCEC TPV103
      CALL friction_RSF101(DISC,EQN,MESH,BND)
-    CASE(103)
+    CASE(3,4,103)
      ! Initialization of initial temperature and pressure for TP
      IF (DISC%DynRup%ThermalPress.EQ.1) THEN
          CALL thermalPress_init(DISC,EQN)
@@ -290,7 +286,7 @@ MODULE ini_model_DR_mod
           DISC%DynRup%rs_a_array(:,i) = 0.0
       END DO
           call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
-      if (EQN%FL == 103) then
+      if ((EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) then
         nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
         allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
                   DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),  &
@@ -300,11 +296,19 @@ MODULE ini_model_DR_mod
                   nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+        
+        if (EQN%FL == 103) then
+           allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide))
+           !$omp parallel do schedule(static)
+           DO i=1,MESH%fault%nSide
+               DISC%DynRup%RS_srW_array(:,i) = 0.0
+           END DO
+           call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
+        endif
 
         ! Initialize w/ first-touch
         !$omp parallel do schedule(static)
         DO i=1,MESH%fault%nSide
-            DISC%DynRup%RS_srW_array(:,i) = 0.0
             DISC%DynRup%RS_sl0_array(:,i) = 0.0
             nuc_xx(:,i) = 0.0
             nuc_yy(:,i) = 0.0
@@ -314,7 +318,6 @@ MODULE ini_model_DR_mod
             nuc_xz(:,i) = 0.0
         END DO
 
-        call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
         if (nucleationParameterizedByTraction) then
           call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
@@ -376,7 +379,7 @@ MODULE ini_model_DR_mod
         call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
     endif
 
-    if (EQN%FL == 103) then
+    if ((EQN%FL == 103) .OR. (EQN%FL == 3) .OR. (EQN%FL == 4)) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
 
 
@@ -510,84 +513,6 @@ MODULE ini_model_DR_mod
           SlipInFaultCS(:,2,i) = -sin1 * StrikeSlip(:,i) + cos1* DipSlip(:,i)
     enddo
   END SUBROUTINE rotateSlipToFaultCS
-
-
-  !> Initialization of initial slip rate and friction for rate and state friction
-  !<
-  SUBROUTINE friction_RSF34(DISC,EQN,MESH,BND)
-  !-------------------------------------------------------------------------!
-  USE DGBasis_mod
-  !-------------------------------------------------------------------------!
-  IMPLICIT NONE
-  !-------------------------------------------------------------------------!
-  TYPE(tDiscretization), target  :: DISC
-  TYPE(tEquations)               :: EQN
-  TYPE(tUnstructMesh)            :: MESH
-  TYPE (tBoundary)               :: BND
-  !-------------------------------------------------------------------------!
-  ! Local variable declaration
-  INTEGER                        :: i
-  INTEGER                        :: iSide,iElem,iBndGP
-  INTEGER                        :: iLocalNeighborSide,iNeighbor
-  INTEGER                        :: MPIIndex, iObject
-  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-  REAL                           :: chi,tau
-  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-  REAL                           :: iniSlipRate, X2
-  !-------------------------------------------------------------------------!
-  INTENT(IN)    :: MESH,BND
-  INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------!
-
-  EQN%IniSlipRate1 = DISC%DynRup%RS_iniSlipRate1
-  EQN%IniSlipRate2 = DISC%DynRup%RS_iniSlipRate2
-  iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
-
-  ! Loop over every mesh element
-  DO i = 1, MESH%Fault%nSide
-
-      ! element ID
-      iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)
-
-      ! get vertices of complete tet
-      IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-          !
-          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-      ELSE
-          !
-          ! get vertices
-          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-      ENDIF
-      !
-      DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          !
-          ! Transformation of boundary GP's into XYZ coordinate system
-          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-          CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-          !
-          EQN%IniStateVar(i,iBndGP) = DISC%DynRup%NucRS_sv0
-          !EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((sstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(iBndGP,i)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
-          X2  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a)
-          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a * LOG(X2 + SQRT(X2**2 + 1.0))
-
-      ENDDO ! iBndGP
-
-  ENDDO !    MESH%Fault%nSide
-
-  END SUBROUTINE friction_RSF34      ! Initialization of initial slip rate and friction for rate and state friction
 
   !> Initialization of initial slip rate and friction for fast velocity weakening friction
   !<
@@ -781,9 +706,15 @@ MODULE ini_model_DR_mod
   DO iFace = 1, MESH%Fault%nSide
       DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
           tmp = ABS(SQRT(EQN%InitialStressInFaultCS(iBndGP,4,iFace)**2+EQN%InitialStressInFaultCS(iBndGP,6,iFace)**2)/(DISC%DynRup%RS_a_array(iBndGP,iFace)*(EQN%InitialStressInFaultCS(iBndGP,1,iFace)-P_f(iBndGP, iFace))))
-          EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
+          if (EQN%FL = 103) then 
+              EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
+              tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(iBndGP,iFace)/ DISC%DynRup%RS_a_array(iBndGP,iFace))
+          else
+              EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_sl0_array(iBndGP,iFace)/DISC%DynRup%RS_sr0* &
+              & EXP((DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(EXP(tmp)-EXP(-tmp)) - DISC%DynRup%RS_f0 - DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
+              tmp  = iniSlipRate*0.5D0/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(iBndGP,iFace)/DISC%DynRup%RS_sl0_array(iBndGP,iFace)))/DISC%DynRup%RS_a_array(iBndGP,iFace))
+          endif
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
-          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(iBndGP,iFace)/ DISC%DynRup%RS_a_array(iBndGP,iFace))
           EQN%IniMu(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
       ENDDO ! iBndGP
   ENDDO !    MESH%Fault%nSide
