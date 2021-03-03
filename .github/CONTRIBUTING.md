@@ -1,12 +1,12 @@
 # Contributing to SeisSol
-First off, thanks for taking your time to contribute! The following is a set of guidelines for contributing to SeisSol.
+First off, thanks for taking your time to contribute! The following is a set of guidelines for contributing to SeisSol. We sincerely ask you to read and follow our [**Code of Conduct**](../CODE_OF_CONDUCT.md).
 
 ## Contributing as a user
 ### Reporting issues
 
 A great way to contribute to SeisSol is to send a detailed report when you encounter a problem. We always appreciate a well-written reports and will thank you for it. Moreover, it will help us to reproduce your issue. 
 
-Go [here](https://github.com/SeisSol/SeisSol/issues) and click on "New issue". Then click on "Get started". A new web-page will pop up where you need to fill in a template and and give a descriptive title. Once it is done, click on "Submit new issue".
+Go [here](https://github.com/SeisSol/SeisSol/issues) and click on "New issue". Select either "Bug report" or "Feature request" and  click on the corresponding "Get started" button. A new web-page will pop up where you will need to fill in a template and give a descriptive title. Once it is done, click on "Submit new issue".
 
 ## Contributing as a developer
 ### Workflow
