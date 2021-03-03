@@ -1250,7 +1250,7 @@ MODULE Eval_friction_law_mod
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
              !1.update SV using Vold from the previous time step
-             CALL updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
+             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                  S = -LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
@@ -1266,8 +1266,8 @@ MODULE Eval_friction_law_mod
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
              n_stress = P - P_f
-             CALL IterativelyInvertSR (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
-                                  n_stress, Shtest, invZ, SRtest, has_converged)
+             CALL IterativelyInvertSR (EQN, DISC, iFace, nBndGP, nSRupdates, LocSR, LocSV, &
+                             n_stress, Shtest, invZ, SRtest, has_converged)
 
              ! 3. update theta, now using V=(Vnew+Vold)/2
              SR_tmp=0.5d0*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
@@ -1290,7 +1290,8 @@ MODULE Eval_friction_law_mod
          
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
+         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              S = -LocMu*(P - P_f)
              DO iBndGP = 1, nBndGP
@@ -1386,21 +1387,31 @@ MODULE Eval_friction_law_mod
   !
  END SUBROUTINE rate_and_state
 
-   SUBROUTINE updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
-                         SV0, time_inc, SR_tmp, LocSV)
+   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
+    TYPE(tEquations)               :: EQN
+    TYPE(tDiscretization)          :: DISC
     ! Argument list declaration
-    INTEGER                  :: nBndGP
+    INTEGER                  :: iFace, nBndGP
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
     REAL                     :: SV0(nBndGP), time_inc, SR_tmp(nBndGP)                  !changing during iterations
     REAL                     :: flv(nBndGP), fss(nBndGP), SVss(nBndGP), LocSV(nBndGP)                 !calculated in this routine
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, &
-                     RS_sl0, SV0, time_inc, SR_tmp
+    INTENT(IN)    :: EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp
     INTENT(INOUT) :: LocSV
     !-------------------------------------------------------------------------!
+
+    RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
+    RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
+    IF(EQN%FL.EQ.103) THEN 
+        RS_fw  = DISC%DynRup%Mu_w      ! mu_w, weakening friction coefficient
+        RS_srW = DISC%DynRup%RS_srW_array(:,iFace)    ! Vw, weakening sliding velocity, space dependent
+    ENDIF
+    RS_a   = DISC%DynRup%RS_a_array(:,iFace) ! a, direct effect, space dependent
+    RS_b   = DISC%DynRup%RS_b       ! b, evolution effect
+    RS_sl0 = DISC%DynRup%RS_sl0_array(:,iFace)     ! L, char. length scale
 
     SELECT CASE(EQN%FL)
     CASE(3)
@@ -1429,22 +1440,25 @@ MODULE Eval_friction_law_mod
 
   END SUBROUTINE updateStateVariable
 
-  SUBROUTINE IterativelyInvertSR (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
+  SUBROUTINE IterativelyInvertSR (EQN, DISC, iFace, nBndGP, nSRupdates, LocSR, LocSV, &
                              n_stress, sh_stress, invZ, SRtest, has_converged)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
+    TYPE(tEquations)               :: EQN
+    TYPE(tDiscretization)          :: DISC
     ! Argument list declaration
     LOGICAL       :: has_converged                                            !check convergence
-    INTEGER       :: nSRupdates, i, nBndGP
+    INTEGER       :: nSRupdates, i, iFace, nBndGP
     REAL          :: RS_sr0, RS_a(nBndGP)                                     !constants
+    REAL          :: RS_f0, RS_b, RS_sl0(nBndGP)
     REAL          :: SRtest(nBndGP), LocSR(nBndGP), LocSV(nBndGP)
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
     REAL          :: AlmostZero = 1d-45, aTolF = 1d-8
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
+    INTENT(IN)    :: EQN, DISC, iFace, nBndGP, nSRupdates, LocSR, LocSV, n_stress, &
                      sh_stress, invZ
     INTENT(OUT)   :: SRtest, has_converged
     !-------------------------------------------------------------------------!
@@ -1460,6 +1474,12 @@ MODULE Eval_friction_law_mod
 
 
     ! first guess = SR value of the previous step
+    RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
+    RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
+    RS_a   = DISC%DynRup%RS_a_array(:,iFace) ! a, direct effect, space dependent
+    RS_b   = DISC%DynRup%RS_b       ! b, evolution effect
+    RS_sl0 = DISC%DynRup%RS_sl0_array(:,iFace)     ! L, char. length scale
+
     SRtest = LocSR
 
     IF(EQN%FL.EQ.103) THEN 
