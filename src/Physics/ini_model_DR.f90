@@ -67,7 +67,6 @@ MODULE ini_model_DR_mod
   private :: rotateStressToFaultCS
   !---------------------------------------------------------------------------!
   PRIVATE :: friction_RSF7
-  PRIVATE :: friction_RSF101
   PRIVATE :: friction_RSF103
   PRIVATE :: friction_LSW
   PRIVATE :: friction_LSW6
@@ -107,9 +106,6 @@ MODULE ini_model_DR_mod
     CASE(7)
       ! Initialization of initial slip rate and friction for fast velocity weakening friction
       CALL friction_RSF7(DISC,EQN,MESH,BND)
-    CASE(101)
-     ! Initialization of initial slip rate and friction for SCEC TPV103
-     CALL friction_RSF101(DISC,EQN,MESH,BND)
     CASE(3,4,103)
      ! Initialization of initial temperature and pressure for TP
      IF (DISC%DynRup%ThermalPress.EQ.1) THEN
@@ -278,7 +274,7 @@ MODULE ini_model_DR_mod
         call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
         call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
 
-    CASE(3,4,7,101,103)
+    CASE(3,4,7,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
       ! Initialize w/ first-touch
       !$omp parallel do schedule(static)
@@ -590,83 +586,6 @@ MODULE ini_model_DR_mod
   ENDDO !    MESH%Fault%nSide
 
   END SUBROUTINE friction_RSF7      ! Initialization of initial slip rate and friction for fast velocity weakening friction
-
-  !> Initialization of initial slip rate and friction for SCEC TPV101
-  !<
-  SUBROUTINE friction_RSF101(DISC,EQN,MESH,BND)
-  !-------------------------------------------------------------------------!
-  USE DGBasis_mod
-  !-------------------------------------------------------------------------!
-  IMPLICIT NONE
-  !-------------------------------------------------------------------------!
-  TYPE(tDiscretization), target  :: DISC
-  TYPE(tEquations)               :: EQN
-  TYPE(tUnstructMesh)            :: MESH
-  TYPE (tBoundary)               :: BND
-  !-------------------------------------------------------------------------!
-  ! Local variable declaration
-  INTEGER                        :: i
-  INTEGER                        :: iSide,iElem,iBndGP
-  INTEGER                        :: iLocalNeighborSide,iNeighbor
-  INTEGER                        :: MPIIndex, iObject
-  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-  REAL                           :: chi,tau
-  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-  REAL                           :: iniSlipRate, tmp
-  !-------------------------------------------------------------------------!
-  INTENT(IN)    :: MESH,BND
-  INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------!
-
-  EQN%IniSlipRate1 = DISC%DynRup%RS_iniSlipRate1
-  EQN%IniSlipRate2 = DISC%DynRup%RS_iniSlipRate2
-  iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
-
-  ! Loop over every mesh element
-  DO i = 1, MESH%Fault%nSide
-
-      ! element ID
-      iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)
-
-      ! get vertices of complete tet
-      IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-          !
-          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-      ELSE
-          !
-          ! get vertices
-          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-      ENDIF
-      !
-      DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          !
-          ! Transformation of boundary GP's into XYZ coordinate system
-          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-          CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-               !
-          EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%IniShearXY(i,iBndGP)/EQN%IniBulk_yy(i,iBndGP)-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(iBndGP,i)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
-          ! ASINH(X)=LOG(X+SQRT(X^2+1))
-          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(iBndGP,i))
-          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(iBndGP,i) * LOG(tmp + SQRT(tmp**2 + 1.0))
-
-      ENDDO ! iBndGP
-
-  ENDDO !    MESH%Fault%nSide
-
-  END SUBROUTINE friction_RSF101      ! Initialization of initial slip rate and friction for SCEC TPV101
 
   !> Initialization of initial slip rate and friction for SCEC TPV103
   !<

@@ -1058,7 +1058,7 @@ CONTAINS
                logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
                DISC%DynRup%SlipRateOutputType = 0
              ENDIF
-           CASE(3,4,7,101,103)
+           CASE(3,4,7,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
              DISC%DynRup%RS_b = RS_b    ! b, evolution effect
