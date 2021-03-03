@@ -13,4 +13,4 @@ Please follow the rules when participating in our community.
 # Contributing
 We will be happy if you plan to contribute new features, extensions or bug fixes to SeisSol. To start off, please, open a new issue and discuss your feature with us before diving into coding.
 
-To learn more about contributing to SeisSol, please see our [Contribution page](.github/CONTRIBUTING.md).
+To learn more about contributing to SeisSol, please read our [**Contribution page**](.github/CONTRIBUTING.md).
