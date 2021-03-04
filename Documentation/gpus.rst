@@ -38,6 +38,12 @@ automatic, GPU-aware process pinning. Consider the following SLURM options:
 You can also enforce good GPU affinity with rankfiles if your GPU cluster or local server
 does not use a workload manager but is equipped with multiple GPUs per node.
 
+Supported SeisSol Features
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- elastic wave propagation model with kinematic point sources
+- off-fault plasticity model
+
 
 Compilation
 ~~~~~~~~~~~
