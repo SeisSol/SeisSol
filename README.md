@@ -1,9 +1,14 @@
-This is a development version of SeisSol (www.seissol.org).
+![](Documentation/LatexFigures/logo2.png)
 
-**SeisSol is still under heavy development and comes without any guaranteed funcitonality. At the moment we can only provide very limited support for general users. Please contact [Alice Gabriel](http://www.geophysik.uni-muenchen.de/Members/gabriel) if you are interested in a close collaboration.**
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) ![GitHub Repo stars](https://img.shields.io/github/stars/SeisSol/SeisSol) ![GitHub forks](https://img.shields.io/github/forks/SeisSol/SeisSol) ![GitHub issues](https://img.shields.io/github/issues/SeisSol/SeisSol) ![GitHub pull requests](https://img.shields.io/github/issues-pr/SeisSol/SeisSol)
 
-For further information on running SeisSol and a first example see our
-[Documentation](https://seissol.readthedocs.io)
+SeisSol is a scientific software for the numerical simulation of seismic wave phenomena and earthquake dynamics. It is based on the discontinuous Galerkin method combined with ADER time discretization. Visit our [official website](http://seissol.org) and also read our [documentation](https://seissol.readthedocs.io) in order to learn more about SeisSol.
+
+### Note
+SeisSol is still under heavy development and comes without any guaranteed funcitonality. At the moment we can only provide very limited support for general users. 
+
+# Collaboration
+If you are interested in a close collaboration, please, contact [Alice Gabriel](http://www.geophysik.uni-muenchen.de/Members/gabriel).
 
 # Code of Conduct
 We follow a [**Code of Conduct**](CODE_OF_CONDUCT.md).
