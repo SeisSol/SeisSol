@@ -1,5 +1,5 @@
 # Contributing to SeisSol
-First off, thanks for taking your time to contribute! The following is a set of guidelines for contributing to SeisSol. We sincerely ask you to read and follow our [**Code of Conduct**](../CODE_OF_CONDUCT.md).
+First off, thanks for taking your time to contribute! The following is a set of guidelines for contributing to SeisSol. We sincerely ask you to read and follow our [**Code of Conduct**](CODE_OF_CONDUCT.md).
 
 ## Contributing as a user
 ### Reporting issues
