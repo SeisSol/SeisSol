@@ -440,7 +440,7 @@ MODULE Eval_friction_law_mod
       ! Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
       ! resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
       ! degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
-      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + matmul(resampleMatrix, LocSR(:))*time_inc
+      DISC%DynRup%Slip(:,iFace)  = max(0.0, DISC%DynRup%Slip(:,iFace)  + matmul(resampleMatrix, LocSR(:))*time_inc)
       tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
       
      ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
@@ -1071,7 +1071,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip2(:,iFace)     = LocSlip2
      DISC%DynRup%TracXY(:,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
-     DISC%DynRup%StateVar(:,iFace)  = DISC%DynRup%StateVar(:,iFace) + matmul(resampleMatrix, LocSV - DISC%DynRup%StateVar(:,iFace))
+     DISC%DynRup%StateVar(:,iFace)  = max(0.0, DISC%DynRup%StateVar(:,iFace) + matmul(resampleMatrix, LocSV - DISC%DynRup%StateVar(:,iFace)))
 
      IF (DISC%DynRup%magnitude_out(iFace)) THEN
         DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
@@ -1122,7 +1122,6 @@ MODULE Eval_friction_law_mod
         ! exact integration of dSV/dt DGL, assuming constant V over integration step
         LocSV = Svss*(1.0D0-EXP(-SR_tmp*time_inc/RS_sl0))+EXP(-SR_tmp*time_inc/RS_sl0)*SV0
     END SELECT  
-
 
     IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
        logError(*) 'NaN detected'
