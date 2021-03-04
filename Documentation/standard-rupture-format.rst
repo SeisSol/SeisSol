@@ -79,6 +79,19 @@ orientation with the +axis option. Examples:
 If the axis description does not fit your mesh, your moment tensor will
 not be rotated correctly (according to strike, dip, and rake angles).
 
+
+Named projections
+^^^^^^^^^^^^^^^^^^
+
+Some named projections are not recognized by proj4 (for instance, most EPSG projections). A good ressource for transposing these named projections to generic projection strings that are understood by proj4 (and rconv) can be found at
+`this page <https://josm.openstreetmap.de/browser/josm/trunk/data/projection/epsg?rev=7943>`__.
+
+Dealing with projected data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the SRF data are already projected, the projection within rconv can be by-passed using the following projection string: ``+proj=lonlat +datum=WGS84 +units=m``.
+
+
 How to use Rconv
 ^^^^^^^^^^^^^^^^
 
