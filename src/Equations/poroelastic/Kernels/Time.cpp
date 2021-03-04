@@ -71,10 +71,6 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
-#include "Numerical_aux/Functions.h"
-#include "Numerical_aux/Quadrature.h"
-#include "generated_code/init.h"
-#include "generated_code/tensor.h"
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
@@ -118,6 +114,7 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   }
   for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
+    m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
@@ -160,20 +157,21 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   //Itf the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
  
-//  if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
-//    auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
-//    real ZinvData[NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER*CONVERGENCE_ORDER];
-//    auto Zinv = init::Zinv::view::create(ZinvData);
-//    model::calcZinv(Zinv, sourceMatrix, i_timeStepWidth);
-//    krnl.Zinv = ZinvData;
-//  } else {
-  for(size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-    krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
+  if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+    auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
+    real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
+    model::for_loop<0, NUMBER_OF_QUANTITIES>(ZinvData, sourceMatrix, i_timeStepWidth);
+    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+      krnl.Zinv(i) = ZinvData[i];
+    }
+  } else {
+    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+      krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
+    }
   }
   krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
   krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
   krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
-//  }
 
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;
@@ -200,13 +198,14 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
 
 #ifdef USE_STP
   real temporaryBuffer[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK)));
-  real* stp = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
-  executeSTP( i_timeStepWidth, data, o_timeIntegrated, stp );
+  real* stpBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
+  executeSTP( i_timeStepWidth, data, o_timeIntegrated, stpBuffer );
 #else
   /*
    * compute ADER scheme.
    */
   // temporary result
+  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
   real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
@@ -257,8 +256,6 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 #ifdef USE_STP
   o_nonZeroFlops = kernel::stp::NonZeroFlops;
   o_hardwareFlops = kernel::stp::HardwareFlops;
-
-  //TODO add time integration
 #else
   o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
   o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
@@ -295,7 +292,6 @@ void seissol::kernels::Time::computeIntegral( double                            
                                               const real*                       i_timeDerivatives,
                                               real                              o_timeIntegrated[tensor::I::size()])
 {
-
   /*
    * assert alignments.
    */

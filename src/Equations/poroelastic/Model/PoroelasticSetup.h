@@ -1,3 +1,6 @@
+#ifndef MODEL_POROELASTICSETUP_H_
+#define MODEL_POROELASTICSETUP_H_
+
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 #include <iomanip>
@@ -341,18 +344,18 @@ namespace seissol {
     }
 
     //constexpr for loop since we need to instatiate the view templates
-     template<size_t i_start, size_t i_end>
-     struct for_loop {
-       for_loop(PoroelasticLocalData* ld,
-           yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
-           real timeStepWidth) {
-         auto Zinv = init::Zinv::view<i_start>::create(ld->Zinv[i_start]); 
-         calcZinv(Zinv, sourceMatrix, i_start, timeStepWidth);
-         if constexpr(i_start < i_end-1) {
-           for_loop<i_start+1, i_end>(ld, sourceMatrix, timeStepWidth);
-         }
-       };
-     };
+    template<size_t i_start, size_t i_end>
+    struct for_loop {
+      for_loop(real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
+          yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
+          real timeStepWidth) {
+        auto Zinv = init::Zinv::view<i_start>::create(ZinvData[i_start]); 
+        calcZinv(Zinv, sourceMatrix, i_start, timeStepWidth);
+        if constexpr(i_start < i_end-1) {
+          for_loop<i_start+1, i_end>(ZinvData, sourceMatrix, timeStepWidth);
+        }
+      };
+    };
 
     inline void initializeSpecificLocalData( PoroElasticMaterial const& material,
         real timeStepWidth,
@@ -362,7 +365,7 @@ namespace seissol {
       sourceMatrix.setZero();
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-      for_loop<0, NUMBER_OF_QUANTITIES>(localData, sourceMatrix, timeStepWidth);
+      for_loop<0, NUMBER_OF_QUANTITIES>(localData->Zinv, sourceMatrix, timeStepWidth);
       std::fill(localData->G, localData->G+NUMBER_OF_QUANTITIES, 0.0);
       localData->G[10] = sourceMatrix(10, 6);
       localData->G[11] = sourceMatrix(11, 7);
@@ -373,3 +376,4 @@ namespace seissol {
 #endif
   }
 }
+#endif

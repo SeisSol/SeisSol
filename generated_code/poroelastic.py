@@ -121,6 +121,10 @@ class PoroelasticADERDG(LinearADERDG):
       selectSpp[o,o] = 1
       return Tensor('selectQuantity({})'.format(o), selectSpp.shape, spp = selectSpp)
 
+    def selectQuantity_G(o):
+      selectSpp = np.zeros((self.numberOfQuantities(),self.numberOfQuantities()))
+      selectSpp[o-4, o] = 1
+      return Tensor('selectQuantity_G({})'.format(o), selectSpp.shape, spp = selectSpp)
 
     def Zinv(o):
         return Tensor('Zinv({})'.format(o), (self.order, self.order))
@@ -138,9 +142,9 @@ class PoroelasticADERDG(LinearADERDG):
       for o in range(self.numberOfQuantities()-1,-1,-1):
         kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * stpRhs['lqu'] * Zinv(o)['tu'] )
         #G only has one relevant non-zero entry in each iteration, so we make it a scalar
-        #G[i,j] = E[i, j-4] * timestep
+        #G[i] = E[i, i-4] * timestep
         if o >= 10:
-          kernels.append( stpRhs['kpt'] <= stpRhs['kpt'] + G[o] * selectModes(n)['kl'] * selectQuantity(o)['pv'] * stp['lvt'] )
+          kernels.append( stpRhs['kpt'] <= stpRhs['kpt'] + G[o] * selectQuantity_G(o)['pv'] * selectQuantity(o)['vq'] * selectModes(n)['kl'] * stp['lqt'] )
       if n > 0:
         derivativeSum = stpRhs['kpt']
         for d in range(3):
