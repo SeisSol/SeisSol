@@ -178,18 +178,7 @@ public:
 	/**
 	 * Called by ASYNC on all ranks
 	 */
-	void setUp()
-	{
-		setExecutor(m_executor);
-		if (isAffinityNecessary()) {
-		  const auto freeCpus = parallel::getFreeCPUsMask();
-		  logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
-		  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
-		    logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
-		  }
-		  setAffinityIfNecessary(freeCpus);
-		}
-	}
+	void setUp();
 
   void setWaveFieldInterval(double interval) {
     setSyncInterval(interval);

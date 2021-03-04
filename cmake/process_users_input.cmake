@@ -27,9 +27,9 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of the target host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx thunderx2t99 power9)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx rome thunderx2t99 power9)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64           16     16)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64   32       16     16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 

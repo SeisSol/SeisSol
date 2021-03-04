@@ -110,7 +110,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',MAG_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call exit(134)                                                          !
         ENDIF
     ELSE
         ! open file
@@ -123,7 +123,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',MAG_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call exit(134)                                                          !
         ENDIF
         !
     ENDIF
@@ -203,7 +203,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',MAG_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call exit(134)                                                          !
         ENDIF
     ELSE
         ! open file
@@ -216,7 +216,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',MAG_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call exit(134)                                                          !
         ENDIF
         WRITE(UNIT_MAG,*) '#time MomentRate FrictionalEnergyRate'
         !

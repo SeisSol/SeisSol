@@ -47,6 +47,20 @@
 #include "Monitoring/instrumentation.fpp"
 #include <Modules/Modules.h>
 
+void seissol::writer::WaveFieldWriter::setUp()
+{
+  setExecutor(m_executor);
+  if (isAffinityNecessary()) {
+    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+    logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:"
+      << parallel::Pinning::maskToString(freeCpus);
+    if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+      logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+    }
+    setAffinityIfNecessary(freeCpus);
+  }
+}
+
 void seissol::writer::WaveFieldWriter::enable()
 {
 	m_enabled = true;

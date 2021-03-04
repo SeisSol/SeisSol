@@ -105,7 +105,7 @@ CONTAINS
     IF (SUM(ABS(allocStat(:))).NE.0) THEN                                       
        logError(*) 'Allocation error in ini_opt_fields. '
        logError(*) 'Status: ', allocstat(:)
-       STOP                                                                    
+       call exit(134)                                                                    
     END IF                                                                              
     !
   END SUBROUTINE ini_OptionalFields
