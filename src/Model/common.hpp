@@ -188,13 +188,11 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
     QgodLocal(6, 6) = 1.0;
   } else {
     if constexpr(std::is_same<Tmatrix, arma::Mat<double>>::value) {
-      R.print("R=");
       arma::uvec traction_indices = {0,3,5,9};
       arma::uvec velocity_indices = {6,7,8,10,11,12};
-      arma::uvec column_indices = {4, 6, 8, 10};
+      arma::uvec column_indices = {5, 7, 9, 11};
       arma::mat R11 = R.submat(traction_indices, column_indices);
       arma::mat R21 = R.submat(velocity_indices, column_indices);
-      R11.print("R11=");
       arma::mat S = (-(R21 * inv(R11))).eval();
       setBlocks(QgodLocal, S, traction_indices, velocity_indices);
     } else {
