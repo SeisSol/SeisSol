@@ -37,7 +37,7 @@ atscc68_2:
         - singularity pull --arch amd64 library://7bits-register/collection/seissol_base_arm64.sif:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2
         - du -h -d1
         - ls
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243.sif ./test_singularity.sh
+        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_arm64.sif_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2.sif ./test_singularity.sh
         
 dbuilder:
     stage: pre_test
@@ -72,7 +72,7 @@ dbuilder_2:
         - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
         - ls -lh
         - cat test_singularity_cpu.sh
-        - singularity run --nv -B $PWD:/home/$(whoami) ./seissol_base_amd64_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5.sif ./test_singularity_cpu.sh
+        - singularity run -B $PWD:/home/$(whoami) ./seissol_base_amd64_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5.sif ./test_singularity_cpu.sh
         
 ci_builder:
     stage: pre_test
