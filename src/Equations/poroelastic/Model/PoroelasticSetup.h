@@ -290,16 +290,26 @@ namespace seissol {
         if(eigen_local.eigenvalues(i).real() < -tolerance) {
           chi_minus(i,i) = 1.0;
         }
-        if(eigen_local.eigenvalues(i).real() > tolerance) {
+        //also include the zero eigenvalues here, otherwise the matrix R will be singular
+        if(eigen_local.eigenvalues(i).real() > -tolerance) {
           chi_plus(i,i) = 1.0;
         }
       }
 
-      CMatrix R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
+//      CMatrix R = eigen_local.eigenvectors * chi_minus + eigen_neighbor.eigenvectors * chi_plus;
+//      //set null space eigenvectors manually
+//      R(1,0) = 1.0;
+//      R(2,1) = 1.0;
+//      R(12,2) = 1.0;
+//      R(11,3) = 1.0;
+//      R(4,12) = 1.0;
+      CMatrix R = eigen_local.eigenvectors;
       if (faceType == FaceType::freeSurface) {
         Matrix R_real = arma::real(R);
         getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
       } else {
+//        CMatrix diff = R - eigen_local.eigenvectors;
+//        R.print("R=");
 	CMatrix R_inv = inv(R);
         CMatrix godunov_minus = R * chi_minus * R_inv;
         CMatrix godunov_plus =  R * chi_plus * R_inv;
