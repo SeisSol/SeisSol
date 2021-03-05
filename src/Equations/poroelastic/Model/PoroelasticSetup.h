@@ -295,8 +295,7 @@ namespace seissol {
         }
       }
 
-      //Matrix R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
-      CMatrix R = eigen_local.eigenvectors;
+      CMatrix R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
       if (faceType == FaceType::freeSurface) {
         Matrix R_real = arma::real(R);
         getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
