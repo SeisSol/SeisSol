@@ -42,8 +42,9 @@ import numpy as np
 from yateto import Tensor
 from yateto.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
+from common import generate_kernel_name_prefix
 
-def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
+def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   # Load matrices
   db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
   numberOfNodes = aderdg.t(db.v.shape())[0]
@@ -54,7 +55,13 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
 
   replicateIniLShape = (numberOfNodes,)
   replicateIniLSpp = np.ones(aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),)))
-  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
+  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading',
+                                              aderdg.Q.optName(),
+                                              aderdg.Q.optSize(),
+                                              aderdg.Q.optPos(),
+                                              replicateIniLShape,
+                                              spp=replicateIniLSpp,
+                                              alignStride=True)
 
   iShape = (numberOfNodes, 6)
   QStressNodal = OptionalDimTensor('QStressNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), iShape, alignStride=True)
@@ -71,3 +78,23 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
   generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
   generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv[aderdg.t('kl')] * QStressNodal['lp'] * yieldFactor['l'])
+
+  gpu_target = 'gpu'
+  if gpu_target in targets:
+    name_prefix = generate_kernel_name_prefix(gpu_target)
+
+    # suffix `M` stands for `Matrix`
+    replicateInitialLoadingM = Tensor(name='replicateInitialLoadingM',
+                                      shape=(numberOfNodes, 1),
+                                      spp=np.ones((numberOfNodes, 1)))
+    initialLoadingM = Tensor('initialLoadingM', (1, 6))
+
+    # Note: the last term was change on purpose because
+    # GemmForge doesn't currently support tensor product operation
+    convert_to_nodal = QStressNodal['kp'] <= \
+                       db.v[aderdg.t('kl')] * QStress['lp'] + \
+                       replicateInitialLoadingM['km'] * initialLoadingM['mp']
+
+    generator.add(name=f'{name_prefix}plConvertToNodal',
+                  ast=convert_to_nodal,
+                  target=gpu_target)
