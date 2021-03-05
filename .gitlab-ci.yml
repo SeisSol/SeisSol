@@ -32,6 +32,7 @@ atscc68_2:
         - export SINGULARITY_TMPDIR=/work/viktoria/singularity/tmp
         - export SINGULARITY_LOCALCACHEDIR=/work/viktoria/singularity/tmp-runtime
         - export SINGULARITY_CACHEDIR=/work/viktoria/singularity/cache
+        - export PATH=$PATH:/home/ubuntu/singularity/bin
         - du -h -d1
         - ls
         - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
