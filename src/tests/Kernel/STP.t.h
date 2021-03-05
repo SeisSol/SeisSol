@@ -123,6 +123,7 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     }
     for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
       m_krnlPrototype.selectQuantity(k) = seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
+      m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
     }
     m_krnlPrototype.timeInt = seissol::init::timeInt::Values;
     m_krnlPrototype.wHat = seissol::init::wHat::Values;
