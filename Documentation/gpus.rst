@@ -61,7 +61,7 @@ Compile SeisSol with (e.g.)
 
 .. code-block:: bash
 
-    mkdir -p seissol-gpu/buid && cd seissol-gpu/buid 
+    mkdir -p seissol-gpu/build && cd seissol-gpu/build 
     cmake -DDEVICE_ARCH=nvidia -DDEVICE_SUB_ARCH=sm_70 -DHOST_ARCH=skx \
     -DCOMMTHREAD=ON -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
