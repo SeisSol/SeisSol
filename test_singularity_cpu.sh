@@ -2,9 +2,9 @@
 ​
 set -euo pipefail
 ​
-HOST_ARCH=hsw
-NUM_PROC=3
-​
+export HOST_ARCH=hsw
+export NUM_PROC=3
+
 for build_type in Release Debug; do
     for equation in elastic viscoelastic2 anisotropic; do
         for precision in double single; do
