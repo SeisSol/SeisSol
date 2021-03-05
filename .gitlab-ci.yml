@@ -44,7 +44,12 @@ dbuilder:
     tags:
         - dbuilder_cc
     script:
-        - git branch -vva
+        - whoami
+        - pwd
+        - echo $PATH
+        - echo $NAME_TEST
+        - du -h -d1
+        - df -hgit branch -vva
         - git log --format="%H" -n 1
         - git log --format="%H" -n 1 > commit_id
         - git --no-pager show -s --format='%ae' $commit_id
