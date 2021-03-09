@@ -1074,7 +1074,7 @@ MODULE Eval_friction_law_mod
      IF(EQN%FL.EQ.103) THEN 
         DISC%DynRup%StateVar(:,iFace)  = max(0.0, DISC%DynRup%StateVar(:,iFace) + matmul(resampleMatrix, LocSV - DISC%DynRup%StateVar(:,iFace)))
      ELSE
-        DISC%DynRup%StateVar(:,iFace)  = max(0.0,  matmul(resampleMatrix, LocSV))
+        DISC%DynRup%StateVar(:,iFace)  = LocSV
      ENDIF
 
      IF (DISC%DynRup%magnitude_out(iFace)) THEN
