@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
-#include <Solver/time_stepping/MiniSeisSol.cpp>
+#include <Solver/time_stepping/MiniSeisSol.h>
 #include <yateto.h>
 #include <unordered_set>
 

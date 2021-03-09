@@ -155,6 +155,7 @@ else()
     -DYAML_CPP_BUILD_TESTS=OFF
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_AR=/usr/bin/ar
   )
   add_dependencies(SeisSol-lib yaml-cpp-build)
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
@@ -170,6 +171,7 @@ ExternalProject_Add(ImpalaJIT-build
   -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DCMAKE_AR=/usr/bin/ar
 )
 add_dependencies(SeisSol-lib ImpalaJIT-build)
 target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
@@ -180,7 +182,7 @@ if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
-  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
+  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX EIGEN_DONT_PARALLELIZE)
 endif()
 
 if (MPI)
@@ -330,6 +332,8 @@ add_executable(SeisSol-proxy
 )
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
 
 
 if (TESTING)
