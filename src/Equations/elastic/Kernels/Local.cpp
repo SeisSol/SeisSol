@@ -262,11 +262,11 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
   if (table.find(key) != table.end()) {
     BatchTable &entry = table[key];
 
-    unsigned MaxNumElements = (entry.content[*EntityId::Dofs])->getSize();
-    volKrnl.numElements = MaxNumElements;
+    unsigned maxNumElements = (entry.content[*EntityId::Dofs])->getSize();
+    volKrnl.numElements = maxNumElements;
 
     // volume kernel always contains more elements than any local one
-    tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * MaxNumElements));
+    tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * maxNumElements));
 
     volKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
     volKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());

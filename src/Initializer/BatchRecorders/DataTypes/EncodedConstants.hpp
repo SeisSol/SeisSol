@@ -22,6 +22,7 @@ enum struct EntityId : size_t {
   NodalStressTensor,
   Pstrains,
   ElementsIds,
+  InitialLoad,
   Count
 };
 
