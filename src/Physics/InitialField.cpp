@@ -215,20 +215,23 @@ void seissol::physics::Ocean::evaluate(double time,
     const double k_y = pi / Ly; // 1/km
 
     constexpr auto k_stars = std::array<double, 3>{
-        0.443381374884124,
-        1.5733628061766,
-        4.7133058738815
+      0.4452003497054692,
+      1.5733628061766445,
+      4.713305873881573
     };
-    const auto k_star = k_stars[mode];
 
-    double omega;
-    if (mode == 0) {
-      omega = sqrt(g*k_star*std::tanh(k_star)); // 1/s
-    } else {
-      omega = sqrt(-g*k_star*std::tan(k_star)); // 1/s
-    }
+    // Note: Could be computed on the fly but it's better to pre-compute them with higher precision!
+    constexpr auto omegas = std::array<double, 3>{
+      0.0427240277969087,
+      2.4523337594491745,
+      7.1012991617572165
+    };
+
+    const auto k_star = k_stars[mode];
+    const auto omega = omegas[mode];
+
     const auto B = g * k_star / (omega * omega);
-    constexpr auto scalingFactor = 1000000;
+    constexpr auto scalingFactor = 1;
 
     // Shear stresses are zero for elastic
     dofsQp(i, 3) = 0.0;
