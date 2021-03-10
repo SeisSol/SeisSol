@@ -303,6 +303,9 @@ MODULE TypesDef
      INTEGER                   :: nNode_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
      INTEGER                   :: nElem_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
 #endif
+      INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
+      INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
+      INTEGER                    :: vertexWeightDisplacement ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge

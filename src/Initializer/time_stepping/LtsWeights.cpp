@@ -195,9 +195,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   m_ncon = 1;
   m_vertexWeights = new int[cells.size() * m_ncon];
   int maxCluster = getCluster(globalMaxTimestep, globalMinTimestep, m_rate);
-  int drToCellRatio = 1;
-  int displacementToCellRatio = 1;
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {    
+  for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
     int requiresDisplacement = 0;
 
@@ -229,10 +227,11 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
         requiresDisplacement++;
       }
     }
-    
-    m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture + displacementToCellRatio*requiresDisplacement)
-        * ipow(m_rate, maxCluster - cluster[cell]);
-    //m_vertexWeights[m_ncon * cell + 1] = (dynamicRupture > 0) ? 1 : 0;
+
+    const int costDynamicRupture = vertexWeightDynamicRupture * dynamicRupture;
+    const int costDisplacement = vertexWeightDisplacement * requiresDisplacement;
+    const int costPerTimestep = vertexWeightElement + costDynamicRupture + costDisplacement;
+    m_vertexWeights[m_ncon * cell] = costPerTimestep * ipow(m_rate, maxCluster - cluster[cell]);
   }
 
   delete[] cluster;

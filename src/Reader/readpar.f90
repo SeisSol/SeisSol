@@ -2196,6 +2196,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
     INTEGER                    :: readStat
+    INTEGER                    :: vertexWeightElement
+    INTEGER                    :: vertexWeightDynamicRupture
+    INTEGER                    :: vertexWeightDisplacement
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2208,7 +2211,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     CHARACTER(LEN=600)               :: MeshFile, meshgenerator
     NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
-                                            ScalingMatrixY, ScalingMatrixZ
+                                            ScalingMatrixY, ScalingMatrixZ, &
+                                            vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2232,6 +2236,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     ScalingMatrixZ(3) = 1.0
     periodic = 0
     periodic_direction(:) = 0
+    vertexWeightElement = 100
+    vertexWeightDynamicRupture = 100
+    vertexWeightDisplacement = 100
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
     IF (readStat.NE.0) THEN
@@ -2248,7 +2255,12 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     IO%meshgenerator = trim(meshgenerator)
 
-       EQN%HexaDimension = 3
+    EQN%HexaDimension = 3
+
+    MESH%vertexWeightElement = vertexWeightElement
+    MESH%vertexWeightDynamicRupture = vertexWeightDynamicRupture
+    MESH%vertexWeightDisplacement = vertexWeightDisplacement
+
        SELECT CASE(IO%meshgenerator)
        CASE('Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then
