@@ -2,39 +2,7 @@ stages:
     - pre_test
     - build 
     
-atsccs68:
-    stage: pre_test
-    tags:
-        - atsccs68-shell
-    script:
-        - whoami
-        - pwd
-        - echo $PATH
-        - echo $NAME_TEST
-        - du -h -d1
-        - df -h
-        
-atscc68_2:
-    stage:  build
-    tags:
-        - atsccs68-shell
-    script:
-        - whoami
-        - pwd
-        - git clone https://github.com/7bits-register/convergence-tests.git tests
-        - ls
-        - cat test_singularity.sh
-        - chmod +x test_singularity.sh
-        - which singularity 
-        - singularity --version
-        - export SINGULARITY_TMPDIR=/work/viktoria/singularity/tmp
-        - export SINGULARITY_LOCALCACHEDIR=/work/viktoria/singularity/tmp-runtime
-        - export SINGULARITY_CACHEDIR=/work/viktoria/singularity/cache
-        - singularity pull --arch amd64 library://7bits-register/collection/seissol_base_arm64.sif:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2
-        - du -h -d1
-        - ls
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_arm64.sif_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2.sif ./test_singularity.sh
-        
+
 dbuilder:
     stage: pre_test
     tags:
@@ -63,6 +31,7 @@ dbuilder_2:
         - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
         - export PATH=$PATH:/home/ubuntu/singularity/bin
+        - git clone https://github.com/7bits-register/convergence-tests.git tests
         - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
         - ls -lh
         - cat test_singularity_cpu.sh
