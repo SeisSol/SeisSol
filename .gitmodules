@@ -1,36 +1,36 @@
 [submodule "submodules/xdmfwriter"]
 	path = submodules/xdmfwriter
-	url = ../../TUM-I5/XdmfWriter.git
+	url = github.com/TUM-I5/XdmfWriter.git
 [submodule "submodules/cxxtest"]
 	path = submodules/cxxtest
-	url = ../../CxxTest/cxxtest.git
+	url = github.com/TUM-I5/XdmfWriter.git/CxxTest/cxxtest.git
 [submodule "submodules/utils"]
 	path = submodules/utils
-	url = ../../TUM-I5/utils.git
+	url = github.com/TUM-I5/XdmfWriter.git/TUM-I5/utils.git
 [submodule "submodules/async"]
 	path = submodules/async
-	url = ../../TUM-I5/ASYNC.git
+	url = github.com/TUM-I5/XdmfWriter.git/TUM-I5/ASYNC.git
 [submodule "submodules/scons-tools"]
 	path = submodules/scons-tools
-	url = ../../TUM-I5/scons-tools.git
+	url = github.com/TUM-I5/XdmfWriter.git/TUM-I5/scons-tools.git
 [submodule "submodules/PUML"]
 	path = submodules/PUML
-	url = ../../TUM-I5/PUML2.git
+	url = github.com/TUM-I5/XdmfWriter.git/TUM-I5/PUML2.git
 [submodule "submodules/easi"]
 	path = submodules/easi
-	url = ../../SeisSol/easi.git
+	url = github.com/TUM-I5/XdmfWriter.git/SeisSol/easi.git
 [submodule "submodules/yaml-cpp"]
 	path = submodules/yaml-cpp
-	url = ../../jbeder/yaml-cpp.git
+	url = github.com/TUM-I5/XdmfWriter.git/jbeder/yaml-cpp.git
 [submodule "submodules/ImpalaJIT"]
 	path = submodules/ImpalaJIT
-	url = ../../uphoffc/ImpalaJIT.git
+	url = github.com/TUM-I5/XdmfWriter.git/uphoffc/ImpalaJIT.git
 [submodule "submodules/yateto"]
 	path = submodules/yateto
-	url = ../../SeisSol/yateto.git
+	url = github.com/TUM-I5/XdmfWriter.git/SeisSol/yateto.git
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
-	url = ../../eigenteam/eigen-git-mirror
+	url = github.com/TUM-I5/XdmfWriter.git/eigenteam/eigen-git-mirror
 [submodule "submodules/Device"]
 	path = submodules/Device
-	url = ../../SeisSol/Device.git
+	url = github.com/TUM-I5/XdmfWriter.git/SeisSol/Device.git
