@@ -2,12 +2,6 @@
 
 set -euo pipefail
 
-export CUDA_PATH=$(dirname $(dirname $(readlink $(which nvcc))))
-export CUDA_HOME=$CUDA_PATH
-export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:$CUDA_HOME
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64/stubs
-export LIBRARY_PATH=$LIBRARY_PATH:$CUDA_HOME/lib64/stubs
-
 # install gemmforge
 pip3 install git+https://github.com/ravil-mobile/gemmforge.git
 
