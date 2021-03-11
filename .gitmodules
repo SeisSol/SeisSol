@@ -3,34 +3,34 @@
 	url = https://github.com/TUM-I5/XdmfWriter.git
 [submodule "submodules/cxxtest"]
 	path = submodules/cxxtest
-	url = https://github.com/github.com/CxxTest/cxxtest.git
+	url = https://github.com/CxxTest/cxxtest.git
 [submodule "submodules/utils"]
 	path = submodules/utils
-	url = https://github.com/github.com/TUM-I5/utils.git
+	url = https://github.com/TUM-I5/utils.git
 [submodule "submodules/async"]
 	path = submodules/async
-	url = https://github.com/github.com/TUM-I5/ASYNC.git
+	url = https://github.com/TUM-I5/ASYNC.git
 [submodule "submodules/scons-tools"]
 	path = submodules/scons-tools
-	url = github.com/TUM-I5/scons-tools.git
+	url = https://github.com/TUM-I5/scons-tools.git
 [submodule "submodules/PUML"]
 	path = submodules/PUML
-	url = github.com/TUM-I5/PUML2.git
+	url = https://github.com/TUM-I5/PUML2.git
 [submodule "submodules/easi"]
 	path = submodules/easi
-	url = github.com/SeisSol/easi.git
+	url = https://github.com/SeisSol/easi.git
 [submodule "submodules/yaml-cpp"]
 	path = submodules/yaml-cpp
-	url = github.com/jbeder/yaml-cpp.git
+	url = https://github.com/jbeder/yaml-cpp.git
 [submodule "submodules/ImpalaJIT"]
 	path = submodules/ImpalaJIT
-	url = github.com/uphoffc/ImpalaJIT.git
+	url = https://github.com/uphoffc/ImpalaJIT.git
 [submodule "submodules/yateto"]
 	path = submodules/yateto
-	url = github.com/SeisSol/yateto.git
+	url = https://github.com/SeisSol/yateto.git
+[submodule "submodules/pythonXdmfReader"]
+	path = submodules/pythonXdmfReader
+	url = https://github.com/Thomas-Ulrich/pythonXdmfReader
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
-	url = github.com/eigenteam/eigen-git-mirror
-[submodule "submodules/Device"]
-	path = submodules/Device
-	url = github.com/SeisSol/Device.git
+	url = https://github.com/eigenteam/eigen-git-mirror
