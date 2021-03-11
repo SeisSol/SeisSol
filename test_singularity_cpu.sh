@@ -1,5 +1,8 @@
 #!/bin/bash
 set -euo pipefail
+
+export CTEST_OUTPUT_ON_FAILURE=1
+
 for build_type in Release Debug; do
     for equation in elastic viscoelastic2 anisotropic; do
         for precision in double single; do
