@@ -1,15 +1,15 @@
 [submodule "submodules/xdmfwriter"]
 	path = submodules/xdmfwriter
-	url = github.com/TUM-I5/XdmfWriter.git
+	url = https://github.com/TUM-I5/XdmfWriter.git
 [submodule "submodules/cxxtest"]
 	path = submodules/cxxtest
-	url = github.com/CxxTest/cxxtest.git
+	url = https://github.com/github.com/CxxTest/cxxtest.git
 [submodule "submodules/utils"]
 	path = submodules/utils
-	url = github.com/TUM-I5/utils.git
+	url = https://github.com/github.com/TUM-I5/utils.git
 [submodule "submodules/async"]
 	path = submodules/async
-	url = github.com/TUM-I5/ASYNC.git
+	url = https://github.com/github.com/TUM-I5/ASYNC.git
 [submodule "submodules/scons-tools"]
 	path = submodules/scons-tools
 	url = github.com/TUM-I5/scons-tools.git
