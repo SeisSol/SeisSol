@@ -21,10 +21,8 @@ atscc68_2:
     script:
         - whoami
         - pwd
-        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - git clone https://github.com/7bits-register/convergence-tests.git tests
         - ls
-        - cat /etc/os-release
         - cat test_singularity.sh
         - chmod +x test_singularity.sh
         - which singularity 
@@ -32,8 +30,6 @@ atscc68_2:
         - export SINGULARITY_TMPDIR=/work/viktoria/singularity/tmp
         - export SINGULARITY_LOCALCACHEDIR=/work/viktoria/singularity/tmp-runtime
         - export SINGULARITY_CACHEDIR=/work/viktoria/singularity/cache
-        - du -h -d1
-        - ls
         - singularity pull --arch amd64 library://7bits-register/collection/seissol_base_arm64.sif:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-11.0.2
         - du -h -d1
         - ls
