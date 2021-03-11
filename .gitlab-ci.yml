@@ -42,10 +42,8 @@ dbuilder:
     script:
         - whoami
         - pwd
-        - echo $PATH
+        - echo $HOST_ARCH
         - echo $NAME_TEST
-        - du -h -d1
-        - df -h
         - git branch -vva
         - git log --format="%H" -n 1
         - git log --format="%H" -n 1 > commit_id
@@ -76,10 +74,6 @@ ci_builder:
         - ci_testing_cc
     before_script:
         - git branch -vva
-        #- git log --format="%H" -n 1
-        #- git log --format="%H" -n 1 > commit_id
-        #- git --no-pager show -s --format='%ae' $commit_id
-        #- commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
     script:
         - whoami
