@@ -140,7 +140,7 @@ class PoroelasticADERDG(LinearADERDG):
     kernels.append( stpRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t'] )
     for n in range(self.order-1,-1,-1):
       for o in range(self.numberOfQuantities()-1,-1,-1):
-        kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * stpRhs['lqu'] * Zinv(o)['tu'] )
+        kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * stpRhs['lqu'] * Zinv(o)['ut'] )
         #G only has one relevant non-zero entry in each iteration, so we make it a scalar
         #G[i] = E[i, i-4] * timestep
         if o >= 10:

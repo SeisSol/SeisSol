@@ -344,7 +344,8 @@ namespace seissol {
         rhs(col) = 1.0;
         auto Zinv_col = solver.solve(rhs);
         for(int row = 0; row < CONVERGENCE_ORDER; row++) {
-          Zinv(row,col) = Zinv_col(row);
+          //save as transposed
+          Zinv(col,row) = Zinv_col(row);
         }
       }
     }
