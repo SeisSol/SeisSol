@@ -1,5 +1,4 @@
 #!/bin/bash
-​
 set -euo pipefail
 for build_type in Release Debug; do
     for equation in elastic viscoelastic2 anisotropic; do
