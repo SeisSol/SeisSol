@@ -1,8 +1,8 @@
 stages:
     - pre_test
     - build 
+    - test
     
-
 dbuilder:
     stage: pre_test
     tags:
