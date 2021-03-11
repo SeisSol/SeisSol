@@ -90,38 +90,27 @@ Supermuc-NG
 See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
 Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
 The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.
+If you need to compile ASAGI, first clone ASAGI with:
 
 .. code-block:: bash
 
-  #!/bin/bash                                                                                                            
-  git submodule init
-  for module_full in `git config -l | awk -F"=" {'print $1'} | grep submodule ` ;
-  do
-   echo $module_full
-   module=$(git config ${module_full} | sed "s/.*github\.com\///")
-   if [ "$module" != "true" ]; then
-      echo $module
-      echo "git config ${module_full} git@github.com:${module}"
-      git config ${module_full} git@github.com:${module}
-   fi
-  done
-  git submodule update
-
-set compiler options:
+  git clone git@github.com:TUM-I5/ASAGI
+  cd ASAGI
+  git submodule update --init
+ 
+set compiler options, run cmake, and compile with:
 
 ::
 
-  $ export FC=mpif90
-  $ export CXX=mpiCC
-  $ export CC=mpicc
+  export FC=mpif90
+  export CXX=mpiCC
+  export CC=mpicc
 
-  $ make build
-  $ Cd build
-  $ CMAKE_PREFIX_PATH=$NETCDF_BASE
-  $ cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
-  $ make
-  $ make install
+  mkdir build && cd build
+  CMAKE_PREFIX_PATH=$NETCDF_BASE
+  cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
+  make -j 48
+  make install
   (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
 
