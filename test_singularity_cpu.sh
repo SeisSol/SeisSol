@@ -3,10 +3,9 @@ set -euo pipefail
 
 export CTEST_OUTPUT_ON_FAILURE=1
 export OMPI_MCA_rmaps_base_oversubscribe=1
-
-for build_type in Release Debug; do
-    for equation in elastic viscoelastic2 anisotropic; do
-        for precision in double single; do
+export equation=elastic
+export build_type=Release
+for precision in double single; do
             dirname="./SeisSol/build_${equation}_${precision}_${build_type}"
             mkdir -p $dirname && cd $dirname
             if [ "$equation" = viscoelastic2 ]; then
@@ -21,7 +20,5 @@ for build_type in Release Debug; do
             make -j $NUM_PROC
             make test
             cd ../..
-        done
-    done
 done
 set +u
