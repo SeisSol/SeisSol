@@ -85,10 +85,11 @@ namespace seissol {
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
       class Ocean : public InitialField {
+      private:
+        const int mode;
+        const double gravitationalAcceleration;
       public:
-          Ocean() {
-
-          }
+          Ocean(int mode, double gravitationalAcceleration);
           void evaluate(double time,
                         std::vector<std::array<double, 3>> const& points,
                         const CellMaterialData& materialData,

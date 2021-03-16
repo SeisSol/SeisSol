@@ -55,7 +55,7 @@ extern long long libxsmm_num_total_flops;
 #include <Kernels/denseMatrixOps.hpp>
 #include <generated_code/init.h>
 
-void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
+void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
@@ -65,12 +65,17 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   m_krnlPrototype.selectEla = init::selectEla::Values;
 }
 
-void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          LocalData&                  data,
-                                          LocalTmp&                   tmp,
-                                          real                        o_timeIntegrated[tensor::I::size()],
-                                          real*                       o_timeDerivatives )
-{
+void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
+}
+
+void seissol::kernels::Time::computeAder(double i_timeStepWidth,
+                                         LocalData& data,
+                                         LocalTmp& tmp,
+                                         real o_timeIntegrated[tensor::I::size()],
+                                         real* o_timeDerivatives,
+                                         double startTime,
+                                         bool updateDisplacement) {
   /*
    * assert alignments.
    */
@@ -136,6 +141,9 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     intKrnl.power *= i_timeStepWidth / real(der+1);    
     intKrnl.execute(der);
   }
+
+  // TODO(Lukas) Implement!
+  // Compute integrated displacement over time step if needed.
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,

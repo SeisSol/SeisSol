@@ -146,7 +146,8 @@ int seissol::initializers::time_stepping::LtsWeights::ipow(int x, int y) {
 void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
 
-  std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
+  const auto& cells = mesh.cells();
+  const auto& faces = mesh.faces();
   int const* boundaryCond = mesh.cellData(1);
 
   std::vector<double> pWaveVel;
@@ -194,15 +195,43 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   m_ncon = 1;
   m_vertexWeights = new int[cells.size() * m_ncon];
   int maxCluster = getCluster(globalMaxTimestep, globalMinTimestep, m_rate);
-  int drToCellRatio = 1;
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {    
+  for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
+    int requiresDisplacement = 0;
+
+    unsigned int faceids[4];
+    PUML::Downward::faces(mesh, cells[cell], faceids);
+
     for (unsigned face = 0; face < 4; ++face) {
+      const auto faceType = static_cast<FaceType>(getBoundaryCondition(boundaryCond, cell, face));
       dynamicRupture += ( getBoundaryCondition(boundaryCond, cell, face) == 3) ? 1 : 0;
+
+      int cellIds[2];
+      PUML::Upward::cells(mesh, faces[faceids[face]], cellIds);
+
+      int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
+#ifdef USE_ANISOTROPIC
+      const bool isAtElasticAcousticInterface = false;
+#else
+      // Note: This is nearly a copy of isAtElasticAcousticInterface from MemoryManger
+      // TODO(Lukas) Refactor!
+      const auto thisMu = materials[neighbourCell].mu;
+      const auto otherMu = materials[cell].mu;
+      constexpr auto eps = std::numeric_limits<real>::epsilon();
+      const bool isAtElasticAcousticInterface = thisMu > eps && otherMu < eps;
+#endif
+      // TODO(Lukas) Maybe refactor - is nearly requiresDisplacement from MemoryManger
+      if (faceType == FaceType::freeSurface
+      || faceType == FaceType::freeSurfaceGravity
+      || isAtElasticAcousticInterface) {
+        requiresDisplacement++;
+      }
     }
-    
-    m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture) * ipow(m_rate, maxCluster - cluster[cell]);
-    //m_vertexWeights[m_ncon * cell + 1] = (dynamicRupture > 0) ? 1 : 0;
+
+    const int costDynamicRupture = vertexWeightDynamicRupture * dynamicRupture;
+    const int costDisplacement = vertexWeightDisplacement * requiresDisplacement;
+    const int costPerTimestep = vertexWeightElement + costDynamicRupture + costDisplacement;
+    m_vertexWeights[m_ncon * cell] = costPerTimestep * ipow(m_rate, maxCluster - cluster[cell]);
   }
 
   delete[] cluster;

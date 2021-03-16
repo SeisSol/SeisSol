@@ -148,7 +148,8 @@ class seissol::initializers::MemoryManager {
      * Cross-cluster
      */
     //! global data
-    struct GlobalData     m_globalData;
+    GlobalData            m_globalDataOnHost;
+    GlobalData            m_globalDataOnDevice;
 
     //! Memory organisation tree
     LTSTree               m_ltsTree;
@@ -182,16 +183,33 @@ class seissol::initializers::MemoryManager {
      * Initializes the pointers of the internal state.
      **/
     void initializeBuffersDerivatives();
-    
+
+    /**
+    * Derives the size of the displacement accumulation buffer.
+    */
+    void deriveFaceDisplacementsBucket();
+
     /**
      * Derives the size of the displacement accumulation buffer.
      */
     void deriveDisplacementsBucket();
+
+#ifdef ACL_DEVICE
+    /**
+     * Derives the sizes of scratch memory required during the computations
+     */
+    void deriveRequiredScratchpadMemory();
+#endif
     
     /**
      * Initializes the displacement accumulation buffer.
      */
     void initializeDisplacements();
+
+    /**
+      * Initializes the displacement accumulation buffer.
+    */
+  void initializeFaceDisplacements();
 
     /**
      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
@@ -243,10 +261,31 @@ class seissol::initializers::MemoryManager {
     void initializeMemoryLayout(bool enableFreeSurfaceIntegration);
 
     /**
-     * Gets the global data.
+     * Gets global data on the host.
      **/
-    struct GlobalData* getGlobalData() {
-      return &m_globalData;
+    GlobalData* getGlobalDataOnHost() {
+      return &m_globalDataOnHost;
+    }
+
+    /**
+     * Gets the global data on device.
+     **/
+    GlobalData* getGlobalDataOnDevice() {
+      assert(seissol::isDeviceOn() && "application is not compiled for acceleration device");
+      return &m_globalDataOnDevice;
+    }
+
+    /**
+     * Gets the global data on both host and device.
+    **/
+    CompoundGlobalData getGlobalData() {
+      CompoundGlobalData global{};
+      global.onHost = &m_globalDataOnHost;
+      global.onDevice = nullptr;
+      if constexpr (seissol::isDeviceOn()) {
+        global.onDevice = &m_globalDataOnDevice;
+      }
+      return global;
     }
 
     /**
@@ -257,10 +296,8 @@ class seissol::initializers::MemoryManager {
      * @param o_globalData global data.
      * @param o_globalDataCopies several copies of global data
      **/
-    void getMemoryLayout( unsigned int                    i_cluster,
-                          struct MeshStructure          *&o_meshStructure,
-                          struct GlobalData             *&o_globalData
-                        );
+    std::pair<MeshStructure*, CompoundGlobalData>
+    getMemoryLayout(unsigned int i_cluster);
                           
     inline LTSTree* getLtsTree() {
       return &m_ltsTree;
@@ -291,12 +328,19 @@ class seissol::initializers::MemoryManager {
     inline EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
     }
+
+#ifdef ACL_DEVICE
+  void recordExecutionPaths();
+#endif
 };
 
 
 namespace seissol {
     namespace initializers {
         bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+        bool requiresDisplacement(CellLocalInformation cellLocalInformation,
+                                  CellMaterialData &material,
+                                  unsigned int face);
         bool requiresNodalFlux(FaceType f);
     }
 }

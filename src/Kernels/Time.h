@@ -87,13 +87,20 @@ namespace seissol {
 
 class seissol::kernels::Time : public TimeBase {
   public:
-    void setGlobalData(GlobalData const* global);
+    void setHostGlobalData(GlobalData const* global);
+    void setGlobalData(const CompoundGlobalData& global);
 
-    void computeAder( double                      i_timeStepWidth,
-                      LocalData&                  data,
-                      LocalTmp&                   tmp,
-                      real                        o_timeIntegrated[tensor::I::size()],
-                      real*                       o_timeDerivatives = NULL );
+    void computeAder(double i_timeStepWidth,
+                     LocalData& data,
+                     LocalTmp& tmp,
+                     real o_timeIntegrated[tensor::I::size()],
+                     real* o_timeDerivatives = nullptr,
+                     double startTime = 0.0,
+                     bool updateDisplacement = false);
+
+    void computeBatchedAder(double i_timeStepWidth,
+                            LocalTmp& tmp,
+                            ConditionalBatchTableT &table);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
@@ -105,6 +112,13 @@ class seissol::kernels::Time : public TimeBase {
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
                           real                                        o_timeIntegrated[tensor::I::size()] );
+
+    void computeBatchedIntegral(double i_expansionPoint,
+                                double i_integrationStart,
+                                double i_integrationEnd,
+                                const real** i_timeDerivatives,
+                                real ** o_timeIntegratedDofs,
+                                unsigned numElements);
 
     void computeTaylorExpansion( real         time,
                                  real         expansionPoint,

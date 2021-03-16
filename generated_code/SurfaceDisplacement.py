@@ -44,23 +44,43 @@ from yateto import Tensor, simpleParameterSpace
 from yateto.memory import CSCMemoryLayout
 from multSim import OptionalDimTensor
 
-def addKernels(generator, aderdg):
+def addKernels(generator, aderdg, include_tensors):
   maxDepth = 3
 
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
+
   selectVelocitySpp = np.zeros((numberOfQuantities, 3))
   selectVelocitySpp[6:9,0:3] = np.eye(3)
   selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
-  displacement = OptionalDimTensor('displacement', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOf3DBasisFunctions, 3), alignStride=True)
-  generator.add('addVelocity', displacement['kp'] <= displacement['kp'] + aderdg.I['kq'] * selectVelocity['qp'])
+  faceDisplacement = OptionalDimTensor('faceDisplacement',
+                                       aderdg.Q.optName(),
+                                       aderdg.Q.optSize(),
+                                       aderdg.Q.optPos(),
+                                       (numberOf2DBasisFunctions, 3),
+                                       alignStride=True)
+  averageNormalDisplacement = OptionalDimTensor('averageNormalDisplacement',
+                                                aderdg.Q.optName(),
+                                                aderdg.Q.optSize(),
+                                                aderdg.Q.optPos(),
+                                                (numberOf2DBasisFunctions,),
+                                                alignStride=True)
+
+  include_tensors.add(averageNormalDisplacement)
 
   subTriangleDofs = [OptionalDimTensor('subTriangleDofs({})'.format(depth), aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (4**depth, 3), alignStride=True) for depth in range(maxDepth+1)]
   subTriangleProjection = [Tensor('subTriangleProjection({})'.format(depth), (4**depth, numberOf3DBasisFunctions), alignStride=True) for depth in range(maxDepth+1)]
+  subTriangleProjectionFromFace = [Tensor('subTriangleProjectionFromFace({})'.format(depth),
+                                          (4**depth, numberOf2DBasisFunctions),
+                                          alignStride=True) for depth in range(maxDepth+1)]
 
-  subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * displacement['lp']
-  subTriangleVelocity     = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
+  rotateVelocityToGlobal = Tensor('rotateVelocityToGlobal', (3,3), alignStride=True)
+  subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= \
+                                          subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.V2nTo2m['lm'] * faceDisplacement['mn'] * rotateVelocityToGlobal['pn']
+  subTriangleVelocity = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
 
   generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)
   generator.addFamily('subTriangleVelocity', simpleParameterSpace(maxDepth+1), subTriangleVelocity)
+

@@ -80,14 +80,15 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
 
-        subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate) bind(C, name="read_mesh_puml_c")
+        subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, &
+                clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
             character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
             logical( kind=c_bool ), value                      :: hasFault
             real(kind=c_double), dimension(*), intent(in)      :: displacement
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
-            integer(kind=c_int), value, intent(in)                :: clusterRate
+            integer(kind=c_int), value, intent(in)                :: clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement
         end subroutine
     end interface
 
@@ -137,10 +138,13 @@ contains
                                     MESH%Displacement(:),                       &
                                     m_mesh%ScalingMatrix(:,:),                  &
                                     trim(EQN%MaterialFileName) // c_null_char,  &
-                                    disc%galerkin%clusteredLts                  )
+                                    disc%galerkin%clusteredLts, &
+                                    MESH%vertexWeightElement, &
+                                    MESH%vertexWeightDynamicRupture, &
+                                    MESH%vertexWeightDisplacement)
         else
             logError(*) 'Unknown mesh reader'
-            stop
+            call exit(134)
         endif
 
         ! Set additional SeisSol variables
@@ -626,15 +630,6 @@ contains
         s = size(m_mesh%Fault%geoTangent2, 2)
         ptr = c_loc(m_mesh%Fault%geoTangent2(1,1))
     end subroutine getFaultTangent2
-
-    subroutine setBndFaultNElem(i, n) bind(C)
-        implicit none
-
-        integer( kind=c_int ), value :: i
-        integer( kind=c_int ), value :: n
-
-        m_bnd%ObjMPI(i)%nFault_MPI = n
-    end subroutine setBndFaultNElem
 
     subroutine getBndFaultElements(i, s, ptr) bind(C)
         implicit none

@@ -139,7 +139,11 @@ private:
      * global data
      */
      //! global data structures
-    struct GlobalData *m_globalData;
+    GlobalData *m_globalDataOnHost{nullptr};
+    GlobalData *m_globalDataOnDevice{nullptr};
+#ifdef ACL_DEVICE
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
 
     /*
      * element data and mpi queues
@@ -292,10 +296,11 @@ private:
      **/
     void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData );
 
-    void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
-                                        CellLocalInformation const* cellInformation,
-                                        long long&                  nonZeroFlops,
-                                        long long&                  hardwareFlops  );
+    void computeLocalIntegrationFlops(unsigned numberOfCells,
+                                      CellLocalInformation const* cellInformation,
+                                      real* (*faceDisplacements)[4],
+                                      long long& nonZeroFlops,
+                                      long long& hardwareFlops);
 
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,
@@ -384,8 +389,8 @@ private:
      **/
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
-                 struct MeshStructure          *i_meshStructure,
-                 struct GlobalData             *i_globalData,
+                 MeshStructure                  *i_meshStructure,
+                 CompoundGlobalData             i_globalData,
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,

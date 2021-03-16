@@ -44,6 +44,7 @@
 #include <cassert>
 
 #include <Initializer/ParameterDB.h>
+#include "Initializer/MemoryManager.h"
 #include <Numerical_aux/Transformation.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
@@ -51,6 +52,9 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 #include <utils/logger.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -211,6 +215,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
         if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity ||
             cellInformation[cell].faceTypes[side] == FaceType::velocityInlet) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
@@ -261,6 +266,7 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
+    auto* material = it->var(i_lts->material);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP
@@ -273,7 +279,9 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
         coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-        if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
+        if (!initializers::requiresDisplacement(cellInformation[cell],
+                                                material[cell],
+                                                side)
             && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
             && cellInformation[cell].faceTypes[side] != FaceType::analytical
             && cellInformation[cell].faceTypes[side] != FaceType::velocityInlet) {
@@ -557,4 +565,25 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
+}
+
+void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                                     LTS*              lts,
+                                                     LTSTree*          dynRupTree,
+                                                     DynamicRupture*   dynRup,
+                                                     LTSTree*          boundaryTree,
+                                                     Boundary*         boundary) {
+#ifdef ACL_DEVICE
+  // Byte-copy of element compute-static data from the host to device
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
+
+  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
+                     ltsTree->var(lts->localIntegration),
+                     variableSizes[lts->localIntegration.index]);
+
+  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
+                     ltsTree->var(lts->neighboringIntegration),
+                     variableSizes[lts->neighboringIntegration.index]);
+#endif // ACL_DEVICE
 }

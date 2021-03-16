@@ -47,6 +47,20 @@
 #include "Monitoring/instrumentation.fpp"
 #include <Modules/Modules.h>
 
+void seissol::writer::WaveFieldWriter::setUp()
+{
+  setExecutor(m_executor);
+  if (isAffinityNecessary()) {
+    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+    logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:"
+      << parallel::Pinning::maskToString(freeCpus);
+    if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+      logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+    }
+    setAffinityIfNecessary(freeCpus);
+  }
+}
+
 void seissol::writer::WaveFieldWriter::enable()
 {
 	m_enabled = true;
@@ -108,11 +122,11 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 }
 
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
-		int order, int numAlignedDOF,
-		const MeshReader &meshReader,
-		const double* dofs,  const double* pstrain, const double* integrals,
-		unsigned int* map,
-		int refinement, int* outputMask, double* outputRegionBounds,
+    int order, int numAlignedDOF,
+    const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
+    const double* dofs,  const double* pstrain, const double* integrals,
+    unsigned int* map,
+    int refinement, int* outputMask, double* outputRegionBounds,
     xdmfwriter::BackendType backend)
 {
 	if (!m_enabled)
@@ -336,6 +350,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Initialize the executor
 	callInit(param);
+  m_executor.setClusteringData(LtsClusteringData.data());
 
 	// Remove buffers
 	removeBuffer(param.bufferIds[OUTPUT_PREFIX]);

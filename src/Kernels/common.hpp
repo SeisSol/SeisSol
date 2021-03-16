@@ -153,6 +153,13 @@ namespace seissol {
     template<class T> constexpr auto size() -> typename std::enable_if<has_size<T>::value, unsigned>::type  { return T::size(); }
     template<class T> constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type { return 0; }
   }
+
+  constexpr bool isDeviceOn() {
+#ifdef ACL_DEVICE
+    return true;
+#endif
+    return false;
+  }
 }
 
 #endif

@@ -52,6 +52,7 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Equations/Setup.h>
+#include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
 
@@ -82,6 +83,10 @@ extern "C" {
 
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
+  }
+
+  void c_interoperability_initializeGravitationalAcceleration(double gravitationalAcceleration) {
+    seissol::SeisSol::main.getGravitationSetup().acceleration = gravitationalAcceleration;
   }
 
   void c_interoperability_setInitialConditionType(char* type)
@@ -264,6 +269,53 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
+void c_interoperability_report_device_memory_status() {
+  e_interoperability.reportDeviceMemoryStatus();
+}
+
+  void c_interoperability_deallocateMemoryManager() {
+    e_interoperability.deallocateMemoryManager();
+  }
+
+  void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int k = 0; k <= d; ++k) {
+        for (unsigned int j = 0; j <= d - k; ++j) {
+            phis[idx++] = seissol::functions::TetraDubinerP({d - j - k, j, k}, {xi, eta, zeta});
+        }
+      }
+    }
+  }
+
+  void c_interoperability_TriDubinerP(double* phis, double xi, double eta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int j = 0; j <= d; ++j) {
+        phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      }
+    }
+  }
+
+  void c_interoperability_gradTriDubinerP(double* phis, double xi, double eta, int N) {
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= N; ++d) {
+      for (unsigned int j = 0; j <= d; ++j) {
+        auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
+        for (auto const& g : grad) {
+            phis[idx++] = g;
+        }
+      }
+    }
+  }
+
+  double c_interoperability_M2invDiagonal(int no) {
+      assert(no >= 0 && no < seissol::tensor::M2inv::Shape[0]);
+      auto M2inv = seissol::init::M2inv::view::create(
+        const_cast<real*>(seissol::init::M2inv::Values));
+      return M2inv(no, no);
+  }
+
   // c to fortran
   extern void f_interoperability_computeSource(  void   *i_domain,
                                                  int    *i_meshId,
@@ -297,22 +349,6 @@ extern "C" {
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
-
-  extern void f_interoperability_computePlasticity( void    *i_domain,
-                                                    double  *i_timestep,
-													int    numberOfAlignedBasisFunctions,
-													double  *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *io_dofs,
-													double  *io_Energy,
-													double  *io_pstrain );
-
-  extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
-                                                               double   i_x,
-                                                               double   i_y,
-                                                               double   i_z,
-                                                               int      i_elem,
-                                                               double*  o_mInvJInvPhisAtSources );
 
   extern void f_interoperability_fitAttenuation(  void*  i_domain,
                                                   double  rho,
@@ -420,7 +456,7 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
                                                     seissol::SeisSol::main.getMemoryManager() );
 
   // get backward coupling
-  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
 
 
   // initialize face lts trees
@@ -680,28 +716,39 @@ void seissol::Interoperability::setTv(double tv) {
 void seissol::Interoperability::initializeCellLocalMatrices()
 {
   // \todo Move this to some common initialization place
-  seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
+  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+  seissol::initializers::initializeCellLocalMatrices( meshReader,
                                                       m_ltsTree,
                                                       m_lts,
                                                       &m_ltsLut );
 
-  seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
+  initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
+  seissol::initializers::initializeDynamicRuptureMatrices( meshReader,
                                                            m_ltsTree,
                                                            m_lts,
                                                            &m_ltsLut,
-                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           memoryManager.getDynamicRuptureTree(),
+                                                           memoryManager.getDynamicRupture(),
                                                            m_ltsFaceToMeshFace,
-                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
+                                                           *memoryManager.getGlobalDataOnHost(),
                                                            m_timeStepping );
 
-  seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
-                                                    seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
+  seissol::initializers::initializeBoundaryMappings(meshReader,
+                                                    memoryManager.getEasiBoundaryReader(),
                                                     m_ltsTree,
                                                     m_lts,
                                                     &m_ltsLut);
- 
 
+#ifdef ACL_DEVICE
+  initializers::copyCellMatricesToDevice(m_ltsTree,
+                                         m_lts,
+                                         memoryManager.getDynamicRuptureTree(),
+                                         memoryManager.getDynamicRupture(),
+                                         memoryManager.getBoundaryTree(),
+                                         memoryManager.getBoundary());
+
+  memoryManager.recordExecutionPaths();
+#endif
 }
 
 template<typename T>
@@ -748,6 +795,7 @@ void seissol::Interoperability::enableFreeSurfaceOutput(int maxRefinementDepth)
 	seissol::SeisSol::main.freeSurfaceWriter().enable();
 
 	seissol::SeisSol::main.freeSurfaceIntegrator().initialize( maxRefinementDepth,
+								m_globalData,
 								m_lts,
 								m_ltsTree,
 								&m_ltsLut );
@@ -802,16 +850,24 @@ void seissol::Interoperability::initializeIO(
 
   constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
 
+  // record the clustering info i.e., distribution of elements within an LTS tree
+  const std::vector<Element>& MeshElements = seissol::SeisSol::main.meshReader().getElements();
+  std::vector<unsigned> LtsClusteringData(MeshElements.size());
+  auto& LtsLayout = seissol::SeisSol::main.getLtsLayout();
+  for (const auto& Element: MeshElements) {
+    LtsClusteringData[Element.localId] = LtsLayout.getGlobalClusterId(Element.localId);
+  }
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
-			numberOfQuantities, CONVERGENCE_ORDER,
-			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-			seissol::SeisSol::main.meshReader(),
-			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
-			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
-			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			refinement, outputMask, outputRegionBounds,
+      numberOfQuantities, CONVERGENCE_ORDER,
+      NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+      seissol::SeisSol::main.meshReader(),
+      LtsClusteringData,
+      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+      seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
+      m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
+      refinement, outputMask, outputRegionBounds,
       type);
 
 	// Initialize free surface output
@@ -851,6 +907,7 @@ void seissol::Interoperability::copyDynamicRuptureState()
 
 void seissol::Interoperability::initInitialConditions()
 {
+  auto initialConditionDescription = m_initialConditionType;
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
@@ -871,15 +928,26 @@ void seissol::Interoperability::initInitialConditions()
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else if (m_initialConditionType == "Scholte") {
+    initialConditionDescription = "Scholte wave (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {
+    initialConditionDescription = "Snell's law (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::SnellsLaw());
-  } else if (m_initialConditionType == "Ocean") {
-    m_iniConds.emplace_back(new physics::Ocean());
+  } else if (m_initialConditionType.rfind("Ocean", 0) == 0) {
+    // Accept variants such as Ocean_0, Ocean_1
+    const auto delimiter = std::string{"_"};
+    const auto modeStr = m_initialConditionType.substr(m_initialConditionType.find(delimiter)+1);
+    const auto mode = std::stoi(modeStr);
+    initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode " + modeStr + ")";
+    const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
+
+    m_iniConds.emplace_back(new physics::Ocean(mode, g));
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }
+  logInfo(MPI::mpi.rank()) << "Using initial condition " << initialConditionDescription << ".";
+
 }
 
 void seissol::Interoperability::projectInitialField()
@@ -943,6 +1011,10 @@ void seissol::Interoperability::finalizeIO()
 	seissol::SeisSol::main.freeSurfaceWriter().close();
 }
 
+void seissol::Interoperability::deallocateMemoryManager() {
+  seissol::SeisSol::main.deleteMemoryManager();
+}
+
 void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
                                              double i_timeStepWidth )
 {
@@ -991,35 +1063,24 @@ void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
 }
 
+void seissol::Interoperability::reportDeviceMemoryStatus() {
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  constexpr size_t GB = 1024 * 1024 * 1024;
+  const auto rank = seissol::MPI::mpi.rank();
+  if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
+    std::stringstream stream;
 
-#ifdef USE_PLASTICITY
-void seissol::Interoperability::computePlasticity(  double i_timeStep,
-		                                            double *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double *io_dofs,
-													double *io_Energy,
-													double *io_pstrain ) {
-  // call fortran routine
-  f_interoperability_computePlasticity(  m_domain,
-                                        &i_timeStep,
-										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-										 i_plasticParameters,
-                                         i_initialLoading,
-                                         io_dofs,
-										 io_Energy,
-										 io_pstrain );
-}
-#endif
+    stream << "Device(" << rank << ")  memory is overloaded.\n"
+           << "Totally allocated device memory, GB: " << device.api->getCurrentlyOccupiedMem() / GB << '\n'
+           << "Allocated unified memory, GB: " << device.api->getCurrentlyOccupiedUnifiedMem() / GB << '\n'
+           << "Memory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
 
-void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()])
-{
-  double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
-
-  int elem = static_cast<int>(element);
-  f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
-
-  memset(mInvJInvPhisAtSources, 0, tensor::mInvJInvPhisAtSources::size() * sizeof(real));
-  for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
-    mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
+    logError() << stream.str();
   }
+  else {
+    double fraction = device.api->getCurrentlyOccupiedMem() / static_cast<double>(device.api->getMaxAvailableMem());
+    logInfo() << "occupied memory on device(" << rank << "): " << fraction * 100.0 << "%";
+  }
+#endif
 }

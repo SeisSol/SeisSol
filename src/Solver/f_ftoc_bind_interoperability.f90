@@ -98,6 +98,14 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface
+    subroutine c_interoperability_initializeGravitationalAcceleration(gravitationalAcceleration) bind ( C, name='c_interoperability_initializeGravitationalAcceleration')
+      use iso_c_binding
+      implicit none
+      real (kind=c_double), value :: gravitationalAcceleration
+    end subroutine
+  end interface
+
 
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
@@ -340,5 +348,53 @@ module f_ftoc_bind_interoperability
   interface c_interoperability_finalizeIO
     subroutine c_interoperability_finalizeIO() bind( C, name='c_interoperability_finalizeIO' )
     end subroutine
+  end interface
+
+  interface c_interoperability_report_device_memory_status
+    subroutine c_interoperability_report_device_memory_status() bind( C, name='c_interoperability_report_device_memory_status' )
+    end subroutine
+  end interface
+
+  interface c_interoperability_deallocateMemoryManager
+    subroutine c_interoperability_deallocateMemoryManager() bind( C, name='c_interoperability_deallocateMemoryManager' )
+    end subroutine
+  end interface
+
+  interface c_interoperability_TetraDubinerP
+      subroutine c_interoperability_TetraDubinerP(phis, xi, eta, zeta, N) bind( C, name='c_interoperability_TetraDubinerP' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta, zeta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
+
+  interface c_interoperability_TriDubinerP
+      subroutine c_interoperability_TriDubinerP(phis, xi, eta, N) bind( C, name='c_interoperability_TriDubinerP' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
+
+  interface c_interoperability_gradTriDubinerP
+      subroutine c_interoperability_gradTriDubinerP(phis, xi, eta, N) bind( C, name='c_interoperability_gradTriDubinerP' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
+
+  interface
+    real(kind=c_double) function c_interoperability_M2invDiagonal(no) bind( C, name='c_interoperability_M2invDiagonal' )
+      use iso_c_binding, only: c_int, c_double
+      implicit none
+      integer(kind=c_int), intent(in), value  :: no
+    end function
   end interface
 end module

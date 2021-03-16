@@ -57,8 +57,11 @@ namespace seissol {
 }
 
 class seissol::initializers::time_stepping::LtsWeights {
-public:  
-  LtsWeights(std::string const& velocityModel, unsigned rate) : m_velocityModel(velocityModel), m_rate(rate) {}
+public:
+  LtsWeights(std::string const& velocityModel, unsigned rate,
+             int vertexWeightElement, int vertexWeightDynamicRupture, int vertexWeightDisplacement)
+      : m_velocityModel(velocityModel), m_rate(rate), vertexWeightElement(vertexWeightElement),
+        vertexWeightDynamicRupture(vertexWeightDynamicRupture), vertexWeightDisplacement(vertexWeightDisplacement) {}
 
   ~LtsWeights() {
     delete[] m_vertexWeights;
@@ -95,6 +98,9 @@ private:
   unsigned m_rate;
   int* m_vertexWeights = nullptr;
   int m_ncon = 1;
+  int vertexWeightElement;
+  int vertexWeightDynamicRupture;
+  int vertexWeightDisplacement;
 };
 
 #endif
