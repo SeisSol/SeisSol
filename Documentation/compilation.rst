@@ -104,6 +104,7 @@ Installing PSpaMM
 Installing GemmForge (for GPU)
 ------------------------------
 
+.. _gemmforge_installation:
 
 .. code-block:: bash
 

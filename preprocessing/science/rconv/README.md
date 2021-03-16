@@ -41,11 +41,7 @@ make
 
 Starting rconv without arguments gives you a short introduction for using the tool. You may furthermore consult the [Documentation](https://seissol.readthedocs.io/en/latest/standard-rupture-format.html) about the Standard Rupture Format.
 
-## Dealing with projected data
+## Compilation without PROJ.4
 
-If the SRF data are already projected, the projection within rconv can be by-passed using the following arguments:
-```
--m `+proj=lonlat +datum=WGS84 +units=m`
-```
-Also rconv can be compiled with proj (e.g. by dropping the argument `-DCMAKE_PREFIX_PATH=$my_proj4_install_prefix`)
-
+rconv can be compiled without proj (e.g. by dropping the argument `-DCMAKE_PREFIX_PATH=$my_proj4_install_prefix`)
+In that case, the input file won't be projected any more.
