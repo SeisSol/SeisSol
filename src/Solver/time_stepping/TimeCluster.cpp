@@ -234,7 +234,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
 #ifdef ACL_DEVICE
-  device.api->putProfilingMark("computeDynamic", device::ProfilingColors::Cyan);
+  device.api->putProfilingMark("computeDynamicRupture", device::ProfilingColors::Cyan);
 #endif
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -665,7 +665,16 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   m_neighborKernel.computeBatchedNeighborsIntegral(table);
 
 #ifdef USE_PLASTICITY
-  assert(false && "plasticity is not currently supported for batched computations");
+  PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+  unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_relaxTime,
+                                                                                    m_timeStepWidth,
+                                                                                    m_globalDataOnDevice,
+                                                                                    table,
+                                                                                    plasticity);
+
+  g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numAdjustedDofs * m_flops_nonZero[PlasticityYield];
+  g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numAdjustedDofs * m_flops_hardware[PlasticityYield];
+
 #endif
 
   device.api->synchDevice();

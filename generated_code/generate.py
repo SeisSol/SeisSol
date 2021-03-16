@@ -130,7 +130,11 @@ include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, 
                                                  cmdLineArgs.dynamicRuptureMethod,
                                                  targets))
 
-Plasticity.addKernels(generator, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
+Plasticity.addKernels(generator, 
+                      adg,
+                      cmdLineArgs.matricesDir,
+                      cmdLineArgs.PlasticityMethod,
+                      targets)
 NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(generator, adg, include_tensors)
 Point.addKernels(generator, adg)

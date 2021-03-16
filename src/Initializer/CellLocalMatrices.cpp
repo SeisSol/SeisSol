@@ -583,5 +583,5 @@ void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
   device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
                      ltsTree->var(lts->neighboringIntegration),
                      variableSizes[lts->neighboringIntegration.index]);
-#endif
+#endif // ACL_DEVICE
 }
