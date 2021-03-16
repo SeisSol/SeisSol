@@ -250,31 +250,62 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(cellBoundaryMapping != nullptr);
         // Note: Everything happens in [n, t_1, t_2] basis
         // Comments of Dirichlet bc are also valid for this!
-        auto applyInlet = [materialData, this](const real* nodes,
-                                               double time,
-                                               init::INodal::view::type& boundaryDofs) {
+        auto applyInlet = [&cellBoundaryMapping, face, materialData, this](const real* nodes,
+                                                                           double time,
+                                                                           init::INodal::view::type& boundaryDofs) {
           int offset = 0;
-          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const double mu = 6.0;
-            auto H = [mu](double t) -> double {
-              return t < mu ? 1.0 : 0.0;
-            };
-            const auto pi = std::acos(-1);
-            const auto x = nodes[offset+0];
-            const auto y = nodes[offset+1];
-            offset += 3;
+          assert(initConds != nullptr);
+          assert(initConds->size() == 1);
 
-            const double uAtBnd = 2.0;
-               //(1.0/(1.0/time*std::sqrt(2*pi)))*std::exp(-0.5*x*x + -0.5*y*y)*H(time);
-            const double vAtBnd = 2.0;
-            const double wAtBnd = 2.0;
+          if ((*initConds)[0]->isZero()) {
+            for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+              const double mu = 6.0;
+              auto H = [mu](double t) -> double {
+                return t < mu ? 1.0 : 0.0;
+              };
+              const auto pi = std::acos(-1);
+              const auto x = nodes[offset + 0];
+              const auto y = nodes[offset + 1];
+              offset += 3;
 
-            for (int j = 0; j < 6; ++j) {
-              boundaryDofs(i,j) = 0;
+              const double uAtBnd = 2.0;
+              const double vAtBnd = 2.0;
+              const double wAtBnd = 2.0;
+              for (int j = 0; j < 6; ++j) {
+                boundaryDofs(i, j) = 0;
+              }
+              boundaryDofs(i, 6) = 2 * uAtBnd;
+              boundaryDofs(i, 7) = 2 * vAtBnd;
+              boundaryDofs(i, 8) = 2 * wAtBnd;
             }
-            boundaryDofs(i,6) = 2 * uAtBnd;
-            boundaryDofs(i,7) = 2 * vAtBnd;
-            boundaryDofs(i,8) = 2 * wAtBnd;
+          } else {
+            double solutionGlobalCoordinatesData[tensor::INodal::Size];
+            auto solutionGlobalCoordinates = init::INodal::view::create(solutionGlobalCoordinatesData);
+            // Code below partly copy pasted from Dirichlet
+            auto nodesVec = std::vector<std::array<double, 3>>{};
+            int offset = 0;
+            for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
+              auto curNode = std::array<double, 3>{};
+              curNode[0] = nodes[offset++];
+              curNode[1] = nodes[offset++];
+              curNode[2] = nodes[offset++];
+              nodesVec.push_back(curNode);
+            }
+
+            (*initConds)[0]->evaluate(time, nodesVec, *materialData, solutionGlobalCoordinates);
+            auto rotateKrnl = kernel::rotateNodalBoundary();
+            rotateKrnl.INodal = solutionGlobalCoordinatesData;
+            rotateKrnl.INodalRotated = boundaryDofs.data();
+            rotateKrnl.Tinv = (*cellBoundaryMapping)[face].TinvData;
+            rotateKrnl.execute();
+            for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+              for (int j = 0; j < 6; ++j) {
+                boundaryDofs(i, j) = 0;
+              }
+              boundaryDofs(i, 6) *= 2;
+              boundaryDofs(i, 7) *= 2;
+              boundaryDofs(i, 8) *= 2;
+            }
           }
         };
         auto adjustWithInteriorValues = [](const real* nodes,
@@ -282,29 +313,18 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                            init::INodal::view::type& boundaryDofsInteriorIntegrated,
                                            init::INodal::view::type& boundaryDofsGhostIntegrated) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            /*
-            std::cout << "Before:" << std::endl;
-            std::cout << "ghost i=" << i << " = " << boundaryDofsGhostIntegrated(i,6) << std::endl;
-            std::cout << "interior i=" << i << " = " << boundaryDofsInteriorIntegrated(i,6) << std::endl;
-             */
             for (int j = 0; j < 6; ++j) {
               boundaryDofsGhostIntegrated(i,j) = boundaryDofsInteriorIntegrated(i,j);
             }
             boundaryDofsGhostIntegrated(i,6) -= boundaryDofsInteriorIntegrated(i,6);
-            boundaryDofsGhostIntegrated(i,7) -= boundaryDofsInteriorIntegrated(i,7);
-            boundaryDofsGhostIntegrated(i,8) -= boundaryDofsInteriorIntegrated(i,8);
-            /*
-            std::cout << "After:" << std::endl;
-            std::cout << "ghost i=" << i << " = " << boundaryDofsGhostIntegrated(i,6) << std::endl;
-            std::cout << "interior i=" << i << " = " << boundaryDofsInteriorIntegrated(i,6) << std::endl;
-             */
+            boundaryDofsGhostIntegrated(i,7) = boundaryDofsInteriorIntegrated(i,7);
+            boundaryDofsGhostIntegrated(i,8) = boundaryDofsInteriorIntegrated(i,8);
           }
         };
         dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
                                                 face,
                                                 (*cellBoundaryMapping)[face],
                                                 m_projectRotatedKrnlPrototype,
-                                                //m_projectKrnlPrototype,
                                                 applyInlet,
                                                 adjustWithInteriorValues,
                                                 dofsFaceBoundaryNodal,

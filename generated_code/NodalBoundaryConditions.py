@@ -37,6 +37,15 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                         simpleParameterSpace(4),
                         projectToNodalBoundaryRotated)
 
+    aderdg.INodalRotated = OptionalDimTensor('INodalRotated',
+                                            aderdg.INodal.optName(),
+                                            aderdg.INodal.optSize(),
+                                            aderdg.INodal.optPos(),
+                                            (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
+                                            alignStride=True)
+    rotateNodalBoundary = aderdg.INodalRotated['lp'] <= aderdg.INodal['lm'] * aderdg.Tinv['pm']
+    generator.add('rotateNodalBoundary', rotateNodalBoundary)
+
     # To be used as Tinv in flux solver - this way we can save two rotations for
     # Dirichlet boundary, as ghost cell dofs are already rotated
     identity_rotation = np.double(aderdg.transformation_spp())

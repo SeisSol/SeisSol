@@ -17,6 +17,7 @@ namespace seissol {
                             std::vector<std::array<double, 3>> const& points,
                             const CellMaterialData& materialData,
                             yateto::DenseTensorView<2,real,unsigned>& dofsQP) const = 0;
+      virtual bool isZero() const { return false; }
     };
 
     class ZeroField : public InitialField {
@@ -26,6 +27,9 @@ namespace seissol {
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const {
         dofsQP.setZero();
+      }
+      bool isZero() const override {
+        return true;
       }
     };
 
