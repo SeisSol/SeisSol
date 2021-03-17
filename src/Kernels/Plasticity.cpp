@@ -189,6 +189,8 @@ namespace seissol::kernels {
          * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
          *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
          *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
+         *
+         * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
          */
         real factor = plasticityData->mufactor / (T_v * relaxTime);
         dudt_pstrain[q] = factor *
