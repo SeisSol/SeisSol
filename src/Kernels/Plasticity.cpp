@@ -57,6 +57,7 @@ using namespace device;
 namespace seissol::kernels {
   unsigned Plasticity::computePlasticity(double relaxTime,
                                          double timeStepWidth,
+                                         double T_v,
                                          GlobalData const *global,
                                          PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
@@ -85,6 +86,9 @@ namespace seissol::kernels {
       prev_degreesOfFreedom[q] = degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
     }
 
+    /* Convert modal to nodal and add sigma0.
+     * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
+     * sigma0 is constant */
     kernel::plConvertToNodal m2nKrnl;
     m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = degreesOfFreedom;
@@ -93,28 +97,35 @@ namespace seissol::kernels {
     m2nKrnl.initialLoading = plasticityData->initialLoading;
     m2nKrnl.execute();
 
+    // Computes m = s_{ii} / 3.0 for every node
     kernel::plComputeMean cmKrnl;
     cmKrnl.meanStress = meanStress;
     cmKrnl.QStressNodal = QStressNodal;
     cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
     cmKrnl.execute();
 
+    /* Compute s_{ij} := s_{ij} - m delta_{ij},
+     * where delta_{ij} = 1 if i == j else 0.
+     * Thus, s_{ij} contains the deviatoric stresses. */
     kernel::plSubtractMean smKrnl;
     smKrnl.meanStress = meanStress;
     smKrnl.QStressNodal = QStressNodal;
     smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
     smKrnl.execute();
 
+    // Compute I_2 = 0.5 s_{ij} s_ji for every node
     kernel::plComputeSecondInvariant siKrnl;
     siKrnl.secondInvariant = secondInvariant;
     siKrnl.QStressNodal = QStressNodal;
     siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
     siKrnl.execute();
 
+    // tau := sqrt(I_2) for every node
     for (unsigned ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
       tau[ip] = sqrt(secondInvariant[ip]);
     }
 
+    // Compute tau_c for every node
     for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
       taulim[ip] = std::max((real) 0.0, plasticityData->cohesionTimesCosAngularFriction -
                                         meanStress[ip] * plasticityData->sinAngularFriction);
@@ -122,6 +133,8 @@ namespace seissol::kernels {
 
     bool adjust = false;
     for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+      // Compute yield := (t_c / tau - 1) r for every node,
+      // where r = 1 - exp(-timeStepWidth / T_v)
       if (tau[ip] > taulim[ip]) {
         adjust = true;
         yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * relaxTime;
@@ -131,6 +144,22 @@ namespace seissol::kernels {
     }
 
     if (adjust) {
+      /**
+       * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
+       * and store as modal basis.
+       *
+       * Remark: According to Wollherr et al., the update formula (13) should be
+       *
+       * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+       *
+       * where f^* = r tau_c / tau + (1 - r) = 1 + yield. Adding 0 to (13) gives
+       *
+       * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+       *                  + sigma_{ij} + sigma0_{ij} - sigma_{ij} - sigma0_{ij}
+       *                = f^* s_{ij} + sigma_{ij} - s_{ij}
+       *                = sigma_{ij} + (f^* - 1) s_{ij}
+       *                = sigma_{ij} + yield s_{ij}
+       */
       kernel::plAdjustStresses adjKrnl;
       adjKrnl.QStress = degreesOfFreedom;
       adjKrnl.vInv = global->vandermondeMatrixInverse;
@@ -140,13 +169,36 @@ namespace seissol::kernels {
 
       // calculate plastic strain with first dof only (for now)
       for (unsigned q = 0; q < 6; ++q) {
-        real mufactor = plasticityData->mufactor;
-        dudt_pstrain[q] =
-            mufactor * (prev_degreesOfFreedom[q] - degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]);
-        pstrain[q] += dudt_pstrain[q];
+        /**
+         * Equation (10) from Wollherr et al.:
+         *
+         * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu T_v)
+         *
+         * where (11)
+         *
+         * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
+         *                 { sigma_{ij} + sigma0_{ij}                else
+         *
+         * Thus,
+         *
+         * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu T_v) s_{ij}   if     tau >= taulim
+         *                    { 0                                    else
+         *
+         * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+         *
+         * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
+         *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
+         *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
+         */
+        real factor = plasticityData->mufactor / (T_v * relaxTime);
+        dudt_pstrain[q] = factor *
+            (prev_degreesOfFreedom[q] - degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]);
+        // Integrate with explicit Euler
+        pstrain[q] += timeStepWidth * dudt_pstrain[q];
       }
 
-      //accumulated plastic strain
+      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
       pstrain[6] += timeStepWidth * sqrt(0.5 * (dudt_pstrain[0] * dudt_pstrain[0] + dudt_pstrain[1] * dudt_pstrain[1]
                                                 + dudt_pstrain[2] * dudt_pstrain[2]) + dudt_pstrain[3] * dudt_pstrain[3]
                                          + dudt_pstrain[4] * dudt_pstrain[4] + dudt_pstrain[5] * dudt_pstrain[5]);
