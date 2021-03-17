@@ -554,7 +554,7 @@ CONTAINS
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
 
               !add transient nucleation stress to fault output
-              IF (EQN%FL.EQ.103) THEN
+              IF ((EQN%FL.EQ.103) .OR. (EQN%FL.EQ.3) .OR. (EQN%FL.EQ.4)) THEN
                  NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
                  Tnuc = DISC%DynRup%t_0
                  Gnuc = Calc_SmoothStep(time, Tnuc)
