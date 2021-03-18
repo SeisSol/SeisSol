@@ -51,6 +51,7 @@
 #include <array>
 #include <cassert>
 #include <stdint.h>
+#include <Eigen/Dense>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -253,15 +254,14 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             const auto z = nodes[offset+2];
             offset += 3;
             
-            std::vector<double> pos = {x, y, z};
+            Eigen::Vector3d position(x, y, z);
 
-            
             auto H = [](double t) -> double {
               return t > 0 ? 1.0 : 0.0;
             };
-
+      
             double val = 
-                m_dat->getSigmaXX(pos, T - time) * H(T - time);
+                m_dat->getPressureField(position, T - time) * H(T - time);
 
 
             boundaryDofs(i,0) = 2 * val - boundaryDofsInterior(i,0);

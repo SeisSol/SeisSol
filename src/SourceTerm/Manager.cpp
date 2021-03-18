@@ -437,9 +437,14 @@ void seissol::sourceterm::Manager::loadTRSources( char const* dirName,
 
 
   DAT *dat = new DAT();
-  readDAT(dirName, dat);
+  int exec_return = readDAT(dirName, dat);
 
-  logInfo(rank) << " Read receiver files. Done.";
+  if (exec_return){
+    logError() << "Normal vectors file not processed correctly" << std::endl;
+  } else {
+    logInfo(rank) << " Read receiver files. Done.";
+  }
+  
 
   timeManager.setDatReader(dat);
 }

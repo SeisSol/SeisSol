@@ -2,23 +2,25 @@
 #define SOURCETERM_DATREADER_H_
 
 #include <vector>
+#include <Eigen/Dense>
 
 namespace seissol {
 	namespace sourceterm {
 		
 		struct DAT {
 			std::vector<std::vector<double>> pos;
+			std::vector<Eigen::Vector3d> normal;
 			std::vector<std::vector<double>> time;
-			std::vector<std::vector<double>> sigma_xx;
-
+			std::vector<std::vector<double>> pressure_field;
+			
 			double endtime = 0;
-
-			double getSigmaXX(std::vector<double> const& position, double time);
+			
+			double getPressureField(Eigen::Vector3d const& position, double time);
 
 		};
 
 
-		void readDAT(char const* path, DAT* dat);
+		int readDAT(char const* path, DAT* dat);
 	}
 }
 #endif
