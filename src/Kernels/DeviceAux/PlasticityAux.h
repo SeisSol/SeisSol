@@ -31,7 +31,9 @@ void computePstrains(real **pstrains,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,
+                     double relaxTime,
                      double timeStepWidth,
+                     double T_v,
                      size_t numElements);
 } // namespace plasticity
 } // namespace aux

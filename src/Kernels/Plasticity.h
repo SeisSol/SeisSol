@@ -67,6 +67,7 @@ public:
 
   static unsigned computePlasticityBatched(double relaxTime,
                                            double timeStepWidth,
+                                           double T_v,
                                            GlobalData const *global,
                                            initializers::recording::ConditionalBatchTableT &table,
                                            PlasticityData *plasticity);

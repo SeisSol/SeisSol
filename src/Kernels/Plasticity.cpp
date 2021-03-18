@@ -213,6 +213,7 @@ namespace seissol::kernels {
 
   unsigned Plasticity::computePlasticityBatched(double relaxTime,
                                                 double timeStepWidth,
+                                                double T_v,
                                                 GlobalData const *global,
                                                 initializers::recording::ConditionalBatchTableT &table,
                                                 PlasticityData *plasticity) {
@@ -286,7 +287,9 @@ namespace seissol::kernels {
                                                const_cast<const real **>(modalStressTensors),
                                                firsModes,
                                                plasticity,
+                                               relaxTime,
                                                timeStepWidth,
+                                               T_v,
                                                numElements);
 
       // NOTE: Temp memory must be properly clean after using negative signed integers
