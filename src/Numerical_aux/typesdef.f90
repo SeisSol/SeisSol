@@ -611,7 +611,7 @@ MODULE TypesDef
      INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
      INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
      REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
-     REAL                         , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
+     REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
