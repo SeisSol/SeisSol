@@ -30,7 +30,7 @@ public:
                                                                   TimeKrnl& timeKrnl) {
     const auto config = ode::ODESolverConfig(1.0); // Use default config
     const auto numStages = ode::getNumberOfStages(config.solver);
-    const auto numDofs  = init::faceDisplacement::size() + init::averageNormalDisplacement::size();
+    const auto numDofs = init::faceDisplacement::size() + init::averageNormalDisplacement::size();
 
     long long nonZeroFlopsTaylor, hardwareFlopsTaylor;
     timeKrnl.flopsTaylorExpansion(nonZeroFlopsTaylor, hardwareFlopsTaylor);
@@ -47,9 +47,9 @@ public:
 
     // TODO(Lukas) Maybe consider actual non-zeros of the a matrix
     // e.g. for RK4 we could save some flops!
-    const auto nnzRKAMatrix = numStages * (numStages + 1) / 2;
-    const auto flopsRKStages = nnzRKAMatrix * numDofs * 2; // One mul to scale with a_{ij}*h, one add
-    const auto flopsRKFinalValue = numStages * 2 * numDofs; // One mul to scale with ch, one add
+    const auto intermediateStages = numStages * (numStages - 1) / 2;
+    const auto flopsRKStages = intermediateStages * numDofs * 2; // One mul to scale with a_{ij} \Delta t, one add
+    const auto flopsRKFinalValue = numStages * 2 * numDofs; // One mul to scale with b \Delta t, one add
 
     const auto hardwareFlopsRK = flopsRKStages + flopsRKFinalValue;
     const auto nonZeroFlopsRK = hardwareFlopsRK;
