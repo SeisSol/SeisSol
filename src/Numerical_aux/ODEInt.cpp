@@ -11,7 +11,7 @@ int getNumberOfStages(RungeKuttaVariant variant) {
       {RungeKuttaVariant::RK4_3_8,       4},
       {RungeKuttaVariant::RK6_Butcher_1, 7},
       {RungeKuttaVariant::RK6_Butcher_2, 7},
-      {RungeKuttaVariant::RK7_VernerMostEfficient, 10}
+      {RungeKuttaVariant::RK7_VernerMostEfficient, 9}
   };
   return variantToNumberOfStages[variant];
 }
@@ -232,7 +232,6 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
       c(6) = 0.884;
       c(7) = 0.925;
       c(8) = 1.0;
-      c(9) = 1.0;
       break;
   }
 }
