@@ -124,7 +124,7 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
     int order, int numAlignedDOF,
     const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
-    const double* dofs,  const double* pstrain, const double* integrals,
+    const real* dofs,  const real* pstrain, const double* integrals,
     unsigned int* map,
     int refinement, int* outputMask, double* outputRegionBounds,
     xdmfwriter::BackendType backend)
@@ -408,8 +408,8 @@ void seissol::writer::WaveFieldWriter::write(double time)
 		if (!m_outputFlags[i])
 			continue;
 
-		double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-				WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(nextId);
+		real* managedBuffer = async::Module<WaveFieldWriterExecutor,
+				WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(nextId);
 		m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
 
 		sendBuffer(nextId, m_numCells*sizeof(double));

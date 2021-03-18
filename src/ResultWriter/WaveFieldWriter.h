@@ -110,10 +110,10 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	unsigned int m_numLowCells;
 
 	/** Pointer to the degrees of freedom */
-	const double* m_dofs;
+	const real* m_dofs;
 
 	/** Pointer to the plastic strain */
-	const double* m_pstrain;
+	const real* m_pstrain;
 
 	/** Pointer to the integrals */
 	const double* m_integrals;
@@ -192,7 +192,7 @@ public:
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
 			const MeshReader &meshReader,  const std::vector<unsigned> &LtsClusteringData,
-			const double* dofs,  const double* pstrain, const double* integrals,
+			const real* dofs,  const real* pstrain, const double* integrals,
 			unsigned int* map,
 			int refinement, int* outputMask, double* outputRegionBounds,
       xdmfwriter::BackendType backend);
