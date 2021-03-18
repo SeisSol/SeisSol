@@ -483,6 +483,13 @@ private:
      **/
     void computeNeighboringInterior();
 
+
+    /**
+     * Returns number of cells managed by this cluster.
+     * @return Number of cells
+     */
+    long getNumberOfCells() const;
+
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
     /**
      * Tests for pending ghost layer communication, active when using communication thread 
