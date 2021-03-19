@@ -114,7 +114,6 @@ bool seissol::SeisSol::init(int argc, char* argv[])
       pinning.getWorkerUnionMask());
   logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
       pinning.getNodeMask());
-  std::cout << "My mask:" << parallel::Pinning::maskToString(pinning.getWorkerUnionMask()) << std::endl;
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
 #ifdef USE_COMM_THREAD
