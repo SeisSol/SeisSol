@@ -15,7 +15,7 @@ ci_builder_pre:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
-        - ls .git/config
+        - cat .git/config
         - git --version
 
 ci_builder_build:
@@ -29,7 +29,8 @@ ci_builder_build:
         - pwd
         - ls
         - git submodule --quiet sync --recursive
-        - git submodule set-url https://github.com/
+        - git submodule set-url submodules/xdmfwriter https://github.com/
+        - git submodule set-url submodules/cxxtest https://github.com/
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
