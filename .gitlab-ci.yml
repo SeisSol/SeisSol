@@ -28,7 +28,6 @@ ci_builder_build:
         - whoami
         - pwd
         - ls
-        - git submodule --quiet sync --recursive
         - git submodule set-url submodules/xdmfwriter https://github.com/
         - git submodule set-url submodules/cxxtest https://github.com/
         - git submodule --quiet update --init --recursive 
