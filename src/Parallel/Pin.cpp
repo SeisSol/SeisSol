@@ -51,9 +51,6 @@
 #endif
 
 seissol::parallel::Pinning::Pinning() {
-  // Affinity mask of the entire process
-  sched_getaffinity(0, sizeof(cpu_set_t), &processMask);
-
   // Affinity mask for the OpenMP workers
   openmpMask = getWorkerUnionMask();
 }

@@ -108,8 +108,6 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
-  logInfo(rank) << "Overall affinity (this process)      :" << parallel::Pinning::maskToString(
-      pinning.getProcessMask());
   logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
       pinning.getWorkerUnionMask());
   logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(

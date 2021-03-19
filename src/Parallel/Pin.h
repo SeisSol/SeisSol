@@ -47,12 +47,10 @@ namespace seissol {
   namespace parallel {
 class Pinning {
 private:
-  cpu_set_t processMask{};
   cpu_set_t openmpMask{};
 public:
   Pinning();
 
-  cpu_set_t getProcessMask() const { return processMask; };
   cpu_set_t getWorkerUnionMask() const;
   cpu_set_t getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(cpu_set_t const& set);
