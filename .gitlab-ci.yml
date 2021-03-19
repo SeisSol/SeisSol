@@ -86,15 +86,5 @@ ci_builder_test:
     script: 
         - echo "echo testing"
         - cd build_elastic_double_Release
-        - su ubuntu -c "make test"
-        - cd ../build_elastic_single_Release
-        - su ubuntu -c "make test"
-        - cd ../build_elastic_double_Debug
-        - su ubuntu -c "make test"
-        - cd ../build_elastic_single_Debug
-        - su ubuntu -c "make test"
-        - cd ../build_viscoelastic2_double_Release
-        - su ubuntu -c "make test"
-        - cd ../build_viscoelastic2_double_Debug
-        - su ubuntu -c "make test"
-
+        - make test
+        
