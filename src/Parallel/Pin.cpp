@@ -108,7 +108,11 @@ cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
 #else
   // Set now contains all unused cores on the machine.
   // Note that pinning of the communication thread is then not Numa-aware if there's more than one rank per node!
-  CPU_XOR(&freeMask, &nodeOpenMpMask, &freeMask);
+  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+    if (!CPU_ISSET(cpu, &nodeOpenMpMask)) {
+      CPU_SET(cpu, &freeMask);
+    }
+  }
 #endif
 
 
