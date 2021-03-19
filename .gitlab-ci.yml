@@ -80,7 +80,7 @@ ci_builder_build:
         paths:
             - build_*
             
-    ci_builder_test:
+ci_builder_test:
         stage: test
         tags:
             - ci_testing_cc
@@ -96,5 +96,5 @@ ci_builder_build:
             - make test
             - cd ../build_viscoelastic2_double_Release
             - make test
-        - cd ../build_viscoelastic2_double_Debug
-        - make test
+            - cd ../build_viscoelastic2_double_Debug
+            - make test
