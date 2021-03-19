@@ -29,7 +29,8 @@ ci_builder_build:
         - pwd
         - ls
         - git submodule --quiet sync --recursive
-        - git submodule --quiet update --init --recursive --set-url https://github.com/
+        - git submodule set-url https://github.com/
+        - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
         - sudo apt-get install gcc-8 g++-8 gfortran-8
