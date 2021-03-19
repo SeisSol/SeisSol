@@ -1,0 +1,30 @@
+stages:
+    - pre_test
+    - build 
+    - test
+
+ci_builder_pre:
+    stage: pre_test
+    tags:
+        - ci_testing_cc
+    before_script:
+        - git branch -vva
+        - echo $commit_author_name
+    script:
+        - whoami
+        - pwd
+        - echo $PATH
+        - echo $NAME_TEST
+        - cat .git/config
+        - git --version
+
+ci_builder_build:
+    stage: build
+    tags:
+        - ci_testing_cc
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
+    before_script:
+        - whoami
+        - pwd
+        - ls
