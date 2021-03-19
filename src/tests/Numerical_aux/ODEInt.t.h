@@ -30,7 +30,7 @@ public:
 
     // Setup ODE solver
     const auto timeSpan = ode::TimeSpan{0, 2};
-    const double dt = 0.0005;
+    const double dt = 0.0007;
     auto odeSolverConfig = ode::ODESolverConfig(dt);
 
     auto solver = ode::RungeKuttaODESolver({sizeIntegratedSolution, sizeSolution}, odeSolverConfig);
@@ -72,7 +72,6 @@ public:
       TS_ASSERT_DELTA(curUSolution[i], uShould, eps);
       TS_ASSERT_DELTA(curUSolutionIntegrated[i], uIntegratedShould, eps);
     }
-
   }
 };
 
