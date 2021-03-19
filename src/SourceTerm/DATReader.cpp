@@ -55,12 +55,13 @@ int seissol::sourceterm::readDAT(char const* path, DAT* dat)
 	// Save normal vectors as a 3D vector
 	// Entry 0 in tmp_normal_vectors stores the normal vector of receiver 1, etc
 	std::vector<Eigen::Vector3d> tmp_normal_vectors;
+	int skip_rows = 0;
 
 	std::ifstream normal_file(path_str + "/" + normal_file_name);
 
 	if (normal_file.is_open()) {
 		std::string normal_line;
-
+		int line_count = 0;
 		while(!normal_file.eof()){
 			getline(normal_file, normal_line, '\n');
 			
@@ -69,20 +70,19 @@ int seissol::sourceterm::readDAT(char const* path, DAT* dat)
 			for (std::string ex_line; iss >> ex_line; ) {
 				tmp.push_back(ex_line);
 				}
-			
+			if (line_count == 0) {
+				skip_rows = std::stod(tmp.at(0));
+			} else {
+				Eigen::Vector3d eigen_tmp(std::stod(tmp.at(0)), std::stod(tmp.at(1)), std::stod(tmp.at(2)));
+				tmp_normal_vectors.push_back(eigen_tmp);
+			}
 
-			Eigen::Vector3d eigen_tmp(std::stod(tmp.at(0)), std::stod(tmp.at(1)), std::stod(tmp.at(2)));
-
-			tmp_normal_vectors.push_back(eigen_tmp);
-
+			++line_count;
 		}
-
 	} else {
 		std::cerr << "Could not process	.ndat file \n";
 		return 1;
 	}
-
-
 
 	for (const auto& filename : dat_file_list) {
 
@@ -102,8 +102,8 @@ int seissol::sourceterm::readDAT(char const* path, DAT* dat)
 		Eigen::Vector3d current_normal;
 		std::vector<double> current_time;
 		std::vector<double> current_pressure_field;
-		
-		current_normal = tmp_normal_vectors.at(rec_nr-1);
+
+		current_normal = tmp_normal_vectors.at(rec_nr - skip_rows - 1);
 
 		std::ifstream dat_file(file_path);
 		std::string line;
@@ -271,9 +271,12 @@ double seissol::sourceterm::DAT::getPressureField(Eigen::Vector3d const& positio
 
 // 	double time = 2.47+01; // Expected Result: 1.081081636151335e-01 = 0.1081
 
-// 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/cube_forward/output_7",
-// 			 dat );
+// 	// readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/cube_forward/output_7",
+// 	// 		 dat );
 
+	
+// 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/point-source/output-fwd-500kmesh",
+// 			 dat );
 
 // 	Eigen::Vector3d pos(-5, 4.5, -0.1);
 
