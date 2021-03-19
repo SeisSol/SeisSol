@@ -135,7 +135,11 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
           real* source = subTriangleDofs + component * numberOfAlignedSubTriangles; 
           for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
             target[subtri] = source[subtri];
+            if (!std::isfinite(source[subtri])) {
+              logError() << "Detected Inf/NaN in free surface output. Aborting.";
+            }
           }
+
         }
       };
 
