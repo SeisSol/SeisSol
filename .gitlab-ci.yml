@@ -1,6 +1,7 @@
 stages:
     - pre_test
     - build 
+    - test
 
 
 ci_builder_pre:
@@ -78,3 +79,22 @@ ci_builder_build:
     artifacts:
         paths:
             - build_*
+            
+    ci_builder_test:
+    stage: test
+    tags:
+        - ci_testing_cc
+    script: 
+        - echo "echo testing"
+        - cd build_elastic_double_Release
+        - make test
+        - cd ../build_elastic_single_Release
+        - make test
+        - cd ../build_elastic_double_Debug
+        - make test
+        - cd ../build_elastic_single_Debug
+        - make test
+        - cd ../build_viscoelastic2_double_Release
+        - make test
+        - cd ../build_viscoelastic2_double_Debug
+        - make test
