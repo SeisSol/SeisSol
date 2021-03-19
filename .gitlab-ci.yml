@@ -2,42 +2,7 @@ stages:
     - pre_test
     - build 
     - test
-    
-dbuilder:
-    stage: pre_test
-    tags:
-        - dbuilder_cc
-    script:
-        - whoami
-        - pwd
-        - echo $HOST_ARCH
-        - echo $NAME_TEST
-        - git branch -vva
-        - git log --format="%H" -n 1
-        - git log --format="%H" -n 1 > commit_id
-        - git --no-pager show -s --format='%ae' $commit_id
-        - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
-        - echo $commit_author_name
-        - cat test_singularity_cpu.sh
-        
-dbuilder_2:
-    stage: build
-    tags:
-        - dbuilder_cc
-    script:
-        - git log --format="%H" -n 1
-        - git log --format="%H" -n 1 > commit_id
-        - git --no-pager show -s --format='%ae' $commit_id
-        - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
-        - echo $commit_author_name
-        - export PATH=$PATH:/home/ubuntu/singularity/bin
-        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
-        - git clone https://github.com/7bits-register/convergence-tests.git tests
-        - singularity pull docker://ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5
-        - ls -lh
-        - cat test_singularity_cpu.sh
-        #- singularity run -B $PWD:/home/$(whoami) ./seissol_base_amd64_ubuntu-1804_gcc-8.3.0_openmpi-3.1.5.sif ./test_singularity_cpu.sh
-        
+
 ci_builder_pre:
     stage: pre_test
     tags:
@@ -61,7 +26,7 @@ ci_builder_build:
         - whoami
         - pwd
         - ls
-        - git submodule --quiet sync --recursive --set-url https://github.com/
+        - git submodule --quiet sync --recursive
         - git submodule --quiet update --init --recursive --set-url https://github.com/
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
