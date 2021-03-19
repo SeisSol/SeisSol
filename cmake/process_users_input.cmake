@@ -67,7 +67,7 @@ set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or
 
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
-option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" OFF)
+option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
