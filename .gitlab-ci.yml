@@ -24,11 +24,12 @@ ci_builder_build:
         - ci_testing_cc
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
-        before_script:
+    before_script:
         - whoami
         - pwd
         - ls
         - git submodule set-url submodules/xdmfwriter https://github.com/
+        - cat .git/config
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
