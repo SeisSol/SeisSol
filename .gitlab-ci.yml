@@ -24,7 +24,7 @@ ci_builder_build:
         - ci_testing_cc
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
-    before_script:
+    script:
         - whoami
         - pwd
         - ls
