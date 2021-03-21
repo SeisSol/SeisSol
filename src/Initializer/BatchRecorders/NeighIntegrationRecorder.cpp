@@ -95,10 +95,6 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   std::array<std::vector<real *>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
   std::array<std::vector<real *>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
 
-  std::vector<real *> freeSurfaceDofs[*FaceId::Count];
-  std::vector<real *> freeSurfaceIDofs[*FaceId::Count];
-  std::vector<real *> freeSurfaceAminusT[*FaceId::Count];
-
   std::array<std::vector<real *>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
   std::array<std::vector<real *>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real *>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};

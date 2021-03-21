@@ -89,6 +89,10 @@
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+#include <Solver/Pipeline/DrPipeline.h>
+#endif
 
 namespace seissol {
   namespace time_stepping {
@@ -143,6 +147,7 @@ private:
     GlobalData *m_globalDataOnDevice{nullptr};
 #ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    dr::pipeline::DrPipeline drPipeline;
 #endif
 
     /*

@@ -175,16 +175,18 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
   real* tmpMem = nullptr;
-  for(size_t face = 0; face < 4; face++) {
+  device.api->resetCircularStreamCounter();
+  auto resetDeviceCurrentState = [this](size_t counter) {
+    for (size_t i = 0; i < counter; ++i) {
+      this->device.api->popStackMemory();
+    }
+    this->device.api->fastStreamsSync();
+    this->device.api->resetCircularStreamCounter();
+  };
 
+
+  for(size_t face = 0; face < 4; face++) {
     size_t streamCounter{0};
-    auto resetDeviceCurrentState = [this](size_t counter) {
-      for (size_t i = 0; i < counter; ++i) {
-        this->device.api->popStackMemory();
-      }
-      this->device.api->fastStreamsSync();
-      this->device.api->resetCircularStreamCounter();
-    };
 
     // regular and periodic
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {

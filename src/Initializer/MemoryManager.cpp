@@ -76,6 +76,8 @@
 #include <Kernels/common.hpp>
 #include <generated_code/tensor.h>
 #include <unordered_set>
+#include <cmath>
+#include <type_traits>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -83,6 +85,7 @@
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
+#include <Solver/Pipeline/DrPipeline.h>
 #endif //ACL_DEVICE
 
 void seissol::initializers::MemoryManager::initialize()
@@ -457,6 +460,27 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+#ifdef ACL_DEVICE
+  constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size() * sizeof(real);
+  constexpr size_t imposedStateSize = tensor::QInterpolated::size() * sizeof(real);
+  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
+  for (auto layer = m_dynRupTree.beginLeaf(); layer != m_dynRupTree.endLeaf(); ++layer) {
+    const auto layerSize = layer->getNumberOfCells();
+    layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnDevice, QInterpolatedSize * layerSize);
+    layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnDevice, QInterpolatedSize * layerSize);
+    layer->setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * layerSize);
+    layer->setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * layerSize);
+
+    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
+    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
+    layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
+    layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
+    layer->setScratchpadSize(m_dynRup.imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
+    layer->setScratchpadSize(m_dynRup.imposedStateMinusOnHost, LowerStageFactor *  imposedStateSize);
+  }
+  m_dynRupTree.allocateScratchPads();
+#endif
 }
 
 void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
@@ -731,8 +755,7 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
 
 #ifdef ACL_DEVICE
 void seissol::initializers::MemoryManager::recordExecutionPaths() {
-  recording::CompositeRecorder recorder;
-
+  recording::CompositeRecorder<seissol::initializers::LTS> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
@@ -742,6 +765,12 @@ void seissol::initializers::MemoryManager::recordExecutionPaths() {
 
   for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
     recorder.record(m_lts, *it);
+  }
+
+  recording::CompositeRecorder<seissol::initializers::DynamicRupture> drRecorder;
+  drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
+  for (LTSTree::leaf_iterator it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
+    drRecorder.record(m_dynRup, *it);
   }
 }
 #endif // ACL_DEVICE

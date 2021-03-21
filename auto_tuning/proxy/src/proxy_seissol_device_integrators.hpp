@@ -97,6 +97,10 @@ namespace proxy::device {
   }
 
   void computeDynRupGodunovState() {
+    auto& layer = m_dynRupTree->child(0).child<Interior>();
+
+    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    m_dynRupKernel.batchedSpaceTimeInterpolation(table);
   }
 } // namespace proxy::device
 
