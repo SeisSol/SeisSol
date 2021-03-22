@@ -101,7 +101,7 @@ int seissol::sourceterm::readDAT(char const* path, DAT* dat)
 		std::vector<double> current_pos;
 		Eigen::Vector3d current_normal;
 		std::vector<double> current_time;
-		std::vector<double> current_pressure_field;
+		std::vector<Eigen::Vector3d> current_pressure_field;
 
 		current_normal = tmp_normal_vectors.at(rec_nr - skip_rows - 1);
 
@@ -149,9 +149,7 @@ int seissol::sourceterm::readDAT(char const* path, DAT* dat)
 				
 				Eigen::Vector3d normal_stress = stress_tensor * current_normal;
 
-				double p_res = sqrt( normal_stress.dot(normal_stress) );
-
-				current_pressure_field.push_back(p_res);
+				current_pressure_field.push_back(normal_stress);
 			}
 		}
 
@@ -180,11 +178,12 @@ int seissol::sourceterm::readDAT(char const* path, DAT* dat)
  * 		- Inverse Weighted Distance (IWD) in space
  */ 
 
-double seissol::sourceterm::DAT::getPressureField(Eigen::Vector3d const& position, double timestamp)
+Eigen::Vector3d seissol::sourceterm::DAT::getPressureField(Eigen::Vector3d const& position, double timestamp)
 {
 	// timestamp < 0 --> past recording time of forward receivers.
 	if (timestamp < 0) {
-		return 0;
+		Eigen::Vector3d result(0, 0, 0);
+		return result;
 	}
 
 	double pos_x = position(0);
@@ -198,11 +197,15 @@ double seissol::sourceterm::DAT::getPressureField(Eigen::Vector3d const& positio
 	// From all available receivers hold values needed for IWD with n neighbors
 	std::vector<int> rec_idx;			
 	std::vector<double> rec_distance;
-	std::vector<double> rec_sigma;
+	std::vector<double> p_x;
+	std::vector<double> p_y;
+	std::vector<double> p_z;
 
 	for (int z=0; z < n; ++z) {
 		rec_idx.push_back(-1);
-		rec_sigma.push_back(0);
+		p_x.push_back(0);
+		p_y.push_back(0);
+		p_z.push_back(0);
 		rec_distance.push_back(1e+20);
 	}
 
@@ -236,10 +239,19 @@ double seissol::sourceterm::DAT::getPressureField(Eigen::Vector3d const& positio
 			} else {
 				--lower_idx;
 			}
-			rec_sigma[i] = pressure_field[rec_idx[i]][lower_idx] + (timestamp - time[rec_idx[i]][lower_idx]) * (pressure_field[rec_idx[i]][upper_idx] - pressure_field[rec_idx[i]][lower_idx])
+			p_x[i] = pressure_field[rec_idx[i]][lower_idx](0) + (timestamp - time[rec_idx[i]][lower_idx]) 
+							* (pressure_field[rec_idx[i]][upper_idx](0) - pressure_field[rec_idx[i]][lower_idx](0))
+							/ (time[rec_idx[i]][upper_idx] - time[rec_idx[i]][lower_idx]);
+			p_y[i] = pressure_field[rec_idx[i]][lower_idx](1) + (timestamp - time[rec_idx[i]][lower_idx]) 
+							* (pressure_field[rec_idx[i]][upper_idx](1) - pressure_field[rec_idx[i]][lower_idx](1))
+							/ (time[rec_idx[i]][upper_idx] - time[rec_idx[i]][lower_idx]);
+			p_z[i] = pressure_field[rec_idx[i]][lower_idx](2) + (timestamp - time[rec_idx[i]][lower_idx]) 
+							* (pressure_field[rec_idx[i]][upper_idx](2) - pressure_field[rec_idx[i]][lower_idx](2))
 							/ (time[rec_idx[i]][upper_idx] - time[rec_idx[i]][lower_idx]);
 		} else {
-			rec_sigma[i] = pressure_field[rec_idx[i]][timestamp];
+			p_x[i] = pressure_field[rec_idx[i]][timestamp](0);
+			p_y[i] = pressure_field[rec_idx[i]][timestamp](1);
+			p_z[i] = pressure_field[rec_idx[i]][timestamp](2);
 		}
 	}
 
@@ -249,41 +261,48 @@ double seissol::sourceterm::DAT::getPressureField(Eigen::Vector3d const& positio
 	int idx_tmp = std::min_element(rec_distance.begin(), rec_distance.end()) - rec_distance.begin();
 
 	if (rec_distance[idx_tmp] == 0.0) {
-		return rec_sigma[idx_tmp];
+		Eigen::Vector3d result(p_x[idx_tmp], p_y[idx_tmp], p_z[idx_tmp]);
+		return result;
 	} else {
-		double numerator = 0;
+		double numerator_x = 0;
+		double numerator_y = 0;
+		double numerator_z = 0;
 		double denominator = 0;
 		for (int i=0; i < n; ++i){
 			double w_i = 1 / (rec_distance[i] * rec_distance[i]);
-			numerator += rec_sigma[i] * w_i;
+			numerator_x += p_x[i] * w_i;
+			numerator_y += p_y[i] * w_i;
+			numerator_z += p_z[i] * w_i;
+
 			denominator += w_i;
 		}
-		
-		return (numerator / denominator);	
+		Eigen::Vector3d result(numerator_x / denominator, numerator_y / denominator, numerator_z / denominator);
+
+		return result;	
 	}
 }
 
 
-// int main( int argc, const char* argv[] )
-// {
+int main( int argc, const char* argv[] )
+{
 	
-// 	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
+	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
 
-// 	double time = 2.47+01; // Expected Result: 1.081081636151335e-01 = 0.1081
+	double time = 2.47e+01; // Expected Result: 1.081081636151335e-01 = 0.1081
 
-// 	// readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/cube_forward/output_7",
-// 	// 		 dat );
+	// readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/cube_forward/output_7",
+	// 		 dat );
 
 	
-// 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/point-source/output-fwd-500kmesh",
-// 			 dat );
+	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/point-source/output-fwd-500kmesh",
+			 dat );
 
-// 	Eigen::Vector3d pos(-5, 4.5, -0.1);
+	Eigen::Vector3d pos(-5, 4.5, -0.1);
 
-// 	double returned_p = dat->getPressureField(pos, time);
+	Eigen::Vector3d returned_p = dat->getPressureField(pos, time);
 
-// 	std::cout << returned_p << std::endl;
+	std::cout << returned_p(0) << "; " << returned_p(1) << "; " << returned_p(2) << "\n";
 
 
-// 	return 0;
-// }
+	return 0;
+}

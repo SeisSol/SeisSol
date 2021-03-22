@@ -241,8 +241,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           int offset = 0;
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             
-            
-            
             // Only able to measure the pressure field during a finite time-interval [0, T]
             // T = ENDTIME as defined in paramters.par, and thereby equal to the last time entry
             // of the receivers.
@@ -259,14 +257,16 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             auto H = [](double t) -> double {
               return t > 0 ? 1.0 : 0.0;
             };
-      
-            double val = 
-                m_dat->getPressureField(position, T - time) * H(T - time);
 
+            Eigen::Vector3d pressure_field = m_dat->getPressureField(position, T - time);
 
-            boundaryDofs(i,0) = 2 * val - boundaryDofsInterior(i,0);
-            boundaryDofs(i,1) = 2 * val - boundaryDofsInterior(i,1);
-            boundaryDofs(i,2) = 2 * val - boundaryDofsInterior(i,2);
+            double p_x = pressure_field(0) * H(T-time);
+            double p_y = pressure_field(1) * H(T-time);
+            double p_z = pressure_field(2) * H(T-time);
+
+            boundaryDofs(i,0) = 2 * p_x - boundaryDofsInterior(i,0);
+            boundaryDofs(i,1) = 2 * p_y - boundaryDofsInterior(i,1);
+            boundaryDofs(i,2) = 2 * p_z - boundaryDofsInterior(i,2);
           }
         };
 

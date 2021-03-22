@@ -11,11 +11,11 @@ namespace seissol {
 			std::vector<std::vector<double>> pos;
 			std::vector<Eigen::Vector3d> normal;
 			std::vector<std::vector<double>> time;
-			std::vector<std::vector<double>> pressure_field;
+			std::vector<std::vector<Eigen::Vector3d>> pressure_field;
 			
 			double endtime = 0;
 			
-			double getPressureField(Eigen::Vector3d const& position, double time);
+			Eigen::Vector3d getPressureField(Eigen::Vector3d const& position, double time);
 
 		};
 
