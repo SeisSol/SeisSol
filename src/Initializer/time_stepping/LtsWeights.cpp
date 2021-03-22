@@ -213,12 +213,16 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
 #ifdef USE_ANISOTROPIC
       const bool isAtElasticAcousticInterface = false;
 #else
-      // Note: This is nearly a copy of isAtElasticAcousticInterface from MemoryManger
-      // TODO(Lukas) Refactor!
-      const auto thisMu = materials[neighbourCell].mu;
-      const auto otherMu = materials[cell].mu;
-      constexpr auto eps = std::numeric_limits<real>::epsilon();
-      const bool isAtElasticAcousticInterface = thisMu > eps && otherMu < eps;
+      bool isAtElasticAcousticInterface = false;
+      // NeighbourCell is -1 for boundary conditions...
+      if (neighbourCell > 0) {
+        // Note: This is nearly a copy of isAtElasticAcousticInterface from MemoryManger
+        // TODO(Lukas) Refactor!
+        const auto thisMu = materials[neighbourCell].mu;
+        const auto otherMu = materials[cell].mu;
+        constexpr auto eps = std::numeric_limits<real>::epsilon();
+        isAtElasticAcousticInterface = thisMu > eps && otherMu < eps;
+      }
 #endif
       // TODO(Lukas) Maybe refactor - is nearly requiresDisplacement from MemoryManger
       if (faceType == FaceType::freeSurface
