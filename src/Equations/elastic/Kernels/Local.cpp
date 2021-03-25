@@ -268,7 +268,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             
             for (unsigned int row = 0; row < m_dat->q_dim; ++row) {
               for (unsigned int col = 0; col < m_dat->q_dim; ++col){
-                  T_matrix(row, col) = T(row, col)
+                  T_matrix(row, col) = T(row, col);
               }
             }
 
@@ -278,7 +278,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             q_normal = T_matrix.inverse() * q_cartesian;
 
 
-            for (unsigned int j = 0; j < dat->q_dim; ++j) {
+            for (unsigned int j = 0; j < m_dat->q_dim; ++j) {
               q_normal(j) = q_normal(j) * H(endtime - time);
             }
 
