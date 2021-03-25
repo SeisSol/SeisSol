@@ -240,11 +240,11 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                                init::INodal::view::type& boundaryDofs) {
           int offset = 0;
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            
+
             // Only able to measure the pressure field during a finite time-interval [0, T]
-            // T = ENDTIME as defined in paramters.par, and thereby equal to the last time entry
+            //  T = ENDTIME as defined in paramters.par, and thereby equal to the last time entry
             // of the receivers.
-            const auto T = m_dat->endtime;
+            const auto endtime = m_dat->endtime;
 
             // x, y, z: points on the surface
             const auto x = nodes[offset+0];
@@ -257,16 +257,35 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             auto H = [](double t) -> double {
               return t > 0 ? 1.0 : 0.0;
             };
+            
 
-            Eigen::Vector3d pressure_field = m_dat->getPressureField(position, T - time);
+            // T is a 9x9 rotation matrix
+            // transforms from normal frame to global cartesian frame.
+            real TData[seissol::tensor::T::size()];
+            auto T = init::T::view::create(TData);
 
-            double p_x = pressure_field(0) * H(T-time);
-            double p_y = pressure_field(1) * H(T-time);
-            double p_z = pressure_field(2) * H(T-time);
 
-            boundaryDofs(i,0) = 2 * p_x - boundaryDofsInterior(i,0);
-            boundaryDofs(i,1) = 2 * p_y - boundaryDofsInterior(i,1);
-            boundaryDofs(i,2) = 2 * p_z - boundaryDofsInterior(i,2);
+            T.conservativeResize(dat->q_dim, dat->q_dim);
+
+
+            Eigen::VectorXd q_cartesian = m_dat->getQ(position, endtime - time);
+
+            Eigen::VectorXd q_normal;
+            q_normal = T.inverse() * q_cartesian;
+
+
+            for (unsigned int j = 0; j < dat->q_dim; ++j) {
+              q_normal(j) = q_normal(j) * H(endtime - time);
+            }
+
+
+            boundaryDofs(i,0) = 2 * q_normal(0) - boundaryDofsInterior(i,0);
+            boundaryDofs(i,1) = 2 * q_normal(1) - boundaryDofsInterior(i,1);
+            boundaryDofs(i,2) = 2 * q_normal(2) - boundaryDofsInterior(i,2);
+            boundaryDofs(i,3) = 2 * q_normal(3) - boundaryDofsInterior(i,3);
+            boundaryDofs(i,4) = 2 * q_normal(4) - boundaryDofsInterior(i,4);
+            boundaryDofs(i,5) = 2 * q_normal(5) - boundaryDofsInterior(i,5);
+
           }
         };
 

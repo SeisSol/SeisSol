@@ -8,19 +8,21 @@ namespace seissol {
 	namespace sourceterm {
 		
 		struct DAT {
-			std::vector<std::vector<double>> pos;
-			std::vector<Eigen::Vector3d> normal;
-			std::vector<std::vector<double>> time;
-			std::vector<std::vector<Eigen::Vector3d>> pressure_field;
-			
+			int q_dim = 6;
 			double endtime = 0;
+			// IWD with n neighbours
+			const int n = 4;
+
+			std::vector<std::vector<double>> pos;
+			std::vector<std::vector<double>> time;
+			std::vector<std::vector<Eigen::VectorXd>> q;
 			
-			Eigen::Vector3d getPressureField(Eigen::Vector3d const& position, double time);
+			Eigen::VectorXd getQ(Eigen::Vector3d const& position, double time);
 
 		};
 
 
-		int readDAT(char const* path, DAT* dat);
+		void readDAT(char const* path, DAT* dat);
 	}
 }
 #endif
