@@ -36,7 +36,7 @@ void saveFirstModes(real *firstModes,
 __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
                                                int *isAdjustableVector,
                                                const PlasticityData *plasticity,
-                                               const double relaxTime) {
+                                               const double one_minus_integrating_factor) {
   real *elementTensors = nodalStressTensors[blockIdx.x];
   real localStresses[NUM_STREESS_COMPONENTS];
 
@@ -80,7 +80,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   real factor = 0.0;
   if (tau > taulim) {
     isAdjusted = static_cast<int>(true);
-    factor = ((taulim / tau) - 1.0) * relaxTime;
+    factor = ((taulim / tau) - 1.0) * one_minus_integrating_factor;
   }
 
   // 7. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
@@ -100,7 +100,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              int *isAdjustableVector,
                              const PlasticityData *plasticity,
-                             const double relaxTime,
+                             const double one_minus_integrating_factor,
                              const size_t numElements) {
   constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
@@ -108,7 +108,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
   kernel_adjustDeviatoricTensors<<<grid, block>>>(nodalStressTensors,
                                                   isAdjustableVector,
                                                   plasticity,
-                                                  relaxTime);
+                                                  one_minus_integrating_factor);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -173,7 +173,9 @@ __global__ void kernel_computePstrains(real **pstrains,
                                        const real** modalStressTensors,
                                        const real* firsModes,
                                        const PlasticityData* plasticity,
+                                       const double one_minus_integrating_factor,
                                        const double timeStepWidth,
+                                       const double T_v,
                                        const size_t numElements) {
   // compute element id
   size_t index = threadIdx.y + blockIdx.x * blockDim.y;
@@ -187,13 +189,13 @@ __global__ void kernel_computePstrains(real **pstrains,
     const PlasticityData *localData = &plasticity[index];
 
     constexpr unsigned numModesPerElement = init::Q::Shape[0];
-    real duDtPstrain = localData->mufactor * (localFirstMode[threadIdx.x]
-                                              - localModalTensor[threadIdx.x * numModesPerElement]);
-    localPstrains[threadIdx.x] += duDtPstrain;
+    real factor = localData->mufactor / (T_v * one_minus_integrating_factor);
+    real duDtPstrain = factor * (localFirstMode[threadIdx.x] - localModalTensor[threadIdx.x * numModesPerElement]);
+    localPstrains[threadIdx.x] += timeStepWidth * duDtPstrain;
 
     __shared__ real squaredDuDtPstrains[NUM_STREESS_COMPONENTS];
-    real factor = threadIdx.x < 3 ? 0.5f : 1.0f;
-    squaredDuDtPstrains[threadIdx.x] = factor * duDtPstrain * duDtPstrain;
+    real coefficient = threadIdx.x < 3 ? 0.5f : 1.0f;
+    squaredDuDtPstrains[threadIdx.x] = coefficient * duDtPstrain * duDtPstrain;
     __syncthreads();
 
     if (threadIdx.x == 0) {
@@ -214,7 +216,9 @@ void computePstrains(real **pstrains,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,
+                     const double one_minus_integrating_factor,
                      const double timeStepWidth,
+                     const double T_v,
                      const size_t numElements) {
   dim3 block(NUM_STREESS_COMPONENTS, 32, 1);
   size_t numBlocks = (numElements + block.y - 1) / block.y;
@@ -224,7 +228,9 @@ void computePstrains(real **pstrains,
                                           modalStressTensors,
                                           firsModes,
                                           plasticity,
+                                          one_minus_integrating_factor,
                                           timeStepWidth,
+                                          T_v,
                                           numElements);
 }
 
