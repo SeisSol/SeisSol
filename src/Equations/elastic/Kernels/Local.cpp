@@ -264,14 +264,18 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             real TData[seissol::tensor::T::size()];
             auto T = init::T::view::create(TData);
 
-
-            T.conservativeResize(dat->q_dim, dat->q_dim);
-
+            Eigen::MatrixXd T_matrix(m_dat->q_dim, m_dat->q_dim);
+            
+            for (unsigned int row = 0; row < m_dat->q_dim; ++row) {
+              for (unsigned int col = 0; col < m_dat->q_dim; ++col){
+                  T_matrix(row, col) = T(row, col)
+              }
+            }
 
             Eigen::VectorXd q_cartesian = m_dat->getQ(position, endtime - time);
 
             Eigen::VectorXd q_normal;
-            q_normal = T.inverse() * q_cartesian;
+            q_normal = T_matrix.inverse() * q_cartesian;
 
 
             for (unsigned int j = 0; j < dat->q_dim; ++j) {
