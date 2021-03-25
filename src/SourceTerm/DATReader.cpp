@@ -111,12 +111,6 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 	}
 
 	dat->endtime = dat->time[0].back();
-
-	std::cout << "in readDAT" << "\n";
-	std::cout << dat->pos[1][0] << "; " << dat->pos[1][1] << "; " << dat->pos[1][2] << std::endl;
-	std::cout << dat->time[1][1045] << "; " << dat->q[1][1045](0)  << "; "  << dat->q[1][1045](1) << "; "  << dat->q[1][1045](2)
-			<< "; "  << dat->q[1][1045](3) << "; "  << dat->q[1][1045](4) << std::endl;
-
 }
 
 /*
@@ -203,10 +197,6 @@ Eigen::VectorXd seissol::sourceterm::DAT::getQ(Eigen::Vector3d const& position, 
 				}
 			}
 	}
-
-	std::cout << "After linear interpolation in time \n";
-	std::cout << q_interpol[1](0) << "; " << q_interpol[1](1) << "; " << q_interpol[1](2) << "; " << q_interpol[1](3)
-			  << "; " << q_interpol[1](4) << "; " << q_interpol[1](5) << "\n";
 
 	// q_interpol now stores the linearly interpolated values for all n receivers.
 	// Apply IWD with n neighbors with power 2
