@@ -75,6 +75,7 @@ Supermuc-NG
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
   module load hdf5/1.8.21-impi-cxx-frt-threadsafe 
   module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
+  module load numactl
 
   ####### for pspamm.py
   export PATH=~/bin:$PATH
@@ -130,7 +131,7 @@ set compiler options:
 ::
 
    mkdir build-release && cd build-release
-   CC=mpiicc CXX=mpiicpc FC=mpiifort  cmake -DCOMMTHREAD=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   CC=mpiicc CXX=mpiicpc FC=mpiifort  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
    make -j 48
 
 5. Submission file for SeisSol on NG:
