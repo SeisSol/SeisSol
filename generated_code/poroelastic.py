@@ -148,7 +148,7 @@ class PoroelasticADERDG(LinearADERDG):
       if n > 0:
         derivativeSum = stpRhs['kpt']
         for d in range(3):
-          derivativeSum += timestep * kSub(d,n)['kl'] * stp['lqt'] * self.starMatrix(d)['qp']
+          derivativeSum += kSub(d,n)['kl'] * stp['lqt'] * self.starMatrix(d)['qp']
       kernels.append( stpRhs['kpt'] <=  derivativeSum )
     kernels.append( self.I['kp'] <= timestep * stp['kpt'] * self.db.timeInt['t'] )
 

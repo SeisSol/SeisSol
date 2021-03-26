@@ -148,15 +148,24 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::stp::size(), 0);
   kernel::stp krnl = m_krnlPrototype;
-  
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+ 
+  //libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the 
+  //star matrices with dt before we execute the kernel.
+  real A_values[init::star::size(0)];
+  real B_values[init::star::size(1)];
+  real C_values[init::star::size(2)];
+  for (size_t i = 0; i < init::star::size(0); i++) {
+    A_values[i] = i_timeStepWidth * data.localIntegration.starMatrices[0][i];
+    B_values[i] = i_timeStepWidth * data.localIntegration.starMatrices[1][i];
+    C_values[i] = i_timeStepWidth * data.localIntegration.starMatrices[2][i];
   }
+  krnl.star(0) = A_values;
+  krnl.star(1) = B_values;
+  krnl.star(2) = C_values;
 
   //The matrix Zinv depends on the timestep
   //Itf the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
- 
   if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
     real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
@@ -256,6 +265,9 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 #ifdef USE_STP
   o_nonZeroFlops = kernel::stp::NonZeroFlops;
   o_hardwareFlops = kernel::stp::HardwareFlops;
+  //we multiply the star matrices with dt before we execute the kernel
+  o_nonZeroFlops += 3*init::star::size(0);
+  o_hardwareFlops += 3*init::star::size(0);
 #else
   o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
   o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
