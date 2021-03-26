@@ -263,7 +263,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             // transforms from normal frame to global cartesian frame.
             auto T_inv = init::T::view::create((*cellBoundaryMapping)[face].TinvData);
 
-            Eigen::MatrixXd T_matrix(m_dat->q_dim, m_dat->q_dim);
+            Eigen::MatrixXd T_inv_matrix(m_dat->q_dim, m_dat->q_dim);
             
             for (unsigned int row = 0; row < m_dat->q_dim; ++row) {
               for (unsigned int col = 0; col < m_dat->q_dim; ++col){
