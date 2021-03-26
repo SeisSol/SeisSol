@@ -261,21 +261,20 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 
             // T is a 9x9 rotation matrix
             // transforms from normal frame to global cartesian frame.
-            real TData[seissol::tensor::T::size()];
-            auto T = init::T::view::create(TData);
+            auto T_inv = init::T::view::create((*cellBoundaryMapping)[face].TinvData);
 
             Eigen::MatrixXd T_matrix(m_dat->q_dim, m_dat->q_dim);
             
             for (unsigned int row = 0; row < m_dat->q_dim; ++row) {
               for (unsigned int col = 0; col < m_dat->q_dim; ++col){
-                  T_matrix(row, col) = T(row, col);
+                  T_inv_matrix(row, col) = T_inv(row, col);
               }
             }
 
             Eigen::VectorXd q_cartesian = m_dat->getQ(position, endtime - time);
 
             Eigen::VectorXd q_normal;
-            q_normal = T_matrix.inverse() * q_cartesian;
+            q_normal = T_inv_matrix * q_cartesian;
 
 
             for (unsigned int j = 0; j < m_dat->q_dim; ++j) {
