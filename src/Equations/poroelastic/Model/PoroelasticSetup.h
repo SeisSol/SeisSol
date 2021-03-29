@@ -334,9 +334,7 @@ namespace seissol {
 
       Matrix Z(init::Z::Values);
       if(quantity >= 10) {
-        for(int j = 0; j < CONVERGENCE_ORDER; j++) {
-          Z(j,j) = Z(j,j) - timeStepWidth * sourceMatrix(quantity, quantity);
-        }
+        Z = Z - timeStepWidth * sourceMatrix(quantity, quantity) * Matrix::Identity();
       }
 
       auto solver = Z.colPivHouseholderQr();
