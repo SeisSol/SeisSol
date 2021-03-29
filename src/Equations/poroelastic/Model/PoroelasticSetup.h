@@ -324,8 +324,9 @@ namespace seissol {
       }
     }
 
+    template<typename Tview>
     inline void calcZinv( yateto::DenseTensorView<2, real, unsigned> &Zinv, 
-        yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
+        Tview &sourceMatrix, 
         size_t quantity,
         real timeStepWidth) {
       using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
@@ -351,15 +352,15 @@ namespace seissol {
     }
 
     //constexpr for loop since we need to instatiate the view templates
-    template<size_t i_start, size_t i_end>
+    template<size_t i_start, size_t i_end, typename Tview>
     struct for_loop {
       for_loop(real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
-          yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
+          Tview &sourceMatrix, 
           real timeStepWidth) {
         auto Zinv = init::Zinv::view<i_start>::create(ZinvData[i_start]); 
         calcZinv(Zinv, sourceMatrix, i_start, timeStepWidth);
         if constexpr(i_start < i_end-1) {
-          for_loop<i_start+1, i_end>(ZinvData, sourceMatrix, timeStepWidth);
+          for_loop<i_start+1, i_end, Tview>(ZinvData, sourceMatrix, timeStepWidth);
         }
       };
     };
@@ -372,7 +373,7 @@ namespace seissol {
       sourceMatrix.setZero();
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-      for_loop<0, NUMBER_OF_QUANTITIES>(localData->Zinv, sourceMatrix, timeStepWidth);
+      for_loop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(localData->Zinv, sourceMatrix, timeStepWidth);
       std::fill(localData->G, localData->G+NUMBER_OF_QUANTITIES, 0.0);
       localData->G[10] = sourceMatrix(10, 6);
       localData->G[11] = sourceMatrix(11, 7);

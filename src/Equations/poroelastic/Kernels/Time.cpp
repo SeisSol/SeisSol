@@ -169,7 +169,7 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
     real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
-    model::for_loop<0, NUMBER_OF_QUANTITIES>(ZinvData, sourceMatrix, i_timeStepWidth);
+    model::for_loop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
