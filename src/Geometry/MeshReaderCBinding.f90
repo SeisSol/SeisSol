@@ -103,7 +103,7 @@ contains
         type (tBoundary) :: bnd
         type (tMPI) :: mpi
 
-        character*50 str
+        character(len=50) str
 
         integer i
         integer nVertices

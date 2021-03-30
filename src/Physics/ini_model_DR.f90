@@ -500,9 +500,9 @@ MODULE ini_model_DR_mod
           scalarprod = dot_product(crossprod(:),NormalVect_n(:))
           !cos1**2 can be greater than 1 because of rounding errors -> min
           IF (scalarprod.GT.0) THEN
-             sin1=sqrt(1-min(1d0,cos1**2))
+             sin1=sqrt(1-min(1.0,cos1**2))
           ELSE
-             sin1=-sqrt(1-min(1d0,cos1**2))
+             sin1=-sqrt(1-min(1.0,cos1**2))
           ENDIF
           SlipInFaultCS(:,1,i) =  cos1 * StrikeSlip(:,i) + sin1* DipSlip(:,i)
           SlipInFaultCS(:,2,i) = -sin1 * StrikeSlip(:,i) + cos1* DipSlip(:,i)

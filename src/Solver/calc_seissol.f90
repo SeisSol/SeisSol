@@ -103,7 +103,7 @@ CONTAINS
     INTEGER                       :: k_index(4)
     INTEGER                       :: plotNr, minl(1), iter
     INTEGER                       :: iElem, iSide, i, iObject, MPIIndex
-    INTEGER*4                     :: now(3)
+    INTEGER(KIND=4)               :: now(3)
     REAL                          :: tol, InitBegin, InitEnd, LoopBegin, LoopEnd
     REAL                          :: MPITime, MPIdt, dt
     REAL                          :: CPUTime
@@ -116,7 +116,7 @@ CONTAINS
     INTEGER                       :: MaxnNonZeros, LocnNonZeros
     REAL                          :: JT(3,3,10),DIF,x(4),y(4),z(4),JacobiT(3,3)
     INTEGER                       :: counter, counter2,iType,j, countside, UpdType
-    real*8 :: l_synchronizationPoint;
+    REAL(KIND=8)                  :: l_synchronizationPoint;
     INTEGER                       :: iDRupdate
     !--------------------------------------------------------------------------
     INTENT(INOUT)                 :: time,timestep,OptionalFields,EQN,IO,BND,DISC,MESH,SOURCE
