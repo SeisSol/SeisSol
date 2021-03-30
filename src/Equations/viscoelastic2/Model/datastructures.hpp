@@ -69,7 +69,7 @@ namespace seissol {
         this->mu = materialValues[1];
         this->lambda = materialValues[2];
 
-        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+        for (int mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
           this->omega[mech] = materialValues[3 + 4*mech];
           for (unsigned i = 1; i < 4; ++i) {
             this->theta[mech][i-1] = materialValues[3 + 4*mech + i];
