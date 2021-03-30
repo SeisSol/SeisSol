@@ -164,3 +164,4 @@
 #error Unknown real size.
 #endif
 
+#define ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(X) X == 0 ? 1 : X
