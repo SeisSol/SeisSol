@@ -162,14 +162,24 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     seissol::kernel::stp krnl;
     prepareKernel(krnl);
 
-    auto sourceView = init::ET::view::create(sourceMatrix);
+    real A_values[seissol::tensor::star::size(0)] = {0};
+    real B_values[seissol::tensor::star::size(0)] = {0};
+    real C_values[seissol::tensor::star::size(0)] = {0};
+    for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
+      A_values[i] = starMatrices0[i] * dt;
+      B_values[i] = starMatrices1[i] * dt;
+      C_values[i] = starMatrices2[i] * dt;
+    }
 
-    krnl.star(0) = starMatrices0;
-    krnl.star(1) = starMatrices1;
-    krnl.star(2) = starMatrices2;
+    krnl.star(0) = A_values;
+    krnl.star(1) = B_values;
+    krnl.star(2) = C_values;
+
     for(size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i)  = zMatrix[i];
     }
+
+    auto sourceView = init::ET::view::create(sourceMatrix);
     krnl.Gk = sourceView(10, 6) * dt;
     krnl.Gl = sourceView(11, 7) * dt;
     krnl.Gm = sourceView(12, 8) * dt;
@@ -228,12 +238,20 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
 
       double diff_norm = 0;
       double ref_norm = 0;
+
+      auto lhs_view = init::test_lhs::view::create(lhs);
+      auto rhs_view = init::test_rhs::view::create(rhs);
       
-      for (size_t i = 0; i < tensor::stp::size(); i++) {
-        const double d =  std::abs(lhs[i] - rhs[i]);
-        const double a =  std::abs(lhs[i]);
-        diff_norm += d*d;
-        ref_norm += a*a;
+     
+      for (size_t b = 0; b < tensor::stp::Shape[0] ; b++) {
+        for (size_t q = 0; q < tensor::stp::Shape[1] ; q++) {
+          for (size_t o = 0; o < tensor::stp::Shape[2] ; o++) {
+            const double d =  std::abs(lhs_view(b,q,o) - rhs_view(b,q,o));
+            const double a =  std::abs(lhs_view(b,q,o));
+            diff_norm += d*d;
+            ref_norm += a*a;
+          }
+        }
       }
 
       TS_ASSERT(diff_norm / ref_norm < epsilon);
