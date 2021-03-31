@@ -78,7 +78,7 @@ def addKernels(generator, aderdg, include_tensors):
 
   rotateVelocityToGlobal = Tensor('rotateVelocityToGlobal', (3,3), alignStride=True)
   subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= \
-                                          subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.V2nTo2m['lm'] * faceDisplacement['mn'] * rotateVelocityToGlobal['pn']
+                                          subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.MV2nTo2m['lm'] * faceDisplacement['mn'] * rotateVelocityToGlobal['pn']
   subTriangleVelocity = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
 
   generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)

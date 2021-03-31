@@ -47,14 +47,6 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                                )
     include_tensors.add(identity_rotation)
 
-    project2nFaceTo3m = tensor_collection_from_constant_expression(
-        base_name='project2nFaceTo3m',
-        expressions=lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.MV2nTo2m['kl'],
-        group_indices=range(4),
-        target_indices='jl')
-
-    aderdg.db.update(project2nFaceTo3m)
-
     aderdg.INodalUpdate = OptionalDimTensor('INodalUpdate',
                                           aderdg.INodal.optName(),
                                           aderdg.INodal.optSize(),
