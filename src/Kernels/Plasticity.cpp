@@ -310,6 +310,7 @@ namespace seissol::kernels {
 
 #else
     assert(false && "no implementation provided");
+    return 0;
 #endif // ACL_DEVICE
   }
 
