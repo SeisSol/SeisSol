@@ -204,15 +204,15 @@ class View(QWidget):
             p.plot(wf.time, waveform, label=str(nWf))
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
-          #print L2 error
+          #print L2 difference
           if nWf > 0 and not self.diff.isChecked():
             time_union = numpy.union1d(wf.time, wf_ref.time)
             wf_interp = scipy.interpolate.interp1d(wf.time, waveform)
             ref_interp = scipy.interpolate.interp1d(wf_ref.time, wf_ref.waveforms[name])
             wf_union = wf_interp(time_union)
             ref_union = ref_interp(time_union)
-            error = numpy.sqrt(scipy.integrate.trapz((wf_union - ref_union)**2))
-            p.text(0.05, 1-0.1*nWf, "L2 error={:.2e}".format(error), transform = p.transAxes)
+            diff = numpy.sqrt(scipy.integrate.trapz((wf_union - ref_union)**2))
+            p.text(0.05, 1-0.1*nWf, f"L2 diff={diff:.2e}", transform = p.transAxes)
 
       self.figure.tight_layout()
 
