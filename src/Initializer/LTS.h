@@ -87,7 +87,7 @@ namespace seissol {
 struct seissol::initializers::LTS {
   Variable<real[tensor::Q::size()]>       dofs;
   // size is zero if Qane is not defined
-  Variable<real[kernels::size<tensor::Qane>()]> dofsAne;
+  Variable<real[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(kernels::size<tensor::Qane>())]> dofsAne;
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;
