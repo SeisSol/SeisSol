@@ -104,16 +104,15 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
     auto data = currentLoader->entry(cell);
     for (unsigned int face = 0; face < 4; face++) {
+      switch (data.cellInformation.faceTypes[face]) {
+        case FaceType::regular:
+          // Fallthrough intended
+        case FaceType::periodic: {
+          // compute face type relation
 
-      real *neighbourBufferPtr = faceNeighbors[cell][face];
-      // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-      if (neighbourBufferPtr != nullptr) {
-
-        switch (data.cellInformation.faceTypes[face]) {
-          case FaceType::regular:
-            // Fallthrough intended
-          case FaceType::periodic: {
-            // compute face type relation
+          real *neighbourBufferPtr = faceNeighbors[cell][face];
+          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+          if (neighbourBufferPtr != nullptr) {
             unsigned faceRelation = data.cellInformation.faceRelations[face][1] +
                                     3 * data.cellInformation.faceRelations[face][0] + 12 * face;
 
@@ -123,39 +122,38 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
             regularPeriodicIDofs[face][faceRelation].push_back(idofsAddressRegistry[neighbourBufferPtr]);
             regularPeriodicAminusT[face][faceRelation].push_back(
                 static_cast<real *>(data.neighIntegrationOnDevice.nAmNm1[face]));
-            break;
           }
-          case FaceType::freeSurface: {
-            break;
-          }
-          case FaceType::dynamicRupture: {
-            unsigned faceRelation = drMapping[cell][face].side + 4 * drMapping[cell][face].faceRelation;
-            assert((*DrFaceRelations::Count) > faceRelation &&
-                   "incorrect face relation count in dyn. rupture has been detected");
+          break;
+        }
+        case FaceType::freeSurface: {
+          break;
+        }
+        case FaceType::dynamicRupture: {
+          unsigned faceRelation = drMapping[cell][face].side + 4 * drMapping[cell][face].faceRelation;
+          assert((*DrFaceRelations::Count) > faceRelation &&
+                 "incorrect face relation count in dyn. rupture has been detected");
+          drDofs[face][faceRelation].push_back(static_cast<real *>(data.dofs));
+          drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
+          drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
 
-            drDofs[face][faceRelation].push_back(static_cast<real *>(data.dofs));
-            drGodunov[face][faceRelation].push_back(drMapping[cell][face].godunov);
-            drFluxSolver[face][faceRelation].push_back(drMapping[cell][face].fluxSolver);
-
-            break;
-          }
-          case FaceType::outflow:
-            break;
-          case FaceType::analytical: {
-            logError() << "analytical boundary condition is not supported in batched computations";
-            break;
-          }
-          case FaceType::freeSurfaceGravity: {
-            logError() << "freeSurfaceGravity boundary condition is not supported in batched computations";
-            break;
-          }
-          case FaceType::dirichlet: {
-            logError() << "dirichlet boundary condition is not supported in batched computations";
-            break;
-          }
-          default: {
-            logError() << "unknown boundary condition type: " << static_cast<int>(data.cellInformation.faceTypes[face]);
-            }
+          break;
+        }
+        case FaceType::outflow:
+          break;
+        case FaceType::analytical: {
+          logError() << "analytical boundary condition is not supported in batched computations";
+          break;
+        }
+        case FaceType::freeSurfaceGravity: {
+          logError() << "freeSurfaceGravity boundary condition is not supported in batched computations";
+          break;
+        }
+        case FaceType::dirichlet: {
+          logError() << "dirichlet boundary condition is not supported in batched computations";
+          break;
+        }
+        default: {
+          logError() << "unknown boundary condition type: " << static_cast<int>(data.cellInformation.faceTypes[face]);
         }
       }
     }
