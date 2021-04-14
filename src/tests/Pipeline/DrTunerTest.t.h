@@ -17,35 +17,35 @@ public:
     // this is going to results in: Performance ~ 1 / batchSize
     auto squareFunction = [] (size_t x) {return static_cast<double>(x * x);};
 
-    while (!tuner.isConverged) {
+    while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
       timing[ComputeStageId] = squareFunction(batchSize);
       tuner.tune(timing);
     }
-    TS_ASSERT_DELTA(batchSize, tuner.minBatchSize, eps);
+    TS_ASSERT_DELTA(batchSize, tuner.getMinBatchSize(), eps);
   }
 
   void testGoesToRight() {
     dr::pipeline::DrPipelineTuner tuner;
     auto hyperbolicTime = [](size_t x) {return 1.0 / (static_cast<double>(x + 1.0));};
 
-    while (!tuner.isConverged) {
+    while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
       timing[ComputeStageId] = hyperbolicTime(batchSize);
       tuner.tune(timing);
     }
-    TS_ASSERT_DELTA(batchSize, tuner.maxBatchSize, eps);
+    TS_ASSERT_DELTA(batchSize, tuner.getMaxBatchSize(), eps);
   }
 
   void testMaxWithinRange() {
     dr::pipeline::DrPipelineTuner tuner;
-    const auto midPoint = 0.5 * (tuner.maxBatchSize + tuner.minBatchSize);
+    const auto midPoint = 0.5 * (tuner.getMaxBatchSize() + tuner.getMinBatchSize());
 
     auto hatFunction = [midPoint] (size_t x) {
       return std::abs(midPoint - x);
     };
 
-    while (!tuner.isConverged) {
+    while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
       timing[ComputeStageId] = hatFunction(batchSize);
       tuner.tune(timing);

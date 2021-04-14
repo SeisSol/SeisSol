@@ -5,7 +5,7 @@
  * @author Ravil Dorozhinskii (ravil.dorozhinskii AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
+ * Copyright (c) 2020-2021, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

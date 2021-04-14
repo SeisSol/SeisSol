@@ -55,7 +55,7 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-  unsigned Plasticity::computePlasticity(double one_minus_integrating_factor,
+  unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                          double timeStepWidth,
                                          double T_v,
                                          GlobalData const *global,
@@ -137,7 +137,7 @@ namespace seissol::kernels {
       // where r = 1 - exp(-timeStepWidth / T_v)
       if (tau[ip] > taulim[ip]) {
         adjust = true;
-        yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * one_minus_integrating_factor;
+        yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * oneMinusIntegratingFactor;
       } else {
         yieldFactor[ip] = 0.0;
       }
@@ -192,7 +192,7 @@ namespace seissol::kernels {
          *
          * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
          */
-        real factor = plasticityData->mufactor / (T_v * one_minus_integrating_factor);
+        real factor = plasticityData->mufactor / (T_v * oneMinusIntegratingFactor);
         dudt_pstrain[q] = factor *
             (prev_degreesOfFreedom[q] - degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]);
         // Integrate with explicit Euler
@@ -211,7 +211,7 @@ namespace seissol::kernels {
     return 0;
   }
 
-  unsigned Plasticity::computePlasticityBatched(double one_minus_integrating_factor,
+  unsigned Plasticity::computePlasticityBatched(double oneMinusIntegratingFactor,
                                                 double timeStepWidth,
                                                 double T_v,
                                                 GlobalData const *global,
@@ -266,7 +266,7 @@ namespace seissol::kernels {
       device::aux::plasticity::adjustDeviatoricTensors(nodalStressTensors,
                                                        isAdjustableVector,
                                                        plasticity,
-                                                       one_minus_integrating_factor,
+                                                       oneMinusIntegratingFactor,
                                                        numElements);
 
       unsigned numAdjustedDofs = device.algorithms.reduceVector(isAdjustableVector,
@@ -287,7 +287,7 @@ namespace seissol::kernels {
                                                const_cast<const real **>(modalStressTensors),
                                                firsModes,
                                                plasticity,
-                                               one_minus_integrating_factor,
+                                               oneMinusIntegratingFactor,
                                                timeStepWidth,
                                                T_v,
                                                numElements);

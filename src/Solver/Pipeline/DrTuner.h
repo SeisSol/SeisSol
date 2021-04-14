@@ -5,7 +5,7 @@
  * @author Ravil Dorozhinskii (ravil.dorozhinskii AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
+ * Copyright (c) 2020-2021, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,8 +37,7 @@
  * @section DESCRIPTION
  * A custom pipeline tuner of DR pipeline which is based on the golden bisection method
  *
- * The objective function is given as million DR cells updates per second which is
- * supposed to get maximized
+ * Note, this can be deprecated once friction solvers are adapted for GPU computing
  **/
 
 #ifndef DR_TUNER_H
@@ -46,9 +45,6 @@
 
 #include <Solver/Pipeline/GenericPipeline.h>
 
-namespace seissol::unit_test {
-class DrTunerTest;
-}
 
 namespace seissol::dr::pipeline {
   class DrPipelineTuner: public PipelineTuner<3, 1024> {
@@ -56,7 +52,9 @@ namespace seissol::dr::pipeline {
     DrPipelineTuner();
     ~DrPipelineTuner() override = default;
     void tune(const std::array<double, NumStages>& stageTiming) override;
-
+    [[nodiscard]] bool isTunerConverged() const {return isConverged;}
+    [[nodiscard]] double getMaxBatchSize() const {return maxBatchSize;}
+    [[nodiscard]] double getMinBatchSize() const {return minBatchSize;}
   private:
     enum class Action {
       BeginRecordingLeftEvaluation,
@@ -65,7 +63,7 @@ namespace seissol::dr::pipeline {
       RecordRightEvaluation,
       SkipAction,
     };
-    Action action;
+    Action action{Action::BeginRecordingRightEvaluation};
 
     double maxBatchSize{DefaultBatchSize};
     double minBatchSize{0.1 * DefaultBatchSize};
@@ -79,8 +77,6 @@ namespace seissol::dr::pipeline {
     double invPhiSquared{};
     double eps{5e-2};
     bool isConverged{false};
-
-    friend class seissol::unit_test::DrTunerTest;
   };
 }
 

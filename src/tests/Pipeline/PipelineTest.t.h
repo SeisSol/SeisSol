@@ -12,8 +12,7 @@ namespace seissol {
   }
 }
 
-class seissol::unit_test::PipelineTest : public CxxTest::TestSuite
-{
+class seissol::unit_test::PipelineTest : public CxxTest::TestSuite {
 private:
   using TestPipeline = seissol::GenericPipeline<4, 1024>;
   struct TestStageCallBack : public TestPipeline::PipelineCallBack {
@@ -27,9 +26,15 @@ private:
 
   struct FirstStage : public TestStageCallBack {
     explicit FirstStage(std::string& buffer) : TestStageCallBack(buffer) {}
-    void operator()(size_t, size_t, size_t) override {
+    void operator()(size_t, size_t batchSize, size_t) override {
       buffer.push_back('A');
+      batchSizes.emplace_back(batchSize);
     }
+
+    std::vector<size_t> getBatchSizes() {return batchSizes;}
+  private:
+    // Note: it is enough to test batchSizes in only one stage
+    std::vector<size_t> batchSizes{};
   };
 
   struct SecondStage : public TestStageCallBack {
@@ -71,8 +76,7 @@ public:
     TS_ASSERT_EQUALS(TestPipeline::TailSize, 3);
   }
 
-  void testSuperShortPipeline()
-  {
+  void testSuperShortPipeline() {
     std::string testBuffer{};
     std::array<std::shared_ptr<TestPipeline::PipelineCallBack>, 4> callBacks = {
         std::make_shared<FirstStage>(testBuffer),
@@ -86,16 +90,19 @@ public:
     }
 
     pipeline.run(TestPipeline::DefaultBatchSize - 3);
-    std::string expectedResults{PipelineTest::format("AF BF CF DF")};
 
+    auto testedBatchSizes = static_cast<FirstStage*>(callBacks[0].get())->getBatchSizes();
+    std::vector<size_t> expectedBatchSizes{TestPipeline::DefaultBatchSize - 3};
+    TS_ASSERT_EQUALS(testedBatchSizes.size(), expectedBatchSizes.size());
+    for (size_t i = 0; i < expectedBatchSizes.size(); ++i)
+      TS_ASSERT_EQUALS(testedBatchSizes[i], expectedBatchSizes[i]);
+
+    std::string expectedResults{PipelineTest::format("AF BF CF DF")};
     TS_ASSERT_EQUALS(testBuffer.size(), expectedResults.size());
-    TS_ASSERT_EQUALS(pipeline.numFullPipeIterations, 0);
-    TS_ASSERT_EQUALS(pipeline.numTotalIterations, 1);
     TS_ASSERT_SAME_DATA(testBuffer.data(), expectedResults.data(), expectedResults.size());
   }
 
-  void testShortPipeline()
-  {
+  void testShortPipeline() {
     std::string testBuffer{};
     std::array<std::shared_ptr<TestPipeline::PipelineCallBack>, 4> callBacks = {
         std::make_shared<FirstStage>(testBuffer),
@@ -109,16 +116,20 @@ public:
     }
 
     pipeline.run(2 * TestPipeline::DefaultBatchSize - 3);
-    std::string expectedResults{PipelineTest::format("A AFB BFC CFD DF")};
 
+    auto testedBatchSizes = static_cast<FirstStage*>(callBacks[0].get())->getBatchSizes();
+    std::vector<size_t> expectedBatchSizes{TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize - 3};
+    TS_ASSERT_EQUALS(testedBatchSizes.size(), expectedBatchSizes.size());
+    for (size_t i = 0; i < expectedBatchSizes.size(); ++i)
+      TS_ASSERT_EQUALS(testedBatchSizes[i], expectedBatchSizes[i]);
+
+    std::string expectedResults{PipelineTest::format("A AFB BFC CFD DF")};
     TS_ASSERT_EQUALS(testBuffer.size(), expectedResults.size());
-    TS_ASSERT_EQUALS(pipeline.numFullPipeIterations, 0);
-    TS_ASSERT_EQUALS(pipeline.numTotalIterations, 2);
     TS_ASSERT_SAME_DATA(testBuffer.data(), expectedResults.data(), expectedResults.size());
   }
 
-  void testWithOneFullPipelineIteration()
-  {
+  void testWithOneFullPipelineIteration() {
     std::string testBuffer{};
     std::array<std::shared_ptr<TestPipeline::PipelineCallBack>, 4> callBacks = {
         std::make_shared<FirstStage>(testBuffer),
@@ -132,16 +143,22 @@ public:
     }
 
     pipeline.run(4 * TestPipeline::DefaultBatchSize - 3);
-    std::string expectedResults{PipelineTest::format("A AB ABC AFBCD BFCD CFD DF")};
 
+    auto testedBatchSizes = static_cast<FirstStage*>(callBacks[0].get())->getBatchSizes();
+    std::vector<size_t> expectedBatchSizes{TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize - 3};
+    TS_ASSERT_EQUALS(testedBatchSizes.size(), expectedBatchSizes.size());
+    for (size_t i = 0; i < expectedBatchSizes.size(); ++i)
+      TS_ASSERT_EQUALS(testedBatchSizes[i], expectedBatchSizes[i]);
+
+    std::string expectedResults{PipelineTest::format("A AB ABC AFBCD BFCD CFD DF")};
     TS_ASSERT_EQUALS(testBuffer.size(), expectedResults.size());
-    TS_ASSERT_EQUALS(pipeline.numFullPipeIterations, 1);
-    TS_ASSERT_EQUALS(pipeline.numTotalIterations, 4);
     TS_ASSERT_SAME_DATA(testBuffer.data(), expectedResults.data(), expectedResults.size());
   }
 
-  void testLongPipeline()
-  {
+  void testLongPipeline() {
     std::string testBuffer{};
     std::array<std::shared_ptr<TestPipeline::PipelineCallBack>, 4> callBacks = {
         std::make_shared<FirstStage>(testBuffer),
@@ -155,11 +172,20 @@ public:
     }
 
     pipeline.run(4 * TestPipeline::DefaultBatchSize + 3);
-    std::string expectedResults{PipelineTest::format("A AB ABC ABCD AFBCD BFCD CFD DF")};
 
+    auto testedBatchSizes = static_cast<FirstStage*>(callBacks[0].get())->getBatchSizes();
+    std::vector<size_t> expectedBatchSizes{TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize,
+                                           TestPipeline::DefaultBatchSize,
+                                           3};
+    TS_ASSERT_EQUALS(testedBatchSizes.size(), expectedBatchSizes.size());
+    for (size_t i = 0; i < expectedBatchSizes.size(); ++i)
+      TS_ASSERT_EQUALS(testedBatchSizes[i], expectedBatchSizes[i]);
+
+
+    std::string expectedResults{PipelineTest::format("A AB ABC ABCD AFBCD BFCD CFD DF")};
     TS_ASSERT_EQUALS(testBuffer.size(), expectedResults.size());
-    TS_ASSERT_EQUALS(pipeline.numFullPipeIterations, 2);
-    TS_ASSERT_EQUALS(pipeline.numTotalIterations, 5);
     TS_ASSERT_SAME_DATA(testBuffer.data(), expectedResults.data(), expectedResults.size());
   }
 };

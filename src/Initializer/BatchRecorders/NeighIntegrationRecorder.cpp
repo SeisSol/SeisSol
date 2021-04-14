@@ -23,13 +23,14 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   real *(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
   real *idofsScratch = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
 
-  if (currentLayer->getNumberOfCells()) {
+  const auto size = currentLayer->getNumberOfCells();
+  if (size > 0) {
     std::vector<real *> ltsIDofsPtrs{};
     std::vector<real *> ltsDerivativesPtrs{};
     std::vector<real *> gtsDerivativesPtrs{};
     std::vector<real *> gtsIDofsPtrs{};
 
-    for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
@@ -47,7 +48,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
               bool isNeighbProvidesDerivatives = ((data.cellInformation.ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
-                real *NextTempIDofsPtr = &idofsScratch[idofsAddressCounter];
+                real *NextTempIDofsPtr = &idofsScratch[integratedDofsAddressCounter];
 
                 bool isGtsNeigbour = ((data.cellInformation.ltsSetup >> (face + 4)) % 2) == 1;
                 if (isGtsNeigbour) {
@@ -61,7 +62,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(NextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighbourBuffer);
                 }
-                idofsAddressCounter += tensor::I::size();
+                integratedDofsAddressCounter += tensor::I::size();
               } else {
                 idofsAddressRegistry[neighbourBuffer] = neighbourBuffer;
               }
@@ -101,12 +102,13 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
 
   CellDRMapping(*drMapping)[4] = currentLayer->var(currentHandler->drMapping);
 
-  for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
+  const auto size = currentLayer->getNumberOfCells();
+  for (unsigned cell = 0; cell < size; ++cell) {
     auto data = currentLoader->entry(cell);
     for (unsigned int face = 0; face < 4; face++) {
       switch (data.cellInformation.faceTypes[face]) {
         case FaceType::regular:
-          // Fallthrough intended
+          [[fallthrough]];
         case FaceType::periodic: {
           // compute face type relation
 

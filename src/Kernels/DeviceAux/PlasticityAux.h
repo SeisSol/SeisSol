@@ -17,7 +17,7 @@ void saveFirstModes(real *firstModes,
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              int *isAdjustableVector,
                              const PlasticityData *plasticity,
-                             double one_minus_integrating_factor,
+                             double oneMinusIntegratingFactor,
                              size_t numElements);
 
 void adjustModalStresses(real **modalStressTensors,
@@ -31,7 +31,7 @@ void computePstrains(real **pstrains,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,
-                     double one_minus_integrating_factor,
+                     double oneMinusIntegratingFactor,
                      double timeStepWidth,
                      double T_v,
                      size_t numElements);

@@ -768,7 +768,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                );
 
 #ifdef USE_PLASTICITY
-  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
+  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
                                                                                      m_timeStepWidth,
                                                                                      m_tv,
                                                                                      m_globalDataOnHost,
@@ -807,7 +807,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef USE_PLASTICITY
   PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-  unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_relaxTime,
+  unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
                                                                                     m_timeStepWidth,
                                                                                     m_tv,
                                                                                     m_globalDataOnDevice,

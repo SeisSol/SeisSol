@@ -76,7 +76,7 @@ public:
 private:
   void setUpContext(LTS &handler, Layer &layer, kernels::LocalData::Loader &loader) {
     currentLoader = &loader;
-    idofsAddressCounter = 0;
+    integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
@@ -86,7 +86,7 @@ private:
   void recordLocalFluxIntegral();
   void recordDisplacements();
   std::unordered_map<size_t, real *> idofsAddressRegistry{};
-  size_t idofsAddressCounter{0};
+  size_t integratedDofsAddressCounter{0};
   size_t derivativesAddressCounter{0};
 };
 
@@ -97,14 +97,14 @@ public:
 private:
   void setUpContext(LTS &handler, Layer &layer, kernels::NeighborData::Loader &loader) {
     currentLoader = &loader;
-    idofsAddressCounter = 0;
+    integratedDofsAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
   void recordNeighbourFluxIntegrals();
   kernels::NeighborData::Loader *currentLoader{nullptr};
   std::unordered_map<real *, real *> idofsAddressRegistry{};
-  size_t idofsAddressCounter{0};
+  size_t integratedDofsAddressCounter{0};
 };
 
 

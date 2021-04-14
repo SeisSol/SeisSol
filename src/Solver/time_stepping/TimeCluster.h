@@ -203,7 +203,7 @@ private:
     double m_tv;
     
     //! Relax time for plasticity
-    double m_one_minus_integrating_factor;
+    double m_oneMinusIntegratingFactor;
     
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
@@ -322,7 +322,7 @@ private:
     
     //! Update relax time for plasticity
     void updateRelaxTime() {
-      m_one_minus_integrating_factor = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
+      m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
     }
 
   public:

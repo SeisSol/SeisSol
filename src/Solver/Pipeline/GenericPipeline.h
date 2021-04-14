@@ -5,7 +5,7 @@
  * @author Ravil Dorozhinskii (ravil.dorozhinskii AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
+ * Copyright (c) 2020-2021, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,10 +53,6 @@
 #include <cassert>
 
 
-namespace seissol::unit_test {
-  class PipelineTest;
-}
-
 namespace seissol {
 
   template<unsigned NumStagesP, unsigned DefaultBatchSizeP>
@@ -82,11 +78,10 @@ namespace seissol {
 
   template<unsigned NumStagesP, unsigned DefaultBatchSizeP, typename TunerT = PipelineTuner<NumStagesP, DefaultBatchSizeP>>
   class GenericPipeline {
-  private:
   public:
     struct PipelineCallBack {
       virtual ~PipelineCallBack() = default;
-      virtual void operator()(size_t begin, size_t end, size_t callCounter) = 0;
+      virtual void operator()(size_t begin, size_t batchSize, size_t callCounter) = 0;
       virtual void finalize() = 0;
     };
 
@@ -97,7 +92,7 @@ namespace seissol {
     }
     ~GenericPipeline() = default;
     constexpr static decltype(NumStagesP) NumStages{NumStagesP};
-    static constexpr decltype(NumStagesP) TailSize{NumStagesP - 1};
+    constexpr static decltype(NumStagesP) TailSize{NumStagesP - 1};
     constexpr static decltype(DefaultBatchSizeP) DefaultBatchSize{DefaultBatchSizeP};
 
     void registerCallBack(unsigned id, PipelineCallBack* callBack) {
@@ -141,7 +136,6 @@ namespace seissol {
         return *this;
       }
 
-    private:
       void clamp() {
         begin = (begin > limit) ? limit : begin;
         end = (end > limit) ? limit : end;
@@ -225,8 +219,6 @@ namespace seissol {
     bool resetAfterRun{true};
     TunerT tuner;
     Stopwatch stopwatch{};
-
-    friend class seissol::unit_test::PipelineTest;
   };
 }
 

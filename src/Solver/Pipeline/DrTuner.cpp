@@ -5,7 +5,7 @@
  * @author Ravil Dorozhinskii (ravil.dorozhinskii AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
+ * Copyright (c) 2020-2021, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * A custom pipeline tuner of DR pipeline which is based on the golden bisection method
+ * A custom tuner of DR pipeline which is based on the golden bisection method
  *
- * The objective function is given as million DR cells updates per second which is
- * supposed to get maximized
+ * Note, this can be deprecated once friction solvers are adapted for GPU computing
  **/
 
 #include "DrTuner.h"
@@ -61,6 +60,16 @@ namespace seissol::dr::pipeline {
     action = Action::BeginRecordingRightEvaluation;
   }
 
+  /**
+   * Implements a golden-section search to find a optimal batch size.
+   *
+   * The objective function is given as million DR cells updates per second which is
+   * supposed to get maximized. Note, that a callee evaluates the function. Values are returned back
+   * during the next call. Actions are used to handle the logic. The method sets `SkipAction` which
+   * results in fixing a batch size once a convergence achieved.
+   *
+   * @param  stageTiming average CPU time (in seconds) step on each stage for a batch processing.
+   **/
   void DrPipelineTuner::tune(const std::array<double, NumStages>& stageTiming) {
     constexpr size_t ComputeStageId{1};
     double currPerformance = 1e6 * currBatchSize / (stageTiming[ComputeStageId] + 1e-12);
@@ -102,7 +111,6 @@ namespace seissol::dr::pipeline {
       return;
     }
 
-    // Golden-section search
     if (leftValue > rightValue) {
       maxBatchSize = rightPoint;
       rightPoint = leftPoint;
