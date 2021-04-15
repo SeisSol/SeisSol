@@ -134,7 +134,11 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
           real* source = subTriangleDofs + component * numberOfAlignedSubTriangles; 
           for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
             target[subtri] = source[subtri];
+            if (!std::isfinite(source[subtri])) {
+              logError() << "Detected Inf/NaN in free surface output. Aborting.";
+            }
           }
+
         }
       };
 
@@ -151,7 +155,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 
       kernel::subTriangleDisplacement dkrnl;
       dkrnl.faceDisplacement = displacementDofs[face];
-      dkrnl.V2nTo2m = nodal::init::V2nTo2m::Values;
+      dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
       dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace.get();
       dkrnl.rotateVelocityToGlobal = rotateVelocityToGlobalData;
       dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;

@@ -1001,6 +1001,12 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_hardware[PlasticityYield] );
 }
 
+long seissol::time_stepping::TimeCluster::getNumberOfCells() const {
+  return m_clusterData->child<Copy>().getNumberOfCells() +
+         m_clusterData->child<Interior>().getNumberOfCells();
+}
+
+
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 void seissol::time_stepping::TimeCluster::pollForCopyLayerSends(){
   for( std::list<MPI_Request*>::iterator l_send = m_sendQueue.begin(); l_send != m_sendQueue.end(); ) {

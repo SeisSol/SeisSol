@@ -49,7 +49,7 @@ function(get_arch_flags architecture compiler)
     # AMD Rome/ Epyc 2nd Gen
     elseif ("${HOST_ARCH}" STREQUAL "rome")
         if (compiler STREQUAL "Intel")
-
+            set(CPU_ARCH_FLAGS "-march=core-avx2" "-fma" PARENT_SCOPE)
         elseif(compiler MATCHES "GNU|Clang")
             set(CPU_ARCH_FLAGS "-march=znver2" "-mtune=znver2" PARENT_SCOPE)
     endif()

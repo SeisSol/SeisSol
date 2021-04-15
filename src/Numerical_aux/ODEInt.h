@@ -72,8 +72,10 @@ public:
         buffer = curValue;
         // j < i due to explict RK scheme
         for (auto j = 0U; j < i; ++j) {
-          const auto curWeight = a(i, j) * adjustedDt;
-          buffer.weightedAddInplace(curWeight, stages[j]);
+          if (a(i,j) != 0.0) {
+            const auto curWeight = a(i, j) * adjustedDt;
+            buffer.weightedAddInplace(curWeight, stages[j]);
+          }
         }
 
         const double tEval = curTime + c[i] * adjustedDt;
