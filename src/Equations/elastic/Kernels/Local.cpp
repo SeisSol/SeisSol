@@ -259,18 +259,21 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 
           if ((*initConds)[0]->isZero()) {
             for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-              const double mu = 6.0;
-              auto H = [mu](double t) -> double {
-                return t < mu ? 1.0 : 0.0;
-              };
               const auto pi = std::acos(-1);
               const auto x = nodes[offset + 0];
               const auto y = nodes[offset + 1];
               offset += 3;
 
-              const double uAtBnd = 2.0;
-              const double vAtBnd = 2.0;
-              const double wAtBnd = 2.0;
+              const double gauss_amp = 1;
+              // source width, [km], (1 std in gauss)
+              const double gauss_sigma = 12.5;
+             //  source duration, [s], (1 std in gauss)
+              const double gauss_sigmat = 500;
+             //  ^^
+
+              const double uAtBnd = -gauss_amp*std::exp(-0.5*(x/gauss_sigma)*(x/gauss_sigma) - 0.5*(y/gauss_sigma)*(y/gauss_sigma))*  std::exp(-0.5*((time-4*gauss_sigmat)/gauss_sigmat)*((time-4*gauss_sigmat)/gauss_sigmat))/(gauss_sigmat*sqrt(2*std::acos(-1)));
+              const double vAtBnd = 0.0;
+              const double wAtBnd = 0.0;
               for (int j = 0; j < 6; ++j) {
                 boundaryDofs(i, j) = 0;
               }
