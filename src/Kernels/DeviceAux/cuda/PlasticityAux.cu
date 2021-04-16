@@ -36,7 +36,7 @@ void saveFirstModes(real *firstModes,
 __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
                                                int *isAdjustableVector,
                                                const PlasticityData *plasticity,
-                                               const double one_minus_integrating_factor) {
+                                               const double oneMinusIntegratingFactor) {
   real *elementTensors = nodalStressTensors[blockIdx.x];
   real localStresses[NUM_STREESS_COMPONENTS];
 
@@ -80,7 +80,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   real factor = 0.0;
   if (tau > taulim) {
     isAdjusted = static_cast<int>(true);
-    factor = ((taulim / tau) - 1.0) * one_minus_integrating_factor;
+    factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
   }
 
   // 7. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
@@ -100,7 +100,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              int *isAdjustableVector,
                              const PlasticityData *plasticity,
-                             const double one_minus_integrating_factor,
+                             const double oneMinusIntegratingFactor,
                              const size_t numElements) {
   constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
@@ -108,7 +108,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
   kernel_adjustDeviatoricTensors<<<grid, block>>>(nodalStressTensors,
                                                   isAdjustableVector,
                                                   plasticity,
-                                                  one_minus_integrating_factor);
+                                                  oneMinusIntegratingFactor);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -173,7 +173,7 @@ __global__ void kernel_computePstrains(real **pstrains,
                                        const real** modalStressTensors,
                                        const real* firsModes,
                                        const PlasticityData* plasticity,
-                                       const double one_minus_integrating_factor,
+                                       const double oneMinusIntegratingFactor,
                                        const double timeStepWidth,
                                        const double T_v,
                                        const size_t numElements) {
@@ -189,7 +189,7 @@ __global__ void kernel_computePstrains(real **pstrains,
     const PlasticityData *localData = &plasticity[index];
 
     constexpr unsigned numModesPerElement = init::Q::Shape[0];
-    real factor = localData->mufactor / (T_v * one_minus_integrating_factor);
+    real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
     real duDtPstrain = factor * (localFirstMode[threadIdx.x] - localModalTensor[threadIdx.x * numModesPerElement]);
     localPstrains[threadIdx.x] += timeStepWidth * duDtPstrain;
 
@@ -216,7 +216,7 @@ void computePstrains(real **pstrains,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,
-                     const double one_minus_integrating_factor,
+                     const double oneMinusIntegratingFactor,
                      const double timeStepWidth,
                      const double T_v,
                      const size_t numElements) {
@@ -228,7 +228,7 @@ void computePstrains(real **pstrains,
                                           modalStressTensors,
                                           firsModes,
                                           plasticity,
-                                          one_minus_integrating_factor,
+                                          oneMinusIntegratingFactor,
                                           timeStepWidth,
                                           T_v,
                                           numElements);

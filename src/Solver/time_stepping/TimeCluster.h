@@ -89,6 +89,10 @@
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+#include <Solver/Pipeline/DrPipeline.h>
+#endif
 
 namespace seissol {
   namespace time_stepping {
@@ -143,6 +147,7 @@ private:
     GlobalData *m_globalDataOnDevice{nullptr};
 #ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    dr::pipeline::DrPipeline drPipeline;
 #endif
 
     /*
@@ -198,7 +203,7 @@ private:
     double m_tv;
     
     //! Relax time for plasticity
-    double m_one_minus_integrating_factor;
+    double m_oneMinusIntegratingFactor;
     
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
@@ -317,7 +322,7 @@ private:
     
     //! Update relax time for plasticity
     void updateRelaxTime() {
-      m_one_minus_integrating_factor = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
+      m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
     }
 
   public:

@@ -56,15 +56,22 @@ class seissol::kernels::DynamicRupture {
   private:
     dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
+#ifdef ACL_DEVICE
+    dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints m_gpuKrnlPrototype;
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
 
   public:
     double timePoints[CONVERGENCE_ORDER];
     double timeSteps[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
 
-    DynamicRupture() {}
-    
-    void setGlobalData(GlobalData const* global);
+
+  DynamicRupture() {}
+
+    static void checkGlobalData(GlobalData const* global, size_t alignment);
+    void setHostGlobalData(GlobalData const* global);
+    void setGlobalData(const CompoundGlobalData& global);
     
     void setTimeStepWidth(double timestep);
 
@@ -75,8 +82,10 @@ class seissol::kernels::DynamicRupture {
                                   real const*                 timeDerivativeMinus,
                                   real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
                                   real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real const*                 timeDerivativePlus_prefetch, 
-                              real const*                 timeDerivativeMinus_prefetch);
+                                  real const*                 timeDerivativePlus_prefetch,
+                                  real const*                 timeDerivativeMinus_prefetch);
+
+  void batchedSpaceTimeInterpolation(ConditionalBatchTableT& table);
 
     void flopsGodunovState( DRFaceInformation const&  faceInfo,
                             long long&                o_nonZeroFlops,

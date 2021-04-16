@@ -23,6 +23,13 @@ enum struct EntityId : size_t {
   Pstrains,
   ElementsIds,
   InitialLoad,
+  DrDerivativesPlus,
+  DrDerivativesMinus,
+  DrIdofsPlus,
+  DrIdofsMinus,
+  DrQInterpolatedPlus,
+  DrQInterpolatedMinus,
+  DrTinvT,
   Count
 };
 
@@ -38,7 +45,9 @@ enum struct KernelNames : size_t {
   NeighborFlux = 1 << 3,
   Displacements = 1 << 4,
   Plasticity = 1 << 5,
-  Count = 6,
+  DrTime = 1 << 6,
+  DrSpaceMap = 1 << 7,
+  Count = 8,
   Any = encodeAny(Count)
 };
 

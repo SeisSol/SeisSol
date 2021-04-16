@@ -57,7 +57,7 @@ class seissol::kernels::Plasticity {
 public:
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
-  static unsigned computePlasticity( double                      relaxTime,
+  static unsigned computePlasticity( double                      oneMinusIntegratingFactor,
                                      double                      timeStepWidth,
                                      double                      T_v,
                                      GlobalData const*           global,

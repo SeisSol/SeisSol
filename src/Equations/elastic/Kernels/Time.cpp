@@ -446,6 +446,38 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   }
 }
 
+void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
+                                                           real expansionPoint,
+                                                           real** timeDerivatives,
+                                                           real** timeEvaluated,
+                                                           size_t numElements) {
+#ifdef ACL_DEVICE
+  assert( timeDerivatives != nullptr );
+  assert( timeEvaluated != nullptr );
+  assert( time >= expansionPoint );
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+  static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
+
+  kernel::gpu_derivativeTaylorExpansion intKrnl;
+  intKrnl.numElements = numElements;
+  intKrnl.I = timeEvaluated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = const_cast<const real **>(timeDerivatives);
+    intKrnl.extraOffset_dQ(i) = m_derivativesOffsets[i];
+  }
+
+  // iterate over time derivatives
+  const real deltaT = time - expansionPoint;
+  intKrnl.power = 1.0;
+  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.execute(derivative);
+    intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
+}
+
 void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0; hardwareFlops = 0;

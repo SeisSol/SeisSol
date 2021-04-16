@@ -158,7 +158,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   m_localKernel.setGlobalData(i_globalData);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(i_globalData);
-  m_dynamicRuptureKernel.setGlobalData(m_globalDataOnHost);
+  m_dynamicRuptureKernel.setGlobalData(i_globalData);
 
   computeFlops();
 
@@ -233,10 +233,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 #endif
 }
 
+#ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
-#ifdef ACL_DEVICE
-  device.api->putProfilingMark("computeDynamicRupture", device::ProfilingColors::Cyan);
-#endif
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
@@ -281,10 +279,143 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   }
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
-#ifdef ACL_DEVICE
-  device.api->popLastProfilingMark();
-#endif
 }
+#else
+
+void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
+  device.api->putProfilingMark("computeDynamicRupture", device::ProfilingColors::Cyan);
+  SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  m_loopStatistics->begin(m_regionComputeDynamicRupture);
+
+  if (layerData.getNumberOfCells() > 0) {
+    // compute space time interpolation part
+    ConditionalBatchTableT &table = layerData.getCondBatchTable();
+    m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
+
+    // compute friction part
+    using namespace dr::pipeline;
+    DrContext context;
+    context.QInterpolatedPlusOnDevice = static_cast<real *>(layerData.getScratchpadMemory(m_dynRup->QInterpolatedPlusOnDevice));
+    context.QInterpolatedMinusOnDevice = static_cast<real *>(layerData.getScratchpadMemory(m_dynRup->QInterpolatedMinusOnDevice));
+    context.QInterpolatedPlusOnHost = static_cast<DrContext::QInterpolatedPtrT>(layerData.getScratchpadMemory(m_dynRup->QInterpolatedPlusOnHost));
+    context.QInterpolatedMinusOnHost = static_cast<DrContext::QInterpolatedPtrT>(layerData.getScratchpadMemory(m_dynRup->QInterpolatedMinusOnHost));
+
+    context.faceInformation = layerData.var(m_dynRup->faceInformation);
+    context.devImposedStatePlus = layerData.var(m_dynRup->imposedStatePlus);
+    context.devImposedStateMinus = layerData.var(m_dynRup->imposedStateMinus);
+    context.waveSpeedsPlus = layerData.var(m_dynRup->waveSpeedsPlus);
+    context.waveSpeedsMinus = layerData.var(m_dynRup->waveSpeedsMinus);
+
+    context.imposedStatePlusOnHost = static_cast<DrContext::imposedStatePlusT>(layerData.getScratchpadMemory(m_dynRup->imposedStatePlusOnHost));
+    context.imposedStateMinusOnHost = static_cast<DrContext::imposedStatePlusT>(layerData.getScratchpadMemory(m_dynRup->imposedStateMinusOnHost));
+
+    struct AsyncCopyFrom : public DrBaseCallBack {
+      explicit AsyncCopyFrom(DrContext userContext, TimeCluster *cluster) : DrBaseCallBack(userContext, cluster) {
+        assert(context.QInterpolatedPlusOnDevice != nullptr);
+        assert(context.QInterpolatedMinusOnDevice != nullptr);
+        assert(context.QInterpolatedPlusOnHost != nullptr);
+        assert(context.QInterpolatedMinusOnHost != nullptr);
+        copyFromStream = device.api->getNextCircularStream();
+      }
+
+      void operator()(size_t begin, size_t batchSize, size_t callCounter) override {
+        constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size();
+        const size_t upperStageOffset = (callCounter % DrPipeline::TailSize) * DrPipeline::DefaultBatchSize;
+
+        device.api->syncStreamFromCircularBuffer(copyFromStream);
+        device.api->copyFromAsync(reinterpret_cast<real *>(&context.QInterpolatedPlusOnHost[upperStageOffset]),
+                                  reinterpret_cast<real *>(&context.QInterpolatedPlusOnDevice[begin * QInterpolatedSize]),
+                                  batchSize * QInterpolatedSize * sizeof(real),
+                                  copyFromStream);
+
+        device.api->copyFromAsync(reinterpret_cast<real *>(&context.QInterpolatedMinusOnHost[upperStageOffset]),
+                                  reinterpret_cast<real *>(&context.QInterpolatedMinusOnDevice[begin * QInterpolatedSize]),
+                                  batchSize * QInterpolatedSize * sizeof(real),
+                                  copyFromStream);
+      }
+
+      void finalize() override {
+        device.api->syncStreamFromCircularBuffer(copyFromStream);
+      }
+    private:
+      void *copyFromStream{nullptr};
+    } asyncCopyFrom(context, this);
+
+    struct ComputeFriction : public DrBaseCallBack {
+      explicit ComputeFriction(DrContext userContext, TimeCluster *cluster) : DrBaseCallBack(userContext, cluster) {
+        assert(context.faceInformation != nullptr);
+        assert(context.imposedStatePlusOnHost != nullptr);
+        assert(context.imposedStateMinusOnHost != nullptr);
+        assert(context.waveSpeedsPlus != nullptr);
+        assert(context.waveSpeedsMinus != nullptr);
+      }
+
+      void operator()(size_t begin, size_t batchSize, size_t callCounter) override {
+        const size_t upperStageOffset = (callCounter % DrPipeline::TailSize) * DrPipeline::DefaultBatchSize;
+        const size_t lowerStageOffset = (callCounter % DrPipeline::NumStages) * DrPipeline::DefaultBatchSize;
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+        for (unsigned face = 0; face < batchSize; ++face) {
+          e_interoperability.evaluateFrictionLaw(static_cast<int>(context.faceInformation[begin + face].meshFace),
+                                                 context.QInterpolatedPlusOnHost[upperStageOffset + face],
+                                                 context.QInterpolatedMinusOnHost[upperStageOffset + face],
+                                                 context.imposedStatePlusOnHost[lowerStageOffset + face],
+                                                 context.imposedStateMinusOnHost[lowerStageOffset + face],
+                                                 cluster->m_fullUpdateTime,
+                                                 cluster->m_dynamicRuptureKernel.timePoints,
+                                                 cluster->m_dynamicRuptureKernel.timeWeights,
+                                                 context.waveSpeedsPlus[begin + face],
+                                                 context.waveSpeedsMinus[begin + face]);
+        }
+      }
+      void finalize() override {}
+    } computeFriction(context, this);
+
+
+    struct AsyncCopyBack : public DrBaseCallBack {
+      explicit AsyncCopyBack(DrContext userContext, TimeCluster *cluster) : DrBaseCallBack(userContext, cluster) {
+        assert(context.devImposedStatePlus != nullptr);
+        assert(context.devImposedStateMinus != nullptr);
+        copyBackStream = device.api->getNextCircularStream();
+      }
+
+      void operator()(size_t begin, size_t batchSize, size_t callCounter) override {
+        const size_t lowerStageOffset = (callCounter % DrPipeline::NumStages) * DrPipeline::DefaultBatchSize;
+        const size_t imposedStateSize = tensor::QInterpolated::size() * batchSize * sizeof(real);
+
+        device.api->syncStreamFromCircularBuffer(copyBackStream);
+        device.api->copyToAsync(reinterpret_cast<real *>(&context.devImposedStatePlus[begin]),
+                                reinterpret_cast<real *>(&context.imposedStatePlusOnHost[lowerStageOffset]),
+                                imposedStateSize,
+                                copyBackStream);
+
+        device.api->copyToAsync(reinterpret_cast<real *>(&context.devImposedStateMinus[begin]),
+                                reinterpret_cast<real *>(&context.imposedStateMinusOnHost[lowerStageOffset]),
+                                imposedStateSize,
+                                copyBackStream);
+      }
+
+      void finalize() override {
+        device.api->syncStreamFromCircularBuffer(copyBackStream);
+      }
+    private:
+      void *copyBackStream{nullptr};
+    } asyncCopyBack(context, this);
+
+    drPipeline.registerCallBack(0, &asyncCopyFrom);
+    drPipeline.registerCallBack(1, &computeFriction);
+    drPipeline.registerCallBack(2, &asyncCopyBack);
+    drPipeline.run(layerData.getNumberOfCells());
+
+    device.api->resetCircularStreamCounter();
+  }
+  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
+  device.api->popLastProfilingMark();
+}
+#endif
 
 
 void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::initializers::Layer& layerData,
@@ -637,7 +768,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                );
 
 #ifdef USE_PLASTICITY
-  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
+  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
                                                                                      m_timeStepWidth,
                                                                                      m_tv,
                                                                                      m_globalDataOnHost,
@@ -676,7 +807,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef USE_PLASTICITY
   PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-  unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_relaxTime,
+  unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
                                                                                     m_timeStepWidth,
                                                                                     m_tv,
                                                                                     m_globalDataOnDevice,

@@ -131,13 +131,9 @@ void testKernel(unsigned kernel, unsigned timesteps) {
       }
       break;    
     case godunov_dr:
-#ifdef ACL_DEVICE
-      logError() << "godunov_dr has not been implemented for acl. device";
-#else
       for (; t < timesteps; ++t) {
         computeDynRupGodunovState();
       }
-#endif
       break;
     default:
       break;
@@ -196,7 +192,7 @@ int main(int argc, char* argv[]) {
   initGlobalData();
   cells = initDataStructures(cells, enableDynamicRupture);
 #ifdef ACL_DEVICE
-  initDataStructuresOnDevice();
+  initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
   printf("...done\n\n");
 
