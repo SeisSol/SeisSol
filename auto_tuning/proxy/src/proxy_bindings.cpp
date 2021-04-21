@@ -19,7 +19,8 @@ PYBIND11_MODULE(proxy_bindings, module) {
       .def(py::init<>())
       .def_readwrite("cells", &ProxyConfig::cells)
       .def_readwrite("timesteps", &ProxyConfig::timesteps)
-      .def_readwrite("kernel", &ProxyConfig::kernel);
+      .def_readwrite("kernel", &ProxyConfig::kernel)
+      .def_readwrite("verbose", &ProxyConfig::verbose);
 
   py::class_<ProxyOutput>(module, "ProxyOutput")
       .def(py::init<>())
@@ -41,6 +42,7 @@ PYBIND11_MODULE(proxy_bindings, module) {
   py::class_<Aux>(module, "Aux")
       .def(py::init<>())
       .def("str_to_kernel", &Aux::str2kernel)
+      .def("kernel_to_string", &Aux::kernel2str)
       .def("display_output", &Aux::displayOutput);
 
   module.def("run_proxy", &runProxy, "runs seissol proxy");

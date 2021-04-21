@@ -18,4 +18,4 @@ config.timesteps = args.timesteps
 config.kernel = pb.Aux.str_to_kernel(args.kernel)
 
 output = pb.run_proxy(config)
-pb.Aux.display_output(output, "all")
+pb.Aux.display_output(output, args.kernel)

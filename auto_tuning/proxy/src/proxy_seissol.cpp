@@ -157,13 +157,17 @@ ProxyOutput runProxy(ProxyConfig config) {
 
   print_hostname();
 
-  printf("Allocating fake data...\n");
+  if (config.verbose)
+    printf("Allocating fake data...\n");
+
   initGlobalData();
   config.cells = initDataStructures(config.cells, enableDynamicRupture);
 #ifdef ACL_DEVICE
   initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
-  printf("...done\n\n");
+
+  if (config.verbose)
+    printf("...done\n\n");
 
   struct timeval start_time, end_time;
 #ifdef __USE_RDTSC

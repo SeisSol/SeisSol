@@ -19,6 +19,7 @@ struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
   Kernel kernel{Kernel::all};
+  bool verbose{true};
 };
 
 struct ProxyOutput{
@@ -92,6 +93,7 @@ protected:
       {Kernel::all,         "all"},
       {Kernel::local,       "local"},
       {Kernel::neigh,       "neigh"},
+      {Kernel::ader,        "ader"},
       {Kernel::localwoader, "localwoader"},
       {Kernel::neigh_dr,    "neigh_dr"},
       {Kernel::godunov_dr,  "godunov_dr"}
@@ -101,6 +103,7 @@ protected:
       {"all", Kernel::all},
       {"local", Kernel::local},
       {"neigh", Kernel::neigh},
+      {"ader", Kernel::ader},
       {"localwoader", Kernel::localwoader},
       {"neigh_dr", Kernel::neigh_dr},
       {"godunov_dr", Kernel::godunov_dr}
