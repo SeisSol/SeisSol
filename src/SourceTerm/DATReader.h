@@ -8,7 +8,7 @@ namespace seissol {
 	namespace sourceterm {
 		
 		struct DAT {
-			int q_dim = 6;
+			int q_dim = 9;
 			double endtime = 0;
 			// IWD with n neighbours
 			const int n = 4;

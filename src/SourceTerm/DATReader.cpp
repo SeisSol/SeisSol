@@ -95,6 +95,9 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 				q_vector(3) = std::stod(tmp.at(4));
 				q_vector(4) = std::stod(tmp.at(5));
 				q_vector(5) = std::stod(tmp.at(6));
+				q_vector(6) = std::stod(tmp.at(7));
+				q_vector(7) = std::stod(tmp.at(8));
+				q_vector(8) = std::stod(tmp.at(9));
 
 				
 
