@@ -234,7 +234,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(cellBoundaryMapping != nullptr);
         // Note: Everything happens in [n, t_1, t_2] basis
         // Comments of Dirichlet bc are also valid for this!
-        auto applyInlet = [materialData, this](const real* nodes,
+         auto applyInlet = [materialData, cellBoundaryMapping, face, this](const real* nodes,
                                                double time,
                                                init::INodal::view::type& boundaryDofsInterior,
                                                init::INodal::view::type& boundaryDofs) {
