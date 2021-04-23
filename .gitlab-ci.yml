@@ -16,5 +16,7 @@ ci_builder_pre:
         - cat .git/config
         - git config submodule.Device.url https://github.com/
         - git submodule set-url submodules/Device https://github.com/
+        - git submodule --quiet update --init --recursive 
+        - cat .gitmodules
         - cat .git/config
         - git --version
