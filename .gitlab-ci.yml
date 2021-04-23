@@ -15,5 +15,6 @@ ci_builder_pre:
         - echo $NAME_TEST
         - cat .git/config
         - git config submodule.Device.url https://github.com/
+        - git submodule set-url submodules/Device https://github.com/
         - cat .git/config
         - git --version
