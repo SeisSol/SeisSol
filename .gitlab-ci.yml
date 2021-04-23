@@ -3,7 +3,6 @@ stages:
     - build 
     - test
 
-
 ci_builder_pre:
     stage: pre_test
     tags:
@@ -26,9 +25,6 @@ ci_builder_build:
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
     before_script:
-        - whoami
-        - pwd
-        - ls
         - git submodule set-url submodules/xdmfwriter https://github.com/
         - cat .git/config
         - git submodule --quiet update --init --recursive 
