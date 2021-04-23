@@ -1,8 +1,7 @@
 #include <utils/args.h>
 #include "proxy_common.hpp"
-#include<iostream>
+#include <iostream>
 
-ProxyOutput runProxy(ProxyConfig config);
 
 int main(int argc, char* argv[]) {
   std::stringstream kernelHelp;

@@ -39,6 +39,8 @@ struct ProxyOutput{
   double gibPerSecond{};
 };
 
+ProxyOutput runProxy(ProxyConfig config);
+
 struct Aux {
   static std::string kernel2str(Kernel kernel) {
     if (map.find(kernel) != map.end()) {

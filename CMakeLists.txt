@@ -346,7 +346,7 @@ if (PROXY_PYBINDING)
 endif()
 
 # C/C++ proxy interface
-add_executable(cpp-proxy auto_tuning/proxy/src/poxy_main.cpp)
+add_executable(cpp-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(cpp-proxy PUBLIC proxy-core SeisSol-lib)
 set_target_properties(cpp-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 

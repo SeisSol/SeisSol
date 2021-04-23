@@ -2,7 +2,6 @@
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
 
-ProxyOutput runProxy(ProxyConfig config);
 
 PYBIND11_MODULE(proxy_bindings, module) {
   py::enum_<Kernel>(module, "Kernel")
