@@ -1,7 +1,5 @@
 stages:
     - pre_test
-    - build 
-    - test
 
 ci_builder_pre:
     stage: pre_test
@@ -15,6 +13,8 @@ ci_builder_pre:
         - pwd
         - echo $PATH
         - echo $NAME_TEST
+        - cat .git/config
+        - git config submodule.Device.url https://github.com/
         - cat .git/config
         - git --version
 
