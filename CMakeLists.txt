@@ -339,7 +339,7 @@ add_library(proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
 target_link_libraries(proxy-core PUBLIC SeisSol-lib)
 
 if (PROXY_PYBINDING)
-  find_package(pybind11 REQUIRED QUIET)
+  find_package(pybind11 2.3.0 REQUIRED)
   pybind11_add_module(proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
   target_link_libraries(proxy_bindings PUBLIC proxy-core)
   file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
