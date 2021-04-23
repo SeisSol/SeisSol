@@ -26,6 +26,7 @@ ci_builder_build:
         GIT_SUBMODULE_STRATEGY: recursive
     before_script:
         - git submodule set-url submodules/xdmfwriter https://github.com/
+        - git submodule set-url submodules/Device https://github.com/
         - cat .git/config
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
