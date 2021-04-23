@@ -99,10 +99,10 @@ module f_ctof_bind_interoperability
       type(tUnstructDomainDescript), pointer :: l_domain
 
       type(c_ptr), value                     :: i_time
-      real*8, pointer                        :: l_time
+      real(kind=8), pointer                  :: l_time
 
       type(c_ptr), value                     :: i_timeStepWidth
-      real*8, pointer                        :: l_timeStepWidth
+      real(kind=8), pointer                  :: l_timeStepWidth
 
       ! register scorep region dynamic rupture output (receiver)
       SCOREP_USER_REGION_DEFINE( r_dr_output )
@@ -153,7 +153,7 @@ module f_ctof_bind_interoperability
       REAL_TYPE, pointer                     :: resampleMatrix(:,:)
 
       type(c_ptr), value                     :: i_time
-      real*8, pointer                        :: l_time
+      real(kind=8), pointer                  :: l_time
 
       real(c_double), intent(in), dimension(CONVERGENCE_ORDER)  :: timePoints
       real(c_double), intent(in), dimension(CONVERGENCE_ORDER)  :: timeWeights
@@ -276,7 +276,7 @@ module f_ctof_bind_interoperability
       real(kind=c_double), value             :: rho, mu, lambda, Qp, Qs
 
       type(c_ptr), value                     :: materialFitted
-      real*8, pointer                        :: l_materialFitted(:)
+      real(kind=8), pointer                  :: l_materialFitted(:)
 
       real                                   :: material(5)
 

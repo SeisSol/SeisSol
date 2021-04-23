@@ -38,6 +38,14 @@ automatic, GPU-aware process pinning. Consider the following SLURM options:
 You can also enforce good GPU affinity with rankfiles if your GPU cluster or local server
 does not use a workload manager but is equipped with multiple GPUs per node.
 
+.. figure:: LatexFigures/GpuCpuProcessPinning.png
+   :alt: Process Pinning
+   :width: 16.00000cm
+   :align: center
+
+   Correct process pinning of 4 MPI processes where each process
+   controls 3 OpenMP threads and one communication thread.
+
 Supported SeisSol Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -55,6 +55,8 @@ import math
 import numpy
 import os.path
 import scipy.fftpack
+import scipy.interpolate
+import scipy.integrate
 
 class View(QWidget):
 
@@ -182,6 +184,7 @@ class View(QWidget):
       for i in range(len(names)):
         subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
 
+      wf_ref = wfc[0]
       for nWf, wf in enumerate(wfc):
         for name, waveform in wf.waveforms.items():
           p = subplots[name]
@@ -201,6 +204,15 @@ class View(QWidget):
             p.plot(wf.time, waveform, label=str(nWf))
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
+          #print L2 difference
+          if nWf > 0 and not self.diff.isChecked():
+            time_union = numpy.union1d(wf.time, wf_ref.time)
+            wf_interp = scipy.interpolate.interp1d(wf.time, waveform)
+            ref_interp = scipy.interpolate.interp1d(wf_ref.time, wf_ref.waveforms[name])
+            wf_union = wf_interp(time_union)
+            ref_union = ref_interp(time_union)
+            diff = numpy.sqrt(scipy.integrate.trapz((wf_union - ref_union)**2, x=time_union))
+            p.text(0.05, 1-0.1*nWf, f"L2 diff={diff:.2e}", transform = p.transAxes)
 
       self.figure.tight_layout()
 

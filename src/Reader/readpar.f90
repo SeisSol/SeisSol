@@ -2603,7 +2603,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       ! Setting default values
       OutputFile = 'data'
       iOutputMaskMaterial(:) =  0
-	  IntegrationMask(:) = 0
+      IntegrationMask(:) = 0
       Rotation = 0
       Format = 10
       Refinement = 0
@@ -2741,7 +2741,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           ENDIF
       END IF
 
-	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
+      ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !
         logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
         call exit(134)                                                                 !

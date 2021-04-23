@@ -88,9 +88,9 @@ CONTAINS
     INTEGER                         :: TID,omp_get_thread_num
     CHARACTER (LEN=2)               :: c_TID
 #endif
-    real*8                          :: i_fullUpdateTime
-    real*8                          :: i_timeStepWidth
-    real*8                          :: i_receiverTime
+    REAL(KIND=8)                    :: i_fullUpdateTime
+    REAL(KIND=8)                    :: i_timeStepWidth
+    REAL(KIND=8)                    :: i_receiverTime
 
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: DISC, EQN, MESH, MPI, time_op, dt_op
