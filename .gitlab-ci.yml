@@ -14,8 +14,7 @@ ci_builder_pre:
         - echo $PATH
         - echo $NAME_TEST
         - cat .git/config
-        - git config submodule.Device.url https://github.com/
-        - git submodule set-url submodules/Device https://github.com/
+        - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule --quiet update --init --recursive 
         - cat .gitmodules
         - cat .git/config
