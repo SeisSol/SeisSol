@@ -33,6 +33,7 @@ src/Solver/Interoperability.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
@@ -201,7 +202,8 @@ if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
   target_sources(SeisSol-lib PUBLIC
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
 
   find_package(CUDA REQUIRED)
   set(CUDA_NVCC_FLAGS -std=c++14;

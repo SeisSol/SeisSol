@@ -51,20 +51,37 @@
 #include <generated_code/kernel.h>
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Quadrature.h>
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
 #include <yateto.h>
 
-void seissol::kernels::DynamicRupture::setGlobalData(GlobalData const* global) {
+void seissol::kernels::DynamicRupture::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
     for (unsigned h = 0; h < 4; ++h) {
-      assert( ((uintptr_t const)global->faceToNodalMatrices(face, h)) % ALIGNMENT == 0 );
+      assert( ((uintptr_t const)global->faceToNodalMatrices(face, h)) % alignment == 0 );
     }
   }
 #endif
+}
 
+void seissol::kernels::DynamicRupture::setHostGlobalData(GlobalData const* global) {
+  checkGlobalData(global, ALIGNMENT);
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
-
   m_timeKernel.setHostGlobalData(global);
+}
+
+
+void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
+  this->setHostGlobalData(global.onHost);
+#ifdef ACL_DEVICE
+  assert(global.onDevice != nullptr);
+  const auto deviceAlignment = device.api->getGlobMemAlignment();
+  checkGlobalData(global.onDevice, deviceAlignment);
+  m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  m_timeKernel.setGlobalData(global);
+#endif
 }
 
 
@@ -142,6 +159,95 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
   }
+}
+
+void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(ConditionalBatchTableT& table) {
+#ifdef ACL_DEVICE
+
+  real** degreesOfFreedomPlus{nullptr};
+  real** degreesOfFreedomMinus{nullptr};
+
+  auto resetDeviceCurrentState = [this](size_t counter) {
+    for (size_t i = 0; i < counter; ++i) {
+      this->device.api->popStackMemory();
+    }
+    this->device.api->fastStreamsSync();
+    this->device.api->resetCircularStreamCounter();
+  };
+
+  device.api->resetCircularStreamCounter();
+  for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+    ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
+    if (table.find(timeIntegrationKey) != table.end()) {
+      BatchTable &entry = table[timeIntegrationKey];
+
+      unsigned maxNumElements = (entry.content[*EntityId::DrDerivativesPlus])->getSize();
+      real** timeDerivativePlus = (entry.content[*EntityId::DrDerivativesPlus])->getPointers();
+      degreesOfFreedomPlus = (entry.content[*EntityId::DrIdofsPlus])->getPointers();
+
+      m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
+                                                 0.0,
+                                                 timeDerivativePlus,
+                                                 degreesOfFreedomPlus,
+                                                 maxNumElements);
+
+      real** timeDerivativeMinus = (entry.content[*EntityId::DrDerivativesMinus])->getPointers();
+      degreesOfFreedomMinus = (entry.content[*EntityId::DrIdofsMinus])->getPointers();
+      m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
+                                                 0.0,
+                                                 timeDerivativeMinus,
+                                                 degreesOfFreedomMinus,
+                                                 maxNumElements);
+    }
+
+    size_t streamCounter{0};
+    for (unsigned side = 0; side < 4; ++side) {
+      ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
+      if (table.find(plusSideKey) != table.end()) {
+        BatchTable &entry = table[plusSideKey];
+        const size_t numElements = (entry.content[*EntityId::DrIdofsPlus])->getSize();
+
+        auto krnl = m_gpuKrnlPrototype;
+        real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+        ++streamCounter;
+        krnl.linearAllocator.initialize(tmpMem);
+        krnl.streamPtr = device.api->getNextCircularStream();
+        krnl.numElements = numElements;
+
+        krnl.QInterpolated = (entry.content[*EntityId::DrQInterpolatedPlus])->getPointers();
+        krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+        krnl.Q = const_cast<real const **>((entry.content[*EntityId::DrIdofsPlus])->getPointers());
+        krnl.TinvT = const_cast<real const **>((entry.content[*EntityId::DrTinvT])->getPointers());
+        krnl.execute(side, 0);
+      }
+
+      for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
+        ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
+        if (table.find(minusSideKey) != table.end()) {
+          BatchTable &entry = table[minusSideKey];
+          const size_t numElements = (entry.content[*EntityId::DrIdofsMinus])->getSize();
+
+          auto krnl = m_gpuKrnlPrototype;
+          real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+          ++streamCounter;
+          krnl.linearAllocator.initialize(tmpMem);
+          krnl.streamPtr = device.api->getNextCircularStream();
+          krnl.numElements = numElements;
+
+          krnl.QInterpolated = (entry.content[*EntityId::DrQInterpolatedMinus])->getPointers();
+          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+          krnl.Q = const_cast<real const **>((entry.content[*EntityId::DrIdofsMinus])->getPointers());
+          krnl.TinvT = const_cast<real const **>((entry.content[*EntityId::DrTinvT])->getPointers());
+          krnl.execute(side, faceRelation);
+        }
+      }
+    }
+    resetDeviceCurrentState(streamCounter);
+  }
+  device.api->synchDevice();
+#else
+  assert(false && "no implementation provided");
+#endif
 }
 
 void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation const&  faceInfo,

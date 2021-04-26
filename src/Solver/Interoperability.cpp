@@ -274,8 +274,9 @@ void c_interoperability_report_device_memory_status() {
   }
 
   void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
+    assert(N > 0);
     unsigned idx = 0;
-    for (unsigned int d = 0; d <= N; ++d) {
+    for (unsigned int d = 0; d <= static_cast<unsigned>(N); ++d) {
       for (unsigned int k = 0; k <= d; ++k) {
         for (unsigned int j = 0; j <= d - k; ++j) {
             phis[idx++] = seissol::functions::TetraDubinerP({d - j - k, j, k}, {xi, eta, zeta});
@@ -285,8 +286,9 @@ void c_interoperability_report_device_memory_status() {
   }
 
   void c_interoperability_TriDubinerP(double* phis, double xi, double eta, int N) {
+    assert(N > 0);
     unsigned idx = 0;
-    for (unsigned int d = 0; d <= N; ++d) {
+    for (unsigned int d = 0; d <= static_cast<unsigned>(N); ++d) {
       for (unsigned int j = 0; j <= d; ++j) {
         phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
       }
@@ -294,8 +296,9 @@ void c_interoperability_report_device_memory_status() {
   }
 
   void c_interoperability_gradTriDubinerP(double* phis, double xi, double eta, int N) {
+    assert(N > 0);
     unsigned idx = 0;
-    for (unsigned int d = 0; d <= N; ++d) {
+    for (unsigned int d = 0; d <= static_cast<unsigned>(N); ++d) {
       for (unsigned int j = 0; j <= d; ++j) {
         auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
         for (auto const& g : grad) {
@@ -306,7 +309,7 @@ void c_interoperability_report_device_memory_status() {
   }
 
   double c_interoperability_M2invDiagonal(int no) {
-      assert(no >= 0 && no < seissol::tensor::M2inv::Shape[0]);
+      assert(no >= 0 && no < static_cast<int>(seissol::tensor::M2inv::Shape[0]));
       auto M2inv = seissol::init::M2inv::view::create(
         const_cast<real*>(seissol::init::M2inv::Values));
       return M2inv(no, no);
@@ -761,7 +764,7 @@ void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> c
     unsigned meshId = duplicatedMeshIds[dupMeshId];
     T* ref = &var[ meshToLts[0][meshId] ];
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates && meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max(); ++dup) {
-      memcpy(&var[ meshToLts[dup][meshId] ], ref, sizeof(T));
+      memcpy(reinterpret_cast<void*>(&var[ meshToLts[dup][meshId] ]), ref, sizeof(T));
     }
   }
 }
@@ -858,8 +861,8 @@ void seissol::Interoperability::initializeIO(
       NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
       seissol::SeisSol::main.meshReader(),
       LtsClusteringData,
-      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+      reinterpret_cast<const real*>(m_ltsTree->var(m_lts->dofs)),
+      reinterpret_cast<const real*>(m_ltsTree->var(m_lts->pstrain)),
       seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
       m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
       refinement, outputMask, outputRegionBounds,

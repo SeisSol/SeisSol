@@ -145,7 +145,9 @@ namespace seissol::initializers {
       device.api->copyTo(mem, first, bytes);
       mem += (last - first);
       return mem;
-#endif // ACL_DEVICE
+#else // ACL_DEVICE
+      return nullptr;
+#endif
     }
 
   } // namespace matrixmanip

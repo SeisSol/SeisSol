@@ -2,10 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Vishal Sontakke (vishal.sontakke AT tum.de)
+ * @author Ravil Dorozhinskii (ravil.dorozhinskii AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2020-2021, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,53 +35,49 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- */
+ * A custom pipeline tuner of DR pipeline which is based on the golden bisection method
+ *
+ * Note, this can be deprecated once friction solvers are adapted for GPU computing
+ **/
 
-#include "PostProcessor.h"
-#include "SeisSol.h"
+#ifndef DR_TUNER_H
+#define DR_TUNER_H
 
-void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep,
-	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
-	const double * const i_dofs) {
+#include <Solver/Pipeline/GenericPipeline.h>
 
-	real *integrals = i_layerData.var(m_integrals);
-	for (int i = 0; i < m_numberOfVariables; i++) {
-		integrals[l_cell*m_numberOfVariables+i] += i_dofs[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*m_integerMap[i]]*i_timestep;
-	}
+
+namespace seissol::dr::pipeline {
+  class DrPipelineTuner: public PipelineTuner<3, 1024> {
+  public:
+    DrPipelineTuner();
+    ~DrPipelineTuner() override = default;
+    void tune(const std::array<double, NumStages>& stageTiming) override;
+    [[nodiscard]] bool isTunerConverged() const {return isConverged;}
+    [[nodiscard]] double getMaxBatchSize() const {return maxBatchSize;}
+    [[nodiscard]] double getMinBatchSize() const {return minBatchSize;}
+  private:
+    enum class Action {
+      BeginRecordingLeftEvaluation,
+      BeginRecordingRightEvaluation,
+      RecordLeftEvaluation,
+      RecordRightEvaluation,
+      SkipAction,
+    };
+    Action action{Action::BeginRecordingRightEvaluation};
+
+    double maxBatchSize{DefaultBatchSize};
+    double minBatchSize{0.1 * DefaultBatchSize};
+
+    double stepSize{};
+    double leftPoint{};
+    double rightPoint{};
+    double leftValue{0.0};
+    double rightValue{0.0};
+    double invPhi{};
+    double invPhiSquared{};
+    double eps{5e-2};
+    bool isConverged{false};
+  };
 }
 
-void seissol::writer::PostProcessor::setIntegrationMask(const int * const i_integrationMask) {
-	unsigned int nextId = 0;
-	for (int i = 0; i < 9; i++) {
-		m_integrationMask[i] = (i_integrationMask[i] > 0);
-		if (m_integrationMask[i]) {
-			m_integerMap.push_back(i);
-			m_numberOfVariables++;
-			nextId++;
-		}
-	}
-	m_integrals.count = m_numberOfVariables;
-}
-
-int seissol::writer::PostProcessor::getNumberOfVariables() {
-	return m_numberOfVariables;
-}
-
-void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
-	for(int i = 0; i < 9; i++) {
-		transferTo[i] = m_integrationMask[i];
-	}
-}
-
-void seissol::writer::PostProcessor::allocateMemory(seissol::initializers::LTSTree* ltsTree) {
-	ltsTree->addVar( m_integrals, seissol::initializers::LayerMask(Ghost), PAGESIZE_HEAP,
-      seissol::memory::Standard );
-}
-
-const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializers::LTSTree* ltsTree) {
-	if (m_numberOfVariables == 0) {
-		return 0L;
-	} else {
-		return ltsTree->var(m_integrals);
-	}
-}
+#endif //DR_TUNER_H
