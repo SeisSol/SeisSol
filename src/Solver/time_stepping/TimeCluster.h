@@ -117,6 +117,8 @@ public:
     const unsigned int m_globalClusterId;
 
 private:
+    bool usePlasticity;
+
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
@@ -380,6 +382,7 @@ private:
      *
      * @param i_clusterId id of this cluster with respect to the current rank.
      * @param i_globalClusterId global id of this cluster.
+     * @param usePlasticity true if using plasticity
      * @param i_timeKernel time integration kernel.
      * @param i_volumeKernel volume integration kernel.
      * @param i_boundaryKernel boundary integration kernel.
@@ -391,15 +394,16 @@ private:
      * @param i_interiorCellData cell data in the interior.
      * @param i_cells degrees of freedom, time buffers, time derivatives.
      **/
-    TimeCluster( unsigned int                   i_clusterId,
-                 unsigned int                   i_globalClusterId,
-                 MeshStructure                  *i_meshStructure,
-                 CompoundGlobalData             i_globalData,
-                 seissol::initializers::TimeCluster* i_clusterData,
-                 seissol::initializers::TimeCluster* i_dynRupClusterData,
-                 seissol::initializers::LTS*         i_lts,
-                 seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics );
+    TimeCluster(unsigned int i_clusterId,
+                unsigned int i_globalClusterId,
+                bool usePlasticity,
+                MeshStructure *i_meshStructure,
+                CompoundGlobalData i_globalData,
+                seissol::initializers::TimeCluster* i_clusterData,
+                seissol::initializers::TimeCluster* i_dynRupClusterData,
+                seissol::initializers::LTS* i_lts,
+                seissol::initializers::DynamicRupture* i_dynRup,
+                LoopStatistics* i_loopStatistics);
 
     /**
      * Destructor of a LTS cluster.

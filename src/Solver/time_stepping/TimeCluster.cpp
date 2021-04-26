@@ -97,6 +97,7 @@ extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
                                                   unsigned int                   i_globalClusterId,
+                                                  bool usePlasticity,
                                                   MeshStructure                 *i_meshStructure,
                                                   CompoundGlobalData             i_globalData,
                                                   seissol::initializers::TimeCluster* i_clusterData,
@@ -107,6 +108,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
+ usePlasticity(usePlasticity),
  // mesh structure
  m_meshStructure(           i_meshStructure            ),
  // global data
@@ -702,11 +704,9 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
   CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
   CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-#ifdef USE_PLASTICITY
   PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
   real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
   unsigned numberOTetsWithPlasticYielding = 0;
-#endif
 
   kernels::NeighborData::Loader loader;
   loader.load(*m_lts, i_layerData);
@@ -715,11 +715,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   real *l_faceNeighbors_prefetch[4];
 
 #ifdef _OPENMP
-#ifdef USE_PLASTICITY
   #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch) reduction(+:numberOTetsWithPlasticYielding)
-#else
-  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
-#endif
 #endif
   for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
     auto data = loader.entry(l_cell);
@@ -767,15 +763,15 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 #endif
                                                );
 
-#ifdef USE_PLASTICITY
-  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
-                                                                                     m_timeStepWidth,
-                                                                                     m_tv,
-                                                                                     m_globalDataOnHost,
-                                                                                     &plasticity[l_cell],
-                                                                                     data.dofs,
-                                                                                     pstrain[l_cell] );
-#endif
+    if (usePlasticity) {
+      numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
+                                                                                         m_timeStepWidth,
+                                                                                         m_tv,
+                                                                                         m_globalDataOnHost,
+                                                                                         &plasticity[l_cell],
+                                                                                         data.dofs,
+                                                                                         pstrain[l_cell] );
+    }
 #ifdef INTEGRATE_QUANTITIES
   seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
                                                               i_layerData,
@@ -784,10 +780,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 #endif // INTEGRATE_QUANTITIES
   }
 
-  #ifdef USE_PLASTICITY
   g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_nonZero[PlasticityYield];
   g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_hardware[PlasticityYield];
-  #endif
 
   m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells());
 }
@@ -805,19 +799,18 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                         table);
   m_neighborKernel.computeBatchedNeighborsIntegral(table);
 
-#ifdef USE_PLASTICITY
-  PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-  unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
-                                                                                    m_timeStepWidth,
-                                                                                    m_tv,
-                                                                                    m_globalDataOnDevice,
-                                                                                    table,
-                                                                                    plasticity);
+  if (usePlasticity) {
+    PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+    unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
+                                                                                      m_timeStepWidth,
+                                                                                      m_tv,
+                                                                                      m_globalDataOnDevice,
+                                                                                      table,
+                                                                                      plasticity);
 
-  g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numAdjustedDofs * m_flops_nonZero[PlasticityYield];
-  g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numAdjustedDofs * m_flops_hardware[PlasticityYield];
-
-#endif
+    g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numAdjustedDofs * m_flops_nonZero[PlasticityYield];
+    g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numAdjustedDofs * m_flops_hardware[PlasticityYield];
+  }
 
   device.api->synchDevice();
   device.api->popLastProfilingMark();

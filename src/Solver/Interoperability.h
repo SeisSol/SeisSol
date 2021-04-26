@@ -149,8 +149,8 @@ class seissol::Interoperability {
     * @param i_clustering clustering strategy
     * @param enableFreeSurfaceIntegration
     **/
-   void initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration );
-   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration);
+   void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -234,10 +234,8 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_initialLoading initial loading (stress tensor).
     **/
-#ifdef USE_PLASTICITY
    void setInitialLoading( int    i_meshId,
                            double *i_initialLoading );
-#endif
 
    /**
     * Sets the parameters for a cell (plasticity).
@@ -245,12 +243,10 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_plasticParameters cell dependent plastic Parameters (volume, cohesion...).
     **/
-#ifdef USE_PLASTICITY
    void setPlasticParameters( int    i_meshId,
                               double *i_plasticParameters );
 
    void setTv(double tv);
-#endif
 
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
@@ -263,7 +259,7 @@ class seissol::Interoperability {
    /**
     * Synchronizes the cell local material data.
     **/
-   void synchronizeCellLocalData();
+   void synchronizeCellLocalData(bool usePlasticity);
 
    /**
     * Synchronizes the DOFs in the copy layer.

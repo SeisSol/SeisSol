@@ -366,7 +366,10 @@ CONTAINS
 
     enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+    call c_interoperability_initializeClusteredLts(&
+            i_clustering = disc%galerkin%clusteredLts, &
+            i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
+            usePlasticity = logical(EQN%Plasticity == 1, 1))
 
     !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -447,10 +450,13 @@ CONTAINS
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
-  call c_interoperability_synchronizeCellLocalData;
+  call c_interoperability_synchronizeCellLocalData(logical(EQN%Plasticity == 1, 1))
 #endif
 
-    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+    call c_interoperability_initializeMemoryLayout(&
+            clustering = disc%galerkin%clusteredLts, &
+            enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
+            usePlasticity = logical(EQN%Plasticity == 1, 1))
 
   ! Initialize source terms
   select case(SOURCE%Type)
@@ -879,38 +885,35 @@ CONTAINS
         l_initialLoading=0
         l_plasticParameters=0
         
-        IF(EQN%Plasticity .EQ. 1) THEN !high-order points approach
-        !elementwise assignement of the initial loading
+        IF(EQN%Plasticity == 1) THEN !high-order points approach
+           !elementwise assignement of the initial loading
            l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
-        ENDIF
 
-#ifdef USE_PLASTICITY
-        ! initialize the element dependent plastic parameters
-        l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
-        l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
+           ! initialize the element dependent plastic parameters
+           l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
+           l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         
-        ! initialize loading in C
-        oneRankedShaped_iniloading = pack( l_initialLoading, .true. ) 
-        call c_interoperability_setInitialLoading( i_meshId = iElem, \
-                                                   i_initialLoading = oneRankedShaped_iniloading)
+           ! initialize loading in C
+           oneRankedShaped_iniloading = pack( l_initialLoading, .true. )
+           call c_interoperability_setInitialLoading( i_meshId = iElem, \
+                                                      i_initialLoading = oneRankedShaped_iniloading)
 
-        !initialize parameters in C
-        call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
-                                                      i_plasticParameters = l_plasticParameters )
-#endif
+           !initialize parameters in C
+           call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
+                                                         i_plasticParameters = l_plasticParameters )
+
+       END IF
     ENDDO ! iElem
 
-#ifdef USE_PLASTICITY
-    call c_interoperability_setTv( tv = EQN%Tv )
-#endif
+    IF (EQN%Plasticity == 1) THEN
+      call c_interoperability_setTv( tv = EQN%Tv )
+      ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
+      call c_interoperability_synchronizeCellLocalData(logical(.true., 1));
 
-#ifdef USE_PLASTICITY
-    ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
-    call c_interoperability_synchronizeCellLocalData();
-#endif
-    !
+  END IF
+
     logInfo0(*) 'DG initial condition projection done. '
-    !
+
   END SUBROUTINE icGalerkin3D_us_new
 
   SUBROUTINE BuildSpecialDGGeometry3D_new(MaterialVal,EQN,MESH,DISC,BND,MPI,IO)

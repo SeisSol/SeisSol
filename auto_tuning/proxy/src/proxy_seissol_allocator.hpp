@@ -254,9 +254,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
   recorder.addRecorder(new seissol::initializers::recording::NeighIntegrationRecorder);
 
-#ifdef USE_PLASTICITY
   recorder.addRecorder(new seissol::initializers::recording::PlasticityRecorder);
-#endif
   recorder.record(m_lts, layer);
   if (enableDynamicRupture) {
     auto &drLayer = m_dynRupTree->child(0).child<Interior>();
