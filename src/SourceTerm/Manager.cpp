@@ -340,7 +340,6 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       computeMInvJInvPhisAtSources(centres3[fsrmIndex],
               sources[cluster].mInvJInvPhisAtSources[clusterSource],
               meshIds[sourceIndex], mesh);
-      std::cout << centres[fsrmIndex] << std::endl;
       transformMomentTensor( localMomentTensor,
                              localSolidVelocityComponent,
                              localPressureComponent,
