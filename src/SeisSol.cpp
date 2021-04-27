@@ -95,7 +95,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2020, SeisSol Group";
+  logInfo(rank) << "Copyright (c) 2012-2021, SeisSol Group";
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
   logInfo(rank) << "Version:" << VERSION_STRING;
 
@@ -108,10 +108,10 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
-  logInfo(rank) << "Overall affinity            :" << parallel::Pinning::maskToString(
-      pinning.getProcessMask());
-  logInfo(rank) << "OpenMP worker affinity       :" << parallel::Pinning::maskToString(
+  logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
       pinning.getWorkerUnionMask());
+  logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
+      pinning.getNodeMask());
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
 #ifdef USE_COMM_THREAD

@@ -15,7 +15,7 @@ jobs:
                         pwd
                         ls
                         sudo apt-get update
-                        sudo apt-get install gcc-8 g++-8 gfortran-9
+                        sudo apt-get install gcc-8 g++-8 gfortran-8
                         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
                         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
                         sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100

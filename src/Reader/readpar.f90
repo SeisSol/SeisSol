@@ -761,7 +761,7 @@ CONTAINS
     !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
     IF (OutputMask(11).EQ.1) THEN
         SELECT CASE (EQN%FL)
-               CASE(2,6,13,16,103) !LSW friction law cases
+               CASE(2,3,4,6,13,16,103) !LSW friction law cases
                     !use only if RF_output=1
                     IF (OutputMask(10).EQ.1) THEN
                         ! set 'collecting DS time' to 1
@@ -1067,11 +1067,13 @@ CONTAINS
                logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
                DISC%DynRup%SlipRateOutputType = 0
              ENDIF
-           CASE(3,4,7,101,103)
+           CASE(3,4,7,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
              DISC%DynRup%RS_b = RS_b    ! b, evolution effect
-             DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
+             IF (EQN%FL.EQ.103) THEN
+                 DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
+             ENDIF
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
@@ -2620,7 +2622,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       ! Setting default values
       OutputFile = 'data'
       iOutputMaskMaterial(:) =  0
-	  IntegrationMask(:) = 0
+      IntegrationMask(:) = 0
       Rotation = 0
       Format = 10
       Refinement = 0
@@ -2758,7 +2760,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           ENDIF
       END IF
 
-	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
+      ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !
         logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
         call exit(134)                                                                 !

@@ -52,8 +52,12 @@ namespace seissol {
 
 #ifndef ACL_DEVICE
 #	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::Standard
+#	define MEMKIND_Q_INTERPOLATED seissol::memory::Standard
+#	define MEMKIND_IMPOSED_STATE seissol::memory::Standard
 #else
 #	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::DeviceUnifiedMemory
+#	define MEMKIND_Q_INTERPOLATED seissol::memory::PinnedMemory
+#	define MEMKIND_IMPOSED_STATE seissol::memory::DeviceGlobalMemory
 #endif
 
 struct seissol::initializers::DynamicRupture {
@@ -67,20 +71,42 @@ struct seissol::initializers::DynamicRupture {
   Variable<DRFaceInformation>                                       faceInformation;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
-  
+
+#ifdef ACL_DEVICE
+  ScratchpadMemory                        idofsPlusOnDevice;
+  ScratchpadMemory                        idofsMinusOnDevice;
+  ScratchpadMemory                        QInterpolatedPlusOnDevice;
+  ScratchpadMemory                        QInterpolatedMinusOnDevice;
+
+  ScratchpadMemory                        QInterpolatedPlusOnHost;
+  ScratchpadMemory                        QInterpolatedMinusOnHost;
+  ScratchpadMemory                        imposedStatePlusOnHost;
+  ScratchpadMemory                        imposedStateMinusOnHost;
+#endif
   
   void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      MEMKIND_NEIGHBOUR_INTEGRATION );
-    tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      MEMKIND_NEIGHBOUR_INTEGRATION );
+    tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
+    tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      MEMKIND_IMPOSED_STATE );
     tree.addVar(             godunovData,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(          fluxSolverPlus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         fluxSolverMinus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
+#ifdef ACL_DEVICE
+    tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(  idofsMinusOnDevice,             1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(  QInterpolatedPlusOnDevice,      1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(  QInterpolatedMinusOnDevice,     1,      seissol::memory::DeviceGlobalMemory);
+
+    tree.addScratchpadMemory(  QInterpolatedPlusOnHost,         1,      seissol::memory::PinnedMemory);
+    tree.addScratchpadMemory(  QInterpolatedMinusOnHost,        1,      seissol::memory::PinnedMemory);
+    tree.addScratchpadMemory(  imposedStatePlusOnHost,          1,      seissol::memory::PinnedMemory);
+    tree.addScratchpadMemory(  imposedStateMinusOnHost,         1,      seissol::memory::PinnedMemory);
+#endif
   }
 };
 #endif

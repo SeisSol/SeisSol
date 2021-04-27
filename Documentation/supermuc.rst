@@ -11,7 +11,7 @@ Nevertheless, GitHub can be used if remote port forwarding is correctly set.
 Here, we described the procedure to set up such port forwarding.
 
 
-1. Add to you ~/.ssh/config the following lines:
+1. On your local machine, add to your ~/.ssh/config the following lines:
 
 ::
 
@@ -33,7 +33,7 @@ where ddddd is an arbitrary 5-digital port number.
     
 With ddddd the same port number as before.
 
-4. Create SSH key by typing 
+4. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
 
 ::
 
@@ -65,7 +65,7 @@ Supermuc-NG
   git submodule update --init
  
 
-2. Load module. Could add these lines to .bashrc:
+2. Load module. Could add these lines to .bashrc (changing the order and adding additionnal modules may prevent a successful compilation):
 
 ::
 
@@ -75,6 +75,7 @@ Supermuc-NG
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
   module load hdf5/1.8.21-impi-cxx-frt-threadsafe 
   module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
+  module load numactl
 
   ####### for pspamm.py
   export PATH=~/bin:$PATH
@@ -87,41 +88,30 @@ Supermuc-NG
 
 3. Install libxsmm, PSpaMM and ASAGI
 
-| See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
-| Note that on project pr63qo, we already installed and shared these libraries (no need to install).
-| The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-| If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.
+See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
+Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
+The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
+If you need to compile ASAGI, first clone ASAGI with:
 
 .. code-block:: bash
 
-  #!/bin/bash                                                                                                            
-  git submodule init
-  for module_full in `git config -l | awk -F"=" {'print $1'} | grep submodule ` ;
-  do
-   echo $module_full
-   module=$(git config ${module_full} | sed "s/.*github\.com\///")
-   if [ "$module" != "true" ]; then
-      echo $module
-      echo "git config ${module_full} git@github.com:${module}"
-      git config ${module_full} git@github.com:${module}
-   fi
-  done
-  git submodule update
-
-set compiler options:
+  git clone git@github.com:TUM-I5/ASAGI
+  cd ASAGI
+  git submodule update --init
+ 
+set compiler options, run cmake, and compile with:
 
 ::
 
-  $ export FC=mpiifort
-  $ export CXX=mpiicpc
-  $ export CC=mpiicc
+  export FC=mpif90
+  export CXX=mpiCC
+  export CC=mpicc
 
-  $ make build
-  $ Cd build
-  $ CMAKE_PREFIX_PATH=$NETCDF_BASE
-  $ cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
-  $ make
-  $ make install
+  mkdir build && cd build
+  CMAKE_PREFIX_PATH=$NETCDF_BASE
+  cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
+  make -j 48
+  make install
   (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
 
@@ -130,7 +120,7 @@ set compiler options:
 ::
 
    mkdir build-release && cd build-release
-   CC=mpiicc CXX=mpiicpc FC=mpiifort  cmake -DCOMMTHREAD=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
    make -j 48
 
 5. Submission file for SeisSol on NG:
@@ -185,5 +175,5 @@ set compiler options:
   source /etc/profile.d/modules.sh
 
   echo $SLURM_NTASKS
-  srun SeisSol_Release_sskx_4_elastic parameters.par
-
+  ulimit -Ss 2097152
+  mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par

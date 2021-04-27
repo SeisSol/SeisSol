@@ -35,6 +35,7 @@ src/Solver/Interoperability.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
@@ -217,21 +218,28 @@ if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
   target_sources(SeisSol-lib PUBLIC
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
 
   find_package(CUDA REQUIRED)
   set(CUDA_NVCC_FLAGS -std=c++14;
                       -Xptxas -v;
                       -arch=${DEVICE_SUB_ARCH};
+                      -DREAL_SIZE=${REAL_SIZE_IN_BYTES};
                       -O3;)
 
-  set(DEVICE_SRC ${DEVICE_SRC} ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp)
+  set(DEVICE_SRC ${DEVICE_SRC} ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+                               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu)
   set_source_files_properties(${DEVICE_SRC} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
 
   cuda_add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
   target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
-                                                       ${CMAKE_BINARY_DIR}/src/generated_code)
+                                                       ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+                                                       ${CMAKE_BINARY_DIR}/src/generated_code
+                                                       ${CMAKE_CURRENT_SOURCE_DIR}/src
+                                                       ${CUDA_TOOLKIT_ROOT_DIR})
 
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+  add_dependencies(Seissol-device-lib SeisSol-lib)
 
 endif()

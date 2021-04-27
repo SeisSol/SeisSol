@@ -128,14 +128,18 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
       vkrnl.execute(triRefiner.maxDepth);
 
-      auto addOutput = [&] (double* output[FREESURFACE_NUMBER_OF_COMPONENTS]) {
+      auto addOutput = [&] (real* output[FREESURFACE_NUMBER_OF_COMPONENTS]) {
         for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
-          double* target = output[component] + offset + face * numberOfSubTriangles;
+          real* target = output[component] + offset + face * numberOfSubTriangles;
           /// @yateto_todo fix for multiple simulations
           real* source = subTriangleDofs + component * numberOfAlignedSubTriangles; 
           for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
             target[subtri] = source[subtri];
+            if (!std::isfinite(source[subtri])) {
+              logError() << "Detected Inf/NaN in free surface output. Aborting.";
+            }
           }
+
         }
       };
 
@@ -261,8 +265,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   surfaceLtsTree.touchVariables();
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
-    velocities[dim]     = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
-    displacements[dim]  = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
+    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
   }
 
   /// @ yateto_todo

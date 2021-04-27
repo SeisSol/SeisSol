@@ -197,10 +197,10 @@ MODULE TypesDef
      REAL, POINTER                          :: geoTangent1(:,:)                 !< Vector 1 in the side plane
      REAL, POINTER                          :: geoTangent2(:,:)                 !< Vector 2 in the side plane
 
-     real*8, allocatable, dimension( :, :, : )    :: forwardRotation  !< forward rotation matrix from xyz- to face-normal-space
-     real*8, allocatable, dimension( :, :, : )    :: backwardRotation !< backward rotation matrix from face-normal-space to x-y-z space
+     REAL(KIND=8), allocatable, dimension( :, :, : )    :: forwardRotation  !< forward rotation matrix from xyz- to face-normal-space
+     REAL(KIND=8), allocatable, dimension( :, :, : )    :: backwardRotation !< backward rotation matrix from face-normal-space to x-y-z space
 
-     real*8, allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
+     REAL(KIND=8), allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
   END TYPE tFault
 
   !< Description of all the vertices in the domain (the first index runs from 1 to MESH%nNode)
@@ -376,13 +376,13 @@ MODULE TypesDef
     !   Reference: Intel® Fortran Compiler XE 13.0 User and Reference Guides
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
-    real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
+    REAL(KIND=8), allocatable   :: dgvar(:,:,:,:)               !< storage of all unknowns (solution).
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
     REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
     REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
 !    integer              :: nSourceTermElems !< number of elemens having a source term
-!    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
+!    REAL(KIND=8), allocatable  :: dgsourceterms(:,:,:)         !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
     real              :: totcputime
@@ -611,7 +611,7 @@ MODULE TypesDef
      INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
      INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
      REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
-     REAL                         , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
+     REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
@@ -1084,10 +1084,10 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
-	 LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
+     LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
                                                                                 !< .TRUE.  = integrate and output for this variable
                                                                                 !< .FALSE. = do not integrate and output for this variable
-	 REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
+     REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
                                                                                 !< Format is xMin, xMax, yMin, yMax, zMin, zMax
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars

@@ -554,7 +554,7 @@ CONTAINS
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
 
               !add transient nucleation stress to fault output
-              IF (EQN%FL.EQ.103) THEN
+              IF ((EQN%FL.EQ.103) .OR. (EQN%FL.EQ.3) .OR. (EQN%FL.EQ.4)) THEN
                  NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
                  Tnuc = DISC%DynRup%t_0
                  Gnuc = Calc_SmoothStep(time, Tnuc)
@@ -579,9 +579,9 @@ CONTAINS
                   scalarprod = dot_product(crossprod(:),NormalVect_n(:))
                   !TU 2.11.15 :cos1**2 can be greater than 1 because of rounding errors -> min
                   IF (scalarprod.GT.0) THEN
-                      sin1=sqrt(1-min(1d0,cos1**2))
+                      sin1=sqrt(1-min(1.0,cos1**2))
                   ELSE
-                      sin1=-sqrt(1-min(1d0,cos1**2))
+                      sin1=-sqrt(1-min(1.0,cos1**2))
                   ENDIF
 
                   OutVars = OutVars + 1

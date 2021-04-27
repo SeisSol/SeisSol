@@ -47,60 +47,13 @@
 #include <mpi.h>
 #endif
 
+#include "BasicTypedefs.hpp"
 #include <Initializer/preProcessorMacros.fpp>
-#include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
 
 #include <cstddef>
-
-enum mpiTag {
-  localIntegrationData = 0,
-  neighboringIntegrationData = 1,
-  timeData = 2
-};
-
-enum TimeClustering {
-  // global time stepping
-  single    = 0,
-  // offline clustering computed in pre-processing
-  offline   = 1,
-  // online clustering resulting in a multi-rate scheme
-  multiRate = 2,
-  // online clustering aiming at LTS for slithers only
-  slithers  = 3
-};
-
-// face types
-// Note: When introducting new types also change
-// int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
-// and PUMLReader. Otherwise it might become a DR face...
-enum class FaceType {
-  // regular: inside the computational domain
-  regular = 0,
-
-  // free surface boundary
-  freeSurface = 1,
-
-  // free surface boundary with gravity
-  freeSurfaceGravity = 2,
-  
-  // dynamic rupture boundary
-  dynamicRupture = 3,
-
-  // Dirichlet boundary
-  dirichlet = 4,
-
-  // absorbing/outflow boundary
-  outflow = 5,
-
-  // periodic boundary
-  periodic = 6,
-
-  // analytical boundary (from initial cond.)
-  analytical = 7
-};
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -362,6 +315,10 @@ struct GlobalData {
   //! Switch to nodal for plasticity
   real* vandermondeMatrix{nullptr};
   real* vandermondeMatrixInverse{nullptr};
+
+  // A vector of ones. Note: It is only relevant for GPU computing.
+  // It allows us to allocate this vector only once in the GPU memory
+  real* replicateStresses{nullptr};
 };
 
 struct CompoundGlobalData {
@@ -429,15 +386,6 @@ struct CellMaterialData {
 #else
   static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
-};
-
-// plasticity information per cell
-struct PlasticityData {
-  // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
 };
 
 /** A piecewise linear function.

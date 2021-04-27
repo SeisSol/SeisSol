@@ -43,11 +43,14 @@
 #include <sys/sysinfo.h>
 #include <sched.h>
 #include <sstream>
+#include <set>
+#include "Parallel/MPI.h"
+
+#ifdef USE_NUMA_AWARE_PINNING
+#include "numa.h"
+#endif
 
 seissol::parallel::Pinning::Pinning() {
-  // Affinity mask of the entire process
-  sched_getaffinity(0, sizeof(cpu_set_t), &processMask);
-
   // Affinity mask for the OpenMP workers
   openmpMask = getWorkerUnionMask();
 }
@@ -74,9 +77,42 @@ cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
 }
 
 cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
-  // Affinity mask of the pthreads -> all free cores
+  const auto nodeOpenMpMask = getNodeMask();
+
   cpu_set_t freeMask{};
-  CPU_XOR(&freeMask, &processMask, &openmpMask);
+  CPU_ZERO(&freeMask);
+
+#ifdef USE_NUMA_AWARE_PINNING
+  // Find all numa nodes on which some OpenMP worker is pinned to
+  std::set<int> numaDomainsOfThisProcess{};
+  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+    if (CPU_ISSET(cpu, &openmpMask)) {
+      numaDomainsOfThisProcess.insert(numa_node_of_cpu(cpu));
+    }
+  }
+
+  // Set free mask to all free threads which are on one of our numa nodes
+  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+    const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask);
+    if (isFree) {
+      const int numaNode = numa_node_of_cpu(cpu);
+      const bool isValidNumaNode = numaDomainsOfThisProcess.count(numaNode) != 0;
+      if (isValidNumaNode) {
+        CPU_SET(cpu, &freeMask);
+      }
+    }
+  }
+#else
+  // Set now contains all unused cores on the machine.
+  // Note that pinning of the communication thread is then not Numa-aware if there's more than one rank per node!
+  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+    if (!CPU_ISSET(cpu, &nodeOpenMpMask)) {
+      CPU_SET(cpu, &freeMask);
+    }
+  }
+#endif
+
+
   return freeMask;
 }
 
@@ -102,4 +138,29 @@ std::string seissol::parallel::Pinning::maskToString(cpu_set_t const& set) {
     }
   }
   return st.str();
+}
+
+cpu_set_t seissol::parallel::Pinning::getNodeMask() const {
+  const auto workerMask = getWorkerUnionMask();
+
+  // We have to use this due to the insanity of std::vector<bool>
+  auto workerMaskArray = std::vector<char>( get_nprocs(), 0);
+  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+    workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
+  }
+
+  MPI_Comm commNode;
+  MPI_Comm_split_type(MPI::mpi.comm(), MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &commNode);
+  MPI_Allreduce(MPI_IN_PLACE, workerMaskArray.data(), workerMaskArray.size(), MPI_CHAR, MPI_BOR, commNode);
+
+  cpu_set_t nodeMask;
+  CPU_ZERO(&nodeMask);
+  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+    const auto isSet = workerMaskArray[cpu] != 0;
+    if (isSet) {
+      CPU_SET(cpu, &nodeMask);
+    }
+  }
+
+  return nodeMask;
 }

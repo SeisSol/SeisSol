@@ -78,10 +78,10 @@ void seissol::writer::PostProcessor::allocateMemory(seissol::initializers::LTSTr
       seissol::memory::Standard );
 }
 
-const double* seissol::writer::PostProcessor::getIntegrals(seissol::initializers::LTSTree* ltsTree) {
+const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializers::LTSTree* ltsTree) {
 	if (m_numberOfVariables == 0) {
 		return 0L;
 	} else {
-		return reinterpret_cast<const double*>(ltsTree->var(m_integrals));
+		return ltsTree->var(m_integrals);
 	}
 }

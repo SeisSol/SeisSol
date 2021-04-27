@@ -11,10 +11,11 @@ def next_power_of_2(x):
 def generate_new_prefix(prefix, append2prefix):
     if append2prefix == "":
         append2prefix = "_resampled"
+    prefix = os.path.basename(prefix)
     lsplit = prefix.split("-")
     if len(lsplit) > 1:
         if lsplit[-1] in ["surface", "low", "fault"]:
-            prefix0 = "".join(lsplit[0:-1])
+            prefix0 = "-".join(lsplit[0:-1])
             prefix_new = prefix0 + append2prefix + "-" + lsplit[-1]
     else:
         prefix_new = prefix + append2prefix

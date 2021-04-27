@@ -68,7 +68,7 @@ void seissol::writer::FaultWriter::setUp()
 
 void seissol::writer::FaultWriter::init(const unsigned int* cells, const double* vertices,
 	unsigned int nCells, unsigned int nVertices,
-	int* outputMask, const double** dataBuffer,
+	int* outputMask, const real** dataBuffer,
 	const char* outputPrefix,
 	double interval,
   xdmfwriter::BackendType backend)
@@ -140,7 +140,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
         }
 	for (unsigned int i = 0; i < FaultInitParam::OUTPUT_MASK_SIZE; i++) {
 		if (param.outputMask[i]) {
-			addBuffer(dataBuffer[m_numVariables++], nCells * sizeof(double));
+			addBuffer(dataBuffer[m_numVariables++], nCells * sizeof(real));
 		}
 	}
 
