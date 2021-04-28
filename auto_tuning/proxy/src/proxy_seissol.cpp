@@ -80,6 +80,7 @@ extern long long pspamm_num_total_flops;
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 #include "utils/logger.h"
+#include <cassert>
 
 // seissol_kernel includes
 #include "proxy_seissol_tools.hpp"
@@ -201,8 +202,8 @@ ProxyOutput runProxy(ProxyConfig config) {
   total_cycles = derive_cycles_from_time(total);
 #endif
 
-  seissol_flops (*flop_fun)(unsigned);
-  double (*bytes_fun)(unsigned);
+  seissol_flops (*flop_fun)(unsigned) = nullptr;
+  double (*bytes_fun)(unsigned) = nullptr;
   switch (config.kernel) {
     case all:
       flop_fun = &flops_all_actual;
@@ -230,7 +231,10 @@ ProxyOutput runProxy(ProxyConfig config) {
       bytes_fun = &noestimate;
       break;
   }
-  
+
+  assert(flop_fun != nullptr);
+  assert(bytes_fun != nullptr);
+
   seissol_flops actual_flops = (*flop_fun)(config.timesteps);
   double bytes_estimate = (*bytes_fun)(config.timesteps);
 

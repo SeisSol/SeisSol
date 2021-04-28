@@ -17,7 +17,7 @@ project(SeisSol LANGUAGES C CXX Fortran)
 #                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
-#                     GEMM_TOOLS_LIST, EXTRA_FLAGS
+#                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS
 #
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
@@ -170,7 +170,7 @@ ExternalProject_Add(ImpalaJIT-build
   -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-  -DCMAKE_CXX_FLAGS=${EXTRA_FLAGS}
+  -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
 )
 add_dependencies(SeisSol-lib ImpalaJIT-build)
 target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
@@ -334,21 +334,21 @@ target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}${PLASTICITY_NAME_SUFFIX}")
 
 # SeisSol proxy-core
-add_library(proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
-                       auto_tuning/proxy/src/flop_counter.cpp)
-target_link_libraries(proxy-core PUBLIC SeisSol-lib)
+add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
+                               auto_tuning/proxy/src/flop_counter.cpp)
+target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
 
 if (PROXY_PYBINDING)
   find_package(pybind11 2.3.0 REQUIRED)
-  pybind11_add_module(proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
-  target_link_libraries(proxy_bindings PUBLIC proxy-core)
+  pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
+  target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
   file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 # C/C++ proxy interface
-add_executable(cpp-proxy auto_tuning/proxy/src/proxy_main.cpp)
-target_link_libraries(cpp-proxy PUBLIC proxy-core SeisSol-lib)
-set_target_properties(cpp-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
+set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 
 
 if (TESTING)

@@ -221,7 +221,7 @@ cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
 
 if (PROXY_PYBINDING)
-    set(EXTRA_FLAGS -fPIC)
+    set(EXTRA_CXX_FLAGS -fPIC)
 
     # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
     # generate position independent code

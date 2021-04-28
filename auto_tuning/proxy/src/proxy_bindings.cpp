@@ -1,9 +1,10 @@
 #include "proxy_common.hpp"
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 namespace py = pybind11;
 
 
-PYBIND11_MODULE(proxy_bindings, module) {
+PYBIND11_MODULE(seissol_proxy_bindings, module) {
   py::enum_<Kernel>(module, "Kernel")
       .value("all", Kernel::all)
       .value("local", Kernel::local)
@@ -42,6 +43,7 @@ PYBIND11_MODULE(proxy_bindings, module) {
       .def(py::init<>())
       .def("str_to_kernel", &Aux::str2kernel)
       .def("kernel_to_string", &Aux::kernel2str)
+      .def("get_allowed_kernels", &Aux::getAllowedKernels)
       .def("display_output", &Aux::displayOutput);
 
   module.def("run_proxy", &runProxy, "runs seissol proxy");
