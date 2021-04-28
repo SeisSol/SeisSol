@@ -155,6 +155,7 @@ else()
     -DYAML_CPP_BUILD_TESTS=OFF
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
   )
   add_dependencies(SeisSol-lib yaml-cpp-build)
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
