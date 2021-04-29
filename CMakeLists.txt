@@ -9,7 +9,7 @@ project(SeisSol LANGUAGES C CXX Fortran)
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
-#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND
+#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND, PROXY_PYBINDING, ENABLE_PIC_COMPILATION
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -17,7 +17,7 @@ project(SeisSol LANGUAGES C CXX Fortran)
 #                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
-#                     GEMM_TOOLS_LIST
+#                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS
 #
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
@@ -155,6 +155,7 @@ else()
     -DYAML_CPP_BUILD_TESTS=OFF
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
   )
   add_dependencies(SeisSol-lib yaml-cpp-build)
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
@@ -170,6 +171,7 @@ ExternalProject_Add(ImpalaJIT-build
   -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
 )
 add_dependencies(SeisSol-lib ImpalaJIT-build)
 target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
@@ -335,11 +337,26 @@ add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}${PLASTICITY_NAME_SUFFIX}")
 
-add_executable(SeisSol-proxy
-        auto_tuning/proxy/src/proxy_seissol.cpp
-        auto_tuning/proxy/src/flop_counter.cpp
-)
-target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
+# SeisSol proxy-core
+add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
+                               auto_tuning/proxy/src/flop_counter.cpp)
+target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
+
+if (PROXY_PYBINDING)
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    find_package(pybind11 2.6.2 REQUIRED)
+  else()
+    find_package(pybind11 2.3.0 REQUIRED)
+  endif()
+
+  pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
+  target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
+  file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
+# C/C++ proxy interface
+add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 
 

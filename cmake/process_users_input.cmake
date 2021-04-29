@@ -69,6 +69,7 @@ option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
+option(PROXY_PYBINDING "enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
@@ -218,3 +219,11 @@ endfunction()
 
 cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
+
+if (PROXY_PYBINDING)
+    set(EXTRA_CXX_FLAGS -fPIC)
+
+    # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
+    # generate position independent code
+    set(ENABLE_PIC_COMPILATION ON)
+endif()

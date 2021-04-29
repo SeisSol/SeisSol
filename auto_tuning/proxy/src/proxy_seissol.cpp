@@ -68,7 +68,7 @@ extern long long pspamm_num_total_flops;
 #include <hbwmalloc.h>
 #endif
 
-#include <utils/args.h>
+#include "proxy_common.hpp"
 
 #ifdef __MIC__
 #define __USE_RDTSC
@@ -80,6 +80,7 @@ extern long long pspamm_num_total_flops;
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 #include "utils/logger.h"
+#include <cassert>
 
 // seissol_kernel includes
 #include "proxy_seissol_tools.hpp"
@@ -96,9 +97,6 @@ using namespace proxy::device;
 #else
 using namespace proxy::cpu;
 #endif
-
-enum Kernel { all = 0, local, neigh, ader, localwoader, neigh_dr, godunov_dr };
-char const* Kernels[] = {"all", "local", "neigh", "ader", "localwoader", "neigh_dr", "godunov_dr"};
 
 void testKernel(unsigned kernel, unsigned timesteps) {
   unsigned t = 0;
@@ -140,38 +138,10 @@ void testKernel(unsigned kernel, unsigned timesteps) {
   }
 }
 
-int main(int argc, char* argv[]) {
-  std::stringstream kernelHelp;
-  kernelHelp << "Kernel: " << Kernels[0];
-  for (size_t k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
-    kernelHelp << ", " << Kernels[k];
-  }
 
-  utils::Args args;
-  args.addAdditionalOption("cells", "Number of cells");
-  args.addAdditionalOption("timesteps", "Number of timesteps");
-  args.addAdditionalOption("kernel", kernelHelp.str());
-  
-  if (args.parse(argc, argv) != utils::Args::Success) {
-    return -1;
-  }
-  
-  unsigned cells = args.getAdditionalArgument<unsigned>("cells");
-  unsigned timesteps = args.getAdditionalArgument<unsigned>("timesteps");
-  std::string kernelStr = args.getAdditionalArgument<std::string>("kernel");
-  unsigned kernel = 0;
-  for (; kernel < sizeof(Kernels)/sizeof(char*); ++kernel) {
-    if (kernelStr.compare(Kernels[kernel]) == 0) {
-      break;
-    }
-  }
-  if (kernel >= sizeof(Kernels)/sizeof(char*)) {
-    std::cerr << "Unknown kernel " << kernelStr << std::endl;
-    return -1;
-  }
-  
+ProxyOutput runProxy(ProxyConfig config) {
   bool enableDynamicRupture = false;
-  if (kernel == neigh_dr || kernel == godunov_dr) {
+  if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
     enableDynamicRupture = true;
   }
 
@@ -188,13 +158,17 @@ int main(int argc, char* argv[]) {
 
   print_hostname();
 
-  printf("Allocating fake data...\n");
+  if (config.verbose)
+    printf("Allocating fake data...\n");
+
   initGlobalData();
-  cells = initDataStructures(cells, enableDynamicRupture);
+  config.cells = initDataStructures(config.cells, enableDynamicRupture);
 #ifdef ACL_DEVICE
   initDataStructuresOnDevice(enableDynamicRupture);
 #endif // ACL_DEVICE
-  printf("...done\n\n");
+
+  if (config.verbose)
+    printf("...done\n\n");
 
   struct timeval start_time, end_time;
 #ifdef __USE_RDTSC
@@ -204,7 +178,7 @@ int main(int argc, char* argv[]) {
   double total_cycles = 0.0;
 
   // init OpenMP and LLC
-  testKernel(kernel, 1);
+  testKernel(config.kernel, 1);
   
   libxsmm_num_total_flops = 0;
   pspamm_num_total_flops = 0;
@@ -214,7 +188,7 @@ int main(int argc, char* argv[]) {
   cycles_start = __rdtsc();
 #endif
 
-  testKernel(kernel, timesteps);
+  testKernel(config.kernel, config.timesteps);
 
 #ifdef __USE_RDTSC  
   cycles_end = __rdtsc();
@@ -228,9 +202,9 @@ int main(int argc, char* argv[]) {
   total_cycles = derive_cycles_from_time(total);
 #endif
 
-  seissol_flops (*flop_fun)(unsigned);
-  double (*bytes_fun)(unsigned);
-  switch (kernel) {
+  seissol_flops (*flop_fun)(unsigned) = nullptr;
+  double (*bytes_fun)(unsigned) = nullptr;
+  switch (config.kernel) {
     case all:
       flop_fun = &flops_all_actual;
       bytes_fun = &bytes_all;
@@ -257,30 +231,28 @@ int main(int argc, char* argv[]) {
       bytes_fun = &noestimate;
       break;
   }
-  
-  seissol_flops actual_flops = (*flop_fun)(timesteps);
-  double bytes_estimate = (*bytes_fun)(timesteps);
 
-  printf("=================================================\n");
-  printf("===            PERFORMANCE SUMMARY            ===\n");
-  printf("=================================================\n");
-  printf("seissol proxy mode                  : %s\n", kernelStr.c_str());
-  printf("time for seissol proxy              : %f\n", total);
-  printf("cycles                              : %f\n\n", total_cycles);
-  printf("GFLOP (libxsmm)                     : %f\n", libxsmm_num_total_flops      * 1.e-9);
-  printf("GFLOP (pspamm)                      : %f\n", pspamm_num_total_flops           * 1.e-9);
-  printf("GFLOP (libxsmm + pspamm)            : %f\n", (libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9);
-  printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops  * 1.e-9);
-  printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops * 1.e-9);
-  printf("GiB (estimate) for seissol proxy    : %f\n\n", bytes_estimate/(1024.0*1024.0*1024.0));
-  printf("FLOPS/cycle (non-zero)              : %f\n", actual_flops.d_nonZeroFlops/total_cycles);
-  printf("FLOPS/cycle (hardware)              : %f\n", actual_flops.d_hardwareFlops/total_cycles);
-  printf("Bytes/cycle (estimate)              : %f\n\n", bytes_estimate/total_cycles);
-  printf("GFLOPS (non-zero) for seissol proxy : %f\n", (actual_flops.d_nonZeroFlops  * 1.e-9)/total);
-  printf("GFLOPS (hardware) for seissol proxy : %f\n", (actual_flops.d_hardwareFlops * 1.e-9)/total);
-  printf("GiB/s (estimate) for seissol proxy  : %f\n", (bytes_estimate/(1024.0*1024.0*1024.0))/total);
-  printf("=================================================\n");
-  printf("\n");
+  assert(flop_fun != nullptr);
+  assert(bytes_fun != nullptr);
+
+  seissol_flops actual_flops = (*flop_fun)(config.timesteps);
+  double bytes_estimate = (*bytes_fun)(config.timesteps);
+
+  ProxyOutput output{};
+  output.time = total;
+  output.cycles = total_cycles;
+  output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
+  output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
+  output.libxsmmAndpspammNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9;
+  output.actualNonZeroGFlop = static_cast<double>(actual_flops.d_nonZeroFlops)  * 1.e-9;
+  output.actualHardwareGFlop = static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9;
+  output.gib = bytes_estimate/(1024.0*1024.0*1024.0);
+  output.nonZeroFlopPerCycle = static_cast<double>(actual_flops.d_nonZeroFlops)/total_cycles;
+  output.hardwareFlopPerCycle = static_cast<double>(actual_flops.d_hardwareFlops)/total_cycles;
+  output.bytesPerCycle = bytes_estimate/total_cycles;
+  output.nonZeroGFlops = (static_cast<double>(actual_flops.d_nonZeroFlops)  * 1.e-9)/total;
+  output.hardwareGFlops = (static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9)/total;
+  output.gibPerSecond = (bytes_estimate/(1024.0*1024.0*1024.0))/total;
 
   delete m_ltsTree;
   delete m_dynRupTree;
@@ -289,6 +261,5 @@ int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
   device.finalize();
 #endif
-  return 0;
+  return output;
 }
-
