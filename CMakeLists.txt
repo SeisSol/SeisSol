@@ -343,7 +343,12 @@ add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
 target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
 
 if (PROXY_PYBINDING)
-  find_package(pybind11 2.3.0 REQUIRED)
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    find_package(pybind11 2.6.2 REQUIRED)
+  else()
+    find_package(pybind11 2.3.0 REQUIRED)
+  endif()
+
   pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
   target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
   file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
