@@ -291,7 +291,7 @@ namespace seissol {
           chi_minus(i,i) = 1.0;
         }
         //also include the zero eigenvalues here, otherwise the matrix R will be singular
-        if(eigen_local.eigenvalues(i).real() > -tolerance) {
+        if(eigen_local.eigenvalues(i).real() > tolerance) {
           chi_plus(i,i) = 1.0;
         }
       }
