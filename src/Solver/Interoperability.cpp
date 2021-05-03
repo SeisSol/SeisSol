@@ -194,8 +194,8 @@ extern "C" {
     e_interoperability.setTv(tv);
   }
 
-  void c_interoperability_initializeCellLocalMatrices() {
-    e_interoperability.initializeCellLocalMatrices();
+  void c_interoperability_initializeCellLocalMatrices(bool usePlasticity) {
+    e_interoperability.initializeCellLocalMatrices(usePlasticity);
   }
 
   void c_interoperability_synchronizeCellLocalData(bool usePlasticity) {
@@ -712,7 +712,7 @@ void seissol::Interoperability::setTv(double tv) {
   seissol::SeisSol::main.timeManager().setTv(tv);
 }
 
-void seissol::Interoperability::initializeCellLocalMatrices()
+void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
 {
   // \todo Move this to some common initialization place
   MeshReader& meshReader = seissol::SeisSol::main.meshReader();
@@ -746,7 +746,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                          memoryManager.getBoundaryTree(),
                                          memoryManager.getBoundary());
 
-  memoryManager.recordExecutionPaths();
+  memoryManager.recordExecutionPaths(usePlasticity);
 #endif
 }
 

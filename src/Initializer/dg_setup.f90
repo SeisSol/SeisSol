@@ -491,9 +491,9 @@ CONTAINS
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
 
   logInfo0(*) 'Initializing element local matrices.'
-  call c_interoperability_initializeCellLocalMatrices;
+  call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
 
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
+  IF(DISC%Galerkin%DGMethod.EQ.3) THEN
         ALLOCATE( DISC%LocalIteration(MESH%nElem) )
         ALLOCATE( DISC%LocalTime(MESH%nElem)      )
         ALLOCATE( DISC%LocalDt(MESH%nElem)        )

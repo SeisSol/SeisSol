@@ -227,8 +227,11 @@ module f_ftoc_bind_interoperability
   end interface
 
 
-  interface c_interoperability_initializeCellLocalMatrices
-    subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )
+  interface
+    subroutine c_interoperability_initializeCellLocalMatrices(usePlasticity) bind( C, name='c_interoperability_initializeCellLocalMatrices' )
+      use iso_c_binding
+      implicit none
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 

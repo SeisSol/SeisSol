@@ -755,12 +755,14 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
 
 
 #ifdef ACL_DEVICE
-void seissol::initializers::MemoryManager::recordExecutionPaths() {
+void seissol::initializers::MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<seissol::initializers::LTS> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
-  recorder.addRecorder(new recording::PlasticityRecorder);
+  if (usePlasticity) {
+    recorder.addRecorder(new recording::PlasticityRecorder);
+  }
 
   for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
     recorder.record(m_lts, *it);

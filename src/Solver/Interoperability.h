@@ -251,7 +251,7 @@ class seissol::Interoperability {
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
     **/
-   void initializeCellLocalMatrices();
+   void initializeCellLocalMatrices(bool usePlasticity);
 
    template<typename T>
    void synchronize(seissol::initializers::Variable<T> const& handle);

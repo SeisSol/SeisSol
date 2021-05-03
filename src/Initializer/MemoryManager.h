@@ -321,7 +321,7 @@ class seissol::initializers::MemoryManager {
     }
 
 #ifdef ACL_DEVICE
-  void recordExecutionPaths();
+  void recordExecutionPaths(bool usePlasticity);
 #endif
 };
 
