@@ -233,10 +233,15 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 {
   seissol::initializers::LayerMask ghostMask(Ghost);
 
+  auto const is_duplicate = [&ghostMask, ltsLut](unsigned ltsId) {
+    return ltsId != ltsLut->ltsId(ghostMask, ltsLut->meshId(ghostMask, ltsId));
+  };
+
   surfaceLtsTree.setNumberOfTimeClusters(ltsTree->numChildren());
   surfaceLtsTree.fixate();
 
   totalNumberOfFreeSurfaces = 0;
+  unsigned baseLtsId = 0;
   for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
@@ -248,14 +253,17 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      if (!is_duplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
-        || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
-        || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
-          ++numberOfFreeSurfaces;
+          if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
+          || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+          || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
+            ++numberOfFreeSurfaces;
+          }
         }
       }
     }
+    baseLtsId += layer->getNumberOfCells();
     surfaceLayer->setNumberOfCells(numberOfFreeSurfaces);
     totalNumberOfFreeSurfaces += numberOfFreeSurfaces;
   }
@@ -270,7 +278,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   }
 
   /// @ yateto_todo
-  unsigned* ltsToMesh = ltsLut->getLtsToMeshLut(ghostMask);
+  baseLtsId = 0;
   for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
@@ -285,20 +293,23 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
-        || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
-        || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
-          assert(displacements[cell] != nullptr);
+      unsigned ltsId = baseLtsId + cell;
+      if (!is_duplicate(ltsId)) {
+        for (unsigned face = 0; face < 4; ++face) {
+          if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
+          || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+          || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
+            assert(displacements[cell] != nullptr);
 
-          surfaceDofs[surfaceCell]      = dofs[cell];
-          displacementDofs[surfaceCell] = displacements[cell];
-          side[surfaceCell]             = face;
-          meshId[surfaceCell]           = ltsToMesh[cell];
-          ++surfaceCell;
+            surfaceDofs[surfaceCell]      = dofs[cell];
+            displacementDofs[surfaceCell] = displacements[cell];
+            side[surfaceCell]             = face;
+            meshId[surfaceCell]           = ltsLut->meshId(ghostMask, ltsId);
+            ++surfaceCell;
+          }
         }
       }
     }
-    ltsToMesh += layer->getNumberOfCells();
+    baseLtsId += layer->getNumberOfCells();
   }
 }
