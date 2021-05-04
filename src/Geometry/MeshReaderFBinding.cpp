@@ -284,7 +284,14 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 }
 
 
-void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3], char const* easiVelocityModel, int clusterRate)
+void read_mesh_puml_c(const char* meshfile,
+                      const char* checkPointFile,
+                      bool hasFault,
+                      double const displacement[3],
+                      double const scalingMatrix[3][3],
+                      char const* easiVelocityModel,
+                      int clusterRate,
+                      bool usePlasticity)
 {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -295,7 +302,8 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
 	if constexpr (!seissol::isDeviceOn()) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weight";
-      tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
+      tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
+                                         usePlasticity);
 
       const auto summary = seissol::statistics::parallelSummary(tpwgt);
       logInfo(rank) << "Node weights: mean =" << summary.mean

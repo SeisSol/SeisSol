@@ -140,13 +140,13 @@ void seissol::fakeData(initializers::LTS& lts,
   fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager) {
+double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
   struct GlobalData* globalData = memoryManager.getGlobalDataOnHost();
 
   initializers::LTSTree ltsTree;
   initializers::LTS     lts;
-  
-  lts.addTo(ltsTree);
+
+  lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
   

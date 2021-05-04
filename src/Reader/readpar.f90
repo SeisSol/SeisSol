@@ -288,32 +288,19 @@ CONTAINS
 
     !
 
-#if defined(USE_PLASTICITY)
-    if (Plasticity .eq. 0) then
-      logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
-      call exit(134)
-    endif
-#endif
-
     SELECT CASE(Plasticity)
     CASE(0)
       logInfo0(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
-#if !defined(USE_PLASTICITY)
-       logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
-       call exit(134)
-#else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
 
 #if defined(USE_PLASTIC_IP)
        logInfo0(*) 'Integration Points approach used for plasticity.'
 #elif defined(USE_PLASTIC_NB)
        logInfo0(*) 'Nodal Basis approach used for plasticity.'
-
 #endif
 
-#endif
         EQN%Plasticity = Plasticity
         !first constant, can be overwritten in ini_model
         EQN%Tv = Tv

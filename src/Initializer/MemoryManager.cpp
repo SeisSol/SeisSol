@@ -423,12 +423,13 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
 void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
                                                          struct MeshStructure*i_meshStructure,
                                                          unsigned* numberOfDRCopyFaces,
-                                                         unsigned* numberOfDRInteriorFaces) {
+                                                         unsigned* numberOfDRInteriorFaces,
+                                                         bool usePlasticity) {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
 
   // Setup tree variables
-  m_lts.addTo(m_ltsTree);
+  m_lts.addTo(m_ltsTree, usePlasticity);
   seissol::SeisSol::main.postProcessor().allocateMemory(&m_ltsTree);
   m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
 
@@ -754,14 +755,14 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
 
 
 #ifdef ACL_DEVICE
-void seissol::initializers::MemoryManager::recordExecutionPaths() {
+void seissol::initializers::MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<seissol::initializers::LTS> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
-#ifdef USE_PLASTICITY
-  recorder.addRecorder(new recording::PlasticityRecorder);
-#endif
+  if (usePlasticity) {
+    recorder.addRecorder(new recording::PlasticityRecorder);
+  }
 
   for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(Ghost); it != m_ltsTree.endLeaf(); ++it) {
     recorder.record(m_lts, *it);
