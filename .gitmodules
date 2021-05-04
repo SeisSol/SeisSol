@@ -34,3 +34,6 @@
 [submodule "submodules/Device"]
 	path = submodules/Device
 	url = ../../SeisSol/Device.git
+[submodule "submodules/mneme"]
+	path = submodules/mneme
+	url = ../../TEAR-ERC/mneme.git

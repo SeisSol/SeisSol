@@ -60,9 +60,89 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Initializer/LTS.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
-#include <Solver/time_stepping/MiniSeisSol.cpp>
+#include <Solver/time_stepping/MiniSeisSol.h>
 #include <yateto.h>
 #include <unordered_set>
+
+#include "mneme/storage.hpp"
+#include "mneme/plan.hpp"
+
+// TODO(Lukas) Names!
+struct GhostLayer : public mneme::Layer {};
+struct InteriorLayer : public mneme::Layer {};
+struct CopyLayer : public mneme::Layer {};
+
+// TODO(Lukas) Find good naming scheme for structs
+// maybe lowercase?
+struct Buffer {
+  using type = real;
+};
+
+using buffers_storage_t = mneme::SingleStorage<Buffer>;
+
+struct Derivatives {
+  using type = real;
+};
+
+using derivatives_storage_t = mneme::SingleStorage<Derivatives>;
+
+struct CellLocalInformationData {
+  using type = CellLocalInformation;
+};
+
+struct FaceNeighbors {
+  using type = real*[4];
+};
+
+// TODO(Lukas) Ugh... name
+struct LocalIntegration {
+  using type = LocalIntegrationData;
+};
+
+struct NeighborIntegration {
+  using type = NeighboringIntegrationData;
+};
+
+struct Material {
+  using type = CellMaterialData;
+};
+
+struct Plasticity {
+  using type = PlasticityData;
+};
+
+struct DrMapping {
+  using type = CellDRMapping;
+};
+
+struct BoundaryMapping {
+  using type = CellBoundaryMapping;
+};
+
+struct Pstrain {
+  using type = real[7];
+};
+
+struct Displacements {
+  using type = real*;
+};
+
+
+struct BuffersBucket {
+  using type = real;
+};
+
+struct DisplacementsBucket {
+  using type = real;
+};
+
+// Buckets
+using buffers_bucket_storage_t = mneme::SingleStorage<BuffersBucket>;
+using buffers_bucket_displacements_t = mneme::SingleStorage<DisplacementsBucket>;
+
+//storage_t storage;
+std::shared_ptr<buffers_bucket_storage_t> buffersBucket{nullptr};
+std::shared_ptr<buffers_bucket_displacements_t> displacementBucket{nullptr};
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -126,11 +206,20 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   
   seissol::initializers::Layer& layer = cluster.child<Interior>();
   layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
-  
+
+  const auto derivativesBucketPlan = mneme::LayeredPlan()
+      .withDofs<InteriorLayer>(i_cells, [](auto){ return tensor::I::size(); })
+      .withDofs<CopyLayer>(0, [](auto){ return 0; })
+      .withDofs<GhostLayer>(0, [](auto){ return 0; });
+
+  const auto derivativesBucketLayer = derivativesBucketPlan.getLayout();
+  buffersBucket = std::make_shared<buffers_bucket_storage_t>(derivativesBucketLayer.back());
+
   m_ltsTree->allocateVariables();
   m_ltsTree->touchVariables();
   m_ltsTree->allocateBuckets();
-  
+
+#if 0
   if (enableDynamicRupture) {
     m_dynRup.addTo(*m_dynRupTree);
     m_dynRupTree->setNumberOfTimeClusters(1);
@@ -154,10 +243,12 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
       }
     }
   }
+#endif
 
   /* cell information and integration data*/
   seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
 
+#if 0
   if (enableDynamicRupture) {
     // From lts tree
     CellDRMapping (*drMapping)[4] = m_ltsTree->var(m_lts.drMapping);
@@ -196,6 +287,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
       faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
     }
   }
+#endif
   
   return i_cells;
 }
