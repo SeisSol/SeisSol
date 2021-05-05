@@ -233,7 +233,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 {
   seissol::initializers::LayerMask ghostMask(Ghost);
 
-  auto const is_duplicate = [&ghostMask, ltsLut](unsigned ltsId) {
+  auto const isDuplicate = [&ghostMask, ltsLut](unsigned ltsId) {
     return ltsId != ltsLut->ltsId(ghostMask, ltsLut->meshId(ghostMask, ltsId));
   };
 
@@ -253,7 +253,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      if (!is_duplicate(baseLtsId + cell)) {
+      if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
           if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
           || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
@@ -294,7 +294,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       unsigned ltsId = baseLtsId + cell;
-      if (!is_duplicate(ltsId)) {
+      if (!isDuplicate(ltsId)) {
         for (unsigned face = 0; face < 4; ++face) {
           if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
           || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
