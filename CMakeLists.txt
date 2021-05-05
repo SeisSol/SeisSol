@@ -14,7 +14,7 @@ project(SeisSol LANGUAGES C CXX Fortran)
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
-#                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
+#                     NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS
@@ -110,11 +110,6 @@ add_custom_command(
        src/generated_code/kernel.cpp
        COMMENT "Codegen for tensor stuff."
        )
-
-if (PLASTICITY)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
-  set(PLASTICITY_NAME_SUFFIX "_plasticity")
-endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
@@ -336,7 +331,7 @@ endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}${PLASTICITY_NAME_SUFFIX}")
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
 # SeisSol proxy-core
 add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
@@ -359,7 +354,6 @@ endif()
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-
 
 if (TESTING)
   include(cmake/testing.cmake)

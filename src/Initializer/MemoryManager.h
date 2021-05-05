@@ -240,7 +240,8 @@ class seissol::initializers::MemoryManager {
     void fixateLtsTree(struct TimeStepping& i_timeStepping,
                        struct MeshStructure*i_meshStructure,
                        unsigned* numberOfDRCopyFaces,
-                       unsigned* numberOfDRInteriorFaces);
+                       unsigned* numberOfDRInteriorFaces,
+                       bool usePlasticity);
 
     void fixateBoundaryLtsTree();
     /**
@@ -320,7 +321,7 @@ class seissol::initializers::MemoryManager {
     }
 
 #ifdef ACL_DEVICE
-  void recordExecutionPaths();
+  void recordExecutionPaths(bool usePlasticity);
 #endif
 };
 

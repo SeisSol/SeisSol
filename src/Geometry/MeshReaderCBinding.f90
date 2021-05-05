@@ -80,7 +80,7 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
 
-        subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate) bind(C, name="read_mesh_puml_c")
+        subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate, usePlasticity) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
             character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
@@ -88,6 +88,7 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: displacement
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
             integer(kind=c_int), value, intent(in)                :: clusterRate
+            logical(kind=c_bool), value :: usePlasticity
         end subroutine
     end interface
 
@@ -137,7 +138,8 @@ contains
                                     MESH%Displacement(:),                       &
                                     m_mesh%ScalingMatrix(:,:),                  &
                                     trim(EQN%MaterialFileName) // c_null_char,  &
-                                    disc%galerkin%clusteredLts                  )
+                                    disc%galerkin%clusteredLts, &
+                                    logical(EQN%Plasticity == 1, 1))
         else
             logError(*) 'Unknown mesh reader'
             call exit(134)
