@@ -41,6 +41,7 @@
 #ifndef MINISEISSOL_H_
 #define MINISEISSOL_H_
 
+#include "MiniSeisSolTypes.h"
 #include <Initializer/MemoryManager.h>
 
 namespace seissol {
@@ -54,6 +55,60 @@ namespace seissol {
   void fakeData(  initializers::LTS& lts,
                   initializers::Layer& layer,
                   FaceType faceTp = FaceType::regular);
+
+  inline void fakeData(ProxyData& data, FaceType faceType = FaceType::regular) {
+
+    auto elementViewFactory = mneme::createViewFactory().withPlan(data.elementStoragePlan).withStorage(data.elementStorage);
+    auto elementViewInterior = elementViewFactory.createDenseView<InteriorLayer>();
+
+    auto displacementBucketViewFactory = mneme::createViewFactory().withPlan(data.buffersBucketPlan).withStorage(data.buffersBucket);
+    auto displacementBucketViewInterior = displacementBucketViewFactory.createDenseView<InteriorLayer>();
+
+    for (unsigned cell = 0; cell < elementViewInterior.size(); ++cell) {
+      auto& curElement = elementViewInterior[cell];
+      //auto& dofs = elementViewInterior[cell].get<dofs>();
+      // TODO(Lukas) Is the offset for the bucket correct?
+      curElement.get<buffer>() = &displacementBucketViewInterior[cell];
+      auto& cellInformation = curElement.get<cellLocalInformation>();
+      for (unsigned f = 0; f < 4; ++f) {
+        cellInformation.faceTypes[f] = faceType;
+        cellInformation.faceRelations[f][0] = ((unsigned int) lrand48() % 4);
+        cellInformation.faceRelations[f][1] = ((unsigned int) lrand48() % 3);
+        cellInformation.faceNeighborIds[f] = ((unsigned int) lrand48() % elementViewInterior.size());
+      }
+      cellInformation.ltsSetup = 0;
+    }
+#pragma omp parallel for schedule(static) default(none) shared(elementViewInterior, faceType)
+    for (unsigned cell = 0; cell < elementViewInterior.size(); ++cell) {
+      auto& curElement = elementViewInterior[cell];
+      auto& curCellInformation = curElement.get<cellLocalInformation>();
+      auto& curFaceNeighbors = curElement.get<faceNeighbors>();
+      auto* curBuffer = curElement.get<buffer>();
+      for (unsigned f = 0; f < 4; ++f) {
+        switch (faceType) {
+          case FaceType::freeSurface:
+            curFaceNeighbors[f] = curBuffer;
+            break;
+          case FaceType::periodic:
+            [[fallthrough]];
+          case FaceType::regular:
+            curFaceNeighbors[f] = elementViewInterior[curCellInformation.faceNeighborIds[f]].get<buffer>();
+            break;
+          default:
+            curFaceNeighbors[f] = nullptr;
+            break;
+        }
+      }
+      fillWithStuff(curElement.get<dofs>().data(), tensor::Q::size());
+      //fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells());
+      fillWithStuff(curElement.get<buffer>(), tensor::I::size());
+      //fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells());
+      fillWithStuff(reinterpret_cast<real*>(&curElement.get<localIntegrationData>()), sizeof(LocalIntegrationData)/sizeof(real));
+      //fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());
+      fillWithStuff(reinterpret_cast<real*>(&curElement.get<neighborIntegrationData>()), sizeof(LocalIntegrationData)/sizeof(real));
+      //fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
+    }
+  }
   
   double miniSeisSol(initializers::MemoryManager& memoryManager);
 }

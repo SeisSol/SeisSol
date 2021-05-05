@@ -60,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Initializer/LTS.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
+#include "Solver/time_stepping/MiniSeisSolTypes.h"
 #include <Solver/time_stepping/MiniSeisSol.h>
 #include <yateto.h>
 #include <unordered_set>
@@ -67,89 +68,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mneme/storage.hpp"
 #include "mneme/plan.hpp"
 
-// TODO(Lukas) Names!
-struct GhostLayer : public mneme::Layer {};
-struct InteriorLayer : public mneme::Layer {};
-struct CopyLayer : public mneme::Layer {};
-
-// TODO(Lukas) Find good naming scheme for structs
-// maybe lowercase?
-struct Buffer {
-  using type = real;
-};
-
-using buffers_storage_t = mneme::SingleStorage<Buffer>;
-
-struct Derivatives {
-  using type = real;
-};
-
-using derivatives_storage_t = mneme::SingleStorage<Derivatives>;
-
-struct CellLocalInformationData {
-  using type = CellLocalInformation;
-};
-
-struct FaceNeighbors {
-  using type = real*[4];
-};
-
-// TODO(Lukas) Ugh... name
-struct LocalIntegration {
-  using type = LocalIntegrationData;
-};
-
-struct NeighborIntegration {
-  using type = NeighboringIntegrationData;
-};
-
-struct Material {
-  using type = CellMaterialData;
-};
-
-struct Plasticity {
-  using type = PlasticityData;
-};
-
-struct DrMapping {
-  using type = CellDRMapping;
-};
-
-struct BoundaryMapping {
-  using type = CellBoundaryMapping;
-};
-
-struct Pstrain {
-  using type = real[7];
-};
-
-struct Displacements {
-  using type = real*;
-};
-
-
-struct BuffersBucket {
-  using type = real;
-};
-
-struct DisplacementsBucket {
-  using type = real;
-};
-
-// Buckets
-using buffers_bucket_storage_t = mneme::SingleStorage<BuffersBucket>;
-using buffers_bucket_displacements_t = mneme::SingleStorage<DisplacementsBucket>;
-
-//storage_t storage;
-std::shared_ptr<buffers_bucket_storage_t> buffersBucket{nullptr};
-std::shared_ptr<buffers_bucket_displacements_t> displacementBucket{nullptr};
-
 #ifdef ACL_DEVICE
 #include <device.h>
 #include <unordered_set>
 #include <Initializer/BatchRecorders/Recorders.h>
 #include <Solver/Pipeline/DrPipeline.h>
 #endif
+
+std::shared_ptr<ProxyData> proxyData;
 
 seissol::initializers::LTSTree               *m_ltsTree{nullptr};
 seissol::initializers::LTS                   m_lts;
@@ -195,29 +121,39 @@ void initGlobalData() {
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
   // init RNG
   srand48(i_cells);
-  m_lts.addTo(*m_ltsTree);
-  m_ltsTree->setNumberOfTimeClusters(1);
-  m_ltsTree->fixate();
+  //m_lts.addTo(*m_ltsTree);
+  //m_ltsTree->setNumberOfTimeClusters(1);
+  //m_ltsTree->fixate();
   
-  seissol::initializers::TimeCluster& cluster = m_ltsTree->child(0);
-  cluster.child<Ghost>().setNumberOfCells(0);
-  cluster.child<Copy>().setNumberOfCells(0);
-  cluster.child<Interior>().setNumberOfCells(i_cells);
+  //seissol::initializers::TimeCluster& cluster = m_ltsTree->child(0);
+  //cluster.child<Ghost>().setNumberOfCells(0);
+  //cluster.child<Copy>().setNumberOfCells(0);
+  //cluster.child<Interior>().setNumberOfCells(i_cells);
   
-  seissol::initializers::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  //seissol::initializers::Layer& layer = cluster.child<Interior>();
+  //layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
 
   const auto derivativesBucketPlan = mneme::LayeredPlan()
       .withDofs<InteriorLayer>(i_cells, [](auto){ return tensor::I::size(); })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
       .withDofs<GhostLayer>(0, [](auto){ return 0; });
 
-  const auto derivativesBucketLayer = derivativesBucketPlan.getLayout();
-  buffersBucket = std::make_shared<buffers_bucket_storage_t>(derivativesBucketLayer.back());
+  const auto derivativesBucketLayout = derivativesBucketPlan.getLayout();
+  auto buffersBucket = std::make_shared<buffers_bucket_storage_t>(derivativesBucketLayout.back());
 
-  m_ltsTree->allocateVariables();
-  m_ltsTree->touchVariables();
-  m_ltsTree->allocateBuckets();
+  const auto elementStoragePlan = mneme::LayeredPlan()
+      .withDofs<InteriorLayer>(i_cells, [](auto) { return 0; })
+      .withDofs<CopyLayer>(0, [](auto){ return 0; })
+      .withDofs<GhostLayer>(0, [](auto){ return 0; });
+
+  const auto elementStorageLayout = elementStoragePlan.getLayout();
+  auto elementStorage = std::make_shared<element_storage_t>(elementStorageLayout.back());
+
+  proxyData = std::make_shared<ProxyData>(std::move(elementStorage),
+                                          elementStoragePlan,
+                                          std::move(buffersBucket),
+                                          derivativesBucketPlan
+  );
 
 #if 0
   if (enableDynamicRupture) {
@@ -246,7 +182,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
 #endif
 
   /* cell information and integration data*/
-  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
+  seissol::fakeData(*proxyData, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
 
 #if 0
   if (enableDynamicRupture) {
@@ -304,7 +240,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   seissol::initializers::Layer& layer = cluster.child<Interior>();
 
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-  real *(*FaceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
+  real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
   std::unordered_set<real *> registry{};
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
@@ -316,7 +252,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
 
     // include data provided by ghost layers
     for (unsigned face = 0; face < 4; ++face) {
-      real *neighbourBuffer = FaceNeighbors[cell][face];
+      real *neighbourBuffer = faceNeighbors[cell][face];
 
       // check whether a neighbour element idofs has not been counted twice
       if ((registry.find(neighbourBuffer) == registry.end())) {
