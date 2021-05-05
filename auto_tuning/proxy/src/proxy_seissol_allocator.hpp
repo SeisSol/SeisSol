@@ -115,7 +115,7 @@ void initGlobalData() {
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
   // init RNG
   srand48(i_cells);
-  m_lts.addTo(*m_ltsTree);
+  m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
   m_ltsTree->setNumberOfTimeClusters(1);
   m_ltsTree->fixate();
   
@@ -254,9 +254,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
   recorder.addRecorder(new seissol::initializers::recording::NeighIntegrationRecorder);
 
-#ifdef USE_PLASTICITY
   recorder.addRecorder(new seissol::initializers::recording::PlasticityRecorder);
-#endif
   recorder.record(m_lts, layer);
   if (enableDynamicRupture) {
     auto &drLayer = m_dynRupTree->child(0).child<Interior>();

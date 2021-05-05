@@ -54,7 +54,6 @@ set(RUPTURE_OPTIONS quadrature cellaverage)
 set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS ${RUPTURE_OPTIONS})
 
 
-option(PLASTICITY "Use plasticity")
 set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
