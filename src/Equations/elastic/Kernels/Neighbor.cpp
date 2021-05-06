@@ -205,11 +205,11 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
         neighFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
         neighFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
         neighFluxKrnl.AminusT = const_cast<const real **>((entry.content[*EntityId::AminusT])->getPointers());
-        neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
 
         tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
+        neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
         (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
         ++streamCounter;
       }
@@ -232,11 +232,11 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
         drKrnl.fluxSolver = const_cast<const real **>((entry.content[*EntityId::FluxSolver])->getPointers());
         drKrnl.QInterpolated = const_cast<real const**>((entry.content[*EntityId::Godunov])->getPointers());
         drKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-        drKrnl.streamPtr = device.api->getNextCircularStream();
 
         tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
         drKrnl.linearAllocator.initialize(tmpMem);
 
+        drKrnl.streamPtr = device.api->getNextCircularStream();
         (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
         ++streamCounter;
       }
