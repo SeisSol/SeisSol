@@ -206,7 +206,10 @@ class View(QWidget):
           p.set_ylabel(name)
           #print L2 difference
           if nWf > 0 and not self.diff.isChecked():
-            time_union = numpy.union1d(wf.time, wf_ref.time)
+            t_min = max(wf.time.min(), wf_ref.time.min())
+            t_max = min(wf.time.max(), wf_ref.time.max())
+            truncate = lambda a: a[(a >= t_min) & (a <= t_max)]
+            time_union = numpy.union1d(truncate(wf.time), truncate(wf_ref.time))
             wf_interp = scipy.interpolate.interp1d(wf.time, waveform)
             ref_interp = scipy.interpolate.interp1d(wf_ref.time, wf_ref.waveforms[name])
             wf_union = wf_interp(time_union)
