@@ -3,7 +3,7 @@
 
 #include <Kernels/precision.hpp>
 
-enum mpiTag {
+enum class MpiTag {
   localIntegrationData = 0,
   neighboringIntegrationData = 1,
   timeData = 2

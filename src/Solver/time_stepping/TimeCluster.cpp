@@ -454,7 +454,7 @@ void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
                    m_meshStructure->ghostRegionSizes[l_region],            // number of elements in the receive buffer
                    MPI_C_REAL,                                               // datatype of each receive buffer element
                    m_meshStructure->neighboringClusters[l_region][0],      // rank of source
-                   timeData+m_meshStructure->receiveIdentifiers[l_region], // message tag
+                   static_cast<int>(MpiTag::timeData)+m_meshStructure->receiveIdentifiers[l_region], // message tag
                    seissol::MPI::mpi.comm(),                               // communicator
                    m_meshStructure->receiveRequests + l_region             // communication request
                );
@@ -478,7 +478,7 @@ void seissol::time_stepping::TimeCluster::sendCopyLayer(){
                    m_meshStructure->copyRegionSizes[l_region],          // number of elements in the send buffer
                    MPI_C_REAL,                                            // datatype of each send buffer element
                    m_meshStructure->neighboringClusters[l_region][0],   // rank of destination
-                   timeData+m_meshStructure->sendIdentifiers[l_region], // message tag
+                   static_cast<int>(MpiTag::timeData)+m_meshStructure->sendIdentifiers[l_region], // message tag
                    seissol::MPI::mpi.comm(),                            // communicator
                    m_meshStructure->sendRequests + l_region             // communication request
                );
