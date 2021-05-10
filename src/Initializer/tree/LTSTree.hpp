@@ -195,7 +195,8 @@ public:
     }
 
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
-      assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
+      // TODO {ravil}: check whether the assert makes sense
+      //assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
       scratchpadMemories[id] = m_allocator.allocateMemory(scratchpadMemSizes[id],
                                                           scratchpadMemInfo[id].alignment,
                                                           scratchpadMemInfo[id].memkind);
