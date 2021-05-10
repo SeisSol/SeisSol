@@ -158,6 +158,10 @@ During the slip both, rupture front and seismic wave emission are influenced by 
 
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
+Rate- and state dependent friction describes the rock friction as a non- linear relation between fault stress and slip. Here, the friction coefficient evolves with slip toward the velocity- dependent steady state. After the weakening process, the fault generates self-healing slip pulses. The rate- and state friction law consists of two terms, the rate- dependent and a state- dependent term which describe the stable and unstable sliding phenomena that are observed on nature faults, as well as in laboratory experiments. 
+
+A model using rate- and state dependent friction accounts for slip instabilities, the drastic decrease in frictional resistance at co-sesimic slip rates, earthquake afterslip and aseismic creep.
+
 
 Thermal Pressurization
 ~~~~~~~~~~~~~~~~~~~~~~
