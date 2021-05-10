@@ -606,6 +606,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       l_bufferPointer = l_integrationBuffer;
     }
 
+    /*
     m_timeKernel.computeAder(m_timeStepWidth,
                              data,
                              tmp,
@@ -622,7 +623,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );
-    
+
+     */
     // Update displacement
     if (displacements[l_cell] != nullptr) {
       kernel::addVelocity krnl;

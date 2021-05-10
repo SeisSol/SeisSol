@@ -142,7 +142,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   auto buffersBucket = std::make_shared<buffers_bucket_storage_t>(derivativesBucketLayout.back());
 
   const auto elementStoragePlan = mneme::LayeredPlan()
-      .withDofs<InteriorLayer>(i_cells, [](auto) { return 0; })
+      .withDofs<InteriorLayer>(i_cells, [](auto) { return 1; })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
       .withDofs<GhostLayer>(0, [](auto){ return 0; });
 
@@ -154,6 +154,16 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
                                           std::move(buffersBucket),
                                           derivativesBucketPlan
   );
+
+  // Set buffer pointer
+
+
+  // TODO(Lukas) Set displacement pointer
+  int bufferLocation = 0;
+  for (auto& element : *proxyData->elementStorage) {
+   element.get<buffer>() = &(*proxyData->buffersBucket)[bufferLocation];
+   ++bufferLocation;
+  }
 
 #if 0
   if (enableDynamicRupture) {

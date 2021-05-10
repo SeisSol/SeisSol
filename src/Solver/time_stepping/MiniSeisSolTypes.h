@@ -70,7 +70,7 @@ struct Pstrain {
   using type = real[7];
 };
 
-struct Displacements {
+struct displacements {
   using type = real*;
 };
 
@@ -87,10 +87,12 @@ using element_storage_t = mneme::MultiStorage<
     mneme::DataLayout::SoA,
     dofs,
     buffer,
+    derivatives,
     cellLocalInformation,
     faceNeighbors,
     localIntegrationData,
-    neighborIntegrationData
+    neighborIntegrationData,
+    displacements
 >;
 
 // Buckets

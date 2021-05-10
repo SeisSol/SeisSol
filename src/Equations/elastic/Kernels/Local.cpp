@@ -101,7 +101,11 @@ void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                              LocalData& data,
+                                              real* dofs,
+                                              real* displacements,
+                                              LocalIntegrationData& localIntegration,
+                                              NeighboringIntegrationData& neighboringIntegration,
+                                              CellLocalInformation& cellInformation,
                                               LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                                               const CellMaterialData* materialData,
@@ -109,43 +113,43 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               double time,
                                               double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(dofs) % ALIGNMENT == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
-  volKrnl.Q = data.dofs;
+  volKrnl.Q = dofs;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration.starMatrices[i];
+    volKrnl.star(i) = localIntegration.starMatrices[i];
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(localIntegration.specific));
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Q = data.dofs;
+  lfKrnl.Q = dofs;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+  lfKrnl._prefetch.Q = dofs + tensor::Q::size();
   
   volKrnl.execute();
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
-      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+    if (cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
+      lfKrnl.AplusT = localIntegration.nApNm1[face];
       lfKrnl.execute(face);
     }
 
     alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
-    nodalLfKrnl.Q = data.dofs;
+    nodalLfKrnl.Q = dofs;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-    nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
-    nodalLfKrnl.AminusT = data.neighboringIntegration.nAmNm1[face];
+    nodalLfKrnl._prefetch.Q = dofs + tensor::Q::size();
+    nodalLfKrnl.AminusT = neighboringIntegration.nAmNm1[face];
 
     // Include some boundary conditions here.
-    switch (data.cellInformation.faceTypes[face]) {
+    switch (cellInformation.faceTypes[face]) {
     case FaceType::freeSurfaceGravity:
       {
       assert(cellBoundaryMapping != nullptr);

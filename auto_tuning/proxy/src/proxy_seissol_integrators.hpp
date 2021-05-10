@@ -47,12 +47,14 @@ namespace proxy::cpu {
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+      /*
       auto data = loader.entry(l_cell);
       m_timeKernel.computeAder(              m_timeStepWidthSimulation,
                                              data,
                                              tmp,
                                              buffers[l_cell],
                                              derivatives[l_cell] );
+       */
     }
   #ifdef _OPENMP
     }
@@ -75,6 +77,7 @@ namespace proxy::cpu {
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
       auto data = loader.entry(l_cell);
+      /*
       m_localKernel.computeIntegral(buffers[l_cell],
                                     data,
                                     tmp,
@@ -82,6 +85,7 @@ namespace proxy::cpu {
                                     nullptr,
                                     0,
                                     0);
+                                    */
     }
   #ifdef _OPENMP
     }
@@ -89,29 +93,42 @@ namespace proxy::cpu {
   }
 
   void computeLocalIntegration() {
-    auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-    unsigned              nrOfCells       = layer.getNumberOfCells();
-    real**                buffers                       = layer.var(m_lts.buffers);
-    real**                derivatives                   = layer.var(m_lts.derivatives);
+    auto elementViewFactory = mneme::createViewFactory().withPlan(proxyData->elementStoragePlan).withStorage(proxyData->elementStorage);
+    auto elementViewInterior = elementViewFactory.createDenseView<InteriorLayer>();
 
-    kernels::LocalData::Loader loader;
-    loader.load(m_lts, layer);
+    const auto nrOfCells = elementViewInterior.size();
 
   #ifdef _OPENMP
-    #pragma omp parallel
+    #pragma omp parallel default(none) shared(nrOfCells, elementViewInterior)
     {
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-      auto data = loader.entry(l_cell);
-      m_timeKernel.computeAder(      (double)m_timeStepWidthSimulation,
-                                             data,
-                                             tmp,
-                                             buffers[l_cell],
-                                             derivatives[l_cell] );
-      m_localKernel.computeIntegral(buffers[l_cell],
-                                    data,
+      auto& curElement = elementViewInterior[l_cell];
+      //auto* curDerivatives = curElement.get<derivatives>();
+      auto curDerivatives = nullptr;
+      auto* curBuffers = curElement.get<buffer>();
+      auto* curDofs = curElement.get<dofs>().data();
+      auto* curDisplacements = curElement.get<displacements>();
+      auto& curLocalIntegration = curElement.get<localIntegrationData>();
+      auto& curNeighboringIntegration = curElement.get<neighborIntegrationData>();
+      auto& curCellInformation = curElement.get<cellLocalInformation>();
+
+      m_timeKernel.computeAder((double)m_timeStepWidthSimulation,
+                               curDofs,
+                               curDisplacements,
+                               curLocalIntegration,
+                               curCellInformation,
+                               tmp,
+                               curBuffers,
+                               curDerivatives);
+      m_localKernel.computeIntegral(curBuffers,
+                                    curDofs,
+                                    curDisplacements,
+                                    curLocalIntegration,
+                                    curNeighboringIntegration,
+                                    curCellInformation,
                                     tmp,
                                     nullptr,
                                     nullptr,

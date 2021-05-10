@@ -129,18 +129,22 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void seissol::kernels::Time::computeAder(double i_timeStepWidth,
-                                         LocalData& data,
+                                         real* dofs,
+                                         real* displacements,
+                                         LocalIntegrationData& localIntegration,
+                                         CellLocalInformation& cellInformation,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
                                          real* o_timeDerivatives) {
 
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
-  assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
+  assert(reinterpret_cast<uintptr_t>(dofs) % ALIGNMENT == 0 );
+  // TODO(Lukas) Reintroduce
+  //assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
   // Only a fraction of cells need the average displacement
   bool needsAvgDisplacement = false;
-  for (const auto faceType : data.cellInformation.faceTypes) {
+  for (const auto faceType : cellInformation.faceTypes) {
     if (faceType == FaceType::freeSurfaceGravity) {
       needsAvgDisplacement = true;
       break;
@@ -152,20 +156,20 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+    krnl.star(i) = localIntegration.starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+  set_ET(krnl, get_ptr_sourceMatrix(localIntegration.specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
+  krnl.dQ(0) = const_cast<real*>(dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
 
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
-  intKrnl.dQ(0) = data.dofs;
+  intKrnl.dQ(0) = dofs;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
@@ -175,11 +179,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   if (needsAvgDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
+    std::copy_n(dofs, tensor::dQ::size(0), derivativesBuffer);
   } else if (o_timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.dofs, derivativesBuffer);
+    streamstore(tensor::dQ::size(0), dofs, derivativesBuffer);
   }
 
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
@@ -200,13 +204,13 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                         twiceTimeIntegrated);
 
     for (int side = 0; side < 4; ++side) {
-      if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
-        assert(data.displacements != nullptr);
+      if (cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
+        assert(displacements != nullptr);
 
         auto krnl = displacementAvgNodalPrototype;
         krnl.dt = i_timeStepWidth;
         krnl.I = twiceTimeIntegrated;
-        krnl.displacement = data.displacements;
+        krnl.displacement = displacements;
 
         krnl.INodalDisplacement = tmp.nodalAvgDisplacements[side];
         krnl.execute(side);

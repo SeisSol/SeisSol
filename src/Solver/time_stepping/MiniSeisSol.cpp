@@ -47,6 +47,7 @@
 void seissol::localIntegration( struct GlobalData* globalData,
                                 initializers::LTS& lts,
                                 initializers::Layer& layer ) {
+  /*
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
@@ -76,6 +77,7 @@ void seissol::localIntegration( struct GlobalData* globalData,
                                 0.0,
                                 0.0);
   }
+   */
 }
 
 void seissol::fillWithStuff(  real* buffer,
@@ -133,7 +135,7 @@ void seissol::fakeData(initializers::LTS& lts,
       }
     }
   }
-  
+
   fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells());
   fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells());
   fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());

@@ -79,6 +79,7 @@
 #include <Kernels/TimeBase.h>
 #include <generated_code/tensor.h>
 
+
 namespace seissol {
   namespace kernels {
     class Time;
@@ -91,7 +92,10 @@ class seissol::kernels::Time : public TimeBase {
     void setGlobalData(const CompoundGlobalData& global);
 
     void computeAder( double                      i_timeStepWidth,
-                      LocalData&                  data,
+                      real* dofs,
+                      real* displacements,
+                      LocalIntegrationData& localIntegration,
+                      CellLocalInformation& cellInformation,
                       LocalTmp&                   tmp,
                       real                        o_timeIntegrated[tensor::I::size()],
                       real*                       o_timeDerivatives = NULL );

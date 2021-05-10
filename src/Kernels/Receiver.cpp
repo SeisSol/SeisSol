@@ -90,11 +90,13 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
     for (auto& receiver : m_receivers) {
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
+      /*
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,
                                 tmp,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
+                                */
       g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
       g_SeisSolHardwareFlopsOther += m_hardwareFlops;
 

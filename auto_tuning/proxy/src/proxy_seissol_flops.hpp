@@ -35,12 +35,16 @@ seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
 
-  auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-  unsigned              nrOfCells       = layer.getNumberOfCells();
-  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  //auto&                 layer           = m_ltsTree->child(0).child<Interior>();
+  //unsigned              nrOfCells       = layer.getNumberOfCells();
+  auto nrOfCells = proxyData->elementStorage->size();
+  auto elementViewFactory = mneme::createViewFactory().withPlan(proxyData->elementStoragePlan).withStorage(proxyData->elementStorage);
+  auto elementViewInterior = elementViewFactory.createDenseView<InteriorLayer>();
+
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
-    m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, l_nonZeroFlops, l_hardwareFlops);    
+    const auto& cellInformation = elementViewInterior[cell].get<cellLocalInformation>();
+    m_localKernel.flopsIntegral(cellInformation.faceTypes, l_nonZeroFlops, l_hardwareFlops);
     ret.d_nonZeroFlops  += l_nonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops;
   }
@@ -57,7 +61,7 @@ seissol_flops flops_ader_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  unsigned nrOfCells = m_ltsTree->child(0).child<Interior>().getNumberOfCells();
+  unsigned nrOfCells = proxyData->elementStorage->size();
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     // get flops

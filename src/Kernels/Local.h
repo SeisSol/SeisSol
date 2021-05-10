@@ -60,7 +60,11 @@ class seissol::kernels::Local : public LocalBase {
     void setGlobalData(const CompoundGlobalData& global);
 
     void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                         LocalData& data,
+                         real* dofs,
+                         real* displacements,
+                         LocalIntegrationData& localIntegration,
+                         NeighboringIntegrationData& neighboringIntegration,
+                         CellLocalInformation& cellInformation,
                          LocalTmp& tmp,
                          const CellMaterialData* materialData,
                          CellBoundaryMapping const (*cellBoundaryMapping)[4],
