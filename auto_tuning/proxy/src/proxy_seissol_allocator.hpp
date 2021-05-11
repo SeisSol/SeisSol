@@ -134,17 +134,17 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   //layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
 
   const auto derivativesBucketPlan = mneme::LayeredPlan()
-      .withDofs<InteriorLayer>(i_cells, [](auto){ return tensor::I::size(); })
+      .withDofs<GhostLayer>(0, [](auto){ return 0; })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
-      .withDofs<GhostLayer>(0, [](auto){ return 0; });
+      .withDofs<InteriorLayer>(i_cells, [](auto){ return tensor::I::size(); });
 
   const auto derivativesBucketLayout = derivativesBucketPlan.getLayout();
   auto buffersBucket = std::make_shared<buffers_bucket_storage_t>(derivativesBucketLayout.back());
 
   const auto elementStoragePlan = mneme::LayeredPlan()
-      .withDofs<InteriorLayer>(i_cells, [](auto) { return 1; })
+      .withDofs<GhostLayer>(0, [](auto){ return 0; })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
-      .withDofs<GhostLayer>(0, [](auto){ return 0; });
+      .withDofs<InteriorLayer>(i_cells, [](auto) { return 1; });
 
   const auto elementStorageLayout = elementStoragePlan.getLayout();
   auto elementStorage = std::make_shared<element_storage_t>(elementStorageLayout.back());

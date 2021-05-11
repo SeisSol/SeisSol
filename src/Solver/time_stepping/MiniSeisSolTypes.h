@@ -103,9 +103,9 @@ using buffers_bucket_displacements_t = mneme::SingleStorage<DisplacementsBucket>
 struct ProxyData {
   ProxyData(
       std::shared_ptr<element_storage_t> elementStorage,
-      mneme::LayeredPlan<seissol::InteriorLayer, seissol::CopyLayer, seissol::GhostLayer> elementStoragePlan,
+      mneme::LayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> elementStoragePlan,
       std::shared_ptr<buffers_bucket_storage_t> buffersBucket,
-      mneme::LayeredPlan<seissol::InteriorLayer, seissol::CopyLayer, seissol::GhostLayer> buffersBucketPlan
+      mneme::LayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> buffersBucketPlan
       )
       :
       elementStorage(std::move(elementStorage)),
