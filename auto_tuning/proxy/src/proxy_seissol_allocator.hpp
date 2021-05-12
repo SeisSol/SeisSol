@@ -77,11 +77,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 std::shared_ptr<ProxyData> proxyData;
 
-seissol::initializers::LTSTree               *m_ltsTree{nullptr};
-seissol::initializers::LTS                   m_lts;
-seissol::initializers::LTSTree               *m_dynRupTree{nullptr};
-seissol::initializers::DynamicRupture        m_dynRup;
-
 GlobalData m_globalDataOnHost;
 GlobalData m_globalDataOnDevice;
 
@@ -121,49 +116,30 @@ void initGlobalData() {
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
   // init RNG
   srand48(i_cells);
-  //m_lts.addTo(*m_ltsTree);
-  //m_ltsTree->setNumberOfTimeClusters(1);
-  //m_ltsTree->fixate();
-  
-  //seissol::initializers::TimeCluster& cluster = m_ltsTree->child(0);
-  //cluster.child<Ghost>().setNumberOfCells(0);
-  //cluster.child<Copy>().setNumberOfCells(0);
-  //cluster.child<Interior>().setNumberOfCells(i_cells);
-  
-  //seissol::initializers::Layer& layer = cluster.child<Interior>();
-  //layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
 
-  const auto derivativesBucketPlan = mneme::LayeredPlan()
+  auto derivativesBucketPlan = mneme::LayeredPlan()
       .withDofs<GhostLayer>(0, [](auto){ return 0; })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
       .withDofs<InteriorLayer>(i_cells, [](auto){ return tensor::I::size(); });
-
-  const auto derivativesBucketLayout = derivativesBucketPlan.getLayout();
+  auto derivativesBucketPlans = std::vector{derivativesBucketPlan};
+  auto derivativesBucketCombinedPlan = mneme::CombinedLayeredPlan(derivativesBucketPlans);
+  auto derivativesBucketLayout = derivativesBucketCombinedPlan.getLayout();
   auto buffersBucket = std::make_shared<buffers_bucket_storage_t>(derivativesBucketLayout.back());
 
   const auto elementStoragePlan = mneme::LayeredPlan()
       .withDofs<GhostLayer>(0, [](auto){ return 0; })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
       .withDofs<InteriorLayer>(i_cells, [](auto) { return 1; });
-
-  const auto elementStorageLayout = elementStoragePlan.getLayout();
+  const auto elementStoragePlans = std::vector{elementStoragePlan};
+  const auto elementStorageCombinedPlan = mneme::CombinedLayeredPlan(elementStoragePlans);
+  const auto elementStorageLayout = elementStorageCombinedPlan.getLayout();
   auto elementStorage = std::make_shared<element_storage_t>(elementStorageLayout.back());
 
   proxyData = std::make_shared<ProxyData>(std::move(elementStorage),
-                                          elementStoragePlan,
+                                          elementStorageCombinedPlan,
                                           std::move(buffersBucket),
-                                          derivativesBucketPlan
+                                          derivativesBucketCombinedPlan
   );
-
-  // Set buffer pointer
-
-
-  // TODO(Lukas) Set displacement pointer
-  int bufferLocation = 0;
-  for (auto& element : *proxyData->elementStorage) {
-   element.get<buffer>() = &(*proxyData->buffersBucket)[bufferLocation];
-   ++bufferLocation;
-  }
 
 #if 0
   if (enableDynamicRupture) {

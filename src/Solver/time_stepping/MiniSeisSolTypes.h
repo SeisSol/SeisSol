@@ -59,7 +59,7 @@ struct plasticity {
 };
 
 struct cellDrMapping {
-  using type = CellDRMapping;
+  using type = std::array<CellDRMapping, 4>;
 };
 
 struct BoundaryMapping {
@@ -89,6 +89,7 @@ using element_storage_t = mneme::MultiStorage<
     buffer,
     derivatives,
     cellLocalInformation,
+    cellDrMapping,
     faceNeighbors,
     localIntegrationData,
     neighborIntegrationData,
@@ -103,9 +104,9 @@ using buffers_bucket_displacements_t = mneme::SingleStorage<DisplacementsBucket>
 struct ProxyData {
   ProxyData(
       std::shared_ptr<element_storage_t> elementStorage,
-      mneme::LayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> elementStoragePlan,
+      mneme::CombinedLayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> elementStoragePlan,
       std::shared_ptr<buffers_bucket_storage_t> buffersBucket,
-      mneme::LayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> buffersBucketPlan
+      mneme::CombinedLayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> buffersBucketPlan
       )
       :
       elementStorage(std::move(elementStorage)),
@@ -114,13 +115,22 @@ struct ProxyData {
       buffersBucketPlan(std::move(buffersBucketPlan))
       {
 
+
+  }
+
+  auto getElementView() {
+    return mneme::createViewFactory()
+        .withPlan(elementStoragePlan)
+        .withStorage(elementStorage)
+        .withClusterId(0)
+        .createDenseView<InteriorLayer>();
   }
 
   std::shared_ptr<element_storage_t> elementStorage;
-  mneme::LayeredPlan<seissol::InteriorLayer, seissol::CopyLayer, seissol::GhostLayer> elementStoragePlan;
+  mneme::CombinedLayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> elementStoragePlan;
 
   std::shared_ptr<buffers_bucket_storage_t> buffersBucket;
-  mneme::LayeredPlan<seissol::InteriorLayer, seissol::CopyLayer, seissol::GhostLayer> buffersBucketPlan;
+  mneme::CombinedLayeredPlan<seissol::GhostLayer, seissol::CopyLayer, seissol::InteriorLayer> buffersBucketPlan;
   //std::shared_ptr<buffers_bucket_displacements_t> displacementBucket;
 
 };

@@ -32,6 +32,7 @@ namespace kernels = seissol::kernels;
 
 namespace proxy::cpu {
   void computeAderIntegration() {
+    /*
     auto&                 layer           = m_ltsTree->child(0).child<Interior>();
     unsigned              nrOfCells       = layer.getNumberOfCells();
     real**                buffers                       = layer.var(m_lts.buffers);
@@ -39,63 +40,65 @@ namespace proxy::cpu {
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
+     */
 
-  #ifdef _OPENMP
-    #pragma omp parallel
-    {
-    kernels::LocalTmp tmp;
-    #pragma omp for schedule(static)
-  #endif
-    for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-      /*
-      auto data = loader.entry(l_cell);
-      m_timeKernel.computeAder(              m_timeStepWidthSimulation,
-                                             data,
-                                             tmp,
-                                             buffers[l_cell],
-                                             derivatives[l_cell] );
-       */
-    }
+    /*
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+  kernels::LocalTmp tmp;
+  #pragma omp for schedule(static)
+#endif
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+    auto data = loader.entry(l_cell);
+    m_timeKernel.computeAder(              m_timeStepWidthSimulation,
+                                           data,
+                                           tmp,
+                                           buffers[l_cell],
+                                           derivatives[l_cell] );
+  }
+     */
   #ifdef _OPENMP
     }
   #endif
   }
 
   void computeLocalWithoutAderIntegration() {
+  /*
     auto&                 layer           = m_ltsTree->child(0).child<Interior>();
     unsigned              nrOfCells       = layer.getNumberOfCells();
     real**                buffers                       = layer.var(m_lts.buffers);
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
+    */
 
-  #ifdef _OPENMP
-    #pragma omp parallel
-    {
-    kernels::LocalTmp tmp;
-    #pragma omp for schedule(static)
-  #endif
-    for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-      auto data = loader.entry(l_cell);
-      /*
-      m_localKernel.computeIntegral(buffers[l_cell],
-                                    data,
-                                    tmp,
-                                    nullptr,
-                                    nullptr,
-                                    0,
-                                    0);
-                                    */
+    /*
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+  kernels::LocalTmp tmp;
+  #pragma omp for schedule(static)
+#endif
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+    auto data = loader.entry(l_cell);
+    m_localKernel.computeIntegral(buffers[l_cell],
+                                  data,
+                                  tmp,
+                                  nullptr,
+                                  nullptr,
+                                  0,
+                                  0);
     }
   #ifdef _OPENMP
     }
   #endif
+                                  */
   }
 
   void computeLocalIntegration() {
-    auto elementViewFactory = mneme::createViewFactory().withPlan(proxyData->elementStoragePlan).withStorage(proxyData->elementStorage);
-    auto elementViewInterior = elementViewFactory.createDenseView<InteriorLayer>();
-
+  /*
+    auto elementViewInterior = proxyData->getElementView();
     const auto nrOfCells = elementViewInterior.size();
 
   #ifdef _OPENMP
@@ -106,7 +109,6 @@ namespace proxy::cpu {
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
       auto& curElement = elementViewInterior[l_cell];
-      //auto* curDerivatives = curElement.get<derivatives>();
       auto curDerivatives = nullptr;
       auto* curBuffers = curElement.get<buffer>();
       auto* curDofs = curElement.get<dofs>().data();
@@ -138,9 +140,11 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     }
   #endif
+   */
   }
 
   void computeNeighboringIntegration() {
+  /*
     auto&                     layer                           = m_ltsTree->child(0).child<Interior>();
     unsigned                  nrOfCells                       = layer.getNumberOfCells();
     real*                     (*faceNeighbors)[4]             = layer.var(m_lts.faceNeighbors);
@@ -149,12 +153,14 @@ namespace proxy::cpu {
 
     kernels::NeighborData::Loader loader;
     loader.load(m_lts, layer);
+    */
 
     real *l_timeIntegrated[4];
   #ifdef ENABLE_MATRIX_PREFETCH
     real *l_faceNeighbors_prefetch[4];
   #endif
 
+    /*
   #ifdef _OPENMP
   #  ifdef ENABLE_MATRIX_PREFETCH
     #pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
@@ -210,10 +216,13 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     }
   #endif
+                                  */
+
   }
 
   void computeDynRupGodunovState()
   {
+  /*
     seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
@@ -221,7 +230,9 @@ namespace proxy::cpu {
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
     alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
     alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    */
 
+  /*
   #ifdef _OPENMP
     #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
   #endif
@@ -238,4 +249,5 @@ namespace proxy::cpu {
                                               timeDerivativeMinus[prefetchFace] );
     }
   }
+    */
 } // namespace proxy::cpu

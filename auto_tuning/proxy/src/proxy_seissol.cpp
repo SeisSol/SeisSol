@@ -152,8 +152,6 @@ ProxyOutput runProxy(ProxyConfig config) {
   device.api->allocateStackMem();
 #endif
 
-  m_ltsTree = new seissol::initializers::LTSTree;
-  m_dynRupTree = new seissol::initializers::LTSTree;
   m_allocator = new seissol::memory::ManagedAllocator;
 
   print_hostname();
@@ -254,8 +252,6 @@ ProxyOutput runProxy(ProxyConfig config) {
   output.hardwareGFlops = (static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9)/total;
   output.gibPerSecond = (bytes_estimate/(1024.0*1024.0*1024.0))/total;
 
-  delete m_ltsTree;
-  delete m_dynRupTree;
   delete m_allocator;
 
 #ifdef ACL_DEVICE

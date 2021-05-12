@@ -250,7 +250,7 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
 
 void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                                         const int i_neighboringIndices[4][2],
-                                                        CellDRMapping const (&cellDrMapping)[4],
+                                                        const CellDRMapping* cellDrMapping,
                                                         unsigned int &o_nonZeroFlops,
                                                         unsigned int &o_hardwareFlops,
                                                         long long& o_drNonZeroFlops,

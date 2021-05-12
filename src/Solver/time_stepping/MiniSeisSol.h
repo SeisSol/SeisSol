@@ -57,15 +57,13 @@ namespace seissol {
                   FaceType faceTp = FaceType::regular);
 
   inline void fakeData(ProxyData& data, FaceType faceType = FaceType::regular) {
-    auto elementViewFactory = mneme::createViewFactory().withPlan(data.elementStoragePlan).withStorage(data.elementStorage);
-    auto elementViewInterior = elementViewFactory.createDenseView<InteriorLayer>();
+    auto elementViewInterior = data.getElementView();
 
-    auto displacementBucketViewFactory = mneme::createViewFactory().withPlan(data.buffersBucketPlan).withStorage(data.buffersBucket);
+    auto displacementBucketViewFactory = mneme::createViewFactory().withPlan(data.buffersBucketPlan).withClusterId(0).withStorage(data.buffersBucket);
     auto displacementBucketViewInterior = displacementBucketViewFactory.withStride<tensor::I::size()>().createStridedView<InteriorLayer>();
 
     for (unsigned cell = 0; cell < elementViewInterior.size(); ++cell) {
       auto& curElement = elementViewInterior[cell];
-      //auto& dofs = elementViewInterior[cell].get<dofs>();
       // TODO(Lukas) Is the offset for the bucket correct?
       curElement.get<buffer>() = &displacementBucketViewInterior[cell][0];
       auto& cellInformation = curElement.get<cellLocalInformation>();
@@ -99,17 +97,9 @@ namespace seissol {
         }
       }
       fillWithStuff(curElement.get<dofs>().data(), tensor::Q::size());
-
-      //fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells());
-
       fillWithStuff(curElement.get<buffer>(), tensor::I::size());
-      //fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells());
-
       fillWithStuff(reinterpret_cast<real*>(&curElement.get<localIntegrationData>()), sizeof(LocalIntegrationData)/sizeof(real));
-      //fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());
-
       fillWithStuff(reinterpret_cast<real*>(&curElement.get<neighborIntegrationData>()), sizeof(NeighboringIntegrationData)/sizeof(real));
-      //fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
     }
   }
   

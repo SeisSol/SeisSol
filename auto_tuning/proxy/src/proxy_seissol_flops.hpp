@@ -35,15 +35,11 @@ seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
 
-  //auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-  //unsigned              nrOfCells       = layer.getNumberOfCells();
-  auto nrOfCells = proxyData->elementStorage->size();
-  auto elementViewFactory = mneme::createViewFactory().withPlan(proxyData->elementStoragePlan).withStorage(proxyData->elementStorage);
-  auto elementViewInterior = elementViewFactory.createDenseView<InteriorLayer>();
+  auto view = proxyData->getElementView();
 
-  for (unsigned cell = 0; cell < nrOfCells; ++cell) {
+  for (const auto& cell : view) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
-    const auto& cellInformation = elementViewInterior[cell].get<cellLocalInformation>();
+    const auto& cellInformation = cell.get<cellLocalInformation>();
     m_localKernel.flopsIntegral(cellInformation.faceTypes, l_nonZeroFlops, l_hardwareFlops);
     ret.d_nonZeroFlops  += l_nonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops;
@@ -61,8 +57,9 @@ seissol_flops flops_ader_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  unsigned nrOfCells = proxyData->elementStorage->size();
-  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+  auto view = proxyData->getElementView();
+  const auto nrOfCells = view.size();
+  for (const auto& cell : view) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     // get flops
     m_timeKernel.flopsAder( l_nonZeroFlops, l_hardwareFlops );
@@ -80,17 +77,18 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
-  
-  // iterate over cells
-  auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-  unsigned              nrOfCells       = layer.getNumberOfCells();
-  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-  CellDRMapping        (*drMapping)[4]  = layer.var(m_lts.drMapping);
-  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+
+  auto view = proxyData->getElementView();
+  for(const auto& cell : view) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     long long l_drNonZeroFlops, l_drHardwareFlops;
-    // get flops
-    m_neighborKernel.flopsNeighborsIntegral( cellInformation[l_cell].faceTypes, cellInformation[l_cell].faceRelations, drMapping[l_cell], l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
+    const auto& curCellInformation = cell.get<cellLocalInformation>();
+    auto& curDrMapping = cell.get<cellDrMapping>();
+    m_neighborKernel.flopsNeighborsIntegral(
+        curCellInformation.faceTypes,
+        curCellInformation.faceRelations,
+        curDrMapping.data(),
+        l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
     ret.d_nonZeroFlops  += l_nonZeroFlops + l_drNonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops + l_drHardwareFlops;
   }
@@ -105,7 +103,10 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
-  
+
+  auto view = proxyData->getElementView();
+  // TODO(Lukas) Add dr view!
+  /*
   // iterate over cells
   seissol::initializers::Layer& interior = m_dynRupTree->child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
@@ -118,6 +119,7 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
 
   ret.d_nonZeroFlops *= i_timesteps;
   ret.d_hardwareFlops *= i_timesteps;
+   */
 
   return ret;
 }

@@ -1073,13 +1073,13 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsi
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
     unsigned cellNonZero, cellHardware;
     long long cellDRNonZero, cellDRHardware;
-    m_neighborKernel.flopsNeighborsIntegral(  cellInformation[cell].faceTypes,
-                                              cellInformation[cell].faceRelations,
-                                              drMapping[cell],
-                                              cellNonZero,
-                                              cellHardware,
-                                              cellDRNonZero,
-                                              cellDRHardware );
+    m_neighborKernel.flopsNeighborsIntegral(cellInformation[cell].faceTypes,
+                                            cellInformation[cell].faceRelations,
+                                            drMapping[cell],
+                                            cellNonZero,
+                                            cellHardware,
+                                            cellDRNonZero,
+                                            cellDRHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
     drNonZeroFlops += cellDRNonZero;
