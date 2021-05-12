@@ -135,26 +135,26 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
   const auto elementStorageLayout = elementStorageCombinedPlan.getLayout();
   auto elementStorage = std::make_shared<element_storage_t>(elementStorageLayout.back());
 
+  // Every face is a potential dynamic rupture face
+  const auto numberOfDrFaces = enableDynamicRupture ? i_cells * 4 : 0;
+  const auto dynamicRuptureStoragePlan = mneme::LayeredPlan()
+      .withDofs<GhostLayer>(0, [](auto){ return 0; })
+      .withDofs<CopyLayer>(0, [](auto){ return 0; })
+      .withDofs<InteriorLayer>(numberOfDrFaces, [](auto) { return 1; });
+  const auto dynamicRuptureStoragePlans = std::vector{elementStoragePlan};
+  const auto dynamicRuptureStorageCombinedPlan = mneme::CombinedLayeredPlan(dynamicRuptureStoragePlans);
+  const auto dynamicRuptureStorageLayout = dynamicRuptureStorageCombinedPlan.getLayout();
+  auto dynamicRuptureStorage = std::make_shared<dynamic_rupture_storage_t>(dynamicRuptureStorageLayout.back());
+
   proxyData = std::make_shared<ProxyData>(std::move(elementStorage),
                                           elementStorageCombinedPlan,
                                           std::move(buffersBucket),
-                                          derivativesBucketCombinedPlan
+                                          derivativesBucketCombinedPlan,
+                                          std::move(dynamicRuptureStorage),
+                                          dynamicRuptureStorageCombinedPlan
   );
 
-#if 0
   if (enableDynamicRupture) {
-    m_dynRup.addTo(*m_dynRupTree);
-    m_dynRupTree->setNumberOfTimeClusters(1);
-    m_dynRupTree->fixate();
-    
-    seissol::initializers::TimeCluster& cluster = m_dynRupTree->child(0);
-    cluster.child<Ghost>().setNumberOfCells(0);
-    cluster.child<Copy>().setNumberOfCells(0);
-    cluster.child<Interior>().setNumberOfCells(4*i_cells); /// Every face is a potential dynamic rupture face
-  
-    m_dynRupTree->allocateVariables();
-    m_dynRupTree->touchVariables();
-    
     m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -165,52 +165,40 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
       }
     }
   }
-#endif
 
   /* cell information and integration data*/
   seissol::fakeData(*proxyData, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
 
-#if 0
   if (enableDynamicRupture) {
-    // From lts tree
-    CellDRMapping (*drMapping)[4] = m_ltsTree->var(m_lts.drMapping);
+    auto elementView = proxyData->getElementView();
+    auto drView = proxyData->getDynamicRuptureView();
 
-    // From dynamic rupture tree
-    seissol::initializers::Layer& interior = m_dynRupTree->child(0).child<Interior>();
-    real (*imposedStatePlus)[seissol::tensor::QInterpolated::size()] = interior.var(m_dynRup.imposedStatePlus);
-    real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup.fluxSolverPlus);
-    real** timeDerivativePlus = interior.var(m_dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = interior.var(m_dynRup.timeDerivativeMinus);
-    DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
-    
-    /* init drMapping */
-    for (unsigned cell = 0; cell < i_cells; ++cell) {
+     // Init DR Mapping
+    for (auto& cell : elementView) {
       for (unsigned face = 0; face < 4; ++face) {
-        CellDRMapping& drm = drMapping[cell][face];
+        CellDRMapping& drm = cell.get<cellDrMapping>()[face];
         unsigned side = (unsigned int)lrand48() % 4;
         unsigned orientation = (unsigned int)lrand48() % 3;
-        unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
+        unsigned drFace = (unsigned int)lrand48() % elementView.size();
         drm.side = side;
         drm.faceRelation = orientation;
-        drm.godunov = imposedStatePlus[drFace];
-        drm.fluxSolver = fluxSolverPlus[drFace];
+        drm.godunov = drView[drFace].get<imposedStatePlus>();
+        drm.fluxSolver = drView[drFace].get<fluxSolverPlus>().data();
       }
     }
 
-    /* init dr godunov state */
-    for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
+    for (auto& face : drView) {
       unsigned plusCell = (unsigned int)lrand48() % i_cells;
       unsigned minusCell = (unsigned int)lrand48() % i_cells;
-      timeDerivativePlus[face] = &m_fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
-      timeDerivativeMinus[face] = &m_fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
-      
-      faceInformation[face].plusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
+      face.get<timeDerivativePlus>() = &m_fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+      face.get<timeDerivativeMinus>() = &m_fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
+
+      face.get<faceInformation>().plusSide = (unsigned int)lrand48() % 4;
+      face.get<faceInformation>().minusSide = (unsigned int)lrand48() % 4;
+      face.get<faceInformation>().faceRelation = (unsigned int)lrand48() % 3;
     }
   }
-#endif
-  
+
   return i_cells;
 }
 
