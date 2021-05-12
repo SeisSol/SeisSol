@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <Eigen/Dense>
 #include <math.h>
-// Includes to read content of a directory
 #include <sys/types.h>
 #include <dirent.h>
 
@@ -17,11 +16,10 @@
 
 
 /*
-* Given a path, readDAT reads all recevier files and a .ndat file containing the normal vector for each receiver 
-* on the surface.
-* The scalar pressure field for each receiver is saved. It is obtained by extracting the stress tensor at a given
-* position and multiplying it by the normal vector and finally computing the length of the resulting vector.
-*
+* Given a path, readDAT reads all recevier files in the specified directory
+* All entries of Q_p, i.e. the six independent entries of the stress tensor
+* sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz,
+* and the three velocities u, v, w, are stored in vectors.
 */
 void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 {
@@ -48,11 +46,6 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 	for (const auto& filename : dat_file_list) {
 
 		std::string file_path = path_str + "/" + filename;
-		
-		// rec_nr will hold the number of the current receiver file
-		// needed in order to extract the appropriate normal vector
-		std::smatch file_name_match;
-		std::regex_search(filename, file_name_match, std::regex("-\\d\\d\\d\\d\\d-"));
 
 
 		// Temporarly save values from current file
@@ -118,8 +111,8 @@ void seissol::sourceterm::readDAT(char const* path, DAT* dat)
 
 /*
  * 	Input:
- *  	- position vector3d
- * 		- timestamp
+ *  	- position (vector3d)
+ * 		- timestamp (double)
  * 	Output:
  * 		- Q vector in global Cartesian coordinates
  * 	Interpolation:
@@ -235,56 +228,3 @@ Eigen::VectorXd seissol::sourceterm::DAT::getQ(Eigen::Vector3d const& position, 
 		return result;	
 	}
 }
-
-
-// int main( int argc, const char* argv[] )
-// {
-
-// 	Eigen::MatrixXd test9(9, 9);
-	
-// 	test9 << 1, 2, 3, 4, 5, 6, 7, 8, 9,
-// 		     9, 8, 7, 6, 5, 4, 3, 2, 1, 
-// 			 1, 2, 3, 4, 5, 6, 7, 8, 9,
-// 		     9, 8, 7, 6, 5, 4, 3, 2, 1,  
-// 			 1, 2, 3, 4, 5, 6, 7, 8, 9,
-// 		     9, 8, 7, 6, 5, 4, 3, 2, 1,  
-// 			 1, 2, 3, 4, 5, 6, 7, 8, 9,
-// 		     9, 8, 7, 6, 5, 4, 3, 2, 1,  
-// 			 1, 2, 3, 4, 5, 6, 7, 8, 9;
-
-// 	std::cout << "M1: " << std::endl << test9 << std::endl;
-
-// 	Eigen::Map<Eigen::MatrixXd> M2(test9.data(), 6,6);
-
-// 	std::cout << "M2: " << std::endl << M2 << std::endl;
-
-// 	test9.conservativeResize(6, 6);
-// 	std::cout << "M1: " << std::endl << test9 << std::endl;
-
-
-
-// 	return 0;
-
-
-// 	seissol::sourceterm::DAT *dat = new seissol::sourceterm::DAT(); 
-
-// 	double time = 2.088; // Expected Result: 1.081081636151335e-01 = 0.1081
-
-// 	// readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/cube_forward/output_7",
-// 	// 		 dat );
-
-	
-// 	readDAT( "/Users/philippwendland/Documents/TUM_Master/Semester_4/SeisSol_Results/point-source/output-fwd-test/1_05_1-500k",
-// 			 dat );
-
-// 	Eigen::Vector3d pos(0, 0.0, -4.99);
-
-// 	Eigen::VectorXd returned_p = dat->getQ(pos, time);
-
-// 	std::cout << "Returned from getQ in main \n";
-// 	std::cout << returned_p(0) << "; " << returned_p(1) << "; " << returned_p(2) << "; " << returned_p(3)
-// 			  << "; " << returned_p(4) << "; " << returned_p(5) << "\n";
-
-
-// 	return 0;
-// }

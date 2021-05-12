@@ -282,15 +282,17 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             }
 
 
-            // boundaryDofs(i,0) = 2 * q_normal(0) - boundaryDofsInterior(i,0);
-            // boundaryDofs(i,1) = 2 * q_normal(1) - boundaryDofsInterior(i,1);
-            // boundaryDofs(i,2) = 2 * q_normal(2) - boundaryDofsInterior(i,2);
-            // boundaryDofs(i,3) = 2 * q_normal(3) - boundaryDofsInterior(i,3);
-            // boundaryDofs(i,4) = 2 * q_normal(4) - boundaryDofsInterior(i,4);
-            // boundaryDofs(i,5) = 2 * q_normal(5) - boundaryDofsInterior(i,5);
-            boundaryDofs(i,6) = 2 * q_normal(6) - boundaryDofsInterior(i,6);
-            boundaryDofs(i,7) = 2 * q_normal(7) - boundaryDofsInterior(i,7);
-            boundaryDofs(i,8) = 2 * q_normal(8) - boundaryDofsInterior(i,8);
+            boundaryDofs(i,0) = 2 * q_normal(0) - boundaryDofsInterior(i,0);
+            boundaryDofs(i,1) = 2 * q_normal(1) - boundaryDofsInterior(i,1);
+            boundaryDofs(i,2) = 2 * q_normal(2) - boundaryDofsInterior(i,2);
+            boundaryDofs(i,3) = 2 * q_normal(3) - boundaryDofsInterior(i,3);
+            boundaryDofs(i,4) = 2 * q_normal(4) - boundaryDofsInterior(i,4);
+            boundaryDofs(i,5) = 2 * q_normal(5) - boundaryDofsInterior(i,5);
+            // Either the stress tensor is specified at the boundary, or
+            // the velocities:
+            // boundaryDofs(i,6) = 2 * q_normal(6) - boundaryDofsInterior(i,6);
+            // boundaryDofs(i,7) = 2 * q_normal(7) - boundaryDofsInterior(i,7);
+            // boundaryDofs(i,8) = 2 * q_normal(8) - boundaryDofsInterior(i,8);
 
 
           }
