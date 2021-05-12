@@ -39,13 +39,15 @@ set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of the target compute architecture")
-set(DEVICE_ARCH_OPTIONS    none nvidia amd_gpu)
+set(DEVICE_ARCH_OPTIONS    none nvidia amd_gpu hipsycl oneapi)
 set(DEVICE_ARCH_ALIGNMENT  none     64     128)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
 set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86)
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 bdw
+        skl kbl cfl bxt glk icllp lkf ehl tgllp
+        rkl adls dg1 Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
@@ -152,6 +154,14 @@ if (NOT ${DEVICE_ARCH} STREQUAL "none")
         set(DEVICE_BACKEND "HIP")
         # amd_gpu will be supported in some near future
         message(FATAL_ERROR "amd_gpu currently is not supported")
+    elseif(${DEVICE_ARCH} STREQUAL "hipsycl")
+        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
+        list(GET DEVICE_ARCH_ALIGNMENT 1 ALIGNMENT)
+        set(DEVICE_BACKEND "HIPSYCL")
+    elseif(${DEVICE_ARCH} STREQUAL "oneapi")
+        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
+        list(GET DEVICE_ARCH_ALIGNMENT 1 ALIGNMENT)
+        set(DEVICE_BACKEND "ONEAPI")
     else()
         message(FATAL_ERROR "Unknown device arch. provided: ${DEVICE_ARCH}. nvidia and amd_gpu are currently supported")
     endif()

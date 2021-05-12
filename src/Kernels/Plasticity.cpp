@@ -258,6 +258,7 @@ namespace seissol::kernels {
 
     DeviceInstance &device = DeviceInstance::getInstance();
     ConditionalKey key(*KernelNames::Plasticity);
+    auto defaultStream = device.api->getDefaultStream();
 
     if (table.find(key) != table.end()) {
       unsigned stackMemCounter{0};
@@ -304,7 +305,8 @@ namespace seissol::kernels {
 
       unsigned numAdjustedDofs = device.algorithms.reduceVector(isAdjustableVector,
                                                                 numElements,
-                                                                ::device::ReductionType::Add);
+                                                                ::device::ReductionType::Add,
+                                                                defaultStream);
 
       // apply stress adjustment
       device::aux::plasticity::adjustModalStresses(modalStressTensors,
@@ -330,7 +332,8 @@ namespace seissol::kernels {
       // the most significant bits. We came to this conclusion by our first-hand experience
       device.algorithms.fillArray(reinterpret_cast<char*>(isAdjustableVector),
                                   static_cast<char>(0),
-                                  numElements * sizeof(int));
+                                  numElements * sizeof(int),
+                                  defaultStream);
 
       for (unsigned i = 0; i < stackMemCounter; ++i) {
         device.api->popStackMemory();

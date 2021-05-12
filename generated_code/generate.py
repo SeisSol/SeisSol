@@ -71,7 +71,7 @@ cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
-gpu_platforms = ['nvidia', 'amd-gpu']
+gpu_platforms = ['nvidia', 'amd-gpu', 'hipsycl', 'oneapi']
 targets = ['gpu', 'cpu'] if cmdLineArgs.device_arch[1:] in gpu_platforms else ['cpu']
 
 if cmdLineArgs.memLayout == 'auto':
