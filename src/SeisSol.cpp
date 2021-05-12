@@ -86,11 +86,6 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #endif
 
 	MPI::mpi.init(argc, argv);
-
-	// TODO is there a reason to have this here?
-	// If not please move it to the end if this function
-	m_memoryManager->initialize();
-
 	const int rank = MPI::mpi.rank();
 
   // Print welcome message
@@ -127,6 +122,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 #ifdef ACL_DEVICE
   device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->initialize();
   device.api->allocateStackMem();
 #endif
 
@@ -177,7 +173,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 	  return false;
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
-
+  m_memoryManager->initialize();
   return true;
 }
 

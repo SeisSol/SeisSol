@@ -659,6 +659,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   m_timeKernel.computeBatchedAder(m_timeStepWidth, tmp, table);
   m_localKernel.computeBatchedIntegral(table, tmp);
+  auto defaultStream = device.api->getDefaultStream();
 
   ConditionalKey key(*KernelNames::Displacements);
   if (table.find(key) != table.end()) {
@@ -668,7 +669,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     device.algorithms.accumulateBatchedData((entry.content[*EntityId::Ivelocities])->getPointers(),
                                             (entry.content[*EntityId::Displacements])->getPointers(),
                                             tensor::displacement::Size,
-                                            (entry.content[*EntityId::Displacements])->getSize());
+                                            (entry.content[*EntityId::Displacements])->getSize(),
+                                            defaultStream);
   }
 
   key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
@@ -679,13 +681,15 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       device.algorithms.streamBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
                                           (entry.content[*EntityId::Buffers])->getPointers(),
                                           tensor::I::Size,
-                                          (entry.content[*EntityId::Idofs])->getSize());
+                                          (entry.content[*EntityId::Idofs])->getSize(),
+                                          defaultStream);
     }
     else {
       device.algorithms.accumulateBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
                                               (entry.content[*EntityId::Buffers])->getPointers(),
                                               tensor::I::Size,
-                                              (entry.content[*EntityId::Idofs])->getSize());
+                                              (entry.content[*EntityId::Idofs])->getSize(),
+                                              defaultStream);
     }
   }
 
