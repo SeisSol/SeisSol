@@ -53,6 +53,9 @@ namespace seissol {
                                                         const double oneMinusIntegratingFactor) {
 
                         getQueue()->submit([&](cl::sycl::handler &cgh) {
+
+                            cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> isAdjusted (1, cgh);
+
                             cgh.parallel_for(cl::sycl::nd_range<3>{{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1), group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item)
                             {
                                 real *elementTensors = nodalStressTensors[item.get_group().get_id(0)];
@@ -90,20 +93,19 @@ namespace seissol {
                                 real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
                                 taulim = MAX(0.0, taulim);
 
-                                __shared__ int isAdjusted;
-                                if (item.get_local_id(0) == 0) { isAdjusted = static_cast<int>(false); }
-                                __syncthreads();
+                                if (item.get_local_id(0) == 0) { isAdjusted[0] = static_cast<int>(false); }
+                                item.barrier();
 
                                 // 6. Compute the yield factor
                                 real factor = 0.0;
                                 if (tau > taulim) {
-                                    isAdjusted = static_cast<int>(true);
+                                    isAdjusted[0] = static_cast<int>(true);
                                     factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
                                 }
 
                                 // 7. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
-                                __syncthreads();
-                                if (isAdjusted) {
+                                item.barrier();
+                                if (isAdjusted[0]) {
 #pragma unroll
                                     for (int i = 0; i < NUM_STREESS_COMPONENTS; ++i) {
                                         elementTensors[item.get_local_id(0) + item.get_local_range(0) * i] = localStresses[i] * factor;
@@ -111,7 +113,7 @@ namespace seissol {
                                 }
 
                                 if (item.get_local_id(0) == 0) {
-                                    isAdjustableVector[item.get_group().get_id(0)] = isAdjusted;
+                                    isAdjustableVector[item.get_group().get_id(0)] = isAdjusted[0];
                                 }
                             });
                         });
@@ -139,16 +141,15 @@ namespace seissol {
                                                     const int *isAdjustableVector) {
 
                         getQueue()->submit([&](cl::sycl::handler &cgh) {
+                            cl::sycl::accessor<real, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> shrMem (nodalTensorSize, cgh);
+
                             cgh.parallel_for(cl::sycl::nd_range<3>{{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1), group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item)
                             {
                                 if (isAdjustableVector[item.get_group().get_id(0)]) {
 
                                     // NOTE: item.get_local_range(0) == init::QStressNodal::Shape[0]
                                     constexpr int numNodes = init::QStressNodal::Shape[0];
-                                    constexpr
-                                    size_t nodalTensorSize = numNodes * NUM_STREESS_COMPONENTS;
-                                    __shared__
-                                    real shrMem[nodalTensorSize];
+                                    constexpr size_t nodalTensorSize = numNodes * NUM_STREESS_COMPONENTS;
 
                                     real *modalTensor = modalStressTensors[item.get_group().get_id(0)];
                                     const real *nodalTensor = nodalStressTensors[item.get_group().get_id(0)];
@@ -156,7 +157,7 @@ namespace seissol {
                                     for (int n = 0; n < NUM_STREESS_COMPONENTS; ++n) {
                                         shrMem[item.get_local_id(0) + numNodes * n] = nodalTensor[item.get_local_id(0) + numNodes * n];
                                     }
-                                    __syncthreads();
+                                    item.barrier();
 
                                     // matrix multiply: (numNodes x numNodes) * (numNodes x NUM_STREESS_COMPONENTS)
                                     real accumulator[NUM_STREESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -208,6 +209,8 @@ namespace seissol {
                                                 const size_t numElements) {
 
                         getQueue()->submit([&](cl::sycl::handler &cgh) {
+                            cl::sycl::accessor<real, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> squaredDuDtPstrains (NUM_STREESS_COMPONENTS, cgh);
+
                             cgh.parallel_for(cl::sycl::nd_range<3>{{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1), group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item)
                             {
 
@@ -228,11 +231,9 @@ namespace seissol {
                                                                  localModalTensor[item.get_local_id(0) * numModesPerElement]);
                                     localPstrains[item.get_local_id(0)] += timeStepWidth * duDtPstrain;
 
-                                    __shared__
-                                    real squaredDuDtPstrains[NUM_STREESS_COMPONENTS];
                                     real coefficient = item.get_local_id(0) < 3 ? 0.5f : 1.0f;
                                     squaredDuDtPstrains[item.get_local_id(0)] = coefficient * duDtPstrain * duDtPstrain;
-                                    __syncthreads();
+                                    item.barrier();
 
                                     if (item.get_local_id(0) == 0) {
                                         real sum = 0.0;
