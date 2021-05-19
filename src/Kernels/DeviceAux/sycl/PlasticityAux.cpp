@@ -140,6 +140,10 @@ namespace seissol {
                                                     const real *inverseVandermondeMatrix,
                                                     const int *isAdjustableVector) {
 
+                        // NOTE: item.get_local_range(0) == init::QStressNodal::Shape[0]
+                        constexpr int numNodes = init::QStressNodal::Shape[0];
+                        constexpr size_t nodalTensorSize = numNodes * NUM_STREESS_COMPONENTS;
+
                         getQueue()->submit([&](cl::sycl::handler &cgh) {
                             cl::sycl::accessor<real, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> shrMem (nodalTensorSize, cgh);
 
@@ -147,9 +151,6 @@ namespace seissol {
                             {
                                 if (isAdjustableVector[item.get_group().get_id(0)]) {
 
-                                    // NOTE: item.get_local_range(0) == init::QStressNodal::Shape[0]
-                                    constexpr int numNodes = init::QStressNodal::Shape[0];
-                                    constexpr size_t nodalTensorSize = numNodes * NUM_STREESS_COMPONENTS;
 
                                     real *modalTensor = modalStressTensors[item.get_group().get_id(0)];
                                     const real *nodalTensor = nodalStressTensors[item.get_group().get_id(0)];
@@ -215,7 +216,7 @@ namespace seissol {
                             {
 
                                 // compute element id
-                                size_t index = threadIdx.y + item.get_group().get_id(0) * blockDim.y;
+                                size_t index = item.get_local_id(1) + item.get_group().get_id(0) * item.get_local_range(1);
                                 if ((isAdjustableVector[index]) && (index < numElements)) {
                                     // NOTE: Six threads (x-dimension) work on the same element.
 
