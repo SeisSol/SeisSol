@@ -449,7 +449,9 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 
 void seissol::Interoperability::setupTRSources( char const* dirName )
 {
-  SeisSol::main.sourceTermManager().loadTRSources(dirName);
+  SeisSol::main.sourceTermManager().loadTRSources(
+    dirName,
+    seissol::SeisSol::main.timeManager());
   // add additional parameters, if needed
   //  seissol::SeisSol::main.meshReader(),
   //  m_ltsTree,

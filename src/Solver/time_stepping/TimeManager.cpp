@@ -99,7 +99,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
-                                           &m_loopStatistics )
+                                           &m_loopStatistics)
                         );
   }
 }
@@ -124,6 +124,14 @@ void seissol::time_stepping::TimeManager::stopCommunicationThread() {
   free((void*)g_handleRecvs);
   free((void*)g_handleSends);
 #endif
+}
+
+void seissol::time_stepping::TimeManager::setDatReader( seissol::sourceterm::DAT* dat ) {
+  m_dat = dat;
+  for( unsigned l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
+      m_clusters[l_cluster]->setDatReader(m_dat);
+  }
+
 }
 
 void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned int i_localClusterId ) {

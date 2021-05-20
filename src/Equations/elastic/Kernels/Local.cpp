@@ -51,6 +51,7 @@
 #include <array>
 #include <cassert>
 #include <stdint.h>
+#include <Eigen/Dense>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -80,6 +81,10 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+}
+
+void seissol::kernels::Local::setDatReader( seissol::sourceterm::DAT* dat ) {
+  m_dat = dat;
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -229,39 +234,67 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         assert(cellBoundaryMapping != nullptr);
         // Note: Everything happens in [n, t_1, t_2] basis
         // Comments of Dirichlet bc are also valid for this!
-        auto applyInlet = [materialData, this](const real* nodes,
+         auto applyInlet = [materialData, cellBoundaryMapping, face, this](const real* nodes,
                                                double time,
                                                init::INodal::view::type& boundaryDofsInterior,
                                                init::INodal::view::type& boundaryDofs) {
           int offset = 0;
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const auto T = 0.1;
-            const auto M_0 = T * std::exp(1);
 
+            // Only able to measure the pressure field during a finite time-interval [0, T]
+            //  T = ENDTIME as defined in paramters.par, and thereby equal to the last time entry
+            // of the receivers.
+            const auto endtime = m_dat->endtime;
+
+            // x, y, z: points on the surface
             const auto x = nodes[offset+0];
             const auto y = nodes[offset+1];
             const auto z = nodes[offset+2];
             offset += 3;
-
-            const auto x_middle = 0.0;
-            const auto y_middle = 0.0;
-            const auto z_middle = -5.0;
-            const auto dist_squared = (x-x_middle)*(x-x_middle) 
-              + (y-y_middle)*(y-y_middle) 
-              + (z-z_middle)*(z-z_middle);
-
-            const auto t = 18 - std::sqrt(dist_squared) - time;
+            
+            Eigen::Vector3d position(x, y, z);
 
             auto H = [](double t) -> double {
               return t > 0 ? 1.0 : 0.0;
             };
-            const double val =
-                M_0 * t / (T*T) * std::exp(-t/T) * H(t) * 
-                1 / dist_squared;
+            
 
-            boundaryDofs(i,0) = 2 * val - boundaryDofsInterior(i,0);
-            boundaryDofs(i,1) = 2 * val - boundaryDofsInterior(i,1);
-            boundaryDofs(i,2) = 2 * val - boundaryDofsInterior(i,2);
+            // T is a 9x9 rotation matrix
+            // transforms from normal frame to global cartesian frame.
+            auto T_inv = init::T::view::create((*cellBoundaryMapping)[face].TinvData);
+
+            Eigen::MatrixXd T_inv_matrix(m_dat->q_dim, m_dat->q_dim);
+            
+            for (unsigned int row = 0; row < m_dat->q_dim; ++row) {
+              for (unsigned int col = 0; col < m_dat->q_dim; ++col){
+                  T_inv_matrix(row, col) = T_inv(row, col);
+              }
+            }
+
+            Eigen::VectorXd q_cartesian = m_dat->getQ(position, endtime - time);
+
+            Eigen::VectorXd q_normal;
+            q_normal = T_inv_matrix * q_cartesian;
+
+
+            for (unsigned int j = 0; j < m_dat->q_dim; ++j) {
+              q_normal(j) = q_normal(j) * H(endtime - time);
+            }
+
+
+            boundaryDofs(i,0) = 2 * q_normal(0) - boundaryDofsInterior(i,0);
+            boundaryDofs(i,1) = 2 * q_normal(1) - boundaryDofsInterior(i,1);
+            boundaryDofs(i,2) = 2 * q_normal(2) - boundaryDofsInterior(i,2);
+            boundaryDofs(i,3) = 2 * q_normal(3) - boundaryDofsInterior(i,3);
+            boundaryDofs(i,4) = 2 * q_normal(4) - boundaryDofsInterior(i,4);
+            boundaryDofs(i,5) = 2 * q_normal(5) - boundaryDofsInterior(i,5);
+            // Either the stress tensor is specified at the boundary, or
+            // the velocities:
+            // boundaryDofs(i,6) = 2 * q_normal(6) - boundaryDofsInterior(i,6);
+            // boundaryDofs(i,7) = 2 * q_normal(7) - boundaryDofsInterior(i,7);
+            // boundaryDofs(i,8) = 2 * q_normal(8) - boundaryDofsInterior(i,8);
+
+
           }
         };
 
