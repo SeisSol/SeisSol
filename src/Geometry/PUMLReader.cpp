@@ -258,7 +258,7 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
     MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
 #else
     for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk)  {
-      nodeWeights = 1.0;
+      nodeWeights[rk] = 1.0;
     }
 #endif
     double sum = 0.0;
