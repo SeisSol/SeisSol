@@ -94,6 +94,7 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
     TYPE (tMPI)                   :: MPI
+    integer                       :: DR_comm !< dynamic rupture communicator
 
     REAL                          :: time                 ! current time
     INTEGER                       :: timestep             ! index of time step
@@ -104,7 +105,6 @@ CONTAINS
     INTEGER                       :: plotNr, minl(1), iter
     INTEGER                       :: iElem, iSide, i, iObject, MPIIndex
     INTEGER(KIND=4)               :: now(3)
-    integer                       :: DR_comm                        !< dynamic rupture communicator
     REAL                          :: tol, InitBegin, InitEnd, LoopBegin, LoopEnd
     REAL                          :: MPITime, MPIdt, dt
     REAL                          :: CPUTime

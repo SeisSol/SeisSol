@@ -76,10 +76,11 @@ CONTAINS
     TYPE(tUnstructMesh)             :: MESH
     TYPE(tMPI)                      :: MPI
     TYPE(tInputOutput)              :: IO
+    integer                         :: DR_comm !< dynamic rupture communicator
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: iElem,iSide,nSide,iFace
-    INTEGER                         :: stat, UNIT_MAG, iErr, DR_comm
+    INTEGER                         :: stat, UNIT_MAG, iErr, rankDR
     REAL                            :: magnitude, magnitude0
     REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
@@ -105,10 +106,12 @@ CONTAINS
     ENDDO
 #ifdef PARALLEL
     CALL MPI_REDUCE(magnitude,magnitude0,1,MPI%MPI_AUTO_REAL,MPI_SUM,0, DR_comm,iErr)
+    CALL MPI_Comm_rank(DR_comm, rankDR, iErr)
 #else
     magnitude0 = magnitude
+    rankDR = 0
 #endif
-    IF (MPI%myrank.EQ.0) THEN
+    IF (rankDR.EQ.0) THEN
 
         WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-MAG','.dat'
         UNIT_MAG = 299875
