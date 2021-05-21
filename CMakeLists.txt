@@ -193,6 +193,10 @@ if (MPI)
   target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_Fortran)
 
   target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
+
+  if (MINI_SEISSOL)
+    target_compile_definitions(SeisSol-lib PUBLIC USE_MINI_SEISSOL)
+  endif()
 endif()
 
 if (COMMTHREAD)
