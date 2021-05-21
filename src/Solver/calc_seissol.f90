@@ -94,6 +94,7 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
     TYPE (tMPI)                   :: MPI
+    integer                       :: DR_comm !< dynamic rupture communicator
 
     REAL                          :: time                 ! current time
     INTEGER                       :: timestep             ! index of time step
@@ -215,8 +216,12 @@ CONTAINS
 #endif
     ENDIF
 
+#ifdef USE_MPI
+    CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
+#endif // USE_MPI
+
     ! output magnitude for dynamic rupture simulations
-    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO)
+    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO,DR_comm)
     ! output GP-wise RF in extra files
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO, BND)
 
