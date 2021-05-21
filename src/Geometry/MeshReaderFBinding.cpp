@@ -294,6 +294,7 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
 	double tpwgt = 1.0;
 
 	if constexpr (!seissol::isDeviceOn()) {
+#ifdef USE_MINI_SEISSOL
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weight";
       tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
@@ -305,8 +306,11 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
                     << " median =" << summary.median
                     << " max =" << summary.max;
     }
+#else
+    logInfo(rank) << "Skipping mini SeisSol";
+#endif
   }
-	
+
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
 	Stopwatch watch;

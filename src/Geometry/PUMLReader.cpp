@@ -254,13 +254,7 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
     PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
     auto* nodeWeights = new double[seissol::MPI::mpi.size()];
-#ifdef USE_MINI_SEISSOL
     MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
-#else
-    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk)  {
-      nodeWeights[rk] = 1.0;
-    }
-#endif
     double sum = 0.0;
     for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
      sum += nodeWeights[rk];
