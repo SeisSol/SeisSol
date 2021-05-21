@@ -66,7 +66,7 @@ MODULE magnitude_output_mod
 
 CONTAINS
 
-  SUBROUTINE magnitude_output(MaterialVal,DISC,MESH,MPI,IO)
+  SUBROUTINE magnitude_output(MaterialVal,DISC,MESH,MPI,IO,DR_comm)
     !< routine outputs the magnitude for each MPI domain that contains a subfault
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -79,16 +79,15 @@ CONTAINS
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: iElem,iSide,nSide,iFace
-    INTEGER                         :: stat, UNIT_MAG, iErr
+    INTEGER                         :: stat, UNIT_MAG, iErr, DR_comm
     REAL                            :: magnitude, magnitude0
     REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
     CHARACTER (LEN=5)               :: cmyrank
     CHARACTER (len=200)             :: MAG_FILE
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DISC, MESH, MPI, IO
+    INTENT(IN)    :: DISC, MESH, MPI, IO, DR_comm
     !-------------------------------------------------------------------------!
-
     !
     ! Compute output
     magnitude = 0.0D0
@@ -105,7 +104,7 @@ CONTAINS
        ENDIF
     ENDDO
 #ifdef PARALLEL
-    CALL MPI_REDUCE(magnitude,magnitude0,1,MPI%MPI_AUTO_REAL,MPI_SUM,0, MPI%commWorld,iErr)
+    CALL MPI_REDUCE(magnitude,magnitude0,1,MPI%MPI_AUTO_REAL,MPI_SUM,0, DR_comm,iErr)
 #else
     magnitude0 = magnitude
 #endif
