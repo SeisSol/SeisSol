@@ -34,7 +34,7 @@ set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of the target compute architecture")
-set(DEVICE_ARCH_OPTIONS    none nvidia amd_gpu)
+set(DEVICE_ARCH_OPTIONS    none nvidia amd_gpu hipsycl oneapi)
 set(DEVICE_ARCH_ALIGNMENT  none     64     128)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
