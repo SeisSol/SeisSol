@@ -230,4 +230,33 @@ if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
   add_dependencies(Seissol-device-lib SeisSol-lib)
 
+elseif("${DEVICE_BACKEND}" STREQUAL "HIPSYCL")
+  target_sources(SeisSol-lib PUBLIC
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
+
+  find_package(CUDA REQUIRED)
+  set(HIPSYCL_TARGETS 'cuda:sm_75')
+  find_package(hipSYCL CONFIG REQUIRED)
+
+  set(DEVICE_SRC ${DEVICE_SRC}
+          ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp)
+
+  add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
+  add_sycl_to_target(TARGET Seissol-device-lib SOURCES ${DEVICE_SRC})
+
+  target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
+          ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+          ${CMAKE_BINARY_DIR}/src/generated_code
+          ${CMAKE_CURRENT_SOURCE_DIR}/src
+          ${CUDA_TOOLKIT_ROOT_DIR})
+
+  target_compile_options(Seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS} "-O3" "-fPIC")
+  target_compile_definitions(Seissol-device-lib PRIVATE DEVICE_${DEVICE_BACKEND}_LANG REAL_SIZE=${REAL_SIZE_IN_BYTES})
+  target_link_libraries(Seissol-device-lib PUBLIC cudart boost_context boost_fiber)
+  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+  add_dependencies(Seissol-device-lib SeisSol-lib)
 endif()
