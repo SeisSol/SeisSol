@@ -259,4 +259,61 @@ elseif("${DEVICE_BACKEND}" STREQUAL "HIPSYCL")
   target_link_libraries(Seissol-device-lib PUBLIC cudart boost_context boost_fiber)
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
   add_dependencies(Seissol-device-lib SeisSol-lib)
+elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
+  target_sources(SeisSol-lib PUBLIC
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
+
+  set(COMPILER_CXX_OLD ${CMAKE_CXX_COMPILER})
+  if("$ENV{ONEAPI_COMPILER}" STREQUAL "CLANG")
+    set(CMAKE_CXX_COMPILER clang++)
+  else()
+    set(CMAKE_CXX_COMPILER dpcpp)
+  endif()
+
+  set(DEVICE_SRC ${DEVICE_SRC}
+          ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp)
+
+  add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
+
+  target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
+          ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+          ${CMAKE_BINARY_DIR}/src/generated_code
+          ${CMAKE_CURRENT_SOURCE_DIR}/src
+          ${CUDA_TOOLKIT_ROOT_DIR})
+
+  target_compile_options(Seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS} "-O3")
+  target_compile_definitions(Seissol-device-lib PRIVATE DEVICE_${DEVICE_BACKEND}_LANG REAL_SIZE=${REAL_SIZE_IN_BYTES})
+
+  if("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "FPGA")
+    message(NOTICE "FPGA is used as target device, compilation will take several hours to complete!")
+    target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fintelfpga" "-fsycl-unnamed-lambda")
+    set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fintelfpga -Xshardware")
+  elseif("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "GPU")
+
+    if(${DEVICE_SUB_ARCH} MATCHES "sm_*")
+      if(NOT ("$ENV{ONEAPI_COMPILER}" STREQUAL "CLANG"))
+        message(FATAL_ERROR "CUDA compilation only with CLANG compiler")
+      endif()
+
+      target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=nvptx64-nvidia-cuda-sycldevice" "-fsycl-unnamed-lambda" "-Xsycl-target-backend" "--cuda-gpu-arch=${DEVICE_SUB_ARCH}")
+      set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+    else()
+      target_compile_options(Seissol-device-lib PRIVATE "-fsycl-targets=spir64_gen-unknown-unknown-sycldevice")
+      set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+    endif()
+  elseif("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "CPU")
+    target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice" "-fsycl-unnamed-lambda")
+    set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march=${DEVICE_SUB_ARCH}\"")
+  else()
+    target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-unnamed-lambda")
+    message(WARNING "No device type specified for compilation, AOT and other platform specific details may be disabled")
+  endif()
+
+  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+  add_dependencies(Seissol-device-lib SeisSol-lib)
+  set(CMAKE_CXX_COMPILER ${COMPILER_CXX_OLD})
 endif()
