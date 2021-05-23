@@ -314,6 +314,7 @@ elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
     message(WARNING "No device type specified for compilation, AOT and other platform specific details may be disabled")
   endif()
 
+  target_link_libraries(Seissol-device-lib PUBLIC sycl)
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
   add_dependencies(Seissol-device-lib SeisSol-lib)
   #set(CMAKE_CXX_COMPILER ${COMPILER_CXX_OLD})
