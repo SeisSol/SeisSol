@@ -266,12 +266,13 @@ elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
 
-  set(COMPILER_CXX_OLD ${CMAKE_CXX_COMPILER})
-  if("$ENV{ONEAPI_COMPILER}" STREQUAL "CLANG")
-    set(CMAKE_CXX_COMPILER clang++)
-  else()
-    set(CMAKE_CXX_COMPILER dpcpp)
-  endif()
+  #set(COMPILER_CXX_OLD ${CMAKE_CXX_COMPILER})
+
+  #if("$ENV{ONEAPI_COMPILER}" STREQUAL "CLANG")
+  #  set(CMAKE_CXX_COMPILER clang++)
+  #else()
+  #  set(CMAKE_CXX_COMPILER dpcpp)
+  #endif()
 
   set(DEVICE_SRC ${DEVICE_SRC}
           ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
@@ -302,7 +303,7 @@ elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
       target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=nvptx64-nvidia-cuda-sycldevice" "-fsycl-unnamed-lambda" "-Xsycl-target-backend" "--cuda-gpu-arch=${DEVICE_SUB_ARCH}")
       set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
     else()
-      target_compile_options(Seissol-device-lib PRIVATE "-fsycl-targets=spir64_gen-unknown-unknown-sycldevice")
+      target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=spir64_gen-unknown-unknown-sycldevice" "-fsycl-unnamed-lambda")
       set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
     endif()
   elseif("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "CPU")
@@ -315,5 +316,5 @@ elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
 
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
   add_dependencies(Seissol-device-lib SeisSol-lib)
-  set(CMAKE_CXX_COMPILER ${COMPILER_CXX_OLD})
+  #set(CMAKE_CXX_COMPILER ${COMPILER_CXX_OLD})
 endif()

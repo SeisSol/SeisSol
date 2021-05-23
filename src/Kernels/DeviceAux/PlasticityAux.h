@@ -2,6 +2,7 @@
 #define SEISSOL_DEVICEAUX_PLASTICITY_H
 
 #include <Initializer/BasicTypedefs.hpp>
+#include <stddef.h>
 
 #define NUM_STREESS_COMPONENTS 6
 

@@ -5,10 +5,8 @@
 
 #if REAL_SIZE == 8
 #define SQRT(X) sqrt(X)
-#define MAX(X,Y) fmax(X,Y)
 #elif REAL_SIZE == 4
 #define SQRT(X) sqrtf(X)
-#define MAX(X,Y) fmaxf(X,Y)
 #endif
 
 namespace seissol {
@@ -91,7 +89,7 @@ namespace seissol {
                                 const real cohesionTimesCosAngularFriction = plasticity[item.get_group().get_id(0)].cohesionTimesCosAngularFriction;
                                 const real sinAngularFriction = plasticity[item.get_group().get_id(0)].sinAngularFriction;
                                 real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
-                                taulim = MAX(0.0, taulim);
+                                taulim = cl::sycl::fmax<real>(0.0, taulim);
 
                                 if (item.get_local_id(0) == 0) { isAdjusted[0] = static_cast<int>(false); }
                                 item.barrier();
