@@ -40,7 +40,9 @@ set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
 set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 bdw
+        skl kbl cfl bxt glk icllp lkf ehl tgllp
+        rkl adls dg1 Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
