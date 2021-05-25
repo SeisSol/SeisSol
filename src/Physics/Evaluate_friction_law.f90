@@ -944,7 +944,7 @@ MODULE Eval_friction_law_mod
              !1.update SV using Vold from the previous time step
              CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-                 S = -LocMu*(P - P_f)
+                 S = -LocMu*min(0, P - P_f)
                  DO iBndGP = 1, nBndGP
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
@@ -957,7 +957,7 @@ MODULE Eval_friction_law_mod
              ENDIF
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
-             n_stress = P - P_f
+             n_stress = min(0, P - P_f)
              CALL IterativelyInvertSR (EQN, DISC, iFace, nBndGP, nSRupdates, LocSR, LocSV, &
                              n_stress, Shtest, invZ, SRtest, has_converged)
 
