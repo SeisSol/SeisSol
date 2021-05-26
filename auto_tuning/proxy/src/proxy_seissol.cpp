@@ -68,6 +68,7 @@ extern long long pspamm_num_total_flops;
 #include <hbwmalloc.h>
 #endif
 
+#include "likwid_wrapper.h"
 #include <utils/args.h>
 
 #ifdef __MIC__
@@ -145,6 +146,10 @@ void testKernel(unsigned kernel, unsigned timesteps) {
 }
 
 int main(int argc, char* argv[]) {
+  LIKWID_MARKER_INIT;
+
+  registerMarkers();
+
   std::stringstream kernelHelp;
   kernelHelp << "Kernel: " << Kernels[0];
   for (size_t k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
@@ -293,6 +298,8 @@ int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
   device.finalize();
 #endif
+
+  LIKWID_MARKER_CLOSE;
   return 0;
 }
 

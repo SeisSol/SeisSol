@@ -336,11 +336,18 @@ add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}${PLASTICITY_NAME_SUFFIX}")
 
+
 add_executable(SeisSol-proxy
         auto_tuning/proxy/src/proxy_seissol.cpp
 )
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+
+find_package(likwid QUIET)
+if (likwid_FOUND)
+    target_compile_definitions(SeisSol-proxy PRIVATE LIKWID_PERFMON)
+    target_link_libraries(SeisSol-proxy PRIVATE likwid::likwid)
+endif()
 
 if (TESTING)
   include(cmake/testing.cmake)

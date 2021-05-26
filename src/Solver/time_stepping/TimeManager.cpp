@@ -48,13 +48,14 @@
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <Parallel/Pin.h>
-#include <chrono>
 
 volatile bool g_executeCommThread;
 volatile unsigned int* volatile g_handleRecvs;
 volatile unsigned int* volatile g_handleSends;
 pthread_t g_commThread;
 #endif
+
+#include <chrono>
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
