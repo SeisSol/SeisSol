@@ -48,7 +48,7 @@ namespace seissol {
                                                         real **nodalStressTensors,
                                                         int *isAdjustableVector,
                                                         const PlasticityData *plasticity,
-                                                        const double oneMinusIntegratingFactor) {
+                                                        const real oneMinusIntegratingFactor) {
 
                         getQueue()->submit([&](cl::sycl::handler &cgh) {
 
@@ -120,7 +120,7 @@ namespace seissol {
                     void adjustDeviatoricTensors(real **nodalStressTensors,
                                                  int *isAdjustableVector,
                                                  const PlasticityData *plasticity,
-                                                 const double oneMinusIntegratingFactor,
+                                                 const real oneMinusIntegratingFactor,
                                                  const size_t numElements) {
                         constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
                         cl::sycl::range<3> group_count(numNodesPerElement, 1, 1);
@@ -202,9 +202,9 @@ namespace seissol {
                                                 const real **modalStressTensors,
                                                 const real *firsModes,
                                                 const PlasticityData *plasticity,
-                                                const double oneMinusIntegratingFactor,
-                                                const double timeStepWidth,
-                                                const double T_v,
+                                                const real oneMinusIntegratingFactor,
+                                                const real timeStepWidth,
+                                                const real T_v,
                                                 const size_t numElements) {
 
                         getQueue()->submit([&](cl::sycl::handler &cgh) {
@@ -254,9 +254,9 @@ namespace seissol {
                                          const real **modalStressTensors,
                                          const real *firsModes,
                                          const PlasticityData *plasticity,
-                                         const double oneMinusIntegratingFactor,
-                                         const double timeStepWidth,
-                                         const double T_v,
+                                         const real oneMinusIntegratingFactor,
+                                         const real timeStepWidth,
+                                         const real T_v,
                                          const size_t numElements) {
                         cl::sycl::range<3> group_count(NUM_STREESS_COMPONENTS, 32, 1);
                         size_t numBlocks = (numElements + group_count.get(1) - 1) / group_count.get(1);
