@@ -296,27 +296,30 @@ elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
   elseif("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "GPU")
 
     if(${DEVICE_SUB_ARCH} MATCHES "sm_*")
-      if(NOT ("$ENV{ONEAPI_COMPILER}" STREQUAL "CLANG"))
-        message(FATAL_ERROR "CUDA compilation only with CLANG compiler")
-      endif()
-
       target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=nvptx64-nvidia-cuda-sycldevice" "-fsycl-unnamed-lambda" "-Xsycl-target-backend" "--cuda-gpu-arch=${DEVICE_SUB_ARCH}")
       set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+
+      target_link_libraries(Seissol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+      target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+
     else()
       target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=spir64_gen-unknown-unknown-sycldevice" "-fsycl-unnamed-lambda")
       set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
 
+      target_link_libraries(Seissol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+      target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
     endif()
   elseif("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "CPU")
     target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice" "-fsycl-unnamed-lambda")
     set_target_properties(Seissol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march=${DEVICE_SUB_ARCH}\"")
+
+    target_link_libraries(Seissol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march ${DEVICE_SUB_ARCH}\"")
+    target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib "-fsycl -sycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march ${DEVICE_SUB_ARCH}\"")
   else()
-    target_compile_options(Seissol-device-lib PRIVATE "-fsycl" "-fsycl-unnamed-lambda")
-    message(WARNING "No device type specified for compilation, AOT and other platform specific details may be disabled")
+    message(FATAL "please set PREFERRED_DEVICE type to GPU, FPGA, or CPU in order to activate AOT compilation. If AOT is not performed, unnamed lambdas will cause errors at runtime")
   endif()
 
-  target_link_libraries(Seissol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
-  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_SUB_ARCH}\"")
+
   add_dependencies(Seissol-device-lib SeisSol-lib)
   #set(CMAKE_CXX_COMPILER ${COMPILER_CXX_OLD})
 endif()
