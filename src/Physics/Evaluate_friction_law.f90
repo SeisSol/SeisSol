@@ -935,7 +935,7 @@ MODULE Eval_friction_law_mod
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              P_f = DISC%DynRup%TP(:,iFace,2)
          ELSE
-              P_f = 0.0
+              P_f = ZERO
          ENDIF
 
          DO j=1,nSVupdates   !This loop corrects SV values
@@ -944,7 +944,7 @@ MODULE Eval_friction_law_mod
              !1.update SV using Vold from the previous time step
              CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-                 S = -LocMu*min(0, P - P_f)
+                 S = -LocMu*min(ZERO, P - P_f)
                  DO iBndGP = 1, nBndGP
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
@@ -957,7 +957,7 @@ MODULE Eval_friction_law_mod
              ENDIF
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
-             n_stress = min(0, P - P_f)
+             n_stress = min(ZERO, P - P_f)
              CALL IterativelyInvertSR (EQN, DISC, iFace, nBndGP, nSRupdates, LocSR, LocSV, &
                              n_stress, Shtest, invZ, SRtest, has_converged)
 
@@ -985,7 +985,7 @@ MODULE Eval_friction_law_mod
          CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
 
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-             S = -LocMu*(P - P_f)
+             S = -LocMu*min(ZERO, P - P_f)
              DO iBndGP = 1, nBndGP
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
@@ -1012,8 +1012,9 @@ MODULE Eval_friction_law_mod
          LocMu  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
 
          ! update stress change
-         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
-         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
+         n_stress = min(ZERO, P - P_f)
+         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*n_stress
+         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*n_stress
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(:,4,iFace)
          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(:,6,iFace)
          !
