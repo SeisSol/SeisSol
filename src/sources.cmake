@@ -316,7 +316,7 @@ elseif("${DEVICE_BACKEND}" STREQUAL "ONEAPI")
     target_link_libraries(Seissol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march ${DEVICE_SUB_ARCH}\"")
     target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib "-fsycl -sycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march ${DEVICE_SUB_ARCH}\"")
   else()
-    message(FATAL "please set PREFERRED_DEVICE type to GPU, FPGA, or CPU in order to activate AOT compilation. If AOT is not performed, unnamed lambdas will cause errors at runtime")
+    message(FATAL_ERROR "please set PREFERRED_DEVICE type to GPU, FPGA, or CPU in order to activate AOT compilation. If AOT is not performed, unnamed lambdas will cause errors at runtime")
   endif()
 
 
