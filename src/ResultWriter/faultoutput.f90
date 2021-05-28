@@ -449,7 +449,7 @@ CONTAINS
             Strength = -MuVal*MIN(LocP+P_0 -P_f,ZERO) - cohesion
           CASE(3,4)
              ! rate and state (once everything is tested and cohesion works for RS, this option could be merged to default)
-             Strength = -MuVal*(LocP+P_0 -P_f)
+             Strength = -MuVal*MIN(LocP+P_0 -P_f, ZERO)
           CASE(6)
             ! exception for bimaterial with LSW case
             ! modify strength according to prakash clifton
