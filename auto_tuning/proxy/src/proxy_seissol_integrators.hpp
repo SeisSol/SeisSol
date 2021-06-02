@@ -31,49 +31,44 @@ namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
 
 namespace proxy::cpu {
-  void computeAderIntegration() {
-    /*
-    auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-    unsigned              nrOfCells       = layer.getNumberOfCells();
-    real**                buffers                       = layer.var(m_lts.buffers);
-    real**                derivatives                   = layer.var(m_lts.derivatives);
+void computeAderIntegration() {
+  auto elementViewInterior = proxyData->getElementView();
+  const auto nrOfCells = elementViewInterior.size();
 
-    kernels::LocalData::Loader loader;
-    loader.load(m_lts, layer);
-     */
-
-    /*
 #ifdef _OPENMP
-  #pragma omp parallel
+#pragma omp parallel default(none) shared(nrOfCells, elementViewInterior)
   {
-  kernels::LocalTmp tmp;
-  #pragma omp for schedule(static)
+    kernels::LocalTmp tmp;
+#pragma omp for schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-    auto data = loader.entry(l_cell);
-    m_timeKernel.computeAder(              m_timeStepWidthSimulation,
-                                           data,
-                                           tmp,
-                                           buffers[l_cell],
-                                           derivatives[l_cell] );
-  }
-     */
-  #ifdef _OPENMP
+    for (unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++) {
+      auto& curElement = elementViewInterior[l_cell];
+      auto curDerivatives = nullptr;
+      auto* curBuffers = curElement.get<buffer>();
+      auto* curDofs = curElement.get<dofs>().data();
+      auto* curDisplacements = curElement.get<displacements>();
+      auto& curLocalIntegration = curElement.get<localIntegrationData>();
+      auto& curCellInformation = curElement.get<cellLocalInformation>();
+
+      m_timeKernel.computeAder((double) m_timeStepWidthSimulation,
+                               curDofs,
+                               curDisplacements,
+                               curLocalIntegration,
+                               curCellInformation,
+                               tmp,
+                               curBuffers,
+                               curDerivatives);
+
+#ifdef _OPENMP
     }
-  #endif
+#endif
   }
+}
 
   void computeLocalWithoutAderIntegration() {
-  /*
-    auto&                 layer           = m_ltsTree->child(0).child<Interior>();
-    unsigned              nrOfCells       = layer.getNumberOfCells();
-    real**                buffers                       = layer.var(m_lts.buffers);
+    auto elementViewInterior = proxyData->getElementView();
+    const auto nrOfCells = elementViewInterior.size();
 
-    kernels::LocalData::Loader loader;
-    loader.load(m_lts, layer);
-    */
-
-    /*
 #ifdef _OPENMP
   #pragma omp parallel
   {
@@ -81,9 +76,20 @@ namespace proxy::cpu {
   #pragma omp for schedule(static)
 #endif
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-    auto data = loader.entry(l_cell);
-    m_localKernel.computeIntegral(buffers[l_cell],
-                                  data,
+    auto& curElement = elementViewInterior[l_cell];
+    auto* curBuffers = curElement.get<buffer>();
+    auto* curDofs = curElement.get<dofs>().data();
+    auto* curDisplacements = curElement.get<displacements>();
+    auto& curLocalIntegration = curElement.get<localIntegrationData>();
+    auto& curNeighboringIntegration = curElement.get<neighborIntegrationData>();
+    auto& curCellInformation = curElement.get<cellLocalInformation>();
+
+    m_localKernel.computeIntegral(curBuffers,
+                                  curDofs,
+                                  curDisplacements,
+                                  curLocalIntegration,
+                                  curNeighboringIntegration,
+                                  curCellInformation,
                                   tmp,
                                   nullptr,
                                   nullptr,
@@ -93,7 +99,6 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     }
   #endif
-                                  */
   }
 
   void computeLocalIntegration() {
@@ -220,34 +225,38 @@ namespace proxy::cpu {
 
   }
 
-  void computeDynRupGodunovState()
-  {
-  /*
-    seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
-    DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
-    DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
-    real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
+  void computeDynRupGodunovState() {
+    auto elementViewInterior = proxyData->getElementView();
+    const auto nrOfCells = elementViewInterior.size();
+    auto drViewInterior = proxyData->getDynamicRuptureView();
+    const auto nrOfFaces = drViewInterior.size();
+
     alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
     alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-    */
 
-  /*
-  #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
-  #endif
-    for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
-      unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-      m_dynRupKernel.spaceTimeInterpolation(  faceInformation[face],
-                                             &m_globalDataOnHost,
-                                             &godunovData[face],
-                                              timeDerivativePlus[face],
-                                              timeDerivativeMinus[face],
-                                              QInterpolatedPlus,
-                                              QInterpolatedMinus,
-                                              timeDerivativePlus[prefetchFace],
-                                              timeDerivativeMinus[prefetchFace] );
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) private(QInterpolatedPlus, QInterpolatedMinus)
+#endif
+    for (unsigned face = 0; face < nrOfFaces; ++face) {
+      auto& curFace = drViewInterior[face];
+      unsigned prefetchFaceId = (face < nrOfCells - 1) ? face + 1 : face;
+      auto& prefetchFace = drViewInterior[prefetchFaceId];
+
+      auto& curFaceInformation = curFace.get<faceInformation>();
+      auto& curGodunovData = curFace.get<godunovData>();
+      auto& curTimeDerivativePlus = curFace.get<timeDerivativePlus>();
+      auto& curTimeDerivativeMinus = curFace.get<timeDerivativeMinus>();
+      auto& nextTimeDerivativePlus = prefetchFace.get<timeDerivativePlus>();
+      auto& nextTimeDerivtiveMinus = prefetchFace.get<timeDerivativeMinus>();
+      m_dynRupKernel.spaceTimeInterpolation(curFaceInformation,
+                                            &m_globalDataOnHost,
+                                            &curGodunovData,
+                                            curTimeDerivativePlus,
+                                            curTimeDerivativeMinus,
+                                            QInterpolatedPlus,
+                                            QInterpolatedMinus,
+                                            nextTimeDerivativePlus,
+                                            nextTimeDerivtiveMinus);
     }
   }
-    */
 } // namespace proxy::cpu

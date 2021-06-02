@@ -760,13 +760,12 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     }
 #endif
 
-    m_neighborKernel.computeNeighborsIntegral( data,
+    m_neighborKernel.computeNeighborsIntegral( data.dofs,
+                                               data.neighboringIntegration,
+                                               data.cellInformation,
                                                drMapping[l_cell],
-#ifdef ENABLE_MATRIX_PREFETCH
-                                               l_timeIntegrated, l_faceNeighbors_prefetch
-#else
-                                               l_timeIntegrated
-#endif
+                                               l_timeIntegrated,
+                                               l_faceNeighbors_prefetch
                                                );
 
 #ifdef USE_PLASTICITY

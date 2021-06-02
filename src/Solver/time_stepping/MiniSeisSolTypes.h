@@ -129,12 +129,12 @@ struct timeDerivativeMinus {
 };
 
 struct imposedStatePlus {
-  using type = real*;
+  using type = std::array<real, tensor::QInterpolated::size()>;
   using allocator = standardAllocator<type>;
 };
 
 struct imposedStateMinus {
-  using type = std::array<real, tensor::fluxSolver::size()>;
+  using type = std::array<real, tensor::QInterpolated::size()>;
   using allocator = standardAllocator<type>;
 };
 
@@ -192,7 +192,7 @@ struct ProxyData {
       std::shared_ptr<buffers_bucket_storage_t> buffersBucket,
       plan_t buffersBucketPlan,
       std::shared_ptr<dynamic_rupture_storage_t> dynamicRuptureStorage,
-      plan_t dynamicRupturePlan
+      plan_t dynamicRuptureStoragePlan
       )
       :
       elementStorage(std::move(elementStorage)),

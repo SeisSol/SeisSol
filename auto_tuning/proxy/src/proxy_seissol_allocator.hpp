@@ -141,7 +141,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
       .withDofs<GhostLayer>(0, [](auto){ return 0; })
       .withDofs<CopyLayer>(0, [](auto){ return 0; })
       .withDofs<InteriorLayer>(numberOfDrFaces, [](auto) { return 1; });
-  const auto dynamicRuptureStoragePlans = std::vector{elementStoragePlan};
+  const auto dynamicRuptureStoragePlans = std::vector{dynamicRuptureStoragePlan};
   const auto dynamicRuptureStorageCombinedPlan = mneme::CombinedLayeredPlan(dynamicRuptureStoragePlans);
   const auto dynamicRuptureStorageLayout = dynamicRuptureStorageCombinedPlan.getLayout();
   auto dynamicRuptureStorage = std::make_shared<dynamic_rupture_storage_t>(dynamicRuptureStorageLayout.back());
@@ -182,7 +182,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
         unsigned drFace = (unsigned int)lrand48() % elementView.size();
         drm.side = side;
         drm.faceRelation = orientation;
-        drm.godunov = drView[drFace].get<imposedStatePlus>();
+        drm.godunov = drView[drFace].get<imposedStatePlus>().data();
         drm.fluxSolver = drView[drFace].get<fluxSolverPlus>().data();
       }
     }

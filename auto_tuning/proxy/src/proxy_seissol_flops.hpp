@@ -105,21 +105,17 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
 
   auto view = proxyData->getElementView();
-  // TODO(Lukas) Add dr view!
-  /*
+  auto drView = proxyData->getDynamicRuptureView();
   // iterate over cells
-  seissol::initializers::Layer& interior = m_dynRupTree->child(0).child<Interior>();
-  DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
-  for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
+  for (auto& face : drView) {
     long long l_drNonZeroFlops, l_drHardwareFlops;
-    m_dynRupKernel.flopsGodunovState(faceInformation[face], l_drNonZeroFlops, l_drHardwareFlops);
+    m_dynRupKernel.flopsGodunovState(face.get<faceInformation>(), l_drNonZeroFlops, l_drHardwareFlops);
     ret.d_nonZeroFlops  += l_drNonZeroFlops;
     ret.d_hardwareFlops += l_drHardwareFlops;
   }
 
   ret.d_nonZeroFlops *= i_timesteps;
   ret.d_hardwareFlops *= i_timesteps;
-   */
 
   return ret;
 }
