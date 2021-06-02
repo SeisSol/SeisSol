@@ -86,10 +86,13 @@ class seissol::kernels::Neighbor : public NeighborBase {
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeNeighborsIntegral(NeighborData& data,
-                                  CellDRMapping const (&cellDrMapping)[4],
-                                  real* i_timeIntegrated[4],
-                                  real* faceNeighbors_prefetch[4]);
+    void computeNeighborsIntegral(
+        real* dofs,
+        NeighboringIntegrationData& neighboringIntegration,
+        CellLocalInformation& cellInformation,
+        CellDRMapping* cellDrMapping,
+        real* i_timeIntegrated[4],
+        real* faceNeighbors_prefetch[4]);
 
     void computeBatchedNeighborsIntegral(ConditionalBatchTableT &table);
 

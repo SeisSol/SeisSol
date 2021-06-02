@@ -97,7 +97,6 @@ namespace proxy::cpu {
   }
 
   void computeLocalIntegration() {
-  /*
     auto elementViewInterior = proxyData->getElementView();
     const auto nrOfCells = elementViewInterior.size();
 
@@ -140,30 +139,20 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     }
   #endif
-   */
   }
 
   void computeNeighboringIntegration() {
-  /*
-    auto&                     layer                           = m_ltsTree->child(0).child<Interior>();
-    unsigned                  nrOfCells                       = layer.getNumberOfCells();
-    real*                     (*faceNeighbors)[4]             = layer.var(m_lts.faceNeighbors);
-    CellDRMapping             (*drMapping)[4]                 = layer.var(m_lts.drMapping);
-    CellLocalInformation*       cellInformation               = layer.var(m_lts.cellInformation);
-
-    kernels::NeighborData::Loader loader;
-    loader.load(m_lts, layer);
-    */
+    auto elementViewInterior = proxyData->getElementView();
+    const auto nrOfCells = elementViewInterior.size();
 
     real *l_timeIntegrated[4];
   #ifdef ENABLE_MATRIX_PREFETCH
     real *l_faceNeighbors_prefetch[4];
   #endif
 
-    /*
   #ifdef _OPENMP
   #  ifdef ENABLE_MATRIX_PREFETCH
-    #pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
+    #pragma omp parallel default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(nrOfCells, elementViewInterior)
   #  else
     #pragma omp parallel private(l_timeIntegrated)
   #  endif
@@ -171,13 +160,22 @@ namespace proxy::cpu {
     #pragma omp for schedule(static)
   #endif
     for( unsigned l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-      auto data = loader.entry(l_cell);
+      auto& curElement = elementViewInterior[l_cell];
+      auto curDerivatives = nullptr;
+      auto* curBuffers = curElement.get<buffer>();
+      auto* curDofs = curElement.get<dofs>().data();
+      auto* curDisplacements = curElement.get<displacements>();
+      auto& curLocalIntegration = curElement.get<localIntegrationData>();
+      auto& curNeighboringIntegration = curElement.get<neighborIntegrationData>();
+      auto& curCellInformation = curElement.get<cellLocalInformation>();
+      auto& curFaceNeighbors = curElement.get<faceNeighbors>();
+      auto& curDrMapping = curElement.get<cellDrMapping>();
       seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
-                                                      cellInformation[l_cell].ltsSetup,
-                                                      cellInformation[l_cell].faceTypes,
+                                                      curCellInformation.ltsSetup,
+                                                      curCellInformation.faceTypes,
                                                       0.0,
                                               (double)m_timeStepWidthSimulation,
-                                                      faceNeighbors[l_cell],
+                                                      curFaceNeighbors.data(),
   #ifdef _OPENMP
                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost.integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
   #else
@@ -187,36 +185,38 @@ namespace proxy::cpu {
 
   #ifdef ENABLE_MATRIX_PREFETCH
   #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-      l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
-      l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
-      l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
+      l_faceNeighbors_prefetch[0] = (curCellInformation.faceTypes[1] != FaceType::dynamicRupture)
+          ? curFaceNeighbors[1] : curDrMapping[1].godunov;
+      l_faceNeighbors_prefetch[1] = (curCellInformation.faceTypes[2] != FaceType::dynamicRupture)
+          ? curFaceNeighbors[2] : curDrMapping[2].godunov;
+      l_faceNeighbors_prefetch[2] = (curCellInformation.faceTypes[3] != FaceType::dynamicRupture)
+          ? curFaceNeighbors[3] : curDrMapping[3].godunov;
 
       // fourth face's prefetches
       if (l_cell < (nrOfCells-1) ) {
-        l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-            faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
+        auto& nextElement = elementViewInterior[l_cell];
+        auto& nextCellInformation = nextElement.get<cellLocalInformation>();
+        auto& nextDrMapping = nextElement.get<cellDrMapping>();
+        auto& nextFaceNeighbors = nextElement.get<faceNeighbors>();
+        l_faceNeighbors_prefetch[3] = (nextCellInformation.faceTypes[0] != FaceType::dynamicRupture) ?
+                                      nextFaceNeighbors[0] : nextDrMapping[0].godunov;
       } else {
-        l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
+        l_faceNeighbors_prefetch[3] = curFaceNeighbors[3];
       }
   #endif
 
-      m_neighborKernel.computeNeighborsIntegral( data,
-                                                 drMapping[l_cell],
-  #ifdef ENABLE_MATRIX_PREFETCH
-                                                 l_timeIntegrated, l_faceNeighbors_prefetch
-  #else
-                                                 l_timeIntegrated
-  #endif
-                                                 );
+      m_neighborKernel.computeNeighborsIntegral(curDofs,
+                                                curNeighboringIntegration,
+                                                curCellInformation,
+                                                curDrMapping.data(),
+                                                l_timeIntegrated,
+                                                l_faceNeighbors_prefetch
+                                                );
     }
 
   #ifdef _OPENMP
     }
   #endif
-                                  */
 
   }
 

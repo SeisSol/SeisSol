@@ -121,14 +121,16 @@ void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global)
 #endif
 }
 
-void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
-                                                          CellDRMapping const (&cellDrMapping)[4],
+void seissol::kernels::Neighbor::computeNeighborsIntegral(real* dofs,
+                                                          NeighboringIntegrationData& neighboringIntegration,
+                                                          CellLocalInformation& cellInformation,
+                                                          CellDRMapping* cellDrMapping,
                                                           real* i_timeIntegrated[4],
                                                           real* faceNeighbors_prefetch[4]) {
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(dofs) % ALIGNMENT == 0);
 
   for (unsigned int l_face = 0; l_face < 4; l_face++) {
-    switch (data.cellInformation.faceTypes[l_face]) {
+    switch (cellInformation.faceTypes[l_face]) {
     case FaceType::regular:
       // Fallthrough intended
     case FaceType::periodic:
@@ -136,15 +138,15 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
-      assert(data.cellInformation.faceRelations[l_face][0] < 4
-             && data.cellInformation.faceRelations[l_face][1] < 3);
+      assert(cellInformation.faceRelations[l_face][0] < 4
+             && cellInformation.faceRelations[l_face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
-      nfKrnl.Q = data.dofs;
+      nfKrnl.Q = dofs;
       nfKrnl.I = i_timeIntegrated[l_face];
-      nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
+      nfKrnl.AminusT = neighboringIntegration.nAmNm1[l_face];
       nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-      nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
-		     data.cellInformation.faceRelations[l_face][0],
+      nfKrnl.execute(cellInformation.faceRelations[l_face][1],
+		     cellInformation.faceRelations[l_face][0],
 		     l_face);
       break;
       }
@@ -156,7 +158,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
-      drKrnl.Q = data.dofs;
+      drKrnl.Q = dofs;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
       break;
