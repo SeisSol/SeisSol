@@ -301,7 +301,7 @@ CONTAINS
     l_gts = minval( optionalFields%dt_convectiv(:) )
     if (l_gts .le. 0.0) then
       logError(*) 'Invalid timestep width'
-      call exit(134)
+      call MPI_ABORT(MPI%commWorld, 134)
     endif
 
 #ifdef PERIODIC_LTS_SCALING
@@ -385,7 +385,7 @@ CONTAINS
          STAT = allocstat                                                                       )
     IF(allocStat .NE. 0) THEN
        logError(*) 'could not allocate all variables!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     END IF
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
@@ -393,7 +393,7 @@ CONTAINS
                   STAT = allocstat )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate DISC%Galerkin%DGTayl.'
-           call exit(134)
+           call MPI_ABORT(MPI%commWorld, 134)
         END IF
     ENDIF
 
@@ -480,12 +480,12 @@ CONTAINS
                                                      timeHistories     = SOURCE%RP%TimeHist       )
     case default
       logError(*) 'Generated Kernels: Unsupported source type: ', SOURCE%Type
-      call exit(134)
+      call MPI_ABORT(MPI%commWorld, 134)
   end select
 
   if (DISC%Galerkin%FluxMethod .ne. 0) then
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
-    call exit(134)
+    call MPI_ABORT(MPI%commWorld, 134)
   endif
 
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
@@ -587,7 +587,7 @@ CONTAINS
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
-        call exit(134)
+        call MPI_ABORT(MPI%commWorld, 134)
         !
     ENDIF
   END SUBROUTINE iniGalerkin3D_us_level2_new
@@ -682,12 +682,12 @@ CONTAINS
 
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'iniGalerkin: SeisSol Interface not initialized!!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
     IF(MESH%nElem_Tet.EQ.0 .AND. MESH%nElem_Hex.EQ.0) THEN
        logError(*) 'Quadraturefree ADER-DG is only implemented for tetrahedral and hexahedral.'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
     ! Reading polynomial coefficients and mass matrices
@@ -703,7 +703,7 @@ CONTAINS
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
-           call exit(134)
+           call MPI_ABORT(MPI%commWorld, 134)
         END IF
     ENDIF ! Tets
 
@@ -767,19 +767,19 @@ CONTAINS
         ! assert contant material parameters per element
         if ( disc%galerkin%nDegFrMat .ne. 1 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, disc%galerkin%nDegFrMat not equal 1.', disc%galerkin%nDegFrMat
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 
         ! assert 4 sides for tetrahedrons
         if ( mesh%nSides_tet .ne. 4 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nSides_tet not equal 4.', mesh%nSides_tet
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 
         ! assert 3 vertices for triangles
          if ( mesh%nVertices_tri .ne. 3 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nVertices_tri not equal 3.', mesh%nVertices_tri
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 #endif
     ENDIF ! Tetras
@@ -837,7 +837,7 @@ CONTAINS
     !
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'icGalerkin: SeisSol Interface not initialized!!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
     !
     ALLOCATE(EQN%Energy(3,1:MESH%nElem))
@@ -1035,7 +1035,7 @@ CONTAINS
               STAT=allocstat )
     IF (allocStat .NE. 0) THEN
        logError(*) 'Interface SeisSol: could not allocate all variables!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     END IF
 
     ! Calculating boundary surfaces (3D)
@@ -1157,7 +1157,7 @@ CONTAINS
     IF(minv.LE.1e-15) THEN
         logError(*) 'Mesh contains a singular tetrahedron with radius ', minv
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
-        call exit(134)
+        call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
     DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
     DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
@@ -1287,7 +1287,7 @@ CONTAINS
                      END SELECT
                 ELSE
                    PRINT *, ' ERROR: local order must not be less or equal to zero! ', iLayer
-                   call exit(134)
+                   call MPI_ABORT(MPI%commWorld, 134)
                 ENDIF
             ELSE
                 !

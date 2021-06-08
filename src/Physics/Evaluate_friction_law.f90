@@ -180,7 +180,7 @@ MODULE Eval_friction_law_mod
 
         CASE DEFAULT
           logError(*) 'ERROR in friction.f90: friction law case',EQN%FL,' not implemented!'
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
     END SELECT    
 
   END SUBROUTINE Eval_friction_law
@@ -976,7 +976,7 @@ MODULE Eval_friction_law_mod
             !logError(*) 'nonConvergence RS Newton', time
             if (tmp(1).NE.tmp(1)) then
                logError(*) 'NaN detected', time
-               call exit(134)
+               call MPI_ABORT(MPI%commWorld, 134)
             endif
          ENDIF
          
@@ -1129,7 +1129,7 @@ MODULE Eval_friction_law_mod
 
     IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
        logError(*) 'NaN detected'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
 
