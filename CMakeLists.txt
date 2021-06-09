@@ -266,9 +266,14 @@ if (ADDRESS_SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
 endif() 
 
-# TODO: Only needed for poroelasticity
-find_package(Armadillo REQUIRED)
-target_link_libraries(SeisSol-lib PUBLIC ${ARMADILLO_LIBRARIES})
+if(${EQUATIONS} STREQUAL "poroelastic")
+  find_package(Armadillo REQUIRED)
+  if(Armadillo_FOUND)
+    target_compile_definitions(SeisSol-lib PUBLIC HAS_ARMADILLO)
+    target_include_directories(SeisSol-lib PUBLIC ${ARMADILLO_INCLUDE_DIRS})
+    target_link_libraries(SeisSol-lib PUBLIC ${ARMADILLO_LIBRARIES})
+  endif()
+endif()
 
 if (WITH_GPU)
   add_subdirectory(submodules/Device)

@@ -1,5 +1,4 @@
 add_library(SeisSol-lib
-src/Equations/poroelastic/Model/datastructures.cpp
 
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
@@ -119,6 +118,7 @@ src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
+src/Equations/poroelastic/Model/datastructures.cpp
 )
 
 if (MPI)

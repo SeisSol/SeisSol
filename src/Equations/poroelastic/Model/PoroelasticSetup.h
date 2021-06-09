@@ -1,8 +1,10 @@
 #ifndef MODEL_POROELASTICSETUP_H_
 #define MODEL_POROELASTICSETUP_H_
 
+#ifdef USE_POROELASTIC
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
+#endif
 #include <iomanip>
 
 #include <yateto/TensorView.h>
@@ -232,6 +234,35 @@ namespace seissol {
       ET(12,12) = e_2;
     }
 
+  template<typename T>
+  void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
+                                                             T&        QgodLocal,
+                                                             T&        QgodNeighbor,
+                                                             arma::Mat<double>&  R)
+  {
+    constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+    for (size_t i = 0; i < relevant_quantities; i++) {
+      for (size_t j = 0; j < relevant_quantities; j++) {
+        QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+      }
+    }
+  
+    QgodLocal.setZero();
+    if (isAcoustic) {
+      // Acoustic material only has one traction (=pressure) and one velocity comp.
+      // relevant to the Riemann problem
+      QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+      QgodLocal(6, 6) = 1.0;
+    } else {
+        arma::uvec traction_indices = {0,3,5,9};
+        arma::uvec velocity_indices = {6,7,8,10,11,12};
+        arma::uvec column_indices = {5, 7, 9, 11};
+        arma::mat R11 = R.submat(traction_indices, column_indices);
+        arma::mat R21 = R.submat(velocity_indices, column_indices);
+        arma::mat S = (-(R21 * inv(R11))).eval();
+        setBlocks(QgodLocal, S, traction_indices, velocity_indices);
+    }
+  }
     template<>
     inline void getTransposedGodunovState( PoroElasticMaterial const&        local,
         PoroElasticMaterial const&        neighbor,

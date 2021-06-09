@@ -1,10 +1,10 @@
 #include "datastructures.hpp"
 #include "PoroelasticSetup.h"
+#include "Numerical_aux/Eigenvalues.h"
 
 using namespace seissol::model;
 PoroElasticMaterial::PoroElasticMaterial( double* i_materialVal, int i_numMaterialVals)
 { 
-#ifdef USE_POROELASTIC
   assert(i_numMaterialVals == 10);
 
   this->bulk_solid = i_materialVal[0];
@@ -17,15 +17,12 @@ PoroElasticMaterial::PoroElasticMaterial( double* i_materialVal, int i_numMateri
   this->bulk_fluid = i_materialVal[7];
   this->rho_fluid = i_materialVal[8];
   this->viscosity = i_materialVal[9];  
-#endif
 }
 
 void PoroElasticMaterial::getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
-#ifdef USE_POROELASTIC
   double elasticMaterialVals[] = {this->rho, this->mu, this->lambda};
   ElasticMaterial em(elasticMaterialVals, 3);
   em.getFullStiffnessTensor(fullTensor);
-#endif
 }
 
 double PoroElasticMaterial::getMaxWaveSpeed() const {
@@ -33,29 +30,24 @@ double PoroElasticMaterial::getMaxWaveSpeed() const {
 }
 
 double PoroElasticMaterial::getPWaveSpeed() const {
-#ifdef USE_POROELASTIC
-  Eigen::Matrix<double, 13, 13> AT = Eigen::Matrix<double, 13, 13>::Zero();
+#ifdef HAS_ARMADILLO
+  eigenvalues::Eigenpair<std::complex<double>, 13> eigendecomposition;
+  std::array<std::complex<double>, 169> AT_values{};
+  auto AT = yateto::DenseTensorView<2,std::complex<double>>(AT_values.data(), {13, 13});
   seissol::model::getTransposedCoefficientMatrix(*this, 0, AT);
-  Eigen::ComplexEigenSolver<Eigen::Matrix<double, 13, 13>> ces;
-  ces.compute(AT);
-  const auto eigenvalues = ces.eigenvalues();
+  seissol::eigenvalues::computeEigenvaluesWithArmadillo(AT_values, eigendecomposition);
   double max_ev = std::numeric_limits<double>::lowest();
   for (int i = 0; i < 13; i++) {
-    max_ev = eigenvalues[i].real() > max_ev ? eigenvalues[i].real() : max_ev;
+    max_ev = eigendecomposition.values.at(i).real() > max_ev ? eigendecomposition.values.at(i).real() : max_ev;
   }
-
   return max_ev;
 #else
-  return 0;
+  return std::sqrt(lambda + 2*mu) / rho;
 #endif
 }
 
 double PoroElasticMaterial::getSWaveSpeed() const {
-#ifdef USE_POROELASTIC
   return std::sqrt(mu / rho);
-#else
-  return 0;
-#endif
 }
 
 MaterialType PoroElasticMaterial::getMaterialType() const {
