@@ -73,9 +73,24 @@ def chunk(xs, n):
 
 
 def low_pass_filter(waveform, fs, cutoff_freq):
+    " applied 2 pass zero-phase order 2 low pass filter on data"
     order=2
     b,a = signal.butter(order, cutoff_freq, 'low', fs=fs)
     return signal.filtfilt(b, a, waveform)
+
+def compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile):
+    """ compute the cumulative velocity using gmrot """
+    from smtk.intensity_measures import get_cav, rotate_horizontal
+    cav_theta = np.zeros(len(angles), dtype=float)
+    for iloc, theta in enumerate(angles):
+        if iloc == 0:
+            cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) * 
+                    get_cav(acceleration_y, time_step_y))
+        else:
+            rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, theta)
+            cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) * 
+                    get_cav(rot_y, time_step_y))
+    return np.percentile(cav_theta, percentile)
 
 def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
         percentile, damping=0.05, units="cm/s/s", method="Nigam-Jennings"):
@@ -100,12 +115,12 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
     #TU: this is the part I m adding
     #compute vel and disp from acceleration and
     #add to the spectral acceleration time series
-    from scipy.integrate import cumtrapz
-    velocity_x = time_step_x * cumtrapz(acceleration_x[0:-1], initial=0.)
-    displacement_x = time_step_x * cumtrapz(velocity_x, initial=0.)
+    velocity_x = time_step_x * np.cumsum(acceleration_x[0:-1])
+    displacement_x = time_step_x * np.cumsum(velocity_x)
     x_a = np.column_stack((acceleration_x[0:-1], velocity_x, displacement_x, x_a))
-    velocity_y = time_step_y * cumtrapz(acceleration_y[0:-1], initial=0.)
-    displacement_y = time_step_y * cumtrapz(velocity_y, initial=0.)
+
+    velocity_y = time_step_y * np.cumsum(acceleration_y[0:-1])
+    displacement_y = time_step_y * np.cumsum(velocity_y)
     y_a = np.column_stack((acceleration_y[0:-1], velocity_y, displacement_y, y_a))
 
     angles = np.arange(0., 90., 1.)
@@ -122,11 +137,17 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
                                            np.max(np.fabs(rot_y), axis=0))
 
     gmrotd = np.percentile(max_a_theta, percentile, axis=0)
-    return {"PGA": gmrotd[0],
+
+    res =  {"PGA": gmrotd[0],
             "PGV": gmrotd[1],
             "PGD": gmrotd[2],
             "Acceleration": gmrotd[3:]}
 
+    if args.CAV:
+        cav = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile)
+        res['CAV']=cav
+
+    return res
 
 def ComputeGroundMotionParameters(args2):
    # This function encapsulate the ground motion estimates calculation
@@ -150,7 +171,12 @@ def ComputeGroundMotionParameters(args2):
    res = myfunc(acceleration_x, dt, acceleration_y, dt, periods,
             percentile=50, damping=0.05, units="cm/s/s", method="Nigam-Jennings")
    
-   myres = [res['PGA'],res['PGV'],res['PGD']]+list(res['Acceleration'])
+
+   myres = [res['PGA'],res['PGV'],res['PGD']]
+   if args.CAV:
+        myres.append(res['CAV'])
+   myres += list(res['Acceleration'])
+
    if q!=0:
       q.put(ir)
    return myres
@@ -162,18 +188,19 @@ parser.add_argument('filename', help='surface output (xdmf file)')
 parser.add_argument('--MP', nargs=1, metavar=('nthreads'), default=([1]), help='use np.pool to speed-up calculations' ,type=int)
 parser.add_argument('--noMPI',  dest='noMPI', action='store_true' , default = False, help='run on one node (skip mpi4py)')
 parser.add_argument('--periods', nargs='+', help='list of periods for computing SA(T)' ,type=float)
-parser.add_argument('--ipp',  dest='ipp', action='store_true' , default = False, help='use gmrotipp rather than the period dependant estimate (~30 time slower)')
+parser.add_argument('--ipp',  dest='ipp', action='store_true' , default = False, help='use gmrotipp rather than the period dependant estimate (~30 times slower)')
+parser.add_argument('--CAV',  dest='CAV', action='store_true' , default = False, help='compute cumulated absolute velocity (slow down the code by a factor ~3)')
 parser.add_argument('--lowpass', nargs=1, metavar=('cutoff_freq'), help='low pass filter the velocity waveforms prior to computing the GME. cutoff_freq in Hz' ,type=float)
 args = parser.parse_args()
 
-if not args.noMPI:
+if args.noMPI:
+   nranks = 1
+   irank = 0
+else:
    from mpi4py import MPI
    comm = MPI.COMM_WORLD
    nranks = comm.size
    irank = comm.rank
-else:
-   nranks = 1
-   irank = 0
 
 if args.ipp:
    myfunc = gmrotipp
@@ -214,9 +241,6 @@ else:
    if irank==0:
       print("periods", periods)
 
-# +3 because of PGA, PGV and PGD
-nperiods = len(periods)+3
-
 nTasksPerRank  = args.MP[0]
 assert(nTasksPerRank<=cpu_count())
 pool = Pool(processes=nTasksPerRank)
@@ -239,6 +263,10 @@ if irank==0:
    print("done computing ground motion estimates: %f" % (time.time()-start))
 
 dataName = ['PGA','PGV','PGD']
+
+if args.CAV:
+    dataName.append('CAV')
+
 for per in periods:
    dataName.append('SA%06.3fs' %per)
 
@@ -254,7 +282,9 @@ h5f.close()
 mypath, fn = os.path.split(args.filename)
 prefix=fn.split('-')[-2]
 
-prefixGME = '%s-GME' %(prefix)
+sLowPass=f'_lp{args.lowpass[0]:.1f}' if args.lowpass else ''
+prefixGME = f'{prefix}{sLowPass}-GME'
+
 if not args.noMPI:
    comm.Barrier()
 
@@ -267,7 +297,6 @@ if irank==0:
      h5f.create_dataset(hdname, (nElements,), dtype='d')
      for j in range(nranks):
         fname = 'temp'+str(j)+'.h5'
-        #print "now reading output of (%d,%s)"%(j,fname)
         h5fj = h5py.File(fname,'r')
         h5f[hdname][inputsi[j][0]:(1+inputsi[j][-1])] = h5fj[hdname][:]
         h5fj.close()
