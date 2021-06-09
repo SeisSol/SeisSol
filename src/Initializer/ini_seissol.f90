@@ -262,7 +262,8 @@ CONTAINS
          EQN            = EQN                           , &                    !            OptionalFields%Backgroundvalue
          MESH           = MESH                          , &                    !
          DISC           = DISC                          , &                    !
-         IO             = IO                              )                    !
+         IO             = IO                            , &                     !
+         MPI            = MPI                             )                    !
     !                                                                          !
     !
     IF (EQN%linearized) THEN                                                   !
@@ -366,7 +367,7 @@ CONTAINS
 #endif
 
     ! TODO do we need to call this function when we read a checkpoint?? (SR)
-    CALL icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
+    CALL icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO, MPI)
     ! Pre-compute basis functions at Gauss points of non-conforming boundaries
  !   CALL NonConformingGPEvaluation3D(DISC, MESH, IO, BND)
  !   CALL DGSponge(0., EQN, DISC, MESH, BND, IC, SOURCE, IO) ! not yet done for hybrids/unified version

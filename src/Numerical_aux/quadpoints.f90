@@ -78,7 +78,7 @@ CONTAINS
 
   ! Quadrature formula of arbitrary accuracy on the reference triangle
   ! consisting of the nodes (0,0), (1,0), (0,1)
-  SUBROUTINE TriangleQuadraturePoints(nIntGP,IntGaussP,IntGaussW,M,IO,quiet)
+  SUBROUTINE TriangleQuadraturePoints(nIntGP,IntGaussP,IntGaussW,M,IO,quiet,MPI)
     !-------------------------------------------------------------------------!
     USE gauss_mod
     !-------------------------------------------------------------------------!
@@ -90,6 +90,7 @@ CONTAINS
     REAL, POINTER         :: IntGaussW(:)   ! Weights of 2D int. points       !
     INTEGER               :: M              ! Number of 1D Gausspoints        !
     TYPE(tInputOutput)    :: IO             ! IO structure                    !
+    TYPE (tMPI)           :: MPI
     LOGICAL, OPTIONAL     :: quiet          ! if quiet then less warnings     !
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
@@ -103,7 +104,7 @@ CONTAINS
     REAL, POINTER   :: A2(:)                ! 1D quadrature weights for y2    !
     LOGICAL         :: quiet_internal       ! map of OPTIONAL quiet           !
     !-------------------------------------------------------------------------!
-    INTENT(IN)      :: M, IO, quiet
+    INTENT(IN)      :: M, IO, quiet, MPI
     INTENT(OUT)     :: nIntGP
     !-------------------------------------------------------------------------!
     tol = 1.0 / (10.0**(PRECISION(1.0)-2) )                                   !
@@ -184,7 +185,7 @@ CONTAINS
   ! Quadrature formula of arbitrary accuracy on the reference tetrahedron
   ! consisting of the nodes (0,0,0), (1,0,0), (0,1,0), (0,0,1)
 
-  SUBROUTINE TetrahedronQuadraturePoints(nIntGP,IntGaussP,IntGaussW,M,IO,quiet)
+  SUBROUTINE TetrahedronQuadraturePoints(nIntGP,IntGaussP,IntGaussW,M,IO,quiet, MPI)
     !-------------------------------------------------------------------------!
     USE gauss_mod
     !-------------------------------------------------------------------------!
@@ -196,6 +197,7 @@ CONTAINS
     REAL, POINTER         :: IntGaussW(:)   ! Weights of 2D int. points       !
     INTEGER               :: M              ! Number of 1D Gausspoints        !
     TYPE(tInputOutput)    :: IO             ! IO structure                    !
+    TYPE (tMPI)           :: MPI
     LOGICAL, OPTIONAL     :: quiet          ! if quiet then less warnings     !
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
@@ -294,7 +296,7 @@ CONTAINS
 
   ! Quadrature formula of arbitrary accuracy on the physical hypercube 
   ! [x1_1, x2_1] x [x1_2, x2_2] x ... x [x1_n, x2_n]
-  SUBROUTINE HypercubeQuadraturePoints(nIntGP,IntGaussP,IntGaussW, M,nDim,X1,X2,IO,quiet )
+  SUBROUTINE HypercubeQuadraturePoints(nIntGP,IntGaussP,IntGaussW, M,nDim,X1,X2,IO,quiet,MPI)
     !-------------------------------------------------------------------------!
     use gauss_mod
     !-------------------------------------------------------------------------!
@@ -311,6 +313,7 @@ CONTAINS
     REAL                  :: X2(nDim)       ! Physical hypercube corner 2     !
     REAL                  :: tol            ! Tolerance of 0.0                !
     TYPE(tInputOutput)    :: IO             ! IO structure                    !
+    TYPE (tMPI)           :: MPI
     LOGICAL, OPTIONAL     :: quiet          ! if quiet then less warnings     !
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
@@ -323,7 +326,7 @@ CONTAINS
     REAL, POINTER   :: A(:,:)               ! 1D quadrature weights           !
     LOGICAL         :: quiet_internal       ! map of OPTIONAL quiet           !
     !-------------------------------------------------------------------------!
-    INTENT(IN)      :: M, X1, X2, IO, quiet
+    INTENT(IN)      :: M, X1, X2, IO, quiet, MPI
     INTENT(OUT)     :: nIntGP
     !-------------------------------------------------------------------------!
     tol = 1.0 / (10.0**(PRECISION(1.0)-2) )                                   !
@@ -415,12 +418,13 @@ CONTAINS
 
   ! Subroutine that subdivides a triangle with vertex coordinates X(:) and Y(:)
   ! regularly. Resulting number of points is 4^M
-  SUBROUTINE TriangleSubPoints(nPoints,Points,M,IO)
+  SUBROUTINE TriangleSubPoints(nPoints,Points,M,IO,MPI)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
     TYPE(tInputOutput)    :: IO             ! IO structure                    !
+    TYPE (tMPI)           :: MPI
     INTEGER               :: nPoints        ! Number of 2D points             !
     REAL, POINTER         :: Points(:,:)    ! Positions of 2D points          !
     INTEGER               :: M              ! Number of recursions            !
@@ -451,15 +455,16 @@ CONTAINS
     recdepth = 0
     counter  = 0
     !
-    CALL Divide(Points, counter, recdepth, M, nPoints, XY)
+    CALL Divide(Points, counter, recdepth, M, nPoints, XY, MPI)
     !
   END SUBROUTINE TriangleSubPoints
 
-  RECURSIVE SUBROUTINE Divide(Points, counter, recdepth, M, nPoints, XY)
+  RECURSIVE SUBROUTINE Divide(Points, counter, recdepth, M, nPoints, XY, MPI)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
+    TYPE (tMPI)           :: MPI
     INTEGER               :: counter,recdepth, M, nPoints
     REAL                  :: XY(3,2) 
     REAL                  :: Points(nPoints,2)
@@ -503,7 +508,7 @@ CONTAINS
     NewXY(4,3,:) = MidSide(3,:)
 
     DO i = 1, 4
-       CALL Divide(Points,counter,recdepth+1,M,nPoints,NewXY(i,:,:))
+       CALL Divide(Points,counter,recdepth+1,M,nPoints,NewXY(i,:,:), MPI)
     ENDDO
         
   END SUBROUTINE Divide

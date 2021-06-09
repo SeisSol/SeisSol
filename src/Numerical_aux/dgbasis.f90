@@ -43,6 +43,7 @@
 module DGBasis_mod
   !---------------------------------------------------------------------------!
   use TypesDef
+  use MPI_f08
   !---------------------------------------------------------------------------!
   implicit none
   private
@@ -663,7 +664,7 @@ contains
         if(count>20) then
             write(*,*) ' | Error in QuadTrafoXY2XiEta. '
             write(*,*) ' |  Inverse of Jacobian not founded.'
-            call MPI_ABORT(MPI%commWorld, 134)
+            call MPI_ABORT(MPI_COMM_WORLD, 134)
         endif
     enddo
     

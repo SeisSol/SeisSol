@@ -68,7 +68,7 @@ MODULE calc_deltaT_mod
 
 CONTAINS
 
-  SUBROUTINE ini_calc_deltaT(EqType,OptionalFields,EQN,MESH,IO)
+  SUBROUTINE ini_calc_deltaT(EqType,OptionalFields,EQN,MESH,IO,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE     
     !--------------------------------------------------------------------------
@@ -76,11 +76,12 @@ CONTAINS
     TYPE (tUnstructMesh)          :: MESH
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
+    TYPE (tMPI)                   :: MPI
     INTEGER                       :: EqType
     ! local Variables
     INTEGER                       :: allocStat
     !--------------------------------------------------------------------------
-    INTENT(IN)                    :: MESH,EqType,IO
+    INTENT(IN)                    :: MESH,EqType,IO, MPI
     INTENT(INOUT)                 :: OptionalFields
     !--------------------------------------------------------------------------
     !                                                                            !
@@ -130,7 +131,7 @@ CONTAINS
 !    END IF                                              !
   END SUBROUTINE close_calc_deltaT                      !
     
-  SUBROUTINE cfl_step(OptionalFields,EQN,MESH,DISC,IO)
+  SUBROUTINE cfl_step(OptionalFields,EQN,MESH,DISC,IO,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -140,13 +141,14 @@ CONTAINS
     TYPE (tUnstructMesh)                  :: MESH
     TYPE (tDiscretization)                :: DISC
     TYPE (tInputOutput)                   :: IO
+    TYPE (tMPI)                           :: MPI
     ! local variable declaration
     REAL,POINTER                          :: MaterialVal(:,:)
     INTEGER                               :: iElem, iNeighbor, iSide
     INTEGER                               :: idxNeighbors(MESH%GlobalElemType)
     REAL                                  :: rho, C(6,6)
     !--------------------------------------------------------------------------
-    INTENT(IN)                            :: EQN, MESH, IO
+    INTENT(IN)                            :: EQN, MESH, IO, MPI
     INTENT(INOUT)                         :: OptionalFields
     INTENT(INOUT)                         :: DISC
     !--------------------------------------------------------------------------

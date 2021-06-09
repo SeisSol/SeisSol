@@ -942,7 +942,7 @@ MODULE Eval_friction_law_mod
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
              !1.update SV using Vold from the previous time step
-             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                  S = -LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
@@ -982,7 +982,7 @@ MODULE Eval_friction_law_mod
          
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
 
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              S = -LocMu*(P - P_f)
@@ -1083,12 +1083,13 @@ MODULE Eval_friction_law_mod
   !
  END SUBROUTINE rate_and_state
 
-   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
     TYPE(tDiscretization)          :: DISC
+    TYPE (tMPI)                    :: MPI
     ! Argument list declaration
     INTEGER                  :: iFace, nBndGP
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters

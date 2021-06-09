@@ -80,13 +80,14 @@ MODULE allocate_mesh_mod
 
 CONTAINS
 
-  SUBROUTINE allocate_mesh_level0_1(IO,MESH)
+  SUBROUTINE allocate_mesh_level0_1(IO,MESH, MPI)
     !--------------------------------------------------------------------------
     TYPE (tUnstructMesh)      :: MESH               
     TYPE (tInputOutput)       :: IO
+    TYPE (tMPI)               :: MPI
     INTEGER                   :: allocStat
     !--------------------------------------------------------------------------
-    INTENT(IN)                :: IO
+    INTENT(IN)                :: IO, MPI
     INTENT(INOUT)             :: MESH
     !--------------------------------------------------------------------------
     !
@@ -171,14 +172,15 @@ CONTAINS
   !END SUBROUTINE destruct_ncmesh_level0_1
 
 
-  SUBROUTINE allocate_mesh_level0_2(IO,EQN,MESH)
+  SUBROUTINE allocate_mesh_level0_2(IO,EQN,MESH,MPI)
     !--------------------------------------------------------------------------
     TYPE (tInputOutput)       :: IO
     TYPE (tEquations)         :: EQN
     TYPE (tUnstructMesh)      :: MESH
+    TYPE (tMPI)               :: MPI
     INTEGER                   :: allocStat
     !--------------------------------------------------------------------------
-    INTENT(IN)                :: IO, EQN
+    INTENT(IN)                :: IO, EQN, MPI
     INTENT(INOUT)             :: MESH
     !--------------------------------------------------------------------------
 

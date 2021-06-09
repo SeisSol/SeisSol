@@ -274,7 +274,7 @@ CONTAINS
     
     ! ------------------------------------------------------------------------!
     !
-    CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
+    CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO, MPI)
     !
     CALL BuildSpecialDGGeometry3D_new(OptionalFields%BackgroundValue,EQN,MESH,DISC,BND,MPI,IO)
 
@@ -288,14 +288,16 @@ CONTAINS
                           optionalFields, &
                           eqn,            &
                           mesh,           &
-                          io                )
+                          io,             &
+                          mpi                )
 
     ! get the time step width for every tet
     call cfl_step( optionalFields, &
                    eqn,            &
                    mesh,           &
                    disc,           &
-                   io                )
+                   io,             &
+                   mpi                )
 
     ! get gts time step width
     l_gts = minval( optionalFields%dt_convectiv(:) )
@@ -599,7 +601,7 @@ CONTAINS
   !!                                                                         !!
   !===========================================================================!
 
-  SUBROUTINE iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
+  SUBROUTINE iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO, MPI)
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
@@ -619,6 +621,7 @@ CONTAINS
     TYPE(tSource)            :: SOURCE
     TYPE(tUnstructOptionalFields)   :: OptionalFields
     TYPE(tInputOutput)       :: IO
+    TYPE(tMPI)               :: MPI
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER :: allocstat                                  ! Allocation status !
@@ -760,7 +763,8 @@ CONTAINS
                  IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
                  M          = DISC%Galerkin%nPoly+2,           &
                  IO         = IO,                              &
-                 quiet      = .TRUE.                           )
+                 quiet      = .TRUE.,                          &
+                 MPI        = MPI                              )
 #endif
 
 #ifndef NDEBUG
@@ -797,7 +801,7 @@ CONTAINS
   !===========================================================================!
 
 
-  SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
+  SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO, MPI)
     !-------------------------------------------------------------------------!
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
@@ -811,6 +815,7 @@ CONTAINS
     TYPE(tInitialCondition)  :: IC
     TYPE(tSource)            :: SOURCE
     TYPE(tInputOutput)       :: IO
+    TYPE(tMPI)               :: MPI
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER :: iElem                                                          ! Element number

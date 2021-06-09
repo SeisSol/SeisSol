@@ -188,7 +188,8 @@ contains
                   IntGaussW  = mesh%ELEM%BndGW_Tri,       &
                   M          = disc%Galerkin%nPoly+2,     &
                   IO         = io,                        &
-                  quiet      = .true.                     )
+                  quiet      = .true.,                    &
+                  MPI        = MPI                     )
 #endif
 
         call computeAdditionalMeshInfo()

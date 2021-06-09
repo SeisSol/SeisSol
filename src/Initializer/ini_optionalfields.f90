@@ -59,7 +59,7 @@ MODULE ini_OptionalFields_mod
 
 CONTAINS
   
-  SUBROUTINE ini_OptionalFields(OptionalFields,SOURCE,EQN,MESH,DISC,IO)
+  SUBROUTINE ini_OptionalFields(OptionalFields,SOURCE,EQN,MESH,DISC,IO,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -69,11 +69,12 @@ CONTAINS
     TYPE (tUnstructMesh)               :: MESH
     TYPE (tDiscretization)             :: DISC
     TYPE (tInputOutput)                :: IO
+    TYPE (tMPI)                        :: MPI
     !local Variables
     INTEGER                            :: allocstat(20)
     INTEGER                            :: RK_size
     ! -------------------------------------------------------------------------
-    INTENT(IN)                         :: SOURCE,EQN,MESH,DISC,IO
+    INTENT(IN)                         :: SOURCE,EQN,MESH,DISC,IO,MPI
     INTENT(INOUT)                      :: OptionalFields
     ! -------------------------------------------------------------------------
     !                                                                          
