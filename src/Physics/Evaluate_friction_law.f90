@@ -180,7 +180,7 @@ MODULE Eval_friction_law_mod
 
         CASE DEFAULT
           logError(*) 'ERROR in friction.f90: friction law case',EQN%FL,' not implemented!'
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
     END SELECT    
 
   END SUBROUTINE Eval_friction_law
@@ -942,7 +942,7 @@ MODULE Eval_friction_law_mod
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
              !1.update SV using Vold from the previous time step
-             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                  S = -LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
@@ -976,13 +976,13 @@ MODULE Eval_friction_law_mod
             !logError(*) 'nonConvergence RS Newton', time
             if (tmp(1).NE.tmp(1)) then
                logError(*) 'NaN detected', time
-               call exit(134)
+               call MPI_ABORT(MPI%commWorld, 134)
             endif
          ENDIF
          
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
 
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              S = -LocMu*(P - P_f)
@@ -1083,12 +1083,13 @@ MODULE Eval_friction_law_mod
   !
  END SUBROUTINE rate_and_state
 
-   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
     TYPE(tDiscretization)          :: DISC
+    TYPE (tMPI)                    :: MPI
     ! Argument list declaration
     INTEGER                  :: iFace, nBndGP
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
@@ -1129,7 +1130,7 @@ MODULE Eval_friction_law_mod
 
     IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
        logError(*) 'NaN detected'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
 
