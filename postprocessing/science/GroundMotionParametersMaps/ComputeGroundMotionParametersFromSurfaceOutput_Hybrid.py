@@ -53,11 +53,12 @@ from multiprocessing import Pool,cpu_count,Manager
 import time
 import lxml.etree as ET
 import seissolxdmf
+from scipy import signal
 
 sys.path.append("%s/gmpe-smtk/" %(os.path.dirname(sys.argv[0])))
 try:
    from smtk.intensity_measures import gmrotipp
-except:
+except ImportError:
    print('module smtk not found: please follow instruction on the readme (README.md)')
    raise
 
@@ -70,6 +71,11 @@ def chunk(xs, n):
     return ([xs[p:p+t] for p in range(0, r*t, t)] +
             [xs[p:p+s] for p in range(r*t, L, s)])
 
+
+def low_pass_filter(waveform, fs, cutoff_freq):
+    order=2
+    b,a = signal.butter(order, cutoff_freq, 'low', fs=fs)
+    return signal.filtfilt(b, a, waveform)
 
 def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
         percentile, damping=0.05, units="cm/s/s", method="Nigam-Jennings"):
@@ -129,11 +135,16 @@ def ComputeGroundMotionParameters(args2):
 
    #Xdirection
    velocity = u[ir,:]
-   acceleration_x  = (velocity[1:]-velocity[:-1])/dt
+   if args.lowpass:
+       velocity = low_pass_filter(velocity, fs=1./dt, cutoff_freq=args.lowpass[0])
+   acceleration_x = np.gradient(velocity, dt)
 
    #Ydirection
    velocity = v[ir,:]
-   acceleration_y  = (velocity[1:]-velocity[:-1])/dt
+   if args.lowpass:
+       velocity = low_pass_filter(velocity, fs=1./dt, cutoff_freq=args.lowpass[0])
+   acceleration_y = np.gradient(velocity, dt)
+
 
    #compute SA(T) and PGA,...
    res = myfunc(acceleration_x, dt, acceleration_y, dt, periods,
@@ -152,9 +163,10 @@ parser.add_argument('--MP', nargs=1, metavar=('nthreads'), default=([1]), help='
 parser.add_argument('--noMPI',  dest='noMPI', action='store_true' , default = False, help='run on one node (skip mpi4py)')
 parser.add_argument('--periods', nargs='+', help='list of periods for computing SA(T)' ,type=float)
 parser.add_argument('--ipp',  dest='ipp', action='store_true' , default = False, help='use gmrotipp rather than the period dependant estimate (~30 time slower)')
+parser.add_argument('--lowpass', nargs=1, metavar=('cutoff_freq'), help='low pass filter the velocity waveforms prior to computing the GME. cutoff_freq in Hz' ,type=float)
 args = parser.parse_args()
 
-if args.noMPI==False:
+if not args.noMPI:
    from mpi4py import MPI
    comm = MPI.COMM_WORLD
    nranks = comm.size
@@ -243,7 +255,7 @@ mypath, fn = os.path.split(args.filename)
 prefix=fn.split('-')[-2]
 
 prefixGME = '%s-GME' %(prefix)
-if args.noMPI==False:
+if not args.noMPI:
    comm.Barrier()
 
 if irank==0:
