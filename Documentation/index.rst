@@ -48,10 +48,15 @@ Characteristics of the SeisSol simulation software are:
   easi
   fault-tagging
   environment-variables
-  supermuc
-  marconi
   gpus
   memory-requirements
+
+.. toctree::
+  :maxdepth: 2
+  :caption: SeisSol on Supercomputers
+
+  supermuc
+  marconi
 
 .. toctree::
   :maxdepth: 2

@@ -21,7 +21,7 @@ Installing Main Libraries and Packages
   $ cat $HOME/launch.sh
   #!/bin/bash
 
-  VERSION="openmpi4-1-x_ucx1-10-x"
+  VERSION="openmpi4-1-1_ucx1-10-1"
   export SEISSOL_INSTALL=$HOME/usr/local/${VERSION}
 
   export PATH=$SEISSOL_INSTALL/bin:$PATH
@@ -55,9 +55,9 @@ Installing Main Libraries and Packages
 
 ::
 
-  $ git clone https://github.com/openucx/ucx.git
-  $ cd ucx
-  $ git checkout v1.10.x
+  $ wget https://github.com/openucx/ucx/archive/refs/tags/v1.10.1.tar.gz
+  $ tar -xvf v1.10.1.tar.gz
+  $ cd ucx-1.10.1
   $ ./autogen.sh
   $ mkdir build && cd build
 
@@ -85,8 +85,9 @@ Installing Main Libraries and Packages
 
 ::
 
-  $ git clone --recursive -b v4.1.x https://github.com/open-mpi/ompi.git
-  $ cd ompi
+  $ wget https://github.com/open-mpi/ompi/archive/refs/tags/v4.1.1.tar.gz
+  $ tar -xvf ./v4.1.1.tar.gz
+  $ cd ompi-4.1.1
   $ ./autogen.pl
   $ mkdir build && cd build
 
