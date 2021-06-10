@@ -228,7 +228,7 @@ with PMIX (see step 5).
   #SBATCH --ntasks-per-node=4
   #SBATCH --cpus-per-task=32
   #SBATCH --gres=gpu:4
-  #STABCH --gpu-bind=closest
+  #SBATCH --gpu-bind=closest
   #SBATCH --mem=161070
   #SBATCH --job-name=<your job name>
   #SBATCH --mail-type=ALL
