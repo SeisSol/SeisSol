@@ -125,7 +125,7 @@ Installing Main Libraries and Packages
   $ ./autogen.sh
   $ mkdir build && cd build
 
-  $ CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc CXX=mpicxx FC=mpif90 \
+  $ CFLAGS="-fPIC ${CFLAGS}" CC=mpicc CXX=mpicxx FC=mpif90 \
   ../configure \
   --prefix=$SEISSOL_INSTALL \
   --build=powerpc64le-redhat-linux-gnu \
