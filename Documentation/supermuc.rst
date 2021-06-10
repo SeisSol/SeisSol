@@ -1,11 +1,11 @@
 .. _compile_run_supermuc:
 
 
-SuperMUC
-========
+SuperMUC-NG
+===========
 
-Accessing github from SuperMUC
-------------------------------
+Accessing github
+----------------
 
 SuperMUC restricts access to outside sources and thus does not allow connections to https servers. 
 Nevertheless, GitHub can be used if remote port forwarding is correctly set.
@@ -54,8 +54,8 @@ Pay attention to the git clone address ('https://github.com/' replaced by 'git@g
 If it works, you will see several lines of ‘cloning ….’.
 
 
-Build on Supermuc-NG
---------------------
+Building SeisSol
+----------------
 
 1. clone SeisSol including the submodules using 
 
@@ -124,8 +124,8 @@ set compiler options, run cmake, and compile with:
    CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
    make -j 48
 
-Run SeisSol on SuperMUC-NG
---------------------------
+Running SeisSol
+---------------
 
 5. Submission file for SeisSol on NG:
 

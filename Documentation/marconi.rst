@@ -200,8 +200,8 @@ Installing Main Libraries and Packages
   ./SeisSol_proxy_Release_snvidia_6_elastic 100000 100 all
 
 
-Launching SeisSol
------------------
+Running SeisSol
+---------------
 
 As discussed :ref:`here <gpu_process_pinning>`, process pinning is important for SeisSol GPU version.
 IBM Power9 is an example of RISC architecture designed with with 4-way hyperthreading and 8 cores per CPU.
