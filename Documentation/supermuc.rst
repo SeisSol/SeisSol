@@ -1,8 +1,8 @@
 .. _compile_run_supermuc:
 
 
-Compiling and running SeisSol on Supercomputers
-===============================================
+SuperMUC-NG
+===========
 
 Accessing github from SuperMUC
 ------------------------------
