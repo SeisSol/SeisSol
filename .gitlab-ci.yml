@@ -11,7 +11,7 @@ gpu_test_pre:
         - git branch -vva
         - echo $commit_author_name
     script:
-        - echo "running on atscc68" $HOST
+        - echo "checking availability of atscc68" $HOST
         - echo $GPU_VENDOR $GPU_MODEL
         - git --version
         
@@ -23,7 +23,7 @@ ci_builder_pre:
         - git branch -vva
         - echo $commit_author_name
     script:
-        - echo "running on ci_testing_cc"
+        - echo "checking availability of ci_testing_cc"
         - git --version
 
 gpu_test_build:
