@@ -16,7 +16,6 @@ gpu_test_pre:
         - echo $PATH
         - echo $HOST
         - echo $GPU_VENDOR $GPU_MODEL
-        - cat .git/config
         - git --version
         
 ci_builder_pre:
@@ -30,9 +29,6 @@ ci_builder_pre:
         - whoami
         - pwd
         - echo $PATH
-        - echo $NAME_TEST
-        - cat .git/config
-        - git --version
 
 gpu_test_build:
     stage: build
@@ -48,6 +44,9 @@ gpu_test_build:
     script:
         - whoami
         - pwd
+        - git submodule set-url submodules/xdmfwriter https://github.com/
+        - git submodule set-url submodules/cxxtest https://github.com/
+        - git submodule set-url submodules/yateto https://github.com/
         - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - git clone https://github.com/7bits-register/convergence-tests.git tests
         - ls
