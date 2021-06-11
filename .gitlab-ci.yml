@@ -11,10 +11,7 @@ gpu_test_pre:
         - git branch -vva
         - echo $commit_author_name
     script:
-        - whoami
-        - pwd
-        - echo $PATH
-        - echo $HOST
+        - echo "running on atscc68" $HOST
         - echo $GPU_VENDOR $GPU_MODEL
         - git --version
         
@@ -26,21 +23,20 @@ ci_builder_pre:
         - git branch -vva
         - echo $commit_author_name
     script:
-        - whoami
-        - pwd
         - echo $PATH
+        - git --version
 
 gpu_test_build:
     stage: build
     tags:
         - atsccs68-shell
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
     before_script:
         - git branch -vva
         - git log --format="%H" -n 1
         - git log --format="%H" -n 1 > commit_id
         - git --no-pager show -s --format='%ae' $commit_id
-        - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
-        - echo $commit_author_name
     script:
         - whoami
         - pwd
