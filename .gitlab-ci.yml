@@ -2,7 +2,23 @@ stages:
     - pre_test
     - build 
     - test
-
+    
+gpu_test_pre:
+    stage: pre_test
+    tags:
+        - atsccs68-shell
+    before_script:
+        - git branch -vva
+        - echo $commit_author_name
+    script:
+        - whoami
+        - pwd
+        - echo $PATH
+        - echo $HOST
+        - echo $GPU_VENDOR $GPU_MODEL
+        - cat .git/config
+        - git --version
+        
 ci_builder_pre:
     stage: pre_test
     tags:
