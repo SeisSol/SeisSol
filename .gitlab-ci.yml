@@ -30,16 +30,8 @@ gpu_test_build:
     stage: build
     tags:
         - atsccs68-shell
-    variables:
-        GIT_SUBMODULE_STRATEGY: recursive
     before_script:
         - git branch -vva
-        - git log --format="%H" -n 1
-        - git log --format="%H" -n 1 > commit_id
-        - git --no-pager show -s --format='%ae' $commit_id
-    script:
-        - whoami
-        - pwd
         - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
         - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
         - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
@@ -53,6 +45,10 @@ gpu_test_build:
         - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule --quiet update --init --recursive 
+        - git log --format="%H" -n 1
+        - git log --format="%H" -n 1 > commit_id
+        - git --no-pager show -s --format='%ae' $commit_id
+    script:
         - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - git clone https://github.com/7bits-register/convergence-tests.git tests
         - ls
