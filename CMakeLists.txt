@@ -157,20 +157,25 @@ else()
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 endif()
 
-
-ExternalProject_Add(ImpalaJIT-build
-  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
-  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
-  CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-  -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
-)
-add_dependencies(SeisSol-lib ImpalaJIT-build)
-target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
-target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
+if (IMPALAJIT_FROM_SUBMODULES)
+  ExternalProject_Add(ImpalaJIT-build
+    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
+    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
+  )
+  add_dependencies(SeisSol-lib ImpalaJIT-build)
+  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
+else()
+  find_package(ImpalaJIT 1.0 REQUIRED)
+  message(STATUS "Found ImpalaJIT: ${ImpalaJIT_DIR} (found version ${ImpalaJIT_VERSION})")
+  target_link_libraries(SeisSol-lib PRIVATE impalajit)
+endif()
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
