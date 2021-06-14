@@ -142,7 +142,7 @@ contains
                                     logical(EQN%Plasticity == 1, 1))
         else
             logError(*) 'Unknown mesh reader'
-            call exit(134)
+            call MPI_ABORT(m_mpi%commWorld, 134)
         endif
 
         ! Set additional SeisSol variables
@@ -188,7 +188,8 @@ contains
                   IntGaussW  = mesh%ELEM%BndGW_Tri,       &
                   M          = disc%Galerkin%nPoly+2,     &
                   IO         = io,                        &
-                  quiet      = .true.                     )
+                  quiet      = .true.,                    &
+                  MPI        = MPI                     )
 #endif
 
         call computeAdditionalMeshInfo()

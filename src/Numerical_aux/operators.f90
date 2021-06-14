@@ -43,6 +43,7 @@
 MODULE COMMON_operators_mod
   !----------------------------------------------------------------------------
   USE typesDef
+  USE mpi_f08
   !----------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -607,7 +608,7 @@ CONTAINS
     IF(.NOT.fexist) THEN                                                     !
        logError(*) 'Error opening unit    : ',UnitNr              !
        logError(*) 'Unit is already open under the name:',TRIM(AllreadyOpenFileName)
-       call exit(134)                                                                  !
+       call MPI_ABORT(MPI_COMM_WORLD, 134)                                                                  !
     ENDIF                                                                    !
     !                                                                        !        
     IF (create) THEN                                                         !
@@ -623,7 +624,7 @@ CONTAINS
        IF(.NOT.fexist) THEN                                                  !
           logError(*) 'Error opening file    : ', Name            !
           logError(*) 'File does not exist.'                       !
-          call exit(134)                                                               !
+          call MPI_ABORT(MPI_COMM_WORLD, 134)                                                               !
        ENDIF                                                                 !
        !                                                                     !
     END IF                                                                   !
@@ -638,7 +639,7 @@ CONTAINS
        logError(*) 'could not open ',Name                   !
        logError(*) 'File does exist but cannot be opened.'         !
        logError(*) 'IOSTAT:',status                                !
-       call exit(134)                                                                  !
+       call MPI_ABORT(MPI_COMM_WORLD, 134)                                                                  !
     END IF                                                                   !
     !                                                                        !        
   END SUBROUTINE OpenFile
@@ -952,7 +953,7 @@ CONTAINS
     IF(d.LT.0.) THEN
         PRINT *, ' d negative in ZerosPolyO2. No real roots found! '
         PRINT *, d
-        call exit(134)
+        call MPI_ABORT(MPI_COMM_WORLD, 134)
     ENDIF
     !
     solution(1) = (-b-SQRT(d))/(2.*a)
@@ -1060,7 +1061,7 @@ CONTAINS
     IF(ABS(AIMAG(s)).GT.1e-6*ABS(y)) THEN
         PRINT *, ' Real root of aux. poly not real in ZerosPolyO4! '
         PRINT *, s
-        call exit(134)
+        call MPI_ABORT(MPI_COMM_WORLD, 134)
     ENDIF
     ! Aux. variables A+/-
     Ap = SQRT(8.*y+b*b-4*c) 
@@ -1077,7 +1078,7 @@ CONTAINS
     IF(d2.LT.0.) THEN
         PRINT *, ' d2 (using A+) negative in ZerosPolyO4. No real roots found! '
         PRINT *, d2
-        call exit(134)
+        call MPI_ABORT(MPI_COMM_WORLD, 134)
     ENDIF
     !
     solution(1) = (-b2-SQRT(d2))/(2.*a2)
@@ -1092,7 +1093,7 @@ CONTAINS
     IF(d2.LT.0.) THEN
         PRINT *, ' d2 (using A-) negative in ZerosPolyO4. No real roots found! '
         PRINT *, d2
-        call exit(134)
+        call MPI_ABORT(MPI_COMM_WORLD, 134)
     ENDIF
     !
     solution(3) = (-b2-SQRT(d2))/(2.*a2)
