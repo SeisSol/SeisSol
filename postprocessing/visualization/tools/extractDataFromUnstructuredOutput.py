@@ -36,8 +36,6 @@ parser.add_argument(
     help="output only cells with z center coordinate in range zmin zmax",
     type=float,
 )
-parser.add_argument("--no_ocean", dest="no_ocean", default=False, action="store_true", help="remove sea-surface cells")
-
 args = parser.parse_args()
 
 sx = seissolxdmf.seissolxdmf(args.xdmfFilename)
@@ -62,9 +60,6 @@ if args.yfilter:
     ids = np.intersect1d(ids, id0) if len(ids) else id0
 if args.zfilter:
     id0 = filter_cells(xyzc[:, 2], args.zfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-if args.no_ocean:
-    id0 = np.where(np.abs(xyzc[:, 2]) > 1e-3)[0]
     ids = np.intersect1d(ids, id0) if len(ids) else id0
 
 if len(ids):
