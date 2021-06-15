@@ -6,6 +6,7 @@ option(MPI "Use MPI parallelization" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
+option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)

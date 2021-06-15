@@ -157,10 +157,9 @@ else()
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 endif()
 
-find_package(ImpalaJIT 1.0 QUIET)
-if (ImpalaJIT_FOUND)
-  message(STATUS "Found ImpalaJIT: ${ImpalaJIT_DIR} (found version ${ImpalaJIT_VERSION})")
-  target_link_libraries(SeisSol-lib PRIVATE impalajit)
+if (USE_IMPALA_JIT_LLVM)
+  find_package(ImpalaJIT-LLVM 1.0 REQUIRED)
+  target_link_libraries(SeisSol-lib PRIVATE llvm::impalajit)
 else()
   ExternalProject_Add(ImpalaJIT-build
     SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
