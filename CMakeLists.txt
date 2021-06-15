@@ -157,7 +157,11 @@ else()
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 endif()
 
-if (IMPALAJIT_FROM_SUBMODULES)
+find_package(ImpalaJIT 1.0 QUIET)
+if (ImpalaJIT_FOUND)
+  message(STATUS "Found ImpalaJIT: ${ImpalaJIT_DIR} (found version ${ImpalaJIT_VERSION})")
+  target_link_libraries(SeisSol-lib PRIVATE impalajit)
+else()
   ExternalProject_Add(ImpalaJIT-build
     SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
     INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
@@ -171,10 +175,6 @@ if (IMPALAJIT_FROM_SUBMODULES)
   add_dependencies(SeisSol-lib ImpalaJIT-build)
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
-else()
-  find_package(ImpalaJIT 1.0 REQUIRED)
-  message(STATUS "Found ImpalaJIT: ${ImpalaJIT_DIR} (found version ${ImpalaJIT_VERSION})")
-  target_link_libraries(SeisSol-lib PRIVATE impalajit)
 endif()
 
 # todo: if parallelization == omp/hybrid
