@@ -374,13 +374,14 @@ CONTAINS
  
   !---------------------------------------------------------------------------!
   
-  SUBROUTINE read_scec_stress(DISC,IO)
+  SUBROUTINE read_scec_stress(DISC,IO,MPI)
     !< subroutine reads in SCEC specific background stress
     !-------------------------------------------------------------------------!
     IMPLICIT NONE    
     !-------------------------------------------------------------------------!
     TYPE(tDiscretization)   :: DISC                                           !< Discretization struct.!
     TYPE(tInputOutput)      :: IO                                             !< IO structure          !
+    TYPE(tMPI)              :: MPI                                            !
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: i
@@ -398,7 +399,8 @@ CONTAINS
     CALL OpenFile(                                       &                        
          UnitNr       = IO%UNIT%other01                , &                        
          Name         = IO%FileName_BackgroundStress   , &
-         create       = .FALSE.                          )    
+         create       = .FALSE.                        , &
+         MPI          = MPI                              )    
         
     ! Read header
     READ(IO%UNIT%other01,*) intDummy, intDummy
