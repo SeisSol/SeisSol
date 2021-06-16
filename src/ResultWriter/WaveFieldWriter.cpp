@@ -252,9 +252,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< meshRefiner->getNumVertices();
 
 	// Initialize the variable subsampler
-	m_variableSubsampler = new refinement::VariableSubsampler<double>(
+	m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
 			numElems, *tetRefiner, order, numVars, numAlignedDOF);
-	m_variableSubsamplerPStrain = new refinement::VariableSubsampler<double>(
+	m_variableSubsamplerPStrain = std::make_unique<refinement::VariableSubsampler<double>>(
 			numElems, *tetRefiner, order, WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES , numAlignedDOF);
 
 	logInfo(rank) << "VariableSubsampler initialized";
