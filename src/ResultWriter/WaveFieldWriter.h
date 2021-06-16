@@ -91,6 +91,9 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** The variable subsampler for the refined mesh */
 	refinement::VariableSubsampler<double>* m_variableSubsampler;
 
+	/** The variable subsampler for the refined mesh (plastic strain) */
+	refinement::VariableSubsampler<double>* m_variableSubsamplerPStrain;
+
 	/** Number of variables */
 	unsigned int m_numVariables;
 
@@ -194,7 +197,7 @@ public:
 			const MeshReader &meshReader,  const std::vector<unsigned> &LtsClusteringData,
 			const real* dofs,  const real* pstrain, const real* integrals,
 			unsigned int* map,
-			int refinement, int* outputMask, double* outputRegionBounds,
+			int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
       xdmfwriter::BackendType backend);
 
 	/**

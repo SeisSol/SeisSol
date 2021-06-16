@@ -51,6 +51,10 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
   sShape = (aderdg.numberOf3DBasisFunctions(), 6)
   QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
+
+  sShape_eta = (aderdg.numberOf3DBasisFunctions(), 1)
+  QEtaModal = OptionalDimTensor('QEtaModal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape_eta, alignStride=True)
+
   initialLoading = Tensor('initialLoading', (6,))
 
   replicateIniLShape = (numberOfNodes,)
@@ -68,12 +72,17 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   meanStress = OptionalDimTensor('meanStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
   secondInvariant = OptionalDimTensor('secondInvariant', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
 
+  iShape_eta = (numberOfNodes, 1)
+  QEtaNodal = OptionalDimTensor('QEtaNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), iShape_eta, alignStride=True)
+
   selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
   selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
   weightSecondInvariant = Tensor('weightSecondInvariant', (6,), spp={(i,): str(1.0/2.0) if i < 3 else '1.0' for i in range(6)})
   yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
 
   generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
+  generator.add('plConvertToNodalNoLoading', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'])
+  generator.add('plConvertEtaNodal2Modal', QEtaModal['kp'] <= db.vInv[aderdg.t('kl')] * QEtaNodal['lp'])
   generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
   generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
