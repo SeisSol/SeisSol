@@ -1,9 +1,10 @@
 #ifndef ANALYSISWRITER_H
 #define ANALYSISWRITER_H
 
-// TODO(Lukas) Clean up includes.
 #include <array>
 #include <cmath>
+#include <fstream>
+#include <iostream>
 
 #include "Solver/Interoperability.h"
 #include "Physics/InitialField.h"
@@ -15,13 +16,27 @@
 
 #include <Geometry/MeshReader.h>
 
-//#include <Initializer/LTS.h>
-//#include <Initializer/tree/LTSTree.hpp>
-
 extern seissol::Interoperability e_interoperability;
 
-namespace seissol {
-namespace writer {
+namespace seissol::writer {
+class CsvAnalysisWriter {
+public:
+  CsvAnalysisWriter();
+
+  void writeHeader();
+
+  void addObservation(std::string_view variable,
+                      std::string_view normType,
+                      real error);
+
+  void activate();
+
+  ~CsvAnalysisWriter();
+private:
+  std::ofstream out;
+  bool isActive;
+};
+
   class AnalysisWriter {
 private:
     struct data {
@@ -43,6 +58,7 @@ public:
     
     void printAnalysis(double simulationTime);
   }; // class AnalysisWriter
-} // namespace Writer
-} // namespace Solver
+
+
+} // namespace seissol::writer
 #endif // ANALYSISWRITER_H
