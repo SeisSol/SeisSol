@@ -21,7 +21,7 @@ extern seissol::Interoperability e_interoperability;
 namespace seissol::writer {
 class CsvAnalysisWriter {
 public:
-  CsvAnalysisWriter();
+  CsvAnalysisWriter(std::string fileName);
 
   void writeHeader();
 
@@ -29,12 +29,13 @@ public:
                       std::string_view normType,
                       real error);
 
-  void activate();
+  void enable();
 
   ~CsvAnalysisWriter();
 private:
   std::ofstream out;
-  bool isActive;
+  bool isEnabled;
+  std::string fileName;
 };
 
   class AnalysisWriter {
@@ -46,13 +47,17 @@ private:
 
     bool isEnabled; // TODO(Lukas) Do we need this?
     const MeshReader* meshReader;
+
+    std::string fileName;
 public:
   AnalysisWriter() :
     isEnabled(false) { }
 
-    void init(const MeshReader* meshReader) {
+    void init(const MeshReader* meshReader,
+              std::string_view fileNamePrefix) {
       isEnabled = true;
       this->meshReader = meshReader;
+      fileName = std::string(fileNamePrefix) + "_analysis.csv";
     }  
 
     
