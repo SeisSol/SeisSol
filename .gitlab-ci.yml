@@ -44,7 +44,7 @@ gpu_test_build:
     stage: build
     tags:
         - atsccs68-shell
-        variables:
+    variables:
         GIT_SUBMODULE_STRATEGY: recursive
     before_script:
         - git submodule set-url submodules/xdmfwriter https://github.com/
