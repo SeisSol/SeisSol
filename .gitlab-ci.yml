@@ -33,9 +33,6 @@ ci_builder_build:
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
     before_script:
-        - git submodule set-url submodules/xdmfwriter https://github.com/
-        - git submodule set-url submodules/Device https://github.com/
-        - git config submodule.Device.url https://github.com/
         - cat .git/config
     script:
         - echo "now building"
@@ -47,9 +44,6 @@ gpu_test_build:
     variables:
         GIT_SUBMODULE_STRATEGY: recursive
     before_script:
-        - git submodule set-url submodules/xdmfwriter https://github.com/
-        - git submodule set-url submodules/Device https://github.com/
-        - git config submodule.Device.url https://github.com/
         - cat .git/config
     script:
         - echo "now building"
