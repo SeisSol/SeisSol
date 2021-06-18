@@ -30,8 +30,6 @@ ci_builder_build:
     stage: build
     tags:
         - ci_testing_cc
-    variables:
-        GIT_SUBMODULE_STRATEGY: recursive
     before_script:
         - cat .git/config
     script:
@@ -41,8 +39,6 @@ gpu_test_build:
     stage: build
     tags:
         - atsccs68-shell
-    variables:
-        GIT_SUBMODULE_STRATEGY: recursive
     before_script:
         - cat .git/config
     script:
