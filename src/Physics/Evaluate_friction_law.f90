@@ -1120,7 +1120,7 @@ MODULE Eval_friction_law_mod
         ! low-velocity steady state friction coefficient
         flv = RS_f0 - (RS_b-RS_a)* LOG(SR_tmp/RS_sr0)
         ! steady state friction coefficient
-        fss = RS_fw + (flv - RS_fw)/(1.0D0+(SR_tmp/RS_srW)**8d0)**(1.0D0/8.0D0)
+        fss = RS_fw + (flv - RS_fw)/(1.0D0+(SR_tmp/RS_srW)**8)**(1.0D0/8.0D0)
         ! steady-state state variable
         ! For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
         SVss = RS_a * LOG(2.0D0*RS_sr0/SR_tmp * (EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
