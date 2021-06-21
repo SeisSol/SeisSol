@@ -87,8 +87,8 @@ private:
                                   seissol::initializers::Lut* ltsLut );
   
 public:  
-  double* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
-  double* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
+  real* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
+  real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;
 

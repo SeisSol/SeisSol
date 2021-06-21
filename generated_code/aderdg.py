@@ -66,7 +66,8 @@ class ADERDGBase(ABC):
       'vInv': [ 'projectQP' ]
     }
     self.db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(matricesDir, order), clonesQP, transpose=self.transpose, alignStride=self.alignStride))
-    self.db.update( parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir), transpose=self.transpose, alignStride=self.alignStride))
+    self.db.update(parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir)))
+    self.db.update(parseJSONMatrixFile('{}/mass_{}.json'.format(matricesDir, order)))
 
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
@@ -188,6 +189,7 @@ class ADERDGBase(ABC):
 
   def add_include_tensors(self, include_tensors):
     include_tensors.add(self.db.samplingDirections)
+    include_tensors.add(self.db.M2inv)
 
 
 class LinearADERDG(ADERDGBase):

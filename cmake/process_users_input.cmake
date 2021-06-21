@@ -6,6 +6,7 @@ option(MPI "Use MPI parallelization" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
+option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
@@ -27,9 +28,9 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of the target host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx thunderx2t99 power9)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx rome thunderx2t99 power9)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64           16     16)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64   32       16     16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -40,7 +41,7 @@ set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
 set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86)
 set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
@@ -54,7 +55,6 @@ set(RUPTURE_OPTIONS quadrature cellaverage)
 set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS ${RUPTURE_OPTIONS})
 
 
-option(PLASTICITY "Use plasticity")
 set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
@@ -65,9 +65,11 @@ set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 
-
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
+option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
+
+option(PROXY_PYBINDING "enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
@@ -78,8 +80,8 @@ set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
 
 
-set(GEMM_TOOLS_LIST "Eigen" CACHE STRING "choose a gemm tool(s) for the code generator")
-set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
+set(GEMM_TOOLS_LIST "auto" CACHE STRING "choose a gemm tool(s) for the code generator")
+set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
@@ -108,6 +110,27 @@ check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}"
 check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
+# deduce GEMM_TOOLS_LIST based on the host arch
+if (GEMM_TOOLS_LIST STREQUAL "auto")
+    set(X86_ARCHS wsm snb hsw knc knl skx)
+    set(WITH_AVX512_SUPPORT knl skx)
+
+    if (${HOST_ARCH} IN_LIST X86_ARCHS)
+        if (${HOST_ARCH} IN_LIST WITH_AVX512_SUPPORT)
+            set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM")
+        else()
+            set(GEMM_TOOLS_LIST "LIBXSMM")
+        endif()
+    else()
+        set(GEMM_TOOLS_LIST "Eigen")
+    endif()
+endif()
+
+if (NOT ${DEVICE_ARCH} STREQUAL "none")
+    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
+    set(WITH_GPU on)
+endif()
+message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
@@ -196,3 +219,11 @@ endfunction()
 
 cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
+
+if (PROXY_PYBINDING)
+    set(EXTRA_CXX_FLAGS -fPIC)
+
+    # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
+    # generate position independent code
+    set(ENABLE_PIC_COMPILATION ON)
+endif()

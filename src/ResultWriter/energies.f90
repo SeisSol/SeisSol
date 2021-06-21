@@ -88,9 +88,9 @@ CONTAINS
     INTEGER                         :: TID,omp_get_thread_num
     CHARACTER (LEN=2)               :: c_TID
 #endif
-    real*8                          :: i_fullUpdateTime
-    real*8                          :: i_timeStepWidth
-    real*8                          :: i_receiverTime
+    REAL(KIND=8)                    :: i_fullUpdateTime
+    REAL(KIND=8)                    :: i_timeStepWidth
+    REAL(KIND=8)                    :: i_receiverTime
 
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: DISC, EQN, MESH, MPI, time_op, dt_op
@@ -139,7 +139,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                                   !
            logError(*) 'cannot open ',ENERGY_FILE                            !
            logError(*) 'Error status: ', stat                                !
-           STOP                                                              !
+           call MPI_ABORT(MPI%commWorld, 134)                                                              !
         ENDIF
     ELSE
         ! open file
@@ -152,7 +152,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                                   !
            logError(*) 'cannot open ',ENERGY_FILE                            !
            logError(*) 'Error status: ', stat                                !
-           STOP                                                              !
+           call MPI_ABORT(MPI%commWorld, 134)                                                              !
         ENDIF
         IF (EQN%Plasticity .EQ. 0) THEN
             WRITE(UNIT_ENERGY,*) '#time KineticEnergy '

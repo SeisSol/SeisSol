@@ -88,18 +88,7 @@ public:
 	/**
 	 * Called by ASYNC on all ranks
 	 */
-	void setUp()
-	{
-		setExecutor(m_executor);
-		if (isAffinityNecessary()) {
-		  const auto freeCpus = parallel::getFreeCPUsMask();
-		  logInfo(seissol::MPI::mpi.rank()) << "Fault writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
-		  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
-		    logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
-		  }
-		  setAffinityIfNecessary(freeCpus);
-		}
-	}
+	void setUp();
 
 	void setTimestep(unsigned int timestep)
 	{
@@ -108,7 +97,7 @@ public:
 
 	void init(const unsigned int* cells, const double* vertices,
 		unsigned int nCells, unsigned int nVertices,
-		int* outputMask, const double** dataBuffer,
+		int* outputMask, const real** dataBuffer,
 		const char* outputPrefix,
 		double interval,
     xdmfwriter::BackendType backend);

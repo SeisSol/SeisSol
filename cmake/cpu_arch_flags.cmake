@@ -13,7 +13,7 @@ function(get_arch_flags architecture compiler)
     elseif ("${HOST_ARCH}" STREQUAL "hsw")
         if (compiler STREQUAL "Intel")
             set(CPU_ARCH_FLAGS "-xCORE-AVX2" "-fma" PARENT_SCOPE)
-        elseif(compiler STREQUAL "GNU")
+        elseif(compiler MATCHES "GNU|Clang")
             set(CPU_ARCH_FLAGS "-mavx2" "-mfma" PARENT_SCOPE)
         endif()
 
@@ -25,7 +25,7 @@ function(get_arch_flags architecture compiler)
     elseif ("${HOST_ARCH}" STREQUAL "knl")
         if (compiler STREQUAL "Intel")
             set(CPU_ARCH_FLAGS "-xMIC-AVX512" "-fma" PARENT_SCOPE)
-        elseif(compiler STREQUAL "GNU")
+        elseif(compiler MATCHES "GNU|Clang")
             set(CPU_ARCH_FLAGS "-mavx512f" "-mavx512cd" "-mavx512pf" "-mavx512er" "-mfma" PARENT_SCOPE)
         endif()
     
@@ -33,7 +33,7 @@ function(get_arch_flags architecture compiler)
     elseif ("${HOST_ARCH}" STREQUAL "skx")
         if (compiler STREQUAL "Intel")
             set(CPU_ARCH_FLAGS "-xCORE-AVX512" "-fma" PARENT_SCOPE)
-        elseif(compiler STREQUAL "GNU")
+        elseif(compiler MATCHES "GNU|Clang")
             set(CPU_ARCH_FLAGS "-march=skylake-avx512" PARENT_SCOPE)
         endif()
 
@@ -41,11 +41,18 @@ function(get_arch_flags architecture compiler)
         set(HAS_REDZONE OFF PARENT_SCOPE)
         if (compiler STREQUAL "Intel")
 
-        elseif(compiler STREQUAL "GNU")
+        elseif(compiler MATCHES "GNU|Clang")
 	    # Note: mcpu/march/mtune are weird on arm, see:
 	    # https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
             set(CPU_ARCH_FLAGS "-mcpu=thunderx2t99" PARENT_SCOPE)
         endif()
+    # AMD Rome/ Epyc 2nd Gen
+    elseif ("${HOST_ARCH}" STREQUAL "rome")
+        if (compiler STREQUAL "Intel")
+            set(CPU_ARCH_FLAGS "-march=core-avx2" "-fma" PARENT_SCOPE)
+        elseif(compiler MATCHES "GNU|Clang")
+            set(CPU_ARCH_FLAGS "-march=znver2" "-mtune=znver2" PARENT_SCOPE)
+    endif()
 
     # IBM power 9
     elseif ("${HOST_ARCH}" STREQUAL "power9")

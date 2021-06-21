@@ -57,7 +57,7 @@ seissol::Simulator::Simulator():
   m_finalTime(          0 ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
-  m_loadCheckPoint( false ) {};
+  m_loadCheckPoint( false ) {}
 
 void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   assert( m_checkPointInterval > 0 );

@@ -26,7 +26,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
   auto* ltsLut = e_interoperability.getLtsLut();
-  auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();

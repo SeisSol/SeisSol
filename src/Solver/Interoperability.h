@@ -149,8 +149,8 @@ class seissol::Interoperability {
     * @param i_clustering clustering strategy
     * @param enableFreeSurfaceIntegration
     **/
-   void initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration );
-   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration);
+   void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -234,10 +234,8 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_initialLoading initial loading (stress tensor).
     **/
-#ifdef USE_PLASTICITY
    void setInitialLoading( int    i_meshId,
                            double *i_initialLoading );
-#endif
 
    /**
     * Sets the parameters for a cell (plasticity).
@@ -245,17 +243,15 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_plasticParameters cell dependent plastic Parameters (volume, cohesion...).
     **/
-#ifdef USE_PLASTICITY
    void setPlasticParameters( int    i_meshId,
                               double *i_plasticParameters );
 
    void setTv(double tv);
-#endif
 
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
     **/
-   void initializeCellLocalMatrices();
+   void initializeCellLocalMatrices(bool usePlasticity);
 
    template<typename T>
    void synchronize(seissol::initializers::Variable<T> const& handle);
@@ -263,7 +259,7 @@ class seissol::Interoperability {
    /**
     * Synchronizes the cell local material data.
     **/
-   void synchronizeCellLocalData();
+   void synchronizeCellLocalData(bool usePlasticity);
 
    /**
     * Synchronizes the DOFs in the copy layer.
@@ -391,40 +387,6 @@ class seissol::Interoperability {
    void calcElementwiseFaultoutput( double time );
 
    /**
-    * Computes plasticity.
-    *
-    * @param i_timeStep time step of the previous update.
-    * @param i_plasticParameters cell dependent plasticity parameters
-    * @param i_initialLoading initial loading of the associated cell.
-    * @param io_dofs degrees of freedom (including alignment).
-    * @param io_pstrain plastic strain tensor
-    **/
-#ifdef USE_PLASTICITY
-   void computePlasticity( double   i_timeStep,
-		                   double  *i_plasticParameters,
-                           double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                           double  *io_dofs,
-						   double  *io_Energy,
-						   double  *io_pstrain );
-#endif
-
-   /**
-    * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
-    * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
-    *
-    * @param x x coordinate
-    * @param y y coordinate
-    * @param z z coordinate
-    * @param element Number of element in that x, y, z resides
-    * @param mInvJInvPhisAtSources contains the output
-    */
-   void computeMInvJInvPhisAtSources( double x,
-                                      double y,
-                                      double z,
-                                      unsigned element,
-                                      real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()] );
-
-   /**
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
@@ -435,6 +397,16 @@ class seissol::Interoperability {
     * Finalizes I/O
     */
    void finalizeIO();
+
+   /**
+    * reports memory consumed by each device i.e., GPUs
+    */
+   void reportDeviceMemoryStatus();
+
+   /**
+    * Deallocates memory manager
+    */
+   void deallocateMemoryManager();
 };
 
 #endif

@@ -61,17 +61,20 @@
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
+void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % alignment == 0 );
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % alignment == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % alignment == 0 );
   }
 #endif
+}
 
+void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
+  checkGlobalData(global, ALIGNMENT);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
@@ -80,6 +83,21 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+}
+
+void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+  setHostGlobalData(global.onHost);
+
+#ifdef ACL_DEVICE
+  assert(global.onDevice != nullptr);
+  const auto deviceAlignment = device.api->getGlobMemAlignment();
+  checkGlobalData(global.onDevice, deviceAlignment);
+
+  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
+#endif
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -228,6 +246,63 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       break;
     }
   }
+}
+
+void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &table, LocalTmp& tmp) {
+#ifdef ACL_DEVICE
+  // Volume integral
+  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype;
+
+  constexpr size_t MAX_TMP_MEM = (volKrnl.TmpMaxMemRequiredInBytes > localFluxKrnl.TmpMaxMemRequiredInBytes) \
+                                   ? volKrnl.TmpMaxMemRequiredInBytes : localFluxKrnl.TmpMaxMemRequiredInBytes;
+
+  real* tmpMem = nullptr;
+  if (table.find(key) != table.end()) {
+    BatchTable &entry = table[key];
+
+    unsigned maxNumElements = (entry.content[*EntityId::Dofs])->getSize();
+    volKrnl.numElements = maxNumElements;
+
+    // volume kernel always contains more elements than any local one
+    tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * maxNumElements));
+
+    volKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
+    volKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
+
+    unsigned starOffset = 0;
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      volKrnl.star(i) = const_cast<const real **>((entry.content[*EntityId::Star])->getPointers());
+      volKrnl.extraOffset_star(i) = starOffset;
+      starOffset += tensor::star::size(i);
+    }
+    volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.streamPtr = device.api->getDefaultStream();
+    volKrnl.execute();
+  }
+
+  // Local Flux Integral
+  for (unsigned face = 0; face < 4; ++face) {
+    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
+    if (table.find(key) != table.end()) {
+      BatchTable &entry = table[key];
+      localFluxKrnl.numElements = entry.content[*EntityId::Dofs]->getSize();
+      localFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
+      localFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
+      localFluxKrnl.AplusT = const_cast<const real **>(entry.content[*EntityId::AplusT]->getPointers());
+      localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.streamPtr = device.api->getDefaultStream();
+      localFluxKrnl.execute(face);
+    }
+  }
+  if (tmpMem != nullptr) {
+    device.api->popStackMemory();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
 }
 
 void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],

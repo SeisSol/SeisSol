@@ -50,13 +50,13 @@ namespace seissol {
 
     struct ViscoElasticMaterial : public ElasticMaterial {
       //! Relaxation frequencies
-      double omega[NUMBER_OF_RELAXATION_MECHANISMS];
+      double omega[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(NUMBER_OF_RELAXATION_MECHANISMS)];
       /** Entries of the source matrix (E)
        * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
        * theta[1] = -lambda * Y_lambda
        * theta[2] = -2.0 * mu * Y_mu
        **/
-      double theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
+      double theta[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(NUMBER_OF_RELAXATION_MECHANISMS)][3];
       double Qp;
       double Qs;
 
@@ -69,7 +69,7 @@ namespace seissol {
         this->mu = materialValues[1];
         this->lambda = materialValues[2];
 
-        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+        for (int mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
           this->omega[mech] = materialValues[3 + 4*mech];
           for (unsigned i = 1; i < 4; ++i) {
             this->theta[mech][i-1] = materialValues[3 + 4*mech + i];

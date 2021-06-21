@@ -52,6 +52,7 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Equations/Setup.h>
+#include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
 
@@ -72,12 +73,12 @@ extern "C" {
                                          i_timeStepWidth );
   }
 
-  void c_interoperability_initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
-    e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
+  void c_interoperability_initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration, bool usePlasticity ) {
+    e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration, usePlasticity );
   }
 
-  void c_interoperability_initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
-    e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration);
+  void c_interoperability_initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
+    e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity);
   }
 
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
@@ -179,7 +180,6 @@ extern "C" {
     e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
   }
       
-#ifdef USE_PLASTICITY
  void c_interoperability_setInitialLoading( int    i_meshId,
                                             double *i_initialLoading ) {
     e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
@@ -193,14 +193,13 @@ extern "C" {
   void c_interoperability_setTv(double tv) {
     e_interoperability.setTv(tv);
   }
-#endif
 
-  void c_interoperability_initializeCellLocalMatrices() {
-    e_interoperability.initializeCellLocalMatrices();
+  void c_interoperability_initializeCellLocalMatrices(bool usePlasticity) {
+    e_interoperability.initializeCellLocalMatrices(usePlasticity);
   }
 
-  void c_interoperability_synchronizeCellLocalData() {
-    e_interoperability.synchronizeCellLocalData();
+  void c_interoperability_synchronizeCellLocalData(bool usePlasticity) {
+    e_interoperability.synchronizeCellLocalData(usePlasticity);
   }
 
   void c_interoperability_synchronizeCopyLayerDofs() {
@@ -264,6 +263,56 @@ extern "C" {
 	  e_interoperability.finalizeIO();
   }
 
+void c_interoperability_report_device_memory_status() {
+  e_interoperability.reportDeviceMemoryStatus();
+}
+
+  void c_interoperability_deallocateMemoryManager() {
+    e_interoperability.deallocateMemoryManager();
+  }
+
+  void c_interoperability_TetraDubinerP(double* phis, double xi, double eta, double zeta, int N) {
+    assert(N > 0);
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= static_cast<unsigned>(N); ++d) {
+      for (unsigned int k = 0; k <= d; ++k) {
+        for (unsigned int j = 0; j <= d - k; ++j) {
+            phis[idx++] = seissol::functions::TetraDubinerP({d - j - k, j, k}, {xi, eta, zeta});
+        }
+      }
+    }
+  }
+
+  void c_interoperability_TriDubinerP(double* phis, double xi, double eta, int N) {
+    assert(N > 0);
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= static_cast<unsigned>(N); ++d) {
+      for (unsigned int j = 0; j <= d; ++j) {
+        phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      }
+    }
+  }
+
+  void c_interoperability_gradTriDubinerP(double* phis, double xi, double eta, int N) {
+    assert(N > 0);
+    unsigned idx = 0;
+    for (unsigned int d = 0; d <= static_cast<unsigned>(N); ++d) {
+      for (unsigned int j = 0; j <= d; ++j) {
+        auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
+        for (auto const& g : grad) {
+            phis[idx++] = g;
+        }
+      }
+    }
+  }
+
+  double c_interoperability_M2invDiagonal(int no) {
+      assert(no >= 0 && no < static_cast<int>(seissol::tensor::M2inv::Shape[0]));
+      auto M2inv = seissol::init::M2inv::view::create(
+        const_cast<real*>(seissol::init::M2inv::Values));
+      return M2inv(no, no);
+  }
+
   // c to fortran
   extern void f_interoperability_computeSource(  void   *i_domain,
                                                  int    *i_meshId,
@@ -297,22 +346,6 @@ extern "C" {
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
-
-  extern void f_interoperability_computePlasticity( void    *i_domain,
-                                                    double  *i_timestep,
-													int    numberOfAlignedBasisFunctions,
-													double  *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *io_dofs,
-													double  *io_Energy,
-													double  *io_pstrain );
-
-  extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
-                                                               double   i_x,
-                                                               double   i_y,
-                                                               double   i_z,
-                                                               int      i_elem,
-                                                               double*  o_mInvJInvPhisAtSources );
 
   extern void f_interoperability_fitAttenuation(  void*  i_domain,
                                                   double  rho,
@@ -352,16 +385,18 @@ void seissol::Interoperability::setTimeStepWidth( int    i_meshId,
   seissol::SeisSol::main.getLtsLayout().setTimeStepWidth( (i_meshId)-1, i_timeStepWidth );
 }
 
-void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
+void seissol::Interoperability::initializeClusteredLts(int clustering,
+                                                       bool enableFreeSurfaceIntegration,
+                                                       bool usePlasticity) {
   // assert a valid clustering
-  assert( i_clustering > 0 );
+  assert(clustering > 0 );
 
   // either derive a GTS or LTS layout
-  if( i_clustering == 1 ) {
+  if(clustering == 1 ) {
     seissol::SeisSol::main.getLtsLayout().deriveLayout( single, 1);
   }
   else {
-    seissol::SeisSol::main.getLtsLayout().deriveLayout( multiRate, i_clustering );
+    seissol::SeisSol::main.getLtsLayout().deriveLayout(multiRate, clustering );
   }
 
   // get the mesh structure
@@ -381,7 +416,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(m_timeStepping,
                                                           m_meshStructure,
                                                           numberOfDRCopyFaces,
-                                                          numberOfDRInteriorFaces);
+                                                          numberOfDRInteriorFaces,
+                                                          usePlasticity);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
@@ -410,17 +446,18 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
 }
 
-void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
+void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
   // initialize memory layout
   seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
 
   // add clusters
-  seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
-                                                    m_meshStructure,
-                                                    seissol::SeisSol::main.getMemoryManager() );
+  seissol::SeisSol::main.timeManager().addClusters(m_timeStepping,
+                                                   m_meshStructure,
+                                                   seissol::SeisSol::main.getMemoryManager(),
+                                                   usePlasticity);
 
   // get backward coupling
-  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
 
 
   // initialize face lts trees
@@ -646,7 +683,6 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 #endif
 }
 
-#ifdef USE_PLASTICITY
 void seissol::Interoperability::setInitialLoading( int i_meshId, double *i_initialLoading ) {
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
 
@@ -675,33 +711,43 @@ void seissol::Interoperability::setPlasticParameters( int i_meshId, double* i_pl
 void seissol::Interoperability::setTv(double tv) {
   seissol::SeisSol::main.timeManager().setTv(tv);
 }
-#endif
 
-void seissol::Interoperability::initializeCellLocalMatrices()
+void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
 {
   // \todo Move this to some common initialization place
-  seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
+  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+  seissol::initializers::initializeCellLocalMatrices( meshReader,
                                                       m_ltsTree,
                                                       m_lts,
                                                       &m_ltsLut );
 
-  seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
+  initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
+  seissol::initializers::initializeDynamicRuptureMatrices( meshReader,
                                                            m_ltsTree,
                                                            m_lts,
                                                            &m_ltsLut,
-                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           memoryManager.getDynamicRuptureTree(),
+                                                           memoryManager.getDynamicRupture(),
                                                            m_ltsFaceToMeshFace,
-                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
+                                                           *memoryManager.getGlobalDataOnHost(),
                                                            m_timeStepping );
 
-  seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
-                                                    seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
+  seissol::initializers::initializeBoundaryMappings(meshReader,
+                                                    memoryManager.getEasiBoundaryReader(),
                                                     m_ltsTree,
                                                     m_lts,
                                                     &m_ltsLut);
- 
 
+#ifdef ACL_DEVICE
+  initializers::copyCellMatricesToDevice(m_ltsTree,
+                                         m_lts,
+                                         memoryManager.getDynamicRuptureTree(),
+                                         memoryManager.getDynamicRupture(),
+                                         memoryManager.getBoundaryTree(),
+                                         memoryManager.getBoundary());
+
+  memoryManager.recordExecutionPaths(usePlasticity);
+#endif
 }
 
 template<typename T>
@@ -718,16 +764,16 @@ void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> c
     unsigned meshId = duplicatedMeshIds[dupMeshId];
     T* ref = &var[ meshToLts[0][meshId] ];
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates && meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max(); ++dup) {
-      memcpy(&var[ meshToLts[dup][meshId] ], ref, sizeof(T));
+      memcpy(reinterpret_cast<void*>(&var[ meshToLts[dup][meshId] ]), ref, sizeof(T));
     }
   }
 }
 
-void seissol::Interoperability::synchronizeCellLocalData() {
+void seissol::Interoperability::synchronizeCellLocalData(bool usePlasticity) {
   synchronize(m_lts->material);
-#ifdef USE_PLASTICITY
-  synchronize(m_lts->plasticity);
-#endif
+  if (usePlasticity) {
+    synchronize(m_lts->plasticity);
+  }
 }
 
 void seissol::Interoperability::synchronizeCopyLayerDofs() {
@@ -815,8 +861,8 @@ void seissol::Interoperability::initializeIO(
       NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
       seissol::SeisSol::main.meshReader(),
       LtsClusteringData,
-      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+      reinterpret_cast<const real*>(m_ltsTree->var(m_lts->dofs)),
+      reinterpret_cast<const real*>(m_ltsTree->var(m_lts->pstrain)),
       seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
       m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
       refinement, outputMask, outputRegionBounds,
@@ -951,6 +997,10 @@ void seissol::Interoperability::finalizeIO()
 	seissol::SeisSol::main.freeSurfaceWriter().close();
 }
 
+void seissol::Interoperability::deallocateMemoryManager() {
+  seissol::SeisSol::main.deleteMemoryManager();
+}
+
 void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
                                              double i_timeStepWidth )
 {
@@ -999,35 +1049,24 @@ void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
 }
 
+void seissol::Interoperability::reportDeviceMemoryStatus() {
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  constexpr size_t GB = 1024 * 1024 * 1024;
+  const auto rank = seissol::MPI::mpi.rank();
+  if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
+    std::stringstream stream;
 
-#ifdef USE_PLASTICITY
-void seissol::Interoperability::computePlasticity(  double i_timeStep,
-		                                            double *i_plasticParameters,
-                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double *io_dofs,
-													double *io_Energy,
-													double *io_pstrain ) {
-  // call fortran routine
-  f_interoperability_computePlasticity(  m_domain,
-                                        &i_timeStep,
-										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-										 i_plasticParameters,
-                                         i_initialLoading,
-                                         io_dofs,
-										 io_Energy,
-										 io_pstrain );
-}
-#endif
+    stream << "Device(" << rank << ")  memory is overloaded.\n"
+           << "Totally allocated device memory, GB: " << device.api->getCurrentlyOccupiedMem() / GB << '\n'
+           << "Allocated unified memory, GB: " << device.api->getCurrentlyOccupiedUnifiedMem() / GB << '\n'
+           << "Memory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
 
-void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()])
-{
-  double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
-
-  int elem = static_cast<int>(element);
-  f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
-
-  memset(mInvJInvPhisAtSources, 0, tensor::mInvJInvPhisAtSources::size() * sizeof(real));
-  for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
-    mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
+    logError() << stream.str();
   }
+  else {
+    double fraction = device.api->getCurrentlyOccupiedMem() / static_cast<double>(device.api->getMaxAvailableMem());
+    logInfo() << "occupied memory on device(" << rank << "): " << fraction * 100.0 << "%";
+  }
+#endif
 }

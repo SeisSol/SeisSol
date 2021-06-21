@@ -68,7 +68,7 @@ protected:
 
 public:
   Node() : m_children(NULL), m_numChildren(0), m_next(NULL) {}
-  ~Node() {
+  virtual ~Node() {
     for (unsigned child = 0; child < m_numChildren; ++child) {
       delete m_children[child];
     }

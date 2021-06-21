@@ -9,17 +9,17 @@ project(SeisSol LANGUAGES C CXX Fortran)
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
-#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND
+#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND, PROXY_PYBINDING, ENABLE_PIC_COMPILATION
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
-#                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
+#                     NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
-#                     GEMM_TOOLS_LIST
+#                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS
 #
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
 include(cmake/process_users_input.cmake)
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
@@ -29,7 +29,7 @@ set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
@@ -99,6 +99,7 @@ add_custom_command(
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
+       src/generated_code/gpulike_subroutine.cpp
        src/generated_code/tensor.h
        src/generated_code/init.cpp
        src/generated_code/init.h
@@ -106,11 +107,6 @@ add_custom_command(
        src/generated_code/kernel.cpp
        COMMENT "Codegen for tensor stuff."
        )
-
-if (PLASTICITY)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
-  set(PLASTICITY_NAME_SUFFIX "_plasticity")
-endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
@@ -154,25 +150,31 @@ else()
     -DYAML_CPP_BUILD_TESTS=OFF
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
   )
   add_dependencies(SeisSol-lib yaml-cpp-build)
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 endif()
 
-
-ExternalProject_Add(ImpalaJIT-build
-  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
-  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
-  CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-)
-add_dependencies(SeisSol-lib ImpalaJIT-build)
-target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
-target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
+if (USE_IMPALA_JIT_LLVM)
+  find_package(ImpalaJIT-LLVM 1.0 REQUIRED)
+  target_link_libraries(SeisSol-lib PRIVATE llvm::impalajit)
+else()
+  ExternalProject_Add(ImpalaJIT-build
+    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
+    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
+  )
+  add_dependencies(SeisSol-lib ImpalaJIT-build)
+  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
+endif()
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -198,6 +200,14 @@ if (COMMTHREAD)
   target_compile_definitions(SeisSol-lib PUBLIC USE_COMM_THREAD)
 endif()
 
+if (NUMA_AWARE_PINNING)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_NUMA_AWARE_PINNING)
+  find_package(NUMA REQUIRED)
+
+  target_include_directories(SeisSol-lib SYSTEM PUBLIC ${NUMA_INCLUDE_DIR})
+  target_link_libraries(SeisSol-lib PUBLIC ${NUMA_LIBRARY})
+endif()
+
 #set(HDF5_PREFER_PARALLEL True)
 if (NETCDF)
   find_package(NetCDF REQUIRED)
@@ -219,6 +229,10 @@ endif()
 
 # Parmetis
 if (METIS)
+  find_package(METIS REQUIRED)
+  if (NOT METIS_64_BIT_INTEGER)
+    message(WARNING "Found METIS which does not support IDXTYPEWIDTH = 64. But this is required for SeisSol.")
+  endif()
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
@@ -240,6 +254,13 @@ if (MEMKIND)
   target_include_directories(SeisSol-lib PUBLIC ${MEMKIND_INCLUDE_DIR})
   target_link_libraries(SeisSol-lib PUBLIC ${MEMKIND_LIBRARIES})
   target_compile_definitions(SeisSol-lib PUBLIC USE_MEMKIND)
+endif()
+
+if (WITH_GPU)
+  add_subdirectory(submodules/Device)
+  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
+  target_link_libraries(SeisSol-lib PUBLIC device)
+  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
 target_include_directories(SeisSol-lib PUBLIC
@@ -278,21 +299,24 @@ endif()
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
+  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp" "-lstdc++fs")
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -qopenmp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -qopenmp")
 
   # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 
+  target_link_libraries(SeisSol-lib PUBLIC "-lstdc++fs")
+
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp=libomp -Wall -Wextra -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
+  target_link_libraries(SeisSol-lib PUBLIC "-lstdc++fs")
 endif()
 
 # Generated code does only work without red-zone.
@@ -310,15 +334,29 @@ endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}${PLASTICITY_NAME_SUFFIX}")
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
-add_executable(SeisSol-proxy
-        auto_tuning/proxy/src/proxy_seissol.cpp
-        auto_tuning/proxy/src/flop_counter.cpp
-)
-target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
+# SeisSol proxy-core
+add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
+                               auto_tuning/proxy/src/flop_counter.cpp)
+target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
+
+if (PROXY_PYBINDING)
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    find_package(pybind11 2.6.2 REQUIRED)
+  else()
+    find_package(pybind11 2.3.0 REQUIRED)
+  endif()
+
+  pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
+  target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
+  file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
+# C/C++ proxy interface
+add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-
 
 if (TESTING)
   include(cmake/testing.cmake)
@@ -378,6 +416,8 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
   )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})

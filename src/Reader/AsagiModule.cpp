@@ -65,8 +65,6 @@ seissol::asagi::AsagiModule::AsagiModule()
 	}
 }
 
-seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
-
 seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
 {
 #ifdef USE_MPI

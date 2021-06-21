@@ -75,10 +75,8 @@ slip-weakening fracture criterion.
 
 TPV5 uses a linear-slip weakening friction everywhere on the fault.
 There are ten parameters associated with the friction constitutive law
-and fault properties in the **parameters.par**. It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
-
-.. literalinclude:: tpv5/parameters.par
-   :language: fortran
+and fault properties in the **parameters.par**. 
+It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
 
 Four friction constitutive parameters are: mu\_s, mu\_d, d\_c and
 cohesion. Six stress parameters are: s\_xx, s\_yy, s\_zz, s\_xy, s\_xz,
@@ -114,12 +112,13 @@ Notice that there are two patches with different initial stress: the one centere
 Results
 ~~~~~~~
 
-All examples here can be illustrated in Paraview (Detailed instruction
-can be found at ). The *output* folder contains a series of files for
-fault dynamic rupture (netcdf), wave filed (netcdf), receiver (.dat) and
-off-fault receivers (.dat). The fault dynamic rupture and wave filed
-files can be loaded in Paraview directly. For example, open Paraview and
-then go through File :math:`>>` import :math:`>>`\ prefix-fault.xdmf.
+All examples here generate surface and volume output files that can be visualized with ParaView. 
+The *output* folder contains a series of files for
+fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf), 
+on-fault receiver (.dat) and off-fault receivers (.dat). 
+The fault dynamic rupture and wavefield files can be loaded in Paraview. 
+For example, open Paraview and then go through File 
+:math:`>>` import :math:`>>`\ prefix-fault.xdmf.
 
 .. figure:: LatexFigures/tpv5_SRs_3s.png
    :alt: Fault slip rate in the along-strike direction

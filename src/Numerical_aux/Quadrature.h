@@ -114,7 +114,7 @@ namespace seissol {
         do {
           x -= Pn/dPn;
           Pn = functions::JacobiP(n, a, b, x);
-          dPn = functions::JacobiPFirstDerivative(n, a, b, x);
+          dPn = functions::JacobiPDerivative(n, a, b, x);
         } while (fabs(Pn) > Tolerance && ++it < MaxIterations);
         points[i-1] = x;
         weights[i-1] = weightFactor / (functions::JacobiP(n+1, a, b, x) * dPn);
