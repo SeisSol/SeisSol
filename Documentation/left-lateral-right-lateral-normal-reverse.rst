@@ -73,11 +73,19 @@ or logically
 Example
 ~~~~~~~
 
-We have a 60° dipping normal fault with 90° strike and zero rake with
-*enu* convention. (That is, the strike is east.) The normal of the fault
+We have a 60° dipping normal fault with 90° strike (West-East direction, pointing
+towards the East with *enu* convention) and 0° rake. The normal of the fault
 plane, which points from the foot wall to the hanging wall, is given by
 
-:math:`N:=\frac{1}{2}\begin{pmatrix}1 & 0 & \sqrt{3}\end{pmatrix}`
+:math:`n:=\frac{1}{2}\begin{pmatrix}0 & -\sqrt{3} & 1\end{pmatrix}`
+
+Such normal vector is obtained as the result of the cross product between the dip vector
+
+:math:`d:=\frac{1}{2}\begin{pmatrix}0 & -1 & -\sqrt{3}\end{pmatrix}`
+
+and the respective strike vector
+
+:math:`s:=\frac{1}{2}\begin{pmatrix}1 & 0 & 0\end{pmatrix}`
 
 Hence, we set the reference point to **x** + a **N**, where a > 0 and
 **x** is an arbitrary point on the fault. In this case, the reference
