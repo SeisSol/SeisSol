@@ -85,7 +85,7 @@ Such normal vector is obtained as the result of the cross product between the di
 
 and the respective strike vector
 
-:math:`s:=\frac{1}{2}\begin{pmatrix}1 & 0 & 0\end{pmatrix}`
+:math:`s:=\begin{pmatrix}1 & 0 & 0\end{pmatrix}`
 
 Hence, we set the reference point to **x** + a **N**, where a > 0 and
 **x** is an arbitrary point on the fault. In this case, the reference
