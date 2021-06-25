@@ -194,12 +194,16 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   int totalNumberOfReductions = enforceMaximumDifference(mesh, cluster);
 
   delete[] m_vertexWeights;
-  //m_ncon = 2;
-  m_ncon = 1;
-  m_vertexWeights = new int[cells.size() * m_ncon];
   int maxCluster = getCluster(globalMaxTimestep, globalMinTimestep, m_rate);
+
+  auto ltrWeightsNum = maxCluster + 1;
+  auto drWeightsNum = 1;
+  m_ncon = ltrWeightsNum + drWeightsNum;
+  //m_ncon = 2;
+  m_vertexWeights = new int[cells.size() * m_ncon];
+  //int drToCellRatio = 1;
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    int dynamicRupture = 0;
+    int dynamicRupture = 1;
     int freeSurface = 0;
 
     unsigned int faceids[4];
@@ -218,12 +222,25 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
     }
 
     const int costDynamicRupture = vertexWeightDynamicRupture * dynamicRupture;
+    //m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture) * ipow(m_rate, maxCluster - cluster[cell]);
     const int costDisplacement = vertexWeightFreeSurfaceWithGravity * freeSurface;
     const int costPerTimestep = vertexWeightElement + costDynamicRupture + costDisplacement;
     m_vertexWeights[m_ncon * cell] = costPerTimestep * ipow(m_rate, maxCluster - cluster[cell]);
+    //m_vertexWeights[m_ncon * cell] = (cluster[cell] < 2) ? 1 : 0;
+    //m_vertexWeights[m_ncon * cell + 1] = (cluster[cell] < 2) ? 1 : 0;
+    //m_vertexWeights[m_ncon * cell + 1] = 1;
+    for (int p = 0; p < ltrWeightsNum; ++p) {
+      m_vertexWeights[m_ncon * cell + p] = (cluster[cell] == p) ? 1 : 0;
+    }
+    m_vertexWeights[m_ncon * cell + ltrWeightsNum] = dynamicRupture;
   }
 
   delete[] cluster;
+
+  m_imbalances = new double[m_ncon];
+  for (int p = 0; p < m_ncon; ++p) {
+    m_imbalances[p] = 1.05;
+  }
 
   logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights. Done. " << utils::nospace << '(' << totalNumberOfReductions << " reductions.)";
 }

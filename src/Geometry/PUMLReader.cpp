@@ -267,7 +267,14 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
     double* nodeWeights = &tpwgt;
 #endif
 
-    metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
+    auto error = metis.partition(partition,
+                                 ltsWeights->vertexWeights(),
+                                 ltsWeights->getImbalances(),
+                                 ltsWeights->nWeightsPerVertex(),
+                                 nodeWeights);
+    if (error) {
+      logError() << "Mesh partitioning step failed";
+    }
 
 #ifdef USE_MPI
     delete[] nodeWeights;

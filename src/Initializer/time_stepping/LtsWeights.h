@@ -66,11 +66,13 @@ public:
 
   ~LtsWeights() {
     delete[] m_vertexWeights;
+    delete[] m_imbalances;
   }
   
   void computeWeights(PUML::TETPUML const& mesh);
   
   int* vertexWeights() const { return m_vertexWeights; }
+  double* getImbalances() const { return m_imbalances; }
   int nWeightsPerVertex() const { return m_ncon; }
 
 private:
@@ -98,6 +100,7 @@ private:
   std::string m_velocityModel;
   unsigned m_rate;
   int* m_vertexWeights = nullptr;
+  double* m_imbalances = nullptr;
   int m_ncon = 1;
   int vertexWeightElement;
   int vertexWeightDynamicRupture;
