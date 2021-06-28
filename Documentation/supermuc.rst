@@ -138,8 +138,8 @@ Running SeisSol
   #SBATCH -o ./%j.%x.out
   #SBATCH -e ./%j.%x.err
 
-  #Initial working directory (also --chdir):
-  #SBATCH --workdir=<work directory>
+  #Initial working directory:
+  #SBATCH --chdir=<work directory>
 
   #Notification and type
   #SBATCH --mail-type=END
