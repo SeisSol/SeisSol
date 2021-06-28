@@ -4,8 +4,7 @@
 #Output and error (also --output, --error):
 #SBATCH -o ./%j.%x.out
 #SBATCH -e ./%j.%x.err
-#Initial working directory (also --chdir):
-#SBATCH --workdir=***your working dir***
+#SBATCH --chdir=***your working dir***
 #Notification and type
 #SBATCH --mail-type=END
 #SBATCH --mail-user=***your mail***
