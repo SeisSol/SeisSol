@@ -154,7 +154,6 @@ CONTAINS
       outputMaskInt(i) = 0
     end do
 
-
     call c_interoperability_initializeIO(    &
         i_mu        = disc%DynRup%mu,        &
         i_slipRate1 = disc%DynRup%slipRate1, &
