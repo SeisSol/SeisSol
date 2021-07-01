@@ -98,7 +98,7 @@ struct seissol::initializers::LTS {
   Variable<PlasticityData>                plasticity;
   Variable<CellDRMapping[4]>              drMapping;
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
-  Variable<real[7]>                       pstrain;
+  Variable<real*>                         pstrain;
   Variable<real*>                         displacements;
   Bucket                                  buffersDerivatives;
   Bucket                                  displacementsBuffer;

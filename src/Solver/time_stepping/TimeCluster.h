@@ -316,7 +316,7 @@ private:
       CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
       PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-      real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
+      real **pstrain = i_layerData.var(m_lts->pstrain);
       unsigned numberOTetsWithPlasticYielding = 0;
 
       kernels::NeighborData::Loader loader;

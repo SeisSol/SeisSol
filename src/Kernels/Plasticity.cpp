@@ -74,7 +74,7 @@ namespace seissol::kernels {
     real tau[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
     real taulim[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
     real yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(ALIGNMENT)));
-    real dudt_pstrain[7];
+    real dudt_pstrain[tensor::QStress::size()] __attribute__((aligned(ALIGNMENT)));
 
     static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                   "Second invariant tensor and mean stress tensor must be of the same size().");
