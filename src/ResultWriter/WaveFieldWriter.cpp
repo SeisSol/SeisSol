@@ -250,7 +250,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	logDebug() << "Vertices : "
 			<< numVerts << "refined-to ->"
 			<< meshRefiner->getNumVertices();
-
 	// Initialize the variable subsampler
 	m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
 			numElems, *tetRefiner, order, numVars, numAlignedDOF);
@@ -317,9 +316,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 		// Create data buffers
 		param.bufferIds[LOWVARIABLE0] = addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
-		int numLowVars = 0;
 
-		if (integrals) numLowVars += m_numIntegratedVariables;
+		int numLowVars = m_numIntegratedVariables;
 
 		for (int i = 1; i < numLowVars; i++)
 			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
