@@ -206,13 +206,14 @@ namespace seissol::kernels {
       m2nKrnl_dudt_pstrain.QStressNodal = QStressNodal;
       m2nKrnl_dudt_pstrain.execute();
 
-      int numNodes = tensor::QStressNodal::Shape[0];
+      auto QStressNodalView = init::QStressNodal::view::create(QStressNodal);
+      unsigned numNodes = QStressNodalView.shape(0);
       for (unsigned i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-        QEtaNodal[i] += timeStepWidth * sqrt(0.5 * (QStressNodal[i, 0] * QStressNodal[i, 0]  + QStressNodal[i, 1] * QStressNodal[i, 1]
-                                                + QStressNodal[i, 2] * QStressNodal[i, 2]  + QStressNodal[i, 3] * QStressNodal[i, 3]
-                                                + QStressNodal[i, 4] * QStressNodal[i, 4]  + QStressNodal[i, 5] * QStressNodal[i, 5]));
+        QEtaNodal[i] += timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
+                                                  + QStressNodalView(i, 2) * QStressNodalView(i, 2)  + QStressNodalView(i, 3) * QStressNodalView(i, 3)
+                                                  + QStressNodalView(i, 4) * QStressNodalView(i, 4)  + QStressNodalView(i, 5) * QStressNodalView(i, 5)));
       }
       /* Convert nodal to modal */
       kernel::plConvertEtaNodal2Modal n2m_eta_Krnl;
