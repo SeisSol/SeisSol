@@ -57,6 +57,12 @@ namespace seissol::solver { class FreeSurfaceIntegrator; }
 
 class seissol::solver::FreeSurfaceIntegrator {
 private:
+  enum class LocationFlag {
+    Elastic = 0,
+    Acoustic = 1,
+    FreeSurface = 2,
+    FreeSurfaceWithGravity = 3
+  };
   struct SurfaceLTS {
     seissol::initializers::Variable<real*> dofs;
     seissol::initializers::Variable<real*> displacementDofs;
@@ -87,10 +93,12 @@ private:
   void initializeSurfaceLTSTree(  seissol::initializers::LTS* lts,
                                   seissol::initializers::LTSTree* ltsTree,
                                   seissol::initializers::Lut* ltsLut );
-  
-public:  
+
+  static LocationFlag getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
+public:
   double* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
   double* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
+  std::vector<double> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;
 

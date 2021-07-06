@@ -751,18 +751,33 @@ void seissol::initializers::MemoryManager::recordExecutionPaths() {
 }
 #endif // ACL_DEVICE
 
+bool seissol::initializers::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
+                                              unsigned int face) {
+#ifdef USE_ANISOTROPIC
+  return false;
+#endif
+  constexpr auto eps = std::numeric_limits<real>::epsilon();
+  return material.neighbor[face].mu > eps && material.local.mu < eps;
+}
+bool seissol::initializers::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
+                                             unsigned int face) {
+#ifdef USE_ANISOTROPIC
+  return false;
+#endif
+  constexpr auto eps = std::numeric_limits<real>::epsilon();
+  return material.local.mu > eps && material.neighbor[face].mu < eps;
+}
 
 bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  //TODO (LK): implement more general coupling
 #ifndef USE_ANISOTROPIC
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.local.mu > eps && material.neighbor[face].mu < eps;
+  return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
 #else
   return false;
 #endif
 }
+
 
 bool seissol::initializers::requiresDisplacement(CellLocalInformation cellLocalInformation,
                                                  CellMaterialData &material,

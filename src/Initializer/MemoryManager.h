@@ -337,11 +337,16 @@ class seissol::initializers::MemoryManager {
 
 namespace seissol {
     namespace initializers {
-        bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
-        bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                                  CellMaterialData &material,
-                                  unsigned int face);
-        bool requiresNodalFlux(FaceType f);
+    bool isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
+                                                  unsigned int face);
+    bool isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
+                                                 unsigned int face);
+    bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+
+    bool requiresDisplacement(CellLocalInformation cellLocalInformation,
+                              CellMaterialData &material,
+                              unsigned int face);
+    bool requiresNodalFlux(FaceType f);
     }
 }
 

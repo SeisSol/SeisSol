@@ -274,6 +274,23 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
   }
 }
 
+
+seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfaceIntegrator::getLocationFlag(
+    CellMaterialData materialData, FaceType faceType, unsigned int face) {
+  if (initializers::isAcousticSideOfElasticAcousticInterface(materialData, face)) {
+    return LocationFlag::Acoustic;
+  } else if (initializers::isElasticSideOfElasticAcousticInterface(materialData, face)) {
+    return LocationFlag::Elastic;
+  } else if (faceType == FaceType::freeSurface) {
+    return LocationFlag::FreeSurface;
+  } else if (faceType == FaceType::freeSurfaceGravity) {
+    return LocationFlag::FreeSurfaceWithGravity;
+  } else {
+    logError() << "Internal error in free surface integrator. Called for invalid cell.";
+    std::abort(); // logError aborts, but this hides the compiler warning about missing return statement
+  }
+}
+
 void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializers::LTS* lts,
                                                                         seissol::initializers::LTSTree* ltsTree,
                                                                         seissol::initializers::Lut* ltsLut )
@@ -315,9 +332,11 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     velocities[dim]     = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
     displacements[dim]  = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
   }
+  locationFlags = std::vector<double>(totalNumberOfTriangles, 0.0);
 
   /// @ yateto_todo
   unsigned* ltsToMesh = ltsLut->getLtsToMeshLut(ghostMask);
+  unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
   for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
@@ -344,7 +363,12 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
           meshId[surfaceCell]           = ltsToMesh[cell];
           surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
 
+          for (unsigned i = 0; i < numberOfSubTriangles; ++i) {
+            locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<double>(getLocationFlag(
+                cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+          }
           ++surfaceCell;
+          ++surfaceCellOffset;
         }
       }
     }
