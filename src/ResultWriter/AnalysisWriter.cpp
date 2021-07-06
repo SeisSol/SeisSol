@@ -288,11 +288,22 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       MeshTools::center(elements[elemLInfLocal[i]],
             vertices,
             center);
-
-      logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i] << "\t" << errL1Local[i] / analyticalL1Local[i];
-      logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]) << "\t" << std::sqrt(errL2Local[i] / analyticalL2Local[i]);
-      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i << "\t" << errLInfLocal[i] /analyticalLInfLocal[i]]
+      const auto errL1 = errL1Local[i];
+      const auto errL2 = std::sqrt(errL2Local[i]);
+      const auto errLInf = errLInfLocal[i];
+      const auto errL1Rel = errL1 / analyticalL1Local[i];
+      const auto errL2Rel = std::sqrt(errL2Local[i] / analyticalL2Local[i]);
+      const auto errLInfRel = errLInf / analyticalLInfLocal[i];
+      logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
+      logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
+      logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
           << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
+      csvWriter.addObservation(std::to_string(i), "L1", errL1);
+      csvWriter.addObservation(std::to_string(i), "L2", errL2);
+      csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
+      csvWriter.addObservation(std::to_string(i), "L1_rel", errL1Rel);
+      csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
+      csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
     }
 #endif // USE_MPI
   }
