@@ -263,6 +263,12 @@ if (WITH_GPU)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
+if (ADDRESS_SANITIZER_DEBUG)
+  target_link_libraries(SeisSol-lib PUBLIC debug
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
+  )
+endif()
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
