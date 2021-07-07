@@ -49,10 +49,11 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
   numberOfNodes = aderdg.t(db.v.shape())[0]
 
-  sShape = (aderdg.numberOf3DBasisFunctions(), 6)
+  numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  sShape = (numberOf3DBasisFunctions, 6)
   QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
 
-  sShape_eta = (aderdg.numberOf3DBasisFunctions(), 1)
+  sShape_eta = (numberOf3DBasisFunctions, 1)
   QEtaModal = OptionalDimTensor('QEtaModal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape_eta, alignStride=True)
 
   initialLoading = Tensor('initialLoading', (6,))
@@ -72,8 +73,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   meanStress = OptionalDimTensor('meanStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
   secondInvariant = OptionalDimTensor('secondInvariant', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
 
-  iShape_eta = (numberOfNodes, 1)
-  QEtaNodal = OptionalDimTensor('QEtaNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), iShape_eta, alignStride=True)
+  QEtaNodal = OptionalDimTensor('QEtaNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes, 1), alignStride=True)
 
   selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
   selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
