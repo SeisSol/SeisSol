@@ -11,7 +11,7 @@ void PlasticityRecorder::record(LTS &handler, Layer &layer) {
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
 
-  eal(*pstrains)[7 * NUMBER_OF_BASIS_FUNCTIONS] = currentLayer->var(currentHandler->pstrain);
+  eal(*pstrains)[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = currentLayer->var(currentHandler->pstrain);
   size_t nodalStressTensorCounter = 0;
   real *scratchMem = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
   const auto size = currentLayer->getNumberOfCells();
