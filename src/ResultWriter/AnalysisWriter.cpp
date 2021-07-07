@@ -118,7 +118,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
     alignas(ALIGNMENT) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
 #ifdef _OPENMP
-#pragma omp parallel for default(none) shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
+    // Note: Adding default(none) leads error when using gcc-8
+#pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
     for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
 #ifdef _OPENMP
