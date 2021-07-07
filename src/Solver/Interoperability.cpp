@@ -894,7 +894,9 @@ void seissol::Interoperability::initializeIO(
 	// (at least at the moment ...)
 
 	// TODO(Lukas) Free the mesh reader if not doing convergence test.
-	seissol::SeisSol::main.analysisWriter().init(&seissol::SeisSol::main.meshReader());
+	seissol::SeisSol::main.analysisWriter().init(
+	    &seissol::SeisSol::main.meshReader(),
+	    freeSurfaceFilename);
 	//seissol::SeisSol::main.freeMeshReader();
 }
 
