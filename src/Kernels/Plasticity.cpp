@@ -211,7 +211,7 @@ namespace seissol::kernels {
       for (unsigned i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-        QEtaNodal[i] += timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
+        QEtaNodal[i] = timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
                                                   + QStressNodalView(i, 2) * QStressNodalView(i, 2)  + QStressNodalView(i, 3) * QStressNodalView(i, 3)
                                                   + QStressNodalView(i, 4) * QStressNodalView(i, 4)  + QStressNodalView(i, 5) * QStressNodalView(i, 5)));
       }
@@ -222,7 +222,7 @@ namespace seissol::kernels {
       n2m_eta_Krnl.QEtaModal = QEtaModal;
       n2m_eta_Krnl.execute();
       for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
-        pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = QEtaModal[q];
+        pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] += QEtaModal[q];
       }
 
       return 1;
