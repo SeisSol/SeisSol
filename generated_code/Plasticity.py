@@ -82,6 +82,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
   generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
   generator.add('plConvertToNodalNoLoading', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'])
+  generator.add('plConvertEtaModal2Nodal', QEtaNodal['kp'] <= db.v[aderdg.t('kl')] * QEtaModal['lp'])
   generator.add('plConvertEtaNodal2Modal', QEtaModal['kp'] <= db.vInv[aderdg.t('kl')] * QEtaNodal['lp'])
   generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])

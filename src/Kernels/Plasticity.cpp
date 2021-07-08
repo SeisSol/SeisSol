@@ -206,15 +206,28 @@ namespace seissol::kernels {
       m2nKrnl_dudt_pstrain.QStressNodal = QStressNodal;
       m2nKrnl_dudt_pstrain.execute();
 
+      for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
+        QEtaModal[q] = pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      }
+
+      /* Convert modal to nodal */
+      kernel::plConvertEtaModal2Nodal m2n_eta_Krnl;
+      m2n_eta_Krnl.v = global->vandermondeMatrix;
+      m2n_eta_Krnl.QEtaModal = QEtaModal;
+      m2n_eta_Krnl.QEtaNodal = QEtaNodal;
+      m2n_eta_Krnl.execute();
+
       auto QStressNodalView = init::QStressNodal::view::create(QStressNodal);
       unsigned numNodes = QStressNodalView.shape(0);
       for (unsigned i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-        QEtaNodal[i] = timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
+        QEtaNodal[i] = std::max((real) 0.0, QEtaNodal[i]) + 
+                       timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
                                                   + QStressNodalView(i, 2) * QStressNodalView(i, 2)  + QStressNodalView(i, 3) * QStressNodalView(i, 3)
                                                   + QStressNodalView(i, 4) * QStressNodalView(i, 4)  + QStressNodalView(i, 5) * QStressNodalView(i, 5)));
       }
+ 
       /* Convert nodal to modal */
       kernel::plConvertEtaNodal2Modal n2m_eta_Krnl;
       n2m_eta_Krnl.vInv = global->vandermondeMatrixInverse;
@@ -222,7 +235,7 @@ namespace seissol::kernels {
       n2m_eta_Krnl.QEtaModal = QEtaModal;
       n2m_eta_Krnl.execute();
       for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
-        pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] += QEtaModal[q];
+        pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = QEtaModal[q];
       }
 
       return 1;
