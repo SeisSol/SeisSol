@@ -39,6 +39,9 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
+# check linker flags for std::filesystem
+include(filesystem)
+
 # Generate version.h
 
 include(GetGitRevisionDescription)
@@ -267,6 +270,11 @@ if (INTEGRATE_QUANTITIES)
   target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
 endif()
 
+if (ADDRESS_SANITIZER_DEBUG)
+  target_link_libraries(SeisSol-lib PUBLIC debug
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
+  )
+endif()
 
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -304,7 +312,7 @@ endif()
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp" "-lstdc++fs")
+  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -315,14 +323,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 
-  target_link_libraries(SeisSol-lib PUBLIC "-lstdc++fs")
-
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
-  target_link_libraries(SeisSol-lib PUBLIC "-lstdc++fs")
 endif()
+target_link_libraries(SeisSol-lib PUBLIC ${FILESYSTEM_LIBRARIES})
 
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
