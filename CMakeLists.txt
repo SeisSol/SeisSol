@@ -263,6 +263,11 @@ if (WITH_GPU)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
+if (INTEGRATE_QUANTITIES)
+  target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
+endif()
+
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules

@@ -40,12 +40,15 @@ and the last one the accumulated plastic strain (eta).
 IntegrationMask
 ---------------
 
+**Warning**: broken -> currently not compiling.
+To use this output, enable option INTEGRATE_QUANTITIES in cmake.
 IntegrationMask allows switching on and off the writing of time integrated seissol unknowns.
 The 6 first digits controls the components of the time integrated stress tensor
 (int_sigma_xx, int_sigma_yy, int_sigma_zz, int_sigma_xy, int_sigma_yz, and int_sigma_xz), 
 and the 3 last digits the displacement components (displacement_x, displacement_y, displacement_z).
 Note that this output is associated with the prefix-low.xdmf file, and can only output 
 the cell average quantities.
+
 
 OutputRegionBounds
 ------------------
