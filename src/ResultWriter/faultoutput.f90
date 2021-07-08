@@ -449,7 +449,7 @@ CONTAINS
             Strength = -MuVal*MIN(LocP+P_0 -P_f,ZERO) - cohesion
           CASE(3,4)
              ! rate and state (once everything is tested and cohesion works for RS, this option could be merged to default)
-             Strength = -MuVal*(LocP+P_0 -P_f)
+             Strength = -MuVal*MIN(LocP+P_0 -P_f, ZERO)
           CASE(6)
             ! exception for bimaterial with LSW case
             ! modify strength according to prakash clifton
@@ -842,7 +842,7 @@ CONTAINS
             IF( stat.NE.0) THEN
                logError(*) 'cannot open ',ptsoutfile
                logError(*) 'Error status: ', stat
-               call exit(134)
+               call MPI_ABORT(MPI%commWorld, 134)
             END IF
             !
             DO k=1,DISC%DynRup%DynRup_out_atPickpoint%CurrentPick(iOutPoints)

@@ -262,15 +262,18 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
 
     intKrnl.power = i_timeStepWidth;
     intKrnl.linearAllocator.initialize(tmpMem);
+    intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute0();
 
     for (unsigned Der = 1; Der < CONVERGENCE_ORDER; ++Der) {
       derivativesKrnl.linearAllocator.initialize(tmpMem);
+      derivativesKrnl.streamPtr = device.api->getDefaultStream();
       derivativesKrnl.execute(Der);
 
       // update scalar for this derivative
       intKrnl.power *= i_timeStepWidth / real(Der + 1);
       intKrnl.linearAllocator.initialize(tmpMem);
+      intKrnl.streamPtr = device.api->getDefaultStream();
       intKrnl.execute(Der);
     }
     device.api->popStackMemory();
@@ -407,6 +410,7 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
     intKrnl.power = firstTerm - secondTerm;
     intKrnl.power /= factorial;
     intKrnl.linearAllocator.initialize(tmpMem);
+    intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute(der);
   }
   device.api->popStackMemory();
@@ -470,6 +474,7 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
   const real deltaT = time - expansionPoint;
   intKrnl.power = 1.0;
   for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.streamPtr = device.api->getDefaultStream();
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
   }

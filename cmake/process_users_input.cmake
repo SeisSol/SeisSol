@@ -6,6 +6,8 @@ option(MPI "Use MPI parallelization" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
+option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
+option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
@@ -40,7 +42,7 @@ set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
 set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86)
 set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 

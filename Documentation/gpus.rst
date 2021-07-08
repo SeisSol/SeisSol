@@ -5,6 +5,7 @@ SeisSol with GPUs
 General
 ~~~~~~~
 
+.. _gpu_process_pinning:
 
 The current GPU version of SeisSol targets latest NVidia Graphics cards. Therefore, you
 need to have at least **CUDA 10** installed in your environment. Moreover, make sure
