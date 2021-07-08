@@ -34,6 +34,7 @@ ci_builder_build:
         - cat .git/config
     script:
         - echo "now building"
+        - cat .git/config
         
 gpu_test_build:
     stage: build
@@ -43,3 +44,4 @@ gpu_test_build:
         - cat .git/config
     script:
         - echo "now building"
+        - cat .git/config
