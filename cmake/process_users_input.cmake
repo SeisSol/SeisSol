@@ -7,6 +7,7 @@ option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
+option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
