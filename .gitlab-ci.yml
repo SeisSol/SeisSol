@@ -72,4 +72,5 @@ gpu_test_build:
         - singularity --version
         - singularity pull library://7bits-register/collection/seissol_base_arm64.sif:sha256.908e862805afde41dc6910ba122361fae65268856b9798db1e087babc17e2171
         - ls
+        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_arm64.sif_sha256.908e862805afde41dc6910ba122361fae65268856b9798db1e087babc17e2171.sif ./test_singularity.sh
         #- singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol-base.sif_sha256.908e862805afde41dc6910ba122361fae65268856b9798db1e087babc17e2171.sif ./test_singularity.sh
