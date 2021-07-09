@@ -6,7 +6,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/SeisSol/SeisSol)](https://github.com/SeisSol/SeisSol/issues)
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/SeisSol/SeisSol)](https://github.com/SeisSol/SeisSol/pulls)
 
-SeisSol is a scientific software for the numerical simulation of seismic wave phenomena and earthquake dynamics. It is based on the discontinuous Galerkin method combined with ADER time discretization. Visit our [official website](http://seissol.org) and also read our [documentation](https://seissol.readthedocs.io) in order to learn more about SeisSol.
+SeisSol is a scientific software for the numerical simulation of seismic wave phenomena and earthquake dynamics. It is based on the discontinuous Galerkin method combined with ADER time discretization. Visit our [official website](http://www.seissol.org/) and also read our [documentation](https://seissol.readthedocs.io) in order to learn more about SeisSol.
 
 ### Note
 SeisSol is still under heavy development and comes without any guaranteed funcitonality. At the moment we can only provide very limited support for general users. 

@@ -76,7 +76,7 @@ private:
 	MPI_Comm m_comm;
 #endif // USE_MPI
 
-	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>* m_xdmfWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter;
   unsigned m_numVariables;
 
 	/** Backend stopwatch */
@@ -107,7 +107,7 @@ public:
 		m_xdmfWriter->addTimeStep(param.time);
 
 		for (unsigned int i = 0; i < m_numVariables; i++) {
-			m_xdmfWriter->writeCellData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
+			m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(VARIABLES0 + i)));
     }
 
 		m_xdmfWriter->flush();

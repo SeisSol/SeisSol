@@ -28,25 +28,28 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   real *idofsScratch = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
   real *derivativesScratch = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->derivativesScratch));
 
-  if (currentLayer->getNumberOfCells()) {
-    std::vector<real *> dofsPtrs{};
-    std::vector<real *> starPtrs{};
+  const auto size = currentLayer->getNumberOfCells();
+  if (size > 0) {
+    std::vector<real *> dofsPtrs(size, nullptr);
+    std::vector<real *> starPtrs(size, nullptr);
     std::vector<real *> idofsPtrs{};
-    std::vector<real *> dQPtrs{};
+    std::vector<real *> dQPtrs(size, nullptr);
     std::vector<real *> ltsBuffers{};
     std::vector<real *> idofsForLtsBuffers{};
+
+    idofsPtrs.reserve(size);
 
     real **derivatives = currentLayer->var(currentHandler->derivatives);
     real **buffers = currentLayer->var(currentHandler->buffers);
 
-    for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
 
       // dofs
-      dofsPtrs.push_back(static_cast<real *>(data.dofs));
+      dofsPtrs[cell] = static_cast<real *>(data.dofs);
 
       // idofs
-      real *nextIdofPtr = &idofsScratch[idofsAddressCounter];
+      real *nextIdofPtr = &idofsScratch[integratedDofsAddressCounter];
       bool isBuffersProvided = ((data.cellInformation.ltsSetup >> 8) % 2) == 1;
       bool isLtsBuffers = ((data.cellInformation.ltsSetup >> 10) % 2) == 1;
 
@@ -60,7 +63,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
           ltsBuffers.push_back(buffers[cell]);
 
           idofsAddressRegistry[cell] = nextIdofPtr;
-          idofsAddressCounter += tensor::I::size();
+          integratedDofsAddressCounter += tensor::I::size();
         } else {
           // gts buffers have to be always overridden
           idofsPtrs.push_back(buffers[cell]);
@@ -69,22 +72,24 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       } else {
         idofsPtrs.push_back(nextIdofPtr);
         idofsAddressRegistry[cell] = nextIdofPtr;
-        idofsAddressCounter += tensor::I::size();
+        integratedDofsAddressCounter += tensor::I::size();
       }
 
       // stars
-      starPtrs.push_back(static_cast<real *>(data.localIntegrationOnDevice.starMatrices[0]));
+      starPtrs[cell] = static_cast<real *>(data.localIntegrationOnDevice.starMatrices[0]);
 
       // derivatives
       bool isDerivativesProvided = ((data.cellInformation.ltsSetup >> 9) % 2) == 1;
       if (isDerivativesProvided) {
-        dQPtrs.push_back(derivatives[cell]);
+        dQPtrs[cell] = derivatives[cell];
 
       } else {
-        dQPtrs.push_back(&derivativesScratch[derivativesAddressCounter]);
+        dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
         derivativesAddressCounter += yateto::computeFamilySize<tensor::dQ>();
       }
     }
+    // just to be sure that we took all branches while filling in idofsPtrs vector
+    assert(dofsPtrs.size() == idofsPtrs.size());
 
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     checkKey(key);
@@ -106,12 +111,17 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
 
 void LocalIntegrationRecorder::recordLocalFluxIntegral() {
+  const auto size = currentLayer->getNumberOfCells();
   for (unsigned face = 0; face < 4; ++face) {
     std::vector<real *> idofsPtrs{};
     std::vector<real *> dofsPtrs{};
     std::vector<real *> aplusTPtrs{};
 
-    for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
+    idofsPtrs.reserve(size);
+    dofsPtrs.reserve(size);
+    aplusTPtrs.reserve(size);
+
+    for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
 
       // no element local contribution in the case of dynamic rupture boundary conditions
@@ -141,7 +151,8 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
   // NOTE: velocity components are between 6th and 8th columns
   constexpr unsigned OFFSET_TO_VELOCITIES = 6 * seissol::tensor::I::Shape[0];
-  for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
+  const auto size = currentLayer->getNumberOfCells();
+  for (unsigned cell = 0; cell < size; ++cell) {
     if (displacements[cell] != nullptr) {
       real *iVelocity = &idofsAddressRegistry[cell][OFFSET_TO_VELOCITIES];
       iVelocitiesPtrs.push_back(iVelocity);

@@ -271,7 +271,7 @@ CONTAINS
 !~         posx_min.LT.xf_min .OR. posz_min.LT.zf_min)THEN
 !~         logError(*) 'Background stress field ',TRIM(IO%FileName_BackgroundStress),   &
 !~                     ' does not fully include the entire fault!'
-!~         call exit(134)
+!~         call MPI_ABORT(MPI%commWorld, 134)
 !~     ENDIF
 
     ! Interpolation of the background field onto the barycenter of the elements fault face
@@ -310,7 +310,7 @@ CONTAINS
 !            write(111,*) posx(i),posz(i),EQN%IniShearXY(i,1)
 !            enddo
 !            close(111)
-!            call exit(134)
+!            call MPI_ABORT(MPI%commWorld, 134)
         
     ELSEIF (GPwise == 1) THEN
         counter = 0
@@ -342,7 +342,7 @@ CONTAINS
 !            enddo
 !            enddo
 !            close(111)
-!            call exit(134)             
+!            call MPI_ABORT(MPI%commWorld, 134)             
     ENDIF ! GPwise
 
 
@@ -374,13 +374,14 @@ CONTAINS
  
   !---------------------------------------------------------------------------!
   
-  SUBROUTINE read_scec_stress(DISC,IO)
+  SUBROUTINE read_scec_stress(DISC,IO,MPI)
     !< subroutine reads in SCEC specific background stress
     !-------------------------------------------------------------------------!
     IMPLICIT NONE    
     !-------------------------------------------------------------------------!
     TYPE(tDiscretization)   :: DISC                                           !< Discretization struct.!
     TYPE(tInputOutput)      :: IO                                             !< IO structure          !
+    TYPE(tMPI)              :: MPI                                            !
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: i
@@ -398,7 +399,8 @@ CONTAINS
     CALL OpenFile(                                       &                        
          UnitNr       = IO%UNIT%other01                , &                        
          Name         = IO%FileName_BackgroundStress   , &
-         create       = .FALSE.                          )    
+         create       = .FALSE.                        , &
+         MPI          = MPI                              )    
         
     ! Read header
     READ(IO%UNIT%other01,*) intDummy, intDummy

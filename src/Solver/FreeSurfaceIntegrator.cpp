@@ -127,9 +127,9 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
       vkrnl.execute(triRefiner.maxDepth);
 
-      auto addOutput = [&] (double* output[FREESURFACE_NUMBER_OF_COMPONENTS]) {
+      auto addOutput = [&] (real* output[FREESURFACE_NUMBER_OF_COMPONENTS]) {
         for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
-          double* target = output[component] + offset + face * numberOfSubTriangles;
+          real* target = output[component] + offset + face * numberOfSubTriangles;
           /// @yateto_todo fix for multiple simulations
           real* source = subTriangleDofs + component * numberOfAlignedSubTriangles; 
           for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
@@ -297,10 +297,15 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 {
   seissol::initializers::LayerMask ghostMask(Ghost);
 
+  auto const isDuplicate = [&ghostMask, ltsLut](unsigned ltsId) {
+    return ltsId != ltsLut->ltsId(ghostMask, ltsLut->meshId(ghostMask, ltsId));
+  };
+
   surfaceLtsTree.setNumberOfTimeClusters(ltsTree->numChildren());
   surfaceLtsTree.fixate();
 
   totalNumberOfFreeSurfaces = 0;
+  unsigned baseLtsId = 0;
   for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
@@ -312,14 +317,17 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
-        || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
-        || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
-          ++numberOfFreeSurfaces;
+          if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
+          || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+          || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
+            ++numberOfFreeSurfaces;
+          }
         }
       }
     }
+    baseLtsId += layer->getNumberOfCells();
     surfaceLayer->setNumberOfCells(numberOfFreeSurfaces);
     totalNumberOfFreeSurfaces += numberOfFreeSurfaces;
   }
@@ -329,13 +337,13 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   surfaceLtsTree.touchVariables();
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
-    velocities[dim]     = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
-    displacements[dim]  = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
+    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
   }
   locationFlags = std::vector<double>(totalNumberOfTriangles, 0.0);
 
   /// @ yateto_todo
-  unsigned* ltsToMesh = ltsLut->getLtsToMeshLut(ghostMask);
+  baseLtsId = 0;
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
   for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
@@ -353,25 +361,29 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
-        if (initializers::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
-          assert(faceDisplacements[cell][face] != nullptr);
+      unsigned ltsId = baseLtsId + cell;
+      if (!isDuplicate(ltsId)) {
+        for (unsigned face = 0; face < 4; ++face) {
+          if (initializers::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+            assert(displacements[cell] != nullptr);
 
-          surfaceDofs[surfaceCell]      = dofs[cell];
-          displacementDofs[surfaceCell] = faceDisplacements[cell][face];
-          side[surfaceCell]             = face;
-          meshId[surfaceCell]           = ltsToMesh[cell];
-          surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
+            surfaceDofs[surfaceCell]      = dofs[cell];
+            displacementDofs[surfaceCell] = faceDisplacements[cell][face];
 
-          for (unsigned i = 0; i < numberOfSubTriangles; ++i) {
-            locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<double>(getLocationFlag(
-                cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+            side[surfaceCell]             = face;
+            meshId[surfaceCell]           = ltsLut->meshId(ghostMask, ltsId);
+            surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
+
+            for (unsigned i = 0; i < numberOfSubTriangles; ++i) {
+              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<double>(getLocationFlag(
+                  cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+            }
+            ++surfaceCell;
+            ++surfaceCellOffset;
           }
-          ++surfaceCell;
-          ++surfaceCellOffset;
         }
       }
     }
-    ltsToMesh += layer->getNumberOfCells();
+    baseLtsId += layer->getNumberOfCells();
   }
 }

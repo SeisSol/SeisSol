@@ -81,14 +81,15 @@ module MeshReaderCBinding
         end subroutine
 
         subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, &
-                clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement) bind(C, name="read_mesh_puml_c")
+                clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement, usePlasticity) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
             character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
-            logical( kind=c_bool ), value                      :: hasFault
-            real(kind=c_double), dimension(*), intent(in)      :: displacement
-            real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
-            integer(kind=c_int), value, intent(in)                :: clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement
+            logical( kind=c_bool ), value :: hasFault
+            real(kind=c_double), dimension(*), intent(in) :: displacement
+            real(kind=c_double), dimension(*), intent(in) :: scalingMatrix
+            integer(kind=c_int), value, intent(in) :: clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement
+            logical(kind=c_bool), value :: usePlasticity
         end subroutine
     end interface
 
@@ -104,7 +105,7 @@ contains
         type (tBoundary) :: bnd
         type (tMPI) :: mpi
 
-        character*50 str
+        character(len=50) str
 
         integer i
         integer nVertices
@@ -141,10 +142,11 @@ contains
                                     disc%galerkin%clusteredLts, &
                                     MESH%vertexWeightElement, &
                                     MESH%vertexWeightDynamicRupture, &
-                                    MESH%vertexWeightDisplacement)
+                                    MESH%vertexWeightDisplacement, &
+                                    logical(EQN%Plasticity == 1, 1))
         else
             logError(*) 'Unknown mesh reader'
-            call exit(134)
+            call MPI_ABORT(m_mpi%commWorld, 134)
         endif
 
         ! Set additional SeisSol variables
@@ -190,7 +192,8 @@ contains
                   IntGaussW  = mesh%ELEM%BndGW_Tri,       &
                   M          = disc%Galerkin%nPoly+2,     &
                   IO         = io,                        &
-                  quiet      = .true.                     )
+                  quiet      = .true.,                    &
+                  MPI        = MPI                     )
 #endif
 
         call computeAdditionalMeshInfo()

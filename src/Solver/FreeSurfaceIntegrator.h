@@ -96,8 +96,10 @@ private:
 
   static LocationFlag getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 public:
-  double* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
-  double* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
+  real* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
+  real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
+
+public:
   std::vector<double> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;

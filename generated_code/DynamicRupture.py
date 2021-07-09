@@ -76,7 +76,13 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
     return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']
 
   interpolateQPrefetch = lambda i,h: QInterpolated
-  generator.addFamily('evaluateAndRotateQAtInterpolationPoints', simpleParameterSpace(4,4), interpolateQGenerator, interpolateQPrefetch)
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.addFamily(f'{name_prefix}evaluateAndRotateQAtInterpolationPoints',
+                        simpleParameterSpace(4,4),
+                        interpolateQGenerator,
+                        interpolateQPrefetch if target == 'cpu' else None,
+                        target=target)
 
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
@@ -86,7 +92,7 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
     generator.addFamily(f'{name_prefix}nodalFlux',
                         simpleParameterSpace(4,4),
                         nodalFluxGenerator,
-                        nodalFluxPrefetch,
+                        nodalFluxPrefetch if target =='cpu' else None,
                         target=target)
 
   return {db.resample}

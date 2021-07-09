@@ -1,0 +1,121 @@
+stages:
+    - pre_test
+    - build
+    - test
+
+ci_builder_pre:
+    stage: pre_test
+    tags:
+        - ci_testing_cc
+    before_script:
+        - git branch -vva
+        - echo $commit_author_name
+    script:
+        - whoami
+        - pwd
+        - echo $PATH
+        - echo $NAME_TEST
+        - cat .git/config        
+        - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
+        - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
+        - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
+        - git submodule set-url submodules/async https://github.com/TUM-I5/ASYNC.git
+        - git submodule set-url submodules/scons-tools https://github.com/TUM-I5/scons-tools.git
+        - git submodule set-url submodules/PUML https://github.com/TUM-I5/PUML2.git
+        - git submodule set-url submodules/easi https://github.com/SeisSol/easi.git
+        - git submodule set-url submodules/yaml-cpp https://github.com/jbeder/yaml-cpp.git  
+        - git submodule set-url submodules/ImpalaJIT https://github.com/uphoffc/ImpalaJIT.git
+        - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
+        - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
+        - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
+        - git submodule --quiet update --init --recursive 
+        - cat .gitmodules
+        - cat .git/config
+        - git --version
+
+ci_builder_build:
+    stage: build
+    tags:
+        - ci_testing_cc
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
+    before_script:
+        - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
+        - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
+        - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
+        - git submodule set-url submodules/async https://github.com/TUM-I5/ASYNC.git
+        - git submodule set-url submodules/scons-tools https://github.com/TUM-I5/scons-tools.git
+        - git submodule set-url submodules/PUML https://github.com/TUM-I5/PUML2.git
+        - git submodule set-url submodules/easi https://github.com/SeisSol/easi.git
+        - git submodule set-url submodules/yaml-cpp https://github.com/jbeder/yaml-cpp.git  
+        - git submodule set-url submodules/ImpalaJIT https://github.com/uphoffc/ImpalaJIT.git
+        - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
+        - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
+        - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
+        - git submodule --quiet update --init --recursive 
+        - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
+        - wget -q https://github.com/hfp/libxsmm/archive/master.zip
+        - sudo apt-get install gcc-8 g++-8 gfortran-8
+        - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
+        - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
+        - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
+        - sudo apt-get install -qq --yes openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest
+        - gfortran --version
+        - pip3 install --upgrade pip
+        - pip3 install 'numpy>=1.12.0'
+        - pip3 install lxml
+        - pip3 install setuptools
+        - pip3 install sphinx
+        - pip3 install sphinx_rtd_theme
+        - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
+        - unzip master.zip
+        - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+    script:
+        - echo "now building"
+        - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
+        - pwd
+        - git submodule update --init --recursive
+        - cmake --version
+        - set -euo pipefail
+        - export IFS=$'\n\t'
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - equation=elastic
+        - mechanisms=0
+        - for precision in single double ; 
+            do for build_type in Release Debug ; 
+                do for equation in elastic viscoelastic2 ;
+                    do dirname="build_${equation}_${precision}_${build_type}";
+                    echo "mkdir $dirname";
+                    if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
+                    mkdir -p $dirname && cd $dirname ;
+                    pwd; 
+                    CMAKE_PREFIX_PATH=~ ;
+                    cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                    make -j $(nproc);
+                    cd .. ; 
+                  done;
+             done; 
+          done;
+          
+    artifacts:
+        paths:
+            - build_*
+            
+ci_builder_test:
+        stage: test
+        tags:
+            - ci_testing_cc
+        script: 
+            - echo "echo testing"
+            - cd build_elastic_double_Release
+            - make test
+            - cd ../build_elastic_single_Release
+            - make test
+            - cd ../build_elastic_double_Debug
+            - make test
+            - cd ../build_elastic_single_Debug
+            - make test
+            - cd ../build_viscoelastic2_double_Release
+            - make test
+            - cd ../build_viscoelastic2_double_Debug
+            - make test
