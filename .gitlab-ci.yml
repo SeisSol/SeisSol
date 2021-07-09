@@ -62,4 +62,7 @@ gpu_test_build:
     script:
         - echo "now building"
         - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
-        - cat .git/config
+        - git clone https://github.com/7bits-register/convergence-tests.git tests
+        - ls
+        - cat /etc/os-release
+        - cat test_singularity.sh
