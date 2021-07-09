@@ -61,4 +61,5 @@ gpu_test_build:
         - echo $commit_author_name
     script:
         - echo "now building"
+        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - cat .git/config
