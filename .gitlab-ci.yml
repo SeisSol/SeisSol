@@ -52,6 +52,7 @@ gpu_test_build:
     stage: build
     tags:
         - atsccs68-shell
+    allow_failure: true
     before_script:
         - git branch -vva
         - git log --format="%H" -n 1
@@ -69,3 +70,5 @@ gpu_test_build:
         - chmod +x test_singularity.sh
         - which singularity 
         - singularity --version
+        - singularity pull library://7bits-register/collection/seissol-base.sif:sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820
+        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol-base.sif_sha256.99a798009fb5845985cc898de558d384bfc8b5354e955037c14896518d2f1820.sif ./test_singularity.sh
