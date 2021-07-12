@@ -9,7 +9,7 @@ pip3 install git+https://github.com/ravil-mobile/gemmforge.git
 cd ./tests/convergence_elastic && ./generateCubes.sh && cd ../..
 
 for precision in double single; do
-    mkdir -p ./SeisSol/_build_${precision} && cd ./SeisSol/_build_${precision} && mkdir -p output
+    mkdir -p ./SeisSol/_build_${precision} && cd ./SeisSol/_build_${precision} 
     cp ../../tests/convergence_elastic/* .
 
     # compile
