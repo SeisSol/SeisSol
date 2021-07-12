@@ -9,7 +9,7 @@ pip3 install git+https://github.com/ravil-mobile/gemmforge.git
 cd ./tests/convergence_elastic && ./generateCubes.sh && cd ../..
 
 for precision in double single; do
-    mkdir -p ./SeisSol/_build_${precision} && cd ./SeisSol/_build_${precision}
+    mkdir -p ./SeisSol/_build_${precision} && cd ./SeisSol/_build_${precision} && mkdir -p output
     cp ../../tests/convergence_elastic/* .
 
     # compile
@@ -20,6 +20,7 @@ for precision in double single; do
     ./SeisSol_proxy_Release_?${GPU_VENDOR}_?_elastic 100000 50 all
     
     # run convergence test
+    mkdir -p output
     mpirun -n 1 ./SeisSol_Release_?nvidia_?_elastic ./parameters.par
     cd ../..
 done
