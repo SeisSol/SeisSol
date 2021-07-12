@@ -107,6 +107,7 @@ src/Physics/ini_model_DR.f90
 src/Physics/InitialField.cpp
 src/Physics/NucleationFunctions.f90
 src/Physics/thermalpressure.f90
+src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Reader/readpar.f90
 src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90

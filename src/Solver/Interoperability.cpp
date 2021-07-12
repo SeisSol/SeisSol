@@ -55,6 +55,7 @@
 #include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
+#include "Physics/InstantaneousTimeMirrorManager.h"
 
 seissol::Interoperability e_interoperability;
 
@@ -748,6 +749,11 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
 
   memoryManager.recordExecutionPaths(usePlasticity);
 #endif
+
+  auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+  // TODO(Lukas/Sebastian) Find a better place for this.
+  initializeTimeMirrorManagers(1e3, 0.5, &meshReader, m_ltsTree, m_lts, &m_ltsLut,
+                               timeMirrorManagers.first, timeMirrorManagers.second);
 }
 
 template<typename T>
@@ -898,6 +904,7 @@ void seissol::Interoperability::initializeIO(
 	    &seissol::SeisSol::main.meshReader(),
 	    freeSurfaceFilename);
 	//seissol::SeisSol::main.freeMeshReader();
+
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()

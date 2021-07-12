@@ -63,6 +63,8 @@
 
 #include "Parallel/Pin.h"
 
+#include "Physics/InstantaneousTimeMirrorManager.h"
+
 class MeshReader;
 
 namespace seissol
@@ -132,8 +134,8 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
+  std::pair<InstantaneousTimeMirrorManager, InstantaneousTimeMirrorManager> timeMirrorManagers;
 
-private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
 	 */
@@ -283,6 +285,9 @@ public:
 		return *m_meshReader;
 	}
 
+	decltype(timeMirrorManagers)& getTimeMirrorManagers() {
+	  return timeMirrorManagers;
+	}
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
    * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
