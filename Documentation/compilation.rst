@@ -104,13 +104,11 @@ Installing PSpaMM
 Installing GemmForge (for GPU)
 ------------------------------
 
+.. _gemmforge_installation:
 
 .. code-block:: bash
 
-   pip install gemmforge
-
-   # in case if you need GemmForge with the latest changes
-   pip install git+https://github.com/ravil-mobile/gemmforge.git 
+   pip install git+https://github.com/ravil-mobile/gemmforge.git
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------

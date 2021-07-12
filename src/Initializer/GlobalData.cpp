@@ -124,7 +124,18 @@ namespace seissol::initializers {
                                           CopyManagerT& copyManager,
                                           size_t alignment,
                                           seissol::memory::Memkind memkind) {
-      /*empty on purpose*/
+#ifdef ACL_DEVICE
+      const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM::size(),
+                                               yateto::alignedReals<real>(alignment));
+      real* plasticityStressReplication =
+          static_cast<real*>(allocator.allocateMemory(size * sizeof(real),
+                                                      alignment,
+                                                      memkind));
+
+      copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(plasticityStressReplication,
+                                                                                    globalData.replicateStresses,
+                                                                                    alignment);
+#endif // ACL_DEVICE
     }
 
     real* OnDevice::DeviceCopyPolicy::copy(real const* first, real const* last, real*& mem) {
@@ -134,7 +145,9 @@ namespace seissol::initializers {
       device.api->copyTo(mem, first, bytes);
       mem += (last - first);
       return mem;
-#endif // ACL_DEVICE
+#else // ACL_DEVICE
+      return nullptr;
+#endif
     }
 
   } // namespace matrixmanip

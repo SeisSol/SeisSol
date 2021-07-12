@@ -274,7 +274,7 @@ CONTAINS
     
     ! ------------------------------------------------------------------------!
     !
-    CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
+    CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO, MPI)
     !
     CALL BuildSpecialDGGeometry3D_new(OptionalFields%BackgroundValue,EQN,MESH,DISC,BND,MPI,IO)
 
@@ -288,20 +288,22 @@ CONTAINS
                           optionalFields, &
                           eqn,            &
                           mesh,           &
-                          io                )
+                          io,             &
+                          mpi                )
 
     ! get the time step width for every tet
     call cfl_step( optionalFields, &
                    eqn,            &
                    mesh,           &
                    disc,           &
-                   io                )
+                   io,             &
+                   mpi                )
 
     ! get gts time step width
     l_gts = minval( optionalFields%dt_convectiv(:) )
     if (l_gts .le. 0.0) then
       logError(*) 'Invalid timestep width'
-      call exit(134)
+      call MPI_ABORT(MPI%commWorld, 134)
     endif
 
 #ifdef PERIODIC_LTS_SCALING
@@ -366,7 +368,10 @@ CONTAINS
 
     enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+    call c_interoperability_initializeClusteredLts(&
+            i_clustering = disc%galerkin%clusteredLts, &
+            i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
+            usePlasticity = logical(EQN%Plasticity == 1, 1))
 
     !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -382,7 +387,7 @@ CONTAINS
          STAT = allocstat                                                                       )
     IF(allocStat .NE. 0) THEN
        logError(*) 'could not allocate all variables!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     END IF
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
@@ -390,7 +395,7 @@ CONTAINS
                   STAT = allocstat )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate DISC%Galerkin%DGTayl.'
-           call exit(134)
+           call MPI_ABORT(MPI%commWorld, 134)
         END IF
     ENDIF
 
@@ -447,10 +452,13 @@ CONTAINS
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
-  call c_interoperability_synchronizeCellLocalData;
+  call c_interoperability_synchronizeCellLocalData(logical(EQN%Plasticity == 1, 1))
 #endif
 
-    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+    call c_interoperability_initializeMemoryLayout(&
+            clustering = disc%galerkin%clusteredLts, &
+            enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
+            usePlasticity = logical(EQN%Plasticity == 1, 1))
 
   ! Initialize source terms
   select case(SOURCE%Type)
@@ -474,20 +482,20 @@ CONTAINS
                                                      timeHistories     = SOURCE%RP%TimeHist       )
     case default
       logError(*) 'Generated Kernels: Unsupported source type: ', SOURCE%Type
-      call exit(134)
+      call MPI_ABORT(MPI%commWorld, 134)
   end select
 
   if (DISC%Galerkin%FluxMethod .ne. 0) then
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
-    call exit(134)
+    call MPI_ABORT(MPI%commWorld, 134)
   endif
 
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
 
   logInfo0(*) 'Initializing element local matrices.'
-  call c_interoperability_initializeCellLocalMatrices;
+  call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
 
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
+  IF(DISC%Galerkin%DGMethod.EQ.3) THEN
         ALLOCATE( DISC%LocalIteration(MESH%nElem) )
         ALLOCATE( DISC%LocalTime(MESH%nElem)      )
         ALLOCATE( DISC%LocalDt(MESH%nElem)        )
@@ -581,7 +589,7 @@ CONTAINS
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
-        call exit(134)
+        call MPI_ABORT(MPI%commWorld, 134)
         !
     ENDIF
   END SUBROUTINE iniGalerkin3D_us_level2_new
@@ -593,7 +601,7 @@ CONTAINS
   !!                                                                         !!
   !===========================================================================!
 
-  SUBROUTINE iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
+  SUBROUTINE iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO, MPI)
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
@@ -613,6 +621,7 @@ CONTAINS
     TYPE(tSource)            :: SOURCE
     TYPE(tUnstructOptionalFields)   :: OptionalFields
     TYPE(tInputOutput)       :: IO
+    TYPE(tMPI)               :: MPI
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER :: allocstat                                  ! Allocation status !
@@ -676,12 +685,12 @@ CONTAINS
 
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'iniGalerkin: SeisSol Interface not initialized!!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
     IF(MESH%nElem_Tet.EQ.0 .AND. MESH%nElem_Hex.EQ.0) THEN
        logError(*) 'Quadraturefree ADER-DG is only implemented for tetrahedral and hexahedral.'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
     ! Reading polynomial coefficients and mass matrices
@@ -697,7 +706,7 @@ CONTAINS
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
-           call exit(134)
+           call MPI_ABORT(MPI%commWorld, 134)
         END IF
     ENDIF ! Tets
 
@@ -754,26 +763,27 @@ CONTAINS
                  IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
                  M          = DISC%Galerkin%nPoly+2,           &
                  IO         = IO,                              &
-                 quiet      = .TRUE.                           )
+                 quiet      = .TRUE.,                          &
+                 MPI        = MPI                              )
 #endif
 
 #ifndef NDEBUG
         ! assert contant material parameters per element
         if ( disc%galerkin%nDegFrMat .ne. 1 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, disc%galerkin%nDegFrMat not equal 1.', disc%galerkin%nDegFrMat
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 
         ! assert 4 sides for tetrahedrons
         if ( mesh%nSides_tet .ne. 4 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nSides_tet not equal 4.', mesh%nSides_tet
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 
         ! assert 3 vertices for triangles
          if ( mesh%nVertices_tri .ne. 3 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nVertices_tri not equal 3.', mesh%nVertices_tri
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 #endif
     ENDIF ! Tetras
@@ -791,7 +801,7 @@ CONTAINS
   !===========================================================================!
 
 
-  SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
+  SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO, MPI)
     !-------------------------------------------------------------------------!
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
@@ -805,6 +815,7 @@ CONTAINS
     TYPE(tInitialCondition)  :: IC
     TYPE(tSource)            :: SOURCE
     TYPE(tInputOutput)       :: IO
+    TYPE(tMPI)               :: MPI
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER :: iElem                                                          ! Element number
@@ -831,7 +842,7 @@ CONTAINS
     !
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'icGalerkin: SeisSol Interface not initialized!!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
     !
     ALLOCATE(EQN%Energy(3,1:MESH%nElem))
@@ -879,38 +890,35 @@ CONTAINS
         l_initialLoading=0
         l_plasticParameters=0
         
-        IF(EQN%Plasticity .EQ. 1) THEN !high-order points approach
-        !elementwise assignement of the initial loading
+        IF(EQN%Plasticity == 1) THEN !high-order points approach
+           !elementwise assignement of the initial loading
            l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
-        ENDIF
 
-#ifdef USE_PLASTICITY
-        ! initialize the element dependent plastic parameters
-        l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
-        l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
+           ! initialize the element dependent plastic parameters
+           l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
+           l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         
-        ! initialize loading in C
-        oneRankedShaped_iniloading = pack( l_initialLoading, .true. ) 
-        call c_interoperability_setInitialLoading( i_meshId = iElem, \
-                                                   i_initialLoading = oneRankedShaped_iniloading)
+           ! initialize loading in C
+           oneRankedShaped_iniloading = pack( l_initialLoading, .true. )
+           call c_interoperability_setInitialLoading( i_meshId = iElem, \
+                                                      i_initialLoading = oneRankedShaped_iniloading)
 
-        !initialize parameters in C
-        call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
-                                                      i_plasticParameters = l_plasticParameters )
-#endif
+           !initialize parameters in C
+           call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
+                                                         i_plasticParameters = l_plasticParameters )
+
+       END IF
     ENDDO ! iElem
 
-#ifdef USE_PLASTICITY
-    call c_interoperability_setTv( tv = EQN%Tv )
-#endif
+    IF (EQN%Plasticity == 1) THEN
+      call c_interoperability_setTv( tv = EQN%Tv )
+      ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
+      call c_interoperability_synchronizeCellLocalData(logical(.true., 1));
 
-#ifdef USE_PLASTICITY
-    ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
-    call c_interoperability_synchronizeCellLocalData();
-#endif
-    !
+  END IF
+
     logInfo0(*) 'DG initial condition projection done. '
-    !
+
   END SUBROUTINE icGalerkin3D_us_new
 
   SUBROUTINE BuildSpecialDGGeometry3D_new(MaterialVal,EQN,MESH,DISC,BND,MPI,IO)
@@ -1032,7 +1040,7 @@ CONTAINS
               STAT=allocstat )
     IF (allocStat .NE. 0) THEN
        logError(*) 'Interface SeisSol: could not allocate all variables!'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     END IF
 
     ! Calculating boundary surfaces (3D)
@@ -1154,7 +1162,7 @@ CONTAINS
     IF(minv.LE.1e-15) THEN
         logError(*) 'Mesh contains a singular tetrahedron with radius ', minv
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
-        call exit(134)
+        call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
     DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
     DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
@@ -1215,9 +1223,6 @@ CONTAINS
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrST,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
         ELSE
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
-            IF (EQN%DR.EQ.1) THEN
-                ALLOCATE(BND%ObjMPI(iDomain)%MPI_DR_dgvar(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nFault_MPI))
-            ENDIF
         ENDIF
         ALLOCATE( BND%ObjMPI(iDomain)%NeighborBackground(EQN%nBackgroundVar,BND%ObjMPI(iDomain)%nElem)     )
         BND%ObjMPI(iDomain)%Init = .FALSE.
@@ -1287,7 +1292,7 @@ CONTAINS
                      END SELECT
                 ELSE
                    PRINT *, ' ERROR: local order must not be less or equal to zero! ', iLayer
-                   call exit(134)
+                   call MPI_ABORT(MPI%commWorld, 134)
                 ENDIF
             ELSE
                 !

@@ -124,7 +124,7 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
     int order, int numAlignedDOF,
     const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
-    const double* dofs,  const double* pstrain, const double* integrals,
+    const real* dofs,  const real* pstrain, const real* integrals,
     unsigned int* map,
     int refinement, int* outputMask, double* outputRegionBounds,
     xdmfwriter::BackendType backend)
@@ -267,7 +267,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	bool first = false;
 	for (unsigned int i = 0; i < numVars; i++) {
 		if (m_outputFlags[i]) {
-			unsigned int id = addBuffer(0L, meshRefiner->getNumCells() * sizeof(double));
+			unsigned int id = addBuffer(0L, meshRefiner->getNumCells() * sizeof(real));
 			if (!first) {
 				param.bufferIds[VARIABLE0] = id;
 				first = true;
@@ -313,7 +313,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
 
 		// Create data buffers
-		param.bufferIds[LOWVARIABLE0] = addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(double));
+		param.bufferIds[LOWVARIABLE0] = addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
 		int numLowVars = 0;
 
 		if (pstrain) numLowVars += WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
@@ -321,7 +321,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		if (integrals) numLowVars += m_numIntegratedVariables;
 
 		for (int i = 1; i < numLowVars; i++)
-			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(double));
+			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
 
 		// Save number of cells
 		m_numLowCells = pLowMeshRefiner->getNumCells();
@@ -408,11 +408,11 @@ void seissol::writer::WaveFieldWriter::write(double time)
 		if (!m_outputFlags[i])
 			continue;
 
-		double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-				WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(nextId);
+		real* managedBuffer = async::Module<WaveFieldWriterExecutor,
+				WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(nextId);
 		m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
 
-		sendBuffer(nextId, m_numCells*sizeof(double));
+		sendBuffer(nextId, m_numCells*sizeof(real));
 
 		nextId++;
 	}
@@ -421,8 +421,8 @@ void seissol::writer::WaveFieldWriter::write(double time)
 	nextId = 0;
 	if (m_pstrain) {
 		for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) {
-			double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-					WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+i);
+			real* managedBuffer = async::Module<WaveFieldWriterExecutor,
+					WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(m_variableBufferIds[1]+i);
 
 #ifdef _OPENMP
 			#pragma omp parallel for schedule(static)
@@ -431,7 +431,7 @@ void seissol::writer::WaveFieldWriter::write(double time)
 				managedBuffer[j] = m_pstrain[m_map[j]
 						* WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES + i];
 
-			sendBuffer(m_variableBufferIds[1]+i, m_numLowCells*sizeof(double));
+			sendBuffer(m_variableBufferIds[1]+i, m_numLowCells*sizeof(real));
 		}
 		nextId = WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
 	}
@@ -444,8 +444,8 @@ void seissol::writer::WaveFieldWriter::write(double time)
 		for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
 			if (!m_lowOutputFlags[i+WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES])
 				continue;
-			double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-			WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+nextId);
+			real* managedBuffer = async::Module<WaveFieldWriterExecutor,
+			WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(m_variableBufferIds[1]+nextId);
 
 #ifdef _OPENMP
 			#pragma omp parallel for schedule(static)
@@ -454,7 +454,7 @@ void seissol::writer::WaveFieldWriter::write(double time)
 				managedBuffer[j] = m_integrals[m_map[j]
 						* m_numIntegratedVariables + nextId - offset];
 
-			sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(double));
+			sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(real));
 			nextId++;
 		}
 	}

@@ -583,13 +583,14 @@ CONTAINS
 
   END FUNCTION STRING_REAL
 
-  SUBROUTINE OpenFile(UnitNr,Name,create)
+  SUBROUTINE OpenFile(UnitNr,Name,create,MPI)
     !------------------------------------------------------------------------!
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     INTEGER            :: UnitNr
     CHARACTER(LEN=*)   :: Name
     LOGICAL            :: create
+    TYPE (tMPI)        :: MPI
     ! local variables
     INTEGER            :: status
     LOGICAL            :: fexist
@@ -607,7 +608,7 @@ CONTAINS
     IF(.NOT.fexist) THEN                                                     !
        logError(*) 'Error opening unit    : ',UnitNr              !
        logError(*) 'Unit is already open under the name:',TRIM(AllreadyOpenFileName)
-       call exit(134)                                                                  !
+       call MPI_ABORT(mpi%commWorld, 134)                                                                  !
     ENDIF                                                                    !
     !                                                                        !        
     IF (create) THEN                                                         !
@@ -623,7 +624,7 @@ CONTAINS
        IF(.NOT.fexist) THEN                                                  !
           logError(*) 'Error opening file    : ', Name            !
           logError(*) 'File does not exist.'                       !
-          call exit(134)                                                               !
+          call MPI_ABORT(mpi%commWorld, 134)                                                               !
        ENDIF                                                                 !
        !                                                                     !
     END IF                                                                   !
@@ -638,7 +639,7 @@ CONTAINS
        logError(*) 'could not open ',Name                   !
        logError(*) 'File does exist but cannot be opened.'         !
        logError(*) 'IOSTAT:',status                                !
-       call exit(134)                                                                  !
+       call MPI_ABORT(mpi%commWorld, 134)                                                                  !
     END IF                                                                   !
     !                                                                        !        
   END SUBROUTINE OpenFile
@@ -928,11 +929,12 @@ CONTAINS
   ! Analytically compute all the roots of a non-degenerate second order polynomial
   ! a=coefficient(1) must be non-zero.
   ! 
-  SUBROUTINE ZerosPolyO2(solution,coefficients)
+  SUBROUTINE ZerosPolyO2(solution,coefficients,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
     ! Argument list declaration
+    TYPE (tMPI)               :: MPI
     REAL                      :: coefficients(3)
     REAL                      :: solution(2)
     ! Local variable declaration
@@ -952,7 +954,7 @@ CONTAINS
     IF(d.LT.0.) THEN
         PRINT *, ' d negative in ZerosPolyO2. No real roots found! '
         PRINT *, d
-        call exit(134)
+        call MPI_ABORT(mpi%commWorld, 134)
     ENDIF
     !
     solution(1) = (-b-SQRT(d))/(2.*a)
@@ -1016,11 +1018,12 @@ CONTAINS
   ! Analytically compute all the roots of a non-degenerate fourth order polynomial
   ! a=coefficient(1) must be non-zero.
   ! 
-  SUBROUTINE ZerosPolyO4(solution,coefficients)
+  SUBROUTINE ZerosPolyO4(solution,coefficients,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
     ! Argument list declaration
+    TYPE (tMPI)               :: MPI
     REAL                      :: coefficients(5)
     REAL                      :: solution(4)
     ! Local variable declaration
@@ -1060,7 +1063,7 @@ CONTAINS
     IF(ABS(AIMAG(s)).GT.1e-6*ABS(y)) THEN
         PRINT *, ' Real root of aux. poly not real in ZerosPolyO4! '
         PRINT *, s
-        call exit(134)
+        call MPI_ABORT(mpi%commWorld, 134)
     ENDIF
     ! Aux. variables A+/-
     Ap = SQRT(8.*y+b*b-4*c) 
@@ -1077,7 +1080,7 @@ CONTAINS
     IF(d2.LT.0.) THEN
         PRINT *, ' d2 (using A+) negative in ZerosPolyO4. No real roots found! '
         PRINT *, d2
-        call exit(134)
+        call MPI_ABORT(mpi%commWorld, 134)
     ENDIF
     !
     solution(1) = (-b2-SQRT(d2))/(2.*a2)
@@ -1092,7 +1095,7 @@ CONTAINS
     IF(d2.LT.0.) THEN
         PRINT *, ' d2 (using A-) negative in ZerosPolyO4. No real roots found! '
         PRINT *, d2
-        call exit(134)
+        call MPI_ABORT(mpi%commWorld, 134)
     ENDIF
     !
     solution(3) = (-b2-SQRT(d2))/(2.*a2)

@@ -57,6 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/LTS.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
 #include <Solver/time_stepping/MiniSeisSol.cpp>
@@ -67,6 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <device.h>
 #include <unordered_set>
 #include <Initializer/BatchRecorders/Recorders.h>
+#include <Solver/Pipeline/DrPipeline.h>
 #endif
 
 seissol::initializers::LTSTree               *m_ltsTree{nullptr};
@@ -107,13 +109,13 @@ void initGlobalData() {
   m_timeKernel.setGlobalData(globalData);
   m_localKernel.setGlobalData(globalData);
   m_neighborKernel.setGlobalData(globalData);
-  m_dynRupKernel.setGlobalData(&m_globalDataOnHost);
+  m_dynRupKernel.setGlobalData(globalData);
 }
 
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture) {
   // init RNG
   srand48(i_cells);
-  m_lts.addTo(*m_ltsTree);
+  m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
   m_ltsTree->setNumberOfTimeClusters(1);
   m_ltsTree->fixate();
   
@@ -199,7 +201,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
 }
 
 #ifdef ACL_DEVICE
-void initDataStructuresOnDevice() {
+void initDataStructuresOnDevice(bool enableDynamicRupture) {
 
   // estimate sizes required for scratch pads
   constexpr unsigned totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
@@ -248,13 +250,35 @@ void initDataStructuresOnDevice() {
   m_ltsTree->allocateScratchPads();
 
 
-  seissol::initializers::recording::CompositeRecorder recorder;
+  seissol::initializers::recording::CompositeRecorder<seissol::initializers::LTS> recorder;
   recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
   recorder.addRecorder(new seissol::initializers::recording::NeighIntegrationRecorder);
 
-#ifdef USE_PLASTICITY
   recorder.addRecorder(new seissol::initializers::recording::PlasticityRecorder);
-#endif
   recorder.record(m_lts, layer);
+  if (enableDynamicRupture) {
+    auto &drLayer = m_dynRupTree->child(0).child<Interior>();
+    const auto drLayerSize = drLayer.getNumberOfCells();
+    constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size() * sizeof(real);
+    constexpr size_t imposedStateSize = tensor::QInterpolated::size() * sizeof(real);
+    constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
+
+    drLayer.setScratchpadSize(m_dynRup.QInterpolatedPlusOnDevice, QInterpolatedSize * drLayerSize);
+    drLayer.setScratchpadSize(m_dynRup.QInterpolatedMinusOnDevice, QInterpolatedSize * drLayerSize);
+    drLayer.setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * drLayerSize);
+    drLayer.setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * drLayerSize);
+
+    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
+    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
+    drLayer.setScratchpadSize(m_dynRup.QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
+    drLayer.setScratchpadSize(m_dynRup.QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
+    drLayer.setScratchpadSize(m_dynRup.imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
+    drLayer.setScratchpadSize(m_dynRup.imposedStateMinusOnHost, LowerStageFactor * imposedStateSize);
+    m_dynRupTree->allocateScratchPads();
+
+    CompositeRecorder <seissol::initializers::DynamicRupture> drRecorder;
+    drRecorder.addRecorder(new DynamicRuptureRecorder);
+    drRecorder.record(m_dynRup, drLayer);
+  }
 }
 #endif // ACL_DEVICE

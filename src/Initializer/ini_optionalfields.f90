@@ -59,7 +59,7 @@ MODULE ini_OptionalFields_mod
 
 CONTAINS
   
-  SUBROUTINE ini_OptionalFields(OptionalFields,SOURCE,EQN,MESH,DISC,IO)
+  SUBROUTINE ini_OptionalFields(OptionalFields,SOURCE,EQN,MESH,DISC,IO,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -69,11 +69,12 @@ CONTAINS
     TYPE (tUnstructMesh)               :: MESH
     TYPE (tDiscretization)             :: DISC
     TYPE (tInputOutput)                :: IO
+    TYPE (tMPI)                        :: MPI
     !local Variables
     INTEGER                            :: allocstat(20)
     INTEGER                            :: RK_size
     ! -------------------------------------------------------------------------
-    INTENT(IN)                         :: SOURCE,EQN,MESH,DISC,IO
+    INTENT(IN)                         :: SOURCE,EQN,MESH,DISC,IO,MPI
     INTENT(INOUT)                      :: OptionalFields
     ! -------------------------------------------------------------------------
     !                                                                          
@@ -105,7 +106,7 @@ CONTAINS
     IF (SUM(ABS(allocStat(:))).NE.0) THEN                                       
        logError(*) 'Allocation error in ini_opt_fields. '
        logError(*) 'Status: ', allocstat(:)
-       call exit(134)                                                                    
+       call MPI_ABORT(MPI%commWorld, 134)                                                                    
     END IF                                                                              
     !
   END SUBROUTINE ini_OptionalFields

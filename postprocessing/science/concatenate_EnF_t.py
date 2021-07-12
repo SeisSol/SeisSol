@@ -59,6 +59,7 @@ parser = argparse.ArgumentParser(description='concatenate fault energy rate file
 parser.add_argument('prefix', help='folder/prefix')
 parser.add_argument('--plot', dest='display_plot', action='store_true', help='display a plot of the moment rate')
 parser.add_argument('--MP', nargs=1, metavar=('ncpu'), default=([1]), help='use np.pool to speed-up calculations' ,type=int)
+parser.add_argument('--dt', nargs=1, metavar=('dt'), default=([0.01]), help='sampling of the outputted quantities' ,type=float)
 args = parser.parse_args()
 
 filelist = glob.glob(args.prefix+'-EnF_t*')
@@ -134,6 +135,14 @@ print(FricEn)
 #save data
 #time moment-rate frictional-energy-rate frictional-energy
 output = np.c_[En_conc[:,0], En_conc[:,1], En_conc[:,2],  FricEn[:]]
+
+from scipy.interpolate import interp1d
+xp = np.arange(0, En_conc[-1,0], args.dt[0])
+lin1 = interp1d(En_conc[:,0], En_conc[:,1])
+lin2 = interp1d(En_conc[:,0], En_conc[:,2])
+lin3 = interp1d(En_conc[:,0], FricEn[:])
+output = np.c_[xp, lin1(xp), lin2(xp), lin3(xp)]
+
 np.savetxt(args.prefix+'-EnF_0t-all.dat', output)
 
 if args.display_plot:

@@ -4,6 +4,7 @@
 #include "DataTypes/ConditionalTable.hpp"
 #include "utils/logger.h"
 #include <Initializer/LTS.h>
+#include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/Layer.hpp>
 #include <Kernels/Interface.hpp>
 #include <vector>
@@ -13,11 +14,12 @@ namespace initializers {
 namespace recording {
 
 
+template<typename LtsT>
 class AbstractRecorder {
 public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(LTS &handler, Layer &layer) = 0;
+  virtual void record(LtsT &handler, Layer &layer) = 0;
 
 protected:
   void checkKey(const ConditionalKey &key) {
@@ -27,38 +29,32 @@ protected:
     }
   }
 
-  void setUpContext(LTS &handler, Layer &layer) {
+  void setUpContext(LtsT &handler, Layer &layer) {
     currentTable = &(layer.getCondBatchTable());
     currentHandler = &(handler);
     currentLayer = &(layer);
-
-    idofsAddressCounter = 0;
-    derivativesAddressCounter = 0;
   }
 
   ConditionalBatchTableT *currentTable{nullptr};
-  LTS *currentHandler{nullptr};
+  LtsT *currentHandler{nullptr};
   Layer *currentLayer{nullptr};
-
-  size_t idofsAddressCounter{0};
-  size_t derivativesAddressCounter{0};
 };
 
-
-class CompositeRecorder : public AbstractRecorder {
+template<typename LtsT>
+class CompositeRecorder : public AbstractRecorder<LtsT> {
 public:
   ~CompositeRecorder() override {
     for (auto recorder : concreteRecorders)
       delete recorder;
   }
 
-  void record(LTS &handler, Layer &layer) override {
+  void record(LtsT &handler, Layer &layer) override {
     for (auto recorder : concreteRecorders) {
       recorder->record(handler, layer);
     }
   }
 
-  void addRecorder(AbstractRecorder *recorder) {
+  void addRecorder(AbstractRecorder<LtsT> *recorder) {
     concreteRecorders.push_back(recorder);
   }
 
@@ -69,17 +65,19 @@ public:
   }
 
 private:
-  std::vector<AbstractRecorder *> concreteRecorders{};
+  std::vector<AbstractRecorder<LtsT> *> concreteRecorders{};
 };
 
 
-class LocalIntegrationRecorder : public AbstractRecorder {
+class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializers::LTS> {
 public:
   void record(LTS &handler, Layer &layer) override;
 
 private:
   void setUpContext(LTS &handler, Layer &layer, kernels::LocalData::Loader &loader) {
     currentLoader = &loader;
+    integratedDofsAddressCounter = 0;
+    derivativesAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
 
@@ -88,25 +86,29 @@ private:
   void recordLocalFluxIntegral();
   void recordDisplacements();
   std::unordered_map<size_t, real *> idofsAddressRegistry{};
+  size_t integratedDofsAddressCounter{0};
+  size_t derivativesAddressCounter{0};
 };
 
 
-class NeighIntegrationRecorder : public AbstractRecorder {
+class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializers::LTS> {
 public:
   void record(LTS &handler, Layer &layer) override;
 private:
   void setUpContext(LTS &handler, Layer &layer, kernels::NeighborData::Loader &loader) {
     currentLoader = &loader;
+    integratedDofsAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
   void recordNeighbourFluxIntegrals();
   kernels::NeighborData::Loader *currentLoader{nullptr};
   std::unordered_map<real *, real *> idofsAddressRegistry{};
+  size_t integratedDofsAddressCounter{0};
 };
 
 
-class PlasticityRecorder : public AbstractRecorder {
+class PlasticityRecorder : public AbstractRecorder<seissol::initializers::LTS> {
 public:
   void setUpContext(LTS &handler, Layer &layer, kernels::LocalData::Loader &loader) {
     currentLoader = &loader;
@@ -115,6 +117,18 @@ public:
 
   void record(LTS &handler, Layer &layer) override;
   kernels::LocalData::Loader *currentLoader{nullptr};
+};
+
+class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializers::DynamicRupture> {
+public:
+  void record(DynamicRupture &handler, Layer &layer) override;
+private:
+  void setUpContext(DynamicRupture &handler, Layer &layer) {
+    AbstractRecorder::setUpContext(handler, layer);
+  }
+  void recordDofsTimeEvaluation();
+  void recordSpaceInterpolation();
+  std::unordered_map<real *, real *> idofsAddressRegistry{};
 };
 
 } // namespace recording

@@ -359,7 +359,7 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
     // iterate over copy and interior
     for( unsigned int l_clusterCell = 0; l_clusterCell < l_numberOfClusterCells; l_clusterCell++ ) {
       // cluster ids of the four face neighbors
-      unsigned int l_neighboringClusterIds[4];
+      unsigned int l_neighboringClusterIds[4] = {0};
       // collect cluster ids
       for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
         // only continue for valid faces

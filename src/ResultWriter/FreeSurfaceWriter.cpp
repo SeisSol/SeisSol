@@ -164,10 +164,10 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
 
 	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-		addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(double));
+		addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(real));
 	}
 	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-		addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(double));
+		addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(real));
 	}
 
 	//

@@ -175,16 +175,18 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
   real* tmpMem = nullptr;
-  for(size_t face = 0; face < 4; face++) {
+  device.api->resetCircularStreamCounter();
+  auto resetDeviceCurrentState = [this](size_t counter) {
+    for (size_t i = 0; i < counter; ++i) {
+      this->device.api->popStackMemory();
+    }
+    this->device.api->fastStreamsSync();
+    this->device.api->resetCircularStreamCounter();
+  };
 
+
+  for(size_t face = 0; face < 4; face++) {
     size_t streamCounter{0};
-    auto resetDeviceCurrentState = [this](size_t counter) {
-      for (size_t i = 0; i < counter; ++i) {
-        this->device.api->popStackMemory();
-      }
-      this->device.api->fastStreamsSync();
-      this->device.api->resetCircularStreamCounter();
-    };
 
     // regular and periodic
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
@@ -203,11 +205,11 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
         neighFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
         neighFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
         neighFluxKrnl.AminusT = const_cast<const real **>((entry.content[*EntityId::AminusT])->getPointers());
-        neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
 
         tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
+        neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
         (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
         ++streamCounter;
       }
@@ -230,11 +232,11 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
         drKrnl.fluxSolver = const_cast<const real **>((entry.content[*EntityId::FluxSolver])->getPointers());
         drKrnl.QInterpolated = const_cast<real const**>((entry.content[*EntityId::Godunov])->getPointers());
         drKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-        drKrnl.streamPtr = device.api->getNextCircularStream();
 
         tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
         drKrnl.linearAllocator.initialize(tmpMem);
 
+        drKrnl.streamPtr = device.api->getNextCircularStream();
         (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
         ++streamCounter;
       }

@@ -55,7 +55,7 @@ namespace seissol {
                   initializers::Layer& layer,
                   FaceType faceTp = FaceType::regular);
   
-  double miniSeisSol(initializers::MemoryManager& memoryManager);
+  double miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity);
 }
 
 

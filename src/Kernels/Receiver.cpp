@@ -107,11 +107,17 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
+           if (!std::isfinite(qAtPoint(sim, quantity))) {
+            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+          }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
         }
 #else
         for (auto quantity : m_quantities) {
+          if (!std::isfinite(qAtPoint(quantity))) {
+            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+          }
           receiver.output.push_back(qAtPoint(quantity));
         }
 #endif

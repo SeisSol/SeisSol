@@ -12,26 +12,29 @@ void PlasticityRecorder::record(LTS &handler, Layer &layer) {
   setUpContext(handler, layer, loader);
 
   real(*pstrains)[7] = currentLayer->var(currentHandler->pstrain);
-  size_t NodalStressTensorCounter = 0;
+  size_t nodalStressTensorCounter = 0;
   real *scratchMem = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
-  if (currentLayer->getNumberOfCells()) {
-    std::vector<real *> dofsPtrs{};
-    std::vector<real *> qstressNodalPtrs{};
-    std::vector<real *> pstransPtrs{};
+  const auto size = currentLayer->getNumberOfCells();
+  if (size > 0) {
+    std::vector<real *> dofsPtrs(size, nullptr);
+    std::vector<real *> qstressNodalPtrs(size, nullptr);
+    std::vector<real *> pstransPtrs(size, nullptr);
+    std::vector<real *> initialLoadPtrs(size, nullptr);
 
-    for (unsigned cell = 0; cell < currentLayer->getNumberOfCells(); ++cell) {
-      auto Data = currentLoader->entry(cell);
-      dofsPtrs.push_back(static_cast<real *>(Data.dofs));
-      qstressNodalPtrs.push_back(&scratchMem[NodalStressTensorCounter]);
-      NodalStressTensorCounter += tensor::QStressNodal::size();
-      pstransPtrs.push_back(static_cast<real *>(pstrains[cell]));
+    for (unsigned cell = 0; cell < size; ++cell) {
+      auto data = currentLoader->entry(cell);
+      dofsPtrs[cell] = static_cast<real *>(data.dofs);
+      qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
+      nodalStressTensorCounter += tensor::QStressNodal::size();
+      pstransPtrs[cell] = static_cast<real *>(pstrains[cell]);
+      initialLoadPtrs[cell] = static_cast<real *>(data.plasticity.initialLoading);
     }
-    if (!dofsPtrs.empty()) {
-      ConditionalKey key(*KernelNames::Plasticity);
-      checkKey(key);
-      (*currentTable)[key].content[*EntityId::Dofs] = new BatchPointers(dofsPtrs);
-      (*currentTable)[key].content[*EntityId::NodalStressTensor] = new BatchPointers(qstressNodalPtrs);
-      (*currentTable)[key].content[*EntityId::Pstrains] = new BatchPointers(pstransPtrs);
-    }
+
+    ConditionalKey key(*KernelNames::Plasticity);
+    checkKey(key);
+    (*currentTable)[key].content[*EntityId::Dofs] = new BatchPointers(dofsPtrs);
+    (*currentTable)[key].content[*EntityId::NodalStressTensor] = new BatchPointers(qstressNodalPtrs);
+    (*currentTable)[key].content[*EntityId::Pstrains] = new BatchPointers(pstransPtrs);
+    (*currentTable)[key].content[*EntityId::InitialLoad] = new BatchPointers(initialLoadPtrs);
   }
 }
