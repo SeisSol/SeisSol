@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.10)
 project(cube_c)
 
 # specify the C++ standard
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 cmake_policy(SET CMP0074 NEW)
@@ -27,7 +27,7 @@ elseif("${LOG_LEVEL}" STREQUAL "error")
 endif()
 
 #build and link libraries and executable
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../../../cmake" ${CMAKE_MODULE_PATH})
 find_package(NetCDF REQUIRED)
 target_include_directories(cubeGenerator PUBLIC ${NetCDF_INCLUDE_DIRS})
 target_link_libraries(cubeGenerator PUBLIC ${NetCDF_LIBRARY})
@@ -49,9 +49,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(cubeGenerator PUBLIC -fopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
   target_link_libraries(cubeGenerator PUBLIC "-fopenmp")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-  # using Intel C++
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -qopenmp")
-  set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
+  target_compile_options(cubeGenerator PUBLIC -qopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -w3>)
+  target_link_libraries(cubeGenerator PUBLIC "-qopenmp")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp=libomp -Wall -Wextra -pedantic")
 endif()
