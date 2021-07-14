@@ -147,7 +147,7 @@ public:
 		m_numVariables = info.bufferSize(param.bufferIds[OUTPUT_FLAGS]) / sizeof(bool);
 		m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OUTPUT_FLAGS]));
 
-		const char* varNames[9] = {
+		const char* varNames[16] = {
 			"sigma_xx",
 			"sigma_yy",
 			"sigma_zz",
@@ -157,12 +157,18 @@ public:
 			"u",
 			"v",
 			"w",
+			"ep_xx",
+			"ep_yy",
+			"ep_zz",
+			"ep_xy",
+			"ep_yz",
+			"ep_xz",
+			"eta",
 		};
 
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
 			if (m_outputFlags[i]) {
-        assert(i < 9);
 				variables.push_back(varNames[i]);
       }
 		}
@@ -205,13 +211,6 @@ public:
 			// Variables
 			std::vector<const char*> lowVariables;
 			const char* lowVarNames[NUM_LOWVARIABLES] = {
-				"ep_xx",
-				"ep_yy",
-				"ep_zz",
-				"ep_xy",
-				"ep_yz",
-				"ep_xz",
-				"eta",
 				"int_sigma_xx",
 				"int_sigma_yy",
 				"int_sigma_zz",
@@ -334,7 +333,7 @@ public:
 public:
 	static const unsigned int NUM_PLASTICITY_VARIABLES = 7;
 	static const unsigned int NUM_INTEGRATED_VARIABLES = 9;
-	static const unsigned int NUM_LOWVARIABLES = NUM_PLASTICITY_VARIABLES+NUM_INTEGRATED_VARIABLES;
+	static const unsigned int NUM_LOWVARIABLES = NUM_INTEGRATED_VARIABLES;
 };
 
 }

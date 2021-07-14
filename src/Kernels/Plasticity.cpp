@@ -67,12 +67,14 @@ namespace seissol::kernels {
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0);
 
     real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(ALIGNMENT)));
+    real QEtaNodal[tensor::QEtaNodal::size()] __attribute__((aligned(ALIGNMENT)));
+    real QEtaModal[tensor::QEtaModal::size()] __attribute__((aligned(ALIGNMENT)));
     real meanStress[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
     real secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
     real tau[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
     real taulim[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
     real yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(ALIGNMENT)));
-    real dudt_pstrain[7];
+    real dudt_pstrain[tensor::QStress::size()] __attribute__((aligned(ALIGNMENT)));
 
     static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                   "Second invariant tensor and mean stress tensor must be of the same size().");
@@ -81,9 +83,9 @@ namespace seissol::kernels {
 
     //copy dofs for later comparison, only first dof of stresses required
     // @todo multiple sims
-    real prev_degreesOfFreedom[6];
-    for (unsigned q = 0; q < 6; ++q) {
-      prev_degreesOfFreedom[q] = degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+    real prev_degreesOfFreedom[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+    for (unsigned q = 0; q < 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
+      prev_degreesOfFreedom[q] = degreesOfFreedom[q];
     }
 
     /* Convert modal to nodal and add sigma0.
@@ -168,7 +170,7 @@ namespace seissol::kernels {
       adjKrnl.execute();
 
       // calculate plastic strain with first dof only (for now)
-      for (unsigned q = 0; q < 6; ++q) {
+      for (unsigned q = 0; q < 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
         /**
          * Equation (10) from Wollherr et al.:
          *
@@ -193,17 +195,48 @@ namespace seissol::kernels {
          * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
          */
         real factor = plasticityData->mufactor / (T_v * oneMinusIntegratingFactor);
-        dudt_pstrain[q] = factor *
-            (prev_degreesOfFreedom[q] - degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]);
+        dudt_pstrain[q] = factor * (prev_degreesOfFreedom[q] - degreesOfFreedom[q]);
         // Integrate with explicit Euler
         pstrain[q] += timeStepWidth * dudt_pstrain[q];
       }
+      /* Convert modal to nodal */
+      kernel::plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
+      m2nKrnl_dudt_pstrain.v = global->vandermondeMatrix;
+      m2nKrnl_dudt_pstrain.QStress = dudt_pstrain;
+      m2nKrnl_dudt_pstrain.QStressNodal = QStressNodal;
+      m2nKrnl_dudt_pstrain.execute();
 
-      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-      pstrain[6] += timeStepWidth * sqrt(0.5 * (dudt_pstrain[0] * dudt_pstrain[0] + dudt_pstrain[1] * dudt_pstrain[1]
-                                                + dudt_pstrain[2] * dudt_pstrain[2]) + dudt_pstrain[3] * dudt_pstrain[3]
-                                         + dudt_pstrain[4] * dudt_pstrain[4] + dudt_pstrain[5] * dudt_pstrain[5]);
+      for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
+        QEtaModal[q] = pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q];
+      }
+
+      /* Convert modal to nodal */
+      kernel::plConvertEtaModal2Nodal m2n_eta_Krnl;
+      m2n_eta_Krnl.v = global->vandermondeMatrix;
+      m2n_eta_Krnl.QEtaModal = QEtaModal;
+      m2n_eta_Krnl.QEtaNodal = QEtaNodal;
+      m2n_eta_Krnl.execute();
+
+      auto QStressNodalView = init::QStressNodal::view::create(QStressNodal);
+      unsigned numNodes = QStressNodalView.shape(0);
+      for (unsigned i = 0; i < numNodes; ++i) {
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+        QEtaNodal[i] = std::max((real) 0.0, QEtaNodal[i]) + 
+                       timeStepWidth * sqrt(0.5 * (QStressNodalView(i, 0) * QStressNodalView(i, 0)  + QStressNodalView(i, 1) * QStressNodalView(i, 1)
+                                                  + QStressNodalView(i, 2) * QStressNodalView(i, 2)  + QStressNodalView(i, 3) * QStressNodalView(i, 3)
+                                                  + QStressNodalView(i, 4) * QStressNodalView(i, 4)  + QStressNodalView(i, 5) * QStressNodalView(i, 5)));
+      }
+ 
+      /* Convert nodal to modal */
+      kernel::plConvertEtaNodal2Modal n2m_eta_Krnl;
+      n2m_eta_Krnl.vInv = global->vandermondeMatrixInverse;
+      n2m_eta_Krnl.QEtaNodal = QEtaNodal;
+      n2m_eta_Krnl.QEtaModal = QEtaModal;
+      n2m_eta_Krnl.execute();
+      for (unsigned q = 0; q < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q) {
+        pstrain[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = QEtaModal[q];
+      }
 
       return 1;
     }

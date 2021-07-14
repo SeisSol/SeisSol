@@ -153,6 +153,7 @@ CONTAINS
     do i = EQN%nVar+1, EQN%nVarTotal
       outputMaskInt(i) = 0
     end do
+
     call c_interoperability_initializeIO(    &
         i_mu        = disc%DynRup%mu,        &
         i_slipRate1 = disc%DynRup%slipRate1, &
@@ -166,6 +167,7 @@ CONTAINS
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
         i_outputMask= outputMaskInt,         &
+        i_plasticityMask=io%PlasticityMask,     &
         i_outputRegionBounds = io%OutputRegionBounds, &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
