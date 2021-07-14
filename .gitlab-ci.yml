@@ -110,7 +110,7 @@ gpu_test_build:
         - git --no-pager show -s --format='%ae' $commit_id
         - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
         - echo $commit_author_name
-        - cat .git/config
+        - cat .gitmodules
     script:
         - echo "now building"
         - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
