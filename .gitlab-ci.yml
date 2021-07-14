@@ -14,6 +14,10 @@ gpu_test_pre:
         - echo "checking availability of atscc68" $HOST
         - echo $GPU_VENDOR $GPU_MODEL
         - git --version
+        - cat .gitmodules
+        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
+        - cat .gitmodules
+
         
 ci_builder_pre:
     stage: pre_test
@@ -25,7 +29,7 @@ ci_builder_pre:
     script:
         - echo "checking availability of ci_testing_cc"
         - git --version
-
+        
 ci_builder_build:
     stage: build
     tags:
