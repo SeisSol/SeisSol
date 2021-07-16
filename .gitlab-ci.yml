@@ -1,25 +1,11 @@
 stages:
-    - pre_test
+    - pre_build
     - build 
     - test
-    
-gpu_test_pre:
-    stage: pre_test
-    tags:
-        - atsccs68-shell
-    before_script:
-        - git branch -vva
-        - echo $commit_author_name
-    script:
-        - echo "checking availability of atscc68" $HOST
-        - echo $GPU_VENDOR $GPU_MODEL
-        - git --version
-        - cat .gitmodules
-        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
-        - cat .gitmodules
-        
+
+
 ci_builder_pre:
-    stage: pre_test
+    stage: pre_build
     tags:
         - ci_testing_cc
     before_script:
@@ -28,25 +14,16 @@ ci_builder_pre:
     script:
         - echo "checking availability of ci_testing_cc"
         - git --version
-        
+
+
 ci_builder_build:
     stage: build
     tags:
         - ci_testing_cc
     before_script:
         - cat .git/config
-        - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
-        - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
-        - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
-        - git submodule set-url submodules/async https://github.com/TUM-I5/ASYNC.git
-        - git submodule set-url submodules/scons-tools https://github.com/TUM-I5/scons-tools.git
-        - git submodule set-url submodules/PUML https://github.com/TUM-I5/PUML2.git
-        - git submodule set-url submodules/easi https://github.com/SeisSol/easi.git
-        - git submodule set-url submodules/yaml-cpp https://github.com/jbeder/yaml-cpp.git  
-        - git submodule set-url submodules/ImpalaJIT https://github.com/uphoffc/ImpalaJIT.git
-        - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
-        - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
-        - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
+        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
+        - git submodule sync
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
@@ -85,7 +62,20 @@ ci_builder_build:
                     mkdir -p $dirname && cd $dirname ;
                     pwd; 
                     CMAKE_PREFIX_PATH=~ ;
-                    cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                    cmake ..
+                    -DNETCDF=OFF
+                    -DMETIS=ON
+                    -DCOMMTHREAD=ON
+                    -DASAGI=OFF
+                    -DHDF5=ON
+                    -DCMAKE_BUILD_TYPE=$build_type
+                    -DTESTING=ON -DLOG_LEVEL=warning
+                    -DLOG_LEVEL_MASTER=info
+                    -DARCH=hsw
+                    -DPRECISION=$precision
+                    -DEQUATIONS=$equation
+                    -DNUMBER_OF_MECHANISMS=$mechanisms
+                    -DGEMM_TOOLS_LIST=LIBXSMM ;
                     make -j $(nproc);
                     cd .. ; 
                   done;
@@ -95,31 +85,7 @@ ci_builder_build:
     artifacts:
         paths:
             - build_*
-        
-gpu_test_build:
-    stage: build
-    tags:
-        - atsccs68-shell
-    allow_failure: true
-    before_script:
-        - git branch -vva
-        - git log --format="%H" -n 1
-        - git log --format="%H" -n 1 > commit_id
-        - git --no-pager show -s --format='%ae' $commit_id
-        - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
-        - echo $commit_author_name
-        - cat .gitmodules
-    script:
-        - echo "now building"
-        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
-        - git clone https://github.com/7bits-register/convergence-tests.git tests
-        - cat /etc/os-release
-        - cat CI-Files/test_singularity_gpu.sh
-        - chmod +x CI-Files/test_singularity_gpu.sh
-        - which singularity 
-        - singularity --version
-        - singularity pull library://7bits-register/collection/seissol_base_amd64.sif:sha256.ab10184df265ef283a99d3b4c1a6b9d2e05ed5945ca43838c9d9a3b8d5b18cf9 
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64.sif_sha256.ab10184df265ef283a99d3b4c1a6b9d2e05ed5945ca43838c9d9a3b8d5b18cf9.sif ./CI-Files/test_singularity_gpu.sh
+
 
 ci_builder_test:
         stage: test
@@ -139,3 +105,114 @@ ci_builder_test:
             - make test
             - cd ../build_viscoelastic2_double_Debug
             - make test
+
+
+gpu_pre_build:
+    stage: pre_build
+    tags:
+        - atsccs68-docker-executor
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    before_script:
+        - git branch -vva
+        - echo $commit_author_name
+    script:
+        - echo "HOST arch.:" $HOST
+        - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
+        - nvidia-smi
+        - cat .gitmodules
+        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
+        - git submodule sync
+        - cat .git/config
+        - git submodule update --init --recursive
+
+    artifacts:
+        paths:
+            - submodules
+
+
+gpu_build:
+    stage: build
+    tags:
+        -  atsccs68-docker-executor
+    allow_failure: false
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    script:
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - . /opt/spack-environment/seissol_env.sh
+        - . /opt/spack-environment/cuda_env.sh
+        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+        - set -euo pipefail
+        - git submodule update --init --recursive
+        - for precision in double single; do
+            mkdir -p ./build_${precision} && cd ./build_${precision} ;
+            cmake ..
+            -DCMAKE_BUILD_TYPE=Release
+            -DDEVICE_ARCH=${GPU_VENDOR}
+            -DDEVICE_SUB_ARCH=${GPU_MODEL}
+            -DHOST_ARCH=${HOST}
+            -DPRECISION=${precision} ;
+            make -j ;
+            cd .. ;
+          done;
+        - set +u
+    artifacts:
+        paths:
+            - build_*
+
+
+gpu_convergence_test:
+    stage: test
+    tags:
+        -  atsccs68-docker-executor
+    allow_failure: false
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    script:
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - . /opt/spack-environment/seissol_env.sh
+        - . /opt/spack-environment/cuda_env.sh
+        - git clone https://github.com/SeisSol/Examples.git tests
+        - pip3 install -r ./tests/convergence_elastic/requirements.txt
+        - set -euo pipefail
+        - for precision in double single; do
+            cd ./build_${precision} ;
+            echo "Elastic Convergence test with precision - " ${precision} ;
+            cp -r ../tests/convergence_elastic/* . ;
+            PYTHONPATH=$PWD python3 ./elastic_convergence_runner
+            --executable $PWD/SeisSol_Release_?nvidia_?_elastic
+            --tmp-dir /tmp/seissol
+            --sizes 4 8 16
+            --expected-errors 1e-2 1e-4 5e-5
+            --norm-type LInf
+            --end-time 0.5
+            --allow-run-as-root ;
+            cd .. ;
+          done;
+        - set +u
+
+
+gpu_performance_test:
+    stage: test
+    tags:
+        -  atsccs68-docker-executor
+    allow_failure: false
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    script:
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - . /opt/spack-environment/seissol_env.sh
+        - . /opt/spack-environment/cuda_env.sh
+        - set -euo pipefail
+        - for precision in double single; do
+            echo "Running SeiSol proxy with precision - " ${precision} ;
+            cd ./build_${precision} ;
+            ./SeisSol_proxy_Release_?${GPU_VENDOR}_?_elastic 100000 100 all ;
+            cd .. ;
+          done;
+        - set +u
