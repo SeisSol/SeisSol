@@ -115,8 +115,8 @@ gpu_test_build:
         - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - git clone https://github.com/7bits-register/convergence-tests.git tests
         - cat /etc/os-release
-        - cat test_singularity.sh
-        - chmod +x test_singularity.sh
+        - cat ./CI-Files/test_singularity_gpu.sh
+        - chmod +x ./CI-Files/test_singularity_gpu.sh
         - which singularity 
         - singularity --version
         - singularity pull library://7bits-register/collection/seissol_base_amd64.sif:sha256.ab10184df265ef283a99d3b4c1a6b9d2e05ed5945ca43838c9d9a3b8d5b18cf9 
