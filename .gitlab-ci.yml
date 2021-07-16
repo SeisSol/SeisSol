@@ -70,7 +70,6 @@ ci_builder_build:
         - echo "now building"
         - cat .git/config
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
-        - pwd
         - git submodule update --init --recursive
         - cmake --version
         - set -euo pipefail
@@ -115,7 +114,6 @@ gpu_test_build:
         - echo "now building"
         - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
         - git clone https://github.com/7bits-register/convergence-tests.git tests
-        - ls
         - cat /etc/os-release
         - cat test_singularity.sh
         - chmod +x test_singularity.sh
