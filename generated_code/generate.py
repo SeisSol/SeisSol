@@ -46,6 +46,7 @@ import sys
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
 from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.ast.visitor import PrettyPrinter
 
 import DynamicRupture
 import Plasticity
@@ -151,6 +152,13 @@ for tool in gemm_tool_list:
     print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
           "Please, refer to the documentation".format(tool))
     sys.exit("failure")
+
+for kernel in generator.kernels():
+  title = 'AST of {}'.format(kernel.name)
+  print(title)
+  print('='*len(title))
+  PrettyPrinter().visit(kernel.ast)
+  print(' ')
 
 # Generate code
 gemmTools = GeneratorCollection(gemm_generators)

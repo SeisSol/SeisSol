@@ -54,11 +54,13 @@ class ADERDGBase(ABC):
     self.order = order
 
     self.alignStride = lambda name: True
+
     if multipleSimulations > 1:
       self.alignStride = lambda name: name.startswith('fP')
     transpose = multipleSimulations > 1
     self.transpose = lambda name: transpose
     self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
+    self.multipleSimulations = multipleSimulations
 
     self.db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(matricesDir, self.numberOf3DBasisFunctions()), transpose=self.transpose, alignStride=self.alignStride)
     clonesQP = {
@@ -98,16 +100,16 @@ class ADERDGBase(ABC):
 
     self.INodal = OptionalDimTensor('INodal',
                                     's',
-                                    False, #multipleSimulations,
+                                    multipleSimulations,
                                     0,
                                     (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
                                     alignStride=True)
 
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
-      expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
+      expressions=lambda i: self.db.rDivM[i]['kj'] * self.db.V2nTo2m['kl'],
       group_indices=range(4),
-      target_indices='jl')
+      target_indices='lj')
 
     self.db.update(project2nFaceTo3m)
 
@@ -232,7 +234,7 @@ class LinearADERDG(ADERDGBase):
                           localFluxPrefetch,
                           target=target)
 
-      localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
+      localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i][self.t('kn')] * self.INodal['no'] * self.AminusT['op']
       localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
       generator.addFamily(f'{name_prefix}localFluxNodal',
                           simpleParameterSpace(4),

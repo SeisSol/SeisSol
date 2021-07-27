@@ -5,13 +5,22 @@ from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
 
 def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod):
-    easi_ident_map = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
-    assert(easi_ident_map.shape ==
-           (aderdg.numberOfQuantities(), aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()))
-    easi_ident_map = Tensor('easiIdentMap',
-                            easi_ident_map.shape,
-                            easi_ident_map,
-                            alignStride=False)
+    easi_ident_map_shape = (aderdg.numberOfQuantities(), aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions())
+    easi_ident_map_spp = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
+    if aderdg.multipleSimulations > 1:
+        easi_ident_map_spp = np.stack([easi_ident_map_spp] * aderdg.multipleSimulations, axis=0)
+
+    easi_ident_map = OptionalDimTensor('easiIdentMap', 
+            aderdg.Q.optName(), 
+            aderdg.multipleSimulations, 
+            0, 
+            easi_ident_map_shape, 
+            spp=easi_ident_map_spp, 
+            alignStride=False)
+#    easi_ident_map = Tensor('easiIdentMap',
+#                            easi_ident_map.shape,
+#                            easi_ident_map,
+#                            alignStride=False)
     easi_boundary_constant = Tensor('easiBoundaryConstant',
                                     (aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()),
                                     alignStride=False)
@@ -23,13 +32,13 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
     )
     generator.add('createEasiBoundaryGhostCells', create_easi_boundary_ghost_cells)
 
-    projectToNodalBoundary = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['km'] * aderdg.I['mp']
+    projectToNodalBoundary = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('km')] * aderdg.I['mp']
 
     generator.addFamily('projectToNodalBoundary',
                         simpleParameterSpace(4),
                         projectToNodalBoundary)
 
-    projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['kl'] \
+    projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j][aderdg.t('kl')] \
                                               * aderdg.I['lm'] \
                                               * aderdg.Tinv['pm']
 
@@ -47,9 +56,13 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                                )
     include_tensors.add(identity_rotation)
 
+    if not aderdg.transpose:
+        rDivM_times_face_projection = lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.V2nTo2m['kl']
+    else:
+        rDivM_times_face_projection = lambda i: aderdg.db.rDivM[i]['kj'] * aderdg.db.V2nTo2m['kl']
     project2nFaceTo3m = tensor_collection_from_constant_expression(
         base_name='project2nFaceTo3m',
-        expressions=lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.V2nTo2m['kl'],
+        expressions=rDivM_times_face_projection,
         group_indices=range(4),
         target_indices='jl')
 
@@ -85,8 +98,8 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
 
     dt = Scalar('dt')
     displacementAvgNodal = lambda side: aderdg.INodalDisplacement['i'] <= \
-                                        aderdg.db.V3mTo2nFace[side]['ij'] * aderdg.I['jk'] * selectZDisplacementFromQuantities['k'] \
-                                        + dt * aderdg.db.V3mTo2nFace[side]['ij'] * displacement['jk'] * selectZDisplacementFromDisplacements['k']
+                                        aderdg.db.V3mTo2nFace[side][aderdg.t('ij')] * aderdg.I['jk'] * selectZDisplacementFromQuantities['k'] \
+                                        + dt * aderdg.db.V3mTo2nFace[side][aderdg.t('ij')] * displacement['jk'] * selectZDisplacementFromDisplacements['k']
 
     generator.addFamily('displacementAvgNodal',
                         simpleParameterSpace(4),
