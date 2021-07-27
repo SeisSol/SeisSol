@@ -226,8 +226,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           }
           assert(initConds != nullptr);
           // TODO(Lukas) Support multiple init. conds?
-          assert(initConds->size() == 1);
-          (*initConds)[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+          for (size_t i = 0; i < initConds->size(); i++) {
+            (*initConds)[i]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+          }
       };
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,

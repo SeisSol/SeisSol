@@ -1024,7 +1024,11 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
   int numberOfPoints = tensor::QInterpolated::Shape[0];
   int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
+#ifndef MULTIPLE_SIMULATIONS
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
+#else
+  static_assert(tensor::QInterpolated::Shape[1] == tensor::resample::Shape[1], "Different number of quadrature points?");
+#endif
 
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,
