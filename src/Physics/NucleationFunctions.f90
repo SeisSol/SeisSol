@@ -57,9 +57,14 @@ MODULE NucleationFunctions_mod
   INTERFACE Calc_SmoothStep
      MODULE PROCEDURE Calc_SmoothStep
   END INTERFACE
+  INTERFACE regularizedYoffe
+     MODULE PROCEDURE regularizedYoffe
+  END INTERFACE
+
   !---------------------------------------------------------------------------!
   PUBLIC  :: Calc_SmoothStepIncrement
   PUBLIC  :: Calc_SmoothStep
+  PUBLIC  :: regularizedYoffe
   !---------------------------------------------------------------------------!
 
 CONTAINS
@@ -101,6 +106,112 @@ CONTAINS
         endif
     endif
   END FUNCTION Calc_SmoothStep
+
+  FUNCTION C1(t, ts, tr) result(rC1)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr, rC1
+    rC1 = (0.5 * t + 0.25 * tr) * sqrt(t * (tr - t)) &
+        + (t * tr - tr * tr) * asin(sqrt(t / tr)) &
+        - 0.75 * tr * tr * atan(sqrt((tr - t) / t))
+  END FUNCTION C1
+
+  FUNCTION C2(t, ts, tr) result(rC2)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr, rC2
+    REAL, PARAMETER                :: pi=3.141592653589793
+    rC2 = 0.375 * pi * tr * tr
+  END FUNCTION C2
+
+
+  FUNCTION C3(t, ts, tr) result(rC3)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr, rC3
+    rC3 = (ts - t - 0.5 * tr) * sqrt((t - ts) * (tr - t + ts)) &
+        + tr * (2 * tr - 2 * t + 2 * ts) * asin(sqrt((t - ts) / tr)) &
+        + 1.5 * tr * tr * atan(sqrt((tr - t + ts) / (t - ts)))
+  END FUNCTION C3
+
+  FUNCTION C4(t, ts, tr) result(rC4)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr, rC4
+    ! 2 typos fixed in the second term compared with Tinti et al. 2005   
+    rC4 = (-ts + 0.5 * t + 0.25 * tr) * sqrt((t - 2.0 * ts) * (tr - t + 2.0 * ts)) &
+        - tr * (tr - t + 2.0 * ts) * asin(sqrt((t - 2.0 * ts) / tr)) &
+        - 0.75 * tr * tr * atan(sqrt((tr - t + 2.0 * ts) / (t - 2.0 * ts)))
+  END FUNCTION C4
+
+  FUNCTION C5(t, ts, tr) result(rC5)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr, rC5
+    REAL, PARAMETER                :: pi=3.141592653589793
+    rC5 =  0.5 * pi * tr * (t - tr)
+  END FUNCTION C5
+
+
+  FUNCTION C6(t, ts, tr) result(rC6)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr, rC6
+    REAL, PARAMETER                :: pi=3.141592653589793
+    rC6 =  0.5 * pi * tr * (2.0 * ts - t + tr)
+  END FUNCTION C6
+
+
+
+
+  FUNCTION regularizedYoffe(t, ts, tr) result(Gnuc)
+    IMPLICIT NONE
+    REAL        :: t, ts, tr
+    REAL        :: K, Gnuc
+    REAL, PARAMETER                :: pi=3.141592653589793
+    K = 2.0 / (pi * tr * ts * ts)
+    if (tr > 2.0 * ts) then
+        if (t <= 0) then
+            Gnuc = 0
+            return
+        else if (t <= ts) then
+            Gnuc = K * (C1(t, ts, tr) + C2(t, ts, tr))
+            return
+        else if (t <= 2.0 * ts) then
+            Gnuc = K * (C1(t, ts, tr) - C2(t, ts, tr) + C3(t, ts, tr))
+            return
+        else if (t < tr) then 
+            Gnuc = K * (C1(t, ts, tr) + C3(t, ts, tr) + C4(t, ts, tr))
+            return
+        else if (t < tr + ts) then
+            Gnuc = K * (C3(t, ts, tr) + C4(t, ts, tr) + C5(t, ts, tr))
+            return
+        else if (t < tr + 2.0 * ts) then
+            Gnuc = K * (C4(t, ts, tr) + C6(t, ts, tr))
+            return
+        else
+            Gnuc = 0
+            return
+        endif
+    else
+        if (t <= 0) then
+            Gnuc = 0
+            return
+        else if (t <= ts) then
+            Gnuc = K * (C1(t, ts, tr) + C2(t, ts, tr))
+            return
+        else if (t < tr) then
+            Gnuc = K * (C1(t, ts, tr) - C2(t, ts, tr) + C3(t, ts, tr))
+            return
+        else if (t <= 2.0 * ts) then
+            Gnuc =  K * (C5(t, ts, tr) + C3(t, ts, tr) - C2(t, ts, tr))
+            return
+        else if (t < tr + ts) then
+            Gnuc =  K * (C3(t, ts, tr) + C4(t, ts, tr) + C5(t, ts, tr))
+            return
+        else if (t < tr + 2.0 * ts) then
+            Gnuc = K * (C4(t, ts, tr) + C6(t, ts, tr))
+            return
+        else
+            Gnuc = 0
+            return
+        endif
+     endif
+  END FUNCTION regularizedYoffe
 
 
 END MODULE NucleationFunctions_mod

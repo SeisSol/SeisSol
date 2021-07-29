@@ -262,17 +262,30 @@ MODULE ini_model_DR_mod
 
     CASE(33) ! ImposedSlipRateOnDRBoundary
         allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
-
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  DISC%DynRup%Yoffeonset(DISC%Galerkin%nBndGP,MESH%Fault%nSide),    &
+                  DISC%DynRup%YoffeTS(DISC%Galerkin%nBndGP,MESH%Fault%nSide),       &
+                  DISC%DynRup%YoffeTR(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
+ 
         ! Initialize w/ first-touch
         !$omp parallel do schedule(static)
         DO i=1,MESH%fault%nSide
             nuc_xx(:,i) = 0.0d0
             nuc_yy(:,i) = 0.0d0
+            DISC%DynRup%Yoffeonset(:,i) = 0.0d0
+            DISC%DynRup%YoffeTS(:,i) = 0.0d0
+            DISC%DynRup%YoffeTR(:,i) = 0.0d0
         END DO
 
         call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
         call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
+        call c_interoperability_addFaultParameter("rupture_onset" // c_null_char, DISC%DynRup%Yoffeonset)
+        call c_interoperability_addFaultParameter("acc_time" // c_null_char, DISC%DynRup%YoffeTS)
+        call c_interoperability_addFaultParameter("effective_rise_time" // c_null_char, DISC%DynRup%YoffeTR)
+        ! Ts = time_acc*(1./1.27)
+        DISC%DynRup%YoffeTS(:,:) =  DISC%DynRup%YoffeTS(:,:)/1.27
+        ! Tr = rise_time_effective - 2.0*Ts;
+        DISC%DynRup%YoffeTR(:,:) =  DISC%DynRup%YoffeTR(:,:) - 2.0 * DISC%DynRup%YoffeTS(:,:)
 
     CASE(3,4,7,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
