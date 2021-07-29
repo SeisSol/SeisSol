@@ -29,6 +29,7 @@ ci_builder_pre:
     script:
         - echo "checking availability of ci_testing_cc"
         - git --version
+        - cat .gitmodules
         
 ci_builder_build:
     stage: build
