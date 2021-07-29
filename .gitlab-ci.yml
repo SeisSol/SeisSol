@@ -16,8 +16,6 @@ gpu_test_pre:
         - git --version
         - cat .gitmodules
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
-        - cat .gitmodules
-
         
 ci_builder_pre:
     stage: pre_test
