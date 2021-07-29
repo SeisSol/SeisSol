@@ -174,5 +174,5 @@ Pitfalls
 Multi point-sources representation generate spurious waves at frequencies around Vr/h with Vr the rutpure speed and h the spatial sampling of the Kinematic model.
 Also, the source time function are discretized by linear interpolation, and should be adequately sampled in time to avoid sharp kinks in the source time function, which can be the source of high frequency generation.
 Therefore, the kinematic model may need to be upsampled in space and/or in time, for example using this script:
-https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/refine_srf.py
+https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/kinematic_models/refine_srf.py
 A possible alternative is to impose the kinematic model on a dynamic rupture boundary, see :doc:`slip-rate-on-DR` for more details.
