@@ -127,17 +127,16 @@ ci_builder_test:
         stage: test
         tags:
             - ci_testing_cc
+        parallel:
+            matrix:
+                - DIR: build_elastic_double_Release
+                - DIR: build_elastic_single_Release
+                - DIR: build_elastic_double_Debug
+                - DIR: build_elastic_single_Debug
+                - DIR: build_viscoelastic2_double_Release
+                - DIR: build__viscoelastic2_double_Debug
         script: 
             - echo "testing"
-            - cd build_elastic_double_Release
+            - cd $DIR
             - make test
-            - cd ../build_elastic_single_Release
-            - make test
-            - cd ../build_elastic_double_Debug
-            - make test
-            - cd ../build_elastic_single_Debug
-            - make test
-            - cd ../build_viscoelastic2_double_Release
-            - make test
-            - cd ../build_viscoelastic2_double_Debug
-            - make test
+
