@@ -8,6 +8,7 @@ gpu_test_pre:
     tags:
         - atsccs68-shell
         - test_fork_seissol_dbuilder_cc
+    allow_failure: true
     before_script:
         - git branch -vva
         - echo $commit_author_name
@@ -34,6 +35,8 @@ ci_builder_build:
     stage: build
     tags:
         - ci_testing_cc
+    needs:
+        - job: ci_builder_pre
     before_script:
         - cat .git/config
         - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
@@ -103,6 +106,8 @@ gpu_test_build:
         - atsccs68-shell
         - test_fork_seissol_dbuilder_cc
     allow_failure: true
+    needs:
+        - job: gpu_test_pre
     before_script:
         - git branch -vva
         - git log --format="%H" -n 1
@@ -127,6 +132,8 @@ ci_builder_test:
         stage: test
         tags:
             - ci_testing_cc
+        needs:
+            - job: ci_builder_build
         parallel:
             matrix:
                 - DIR: build_elastic_double_Release
