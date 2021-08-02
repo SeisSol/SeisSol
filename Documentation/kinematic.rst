@@ -1,32 +1,25 @@
 Kinematic source example - 1994 Northridge earthquake
 =====================================================
 
-We use this earthquake to demonstrate how to set up dynamic rupture model
-with a kinematic rupture source in SeisSol.
+We use a model of the 1994 Northridge earthquake to illustrate 
+how to set up kinematic models in SeisSol.
 
-The 1994 Northridge earthquake occurred on January 17, at 4:30:55 a.m.
-PST and had its epicenter in Reseda, a neighborhood in the north-central
-San Fernando Valley region of Los Angeles, California, USA. It had a
-duration of approximately 10–20 seconds. The blind thrust earthquake had
-a magnitude of 6.7 (Mw). This is a typical reverse-slip earthquake. The
-fault orients to N122\ :math:`^\circ`\ E and dips at 40\ :math:`^\circ`.
-The simulation can be used to build a similar model with moderate
-modifications.
+This Mw6.7 earthquake occurred in the San Fernando Valley region of Los Angeles, California, USA on January 17.
+The estimated duration of this typical reverse-slip earthquake ranges between 10 and 20s.
+The ruptured fault strikes N122\ :math:`^\circ`\ E and dips at 40\ :math:`^\circ`.
 
 Geometry
 ~~~~~~~~
 
-The fault geometry is made in Gmsh. Fault: plane fault 20 km\*25 km
-dipping at 40-degree.
-
-Region: 100 km :math:`\times` 100 km :math:`\times` 60 km
+The structural model is built with Gmsh. 
+It features a planar fault of 20 km :math:`\times` 25 km dipping 40 :math:`^\circ`, 
+within a half-space region of 100 km :math:`\times` 100 km :math:`\times` 60 km
 
 .. figure:: LatexFigures/1994northridge.png
-   :alt: Geometry of 1994 northridge earthquake.
+   :alt: Geometry used for modeling the 1994 Northridge earthquake.
    :width: 12.00000cm
 
-   Geometry of 1994 Northridge earthquake. A planar fault orients at 122
-   degrees and dip at 40 degrees. The dimension of the fault is 20 km along strike and 25 km along down-dip.
+   Geometry assumed for the 1994 Northridge earthquake scenario. 
 
 Kinematic rupture Source
 ~~~~~~~~~~~~~~~~~~~~~~~~
