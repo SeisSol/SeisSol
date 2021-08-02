@@ -22,8 +22,18 @@ ci_builder_build:
         - ci_testing_cc
     before_script:
         - cat .git/config
-        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
-        - git submodule sync
+        - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
+        - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
+        - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
+        - git submodule set-url submodules/async https://github.com/TUM-I5/ASYNC.git
+        - git submodule set-url submodules/scons-tools https://github.com/TUM-I5/scons-tools.git
+        - git submodule set-url submodules/PUML https://github.com/TUM-I5/PUML2.git
+        - git submodule set-url submodules/easi https://github.com/SeisSol/easi.git
+        - git submodule set-url submodules/yaml-cpp https://github.com/jbeder/yaml-cpp.git  
+        - git submodule set-url submodules/ImpalaJIT https://github.com/uphoffc/ImpalaJIT.git
+        - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
+        - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
+        - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
