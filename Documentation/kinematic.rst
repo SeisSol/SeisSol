@@ -19,7 +19,7 @@ Geometry
 The fault geometry is made in Gmsh. Fault: plane fault 20 km\*25 km
 dipping at 40-degree.
 
-Region: 100 km\*100 km \*60 km.
+Region: 100 km :math:`\times` 100 km :math:`\times` 60 km
 
 .. figure:: LatexFigures/1994northridge.png
    :alt: Geometry of 1994 northridge earthquake.
@@ -31,9 +31,9 @@ Region: 100 km\*100 km \*60 km.
 Kinematic rupture Source
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The kinematic source of the earthquake can be found at . The *standard
-rupture format* can be used directly in SeisSol, with the following
-lines in parameter.par file.
+Kinematic models in the *standard rupture format* can be used directly in SeisSol, 
+after converting them to nrf with the rconv tool (see next and :doc:`standard-rupture-format` for more details), with the following 
+lines in the parameter.par file:
 
 ::
   
@@ -42,34 +42,22 @@ lines in parameter.par file.
   FileName=’northridge.nrf’
   /
 
-Download standard rupture format file (northridge.srf) can be found in https://strike.scec.org/scecpedia/Standard_Rupture_Format.
-Please note that the SCEC units are different with SeisSol units in some
-aspect.
+A description of the standard rupture format can be found at https://strike.scec.org/scecpedia/Standard_Rupture_Format.
+Please note that some variables describing the kinematic model are given in non SI units.
 
-The fault is divided into 20 grids along the strike and 25 grids
-  along the dip. The source time function (STF) of each rectangular
-  elements is given in the file , whose format looks like the following:
-  
+The fault of the Northridge model is divided into 20 point-sources along strike times 25 point-sources 
+along dip. This can be seen in the SRF file header, whose format is the following:
+
 ::
 
   version (1.0)
   PLANE 1
   ELON ELAT NSTK NDIP LEN WID STK DIP DTOP SHYP DHYP
-  POINTS 500
-  LON LAT DEP STK DIP AREA TINIT DT
-  RAKE SLIP1 NT1 SLIP2 NT2 SLIP3 NT3
-  SR1[1] SR1[2] SR1[3] . . . SR1[NT1]
-  SR2[1] SR2[2] SR2[3] . . . SR2[NT3]
-  SR3[1] SR3[2] SR3[3] . . . SR3[NT3]
-  ... 
+  POINTS NP
 
-Explanations for the input file:
 
-**Line 1**: version
+With:
 
-**Line 2**: Number of fault planes
-
-**Line 3**:
 ELON top center longitude
 ELAT top center latitude
 NSTK number of point sources (subfaults) along strike
@@ -81,16 +69,28 @@ DIP segment dip
 DTOP depth to top of fault segment (km)
 SHYP along strike location (from top center) of hypocenter for this segment (km)
 DHYP down-dip location (from top edge) of hypocenter for this segment (km)
+NP Number of points in fault plane
 
-**Line 4**: Number of points per fault plane
 
-**Line 5-9**:
+Each point source (subfault) is described in the file in a data block, with the following format:
+  
+::
+
+  LON LAT DEP STK DIP AREA TINIT DT
+  RAKE SLIP1 NT1 SLIP2 NT2 SLIP3 NT3
+  SR1[1] SR1[2] SR1[3] . . . SR1[NT1]
+  SR2[1] SR2[2] SR2[3] . . . SR2[NT3]
+  SR3[1] SR3[2] SR3[3] . . . SR3[NT3]
+  ...
+
+With:
+
 LON: longitude of subfault center
 LAT: latitude of subfault center
 DEP: depth of subfault center (km)
 STK: strike
 DIP: dip
-AREA: area of subfault (cm2)
+AREA: area of subfault (cm^2)
 TINIT: initiation time when rupture reaches subfault center (sec)
 DT: time step in slip velocity function (sec)
 RAKE: direction of u1 axis (rake direction)
@@ -113,34 +113,19 @@ coordinates with the pre-processing tool `rconv
 
 ::
 
-  rconv -i northridge.srf -o northridge.nrf -m "+proj=merc +lon\_0=-118 +y\_0=-4050981.42 +x\_0=57329.54 +units=m +axis=enu" -x visualization.xdmf
-
-
-To find the center of fault, use *cs2cs* in *proj.4* to convert the
-coordinates:
-
-::
-
-  echo -118.5150 34.3440 0.0 | cs2cs +proj=lonlat +axis=enu +units=m +to +proj=merc +lon\_0=-118 +axis=enu +units=m
-  
-
-This cooperation will project the coordinates and shift the center of
-fault to the origin (0,0) in Cartesian coordinates.
+  rconv -i northridge.srf -o northridge.nrf -m "+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=-118.5150 +lat_0=34.3440" -x visualization.xdmf
 
 Results
 ~~~~~~~
 
-Source rupture starts at 7.0 s and propagates in the domain. A snapshot
-of velocity is shown in Figure [fig:northridge1]. The surface velocity
-output is refined by subdividing each triangle into 4 subtriangles while
-the domain output is not.
+The fault is ruptured over 7s, leading to a MW6.7 earthquake. 
+A snapshot of the vertical ground-surface velocity at 7s after rupture onset in shown below.
 
 .. figure:: LatexFigures/1994_snap2_surface.png
    :alt: Cross-section of vertical velocity
    :width: 12.00000cm
 
-   Cross-section of vertical velocity at the surface at 7 s. The surface velocity output is refined by subdividing each triangle into 4 subtriangles while the domain output is not. The plane demonstrates the fault orientation. 
-
+   vertical ground-surface velocity at 7 s after rupture onset. Note the unsmooth velocity field due to the coarse resolution of the kinematic model used.
 
 
 
