@@ -156,7 +156,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
-            for (int s = 0; s < seissol; ++s) {
+            for (unsigned int s = 0; s < numberOfMultipleSimulations; ++s) {
 #ifdef MULTIPLE_SIMULATIONS
               auto boundaryDofs_s = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
               auto displacement_s = displacement.subtensor(s, yateto::slice<>());

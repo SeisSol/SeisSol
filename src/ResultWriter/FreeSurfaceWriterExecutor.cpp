@@ -45,6 +45,7 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include "utils/logger.h"
 #include "FreeSurfaceWriterExecutor.h"
+#include "Solver/MultipleSimulations.h"
 
 /**
  * Initialize the XDMF writers
@@ -71,10 +72,10 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
 		outputName += "-surface";
 
-    m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS;
+                m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS;
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
-      variables.push_back(LABELS[i]);
+                  variables.push_back(labels[i].data());
 		}
 
 		// TODO get the timestep from the checkpoint
@@ -96,7 +97,3 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		logInfo(rank) << "Initializing free surface output. Done.";
 	}
 }
-
-char const * const seissol::writer::FreeSurfaceWriterExecutor::LABELS[] = {
-	"u", "v", "w", "U", "V", "W"
-};

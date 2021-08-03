@@ -44,6 +44,7 @@
 #include "async/ExecInfo.h"
 
 #include "Monitoring/Stopwatch.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol
 {
@@ -138,7 +139,23 @@ public:
 
 private:
 	/** Variable names in the output */
-	static char const * const LABELS[];
+        static constexpr std::array<char, 6> labelPrototypes = {'u', 'v', 'w', 'U', 'V', 'W'};
+
+        static constexpr auto labels{[]() constexpr{
+          const size_t numLabelPrototypes = labelPrototypes.size();
+          std::array<std::array<char, 3>, numLabelPrototypes*numberOfMultipleSimulations> result{};
+          for (unsigned int i = 0; i < result.size(); ++i) {
+            result[i][0] = labelPrototypes[i%numLabelPrototypes];
+            if (i < numLabelPrototypes) {
+              result[i][1] = 0;
+            } else {
+              result[i][1] = i / numLabelPrototypes + '0';
+            }
+            result[i][2] = 0;
+          }
+          return result;
+        }()};
+
 };
 
 }

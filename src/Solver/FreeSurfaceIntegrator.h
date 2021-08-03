@@ -48,8 +48,13 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 
+#ifdef MULTIPLE_SIMULATIONS
+#define FREESURFACE_MAX_REFINEMENT 3 * MULTIPLE_SIMULATIONS
+#define FREESURFACE_NUMBER_OF_COMPONENTS 3 * MULTIPLE_SIMULATIONS
+#else
 #define FREESURFACE_MAX_REFINEMENT 3
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
+#endif
 
 namespace seissol
 {
