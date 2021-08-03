@@ -2,22 +2,6 @@ stages:
     - pre_test
     - build 
     - test
-    
-gpu_test_pre:
-    stage: pre_test
-    tags:
-        - atsccs68-shell
-        - test_fork_seissol_dbuilder_cc
-    allow_failure: true
-    before_script:
-        - git branch -vva
-        - echo $commit_author_name
-    script:
-        - echo "checking availability of atscc68" $HOST
-        - echo $GPU_VENDOR $GPU_MODEL
-        - git --version
-        - cat .gitmodules
-        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
         
 ci_builder_pre:
     stage: pre_test
@@ -99,35 +83,7 @@ ci_builder_build:
     artifacts:
         paths:
             - build_*
-        
-gpu_test_build:
-    stage: build
-    tags:
-        - atsccs68-shell
-        - test_fork_seissol_dbuilder_cc
-    allow_failure: true
-    needs:
-        - job: gpu_test_pre
-    before_script:
-        - git branch -vva
-        - git log --format="%H" -n 1
-        - git log --format="%H" -n 1 > commit_id
-        - git --no-pager show -s --format='%ae' $commit_id
-        - commit_author_name=$(git --no-pager show -s --format='%ae' $commit_id) 
-        - echo $commit_author_name
-        - cat .gitmodules
-    script:
-        - echo "now building"
-        - git clone --recurse-submodules https://github.com/SeisSol/SeisSol
-        - git clone https://github.com/7bits-register/convergence-tests.git tests
-        - cat /etc/os-release
-        - cat ./CI-Files/test_singularity_gpu.sh
-        - chmod +x ./CI-Files/test_singularity_gpu.sh
-        - which singularity 
-        - singularity --version
-        - singularity pull library://7bits-register/collection/seissol_base_amd64.sif:sha256.ab10184df265ef283a99d3b4c1a6b9d2e05ed5945ca43838c9d9a3b8d5b18cf9 
-        - singularity run --nv -B $PWD:/home/$(whoami) --env GPU_VENDOR=nvidia --env GPU_MODEL=sm_61 --env HOST=snb ./seissol_base_amd64.sif_sha256.ab10184df265ef283a99d3b4c1a6b9d2e05ed5945ca43838c9d9a3b8d5b18cf9.sif ./CI-Files/test_singularity_gpu.sh
-
+            
 ci_builder_test:
         stage: test
         tags:
