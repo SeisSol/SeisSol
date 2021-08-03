@@ -60,6 +60,7 @@
 #include <Kernels/common.hpp>
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+#include <Solver/MultipleSimulations.h>
 
 void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
@@ -155,15 +156,24 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
-          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const double rho = materialData->local.rho;
-            const double g = 9.81; // [m/s^2]
-            const double pressureAtBnd = -1 * rho * g * displacement(i);
+            for (int s = 0; s < seissol; ++s) {
+#ifdef MULTIPLE_SIMULATIONS
+              auto boundaryDofs_s = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
+              auto displacement_s = displacement.subtensor(s, yateto::slice<>());
+#else
+              auto& boundaryDofs_s = boundaryDofs;
+              auto& displacements_s = displacements;
+#endif
+              for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+                const double rho = materialData->local.rho;
+                const double g = 9.81; // [m/s^2]
+                const double pressureAtBnd = -1 * rho * g * displacement_s(i);
 
-            boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
-            boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
-            boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
-          }
+                boundaryDofs_s(i,0) = 2 * pressureAtBnd - boundaryDofs_s(i,0);
+                boundaryDofs_s(i,1) = 2 * pressureAtBnd - boundaryDofs_s(i,1);
+                boundaryDofs_s(i,2) = 2 * pressureAtBnd - boundaryDofs_s(i,2);
+              }
+            }
       };
 
       dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
@@ -225,10 +235,14 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             nodesVec.push_back(curNode);
           }
           assert(initConds != nullptr);
-          // TODO(Lukas) Support multiple init. conds?
-          for (size_t i = 0; i < initConds->size(); i++) {
-            (*initConds)[i]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+#ifdef MULTIPLE_SIMULATIONS
+          for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+            auto sub = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
+            (*initConds)[s % initConds->size()]->evaluate(time, nodesVec, *materialData, sub);
           }
+#else
+          (*initConds)[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+#endif
       };
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,

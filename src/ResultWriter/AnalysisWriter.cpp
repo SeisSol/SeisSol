@@ -10,6 +10,7 @@
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
 #include <Physics/InitialField.h>
+#include "MultipleSimulations.h"
 
 namespace seissol::writer {
 
@@ -74,12 +75,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadraturePoints[numQuadPoints][3];
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
-
-#ifdef MULTIPLE_SIMULATIONS
-  constexpr unsigned multipleSimulations = MULTIPLE_SIMULATIONS;
-#else
-  constexpr unsigned multipleSimulations = 1;
-#endif
 
   for (unsigned sim = 0; sim < multipleSimulations; ++sim) {
     logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";

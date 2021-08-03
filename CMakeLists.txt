@@ -112,7 +112,7 @@ add_custom_command(
        )
 
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  target_compile_definitions(SeisSol-lib PUBLIC MULTIPLE_SIMULATIONS)
+  target_compile_definitions(SeisSol-lib PUBLIC MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")

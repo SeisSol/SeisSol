@@ -89,8 +89,11 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
 {
   dofsQP.setZero();
  
-  real dofsPW_data[tensor::dofsQP::size()];
-  yateto::DenseTensorView<2,real,unsigned> dofsPW = init::dofsQP::view::create(dofsPW_data);
+  std::vector<double> dofsPW_vector(dofsQP.size());
+  auto dofsPW = yateto::DenseTensorView<2,real,unsigned>(dofsPW_vector.data(), 
+      {NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES}, 
+      {0, 0}, 
+      {NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES});
 
   for (int pw = 0; pw < 3; pw++) {
     //evaluate each planarwave
