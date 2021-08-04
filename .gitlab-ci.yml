@@ -140,6 +140,8 @@ gpu_build:
     tags:
         -  atsccs68-docker-executor
     allow_failure: false
+    needs:
+        - job: gpu_build_pre
     image:
         name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         entrypoint: [""]
