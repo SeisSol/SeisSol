@@ -128,7 +128,6 @@ gpu_pre_build:
         - git submodule sync
         - cat .gitmodules
         - cat .git/config
-        - git stash --include-untracked
         - git submodule --quiet update --init --recursive 
 
     artifacts:
