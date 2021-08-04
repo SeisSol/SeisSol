@@ -1,10 +1,10 @@
 stages:
-    - pre_test
+    - pre_build
     - build 
     - test
         
 ci_builder_pre:
-    stage: pre_test
+    stage: pre_build
     tags:
         - ci_testing_cc
     before_script:
@@ -101,6 +101,31 @@ ci_builder_test:
                 - DIR: build__viscoelastic2_double_Debug
         script: 
             - echo "testing"
+            - pwd
+            - ls
             - cd $DIR
             - make test
+            
+gpu_pre_build:
+    stage: pre_build
+    tags:
+        - atsccs68-docker-executor
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    before_script:
+        - git branch -vva
+        - echo $commit_author_name
+    script:
+        - echo "HOST arch.:" $HOST
+        - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
+        - nvidia-smi
+        - cat .gitmodules
+        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
+        - git submodule sync
+        - cat .git/config
+        - git submodule update --init --recursive
 
+    artifacts:
+        paths:
+            - submodules
