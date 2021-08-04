@@ -53,6 +53,10 @@ ci_builder_build:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+    parallel:
+        matrix:
+             - precision: double
+             - precision: single
     script:
         - echo "now building"
         - cat .git/config
@@ -64,19 +68,17 @@ ci_builder_build:
         - export CTEST_OUTPUT_ON_FAILURE=1
         - equation=elastic
         - mechanisms=0
-        - for precision in single double ; 
-            do for build_type in Release ; 
-                do for equation in elastic ;
-                    do dirname="build_${equation}_${precision}_${build_type}";
-                    echo "mkdir $dirname";
-                    if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
-                    mkdir -p $dirname && cd $dirname ;
-                    pwd; 
-                    CMAKE_PREFIX_PATH=~ ;
-                    cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
-                    make -j $(nproc);
-                    cd .. ; 
-                  done;
+        - for build_type in Release ; 
+             do for equation in elastic ;
+                 do dirname="build_${equation}_${precision}_${build_type}";
+                 echo "mkdir $dirname";
+                 if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
+                 mkdir -p $dirname && cd $dirname ;
+                 pwd; 
+                 CMAKE_PREFIX_PATH=~ ;
+                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                 make -j $(nproc);
+                 cd .. ; 
              done; 
           done;
           
@@ -106,6 +108,7 @@ gpu_pre_build:
     stage: pre_build
     tags:
         - atsccs68-docker-executor
+    allow_failure: true
     image:
         name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         entrypoint: [""]
