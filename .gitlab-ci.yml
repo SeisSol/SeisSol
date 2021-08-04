@@ -68,7 +68,7 @@ ci_builder_build:
         - export CTEST_OUTPUT_ON_FAILURE=1
         - equation=elastic
         - mechanisms=0
-        - for build_type in Release Debug ; 
+        - for build_type in Release ; 
              do for equation in elastic ;
                  do dirname="build_${equation}_${precision}_${build_type}";
                  echo "mkdir $dirname";
@@ -97,7 +97,6 @@ ci_builder_test:
             matrix:
                 - DIR: build_elastic_double_Release
                 - DIR: build_elastic_single_Release
-                - DIR: build_elastic_single_Debug
         script: 
             - echo "testing"
             - pwd
@@ -122,9 +121,12 @@ gpu_pre_build:
         - echo "HOST arch.:" $HOST
         - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
         - nvidia-smi
+        - git submodule sync
         - cat .git/config
+        - cat .gitmodules
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
         - git submodule sync
+        - cat .gitmodules
         - cat .git/config
         - git stash --include-untracked
         - git submodule --quiet update --init --recursive 
