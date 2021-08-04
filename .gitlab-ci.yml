@@ -14,15 +14,6 @@ ci_builder_pre:
         - echo "checking availability of ci_testing_cc"
         - git --version
         - cat .gitmodules
-        
-ci_builder_build:
-    stage: build
-    tags:
-        - ci_testing_cc
-    needs:
-        - job: ci_builder_pre
-    before_script:
-        - cat .git/config
         - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
         - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
         - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
@@ -53,6 +44,15 @@ ci_builder_build:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+        
+ci_builder_build:
+    stage: build
+    tags:
+        - ci_testing_cc
+    needs:
+        - job: ci_builder_pre
+    before_script:
+        - cat .git/config
     parallel:
         matrix:
              - precision: double
@@ -121,6 +121,7 @@ gpu_pre_build:
         - nvidia-smi
         - git clean -fd
         - cat .git/config
+        - git stash --include-untracked
         - git submodule --quiet update --init --recursive 
 
     artifacts:
