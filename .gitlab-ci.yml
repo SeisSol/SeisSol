@@ -68,7 +68,7 @@ ci_builder_build:
         - export CTEST_OUTPUT_ON_FAILURE=1
         - equation=elastic
         - mechanisms=0
-        - for build_type in Release ; 
+        - for build_type in Release Debug ; 
              do for equation in elastic ;
                  do dirname="build_${equation}_${precision}_${build_type}";
                  echo "mkdir $dirname";
@@ -97,6 +97,7 @@ ci_builder_test:
             matrix:
                 - DIR: build_elastic_double_Release
                 - DIR: build_elastic_single_Release
+                - DIR: build_elastic_single_Debug
         script: 
             - echo "testing"
             - pwd
@@ -109,6 +110,8 @@ gpu_pre_build:
     tags:
         - atsccs68-docker-executor
     allow_failure: true
+    variables:
+        GIT_STRATEGY: clone
     image:
         name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         entrypoint: [""]
