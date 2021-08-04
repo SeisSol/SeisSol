@@ -134,3 +134,35 @@ gpu_pre_build:
     artifacts:
         paths:
             - submodules
+            
+gpu_build:
+    stage: build
+    tags:
+        -  atsccs68-docker-executor
+    allow_failure: false
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    script:
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - . /opt/spack-environment/seissol_env.sh
+        - . /opt/spack-environment/cuda_env.sh
+        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+        - set -euo pipefail
+        - git submodule update --init --recursive
+        - for precision in double single; do
+            mkdir -p ./build_${precision} && cd ./build_${precision} ;
+            cmake ..
+            -DCMAKE_BUILD_TYPE=Release
+            -DDEVICE_ARCH=${GPU_VENDOR}
+            -DDEVICE_SUB_ARCH=${GPU_MODEL}
+            -DHOST_ARCH=${HOST}
+            -DPRECISION=${precision} ;
+            make -j ;
+            cd .. ;
+          done;
+        - set +u
+    artifacts:
+        paths:
+            - build_*
+
