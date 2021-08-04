@@ -88,6 +88,7 @@ ci_builder_test:
         stage: test
         tags:
             - ci_testing_cc
+        allow_failiure: true
         needs:
             - job: ci_builder_build
         parallel:
