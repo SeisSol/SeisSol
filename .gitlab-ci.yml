@@ -116,7 +116,7 @@ gpu_pre_build:
         - echo "HOST arch.:" $HOST
         - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
         - nvidia-smi
-        - git reset --hard
+        - git clean -fd
         - cat .git/config
         - git submodule --quiet update --init --recursive 
 
