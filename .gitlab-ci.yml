@@ -197,3 +197,23 @@ gpu_convergence_test:
           done;
         - set +u
 
+gpu_performance_test:
+    stage: test
+    tags:
+        -  atsccs68-docker-executor
+    allow_failure: false
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    script:
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - . /opt/spack-environment/seissol_env.sh
+        - . /opt/spack-environment/cuda_env.sh
+        - set -euo pipefail
+        - for precision in double single; do
+            echo "Running SeiSol proxy with precision - " ${precision} ;
+            cd ./build_${precision} ;
+            ./SeisSol_proxy_Release_?${GPU_VENDOR}_?_elastic 100000 100 all ;
+            cd .. ;
+          done;
+        - set +u
