@@ -199,6 +199,9 @@ gpu_convergence_test:
             cd .. ;
           done;
         - set +u
+    artifacts:
+        paths:
+            - build_*
 
 gpu_performance_test:
     stage: performance_eval
