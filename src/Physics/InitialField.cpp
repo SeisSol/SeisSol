@@ -108,14 +108,21 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
   }
 }
 
-seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData)
+seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData, const TravellingWaveParameters& travellingWaveParameters)
   //Set phase to 0.5*M_PI, so we have a zero at the origin
   //The wave travels in direction of kVec
   //2*pi / magnitude(kVec) is the wave length of the wave
-  : Planarwave(materialData, 0.5*M_PI, {2*M_PI, 0.0, 1*M_PI}, {1}, {1.0}),
+  : Planarwave(materialData, 0.5*M_PI, travellingWaveParameters.kVec, travellingWaveParameters.varField, travellingWaveParameters.ampField),
   //origin is a point on the wavefront at time zero
-    m_origin({0.0, 0.0, 0.0})
+    m_origin(travellingWaveParameters.origin)
 {
+  logInfo() << "Impose a travelling wave as initial condition";
+  logInfo() << "Origin = (" << m_origin[0] << ", " << m_origin[1] << ", " << m_origin[2] << ")";
+  logInfo() << "kVec = (" << m_kVec[0] << ", " << m_kVec[1] << ", " << m_kVec[2] << ")";
+  logInfo() << "Combine following wave modes";
+  for (size_t i = 0; i < m_ampField.size(); i++) {
+    logInfo() << "(" << m_varField[i] << ": " << m_ampField[i] << ")";
+  }
 }
 
 void seissol::physics::TravellingWave::evaluate(double time,

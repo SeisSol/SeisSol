@@ -71,7 +71,7 @@ namespace seissol {
     //A part of a planar wave travelling in one direction
     class TravellingWave : public Planarwave{
     public:
-      TravellingWave(const CellMaterialData& materialData);
+      TravellingWave(const CellMaterialData& materialData, const TravellingWaveParameters& travellingWaveParameters);
 
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
