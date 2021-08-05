@@ -7,6 +7,8 @@ ci_builder_pre:
     stage: pre_build
     tags:
         - ci_testing_cc
+    variables:
+        GIT_STRATEGY: clone
     before_script:
         - git branch -vva
         - echo $commit_author_name
