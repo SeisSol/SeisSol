@@ -2,6 +2,7 @@ stages:
     - pre_build
     - build 
     - test
+    - performance_eval
         
 ci_builder_pre:
     stage: pre_build
@@ -200,7 +201,7 @@ gpu_convergence_test:
         - set +u
 
 gpu_performance_test:
-    stage: test
+    stage: performance_eval
     tags:
         -  atsccs68-docker-executor
     allow_failure: true
