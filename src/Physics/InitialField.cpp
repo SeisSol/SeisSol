@@ -13,11 +13,15 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
-  : m_varField{1,8},
-    m_ampField{1.0, 1.0},
-    m_phase(phase),
-    m_kVec(kVec)
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
+               double phase,
+               std::array<double, 3> kVec,
+               std::vector<int> varField, 
+               std::vector<std::complex<double>> ampField)
+  : m_phase(phase),
+    m_kVec(kVec),
+    m_varField(varField),
+    m_ampField(ampField)
 {
   assert(m_varField.size() == m_ampField.size());
 
@@ -104,12 +108,13 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
   }
 }
 
-seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData, real phase)
-  //set the wave number vector such that it points in the direction of intendet travelling
-  //the magnitude of the vector is the inverse of the wavelength
-  : Planarwave(materialData, phase, {0.0, 0.0, -0.001}),
+seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData)
+  //Set phase to 0.5*M_PI, so we have a zero at the origin
+  //The wave travels in direction of kVec
+  //2*pi / magnitude(kVec) is the wave length of the wave
+  : Planarwave(materialData, 0.5*M_PI, {2*M_PI, 0.0, 1*M_PI}, {1}, {1.0}),
   //origin is a point on the wavefront at time zero
-    m_origin({0.0, 0.0, 5000})
+    m_origin({0.0, 0.0, 0.0})
 {
 }
 
@@ -130,7 +135,7 @@ void seissol::physics::TravellingWave::evaluate(double time,
                         - m_kVec[1]*(points[i][1] - m_origin[1]) 
                         - m_kVec[2]*(points[i][2] - m_origin[2]) 
                         + m_phase);
-        if(arg.imag() > -M_PI && arg.imag() < M_PI) {
+        if(arg.imag() > -0.5*M_PI && arg.imag() < 1.5*M_PI) {
           dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();
         }
       }
