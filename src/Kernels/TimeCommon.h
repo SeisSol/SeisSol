@@ -100,6 +100,11 @@ namespace seissol {
                             real * const i_timeDofs[4],
                             real o_integrationBuffer[4][tensor::I::size()],
                             real * o_timeIntegrated[4]);
+
+      void computeBatchedIntegrals(Time& i_time,
+                                   const double i_timeStepStart,
+                                   const double i_timeStepWidth,
+                                   ConditionalBatchTableT &table);
     }
   }
 }

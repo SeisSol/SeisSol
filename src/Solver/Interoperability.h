@@ -4,9 +4,10 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
+ * Copyright (c) 2015-2020, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,13 +46,14 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
+#include "Equations/datastructures.hpp"
 
 namespace seissol {
   class Interoperability;
@@ -96,7 +98,7 @@ class seissol::Interoperability {
     //! Set of parameters that have to be initialized for dynamic rupture
     std::unordered_map<std::string, double*> m_faultParameters;
 
-    std::vector<glm::dvec3>           m_recPoints;
+    std::vector<Eigen::Vector3d>           m_recPoints;
 
     //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
@@ -147,8 +149,8 @@ class seissol::Interoperability {
     * @param i_clustering clustering strategy
     * @param enableFreeSurfaceIntegration
     **/
-   void initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration );
-   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration);
+   void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -171,19 +173,21 @@ class seissol::Interoperability {
 
     //! \todo Documentation
     void initializeModel( char*   materialFileName,
-                          int     anelasticity,
-                          int     plasticity,
+                          bool    anelasticity,
+                          bool    anisotropy,
+                          bool    plasticity,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,
-                          double* iniStress );
+                          double* iniStress,
+                          double* waveSpeeds );
 
     void fitAttenuation(  double rho,
                           double mu,
                           double lambda,
                           double Qp,
                           double Qs,
-                          seissol::model::Material& material );
+                          seissol::model::ViscoElasticMaterial& material );
 
     void addFaultParameter( std::string const& name,
                            double* memory) {
@@ -202,7 +206,7 @@ class seissol::Interoperability {
     * @param x,y,z coordinates in physical space
     **/
    void addRecPoint(double x, double y, double z) {
-     m_recPoints.emplace_back(glm::dvec3(x, y, z));
+     m_recPoints.emplace_back(Eigen::Vector3d(x, y, z));
    }
 
    /**
@@ -218,16 +222,20 @@ class seissol::Interoperability {
                      double* i_materialVal,
                      int    i_numMaterialVals );
 
+   /***
+    * Get the wavespeeds for elastic materials for a given cell
+    **/
+   void getWaveSpeeds( double* i_materialVal,
+                       int     i_numMaterialVals,
+                       double* o_waveSpeeds );
    /**
     * Sets the initial loading for a cell (plasticity).
     *
     * @param i_meshId mesh id.
     * @param i_initialLoading initial loading (stress tensor).
     **/
-#ifdef USE_PLASTICITY
    void setInitialLoading( int    i_meshId,
                            double *i_initialLoading );
-#endif
 
    /**
     * Sets the parameters for a cell (plasticity).
@@ -235,17 +243,15 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_plasticParameters cell dependent plastic Parameters (volume, cohesion...).
     **/
-#ifdef USE_PLASTICITY
    void setPlasticParameters( int    i_meshId,
                               double *i_plasticParameters );
 
    void setTv(double tv);
-#endif
 
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
     **/
-   void initializeCellLocalMatrices();
+   void initializeCellLocalMatrices(bool usePlasticity);
 
    template<typename T>
    void synchronize(seissol::initializers::Variable<T> const& handle);
@@ -253,7 +259,7 @@ class seissol::Interoperability {
    /**
     * Synchronizes the cell local material data.
     **/
-   void synchronizeCellLocalData();
+   void synchronizeCellLocalData(bool usePlasticity);
 
    /**
     * Synchronizes the DOFs in the copy layer.
@@ -381,40 +387,6 @@ class seissol::Interoperability {
    void calcElementwiseFaultoutput( double time );
 
    /**
-    * Computes plasticity.
-    *
-    * @param i_timeStep time step of the previous update.
-    * @param i_plasticParameters cell dependent plasticity parameters
-    * @param i_initialLoading initial loading of the associated cell.
-    * @param io_dofs degrees of freedom (including alignment).
-    * @param io_pstrain plastic strain tensor
-    **/
-#ifdef USE_PLASTICITY
-   void computePlasticity( double   i_timeStep,
-		                   double  *i_plasticParameters,
-                           double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                           double  *io_dofs,
-						   double  *io_Energy,
-						   double  *io_pstrain );
-#endif
-
-   /**
-    * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
-    * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
-    *
-    * @param x x coordinate
-    * @param y y coordinate
-    * @param z z coordinate
-    * @param element Number of element in that x, y, z resides
-    * @param mInvJInvPhisAtSources contains the output
-    */
-   void computeMInvJInvPhisAtSources( double x,
-                                      double y,
-                                      double z,
-                                      unsigned element,
-                                      real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()] );
-
-   /**
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
@@ -425,6 +397,16 @@ class seissol::Interoperability {
     * Finalizes I/O
     */
    void finalizeIO();
+
+   /**
+    * reports memory consumed by each device i.e., GPUs
+    */
+   void reportDeviceMemoryStatus();
+
+   /**
+    * Deallocates memory manager
+    */
+   void deallocateMemoryManager();
 };
 
 #endif

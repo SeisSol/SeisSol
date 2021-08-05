@@ -74,7 +74,6 @@ void getfaultnormals(int* size, double** normals);
 void getfaulttangent1(int *size, double** tangent);
 void getfaulttangent2(int *size, double** tangent);
 
-void setbndfaultnelem(int i, int nelem);
 void getbndfaultelements(int i, int* size, int** faultelements);
 
 }

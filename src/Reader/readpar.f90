@@ -114,7 +114,7 @@ CONTAINS
        DISC%CalledFromStructCode = .FALSE.                                   !
     ELSE                                                                     !
        logError(*) 'No MESH-Type in Argumentlist of readpar!'
-       STOP                                                                  !
+       call exit(134)                                                                  !
     END IF                                                                   !
     !                                                                        !
     call getParameterFile(IO%ParameterFile)
@@ -124,23 +124,23 @@ CONTAINS
     if(existence)then
     else
        logError(*) 'You did not specify a valid parameter-file'
-       stop
+       call exit(134)
     endif
     !
     logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
     logInfo0(*) '<                                                         >'
     !                                                                        !
-    CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE.)
+    CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE., MPI=MPI)
     !                                                                        !
     CALL readpar_header(IO,IC,actual_version_of_readpar,programTitle) !
     !                                                                        !
-    CALL readpar_equations(EQN,DISC,SOURCE,IC,IO)                  !
+    CALL readpar_equations(EQN,DISC,SOURCE,IC,IO,MPI)                        !
     !                                                                        !
     CALL readpar_ini_condition(EQN,IC,SOURCE,IO)                   !
     !                                                                        !
-    CALL readpar_boundaries(EQN,BND,IC,DISC,IO,CalledFromStructCode)    !
+    CALL readpar_boundaries(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)     !
     !                                                                        !                                                                        !
-    CALL readpar_sourceterm(EQN,SOURCE,IO)                                   !
+    CALL readpar_sourceterm(EQN,SOURCE,IO, MPI)                              !
     !                                                                        !
     CALL readpar_spongelayer(DISC,EQN,SOURCE,IO)
     !                                                                        !
@@ -148,7 +148,7 @@ CONTAINS
     !                                                                        !
     CALL readpar_discretisation(EQN,usMESH,DISC,SOURCE,IO)         !
     !                                                                        !
-    CALL readpar_output(EQN,DISC,IO,CalledFromStructCode)          !
+    CALL readpar_output(EQN,DISC,IO,MPI,CalledFromStructCode)                !
     !                                                                        !
     CALL readpar_abort(DISC,IO)                                    !
     !                                                                        !
@@ -169,7 +169,7 @@ CONTAINS
     backspace(FID)
     read(FID,fmt='(A)') line
     logError(*) 'invalid line in namelist '//trim(NMLname)//': '//trim(line)
-    stop
+    call exit(134)
     RETURN
 
   END SUBROUTINE
@@ -213,7 +213,7 @@ CONTAINS
   ! E Q U A T I O N S
   !============================================================================
 
-  SUBROUTINE readpar_equations(EQN,DISC,SOURCE,IC, IO)
+  SUBROUTINE readpar_equations(EQN,DISC,SOURCE,IC, IO, MPI)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
     IMPLICIT NONE
@@ -223,6 +223,7 @@ CONTAINS
     TYPE (tSource)             :: SOURCE
     TYPE (tInitialCondition)   :: IC
     TYPE (tInputOutput)        :: IO
+    TYPE (tMPI)                :: MPI
     ! localVariables
     INTEGER                    :: intDummy
     INTEGER                    :: readStat
@@ -230,11 +231,11 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
     REAL                       :: FreqCentral, FreqRatio, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
-                                           Tv, pmethod, &
+                                           Tv, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
@@ -261,15 +262,20 @@ CONTAINS
     ! aheineck, @TODO these values are used, but not initialized < End
 
     ! Setting the default values
+#if defined(USE_ANISOTROPIC)
+    Anisotropy          = 1
+#else
     Anisotropy          = 0
+#endif
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
+    FreqCentral = 0.0
+    FreqRatio = 0.0
 #else
     Anelasticity        = 0
 #endif
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
-    pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialFileName    = ''
     BoundaryFileName    = ''
@@ -280,67 +286,29 @@ CONTAINS
         CALL RaiseErrorNml(IO%UNIT%FileIn, "Equations")
     ENDIF
     !
-    SELECT CASE(Anisotropy)
-    CASE(0)
-      logInfo(*) 'Isotropic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 3+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE(1)
-      logInfo(*) 'Full triclinic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 22+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE DEFAULT
-      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
-      STOP
-    END SELECT
-    !
 
-#if defined(USE_PLASTICITY)
-    if (Plasticity .eq. 0) then
-      logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
-      stop
-    endif
-#endif
+    !
 
     SELECT CASE(Plasticity)
     CASE(0)
       logInfo0(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
-#if !defined(USE_PLASTICITY)
-       logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
-       stop
-#else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
 
 #if defined(USE_PLASTIC_IP)
        logInfo0(*) 'Integration Points approach used for plasticity.'
 #elif defined(USE_PLASTIC_NB)
        logInfo0(*) 'Nodal Basis approach used for plasticity.'
-
 #endif
 
-#endif
         EQN%Plasticity = Plasticity
         !first constant, can be overwritten in ini_model
         EQN%Tv = Tv
-        EQN%PlastMethod = pmethod
-        SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
-        CASE(0)
-                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
-                 logInfo0(*) 'High-order points are used for plasticity. '
-        CASE(2)
-                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
-                 logInfo0(*) 'Average of an element is used for plasticity. '
-        CASE DEFAULT
-                 logError(*) 'ERROR: choose 0 or 2 as plasticity method'
-        stop
-        END SELECT
+        logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
-      STOP
+      call exit(134)
     END SELECT
 
 
@@ -365,7 +333,7 @@ CONTAINS
        EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as anelasticity assumption. '
-      STOP
+      call exit(134)
     END SELECT
 
     DISC%Galerkin%CKMethod = 0
@@ -379,22 +347,39 @@ CONTAINS
          EQN%Adjoint = Adjoint
       CASE DEFAULT
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
-        STOP
+        call exit(134)
       END SELECT
+    
+    EQN%Anisotropy = Anisotropy
+    SELECT CASE(Anisotropy)
+    CASE(0)
+      logInfo(*) 'Isotropic material is assumed. '
+      EQN%nNonZeroEV = 3
+    CASE(1)
+      IF(Anelasticity.EQ.1) THEN
+        logError(*) 'Anelasticity does not work together with Anisotropy'
+      END IF
+      logInfo(*) 'Full triclinic material is assumed. '
+      EQN%nBackgroundVar = 22
+      EQN%nNonZeroEV = 3
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
+      call exit(134)
+    END SELECT
 
     IF(EQN%Adjoint.EQ.1) THEN
-     call readadjoint(IO, DISC, SOURCE, AdjFileName)
+     call readadjoint(IO, DISC, SOURCE, AdjFileName, MPI)
     END IF
     !
     inquire(file=MaterialFileName , exist=fileExists)
     if (.NOT. fileExists) then
      logError(*) 'Material file "', trim(MaterialFileName), '" does not exist.'
-     STOP
+     call exit(134)
     endif
     inquire(file=BoundaryFileName , exist=fileExists)
     if (.NOT. (BoundaryFileName == "") .AND. (.NOT. fileExists)) then
      logError(*) 'Boundary file "', trim(BoundaryFileName), '" does not exist.'
-     STOP
+     call exit(134)
     endif
 
     !
@@ -402,6 +387,12 @@ CONTAINS
     EQN%BoundaryFileName = BoundaryFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    IF ((EQN%FreqCentral.EQ.0.0) .OR. (EQN%FreqRatio.EQ.0.0)) THEN
+        logError(*) 'FreqCentral or FreqRatio not defined'
+        call exit(134) 
+    ENDIF
+#endif
     !
     intDummy = 1                                                  ! coordinate type index
     !                                                             ! (1=cartesian)
@@ -416,7 +407,7 @@ CONTAINS
                ' system (X,Y,Z) chosen'          !
     ELSE                                                          !
         logError(*) 'wrong coordinate system chosen! '
-        stop
+        call exit(134)
     END IF                                                        !
     !                                                             !
   END SUBROUTINE readpar_equations
@@ -443,11 +434,12 @@ CONTAINS
     !------------------------------------------------------------------------
      !Adjoint set to yes
     !------------------------------------------------------------------------
-  SUBROUTINE readadjoint(IO, DISC, SOURCE, AdjFileName)
+  SUBROUTINE readadjoint(IO, DISC, SOURCE, AdjFileName, MPI)
     IMPLICIT NONE
     TYPE (tInputOutput)                               :: IO
     TYPE (tDiscretization)                            :: DISC
     TYPE (tSource)                                    :: SOURCE
+    TYPE (tMPI)                                       :: MPI
     INTENT(INOUT)                                     :: IO, SOURCE
     INTEGER                                           :: i
     CHARACTER(600)                                    :: AdjFileName
@@ -458,7 +450,8 @@ CONTAINS
       CALL OpenFile(                                       &
         UnitNr       = IO%UNIT%other01                , &
         Name         = ADJFileName                    , &
-        create       = .FALSE.                          )
+        create       = .FALSE.                        , &
+        MPI          = MPI                              )
       !
       ! Inversion information is read now
       !
@@ -575,13 +568,15 @@ CONTAINS
    !
    CASE('Zero')
        logInfo(*) 'Zero initial condition'
-    CASE('Planarwave')                                                                ! CASE tPlanarwave
+   CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
-    CASE('Travelling')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Travelling wave initial condition'
-    CASE('Scholte')
+   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
+       logInfo(*) 'Superimposed Planarwave initial condition'
+   CASE('Travelling')                                                                ! CASE tPlanarwave
+       logInfo(*) 'Travelling wave initial condition' 
+   CASE('Scholte')
        logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
-    CASE('Snell')
+   CASE('Snell')
        logInfo(*) 'Snells law (elastic-acoustic) initial condition'
    CASE('Ocean')
        logInfo(*) 'An uncoupled ocean test case for acoustic equations'
@@ -589,7 +584,7 @@ CONTAINS
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
        logError(*) TRIM(IC%cICType),'|'
-       STOP
+       call exit(134)
     END SELECT
     !
     logInfo(*) 'to calculate the initial values.'
@@ -599,7 +594,7 @@ CONTAINS
   !------------------------------------------------------------------------
   !------------------------------------------------------------------------
 
-  subroutine readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+  subroutine readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
     IMPLICIT NONE
@@ -609,6 +604,7 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tDiscretization)     :: DISC
     TYPE (tInputOutput)        :: IO
+    TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
     INTEGER                    :: allocStat, OutputMask(12), i
@@ -649,8 +645,9 @@ CONTAINS
       logInfo(*) ' Pickpoints read from ', TRIM(PPFileName)
       CALL OpenFile(                                 &
             UnitNr       = IO%UNIT%other01         , &
-            Name         = PPFileName            , &
-            create       = .FALSE.                          )
+            Name         = PPFileName              , &
+            create       = .FALSE.                 , &
+            MPI          = MPI                       )
         DO i = 1, nOutPoints
           READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
@@ -667,7 +664,7 @@ CONTAINS
       IF (allocStat .NE. 0) THEN
             logError(*) 'could not allocate',&
                  ' all variables! Ie. Unstructured record Points'
-            STOP
+            call exit(134)
       END IF
       !
       DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%X = X(:)
@@ -721,7 +718,7 @@ CONTAINS
     if (printIntervalCriterion.EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
         logError(*) 'The generated kernels version does no longer support printIntervalCriterion = 1 for elementwise fault output'
-        stop
+        call exit(134)
     else
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
     endif
@@ -741,7 +738,7 @@ CONTAINS
         DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1 .AND. &
         DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.0) THEN
         logError(*) 'Undefined refinement strategy for fault output!'
-        STOP
+        call exit(134)
     ENDIF
 
     DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
@@ -749,7 +746,7 @@ CONTAINS
     !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
     IF (OutputMask(11).EQ.1) THEN
         SELECT CASE (EQN%FL)
-               CASE(2,6,13,16,103) !LSW friction law cases
+               CASE(2,3,4,6,13,16,103) !LSW friction law cases
                     !use only if RF_output=1
                     IF (OutputMask(10).EQ.1) THEN
                         ! set 'collecting DS time' to 1
@@ -777,7 +774,7 @@ CONTAINS
   ! B O U N D A R I E S
   !============================================================================
 
-  SUBROUTINE readpar_boundaries(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+  SUBROUTINE readpar_boundaries(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
     IMPLICIT NONE
@@ -787,6 +784,7 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tDiscretization)     :: DISC
     TYPE (tInputOutput)        :: IO
+    TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
     INTEGER                    :: stat
@@ -836,7 +834,7 @@ CONTAINS
           !                                                                                        !
           IF (allocStat .NE. 0) THEN                                                               ! Error Handler
              logError(*) 'could not allocate surface wall variables!'                              ! Error Handler
-             STOP                                                                                  ! Error Handler
+             call exit(134)                                                                                  ! Error Handler
           END IF                                                                                   ! Error Handler
       ENDIF
       !----------------------------------------------------------------------------------------!
@@ -866,7 +864,7 @@ CONTAINS
           logInfo(*) '-----------------------------------  '
 
           IF(EQN%DR.EQ.1) THEN
-         call readdr(IO, EQN, DISC, BND, IC)
+         call readdr(IO, EQN, DISC, BND, IC, MPI)
        ENDIF ! EQN%DR.EQ.1
       !--------------------------------------------------------------------------------------!
       ! Inflow
@@ -883,9 +881,9 @@ CONTAINS
          !
          IF (allocStat .NE. 0) THEN                                                          ! Error Handler
             logError(*) 'could not allocate Inflow variables!'                               ! Error Handler
-            STOP                                                                             ! Error Handler
+            call exit(134)                                                                             ! Error Handler
          END IF                                                                              ! Error Handler
-      call readinfl(BND, IC, EQN, IO, DISC, BC_if)
+      call readinfl(BND, IC, EQN, IO, DISC, MPI, BC_if)
       END IF
       !
       !--------------------------------------------------------------------------------------!
@@ -903,7 +901,7 @@ CONTAINS
          !                                                                                   !
          IF (allocStat .NE. 0) THEN                                                          ! Error Handler
             logError(*) 'could not allocate Outflow wall variables!'      ! Error Handler
-            STOP                                                                             ! Error Handler
+            call exit(134)                                                                             ! Error Handler
          END IF                                                                              ! Error Handler
       END IF                                                                                 !
       !                                                                                      !
@@ -923,14 +921,15 @@ CONTAINS
     !------------------------------------------------------------------------
      !Dynamic Rupture
     !------------------------------------------------------------------------
-  SUBROUTINE readdr(IO, EQN, DISC, BND, IC)
+  SUBROUTINE readdr(IO, EQN, DISC, BND, IC, MPI)
     IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     TYPE (tDiscretization)                 :: DISC
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
-    INTENT(INOUT)                          :: IO, EQN, DISC, BND
+    TYPE (tMPI)                            :: MPI
+    INTENT(INOUT)                          :: IO, EQN, DISC, BND, MPI
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
                                               thermalPress, SlipRateOutputType, readStat
@@ -1007,7 +1006,7 @@ CONTAINS
     inquire(file=ModelFileName , exist=fileExists)
     if (.NOT. fileExists) then
      logError(*) 'Dynamic rupture model file "', trim(ModelFileName), '" does not exist.'
-     STOP
+     call exit(134)
     endif
     !
     DISC%DynRup%ModelFileName = ModelFileName
@@ -1033,7 +1032,7 @@ CONTAINS
              EQN%RS_sv0 = RS_sv0
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
-             STOP
+             call exit(134)
            END SELECT
 
            !FRICTION SETTINGS
@@ -1055,11 +1054,13 @@ CONTAINS
                logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
                DISC%DynRup%SlipRateOutputType = 0
              ENDIF
-           CASE(3,4,7,101,103)
+           CASE(3,4,7,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
              DISC%DynRup%RS_b = RS_b    ! b, evolution effect
-             DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
+             IF (EQN%FL.EQ.103) THEN
+                 DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
+             ENDIF
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
@@ -1079,7 +1080,7 @@ CONTAINS
              ENDIF
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
-             STOP
+             call exit(134)
            END SELECT
 
            !OUTPUT
@@ -1122,7 +1123,7 @@ CONTAINS
            elseif(DISC%DynRup%OutputPointType.EQ.3) THEN
                 ! in case of OutputPointType 3, read in receiver locations:
                 ! DISC%DynRup%DynRup_out_atPickpoint%nOutPoints is for option 3 the number of pickpoints
-                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
            ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
                 ! elementwise output -> 2 dimensional fault output
                 call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
@@ -1130,23 +1131,24 @@ CONTAINS
                 ! ALICE: TO BE DONE
                 ! fault receiver + 2 dimensional fault output
                 call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
-                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
            ELSE
                logError(*) 'Unkown fault output type (e.g.3,4,5)',DISC%DynRup%OutputPointType
-               STOP
+               call exit(134)
            ENDIF ! DISC%DynRup%OutputPointType
   !
   END SUBROUTINE
     !------------------------------------------------------------------------
      !Inflow Boundaries
     !------------------------------------------------------------------------
-  SUBROUTINE readinfl(BND, IC, EQN, IO, DISC, n4)
+  SUBROUTINE readinfl(BND, IC, EQN, IO, DISC, MPI, n4)
     IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     TYPE (tDiscretization)                 :: DISC
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
+    TYPE (tMPI)                            :: MPI
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: n4, i, j, iVar, readstat, startComment
     INTEGER                                :: nsteps, nPW, iObject, isteps
@@ -1197,7 +1199,7 @@ CONTAINS
                 IF(IC%cICType.NE.'Char_Gauss_Puls') THEN
                   logError(*) 'Inflow boundary condition Char_Gauss_Puls only available with '
                   logError(*) 'corresponding Char_Gauss_Puls initial condition '
-                  stop
+                  call exit(134)
                 ENDIF
                 BND%ObjInflow(i)%InflowType   = 1
 
@@ -1232,7 +1234,8 @@ CONTAINS
                 CALL OpenFile(                                        &
                       UnitNr       = IO%UNIT%other01                , &
                       Name         = PWFileName                     , &
-                      create       = .FALSE.                          )
+                      create       = .FALSE.                        , &
+                      MPI          = MPI                              )
                 logInfo(*) 'Reading inflow wave time-history file ...  '
                 READ(IO%UNIT%other01,'(i10,a)') nsteps                        ! Number of timesteps included
                 BND%ObjInflow(iObject)%PW%TimeHistnSteps = nsteps
@@ -1278,7 +1281,7 @@ CONTAINS
            CASE DEFAULT
                logError(*) 'Inflow conditions specified are unknown!'
                logError(*) TRIM(char_option(1:startComment-1)),'|'
-               STOP
+               call exit(134)
             END SELECT
          END IF
       ENDDO
@@ -1330,7 +1333,7 @@ CONTAINS
    ! S O U R C E   T E R M
    !============================================================================
 
-  SUBROUTINE readpar_sourceterm(EQN,SOURCE,IO)
+  SUBROUTINE readpar_sourceterm(EQN,SOURCE,IO,MPI)
    !------------------------------------------------------------------------
    IMPLICIT NONE
    !------------------------------------------------------------------------
@@ -1338,6 +1341,7 @@ CONTAINS
    TYPE (tEquations)                :: EQN
    TYPE (tSource)                   :: SOURCE
    TYPE (tInputOutput)              :: IO
+   TYPE (tMPI)                      :: MPI
    ! local variable declaration
    INTEGER                          :: i,j,k,iVar,iDummy1
    INTEGER                          :: startComment
@@ -1518,7 +1522,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading single force file ...  '
        !
        ! LEGEND
@@ -1597,7 +1602,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading rupture model file of Type  ',SOURCE%RP%Type
        !
        ! Rupture Plane Geometrie and Subfault information is read now
@@ -1768,7 +1774,7 @@ CONTAINS
 
        CASE DEFAULT
           logError(*)  'The format type of the Finite Source Rupture Model is unknown! '
-          STOP                                                                                     ! STOP
+          call exit(134)                                                                                   
 
        END SELECT
 
@@ -1782,7 +1788,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading rupture model file ...  '
        !
        ! Moment Tensor, Rupture Plane Geometrie and Subfault information is read now
@@ -1825,7 +1832,7 @@ CONTAINS
       SOURCE%NRFFileName = FileName
 #ifndef USE_NETCDF
       logError(*) 'NRF sources require netcdf support.'
-      stop
+      call exit(134)
 #endif
 
     CASE(50) !Finite sources with individual slip rate history for each subfault
@@ -1838,7 +1845,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading rupture model file ...  '
        !
        ! Moment Tensor, Rupture Plane Geometrie and Subfault information is read now
@@ -1895,7 +1903,7 @@ CONTAINS
        !
     CASE DEFAULT                                                                                   !
        logError(*)  'The sourctype specified (', SOURCE%Type, ') is unknown! '                  !
-       STOP                                                                                        ! STOP
+       call exit(134)                                                                                       
     END SELECT                                                                                     !
 
                                                                                                    !
@@ -1905,7 +1913,7 @@ CONTAINS
       SOURCE%TimeGP%nPulseSource = nPulseSource
       IF(SOURCE%Ricker%nRicker.EQ.0.AND.SOURCE%TimeGP%nPulseSource.EQ.0) THEN
         logError(*)  'Adjoint simulations require point sources of type 16, 18 or 19! '                  !
-        STOP
+        call exit(134)
       ENDIF
       !
       count=0
@@ -2169,7 +2177,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     CASE default
        !WRITE(IO%UNIT%errOut,*)  '|   The option is not valid! 0 '        , &
        !     'disables, 1 enables the sponge layer, 2 takes PML and 3 CPML '
-       !STOP
+       !call exit(134)
        !
     END SELECT
     !
@@ -2291,7 +2299,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           inquire( file=IO%MeshFile , exist=file_exits )
           if ( .NOT.file_exits ) then
              logError(*) 'mesh file ',IO%MeshFile,'does not exists'
-             STOP
+             call exit(134)
           endif
 
           !
@@ -2323,7 +2331,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
        CASE DEFAULT
           logError(*) 'Meshgenerator ', TRIM(IO%meshgenerator), ' is unknown!'
-          STOP
+          call exit(134)
        END SELECT
     ! specify element type (3-d = tetrahedrons)
 
@@ -2335,7 +2343,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           MESH%nSideMax = 4
        ELSE
           logError(*) 'Wrong definition of meshgenerator.'
-          STOP
+          call exit(134)
        ENDIF
 
        SELECT CASE (MESH%GlobalElemType)
@@ -2344,7 +2352,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           logInfo(*) 'Mesh type is', MESH%GlobalElemType
        CASE DEFAULT
           logError(*) 'MESH%GlobalElemType must be {4}, {6} or {7} '
-          STOP
+          call exit(134)
        END SELECT
           !logInfo(*) 'Mesh consits of TETRAHEDRAL elements.' ! Is obvious as only this is possible
           !logInfo(*) 'Mesh type is', MESH%GlobalElemType
@@ -2464,7 +2472,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       logInfo(*) 'Using Rusanov flux. '
      CASE DEFAULT
       logError(*) 'Flux case not defined ! '
-      STOP
+      call exit(134)
      ENDSELECT
     !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -2481,7 +2489,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            END SELECT
     CASE DEFAULT
          logError(*) 'Wrong DGmethod. Must be 1 or 3.!'
-         STOP
+         call exit(134)
     END SELECT
        !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -2515,7 +2523,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
            IF(DISC%Galerkin%nPolyMat.GT.DISC%Galerkin%nPoly) THEN
              logError(*) 'nPolyMat larger than nPoly. '
-             STOP
+             call exit(134)
            ENDIF
 
            IF(MESH%GlobalElemType.EQ.6) THEN
@@ -2525,7 +2533,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                   DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
                     IF(DISC%Galerkin%nPolyMat.GT.DISC%Galerkin%nPoly) THEN
                          logError(*) 'nPolyMat larger than nPoly. '
-                         STOP
+                         call exit(134)
                     ENDIF
            ENDIF
 
@@ -2544,13 +2552,14 @@ ALLOCATE( SpacePositionx(nDirac), &
   ! O U T P U T
   !============================================================================
 
-    SUBROUTINE readpar_output(EQN,DISC,IO,CalledFromStructCode)
+    SUBROUTINE readpar_output(EQN,DISC,IO,MPI,CalledFromStructCode)
       !------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------------------------------------
       TYPE (tEquations)             :: EQN
       TYPE (tDiscretization)        :: DISC
       TYPE (tInputOutput)           :: IO
+      TYPE (tMPI)                   :: MPI
       LOGICAL                       :: CalledFromStructCode
       ! local Variables
       INTEGER                       :: i,n, NPTS
@@ -2598,7 +2607,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       ! Setting default values
       OutputFile = 'data'
       iOutputMaskMaterial(:) =  0
-	  IntegrationMask(:) = 0
+      IntegrationMask(:) = 0
       Rotation = 0
       Format = 10
       Refinement = 0
@@ -2645,7 +2654,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                STAT=allocStat                                            )
       IF (allocStat .NE. 0) THEN
          logError(*) 'could not allocate IO%OutputMask in readpar!'
-         STOP
+         call exit(134)
       END IF
       !
         IO%Rotation = Rotation
@@ -2653,7 +2662,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           logError(*) 'Space derivatives of polynomials of degree 0 cannot be computed!'
           logError(*) '   Rotations or Seismic Moment Tensor Contributions cannot be outputted!'
           logError(*) '   Increase the polynomial order or choose not to output rotational rates.'
-          STOP
+          call exit(134)
         ENDIF
         IF(IO%Rotation.EQ.1) THEN
           logInfo(*) 'Outputting rotational seismograms in addition to translational '                               !
@@ -2685,7 +2694,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           ALLOCATE(IO%RotationMask(3),STAT=allocStat )                                      !
            IF (allocStat .NE. 0) THEN                                                       !
              logError(*) 'could not allocate IO%RotationMask in readpar!'!
-             STOP                                                                           !
+             call exit(134)                                                                           !
            END IF
            IO%RotationMask = .FALSE.
            IF(IO%OutputMask(10)) IO%RotationMask(1) = .TRUE.
@@ -2697,7 +2706,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           ALLOCATE(IO%RotationMask(9),STAT=allocStat )                                      !
            IF (allocStat .NE. 0) THEN                                                       !
              logError(*) 'could not allocate IO%RotationMask in readpar!'!
-             STOP                                                                           !
+             call exit(134)                                                                           !
            END IF
            IO%RotationMask(1:9) = .TRUE.
          ENDIF
@@ -2706,7 +2715,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           ALLOCATE(IO%RotationMask(4),STAT=allocStat )                                      !
            IF (allocStat .NE. 0) THEN                                                       !
              logError(*) 'could not allocate IO%RotationMask in readpar!'!
-             STOP                                                                           !
+             call exit(134)                                                                           !
            END IF
            IO%RotationMask(1:4) = .TRUE.
          ENDIF
@@ -2714,7 +2723,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       ALLOCATE(IO%OutputRegionBounds(6),STAT=allocStat )                                      !
        IF (allocStat .NE. 0) THEN                                                       !
          logError(*) 'could not allocate IO%OutputRegionBounds in readpar!'!
-         STOP                                                                           !
+         call exit(134)                                                                           !
        END IF
       IO%OutputRegionBounds(1:6) = OutputRegionBounds(1:6)
       ! Check if all are non-zero and then check if the min and max are not the same
@@ -2724,22 +2733,22 @@ ALLOCATE( SpacePositionx(nDirac), &
 
           IF (OutputRegionBounds(2)-OutputRegionBounds(1) <= 0.0) THEN
               logError(*) 'Please make sure the x bounds are correct'
-              STOP
+              call exit(134)
           ENDIF
           IF (OutputRegionBounds(4)-OutputRegionBounds(3) <= 0.0) THEN
               logError(*) 'Please make sure the y bounds are correct'
-              STOP
+              call exit(134)
           ENDIF
           IF (OutputRegionBounds(6)-OutputRegionBounds(5) <= 0.0) THEN
               logError(*) 'Please make sure the z bounds are correct'
-              STOP
+              call exit(134)
           ENDIF
       END IF
 
-	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
+      ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !
         logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
-        STOP                                                                 !
+        call exit(134)                                                                 !
       END IF
       IO%IntegrationMask(1:9) = IntegrationMask(1:9)
 
@@ -2760,7 +2769,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          logInfo0(*) 'Output data is disabled'
       CASE DEFAULT
          logError(*) 'print_format must be {6,10}'
-         STOP
+         call exit(134)
       END SELECT
 
       IO%TitleMask( 1) = TRIM(' "x"')
@@ -2848,7 +2857,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IF (IO%outInterval%printIntervalCriterion.EQ.1.AND.DISC%Galerkin%DGMethod.EQ.3) THEN
         logError(*) 'specifying IO%outInterval%printIntervalCriterion: '
         logError(*) 'When local time stepping is used, only Criterion 2 can be used! '
-        STOP
+        call exit(134)
       END IF
       IF (      IO%outInterval%printIntervalCriterion .EQ. 1 &                 !
            .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN
@@ -2856,7 +2865,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          logInfo0(*) 'Output data are generated '          , & !
               'every ', IO%outInterval%Interval, '. timestep'                  !
          logError(*) 'Time step-wise output only with classic version'
-         stop
+         call exit(134)
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
            .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN
@@ -2882,16 +2891,16 @@ ALLOCATE( SpacePositionx(nDirac), &
          IO%pickDtType = pickDtType
          IF (DISC%Galerkin%DGMethod .ne. 1 .and. IO%pickDtType .ne. 1) THEN
             logError(*) 'Pickpoint sampling every x timestep can only be used with global timesteping'
-            STOP
+            call exit(134)
          ENDIF
          SELECT CASE (IO%pickDtType)
          CASE (1)
          CASE (2)
             logError(*) 'Time step-wise output only with classic version'
-            stop
+            call exit(134)
          CASE DEFAULT
             logError(*) 'PickDtType must be 1 = pickdt or 2 = pickdt*dt'
-            STOP
+            call exit(134)
          ENDSELECT
 
        ! energy output on = 1, off =0
@@ -2910,8 +2919,9 @@ ALLOCATE( SpacePositionx(nDirac), &
          logInfo(*) 'Record Points read from ', TRIM(RFileName)
          CALL OpenFile(                                 &
                UnitNr       = IO%UNIT%other01         , &
-               Name         = RFileName            , &
-               create       = .FALSE.                          )
+               Name         = RFileName               , &
+               create       = .FALSE.                 , &
+               MPI          = MPI                       )
 
          DO i = 1,nRecordPoints
             READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
@@ -2944,7 +2954,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IF (allocStat .NE. 0) THEN
             logError(*) 'could not allocate',&
                  ' all variables! Ie. Unstructured record Points'
-            STOP
+            call exit(134)
       END IF
       !
       IO%UnstructRecPoint(:)%X = X(:)
@@ -2968,7 +2978,8 @@ ALLOCATE( SpacePositionx(nDirac), &
               CALL OpenFile(                                       &
                    UnitNr       = IO%UNIT%other01                , &
                    Name         = IO%PGMLocationsFile            , &
-                   create       = .FALSE.                          )
+                   create       = .FALSE.                        , &
+                   MPI          = MPI                              )
               READ(IO%UNIT%other01,'(i10)') IO%nPGMRecordPoint                         ! Number of Peak Ground Motion Locations
               logInfo(*) 'Reading ',IO%nPGMRecordPoint,' PGM locations ... '
               logInfo(*) ' '
@@ -2987,7 +2998,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                    STAT = allocStat                                )
               IF (allocStat.NE.0) THEN
                    logError(*) 'could not allocate all PGM locations in IO%UnstructRecPoint !'
-                   STOP
+                   call exit(134)
               END IF
               DO i = 1, IO%nRecordPoint
                    IO%UnstructRecPoint(i)%X = IO%tmpRecPoint(i)%X
@@ -3009,7 +3020,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             CASE DEFAULT
 
               logError(*) 'Peak Ground Motion Flag in  O U T P U T  must be set to 0 or 1 ! '
-              STOP
+              call exit(134)
 
           END SELECT
       !
@@ -3029,7 +3040,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           CASE DEFAULT
 
              logError(*) 'Fault Output Flag in  O U T P U T  must be set to 0 or 1 ! '
-             STOP
+             call exit(134)
 
         END SELECT
 
@@ -3043,18 +3054,18 @@ ALLOCATE( SpacePositionx(nDirac), &
         case ("hdf5")
 #ifndef USE_HDF
           logError(*) 'This version does not support HDF5 backends'
-          stop
+          call exit(134)
 #endif
           logInfo0(*) 'Use HDF5 XdmfWriter backend'
         case default
           logError(*) 'Unknown XdmfWriter backend ', io%xdmfWriterBackend
-          stop
+          call exit(134)
       end select
 
       ! Check point config
       if (checkPointInterval .lt. 0) then
         logError(*) 'The interval for checkpoints cannot be negative'
-        stop
+        call exit(134)
       endif
       io%checkpoint%interval = checkPointInterval
       io%checkpoint%filename = checkPointFile
@@ -3081,7 +3092,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          CASE DEFAULT
 
              logError(*) 'Refinement strategy is N O T supported'
-             STOP
+             call exit(134)
 
       END SELECT
 
@@ -3091,25 +3102,25 @@ ALLOCATE( SpacePositionx(nDirac), &
         case ("hdf5")
 #ifndef USE_HDF
             logError(*) 'This version does not support HDF5 checkpoints'
-            stop
+            call exit(134)
 #endif
             logInfo0(*) 'Using HDF5 checkpoint backend'
         case ("mpio")
 #ifndef USE_MPI
             logError(*) 'This version does not support MPI-IO checkpoints'
-            stop
+            call exit(134)
 #endif
             logInfo0(*) 'Using MPI-IO checkpoint backend'
         case ("mpio_async")
 #ifndef USE_MPI
             logError(*) 'This version does not support MPI-IO checkpoints'
-            stop
+            call exit(134)
 #endif
             logInfo0(*) 'Using async MPI-IO checkpoint backend'
         case ("sionlib")
 #ifndef USE_SIONLIB
             logError(*) 'This version does not support SIONlib checkpoints'
-            stop
+            call exit(134)
 #endif
             logInfo0(*) 'Using SIONlib checkpoint backend'
         case ("none")
@@ -3169,7 +3180,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
     if (DISC%MaxIteration .lt. 10000000) then
       logError(*) 'GK version does not support MaxIteration!'
-      stop
+      call exit(134)
     endif
     logInfo(*) 'Maximum ITERATION number allowed:', DISC%MaxIteration
     !
@@ -3213,7 +3224,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 ! Generated kernels sanity check
     if (NUMBER_OF_QUANTITIES .NE. EQN%nVarTotal) then
       logError(*) 'Generated kernels: The number of quantities defined by the parameter file (', EQN%nVarTotal, ') does not the number of quantities this version was compiled for (', NUMBER_OF_QUANTITIES, ').'
-      stop
+      call exit(134)
     end if
 
     logInfo(*) '<--------------------------------------------------------->'

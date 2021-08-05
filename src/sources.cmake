@@ -13,6 +13,7 @@ src/Initializer/InitialFieldProjection.cpp
 src/Modules/Modules.cpp
 src/Modules/ModulesC.cpp
 src/Model/common.cpp
+src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Transformation.cpp
 src/Numerical_aux/Statistics.cpp
 
@@ -32,6 +33,7 @@ src/Solver/Interoperability.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
@@ -79,7 +81,6 @@ src/ResultWriter/FreeSurfaceWriter.cpp
 
 # Fortran:
 src/Monitoring/bindMonitoring.f90
-src/Geometry/mpiextractmesh.f90
 src/Geometry/allocate_mesh.f90
 src/Geometry/MeshReaderCBinding.f90
 src/Solver/close_seissol.f90
@@ -88,7 +89,6 @@ src/Solver/mpiexchangevalues.f90
 src/Solver/prak_clif_mod.f90
 src/Solver/calc_seissol.f90
 src/Solver/f_ctof_bind_interoperability.f90
-src/Solver/plasticity.f90
 src/Solver/f_ftoc_bind_interoperability.f90
 src/Numerical_aux/quadpoints.f90
 src/Numerical_aux/jacobinormal.f90
@@ -104,9 +104,9 @@ src/seissolxx.f90
 src/Physics/ini_model.f90
 src/Physics/Evaluate_friction_law.f90
 src/Physics/ini_model_DR.f90
+src/Physics/InitialField.cpp
 src/Physics/NucleationFunctions.f90
 src/Physics/thermalpressure.f90
-src/Physics/InitialField.cpp
 src/Reader/readpar.f90
 src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90
@@ -123,6 +123,8 @@ src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
 )
+
+target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
 
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC
@@ -155,30 +157,77 @@ endif()
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
-  )
+    )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
-  )
+    )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC2)
+
+elseif ("${EQUATIONS}" STREQUAL "anisotropic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/DirichletBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
+  )
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
+
+endif()
+
+target_include_directories(SeisSol-lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
+
+if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
+
+  target_sources(SeisSol-lib PUBLIC
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
+
+  find_package(CUDA REQUIRED)
+  set(CUDA_NVCC_FLAGS -std=c++14;
+                      -Xptxas -v;
+                      -arch=${DEVICE_SUB_ARCH};
+                      -DREAL_SIZE=${REAL_SIZE_IN_BYTES};
+                      --compiler-options ${EXTRA_CXX_FLAGS};
+                      -O3;)
+
+  set(DEVICE_SRC ${DEVICE_SRC} ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+                               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu)
+  set_source_files_properties(${DEVICE_SRC} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
+
+  cuda_add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
+  target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
+                                                       ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+                                                       ${CMAKE_BINARY_DIR}/src/generated_code
+                                                       ${CMAKE_CURRENT_SOURCE_DIR}/src
+                                                       ${CUDA_TOOLKIT_ROOT_DIR})
+  target_compile_options(Seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
+
+  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+  add_dependencies(Seissol-device-lib SeisSol-lib)
+
 endif()

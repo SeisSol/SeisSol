@@ -41,7 +41,7 @@
 #define KERNELS_RECEIVER_H_
 
 #include <vector>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 #include <Geometry/MeshReader.h>
 #include <Numerical_aux/BasisFunction.h>
 #include <Initializer/tree/Lut.hpp>
@@ -81,13 +81,13 @@ namespace seissol {
                         double                        syncPointInterval )
         : m_quantities(quantities),
           m_samplingInterval(samplingInterval), m_syncPointInterval(syncPointInterval) {
-        m_timeKernel.setGlobalData(global);
+        m_timeKernel.setHostGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
 
       void addReceiver( unsigned          meshId,
                         unsigned          pointId,
-                        glm::dvec3 const& point,
+                        Eigen::Vector3d   const& point,
                         MeshReader const& mesh,
                         seissol::initializers::Lut const& ltsLut,
                         seissol::initializers::LTS const& lts );

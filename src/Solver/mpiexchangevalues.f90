@@ -122,7 +122,7 @@ CONTAINS
             counter = counter + 1
             IF(counter.GT.MsgLength) THEN
               PRINT *, 'Fatal error: Counter > MsgLength', counter, MsgLength, ' in CPU : ', MPI%myrank
-              STOP
+              call MPI_ABORT(MPI%commWorld, 134)
             ENDIF
             send_message(iDomain)%Content(counter) = OptionalFields%BackgroundValue(iElem,iVar)
         ENDDO
@@ -163,7 +163,7 @@ CONTAINS
             counter = counter + 1
             IF(counter.GT.MsgLength) THEN
               PRINT *, 'Fatal error: Counter > MsgLength', counter, MsgLength, ' in CPU : ', MPI%myrank
-              STOP
+              call MPI_ABORT(MPI%commWorld, 134)
             ENDIF
             BND%ObjMPI(iDomain)%NeighborBackground(iVar,i) = recv_message(iDomain)%Content(counter) 
         ENDDO

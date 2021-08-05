@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,16 +40,20 @@
  **/
 
 #include "CellLocalMatrices.h"
-#include "ParameterDB.h"
 
 #include <cassert>
 
+#include <Initializer/ParameterDB.h>
 #include <Numerical_aux/Transformation.h>
-#include <Model/Setup.h>
+#include <Equations/Setup.h>
 #include <Model/common.hpp>
 #include <Geometry/MeshTools.h>
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
+#include <utils/logger.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -100,9 +105,12 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     {
 #endif
     real ATData[tensor::star::size(0)];
+    real ATtildeData[tensor::star::size(0)];
     real BTData[tensor::star::size(1)];
     real CTData[tensor::star::size(2)];
     auto AT = init::star::view<0>::create(ATData);
+    // AT with elastic parameters in local coordinate system, used for flux kernel
+    auto ATtilde = init::star::view<0>::create(ATtildeData);
     auto BT = init::star::view<0>::create(BTData);
     auto CT = init::star::view<0>::create(CTData);
 
@@ -164,6 +172,24 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
 
+        real NLocalData[6*6];
+        seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
+        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
+          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
+                                                      seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
+                                                      cellInformation[cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+          seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, ATtilde );
+        } else {
+          seissol::model::getTransposedGodunovState(  material[cell].local,
+                                                      material[cell].neighbor[side],     
+                                                      cellInformation[cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+          seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, ATtilde );
+        }
+
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
 
@@ -177,30 +203,28 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.QgodLocal = QgodLocalData;
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
-        localKrnl.star(0) = ATData;
+        localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-
+        
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
         neighKrnl.QgodNeighbor = QgodNeighborData;
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
-        neighKrnl.star(0) = ATData;
+        neighKrnl.star(0) = ATtildeData;
         if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
         }
         neighKrnl.execute();
-
       }
 
-      seissol::model::initializeSpecificLocalData(material[cell].local,
-                                                  &localIntegration[cell].specific );
+      seissol::model::initializeSpecificLocalData(  material[cell].local,
+                                                    &localIntegration[cell].specific );
 
-      seissol::model::initializeSpecificNeighborData(material[cell].local,
-                                                     material[cell].neighbor,
-                                                     &neighboringIntegration[cell].specific );
+      seissol::model::initializeSpecificNeighborData( material[cell].local,
+                                                      &neighboringIntegration[cell].specific );
     }
 #ifdef _OPENMP
     }
@@ -353,8 +377,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]           = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStateMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
     real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
     real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
@@ -453,40 +477,56 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       seissol::model::getFaceRotationMatrix(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
 
       /// Materials
-      seissol::model::Material plusMaterial;
-      seissol::model::Material minusMaterial;
+      seissol::model::Material* plusMaterial;
+      seissol::model::Material* minusMaterial;
       unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
       unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
-        plusMaterial = material[plusLtsId].local;
-        minusMaterial = material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
+        plusMaterial = &material[plusLtsId].local;
+        minusMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
       } else {
         assert(minusLtsId != std::numeric_limits<unsigned>::max());
-        plusMaterial = material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
-        minusMaterial = material[minusLtsId].local;
+        plusMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
+        minusMaterial = &material[minusLtsId].local;
       }
 
-      /// Wave speeds
-      waveSpeedsPlus[ltsFace].density = plusMaterial.rho;
-      waveSpeedsPlus[ltsFace].pWaveVelocity = sqrt( (plusMaterial.lambda + 2.0*plusMaterial.mu) / plusMaterial.rho);
-      waveSpeedsPlus[ltsFace].sWaveVelocity = sqrt( plusMaterial.mu / plusMaterial.rho);
-      waveSpeedsMinus[ltsFace].density = minusMaterial.rho;
-      waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
-      waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
+      /// Wave speeds and Coefficient Matrices
+      auto APlus = init::star::view<0>::create(APlusData);
+      auto AMinus = init::star::view<0>::create(AMinusData);
+      
+      waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
+      waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
+      waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
+      waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
+      waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
+      waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
+
+      switch (plusMaterial->getMaterialType()) {
+        case seissol::model::MaterialType::anisotropic: {
+          logError() << "Dynamic Rupture does not work with anisotropy yet.";
+          //TODO(SW): Make DR work with anisotropy 
+          break;
+        }
+        case seissol::model::MaterialType::elastic: {
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
+          break;
+        }
+        case seissol::model::MaterialType::viscoelastic: {
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
+          break;
+        }
+      }
 
       /// Transpose Tinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
       ttKrnl.Tinv = TinvData;
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
-
-      auto APlus = init::star::view<0>::create(APlusData);
-      auto AMinus = init::star::view<0>::create(AMinusData);
-      seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, APlus);
-      seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, AMinus);
 
       double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
       if (fault[meshFace].element >= 0) {
@@ -518,4 +558,25 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
+}
+
+void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                                     LTS*              lts,
+                                                     LTSTree*          dynRupTree,
+                                                     DynamicRupture*   dynRup,
+                                                     LTSTree*          boundaryTree,
+                                                     Boundary*         boundary) {
+#ifdef ACL_DEVICE
+  // Byte-copy of element compute-static data from the host to device
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
+
+  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
+                     ltsTree->var(lts->localIntegration),
+                     variableSizes[lts->localIntegration.index]);
+
+  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
+                     ltsTree->var(lts->neighboringIntegration),
+                     variableSizes[lts->neighboringIntegration.index]);
+#endif // ACL_DEVICE
 }

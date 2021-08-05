@@ -1,7 +1,11 @@
+.. _tpv-13:
+
 SCEC TPV13
 ==========
 
-TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. TPV13 is using non-associative Drucker-Prager plasticity with yielding in shear. The material is characterized by six constitutive parameters:
+TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. To run TPV13, it requires to recompile SeisSol with "-DPLASTICITY=ON" in the configuration python script. 
+
+The material is characterized by six constitutive parameters:
 
  *Bulk friction = 0.85*
   *Fluid pressure = 1000 kg/m3*
@@ -50,20 +54,28 @@ Plasticity parameters
 ~~~~~~~~~~~~~~~~~~~~~
 
 To turn on plasticity in SeisSol, add the following lines in
-*parameter.par*:
+*parameter.par* (https://github.com/SeisSol/Examples/blob/master/tpv12_13/parameters.par):
 
-
-&SourceType
-Plasticity = 1 ! default = 0
-Tv = 0.03 ! Plastic relaxation
-/
-
-
+.. code-block:: Fortran
+  
+  &SourceType
+  Plasticity = 1 ! default = 0
+  Tv = 0.03 ! Plastic relaxation
+  /
+  
 In the **material.yaml**, add plasticity parameters:
 
-.. literalinclude:: tpv12/tpv12_13_material.yaml
-   :language: fortran
-
+.. code-block:: YAML
+  
+  !Switch
+  [rho, mu, lambda, plastCo, bulkFriction]: !ConstantMap
+    map:
+      rho:                 2700
+      mu:           2.9403e+010
+      lambda:        2.941e+010
+      plastCo:          5.0e+06
+      bulkFriction:        0.85
+  [s_xx, s_yy, s_zz, s_xy, s_yz, s_xz]: !Include tpv12_13_initial_stress.yaml
 
 Results
 ~~~~~~~
@@ -71,7 +83,7 @@ Results
 Figure [fig:tpv13compare] shows the comparison between TPV12 (elastic)
 and TPV13 (plastic). The peak slip rate in TPV12 is higher than
 TPV13. This difference attributes to the response of the off-fault
-plasticity. Refer to Wollherr et al. [2018] for detailed
+plasticity. Refer to Wollherr et al. (2018) for detailed
 discussions.
 
 .. figure:: LatexFigures/SRs_12_13.png

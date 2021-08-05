@@ -4,9 +4,10 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -46,60 +47,13 @@
 #include <mpi.h>
 #endif
 
+#include "BasicTypedefs.hpp"
 #include <Initializer/preProcessorMacros.fpp>
-#include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
-#include <Model/datastructures.hpp>
+#include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
 
 #include <cstddef>
-
-enum mpiTag {
-  localIntegrationData = 0,
-  neighboringIntegrationData = 1,
-  timeData = 2
-};
-
-enum TimeClustering {
-  // global time stepping
-  single    = 0,
-  // offline clustering computed in pre-processing
-  offline   = 1,
-  // online clustering resulting in a multi-rate scheme
-  multiRate = 2,
-  // online clustering aiming at LTS for slithers only
-  slithers  = 3
-};
-
-// face types
-// Note: When introducting new types also change
-// int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
-// and PUMLReader. Otherwise it might become a DR face...
-enum class FaceType {
-  // regular: inside the computational domain
-  regular = 0,
-
-  // free surface boundary
-  freeSurface = 1,
-
-  // free surface boundary with gravity
-  freeSurfaceGravity = 2,
-  
-  // dynamic rupture boundary
-  dynamicRupture = 3,
-
-  // Dirichlet boundary
-  dirichlet = 4,
-
-  // absorbing/outflow boundary
-  outflow = 5,
-
-  // periodic boundary
-  periodic = 6,
-
-  // analytical boundary (from initial cond.)
-  analytical = 7
-};
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -313,7 +267,7 @@ struct GlobalData {
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
    **/
-  real *integrationBufferLTS;
+  real *integrationBufferLTS{nullptr};
   
    /** 
    * Addresses of the global nodal flux matrices
@@ -353,14 +307,23 @@ struct GlobalData {
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
-  real* evalAtQPMatrix;
+  real* evalAtQPMatrix{nullptr};
 
   //! Project function evaluated at quadrature points to modal basis
-  real* projectQPMatrix;
+  real* projectQPMatrix{nullptr};
   
   //! Switch to nodal for plasticity
-  real* vandermondeMatrix;
-  real* vandermondeMatrixInverse;
+  real* vandermondeMatrix{nullptr};
+  real* vandermondeMatrixInverse{nullptr};
+
+  // A vector of ones. Note: It is only relevant for GPU computing.
+  // It allows us to allocate this vector only once in the GPU memory
+  real* replicateStresses{nullptr};
+};
+
+struct CompoundGlobalData {
+  GlobalData* onHost{nullptr};
+  GlobalData* onDevice{nullptr};
 };
 
 // data for the cell local integration
@@ -372,7 +335,15 @@ struct LocalIntegrationData {
   real nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
-  seissol::model::LocalData specific;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicLocalData specific;
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticLocalData specific;
+#elif defined USE_ELASTIC
+  seissol::model::ElasticLocalData specific;
+#endif
 };
 
 // data for the neighboring boundary integration
@@ -381,22 +352,33 @@ struct NeighboringIntegrationData {
   real nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
-  seissol::model::NeighborData specific;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicNeighborData specific;
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticNeighborData specific;
+#elif defined USE_ELASTIC
+  seissol::model::ElasticNeighborData specific;
+#endif
 };
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::Material local;
-  seissol::model::Material neighbor[4];
-};
-
-// plasticity information per cell
-struct PlasticityData {
-  // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicMaterial local;
+  seissol::model::AnisotropicMaterial neighbor[4];
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticMaterial local;
+  seissol::model::ViscoElasticMaterial neighbor[4];
+#elif defined USE_ELASTIC
+  seissol::model::ElasticMaterial local;
+  seissol::model::ElasticMaterial neighbor[4];
+#else
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
+#endif
 };
 
 /** A piecewise linear function.
@@ -459,6 +441,20 @@ struct BoundaryFaceInformation {
   real TinvData[seissol::tensor::Tinv::size()];
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+};
+
+/*
+ * \class MemoryProperties
+ *
+ * \brief An auxiliary data structure for a policy-based design
+ *
+ * Attributes are initialized with CPU memory properties by default.
+ * See, an example of a policy-based design in GlobalData.cpp
+ * */
+struct MemoryProperties {
+  size_t alignment{ALIGNMENT};
+  size_t pagesizeHeap{PAGESIZE_HEAP};
+  size_t pagesizeStack{PAGESIZE_STACK};
 };
 
 #endif

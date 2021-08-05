@@ -38,11 +38,12 @@
 # @section DESCRIPTION
 #
 
+from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
+def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (aderdg.order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
@@ -75,10 +76,23 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
     return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']
 
   interpolateQPrefetch = lambda i,h: QInterpolated
-  generator.addFamily('evaluateAndRotateQAtInterpolationPoints', simpleParameterSpace(4,4), interpolateQGenerator, interpolateQPrefetch)
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.addFamily(f'{name_prefix}evaluateAndRotateQAtInterpolationPoints',
+                        simpleParameterSpace(4,4),
+                        interpolateQGenerator,
+                        interpolateQPrefetch if target == 'cpu' else None,
+                        target=target)
 
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
-  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
+
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.addFamily(f'{name_prefix}nodalFlux',
+                        simpleParameterSpace(4,4),
+                        nodalFluxGenerator,
+                        nodalFluxPrefetch if target =='cpu' else None,
+                        target=target)
 
   return {db.resample}

@@ -74,7 +74,7 @@
 #include <utils/logger.h>
 #include <Parallel/MPI.h>
 
-void seissol::initializers::findMeshIds(glm::dvec3 const* points, MeshReader const& mesh, unsigned numPoints, short* contained, unsigned* meshIds)
+void seissol::initializers::findMeshIds(Eigen::Vector3d const* points, MeshReader const& mesh, unsigned numPoints, short* contained, unsigned* meshIds)
 {
   std::vector<Vertex> const& vertices = mesh.getVertices();
   std::vector<Element> const& elements = mesh.getElements();
@@ -97,9 +97,9 @@ void seissol::initializers::findMeshIds(glm::dvec3 const* points, MeshReader con
 
   double (*points1)[4] = new double[numPoints][4];
   for (unsigned point = 0; point < numPoints; ++point) {
-    points1[point][0] = points[point].x;
-    points1[point][1] = points[point].y;
-    points1[point][2] = points[point].z;
+    points1[point][0] = points[point](0);
+    points1[point][1] = points[point](1);
+    points1[point][2] = points[point](2);
     points1[point][3] = 1.0;
   }
 

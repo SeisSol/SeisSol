@@ -21,6 +21,12 @@ After the simulation is finished the errors between the analytic solution and th
 Use ``cube_c`` to generate the meshes for the convergence tests:
 https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/cube_c
 
+Superimposed Planarwave
+-----------------------
+
+Superimposed three planar waves travelling in different directions. 
+This is especially interesting in the case of directional dependent properties such as for anisotropic materials.
+
 Scholte     
 -------
 

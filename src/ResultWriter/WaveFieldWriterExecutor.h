@@ -90,10 +90,10 @@ class WaveFieldWriterExecutor
 {
 private:
 	/** The XMDF Writer used for the wave field */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>* m_waveFieldWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_waveFieldWriter;
 
 	/** The XDMF Writer for low order data */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>* m_lowWaveFieldWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_lowWaveFieldWriter;
 
 	/** Buffer id for the first variable for high and low order output */
 	unsigned int m_variableBufferIds[2];
@@ -179,14 +179,14 @@ public:
 #endif // USE_MPI
 
 		// Initialize the I/O handler and write the mesh
-		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>(
+		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
 			type, outputPrefix, param.timestep);
 
 #ifdef USE_MPI
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
-		m_waveFieldWriter->init(variables, std::vector<const char*>());
+		m_waveFieldWriter->init(variables, std::vector<const char*>(), true, true, true);
 		m_waveFieldWriter->setMesh(
 			info.bufferSize(param.bufferIds[CELLS]) / (4*sizeof(unsigned int)),
 			static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
@@ -229,7 +229,7 @@ public:
 				}
 			}
 
-			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>(
+			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
 				type, (std::string(outputPrefix)+"-low").c_str());
 
 #ifdef USE_MPI
@@ -258,6 +258,10 @@ public:
 #endif // USE_MPI
 	}
 
+	void setClusteringData(const unsigned *Clustering) {
+	  m_waveFieldWriter->writeClusteringInfo(Clustering);
+	}
+
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)
 	{
 #ifdef USE_MPI
@@ -273,7 +277,7 @@ public:
 		for (unsigned int i = 0; i < m_numVariables; i++) {
 			if (m_outputFlags[i]) {
 				m_waveFieldWriter->writeCellData(nextId,
-					static_cast<const double*>(info.buffer(m_variableBufferIds[0]+nextId)));
+					static_cast<const real*>(info.buffer(m_variableBufferIds[0]+nextId)));
 
 				nextId++;
 			}
@@ -289,7 +293,7 @@ public:
 		for (unsigned int i = 0; i < NUM_LOWVARIABLES; i++) {
 			if (m_lowOutputFlags[i]) {
 				m_lowWaveFieldWriter->writeCellData(nextId,
-					static_cast<const double*>(info.buffer(m_variableBufferIds[1]+nextId)));
+					static_cast<const real*>(info.buffer(m_variableBufferIds[1]+nextId)));
 
 			nextId++;
 			}

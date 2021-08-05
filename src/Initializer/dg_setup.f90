@@ -75,9 +75,6 @@ MODULE dg_setup_mod
   INTERFACE icGalerkin3D_us_new
      MODULE PROCEDURE icGalerkin3D_us_new
   END INTERFACE
-  INTERFACE Read2dGF
-     MODULE PROCEDURE Read2dGF
-  END INTERFACE
 
 !  INTERFACE NonConformingGPEvaluation3D
 !     MODULE PROCEDURE NonConformingGPEvaluation3D
@@ -94,8 +91,7 @@ MODULE dg_setup_mod
        iniGalerkin3D_us_level1_new,        &
        iniGalerkin3D_us_level2_new,        &
        iniGalerkin3D_us_intern_new,        &
-       icGalerkin3D_us_new,                &
-       Read2dGF
+       icGalerkin3D_us_new
 !      NonConformingGPEvaluation3D
   !---------------------------------------------------------------------------!
 
@@ -132,7 +128,7 @@ CONTAINS
     !
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'closeGalerkin: SeisSol Interface not initialized!!'
-       STOP
+       call exit(134)
     ENDIF
     !
     logInfo(*) 'Enter closeGalerkin...'
@@ -148,149 +144,16 @@ CONTAINS
     ! Interoperability with C needs continuous arrays in memory.
     deallocate(disc%galerkin%dgvar)
 
-    IF (ASSOCIATED( DISC%Galerkin%cPoly3D_Hex)) DEALLOCATE(DISC%Galerkin%cPoly3D_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%NonZeroCPoly_Hex)) DEALLOCATE(DISC%Galerkin%NonZeroCPoly_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%NonZeroCPolyIndex_Hex)) DEALLOCATE(DISC%Galerkin%NonZeroCPolyIndex_Hex)
     IF (ASSOCIATED( DISC%Galerkin%intGaussP_Hex)) DEALLOCATE(DISC%Galerkin%intGaussP_Hex)
     IF (ASSOCIATED( DISC%Galerkin%intGaussW_Hex)) DEALLOCATE(DISC%Galerkin%intGaussW_Hex)
     IF (ASSOCIATED( DISC%Galerkin%bndGaussP_Hex)) DEALLOCATE(DISC%Galerkin%bndGaussP_Hex)
     IF (ASSOCIATED( DISC%Galerkin%bndGaussW_Hex)) DEALLOCATE(DISC%Galerkin%bndGaussW_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%IntGPBaseFunc_Hex)) DEALLOCATE(DISC%Galerkin%IntGPBaseFunc_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%IntGPBaseGrad_Hex)) DEALLOCATE(DISC%Galerkin%IntGPBaseGrad_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc_Hex)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc3D_Hex)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc3D_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%MassMatrix_Hex)) DEALLOCATE(DISC%Galerkin%MassMatrix_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%iMassMatrix_Hex)) DEALLOCATE(DISC%Galerkin%iMassMatrix_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_k_Hex)) DEALLOCATE(DISC%Galerkin%Kxi_k_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Keta_k_Hex)) DEALLOCATE(DISC%Galerkin%Keta_k_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_k_Hex)) DEALLOCATE(DISC%Galerkin%Kzeta_k_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_m_Hex)) DEALLOCATE(DISC%Galerkin%Kxi_m_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Keta_m_Hex)) DEALLOCATE(DISC%Galerkin%Keta_m_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_m_Hex)) DEALLOCATE(DISC%Galerkin%Kzeta_m_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%ADGxi_Hex)) DEALLOCATE(DISC%Galerkin%ADGxi_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%ADGeta_Hex)) DEALLOCATE(DISC%Galerkin%ADGeta_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%ADGzeta_Hex)) DEALLOCATE(DISC%Galerkin%ADGzeta_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%FluxInt_Hex)) DEALLOCATE(DISC%Galerkin%FluxInt_Hex)
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_k_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kxi_k_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%Kxi_k_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Keta_k_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Keta_k_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%Keta_k_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_k_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kzeta_k_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%Kzeta_k_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_m_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kxi_m_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%Kxi_m_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Keta_m_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Keta_m_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%Keta_m_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_m_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kzeta_m_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%Kzeta_m_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%ADGxi_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%ADGxi_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%ADGxi_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%ADGeta_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%ADGeta_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%ADGeta_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%ADGzeta_Hex_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%ADGzeta_Hex_Sp)
-        DEALLOCATE(DISC%Galerkin%ADGzeta_Hex_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%FluxInt_Hex_Sp)) THEN
-        DO iSide = 1, MESH%nSides_Hex
-            CALL CloseSparseTensor3b(DISC%Galerkin%FluxInt_Hex_Sp(0,1,iSide))
-            DO iLocalNeighborSide = 1, MESH%nSides_Hex
-                DO iLocalNeighborVrtx = 1, MESH%nVertices_Quad
-                    CALL CloseSparseTensor3b(DISC%Galerkin%FluxInt_Hex_Sp(iLocalNeighborSide,iLocalNeighborVrtx,iSide))
-                ENDDO
-            ENDDO
-        ENDDO
-        DEALLOCATE(DISC%Galerkin%FluxInt_Hex_Sp)
-    ENDIF
 
 
-    IF (ASSOCIATED( DISC%Galerkin%cPoly3D_Tet)) DEALLOCATE(DISC%Galerkin%cPoly3D_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%NonZeroCPoly_Tet)) DEALLOCATE(DISC%Galerkin%NonZeroCPoly_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%NonZeroCPolyIndex_Tet)) DEALLOCATE(DISC%Galerkin%NonZeroCPolyIndex_Tet)
     IF (ASSOCIATED( DISC%Galerkin%intGaussP_Tet)) DEALLOCATE(DISC%Galerkin%intGaussP_Tet)
     IF (ASSOCIATED( DISC%Galerkin%intGaussW_Tet)) DEALLOCATE(DISC%Galerkin%intGaussW_Tet)
     IF (ASSOCIATED( DISC%Galerkin%bndGaussP_Tet)) DEALLOCATE(DISC%Galerkin%bndGaussP_Tet)
     IF (ASSOCIATED( DISC%Galerkin%bndGaussW_Tet)) DEALLOCATE(DISC%Galerkin%bndGaussW_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%IntGPBaseFunc_Tet)) DEALLOCATE(DISC%Galerkin%IntGPBaseFunc_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%IntGPBaseGrad_Tet)) DEALLOCATE(DISC%Galerkin%IntGPBaseGrad_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc_Tet)
-!    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc3D_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc3D_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%MassMatrix_Tet)) DEALLOCATE(DISC%Galerkin%MassMatrix_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%iMassMatrix_Tet)) DEALLOCATE(DISC%Galerkin%iMassMatrix_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_k_Tet)) DEALLOCATE(DISC%Galerkin%Kxi_k_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Keta_k_Tet)) DEALLOCATE(DISC%Galerkin%Keta_k_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_k_Tet)) DEALLOCATE(DISC%Galerkin%Kzeta_k_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_m_Tet)) DEALLOCATE(DISC%Galerkin%Kxi_m_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Keta_m_Tet)) DEALLOCATE(DISC%Galerkin%Keta_m_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_m_Tet)) DEALLOCATE(DISC%Galerkin%Kzeta_m_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%ADGxi_Tet)) DEALLOCATE(DISC%Galerkin%ADGxi_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%ADGeta_Tet)) DEALLOCATE(DISC%Galerkin%ADGeta_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%ADGzeta_Tet)) DEALLOCATE(DISC%Galerkin%ADGzeta_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%FluxInt_Tet)) DEALLOCATE(DISC%Galerkin%FluxInt_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_k_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kxi_k_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%Kxi_k_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Keta_k_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Keta_k_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%Keta_k_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_k_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kzeta_k_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%Kzeta_k_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Kxi_m_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kxi_m_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%Kxi_m_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Keta_m_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Keta_m_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%Keta_m_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%Kzeta_m_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%Kzeta_m_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%Kzeta_m_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%ADGxi_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%ADGxi_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%ADGxi_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%ADGeta_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%ADGeta_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%ADGeta_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%ADGzeta_Tet_Sp)) THEN
-        CALL CloseSparseTensor3b(DISC%Galerkin%ADGzeta_Tet_Sp)
-        DEALLOCATE(DISC%Galerkin%ADGzeta_Tet_Sp)
-    ENDIF
-    IF (ASSOCIATED( DISC%Galerkin%FluxInt_Tet_Sp)) THEN
-        DO iSide = 1, MESH%nSides_Tet
-            CALL CloseSparseTensor3b(DISC%Galerkin%FluxInt_Tet_Sp(0,1,iSide))
-            DO iLocalNeighborSide = 1, MESH%nSides_Tet
-                DO iLocalNeighborVrtx = 1, MESH%nVertices_Tri
-                    CALL CloseSparseTensor3b(DISC%Galerkin%FluxInt_Tet_Sp(iLocalNeighborSide,iLocalNeighborVrtx,iSide))
-                ENDDO
-            ENDDO
-        ENDDO
-        DEALLOCATE(DISC%Galerkin%FluxInt_Tet_Sp)
-    ENDIF
-    CONTINUE
     !
     DISC%Galerkin%init = .FALSE.
     !
@@ -411,7 +274,7 @@ CONTAINS
     
     ! ------------------------------------------------------------------------!
     !
-    CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
+    CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO, MPI)
     !
     CALL BuildSpecialDGGeometry3D_new(OptionalFields%BackgroundValue,EQN,MESH,DISC,BND,MPI,IO)
 
@@ -425,20 +288,22 @@ CONTAINS
                           optionalFields, &
                           eqn,            &
                           mesh,           &
-                          io                )
+                          io,             &
+                          mpi                )
 
     ! get the time step width for every tet
     call cfl_step( optionalFields, &
                    eqn,            &
                    mesh,           &
                    disc,           &
-                   io                )
+                   io,             &
+                   mpi                )
 
     ! get gts time step width
     l_gts = minval( optionalFields%dt_convectiv(:) )
     if (l_gts .le. 0.0) then
       logError(*) 'Invalid timestep width'
-      stop
+      call MPI_ABORT(MPI%commWorld, 134)
     endif
 
 #ifdef PERIODIC_LTS_SCALING
@@ -503,7 +368,10 @@ CONTAINS
 
     enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+    call c_interoperability_initializeClusteredLts(&
+            i_clustering = disc%galerkin%clusteredLts, &
+            i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
+            usePlasticity = logical(EQN%Plasticity == 1, 1))
 
     !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -519,7 +387,7 @@ CONTAINS
          STAT = allocstat                                                                       )
     IF(allocStat .NE. 0) THEN
        logError(*) 'could not allocate all variables!'
-       STOP
+       call MPI_ABORT(MPI%commWorld, 134)
     END IF
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
@@ -527,7 +395,7 @@ CONTAINS
                   STAT = allocstat )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate DISC%Galerkin%DGTayl.'
-           STOP
+           call MPI_ABORT(MPI%commWorld, 134)
         END IF
     ENDIF
 
@@ -580,13 +448,17 @@ CONTAINS
 
     enddo
   enddo
+
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
-  call c_interoperability_synchronizeCellLocalData;
+  call c_interoperability_synchronizeCellLocalData(logical(EQN%Plasticity == 1, 1))
 #endif
 
-    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+    call c_interoperability_initializeMemoryLayout(&
+            clustering = disc%galerkin%clusteredLts, &
+            enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
+            usePlasticity = logical(EQN%Plasticity == 1, 1))
 
   ! Initialize source terms
   select case(SOURCE%Type)
@@ -610,20 +482,20 @@ CONTAINS
                                                      timeHistories     = SOURCE%RP%TimeHist       )
     case default
       logError(*) 'Generated Kernels: Unsupported source type: ', SOURCE%Type
-      stop
+      call MPI_ABORT(MPI%commWorld, 134)
   end select
 
   if (DISC%Galerkin%FluxMethod .ne. 0) then
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
-    stop
+    call MPI_ABORT(MPI%commWorld, 134)
   endif
 
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
 
   logInfo0(*) 'Initializing element local matrices.'
-  call c_interoperability_initializeCellLocalMatrices;
+  call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
 
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
+  IF(DISC%Galerkin%DGMethod.EQ.3) THEN
         ALLOCATE( DISC%LocalIteration(MESH%nElem) )
         ALLOCATE( DISC%LocalTime(MESH%nElem)      )
         ALLOCATE( DISC%LocalDt(MESH%nElem)        )
@@ -648,18 +520,23 @@ CONTAINS
       ! TODO: Transpose StateVar
       ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       !
-      DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
-      DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
-      DISC%DynRup%Slip          = 0.0D0
-      DISC%DynRup%Slip1         = 0.0D0
-      DISC%DynRup%Slip2         = 0.0D0
-      DISC%DynRup%TracXY        = 0.0D0
-      DISC%DynRup%TracXZ        = 0.0D0
-      DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-      DISC%DynRup%StateVar(:,:) = EQN%IniStateVar
-      DISC%DynRup%PeakSR        = 0.0D0
-      DISC%DynRup%rupture_time  = 0.0D0
-      DISC%DynRup%dynStress_time = 0.0D0
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          DISC%DynRup%SlipRate1(:,i) = EQN%IniSlipRate1
+          DISC%DynRup%SlipRate2(:,i) = EQN%IniSlipRate2
+          DISC%DynRup%Slip(:,i) = 0.0
+          DISC%DynRup%Slip1(:,i) = 0.0
+          DISC%DynRup%Slip2(:,i) = 0.0
+          DISC%DynRup%TracXY(:,i) = 0.0
+          DISC%DynRup%TracXZ(:,i) = 0.0
+          DISC%DynRup%StateVar(:,i) = EQN%IniStateVar(:,i)
+          DISC%DynRup%Mu(:,i) = EQN%IniMu(:,i)
+          DISC%DynRup%PeakSR(:,i) = 0.0
+          DISC%DynRup%rupture_time(:,i) = 0.0
+          DISC%DynRup%dynStress_time(:,i) = 0.0
+      END DO
 
       allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
@@ -670,6 +547,20 @@ CONTAINS
       allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
       allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+
+      ! Initialize w/ first-touch
+      !$omp parallel do schedule(static)
+      DO i=1,MESH%fault%nSide
+          disc%DynRup%output_Mu(:,i) = 0.0
+          disc%DynRup%output_Strength(:,i) = 0.0
+          disc%DynRup%output_Slip(:,i) = 0.0
+          disc%DynRup%output_Slip1(:,i) = 0.0
+          disc%DynRup%output_Slip2(:,i) = 0.0
+          disc%DynRup%output_rupture_time(:,i) = 0.0
+          disc%DynRup%output_PeakSR(:,i) = 0.0
+          disc%DynRup%output_dynStress_time(:,i) = 0.0
+          disc%DynRup%output_StateVar(:,i) = 0.0
+      END DO
 
     else
         ! Allocate dummy arrays to avoid debug errors
@@ -698,7 +589,7 @@ CONTAINS
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
-        STOP
+        call MPI_ABORT(MPI%commWorld, 134)
         !
     ENDIF
   END SUBROUTINE iniGalerkin3D_us_level2_new
@@ -710,7 +601,7 @@ CONTAINS
   !!                                                                         !!
   !===========================================================================!
 
-  SUBROUTINE iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
+  SUBROUTINE iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO, MPI)
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
@@ -730,6 +621,7 @@ CONTAINS
     TYPE(tSource)            :: SOURCE
     TYPE(tUnstructOptionalFields)   :: OptionalFields
     TYPE(tInputOutput)       :: IO
+    TYPE(tMPI)               :: MPI
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER :: allocstat                                  ! Allocation status !
@@ -779,7 +671,6 @@ CONTAINS
     !
     LOGICAL                         :: configexist
     CHARACTER(LEN=600)              :: FileName_Tet, FileName_Hex, FileName_Time
-    CHARACTER(LEN=200)              :: DGPATH
     ! CHARACTER(LEN=600)              :: TimeFile
     !
     ! Dynamic Rupture variables
@@ -794,273 +685,35 @@ CONTAINS
 
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'iniGalerkin: SeisSol Interface not initialized!!'
-       STOP
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
     IF(MESH%nElem_Tet.EQ.0 .AND. MESH%nElem_Hex.EQ.0) THEN
        logError(*) 'Quadraturefree ADER-DG is only implemented for tetrahedral and hexahedral.'
-       STOP
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
     ! Reading polynomial coefficients and mass matrices
-
-    INQUIRE(                                            & !
-         FILE= 'DGPATH'                               , & !
-         EXIST=configexist                              ) !
-    !                                                     !
-    IF (configexist) THEN                                 !
-       !                                                  !
-       OPEN(                                            & !
-            UNIT= IO%UNIT%FileIn                      , & !
-            FILE= 'DGPATH'                            , & !
-            IOSTAT = STAT                               ) !
-       !                                                  !
-       IF (stat.NE.0) THEN                                !
-          logError(*) 'cannot open DGPATH'         !
-          STOP
-       END IF                                             !
-       !                                                  !
-       READ(IO%UNIT%FileIn,'(A)') DGPATH                  !
-       !                                                  !
-       CLOSE(IO%UNIT%FileIn)                              !
-       !                                                  !
-       !                                                  !
-       logInfo(*) 'Path to the DG directory is: ',TRIM(DGPATH)
-
-       IF (MESH%nElem_Tet.GT.0) WRITE(FileName_Tet,'(a,a20)') TRIM(DGPATH), 'BasisFunctions3D.tri'
-       IF (MESH%nElem_Hex.GT.0) WRITE(FileName_Hex,'(a,a20)') TRIM(DGPATH), 'BasisFunctions3D.qua'
-
-    ELSE                                                  !
-       !                                                  !
-       logWarning(*) 'Configuration file DGPATH missing!'
-       logWarning(*) 'Use . as default path'    !
-       !                                                  !
-       IF (MESH%nElem_Tet.GT.0) WRITE(FileName_Tet,'(a,a20)') TRIM(DGPATH), 'BasisFunctions3D.tri'
-       IF (MESH%nElem_Hex.GT.0) WRITE(FileName_Hex,'(a,a20)') TRIM(DGPATH), 'BasisFunctions3D.qua'
-       !
-    ENDIF
 
 !===================================================================================!
 !--------------------------------Tetrahedral Elements-------------------------------!
 !===================================================================================!
 
     IF(MESH%nElem_Tet .GT. 0)THEN
-        logInfo0(*) 'Tetrahedral Elements '
-        CALL OpenFile(IO%UNIT%FileIn,FileName_Tet,.FALSE.)
-
-        logInfo0(*) 'Reading basis functions and mass matrices for DG method '
-        logInfo0(*) '  from file ', TRIM(FileName_Tet)
-
-        ! Read comment
-        READ(IO%UNIT%FileIn,*)
-        READ(IO%UNIT%FileIn,*)
-        ! Read maximal degree of basis polynomials stored in the file.
-        READ(IO%UNIT%FileIn,*) DISC%Galerkin%nMaxPoly
-        IF(DISC%Galerkin%nPoly.GT.DISC%Galerkin%nMaxPoly) THEN
-            logError(*) 'Required polynomial for DG method is higher than the ones stored in file ', FileName_Tet
-            STOP
-        ENDIF
         MaxDegFr = (DISC%Galerkin%nPolyRec+1)*(DISC%Galerkin%nPolyRec+2)*(DISC%Galerkin%nPolyRec+3)/6
-        ALLOCATE(DISC%Galerkin%cPoly3D_Tet(0:DISC%Galerkin%nPolyRec,0:DISC%Galerkin%nPolyRec,0:DISC%Galerkin%nPolyRec, &
-                                           0:MaxDegFr-1, 0:DISC%Galerkin%nPolyRec),                                    &
-                 DISC%Galerkin%NonZeroCPoly_Tet(0:MaxDegFr-1,0:DISC%Galerkin%nPolyRec),                                &
-                 DISC%Galerkin%NonZeroCPolyIndex_Tet(EQN%Dimension,1:(DISC%Galerkin%nPolyRec+1)**3,0:MaxDegFr,         &
-                                                     0:DISC%Galerkin%nPolyRec),                                        &
-                 DISC%Galerkin%MassMatrix_Tet(MaxDegFr,MaxDegFr, 0:DISC%Galerkin%nPolyRec),                            &
-                 DISC%Galerkin%iMassMatrix_Tet(MaxDegFr,MaxDegFr, 0:DISC%Galerkin%nPolyRec),                           &
-                 DISC%Galerkin%IntGaussP_Tet(EQN%Dimension,DISC%Galerkin%nIntGP),                                      &
-                 DISC%Galerkin%IntGaussW_Tet(DISC%Galerkin%nIntGP),                                                    &
-                 DISC%Galerkin%BndGaussP_Tet(EQN%Dimension-1,DISC%Galerkin%nBndGP),                                      &
+        ALLOCATE(DISC%Galerkin%BndGaussP_Tet(EQN%Dimension-1,DISC%Galerkin%nBndGP),                                      &
                  DISC%Galerkin%BndGaussW_Tet(Disc%Galerkin%nBndGP),                                                    &
-                 Tens3GaussP(EQN%Dimension,(DISC%Galerkin%nPoly+2)**3),Tens3GaussW((DISC%Galerkin%nPoly+2)**3),        &
-                 DISC%Galerkin%IntGPBaseGrad_Tet(EQN%Dimension,0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,               &
-                                                 0:DISC%Galerkin%nPolyRec),                                            &
-                 DISC%Galerkin%IntGPBaseFunc_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,0:DISC%Galerkin%nPolyRec),   &
-!                 DISC%Galerkin%BndGPBaseFunc3D_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Tet),          &
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
-           STOP
+           call MPI_ABORT(MPI%commWorld, 134)
         END IF
-
-        DISC%Galerkin%MassMatrix_Tet(:,:,:)  = 0.0d0
-        DISC%Galerkin%iMassMatrix_Tet(:,:,:) = 0.0d0
-        DISC%Galerkin%cPoly3D_Tet(:,:,:,:,:) = 0.0d0
-
-        ! Read coefficients of basis functions and mass matrices up to degree DISC%Galerkin%nMaxPoly, stored in the file
-        ! BasisFunctions3D.tri
-        DO iPoly = 0, DISC%Galerkin%nPolyRec
-            ! Read comment in front of the basis functions' coefficients
-            logInfo0(*) 'Reading basis functions of order ', iPoly
-            READ(IO%UNIT%FileIn,*)
-            nDegFr = (iPoly + 1)*(iPoly + 2)*(iPoly + 3)/6
-            ! Read polynomial coefficients
-            ! where the index of the degrees of freedom starts at zero
-            DO iDegFr = 0, nDegFr-1
-                DO iZeta = 0, iPoly
-                    DO iEta = 0, iPoly
-                        DO iXi = 0, iPoly
-                            READ(IO%UNIT%FileIn,*) DISC%Galerkin%cPoly3D_Tet(iXi,iEta,iZeta,iDegFr,iPoly)
-                        ENDDO
-                    ENDDO
-                ENDDO
-            ENDDO
-            ! Read comment in front of the entries of the mass matrix
-            READ(IO%UNIT%FileIn,*)
-            logInfo0(*) 'Reading mass matrices   of order ', iPoly
-            ! Read entries of the mass matrix
-            DO k = 1, nDegFr
-                DO l = 1, nDegFr
-                    READ(IO%UNIT%FileIn,*) DISC%Galerkin%MassMatrix_Tet(k,l,iPoly)
-                    IF(DISC%Galerkin%MassMatrix_Tet(k,l,iPoly).NE.0) THEN
-                       DISC%Galerkin%iMassMatrix_Tet(k,l,iPoly) = 1.0d0/DISC%Galerkin%MassMatrix_Tet(k,l,iPoly)
-                    ENDIF
-                ENDDO
-            ENDDO
-        ENDDO
-        CLOSE(IO%UNIT%FileIn)
-        ! Detecting non-zero coefficients in basis polynomials
-        DISC%Galerkin%NonZeroCPoly_Tet(:,:)          = 0
-        DISC%Galerkin%NonZeroCPolyIndex_Tet(:,:,:,:) = -1
-        DO iPoly = 0, DISC%Galerkin%nPolyRec
-            nDegFr = (iPoly + 1)*(iPoly + 2)*(iPoly + 3)/6
-            DO iDegFr = 0, nDegFr-1
-                DO iZeta = 0, iPoly
-                    DO iEta = 0, iPoly
-                        DO iXi = 0, iPoly
-                            IF(ABS(DISC%Galerkin%cPoly3D_Tet(iXi,iEta,iZeta,iDegFr,iPoly)).GE.1e-6) THEN
-                                DISC%Galerkin%NonZeroCPoly_Tet(iDegFr,iPoly) = DISC%Galerkin%NonZeroCPoly_Tet(iDegFr,iPoly) + 1
-                                DISC%Galerkin%NonZeroCPolyIndex_Tet(1,DISC%Galerkin%NonZeroCPoly_Tet(iDegFr,iPoly),iDegFr,iPoly) = iXi
-                                DISC%Galerkin%NonZeroCPolyIndex_Tet(2,DISC%Galerkin%NonZeroCPoly_Tet(iDegFr,iPoly),iDegFr,iPoly) = iEta
-                                DISC%Galerkin%NonZeroCPolyIndex_Tet(3,DISC%Galerkin%NonZeroCPoly_Tet(iDegFr,iPoly),iDegFr,iPoly) = iZeta
-                            ENDIF
-                        ENDDO
-                    ENDDO
-                ENDDO
-            ENDDO
-        ENDDO
     ENDIF ! Tets
-
-!===================================================================================!
-!--------------------------------Hexahedral Elements--------------------------------!
-!===================================================================================!
-
-    IF(MESH%nElem_Hex .GT. 0)THEN
-        logInfo0(*) 'Hexahedral Elements '
-        CALL OpenFile(IO%UNIT%FileIn,FileName_Hex,.FALSE.)
-
-        logInfo0(*) 'Reading basis functions and mass matrices for DG method '
-        logInfo0(*) '  from file ', TRIM(FileName_Hex)
-
-        ! Read comment
-        READ(IO%UNIT%FileIn,*)
-        READ(IO%UNIT%FileIn,*)
-        ! Read maximal degree of basis polynomials stored in the file.
-        READ(IO%UNIT%FileIn,*) DISC%Galerkin%nMaxPoly
-        IF(DISC%Galerkin%nPoly.GT.DISC%Galerkin%nMaxPoly) THEN
-            logError(*) 'Required polynomial for DG method is higher than the ones stored in file ', FileName_Hex
-            STOP
-        ENDIF
-        MaxDegFr = (DISC%Galerkin%nPolyRec+1)*(DISC%Galerkin%nPolyRec+2)*(DISC%Galerkin%nPolyRec+3)/6 !**3
-
-        ALLOCATE(DISC%Galerkin%cPoly3D_Hex(0:DISC%Galerkin%nPolyRec,0:DISC%Galerkin%nPolyRec,0:DISC%Galerkin%nPolyRec,      &
-                                           0:MaxDegFr-1, 0:DISC%Galerkin%nPolyRec),                                         &
-                 DISC%Galerkin%NonZeroCPoly_Hex(0:MaxDegFr-1,0:DISC%Galerkin%nPolyRec),                                     &
-                 DISC%Galerkin%NonZeroCPolyIndex_Hex(EQN%Dimension,1:(DISC%Galerkin%nPolyRec+1)**3,0:MaxDegFr,              &
-                                                     0:DISC%Galerkin%nPolyRec),                                             &
-                 DISC%Galerkin%MassMatrix_Hex(MaxDegFr,MaxDegFr, 0:DISC%Galerkin%nPolyRec),                                 &
-                 DISC%Galerkin%iMassMatrix_Hex(MaxDegFr,MaxDegFr, 0:DISC%Galerkin%nPolyRec),                                &
-                 Tens3GaussP(EQN%Dimension,(DISC%Galerkin%nPoly+2)**3),Tens3GaussW((DISC%Galerkin%nPoly+2)**3),             &
-                 DISC%Galerkin%IntGaussP_Hex(EQN%Dimension,DISC%Galerkin%nIntGP),                                           &
-                 DISC%Galerkin%IntGaussW_Hex(DISC%Galerkin%nIntGP),                                                         &
-                 DISC%Galerkin%BndGaussP_Hex(EQN%Dimension,DISC%Galerkin%nBndGP),                                           &
-                 DISC%Galerkin%BndGaussW_Hex(DISC%Galerkin%nBndGP),                                                         &
-                 DISC%Galerkin%IntGPBaseGrad_Hex(EQN%Dimension,0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,                    &
-                                                 0:DISC%Galerkin%nPolyRec),                                                 &
-                 DISC%Galerkin%IntGPBaseFunc_Hex(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,  0:DISC%Galerkin%nPolyRec),      &
-                 DISC%Galerkin%BndGPBaseFunc3D_Hex(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Hex),               &
-                 MESH%ELEM%BndBF_GP_Hex(0:MaxDegFr,DISC%Galerkin%nBndGP,MESH%nSides_Hex),                                   &
-                 STAT = allocstat                                                                                           )
-        IF(allocStat .NE. 0) THEN
-            logError(*) 'could not allocate all variables!'
-            STOP
-        END IF
-
-        DISC%Galerkin%MassMatrix_Hex(:,:,:)  = 0.0d0
-        DISC%Galerkin%iMassMatrix_Hex(:,:,:) = 0.0d0
-        DISC%Galerkin%cPoly3D_Hex(:,:,:,:,:) = 0.0d0
-
-        ! Read coefficients of basis functions and mass matrices up to degree DISC%Galerkin%nMaxPoly, stored in the file
-        ! BasisFunctions3D.qua
-        DO iPoly = 0, DISC%Galerkin%nPolyRec
-            ! Read comment in front of the basis functions' coefficients
-            logInfo(*) 'Reading basis functions of order ', iPoly
-            READ(IO%UNIT%FileIn,*)
-            nDegFr = (iPoly + 1)*(iPoly + 2)*(iPoly + 3)/6
-            ! Read polynomial coefficients
-            ! where the index of the degrees of freedom starts at zero
-            DO iDegFr = 0, nDegFr-1
-                DO iZeta = 0, iPoly
-                    DO iEta = 0, iPoly
-                        DO iXi = 0, iPoly
-                            READ(IO%UNIT%FileIn,*) DISC%Galerkin%cPoly3D_Hex(iXi,iEta,iZeta,iDegFr,iPoly)
-                        ENDDO
-                    ENDDO
-                ENDDO
-            ENDDO
-            ! Read comment in front of the entries of the mass matrix
-            READ(IO%UNIT%FileIn,*)
-            logInfo(*) 'Reading mass matrices   of order ', iPoly
-            ! Read entries of the mass matrix
-            DO k = 1, nDegFr
-                DO l = 1, nDegFr
-                    READ(IO%UNIT%FileIn,*) DISC%Galerkin%MassMatrix_Hex(k,l,iPoly)
-                    IF(DISC%Galerkin%MassMatrix_Hex(k,l,iPoly).NE.0) THEN
-                       DISC%Galerkin%iMassMatrix_Hex(k,l,iPoly) = 1.0d0/DISC%Galerkin%MassMatrix_Hex(k,l,iPoly)
-                    ENDIF
-                ENDDO
-            ENDDO
-        ENDDO
-        CLOSE(IO%UNIT%FileIn)
-        ! Detecting non-zero coefficients in basis polynomials
-        DISC%Galerkin%NonZeroCPoly_Hex(:,:)          = 0
-        DISC%Galerkin%NonZeroCPolyIndex_Hex(:,:,:,:) = -1
-        DO iPoly = 0, DISC%Galerkin%nPolyRec
-            nDegFr = (iPoly + 1)*(iPoly + 2)*(iPoly + 3)/6
-            DO iDegFr = 0, nDegFr-1
-                DO iZeta = 0, iPoly
-                    DO iEta = 0, iPoly
-                        DO iXi = 0, iPoly
-                            IF(ABS(DISC%Galerkin%cPoly3D_Hex(iXi,iEta,iZeta,iDegFr,iPoly)).GE.1e-6) THEN
-                                DISC%Galerkin%NonZeroCPoly_Hex(iDegFr,iPoly) = DISC%Galerkin%NonZeroCPoly_Hex(iDegFr,iPoly) + 1
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex(1,DISC%Galerkin%NonZeroCPoly_Hex(iDegFr,iPoly),iDegFr,iPoly) = iXi
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex(2,DISC%Galerkin%NonZeroCPoly_Hex(iDegFr,iPoly),iDegFr,iPoly) = iEta
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex(3,DISC%Galerkin%NonZeroCPoly_Hex(iDegFr,iPoly),iDegFr,iPoly) = iZeta
-                            ENDIF
-                        ENDDO
-                    ENDDO
-                ENDDO
-            ENDDO
-        ENDDO
-    ENDIF ! Hexas
-
-    logInfo(*) 'Basis functions and mass matrices read. '
 
   !==============================================================================!
   !------------------------Source Terms------------------------------------------!
   !==============================================================================!
 
-   !
-   ! Prepare Time Integration
-   !
-   ALLOCATE(DISC%Galerkin%cTimePoly(0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nPolyRec+1, 0:DISC%Galerkin%nPolyRec),      &
-            DISC%Galerkin%TimeMassMatrix(1:DISC%Galerkin%nPolyRec+1,1:DISC%Galerkin%nPolyRec+1,0:DISC%Galerkin%nPolyRec), &
-            DISC%Galerkin%iTimeMassMatrix(1:DISC%Galerkin%nPolyRec+1,1:DISC%Galerkin%nPolyRec+1,0:DISC%Galerkin%nPolyRec),&
-            STAT = allocstat)
-   IF(allocStat .NE. 0) THEN
-           logError(*) 'could not allocate all variables!'
-           STOP
-   END IF
    !
    ! Allocate Gausspoints for ADER-DG Time Integration of source terms
    !
@@ -1072,67 +725,14 @@ CONTAINS
    ALLOCATE(DISC%Galerkin%TimeGaussP(DISC%Galerkin%nTimeGP),                          &
             DISC%Galerkin%TimeGaussW(DISC%Galerkin%nTimeGP),                          &
             DISC%Galerkin%dtPowerFactor(0:DISC%Galerkin%nPoly,DISC%Galerkin%nTimeGP), &
-            DISC%Galerkin%Faculty(0:DISC%Galerkin%nMaxPoly+5)  )
+            DISC%Galerkin%Faculty(0:CONVERGENCE_ORDER+5)  )
    !
    ! Precalculate the Faculty of i because otherwise this calculation takes a loooong time...
    !
    DISC%Galerkin%Faculty(0) = 1.
-   DO i = 1, DISC%Galerkin%nMaxPoly+5
+   DO i = 1, CONVERGENCE_ORDER+5
        DISC%Galerkin%Faculty(i) = DISC%Galerkin%Faculty(i-1)*REAL(i)
    ENDDO
-
-   WRITE(FileName_Time,'(a,a13)') TRIM(DGPATH), 'TimeBasis.dat'
-   CALL OpenFile(IO%UNIT%FileIn,FileName_Time,.FALSE.)
-   !
-   logInfo(*) 'Reading time basis functions and mass matrices for ADER-DG sources'
-   logInfo(*) '  from file ', TRIM(FileName_Time)
-   !
-   ! Read comment
-   READ(IO%UNIT%FileIn,*)
-   READ(IO%UNIT%FileIn,*)
-   ! Read maximal degree of basis polynomials stored in the file.
-   READ(IO%UNIT%FileIn,*) i
-   IF(DISC%Galerkin%nPoly.GT.i) THEN
-      logError(*) 'Required polynomial for DG method is higher than the ones stored in file ', FileName_Time
-      STOP
-   ENDIF
-   !
-   ! Read coefficients of basis functions and mass matrices up to degree DISC%Galerkin%nMaxPoly
-   !
-   DISC%Galerkin%cTimePoly(:,:,:)       = 0.0d0
-   DISC%Galerkin%TimeMassMatrix(:,:,:)  = 0.0d0
-   DISC%Galerkin%iTimeMassMatrix(:,:,:) = 0.0d0
-   !
-   DO iPoly = 0, DISC%Galerkin%nPolyRec
-      ! Read comment in front of the basis functions' coefficients
-      READ(IO%UNIT%FileIn,*)
-      nDegFr = (iPoly + 1)
-      ! Read polynomial coefficients
-      ! where the index of the degrees of freedom starts at zero
-      DO iDegFr = 0, nDegFr-1
-         DO iXi = 0, iPoly
-            READ(IO%UNIT%FileIn,*) DISC%Galerkin%cTimePoly(iXi,iDegFr,iPoly)
-         ENDDO
-      ENDDO
-      ! Read comment in front of the entries of the time mass matrix
-      READ(IO%UNIT%FileIn,*)
-      ! Read entries of the time mass matrix
-      DO k = 1, nDegFr
-         DO l = 1, nDegFr
-            READ(IO%UNIT%FileIn,*) DISC%Galerkin%TimeMassMatrix(k,l,iPoly)
-         ENDDO
-      ENDDO
-      ! Read comment in front of the entries of the inverse time mass matrix
-      READ(IO%UNIT%FileIn,*)
-      ! Read entries of the inverse time mass matrix
-      DO k = 1, nDegFr
-         DO l = 1, nDegFr
-            READ(IO%UNIT%FileIn,*) DISC%Galerkin%iTimeMassMatrix(k,l,iPoly)
-         ENDDO
-      ENDDO
-   ENDDO
-   CLOSE(IO%UNIT%FileIn)
-   logInfo(*) 'Time basis functions and mass matrices read. '
 
 !===================================================================================!
 !---------------------------Quadrature-free ADER DG---------------------------------!
@@ -1152,35 +752,6 @@ CONTAINS
 
     IF(MESH%nElem_Tet.GT.0) THEN
 
-         ! Allocation of arrays
-         ALLOCATE(                                                                                        &
-         DISC%Galerkin%Kxi_k_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),   &
-         DISC%Galerkin%Keta_k_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%Kzeta_k_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat), &
-         DISC%Galerkin%Kxi_m_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),   &
-         DISC%Galerkin%Keta_m_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%Kzeta_m_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat), &
-         DISC%Galerkin%ADGxi_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),   &
-         DISC%Galerkin%ADGeta_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%ADGzeta_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat), &
-         DISC%Galerkin%ADGklm_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%FluxInt_Tet(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat,  &
-                                     0:MESH%nSides_Tet,1:MESH%nVertices_Tri,1:MESH%nSides_Tet),           &
-         STAT=allocstat                                                                                   )
-         IF(allocStat .NE. 0) THEN
-            logError(*) 'could not allocate all variables!'
-            STOP
-         END IF
-
-        ! Compute and store volume gaussian integration points
-         CALL TetrahedronQuadraturePoints(                     &
-                 nIntGP     = DISC%Galerkin%nIntGP,            &
-                 IntGaussP  = DISC%Galerkin%IntGaussP_Tet,     &
-                 IntGaussW  = DISC%Galerkin%IntGaussW_Tet,     &
-                 M          = DISC%Galerkin%nPoly+2,           &
-                 IO         = IO,                              &
-                 quiet      = .TRUE.                           )
-
 #ifdef USE_DR_CELLAVERAGE
         call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, DISC%Galerkin%BndGaussP_Tet)
         DISC%Galerkin%BndGaussW_Tet = 1.e99 ! blow up solution if used
@@ -1192,663 +763,30 @@ CONTAINS
                  IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
                  M          = DISC%Galerkin%nPoly+2,           &
                  IO         = IO,                              &
-                 quiet      = .TRUE.                           )
+                 quiet      = .TRUE.,                          &
+                 MPI        = MPI                              )
 #endif
-
-        NULLIFY( Tens3GaussP )
-        NULLIFY( Tens3GaussW )
-        ! Compute integration points for volume integrals
-        ! Local to this subroutine
-         CALL TetrahedronQuadraturePoints(                                  &
-                 nIntGP     = nTens3GP,                                     &
-                 IntGaussP  = Tens3GaussP,                                  &
-                 IntGaussW  = Tens3GaussW,                                  &
-                 M          = DISC%Galerkin%nPoly+DISC%Galerkin%nPolyMat+2, &
-                 IO         = IO,                                           &
-                 quiet      = .TRUE.                                        )
-
-        NULLIFY( TFMGaussP )
-        NULLIFY( TFMGaussW )
-        ! Compute integration points for surface integrals
-        ! Local to this subroutine
-        CALL TriangleQuadraturePoints(                                      &
-                 nIntGP     = nTFMGaussP,                                   &
-                 IntGaussP  = TFMGaussP,                                    &
-                 IntGaussW  = TFMGaussW,                                    &
-                 M          = DISC%Galerkin%nPoly+DISC%Galerkin%nPolyMat+2, &
-                 IO         = IO,                                           &
-                 quiet      = .TRUE.                                        )
-
-        ! Compute the value and gradient of basis functions
-        ! at volume integration points Tens3GaussP
-        ALLOCATE( Tens3BaseFunc(  DISC%Galerkin%nDegFr,nTens3GP) )
-        ALLOCATE( Tens3BaseGrad(3,DISC%Galerkin%nDegFr,nTens3GP) )
-
-        DO iIntGP = 1, nTens3GP
-            xi   = Tens3GaussP(1,iIntGP)
-            eta  = Tens3GaussP(2,iIntGP)
-            zeta = Tens3GaussP(3,iIntGP)
-            DO l = 1, DISC%Galerkin%nDegFr
-                CALL BaseFunc3D(phi_l,l,xi,eta,zeta,DISC%Galerkin%nPoly,   &
-                               DISC%Galerkin%cPoly3D_Tet,                  &
-                               DISC%Galerkin%NonZeroCPoly_Tet,             &
-                               DISC%Galerkin%NonZeroCPolyIndex_Tet         )
-                CALL BaseGrad3D(phigrad,l,xi,eta,zeta,DISC%Galerkin%nPoly, &
-                               DISC%Galerkin%cPoly3D_Tet,                  &
-                               DISC%Galerkin%NonZeroCPoly_Tet,             &
-                               DISC%Galerkin%NonZeroCPolyIndex_Tet         )
-                Tens3BaseFunc(l,iIntGP)   = phi_l
-                Tens3BaseGrad(:,l,iIntGP) = phigrad
-            ENDDO
-        ENDDO
-
-        ! Compute stiffness tensors for the Tetrahedrons
-        DISC%Galerkin%Kxi_k_Tet   = 0.0d0
-        DISC%Galerkin%Keta_k_Tet  = 0.0d0
-        DISC%Galerkin%Kzeta_k_Tet = 0.0d0
-        DO iIntGP = 1, nTens3GP
-            xi   = Tens3GaussP(1,iIntGP)
-            eta  = Tens3GaussP(2,iIntGP)
-            zeta = Tens3GaussP(3,iIntGP)
-            DO m = 1, DISC%Galerkin%nDegFrMat
-                phi_m = Tens3BaseFunc(m,iIntGP)
-                DO l = 1, DISC%Galerkin%nDegFr
-                    phi_l = Tens3BaseFunc(l,iIntGP)
-                    DO k = 1, DISC%Galerkin%nDegFr
-                        phigrad = Tens3BaseGrad(:,k,iIntGP)
-                        DISC%Galerkin%Kxi_k_Tet(   k,l,m ) = DISC%Galerkin%Kxi_k_Tet(   k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phigrad(1)*phi_l*phi_m
-                        DISC%Galerkin%Keta_k_Tet(  k,l,m ) = DISC%Galerkin%Keta_k_Tet(  k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phigrad(2)*phi_l*phi_m
-                        DISC%Galerkin%Kzeta_k_Tet( k,l,m ) = DISC%Galerkin%Kzeta_k_Tet( k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phigrad(3)*phi_l*phi_m
-                    ENDDO
-                ENDDO
-            ENDDO
-            !
-        ENDDO
-        !
-        DISC%Galerkin%Kxi_m_Tet   = 0.0d0
-        DISC%Galerkin%Keta_m_Tet  = 0.0d0
-        DISC%Galerkin%Kzeta_m_Tet = 0.0d0
-        DO iIntGP = 1, nTens3GP
-            xi   = Tens3GaussP(1,iIntGP)
-            eta  = Tens3GaussP(2,iIntGP)
-            zeta = Tens3GaussP(3,iIntGP)
-            DO m = 1, DISC%Galerkin%nDegFrMat
-                phigrad = Tens3BaseGrad(:,m,iIntGP)
-                DO l = 1, DISC%Galerkin%nDegFr
-                    phi_l = Tens3BaseFunc(l,iIntGP)
-                    DO k = 1, DISC%Galerkin%nDegFr
-                        phi_k = Tens3BaseFunc(k,iIntGP)
-                        DISC%Galerkin%Kxi_m_Tet(   k,l,m ) = DISC%Galerkin%Kxi_m_Tet(   k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phi_k*phi_l*phigrad(1)
-                        DISC%Galerkin%Keta_m_Tet(  k,l,m ) = DISC%Galerkin%Keta_m_Tet(  k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phi_k*phi_l*phigrad(2)
-                        DISC%Galerkin%Kzeta_m_Tet( k,l,m ) = DISC%Galerkin%Kzeta_m_Tet( k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phi_k*phi_l*phigrad(3)
-                    ENDDO
-                ENDDO
-            ENDDO
-            !
-        ENDDO
-        !
-        WHERE(ABS(DISC%Galerkin%Kxi_k_Tet).LE.1e-10)
-            DISC%Galerkin%Kxi_k_Tet = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Keta_k_Tet).LE.1e-10)
-            DISC%Galerkin%Keta_k_Tet = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Kzeta_k_Tet).LE.1e-10)
-            DISC%Galerkin%Kzeta_k_Tet = 0.0d0
-        ENDWHERE
-        !
-        WHERE(ABS(DISC%Galerkin%Kxi_m_Tet).LE.1e-10)
-            DISC%Galerkin%Kxi_m_Tet = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Keta_m_Tet).LE.1e-10)
-            DISC%Galerkin%Keta_m_Tet = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Kzeta_m_Tet).LE.1e-10)
-            DISC%Galerkin%Kzeta_m_Tet = 0.0d0
-        ENDWHERE
-        !
-        DO m = 1, DISC%Galerkin%nDegFrMat
-        DO l = 1, DISC%Galerkin%nDegFr
-        DO k = 1, DISC%Galerkin%nDegFr
-          DISC%Galerkin%ADGxi_Tet(k,l,m)   = DISC%Galerkin%Kxi_k_Tet(l,k,m)   / DISC%Galerkin%MassMatrix_Tet(k,k,DISC%Galerkin%nPoly)
-          DISC%Galerkin%ADGeta_Tet(k,l,m)  = DISC%Galerkin%Keta_k_Tet(l,k,m)  / DISC%Galerkin%MassMatrix_Tet(k,k,DISC%Galerkin%nPoly)
-          DISC%Galerkin%ADGzeta_Tet(k,l,m) = DISC%Galerkin%Kzeta_k_Tet(l,k,m) / DISC%Galerkin%MassMatrix_Tet(k,k,DISC%Galerkin%nPoly)
-        ENDDO
-        ENDDO
-        ENDDO
-        !
-        ! ADER-DG tensor for space dependent reaction term (= identical to identity matrix -> to be optimized!)
-        DISC%Galerkin%ADGklm_Tet(:,:,:) = 0.0D0
-        DO m = 1, DISC%Galerkin%nDegFrMat
-        DO k = 1, DISC%Galerkin%nDegFr
-          DISC%Galerkin%ADGklm_Tet(k,k,m) = 1.0D0
-        ENDDO
-        ENDDO
-        !
-        ALLOCATE(DISC%Galerkin%Kxi_k_Tet_Sp, DISC%Galerkin%Keta_k_Tet_Sp, DISC%Galerkin%Kzeta_k_Tet_Sp)
-        ALLOCATE(DISC%Galerkin%Kxi_m_Tet_Sp, DISC%Galerkin%Keta_m_Tet_Sp, DISC%Galerkin%Kzeta_m_Tet_Sp)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kxi_k_Tet_Sp,   DISC%Galerkin%Kxi_k_Tet,   DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Keta_k_Tet_Sp,  DISC%Galerkin%Keta_k_Tet,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kzeta_k_Tet_Sp, DISC%Galerkin%Kzeta_k_Tet, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kxi_m_Tet_Sp,   DISC%Galerkin%Kxi_m_Tet,   DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Keta_m_Tet_Sp,  DISC%Galerkin%Keta_m_Tet,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kzeta_m_Tet_Sp, DISC%Galerkin%Kzeta_m_Tet, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        !
-        ALLOCATE(DISC%Galerkin%ADGxi_Tet_Sp, DISC%Galerkin%ADGeta_Tet_Sp, DISC%Galerkin%ADGzeta_Tet_Sp, DISC%Galerkin%ADGklm_Tet_Sp)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGxi_Tet_Sp,   DISC%Galerkin%ADGxi_Tet,   DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGeta_Tet_Sp,  DISC%Galerkin%ADGeta_Tet,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGzeta_Tet_Sp, DISC%Galerkin%ADGzeta_Tet, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGklm_Tet_Sp,  DISC%Galerkin%ADGklm_Tet,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-
-        !
-        DISC%Galerkin%FluxInt_Tet = 0.0d0
-        !
-        DO iSide = 1, MESH%nSides_Tet
-            !
-            ! Compute for the element itself
-            !
-            DO iBndGP = 1, nTFMGaussP
-                chiGP  = TFMGaussP(1,iBndGP)
-                tauGP  = TFMGaussP(2,iBndGP)
-                CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chiGP,tauGP,iSide,0)
-                DO m = 1, DISC%Galerkin%nDegFrMat
-                    CALL BaseFunc3D(phi_m,m,xi,eta,zeta,DISC%Galerkin%nPolyMat,         &
-                                    DISC%Galerkin%cPoly3D_Tet,                          &
-                                    DISC%Galerkin%NonZeroCPoly_Tet,                     &
-                                    DISC%Galerkin%NonZeroCPolyIndex_Tet                 )
-                    DO l = 1, DISC%Galerkin%nDegFr
-                        CALL BaseFunc3D(phi_l,l,xi,eta,zeta,DISC%Galerkin%nPoly,        &
-                                        DISC%Galerkin%cPoly3D_Tet,                      &
-                                        DISC%Galerkin%NonZeroCPoly_Tet,                 &
-                                        DISC%Galerkin%NonZeroCPolyIndex_Tet             )
-                        DO k = 1, DISC%Galerkin%nDegFr
-                            CALL BaseFunc3D(phi_k,k,xi,eta,zeta,DISC%Galerkin%nPoly,    &
-                                            DISC%Galerkin%cPoly3D_Tet,                  &
-                                            DISC%Galerkin%NonZeroCPoly_Tet,             &
-                                            DISC%Galerkin%NonZeroCPolyIndex_Tet         )
-                            DISC%Galerkin%FluxInt_Tet(k,l,m,0,1,iSide) =  &
-                            DISC%Galerkin%FluxInt_Tet(k,l,m,0,1,iSide) + TFMGaussW(iBndGP)*phi_k*phi_l*phi_m
-                        ENDDO
-                    ENDDO
-                ENDDO
-            ENDDO
-            !
-            ! Compute for the neighbors
-            !
-            DO iLocalNeighborSide = 1, MESH%nSides_Tet
-            DO iLocalNeighborVrtx = 1, MESH%nVertices_Tri
-            DO iBndGP = 1, nTFMGaussP
-               chiGP  = TFMGaussP(1,iBndGP)
-               tauGP  = TFMGaussP(2,iBndGP)
-               CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chiGP,tauGP,iLocalNeighborSide,iLocalNeighborVrtx)
-               CALL TrafoChiTau2XiEtaZeta(xiS,etaS,zetaS,chiGP,tauGP,iSide,0)
-               DO m = 1, DISC%Galerkin%nDegFrMat
-                 CALL BaseFunc3D(phi_m,m,xiS,etaS,zetaS,DISC%Galerkin%nPolyMat,         &
-                                 DISC%Galerkin%cPoly3D_Tet,                             &
-                                 DISC%Galerkin%NonZeroCPoly_Tet,                        &
-                                 DISC%Galerkin%NonZeroCPolyIndex_Tet                    )
-                 DO l = 1, DISC%Galerkin%nDegFr
-                   CALL BaseFunc3D(phi_l,l,xi,eta,zeta,DISC%Galerkin%nPoly,             &
-                                   DISC%Galerkin%cPoly3D_Tet,                           &
-                                   DISC%Galerkin%NonZeroCPoly_Tet,                      &
-                                   DISC%Galerkin%NonZeroCPolyIndex_Tet                  )
-                   DO k = 1, DISC%Galerkin%nDegFr
-                      CALL BaseFunc3D(phi_k,k,xiS,etaS,zetaS,DISC%Galerkin%nPoly,       &
-                                      DISC%Galerkin%cPoly3D_Tet,                        &
-                                      DISC%Galerkin%NonZeroCPoly_Tet,                   &
-                                      DISC%Galerkin%NonZeroCPolyIndex_Tet               )
-                      DISC%Galerkin%FluxInt_Tet(k,l,m,iLocalNeighborSide,iLocalNeighborVrtx,iSide) =  &
-                      DISC%Galerkin%FluxInt_Tet(k,l,m,iLocalNeighborSide,iLocalNeighborVrtx,iSide) +  &
-                      TFMGaussW(iBndGP)*phi_k*phi_l*phi_m
-                   ENDDO
-                 ENDDO
-               ENDDO
-               !
-            ENDDO
-            ENDDO
-            ENDDO
-        !
-        ENDDO
-        WHERE(ABS(DISC%Galerkin%FluxInt_Tet).LT.1e-10)
-            DISC%Galerkin%FluxInt_Tet = 0.0d0
-        ENDWHERE
-        !
-        ALLOCATE(DISC%Galerkin%FluxInt_Tet_Sp(0:MESH%nSides_Tet,1:MESH%nVertices_Tri,1:MESH%nSides_Tet))
-        DO iSide = 1, MESH%nSides_Tet
-            CALL IniSparseTensor3b(DISC%Galerkin%FluxInt_Tet_Sp(0,1,iSide), DISC%Galerkin%FluxInt_Tet(:,:,:,0,1,iSide), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-            DO iLocalNeighborSide = 1, MESH%nSides_Tet
-            DO iLocalNeighborVrtx = 1, MESH%nVertices_Tri
-             CALL IniSparseTensor3b(DISC%Galerkin%FluxInt_Tet_Sp(iLocalNeighborSide,iLocalNeighborVrtx,iSide),    &
-                                    DISC%Galerkin%FluxInt_Tet(:,:,:,iLocalNeighborSide,iLocalNeighborVrtx,iSide), &
-                                    DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat       )
-            ENDDO
-            ENDDO
-        ENDDO
 
 #ifndef NDEBUG
         ! assert contant material parameters per element
         if ( disc%galerkin%nDegFrMat .ne. 1 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, disc%galerkin%nDegFrMat not equal 1.', disc%galerkin%nDegFrMat
-          stop
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 
         ! assert 4 sides for tetrahedrons
         if ( mesh%nSides_tet .ne. 4 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nSides_tet not equal 4.', mesh%nSides_tet
-          stop
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 
         ! assert 3 vertices for triangles
          if ( mesh%nVertices_tri .ne. 3 ) then
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nVertices_tri not equal 3.', mesh%nVertices_tri
-          stop
+          call MPI_ABORT(MPI%commWorld, 134)
         endif
 #endif
-
-        DEALLOCATE( Tens3BaseFunc )
-        DEALLOCATE( Tens3BaseGrad )
-
-        DO iDegFr = 1, DISC%Galerkin%nDegFr
-            DISC%Galerkin%iMassMatrix_Tet(iDegFr,iDegFr,DISC%Galerkin%nPoly) = &
-                1./DISC%Galerkin%MassMatrix_Tet(iDegFr,iDegFr,DISC%Galerkin%nPoly)
-        ENDDO
-
-        DISC%Galerkin%IntGPBaseFunc_Tet(:,:,:)          = 0.0d0
-        DISC%Galerkin%IntGPBaseGrad_Tet(:,:,:,:)        = 0.0d0
-!        DISC%Galerkin%BndGPBaseFunc3D_Tet(:,:,:)        = 0.0d0
-
-        iPoly = DISC%Galerkin%nPoly
-
-        DO iIntGP = 1, DISC%Galerkin%nIntGP
-            DO iDegFr = 1, DISC%Galerkin%nDegFr
-                !
-                CALL BaseFunc3D(phi,iDegFr,                             &
-                              DISC%Galerkin%intGaussP_Tet(1,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Tet(2,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Tet(3,iIntGP),    &
-                              DISC%Galerkin%nPoly,                      &
-                              DISC%Galerkin%cPoly3D_Tet,                &
-                              DISC%Galerkin%NonZeroCPoly_Tet,           &
-                              DISC%Galerkin%NonZeroCPolyIndex_Tet       )
-                !
-                DISC%Galerkin%IntGPBaseFunc_Tet(iDegFr,iIntGP,iPoly)   = phi
-                !
-                CALL BaseGrad3D( gradphixieta,iDegFr,                   &
-                              DISC%Galerkin%intGaussP_Tet(1,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Tet(2,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Tet(3,iIntGP),    &
-                              DISC%Galerkin%nPoly,                      &
-                              DISC%Galerkin%cPoly3D_Tet,                &
-                              DISC%Galerkin%NonZeroCPoly_Tet,           &
-                              DISC%Galerkin%NonZeroCPolyIndex_Tet       )
-                !
-                DISC%Galerkin%IntGPBaseGrad_Tet(:,iDegFr,iIntGP,iPoly) = gradphixieta
-                !
-            ENDDO
-        ENDDO
-
-        NULLIFY(DISC%Galerkin%NonZeroCPoly,DISC%Galerkin%NonZeroCPolyIndex,DISC%Galerkin%CPoly3D)
-
-        CONTINUE
-
     ENDIF ! Tetras
-
-    IF(MESH%nElem_Hex.GT.0) THEN
-
-         ! Allocation of arrays
-         ALLOCATE(                                                                                        &
-         DISC%Galerkin%Kxi_k_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),   &
-         DISC%Galerkin%Keta_k_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%Kzeta_k_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat), &
-         DISC%Galerkin%Kxi_m_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),   &
-         DISC%Galerkin%Keta_m_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%Kzeta_m_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat), &
-         DISC%Galerkin%ADGxi_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),   &
-         DISC%Galerkin%ADGeta_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat),  &
-         DISC%Galerkin%ADGzeta_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat), &
-         DISC%Galerkin%FluxInt_Hex(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFrRec,DISC%Galerkin%nDegFrMat,  &
-                                     0:MESH%nSides_Hex,1:MESH%nVertices_Quad,1:MESH%nSides_Hex),          &
-         STAT=allocstat                                                                                   )
-         IF(allocStat .NE. 0) THEN
-            logError(*) 'could not allocate all variables!'
-            STOP
-         END IF
-
-        ! Compute and store volume gaussian integration points
-        CALL HypercubeQuadraturePoints(                        &
-                 nIntGP     = DISC%Galerkin%nIntGP,            &
-                 IntGaussP  = DISC%Galerkin%IntGaussP_Hex,     &
-                 IntGaussW  = DISC%Galerkin%IntGaussW_Hex,     &
-                 M          = DISC%Galerkin%nPoly+2,           &
-                 nDim       = 3,                               &
-                 X1         = (/ 0., 0., 0. /),                &
-                 X2         = (/ 1., 1., 1. /),                &
-                 IO         = IO,                              &
-                 quiet      = .TRUE.                           )
-
-        ! Compute and store surface gaussian integration points
-!~         CALL HypercubeQuadraturePoints(                        &
-!~                  nIntGP     = DISC%Galerkin%nBndGP,            &
-!~                  IntGaussP  = DISC%Galerkin%BndGaussP_Hex,     &
-!~                  IntGaussW  = DISC%Galerkin%BndGaussW_Hex,     &
-!~                  M          = DISC%Galerkin%nPoly+2,           &
-!~                  nDim       = 2,                               &
-!~                  X1         = (/ 0., 0. /),                    &
-!~                  X2         = (/ 1., 1. /),                    &
-!~                  IO         = IO,                              &
-!~                  quiet      = .TRUE.                           )
-
- !       NULLIFY( Tens3GaussP )
- !       NULLIFY( Tens3GaussW )
-        ! Compute integration points for volume integrals
-        ! Local to this subroutine
-        CALL HypercubeQuadraturePoints(                                     &
-                 nIntGP     = nTens3GP,                                     &
-                 IntGaussP  = Tens3GaussP,                                  &
-                 IntGaussW  = Tens3GaussW,                                  &
-                 M          = DISC%Galerkin%nPoly+DISC%Galerkin%nPolyMat+2, &
-                 nDim       = 3,                                            &
-                 X1         = (/ 0., 0., 0. /),                             &
-                 X2         = (/ 1., 1., 1. /),                             &
-                 IO         = IO,                                           &
-                 quiet      = .TRUE.                                        )
-
-        NULLIFY( TFMGaussP )
-        NULLIFY( TFMGaussW )
-        ! Compute integration points for surface integrals
-        ! Local to this subroutine
-        CALL HypercubeQuadraturePoints(                                     &
-                 nIntGP     = nTFMGaussP,                                   &
-                 IntGaussP  = TFMGaussP,                                    &
-                 IntGaussW  = TFMGaussW,                                    &
-                 M          = DISC%Galerkin%nPoly+DISC%Galerkin%nPolyMat+2, &
-                 nDim       = 2,                                            &
-                 X1         = (/ 0., 0. /),                                 &
-                 X2         = (/ 1., 1. /),                                 &
-                 IO         = IO,                                           &
-                 quiet      = .TRUE.                                        )
-
-        ! Compute the value and gradient of basis functions
-        ! at volume integration points Tens3GaussP
-        ALLOCATE( Tens3BaseFunc(  DISC%Galerkin%nDegFr,nTens3GP) )
-        ALLOCATE( Tens3BaseGrad(3,DISC%Galerkin%nDegFr,nTens3GP) )
-
-        DO iIntGP = 1, nTens3GP
-            xi   = Tens3GaussP(1,iIntGP)
-            eta  = Tens3GaussP(2,iIntGP)
-            zeta = Tens3GaussP(3,iIntGP)
-            DO l = 1, DISC%Galerkin%nDegFr
-                CALL BaseFunc3D(phi_l,l,xi,eta,zeta,DISC%Galerkin%nPoly,    &
-                                DISC%Galerkin%cPoly3D_Hex,                  &
-                                DISC%Galerkin%NonZeroCPoly_Hex,             &
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex         )
-                CALL BaseGrad3D(phigrad,l,xi,eta,zeta,DISC%Galerkin%nPoly,  &
-                                DISC%Galerkin%cPoly3D_Hex,                  &
-                                DISC%Galerkin%NonZeroCPoly_Hex,             &
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex         )
-                Tens3BaseFunc(l,iIntGP)   = phi_l
-                Tens3BaseGrad(:,l,iIntGP) = phigrad
-            ENDDO
-        ENDDO
-
-        ! Compute stiffness tensors for the hexahedrons
-        DISC%Galerkin%Kxi_k_Hex   = 0.0d0
-        DISC%Galerkin%Keta_k_Hex  = 0.0d0
-        DISC%Galerkin%Kzeta_k_Hex = 0.0d0
-        DO iIntGP = 1, nTens3GP
-            xi   = Tens3GaussP(1,iIntGP)
-            eta  = Tens3GaussP(2,iIntGP)
-            zeta = Tens3GaussP(3,iIntGP)
-            DO m = 1, DISC%Galerkin%nDegFrMat
-                phi_m = Tens3BaseFunc(m,iIntGP)
-                DO l = 1, DISC%Galerkin%nDegFr
-                    phi_l = Tens3BaseFunc(l,iIntGP)
-                    DO k = 1, DISC%Galerkin%nDegFr
-                        phigrad = Tens3BaseGrad(:,k,iIntGP)
-                        DISC%Galerkin%Kxi_k_Hex(   k,l,m ) = DISC%Galerkin%Kxi_k_Hex(   k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phigrad(1)*phi_l*phi_m
-                        DISC%Galerkin%Keta_k_Hex(  k,l,m ) = DISC%Galerkin%Keta_k_Hex(  k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phigrad(2)*phi_l*phi_m
-                        DISC%Galerkin%Kzeta_k_Hex( k,l,m ) = DISC%Galerkin%Kzeta_k_Hex( k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phigrad(3)*phi_l*phi_m
-                    ENDDO
-                ENDDO
-            ENDDO
-            !
-        ENDDO
-        !
-        DISC%Galerkin%Kxi_m_Hex   = 0.0d0
-        DISC%Galerkin%Keta_m_Hex  = 0.0d0
-        DISC%Galerkin%Kzeta_m_Hex = 0.0d0
-        DO iIntGP = 1, nTens3GP
-            xi   = Tens3GaussP(1,iIntGP)
-            eta  = Tens3GaussP(2,iIntGP)
-            zeta = Tens3GaussP(3,iIntGP)
-            DO m = 1, DISC%Galerkin%nDegFrMat
-                phigrad = Tens3BaseGrad(:,m,iIntGP)
-                DO l = 1, DISC%Galerkin%nDegFr
-                    phi_l = Tens3BaseFunc(l,iIntGP)
-                    DO k = 1, DISC%Galerkin%nDegFr
-                        phi_k = Tens3BaseFunc(k,iIntGP)
-                        DISC%Galerkin%Kxi_m_Hex(   k,l,m ) = DISC%Galerkin%Kxi_m_Hex(   k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phi_k*phi_l*phigrad(1)
-                        DISC%Galerkin%Keta_m_Hex(  k,l,m ) = DISC%Galerkin%Keta_m_Hex(  k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phi_k*phi_l*phigrad(2)
-                        DISC%Galerkin%Kzeta_m_Hex( k,l,m ) = DISC%Galerkin%Kzeta_m_Hex( k,l,m ) +         &
-                                                           Tens3GaussW(iIntGP)*phi_k*phi_l*phigrad(3)
-                    ENDDO
-                ENDDO
-            ENDDO
-            !
-        ENDDO
-        !
-        WHERE(ABS(DISC%Galerkin%Kxi_k_Hex).LE.1e-10)
-            DISC%Galerkin%Kxi_k_Hex = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Keta_k_Hex).LE.1e-10)
-            DISC%Galerkin%Keta_k_Hex = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Kzeta_k_Hex).LE.1e-10)
-            DISC%Galerkin%Kzeta_k_Hex = 0.0d0
-        ENDWHERE
-        !
-        WHERE(ABS(DISC%Galerkin%Kxi_m_Hex).LE.1e-10)
-            DISC%Galerkin%Kxi_m_Hex = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Keta_m_Hex).LE.1e-10)
-            DISC%Galerkin%Keta_m_Hex = 0.0d0
-        ENDWHERE
-        WHERE(ABS(DISC%Galerkin%Kzeta_m_Hex).LE.1e-10)
-            DISC%Galerkin%Kzeta_m_Hex = 0.0d0
-        ENDWHERE
-        !
-        DO m = 1, DISC%Galerkin%nDegFrMat
-        DO l = 1, DISC%Galerkin%nDegFr
-        DO k = 1, DISC%Galerkin%nDegFr
-          DISC%Galerkin%ADGxi_Hex(k,l,m)   = DISC%Galerkin%Kxi_k_Hex(l,k,m)   / DISC%Galerkin%MassMatrix_Hex(k,k,DISC%Galerkin%nPoly)
-          DISC%Galerkin%ADGeta_Hex(k,l,m)  = DISC%Galerkin%Keta_k_Hex(l,k,m)  / DISC%Galerkin%MassMatrix_Hex(k,k,DISC%Galerkin%nPoly)
-          DISC%Galerkin%ADGzeta_Hex(k,l,m) = DISC%Galerkin%Kzeta_k_Hex(l,k,m) / DISC%Galerkin%MassMatrix_Hex(k,k,DISC%Galerkin%nPoly)
-        ENDDO
-        ENDDO
-        ENDDO
-        !
-        ALLOCATE(DISC%Galerkin%Kxi_k_Hex_Sp, DISC%Galerkin%Keta_k_Hex_Sp, DISC%Galerkin%Kzeta_k_Hex_Sp)
-        ALLOCATE(DISC%Galerkin%Kxi_m_Hex_Sp, DISC%Galerkin%Keta_m_Hex_Sp, DISC%Galerkin%Kzeta_m_Hex_Sp)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kxi_k_Hex_Sp,   DISC%Galerkin%Kxi_k_Hex,   DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Keta_k_Hex_Sp,  DISC%Galerkin%Keta_k_Hex,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kzeta_k_Hex_Sp, DISC%Galerkin%Kzeta_k_Hex, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kxi_m_Hex_Sp,   DISC%Galerkin%Kxi_m_Hex,   DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Keta_m_Hex_Sp,  DISC%Galerkin%Keta_m_Hex,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%Kzeta_m_Hex_Sp, DISC%Galerkin%Kzeta_m_Hex, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        !
-        ALLOCATE(DISC%Galerkin%ADGxi_Hex_Sp, DISC%Galerkin%ADGeta_Hex_Sp, DISC%Galerkin%ADGzeta_Hex_Sp)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGxi_Hex_Sp,   DISC%Galerkin%ADGxi_Hex,   DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGeta_Hex_Sp,  DISC%Galerkin%ADGeta_Hex,  DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        CALL IniSparseTensor3b(DISC%Galerkin%ADGzeta_Hex_Sp, DISC%Galerkin%ADGzeta_Hex, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-        !
-        DISC%Galerkin%FluxInt_Hex = 0.0d0
-        !
-        DO iSide = 1, MESH%nSides_Hex
-            !
-            ! Compute for the element itself
-            !
-            DO iBndGP = 1, nTFMGaussP
-                chiGP  = TFMGaussP(1,iBndGP)
-                tauGP  = TFMGaussP(2,iBndGP)
-                CALL HexaTrafoChiTau2XiEtaZeta(xi,eta,zeta,chiGP,tauGP,iSide,0)
-                DO m = 1, DISC%Galerkin%nDegFrMat
-                    CALL BaseFunc3D(phi_m,m,xi,eta,zeta,DISC%Galerkin%nPolyMat,      &
-                                DISC%Galerkin%cPoly3D_Hex,                           &
-                                DISC%Galerkin%NonZeroCPoly_Hex,                      &
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex                  )
-                    DO l = 1, DISC%Galerkin%nDegFr
-                    CALL BaseFunc3D(phi_l,l,xi,eta,zeta,DISC%Galerkin%nPoly,         &
-                                DISC%Galerkin%cPoly3D_Hex,                           &
-                                DISC%Galerkin%NonZeroCPoly_Hex,                      &
-                                DISC%Galerkin%NonZeroCPolyIndex_Hex                  )
-                        DO k = 1, DISC%Galerkin%nDegFr
-                            CALL BaseFunc3D(phi_k,k,xi,eta,zeta,DISC%Galerkin%nPoly, &
-                                            DISC%Galerkin%cPoly3D_Hex,               &
-                                            DISC%Galerkin%NonZeroCPoly_Hex,          &
-                                            DISC%Galerkin%NonZeroCPolyIndex_Hex      )
-                            DISC%Galerkin%FluxInt_Hex(k,l,m,0,1,iSide) =  &
-                            DISC%Galerkin%FluxInt_Hex(k,l,m,0,1,iSide) + TFMGaussW(iBndGP)*phi_k*phi_l*phi_m
-                        ENDDO
-                    ENDDO
-                ENDDO
-            ENDDO
-            !
-            ! Compute for the neighbors
-            !
-            DO iLocalNeighborSide = 1, MESH%nSides_Hex
-            DO iLocalNeighborVrtx = 1, MESH%nVertices_Quad
-            DO iBndGP = 1, nTFMGaussP
-               chiGP  = TFMGaussP(1,iBndGP)
-               tauGP  = TFMGaussP(2,iBndGP)
-               CALL HexaTrafoChiTau2XiEtaZeta(xi,eta,zeta,chiGP,tauGP,iLocalNeighborSide,iLocalNeighborVrtx)
-               CALL HexaTrafoChiTau2XiEtaZeta(xiS,etaS,zetaS,chiGP,tauGP,iSide,0)
-               DO m = 1, DISC%Galerkin%nDegFrMat
-                 CALL BaseFunc3D(phi_m,m,xiS,etaS,zetaS,DISC%Galerkin%nPolyMat,   &
-                                 DISC%Galerkin%cPoly3D_Hex,                       &
-                                 DISC%Galerkin%NonZeroCPoly_Hex,                  &
-                                 DISC%Galerkin%NonZeroCPolyIndex_Hex              )
-                 DO l = 1, DISC%Galerkin%nDegFr
-                   CALL BaseFunc3D(phi_l,l,xi,eta,zeta,DISC%Galerkin%nPoly,       &
-                                   DISC%Galerkin%cPoly3D_Hex,                     &
-                                   DISC%Galerkin%NonZeroCPoly_Hex,                &
-                                   DISC%Galerkin%NonZeroCPolyIndex_Hex            )
-                   DO k = 1, DISC%Galerkin%nDegFr
-                      CALL BaseFunc3D(phi_k,k,xiS,etaS,zetaS,DISC%Galerkin%nPoly, &
-                                      DISC%Galerkin%cPoly3D_Hex,                  &
-                                      DISC%Galerkin%NonZeroCPoly_Hex,             &
-                                      DISC%Galerkin%NonZeroCPolyIndex_Hex         )
-                      DISC%Galerkin%FluxInt_Hex(k,l,m,iLocalNeighborSide,iLocalNeighborVrtx,iSide) =  &
-                      DISC%Galerkin%FluxInt_Hex(k,l,m,iLocalNeighborSide,iLocalNeighborVrtx,iSide) +  &
-                      TFMGaussW(iBndGP)*phi_k*phi_l*phi_m
-                   ENDDO
-                 ENDDO
-               ENDDO
-               !
-            ENDDO
-            ENDDO
-            ENDDO
-        !
-        ENDDO
-        WHERE(ABS(DISC%Galerkin%FluxInt_Hex).LT.1e-10)
-            DISC%Galerkin%FluxInt_Hex = 0.0d0
-        ENDWHERE
-        !
-        ALLOCATE(DISC%Galerkin%FluxInt_Hex_Sp(0:MESH%nSides_Hex,1:MESH%nVertices_Quad,1:MESH%nSides_Hex))
-        DO iSide = 1, MESH%nSides_Hex
-            CALL IniSparseTensor3b(DISC%Galerkin%FluxInt_Hex_Sp(0,1,iSide), DISC%Galerkin%FluxInt_Hex(:,:,:,0,1,iSide), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat)
-            DO iLocalNeighborSide = 1, MESH%nSides_Hex
-            DO iLocalNeighborVrtx = 1, MESH%nVertices_Quad
-             CALL IniSparseTensor3b(DISC%Galerkin%FluxInt_Hex_Sp(iLocalNeighborSide,iLocalNeighborVrtx,iSide),    &
-                                    DISC%Galerkin%FluxInt_Hex(:,:,:,iLocalNeighborSide,iLocalNeighborVrtx,iSide), &
-                                    DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFrMat       )
-            ENDDO
-            ENDDO
-        ENDDO
-
-        DEALLOCATE( Tens3BaseFunc )
-        DEALLOCATE( Tens3BaseGrad )
-
-        DO iDegFr = 1, DISC%Galerkin%nDegFr
-            DISC%Galerkin%iMassMatrix_Hex(iDegFr,iDegFr,DISC%Galerkin%nPoly) = &
-                1./DISC%Galerkin%MassMatrix_Hex(iDegFr,iDegFr,DISC%Galerkin%nPoly)
-        ENDDO
-
-        DISC%Galerkin%IntGPBaseFunc_Hex(:,:,:)          = 0.0d0
-        DISC%Galerkin%IntGPBaseGrad_Hex(:,:,:,:)        = 0.0d0
-        DISC%Galerkin%BndGPBaseFunc3D_Hex(:,:,:)        = 0.0d0
-
-        iPoly = DISC%Galerkin%nPoly
-
-        DO iIntGP = 1, DISC%Galerkin%nIntGP
-            DO iDegFr = 1, DISC%Galerkin%nDegFr
-                !
-                CALL BaseFunc3D(phi,iDegFr,                             &
-                              DISC%Galerkin%intGaussP_Hex(1,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Hex(2,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Hex(3,iIntGP),    &
-                              DISC%Galerkin%nPoly,                      &
-                              DISC%Galerkin%cPoly3D_Hex,                &
-                              DISC%Galerkin%NonZeroCPoly_Hex,           &
-                              DISC%Galerkin%NonZeroCPolyIndex_Hex       )
-                !
-                DISC%Galerkin%IntGPBaseFunc_Hex(iDegFr,iIntGP,iPoly)   = phi
-                !
-                CALL BaseGrad3D( gradphixieta,iDegFr,                   &
-                              DISC%Galerkin%intGaussP_Hex(1,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Hex(2,iIntGP),    &
-                              DISC%Galerkin%intGaussP_Hex(3,iIntGP),    &
-                              DISC%Galerkin%nPoly,                      &
-                              DISC%Galerkin%cPoly3D_Hex,                &
-                              DISC%Galerkin%NonZeroCPoly_Hex,           &
-                              DISC%Galerkin%NonZeroCPolyIndex_Hex       )
-                !
-                DISC%Galerkin%IntGPBaseGrad_Hex(:,iDegFr,iIntGP,iPoly) = gradphixieta
-                !
-            ENDDO
-        ENDDO
-        !
-        MESH%ELEM%BndBF_GP_Hex(:,:,:) = 0.0
-
-        DO iSide = 1, MESH%nSides_Hex
-            !
-            ! Compute for the element itself
-            !
-            DO iBndGP = 1, DISC%Galerkin%nBndGP
-               DO iDegFr = 1, DISC%Galerkin%nDegFr
-                  !
-                  chi  = DISC%Galerkin%bndGaussP_Hex(1,iBndGP)
-                  tau  = DISC%Galerkin%bndGaussP_Hex(2,iBndGP)
-                  !
-                  CALL HexaTrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-                  !           !
-                  CALL BaseFunc3D( phi,iDegFr,xi,eta,zeta,DISC%Galerkin%nPoly, &
-                                   DISC%Galerkin%cPoly3D_Hex,                  &
-                                   DISC%Galerkin%NonZeroCPoly_Hex,             &
-                                   DISC%Galerkin%NonZeroCPolyIndex_Hex         )
-                  !
-                  DISC%Galerkin%BndGPBaseFunc3D_Hex(iDegFr,iBndGP,iSide) = phi
-                  MESH%ELEM%BndBF_GP_Hex(iDegFr,iBndGP,iSide) = phi
-                  !
-               ENDDO
-            ENDDO
-        ENDDO
-
-        NULLIFY(DISC%Galerkin%NonZeroCPoly,DISC%Galerkin%NonZeroCPolyIndex,DISC%Galerkin%CPoly3D)
-
-        CONTINUE
-
-    ENDIF ! Hexas
     !
     logInfo(*) 'iniGalerkin successful '
     !
@@ -1863,10 +801,8 @@ CONTAINS
   !===========================================================================!
 
 
-  SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
+  SUBROUTINE icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO, MPI)
     !-------------------------------------------------------------------------!
-
-    USE DGBasis_mod
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
     !-------------------------------------------------------------------------!
@@ -1879,6 +815,7 @@ CONTAINS
     TYPE(tInitialCondition)  :: IC
     TYPE(tSource)            :: SOURCE
     TYPE(tInputOutput)       :: IO
+    TYPE(tMPI)               :: MPI
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER :: iElem                                                          ! Element number
@@ -1897,18 +834,15 @@ CONTAINS
     REAL    :: phi                                                            ! Value of the base function at GP      !
     REAL    :: Einv, v                                                        ! Inverse of Young's modulus, Poisson ratio v
     !
-    REAL, POINTER :: IntGaussP(:,:)     =>NULL()
-    REAL, POINTER :: IntGaussW(:)       =>NULL()
-    REAL, POINTER :: IntGPBaseFunc(:,:) =>NULL()
-    REAL, POINTER :: MassMatrix(:,:)    =>NULL()
     ! temporary degrees of freedom
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
+    REAL    :: oneRankedShaped_iniloading(NUMBER_OF_BASIS_FUNCTIONS*6)        ! l_iniloading to one rank array  (allows removing warning we running with plasticity))
     real    :: l_plasticParameters(2)
     !-------------------------------------------------------------------------!
     !
     IF(.NOT.DISC%Galerkin%init) THEN
        logError(*) 'icGalerkin: SeisSol Interface not initialized!!'
-       STOP
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
     !
     ALLOCATE(EQN%Energy(3,1:MESH%nElem))
@@ -1951,104 +885,48 @@ CONTAINS
     nIntGP = DISC%Galerkin%nIntGP
     nDegFr = DISC%Galerkin%nDegFr
 
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix,l_initialLoading,l_plasticParameters, iniGP_plast)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, l_initialLoading,oneRankedShaped_iniloading, l_plasticParameters, iniGP_plast) default(none)
     DO iElem = 1,MESH%nElem
         l_initialLoading=0
         l_plasticParameters=0
         
-        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
-          x = 0.; y = 0.; z = 0.;
-          eType = MESH%LocalElemType(iElem)
-          SELECT CASE(eType)
-          CASE(4)
-              DO iVert=1,MESH%nVertices_Tet
-                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-              ENDDO
-              ! Point to the corresponding:
-              ! Integration points
-              intGaussP     => DISC%Galerkin%intGaussP_Tet
-              intGaussW     => DISC%Galerkin%intGaussW_Tet
-              ! Basis func values
-              IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:nDegFr,1:nIntGp,iPoly)
-              ! Mass matrix
-              MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:nDegFr,1:nDegFr,iPoly)
-          CASE(6)
-              DO iVert=1,MESH%nVertices_Hex
-                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-              ENDDO
-              ! Point to the corresponding:
-              ! Integration points
-              intGaussP     => DISC%Galerkin%intGaussP_Hex
-              intGaussW     => DISC%Galerkin%intGaussW_Hex
-              ! Basis func values
-              IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Hex(1:nDegFr,1:nIntGp,iPoly)
-              ! Mass matrix
-              MassMatrix    => DISC%Galerkin%MassMatrix_Hex(1:nDegFr,1:nDegFr,iPoly)
-          END SELECT
-
-          DO iIntGP = 1,nIntGP
-              IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
-              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
-                iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
-                DO iDegFr = 1, nDegFr
-                   phi = IntGPBaseFunc(iDegFr,iIntGP)
-                   l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
-                ENDDO
-             ENDIF
-          ENDDO !iIntGP
-
-          DO iDegFr = 1, nDegFr
-            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-          ENDDO
-
-          NULLIFY(intGaussP)
-          NULLIFY(intGaussW)
-          NULLIFY(IntGPBaseFunc)
-          NULLIFY(MassMatrix)
-        ENDIF
-
-        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
-        !elementwise assignement of the initial loading
+        IF(EQN%Plasticity == 1) THEN !high-order points approach
+           !elementwise assignement of the initial loading
            l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
-        ENDIF
 
-#ifdef USE_PLASTICITY
-        ! initialize the element dependent plastic parameters
-        l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
-        l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
+           ! initialize the element dependent plastic parameters
+           l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
+           l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         
-        ! initialize loading in C
-        call c_interoperability_setInitialLoading( i_meshId = iElem, \
-                                                   i_initialLoading = pack( l_initialLoading, .true. ) )
+           ! initialize loading in C
+           oneRankedShaped_iniloading = pack( l_initialLoading, .true. )
+           call c_interoperability_setInitialLoading( i_meshId = iElem, \
+                                                      i_initialLoading = oneRankedShaped_iniloading)
 
-        !initialize parameters in C
-        call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
-                                                      i_plasticParameters = l_plasticParameters )
-#endif
+           !initialize parameters in C
+           call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
+                                                         i_plasticParameters = l_plasticParameters )
+
+       END IF
     ENDDO ! iElem
 
-#ifdef USE_PLASTICITY
-    call c_interoperability_setTv( tv = EQN%Tv )
-#endif
+    IF (EQN%Plasticity == 1) THEN
+      call c_interoperability_setTv( tv = EQN%Tv )
+      ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
+      call c_interoperability_synchronizeCellLocalData(logical(.true., 1));
 
-#ifdef USE_PLASTICITY
-    ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
-    call c_interoperability_synchronizeCellLocalData();
-#endif
-    !
+  END IF
+
     logInfo0(*) 'DG initial condition projection done. '
-    !
+
   END SUBROUTINE icGalerkin3D_us_new
 
   SUBROUTINE BuildSpecialDGGeometry3D_new(MaterialVal,EQN,MESH,DISC,BND,MPI,IO)
-
+    USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
     USE ini_faultoutput_mod
+    USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
@@ -2090,6 +968,7 @@ CONTAINS
     REAL, POINTER :: zone_minh(:), zone_maxh(:), zone_deltah(:), zone_deltap(:)
     COMPLEX :: solution(3)
     INTEGER :: nDOF,TotDOF, PoroFlux
+    REAL    :: elementWaveSpeeds(4)
     !
     INTEGER :: iErr,iPoly,iVrtx
     INTEGER :: nLocPolyElem(0:100), TempInt(MESH%nSideMax)
@@ -2161,7 +1040,7 @@ CONTAINS
               STAT=allocstat )
     IF (allocStat .NE. 0) THEN
        logError(*) 'Interface SeisSol: could not allocate all variables!'
-       STOP
+       call MPI_ABORT(MPI%commWorld, 134)
     END IF
 
     ! Calculating boundary surfaces (3D)
@@ -2283,7 +1162,7 @@ CONTAINS
     IF(minv.LE.1e-15) THEN
         logError(*) 'Mesh contains a singular tetrahedron with radius ', minv
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
-        STOP
+        call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
     DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
     DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
@@ -2344,9 +1223,6 @@ CONTAINS
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrST,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
         ELSE
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
-            IF (EQN%DR.EQ.1) THEN
-                ALLOCATE(BND%ObjMPI(iDomain)%MPI_DR_dgvar(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nFault_MPI))
-            ENDIF
         ENDIF
         ALLOCATE( BND%ObjMPI(iDomain)%NeighborBackground(EQN%nBackgroundVar,BND%ObjMPI(iDomain)%nElem)     )
         BND%ObjMPI(iDomain)%Init = .FALSE.
@@ -2416,7 +1292,7 @@ CONTAINS
                      END SELECT
                 ELSE
                    PRINT *, ' ERROR: local order must not be less or equal to zero! ', iLayer
-                   STOP
+                   call MPI_ABORT(MPI%commWorld, 134)
                 ENDIF
             ELSE
                 !
@@ -2475,148 +1351,8 @@ CONTAINS
         DEALLOCATE( zone_minh, zone_maxh, zone_deltah, zone_deltap )
     ENDIF
 
-    ALLOCATE( DISC%Galerkin%WaveSpeed(MESH%nElem,MESH%nSideMax,EQN%nNonZeroEV) )
-    !
-    DISC%Galerkin%WaveSpeed(:,:,:) = 0.
-    !
-    ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-    DO j=1,MESH%nSideMax
-      DISC%Galerkin%WaveSpeed(:,j,1)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%WaveSpeed(:,j,2)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%WaveSpeed(:,j,3)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%MaxWaveSpeed(:,j)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-    ENDDO
-    !
     CONTINUE
     !
   END SUBROUTINE BuildSpecialDGGeometry3D_new
-
-  ! Read the 2d Green function file
-  ! Used for computing the rupture velocity
-
-  SUBROUTINE Read2dGF(DISC,IO)
-    USE QuadPoints_mod
-    TYPE(tInputOutput)       :: IO
-    TYPE(tDiscretization)           :: DISC
-    INTEGER :: allocstat                                  ! Allocation status !
-    INTEGER :: stat                                       ! IO status         !
-    INTEGER nMaxPoly,MaxDegFr,iPoly,iDegFr,DegFr,iEta,iXi,k,l
-    LOGICAL                         :: configexist
-    CHARACTER(LEN=200)   :: DGPATH
-    CHARACTER(LEN=200)   :: FileName_Tri
-
-
-    INQUIRE(                                            & !
-     FILE= 'DGPATH'                                   , & !
-     EXIST=configexist                                  ) !
-    !                                                     !
-    IF (configexist) THEN                                 !
-       !                                                  !
-       OPEN(                                            & !
-        UNIT= IO%UNIT%FileIn                          , & !
-        FILE= 'DGPATH'                                , & !
-        IOSTAT = STAT                                   ) !
-       !                                                  !
-       IF (stat.NE.0) THEN                                !
-      logError(*) 'cannot open DGPATH'                    !
-      STOP
-       END IF                                             !
-       !                                                  !
-       READ(IO%UNIT%FileIn,'(A)') DGPATH                  !
-       !                                                  !
-       CLOSE(IO%UNIT%FileIn)                              !
-       !                                                  !
-       !                                                  !
-       logInfo0(*) 'Path to the DG directory is: ',TRIM(DGPATH)
-
-    WRITE(FileName_Tri,'(a,a20)') TRIM(DGPATH), 'BasisFunctions2D.tri'
-    OPEN( UNIT = IO%UNIT%FileIn, FILE = TRIM(FileName_Tri), IOSTAT = STAT, STATUS='OLD' )
-    !
-    IF(stat.NE.0) THEN
-        logError(*) ' ERROR! File ', TRIM(FileName_Tri), ' could not be opened. '
-        STOP
-    ENDIF
-    logInfo0(*) 'Reading basis functions and mass matrices for DG method '
-    logInfo0(*) 'from file ', TRIM(FileName_Tri)
-
-    READ(IO%UNIT%FileIn,*)
-    READ(IO%UNIT%FileIn,*)
-    ! Read maximal degree of basis polynomials stored in the file.
-    READ(IO%UNIT%FileIn,*) nMaxPoly
-    IF(DISC%Galerkin%nPoly.GT.nMaxPoly) THEN
-        logError(*) 'ERROR: Required polynomial for DG method is higher than the ones stored in file ', TRIM(FileName_Tri)
-        STOP
-    ENDIF
-
-    MaxDegFr = (DISC%Galerkin%nPoly+1)*(DISC%Galerkin%nPoly+2)/2
-
-    ALLOCATE(                                                                                        &
-        DISC%Galerkin%cPoly_Tri(0:nMaxPoly, 0:nMaxPoly, 0:MaxDegFr-1, 0:nMaxPoly),                   &
-        DISC%Galerkin%MassMatrix_Tri(MaxDegFr,MaxDegFr, 0:nMaxPoly),                                 &
-        DISC%Galerkin%NonZeroCPoly_Tri(0:MaxDegFr-1,0:nMaxPoly),                                     &
-        DISC%Galerkin%NonZeroCPolyIndex_Tri(3,1:nMaxPoly**3,0:MaxDegFr,0:nMaxPoly),                  &
-        STAT = allocstat)
-    IF(allocStat .NE. 0) THEN
-        logError(*) 'ERROR: could not allocate all variables!'
-        STOP
-    END IF
-
-    ! Read coefficients of basis functions and mass matrices up to degree nMaxPoly
-    !DO iPoly = 0, nMaxPoly
-    DO iPoly = 0, DISC%Galerkin%nPoly
-        ! Read comment in front of the basis functions' coefficients
-        logInfo0(*) 'Reading basis functions of order ', iPoly
-        READ(IO%UNIT%FileIn,*)
-        DegFr = (iPoly + 1)*(iPoly + 2)/2
-        ! Read polynomial coefficients
-        ! where the index of the degrees of freedom starts at zero
-        DO iDegFr = 0, DegFr-1
-            DO iEta = 0, iPoly
-                DO iXi = 0, iPoly
-                    READ(IO%UNIT%FileIn,*) DISC%Galerkin%cPoly_Tri(iXi,iEta,iDegFr,iPoly)
-                ENDDO
-            ENDDO
-        ENDDO
-        ! Read comment in front of the entries of the mass matrix
-        READ(IO%UNIT%FileIn,*)
-        logInfo0(*)  'Reading mass matrices   of order ', iPoly
-        ! Read entries of the mass matrix
-        DO k = 1, DegFr
-            DO l = 1, DegFr
-                READ(IO%UNIT%FileIn,*) DISC%Galerkin%MassMatrix_Tri(k,l,iPoly)
-            ENDDO
-        ENDDO
-    ENDDO
-    CLOSE(IO%UNIT%FileIn)
-
-    DISC%Galerkin%NonZeroCPoly_Tri(:,:)          = 0
-    DISC%Galerkin%NonZeroCPolyIndex_Tri(:,:,:,:) = -1
-    !DO iPoly = 0, nMaxPoly
-    DO iPoly = 0, DISC%Galerkin%nPoly
-       DegFr = (iPoly + 1)*(iPoly + 2)/2
-       DO iDegFr = 0, DegFr-1
-            DO iEta = 0, iPoly
-              DO iXi = 0, iPoly
-                 IF(ABS(DISC%Galerkin%cPoly_Tri(iXi,iEta,iDegFr,iPoly)).GE.1e-6) THEN
-                    DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly) = DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly) + 1
-                    DISC%Galerkin%NonZeroCPolyIndex_Tri(1,DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly),iDegFr,iPoly) = iXi
-                    DISC%Galerkin%NonZeroCPolyIndex_Tri(2,DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly),iDegFr,iPoly) = iEta
-                 ENDIF
-              ENDDO
-            ENDDO
-       ENDDO
-    ENDDO
-    ENDIF
-
-        ! Compute and store surface gaussian integration points
-!~         CALL TriangleQuadraturePoints(                         &
-!~                  nIntGP     = DISC%Galerkin%nBndGP,            &
-!~                  IntGaussP  = DISC%Galerkin%BndGaussP_Tet,     &
-!~                  IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
-!~                  M          = DISC%Galerkin%nPoly+2,           &
-!~                  IO         = IO,                              &
-!~                  quiet      = .TRUE.                           )
-
-  END SUBROUTINE Read2dGF
 
 END MODULE dg_setup_mod

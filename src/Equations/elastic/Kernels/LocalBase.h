@@ -43,17 +43,26 @@
 
 #include <memory>
 #include "generated_code/kernel.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
 #include "Physics/InitialField.h"
+
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 namespace seissol {
   namespace kernels {
     class LocalBase;
   }
 }
+class GlobalData;
 
 class seissol::kernels::LocalBase {
   protected:
+    static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::volume m_volumeKernelPrototype;
     kernel::localFlux m_localFluxKernelPrototype;
     kernel::localFluxNodal m_nodalLfKrnlPrototype;
@@ -62,6 +71,13 @@ class seissol::kernels::LocalBase {
     kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
 
     kernels::DirichletBoundary dirichletBoundary;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_volume deviceVolumeKernelPrototype;
+  kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
+  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
 
     const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
 public:

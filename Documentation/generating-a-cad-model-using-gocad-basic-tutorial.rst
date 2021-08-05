@@ -124,8 +124,8 @@ Sanity check
 | Display tab > check Mesh Stats > then check Aspect Ratio, and see if
   the maximum aspect ratio has a reasonable value (~20). |final mesh|
 
-.. |objects in gocad| image:: https://www.geophysik.uni-muenchen.de/~ulrich/gocadtuto1.png
-.. |objects in gocad 2| image:: https://www.geophysik.uni-muenchen.de/~ulrich/gocadtuto2.png
-.. |alternative side| image:: https://www.geophysik.uni-muenchen.de/~ulrich/gocad_alternative.png
-.. |final mesh| image:: https://www.geophysik.uni-muenchen.de/~ulrich/gocadtuto3.png
+.. |objects in gocad| image:: LatexFigures/gocadtuto1.png
+.. |objects in gocad 2| image:: LatexFigures/gocadtuto2.png
+.. |alternative side| image:: LatexFigures/gocad_alternative.png
+.. |final mesh| image:: LatexFigures/gocadtuto3.png
 

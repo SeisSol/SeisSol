@@ -113,7 +113,7 @@ open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
      domain%MPI%MPI_AUTO_REAL = MPI_DOUBLE_PRECISION
    CASE DEFAULT
      logError(*) 'Unknown kind ', domain%MPI%real_kind
-     STOP
+     call MPI_ABORT(domain%MPI%commWorld, 134)
    END SELECT
    logInfo0(*) ' MPI_AUTO_REAL feature initialized. '
    domain%MPI%MPI_AUTO_INTEGER = 0

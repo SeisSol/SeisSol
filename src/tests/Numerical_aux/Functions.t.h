@@ -71,22 +71,22 @@ public:
 	{
     double eps = 10. * EPSILON;
     // Compare to Maple reference solution
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 0,  1, 0,  0.5),                0.0, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 1,  0, 0, -0.3),  1.000000000000000, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 1, 13, 4, -0.9),  9.500000000000000, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 7,  0, 4, -0.3), -9.122014125000001, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 7,  0, 4,  0.0), 7.8750000000000, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 7,  0, 4,  0.3), -6.067144125000002, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 7,  0, 4,  0.9), -2.71497712500000, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 2,  1, 4, -0.9), -22.20000000000000, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 3,  2, 3, -0.3), 3.318750000000000, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 4,  3, 2,  0.0), -3.749999999999998, eps);
-    TS_ASSERT_DELTA(seissol::functions::JacobiPFirstDerivative( 5,  4, 1,  0.3), -15.37232812500000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 0,  1, 0,  0.5),                0.0, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 1,  0, 0, -0.3),  1.000000000000000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 1, 13, 4, -0.9),  9.500000000000000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 7,  0, 4, -0.3), -9.122014125000001, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 7,  0, 4,  0.0), 7.8750000000000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 7,  0, 4,  0.3), -6.067144125000002, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 7,  0, 4,  0.9), -2.71497712500000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 2,  1, 4, -0.9), -22.20000000000000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 3,  2, 3, -0.3), 3.318750000000000, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 4,  3, 2,  0.0), -3.749999999999998, eps);
+    TS_ASSERT_DELTA(seissol::functions::JacobiPDerivative( 5,  4, 1,  0.3), -15.37232812500000, eps);
 	}
 
   void testTetraDubinerP()
   {
-    std::vector<std::vector<double>> tests = {
+    std::vector<std::array<double, 7>> tests = {
       {0, 0, 0, 0.25, 0.25, 0.25, 1},
       {1, 0, 0, 0.25, 0.25, 0.25, 0.},
       {0, 1, 0, 0.25, 0.25, 0.25, 0.},
@@ -150,7 +150,10 @@ public:
     };
     for (auto const& t : tests) {
       TS_TRACE(t);
-      TS_ASSERT_DELTA(seissol::functions::TetraDubinerP(static_cast<unsigned>(t[0]), static_cast<unsigned>(t[1]), static_cast<unsigned>(t[2]), t[3], t[4], t[5]), t[6], EPSILON);
+      TS_ASSERT_DELTA(seissol::functions::TetraDubinerP(
+            {static_cast<unsigned>(t[0]), static_cast<unsigned>(t[1]), static_cast<unsigned>(t[2])},
+            {t[3], t[4], t[5]}
+        ), t[6], EPSILON);
     }
   }
 };

@@ -48,9 +48,9 @@ void seissol::localIntegration( struct GlobalData* globalData,
                                 initializers::LTS& lts,
                                 initializers::Layer& layer ) {
   kernels::Local localKernel;
-  localKernel.setGlobalData(globalData);
+  localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
-  timeKernel.setGlobalData(globalData);
+  timeKernel.setHostGlobalData(globalData);
 
   real**                buffers                       = layer.var(lts.buffers);
 
@@ -140,13 +140,13 @@ void seissol::fakeData(initializers::LTS& lts,
   fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager) {
-  struct GlobalData* globalData = memoryManager.getGlobalData();
+double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
+  struct GlobalData* globalData = memoryManager.getGlobalDataOnHost();
 
   initializers::LTSTree ltsTree;
   initializers::LTS     lts;
-  
-  lts.addTo(ltsTree);
+
+  lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
   

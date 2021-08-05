@@ -94,6 +94,7 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
     TYPE (tMPI)                   :: MPI
+    integer                       :: DR_comm !< dynamic rupture communicator
 
     REAL                          :: time                 ! current time
     INTEGER                       :: timestep             ! index of time step
@@ -103,7 +104,7 @@ CONTAINS
     INTEGER                       :: k_index(4)
     INTEGER                       :: plotNr, minl(1), iter
     INTEGER                       :: iElem, iSide, i, iObject, MPIIndex
-    INTEGER*4                     :: now(3)
+    INTEGER(KIND=4)               :: now(3)
     REAL                          :: tol, InitBegin, InitEnd, LoopBegin, LoopEnd
     REAL                          :: MPITime, MPIdt, dt
     REAL                          :: CPUTime
@@ -116,7 +117,7 @@ CONTAINS
     INTEGER                       :: MaxnNonZeros, LocnNonZeros
     REAL                          :: JT(3,3,10),DIF,x(4),y(4),z(4),JacobiT(3,3)
     INTEGER                       :: counter, counter2,iType,j, countside, UpdType
-    real*8 :: l_synchronizationPoint;
+    REAL(KIND=8)                  :: l_synchronizationPoint;
     INTEGER                       :: iDRupdate
     !--------------------------------------------------------------------------
     INTENT(INOUT)                 :: time,timestep,OptionalFields,EQN,IO,BND,DISC,MESH,SOURCE
@@ -169,6 +170,10 @@ CONTAINS
       call c_interoperability_enableDynamicRupture()
     endif
 
+    ! check whether the device memory allocated at this point
+    ! exceeds the maximum avaliable on a current device
+    call c_interoperability_report_device_memory_status()
+
     ! do the simulation
     call c_interoperability_simulate( i_finalTime = disc%endTime );
     ! End time is currently the only supported abort criteria by GK
@@ -211,8 +216,12 @@ CONTAINS
 #endif
     ENDIF
 
+#ifdef USE_MPI
+    CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
+#endif // USE_MPI
+
     ! output magnitude for dynamic rupture simulations
-    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO)
+    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO,DR_comm)
     ! output GP-wise RF in extra files
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO, BND)
 

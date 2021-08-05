@@ -43,7 +43,7 @@
 #include <cassert>
 #include <algorithm>
 
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 
 #include "Geometry/MeshReader.h"
 #include "Numerical_aux/BasisFunction.h"
@@ -90,8 +90,8 @@ public:
             unsigned int numAlignedDOF
             );
 
-    void get(const double* inData, const unsigned int* cellMap,
-            int variable, double* outData) const;
+    void get(const real* inData, const unsigned int* cellMap,
+            int variable, real* outData) const;
 };
 
 //------------------------------------------------------------------------------
@@ -109,17 +109,17 @@ VariableSubsampler<T>::VariableSubsampler(
 {
     // Generate cell centerpoints in the reference or unit tetrahedron.
 	Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
-	glm::tvec3<T>* additionalVertices = new glm::tvec3<T>[tetRefiner.additionalVerticesPerCell()];
+        Eigen::Matrix<T, 3, 1>* additionalVertices = new Eigen::Matrix<T, 3, 1>[tetRefiner.additionalVerticesPerCell()];
 
     tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0,
     		subCells, additionalVertices);
 
     // Generate sampled basicfunctions
     for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
-        const glm::tvec3<T> pnt = subCells[i].center();
+        const Eigen::Matrix<T, 3, 1> pnt = subCells[i].center();
         m_BasisFunctions.push_back(
                 basisFunction::SampledBasisFunctions<T>(
-                    order, pnt.x, pnt.y, pnt.z));
+                    order, pnt(0), pnt(1), pnt(2)));
     }
 
     delete [] subCells;
@@ -129,8 +129,8 @@ VariableSubsampler<T>::VariableSubsampler(
 //------------------------------------------------------------------------------
 
 template<typename T>
-void VariableSubsampler<T>::get(const double* inData,  const unsigned int* cellMap,
-        int variable, double* outData) const
+void VariableSubsampler<T>::get(const real* inData,  const unsigned int* cellMap,
+        int variable, real* outData) const
 {
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)

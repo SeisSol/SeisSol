@@ -42,6 +42,7 @@
 
 #include "typedefs.hpp"
 #include "NRF.h"
+#include <cstdarg>
 
 #include <Initializer/tree/Lut.hpp>
 #include <Solver/time_stepping/TimeManager.h>
@@ -50,13 +51,18 @@
 
 namespace seissol {
   namespace sourceterm {
-    void transformNRFSourceToInternalSource( glm::dvec3 const&         centre,
-                                             unsigned                 element,
+    void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
+                                      real* mInvJInvPhisAtSources,
+                                      unsigned meshId,
+                                      MeshReader const& mesh);
+    void transformNRFSourceToInternalSource( Eigen::Vector3d const&   centre,
+                                             unsigned                 meshId,
+                                             MeshReader const&        mesh,
                                              Subfault const&          subfault,
                                              Offsets const&           offsets,
                                              Offsets const&           nextOffsets,
                                              double *const            sliprates[3],
-                                             seissol::model::Material material,
+                                             seissol::model::Material* material,
                                              PointSources&            pointSources,
                                              unsigned                 index );
     class Manager;

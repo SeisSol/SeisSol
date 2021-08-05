@@ -78,14 +78,20 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		}
 
 		// TODO get the timestep from the checkpoint
-		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>(param.backend, outputName.c_str(), param.timestep);
+		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(param.backend,
+		                                                                              outputName.c_str(),
+		                                                                              param.timestep);
 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
 
 		m_xdmfWriter->init(variables, std::vector<const char*>());
-		m_xdmfWriter->setMesh(nCells, static_cast<const unsigned int*>(info.buffer(CELLS)), nVertices, static_cast<const double*>(info.buffer(VERTICES)), param.timestep != 0);
+		m_xdmfWriter->setMesh(nCells,
+		                      static_cast<const unsigned int*>(info.buffer(CELLS)),
+		                      nVertices,
+		                      static_cast<const double*>(info.buffer(VERTICES)),
+		                      param.timestep != 0);
 
 		logInfo(rank) << "Initializing free surface output. Done.";
 	}

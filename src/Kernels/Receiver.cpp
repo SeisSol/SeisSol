@@ -47,12 +47,12 @@
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
-                                                      glm::dvec3 const&                 point,
+                                                      Eigen::Vector3d const&            point,
                                                       MeshReader const&                 mesh,
                                                       seissol::initializers::Lut const& ltsLut,
                                                       seissol::initializers::LTS const& lts ) {
-  auto const elements = mesh.getElements();
-  auto const vertices = mesh.getVertices();
+  const auto& elements = mesh.getElements();
+  const auto& vertices = mesh.getVertices();
 
   double const* coords[4];
   for (unsigned v = 0; v < 4; ++v) {
@@ -88,7 +88,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
-      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,
@@ -107,11 +107,17 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
+           if (!std::isfinite(qAtPoint(sim, quantity))) {
+            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+          }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
         }
 #else
         for (auto quantity : m_quantities) {
+          if (!std::isfinite(qAtPoint(quantity))) {
+            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+          }
           receiver.output.push_back(qAtPoint(quantity));
         }
 #endif

@@ -73,17 +73,15 @@
 #include "Manager.h"
 #include "NRFReader.h"
 #include "PointSource.h"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/kernel.h"
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
 
 #include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
 #include <utils/logger.h>
 #include <cstring>
-
-#if defined(__AVX__)
-#include <immintrin.h>
-#endif
-
-extern seissol::Interoperability e_interoperability;
 
 template<typename T>
 class index_sort_by_value
@@ -97,37 +95,76 @@ public:
     }
 };
 
-void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const&          centre,
-                                                              unsigned                  element,
+/**
+ * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
+ * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
+ */
+void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
+                                                       real* mInvJInvPhisAtSources,
+                                                       unsigned meshId,
+                                                       MeshReader const& mesh) {
+  auto const& elements = mesh.getElements();
+  auto const& vertices = mesh.getVertices();
+
+  double const* coords[4];
+  for (unsigned v = 0; v < 4; ++v) {
+    coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
+  }
+  auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
+          coords[0], coords[1], coords[2], coords[3], centre);
+  auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+          CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+
+  double volume = MeshTools::volume(elements[meshId], vertices);
+  double JInv = 1.0 / (6.0 * volume);
+
+  kernel::computeMInvJInvPhisAtSources krnl;
+  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
+  krnl.M3inv = init::M3inv::Values;
+  krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources;
+  krnl.JInv = JInv;
+  krnl.execute();
+}
+
+void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d const&    centre,
+                                                              unsigned                  meshId,
+                                                              MeshReader const&         mesh,
                                                               Subfault const&           subfault,
                                                               Offsets const&            offsets,
                                                               Offsets const&            nextOffsets,
                                                               double *const             sliprates[3],
-                                                              seissol::model::Material  material,
+                                                              seissol::model::Material* material,
                                                               PointSources&             pointSources,
                                                               unsigned                  index )
 {
-  e_interoperability.computeMInvJInvPhisAtSources( centre.x,
-                                                   centre.y,
-                                                   centre.z,
-                                                   element,
-                                                   pointSources.mInvJInvPhisAtSources[index] );
+  computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   real* faultBasis = pointSources.tensor[index];
-  faultBasis[0] = subfault.tan1.x;
-  faultBasis[1] = subfault.tan1.y;
-  faultBasis[2] = subfault.tan1.z;
-  faultBasis[3] = subfault.tan2.x;
-  faultBasis[4] = subfault.tan2.y;
-  faultBasis[5] = subfault.tan2.z;
-  faultBasis[6] = subfault.normal.x;
-  faultBasis[7] = subfault.normal.y;
-  faultBasis[8] = subfault.normal.z;
-
-  double mu = (subfault.mu == 0.0) ? material.mu : subfault.mu;
-  pointSources.muA[index] = mu * subfault.area;
-  pointSources.lambdaA[index] = material.lambda * subfault.area;
-
+  faultBasis[0] = subfault.tan1(0);
+  faultBasis[1] = subfault.tan1(1);
+  faultBasis[2] = subfault.tan1(2);
+  faultBasis[3] = subfault.tan2(0);
+  faultBasis[4] = subfault.tan2(1);
+  faultBasis[5] = subfault.tan2(2);
+  faultBasis[6] = subfault.normal(0);
+  faultBasis[7] = subfault.normal(1);
+  faultBasis[8] = subfault.normal(2);
+  
+  pointSources.A[index] = subfault.area;
+  switch(material->getMaterialType()) {
+    case seissol::model::MaterialType::anisotropic:
+      if (subfault.mu != 0) {
+        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+      }
+      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      break;
+    default:
+      seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
+      em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
+      em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      break;
+  }
+ 
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
     double const* samples = (numSamples > 0) ? &sliprates[sr][ offsets[sr] ] : NULL;
@@ -236,12 +273,12 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 
   short* contained = new short[numberOfSources];
   unsigned* meshIds = new unsigned[numberOfSources];
-  glm::dvec3* centres3 = new glm::dvec3[numberOfSources];
+  Eigen::Vector3d* centres3 = new Eigen::Vector3d[numberOfSources];
 
   for (int source = 0; source < numberOfSources; ++source) {
-    centres3[source].x = centres[3*source];
-    centres3[source].y = centres[3*source + 1];
-    centres3[source].z = centres[3*source + 2];
+    centres3[source](0) = centres[3*source];
+    centres3[source](1) = centres[3*source + 1];
+    centres3[source](2) = centres[3*source + 2];
   }
 
   logInfo(rank) << "Finding meshIds for point sources...";
@@ -286,17 +323,15 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
 
-      e_interoperability.computeMInvJInvPhisAtSources( centres3[fsrmIndex].x,
-                                                       centres3[fsrmIndex].y,
-                                                       centres3[fsrmIndex].z,
-                                                       meshIds[sourceIndex],
-                                                       sources[cluster].mInvJInvPhisAtSources[clusterSource] );
+      computeMInvJInvPhisAtSources(centres3[fsrmIndex],
+              sources[cluster].mInvJInvPhisAtSources[clusterSource],
+              meshIds[sourceIndex], mesh);
 
       transformMomentTensor( localMomentTensor,
                              localVelocityComponent,
@@ -385,20 +420,21 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].muA                   = new real[cmps[cluster].numberOfSources];
-    sources[cluster].lambdaA               = new real[cmps[cluster].numberOfSources];
-    sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].A.resize(cmps[cluster].numberOfSources);
+    sources[cluster].stiffnessTensor.resize(cmps[cluster].numberOfSources);
+    sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned nrfIndex = originalIndex[sourceIndex];
       transformNRFSourceToInternalSource( nrf.centres[nrfIndex],
                                           meshIds[sourceIndex],
+                                          mesh,
                                           nrf.subfaults[nrfIndex],
                                           nrf.sroffsets[nrfIndex],
                                           nrf.sroffsets[nrfIndex+1],
                                           nrf.sliprates,
-                                          ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
+                                          &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
                                           sources[cluster],
                                           clusterSource );
     }

@@ -44,6 +44,7 @@
 #include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
+#include "SeisSol.h"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <Parallel/Pin.h>
@@ -68,9 +69,10 @@ seissol::time_stepping::TimeManager::~TimeManager() {
   }
 }
 
-void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
-                                                       struct MeshStructure*              i_meshStructure,
-                                                       initializers::MemoryManager&       i_memoryManager ) {
+void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
+                                                      MeshStructure* i_meshStructure,
+                                                      initializers::MemoryManager& i_memoryManager,
+                                                      bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
@@ -81,18 +83,16 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
 
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    struct MeshStructure          *l_meshStructure           = NULL;
-    struct GlobalData             *l_globalData              = NULL;
+    MeshStructure* l_meshStructure = nullptr;
+    CompoundGlobalData l_globalData;
 
     // get memory layout of this cluster
-    i_memoryManager.getMemoryLayout( l_cluster,
-                                     l_meshStructure,
-                                     l_globalData
-                                     );
+    std::tie(l_meshStructure, l_globalData) = i_memoryManager.getMemoryLayout(l_cluster);
 
     // add this time cluster
     m_clusters.push_back( new TimeCluster( l_cluster,
                                            m_timeStepping.clusterIds[l_cluster],
+                                           usePlasticity,
                                            l_meshStructure,
                                            l_globalData,
                                            &i_memoryManager.getLtsTree()->child(l_cluster),
@@ -302,6 +302,10 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     updateClusterDependencies(l_cluster);
   }
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
+#endif
   // iterate until all queues are empty and the next synchronization point in time is reached
   while( !( m_localCopyQueue.empty()       && m_localInteriorQueue.empty() &&
             m_neighboringCopyQueue.empty() && m_neighboringInteriorQueue.empty() ) ) {
@@ -354,6 +358,9 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
                          << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
     }
   }
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime()
@@ -405,7 +412,12 @@ void seissol::time_stepping::TimeManager::pollForCommunication() {
   // pin this thread to the last core
   volatile unsigned int l_signalSum = 0;
 
-  parallel::pinToFreeCPUs();
+  seissol::SeisSol::main.getPinning().pinToFreeCPUs();
+
+#ifdef ACL_DEVICE
+  // pthread should also get pinned to a dedicated device
+  device::DeviceInstance::getInstance().api->setDevice(MPI::mpi.getDeviceID());
+#endif // ACL_DEVICE
 
   //logInfo(0) << "Launching communication thread on OS core id:" << l_numberOfHWThreads;
 

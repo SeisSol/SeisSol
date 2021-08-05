@@ -5,7 +5,7 @@
 
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
-#include <Model/Setup.h>
+#include <Equations/Setup.h>
 #include <Model/common.hpp>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
@@ -13,7 +13,7 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(seissol::model::Material material, double phase, std::array<double, 3> kVec)
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
   : m_varField{1,8},
     m_ampField{1.0, 1.0},
     m_phase(phase),
@@ -22,7 +22,7 @@ seissol::physics::Planarwave::Planarwave(seissol::model::Material material, doub
   assert(m_varField.size() == m_ampField.size());
 
   std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
-  seissol::model::getPlaneWaveOperator(material, m_kVec.data(), planeWaveOperator);
+  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator);
 
   using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
   Matrix op(planeWaveOperator);
@@ -71,10 +71,43 @@ void seissol::physics::Planarwave::evaluate(double time,
   }
 }
 
-seissol::physics::TravellingWave::TravellingWave(seissol::model::Material material) 
+seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMaterialData& materialData, real phase)
+  : m_kVec({{{M_PI, 0.0, 0.0},
+             {0.0, M_PI, 0.0},
+             {0.0, 0.0, M_PI}}}),
+    m_phase(phase),
+    m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
+          Planarwave(materialData, phase, m_kVec.at(1)),
+          Planarwave(materialData, phase, m_kVec.at(2))})
+{ 
+}
+
+void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
+                                                         std::vector<std::array<double, 3>> const& points,
+                                                         const CellMaterialData& materialData,
+                                                         yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+{
+  dofsQP.setZero();
+ 
+  real dofsPW_data[tensor::dofsQP::size()];
+  yateto::DenseTensorView<2,real,unsigned> dofsPW = init::dofsQP::view::create(dofsPW_data);
+
+  for (int pw = 0; pw < 3; pw++) {
+    //evaluate each planarwave
+    m_pw.at(pw).evaluate(time, points, materialData, dofsPW);
+    //and add results together
+    for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+      for (size_t i = 0; i < points.size(); ++i) {
+        dofsQP(i,j) += dofsPW(i,j);
+      }
+    }
+  }
+}
+
+seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData, real phase)
   //set the wave number vector such that it points in the direction of intendet travelling
   //the magnitude of the vector is the inverse of the wavelength
-  : Planarwave(material, 0.0, {0.0, 0.0, -0.001}),
+  : Planarwave(materialData, phase, {0.0, 0.0, -0.001}),
   //origin is a point on the wavefront at time zero
     m_origin({0.0, 0.0, 5000})
 {
@@ -109,6 +142,7 @@ void seissol::physics::ScholteWave::evaluate(double time,
 					     std::vector<std::array<double, 3>> const& points,
 					     const CellMaterialData& materialData,
 					     yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+#ifndef USE_ANISOTROPIC
   const real omega = 2.0 * std::acos(-1);
 
   for (size_t i = 0; i < points.size(); ++i) {
@@ -139,12 +173,16 @@ void seissol::physics::ScholteWave::evaluate(double time,
       dofsQp(i,8) = 1.406466352506812*std::pow(omega, 2)*std::exp(0.98901344820674908*omega*x_3)*std::cos(omega*t - 1.406466352506808*omega*x_1) - 1.050965490997515*std::pow(omega, 2)*std::exp(1.2825031256883821*omega*x_3)*std::cos(omega*t - 1.406466352506808*omega*x_1); // w
     }
   }
+#else
+  dofsQp.setZero();
+#endif
 }
 
 void seissol::physics::SnellsLaw::evaluate(double time,
 					   std::vector<std::array<double, 3>> const& points,
 					   const CellMaterialData& materialData,
 					   yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+#ifndef USE_ANISOTROPIC
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
@@ -177,12 +215,16 @@ void seissol::physics::SnellsLaw::evaluate(double time,
       dofsQp(i,8) = -0.16074816713222639*omega*std::sin(omega*t - 1.0/2.0*omega*(0.39733866159012299*x_1 + 0.91767204817721759*x_3)) - 0.34834162029840349*omega*std::sin(omega*t - 1.0/3.0*omega*(0.59600799238518454*x_1 + 0.8029785009656123*x_3)); // w
     }
   }
+#else
+  dofsQp.setZero();
+#endif
 }
 
 void seissol::physics::Ocean::evaluate(double time,
                                        std::vector<std::array<double, 3>> const& points,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+#ifndef USE_ANISOTROPIC
   for (size_t i = 0; i < points.size(); ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
@@ -216,4 +258,7 @@ void seissol::physics::Ocean::evaluate(double time,
     dofsQp(i,8) = (k_star/(omega*rho))*std::sin(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::cosh(k_star*z)
         + B * std::sinh(k_star*z));
   }
+#else
+  dofsQp.setZero();
+#endif
 }

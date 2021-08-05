@@ -44,7 +44,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 
 #include "AsyncCellIDs.h"
 #include "SeisSol.h"
@@ -80,14 +80,14 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
   for (unsigned fs = 0; fs < m_freeSurfaceIntegrator->totalNumberOfFreeSurfaces; ++fs) {
     unsigned meshId = meshIds[fs];
     unsigned side = sides[fs];
-    glm::dvec3 x[3], a, b;
+    Eigen::Vector3d x[3], a, b;
     for (unsigned vertex = 0; vertex < 3; ++vertex) {
       unsigned tetVertex = MeshTools::FACE2NODES[side][vertex];
       VrtxCoords const& coords = meshVertices[ meshElements[meshId].vertices[tetVertex] ].coords;
 
-      x[vertex][0] = coords[0];
-      x[vertex][1] = coords[1];
-      x[vertex][2] = coords[2];
+      x[vertex](0) = coords[0];
+      x[vertex](1) = coords[1];
+      x[vertex](2) = coords[2];
     }
     a = x[1]-x[0];
     b = x[2]-x[0];
@@ -95,16 +95,29 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
     for (unsigned tri = 0; tri < numberOfSubTriangles; ++tri) {
       seissol::refinement::Triangle const& subTri = m_freeSurfaceIntegrator->triRefiner.subTris[tri];
       for (unsigned vertex = 0; vertex < 3; ++vertex) {
-        glm::dvec3 v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
-        vertices[3*idx + 0] = v[0];
-        vertices[3*idx + 1] = v[1];
-        vertices[3*idx + 2] = v[2];
+        Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
+        vertices[3*idx + 0] = v(0);
+        vertices[3*idx + 1] = v(1);
+        vertices[3*idx + 2] = v(2);
         cells[idx] = idx;
         ++idx;
       }
     }
   }
 }
+
+void seissol::writer::FreeSurfaceWriter::setUp()	{
+    setExecutor(m_executor);
+    if (isAffinityNecessary()) {
+      const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+      logInfo(seissol::MPI::mpi.rank()) << "Free surface writer thread affinity:" <<
+        parallel::Pinning::maskToString(freeCpus);
+      if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+        logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+      }
+    }
+}
+
 
 void seissol::writer::FreeSurfaceWriter::enable()
 {
@@ -151,10 +164,10 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
 
 	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-		addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(double));
+		addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(real));
 	}
 	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-		addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(double));
+		addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(real));
 	}
 
 	//

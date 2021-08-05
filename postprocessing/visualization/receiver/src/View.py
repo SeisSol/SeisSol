@@ -40,7 +40,7 @@
 
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 try:
 	from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 except ImportError:
@@ -55,6 +55,8 @@ import math
 import numpy
 import os.path
 import scipy.fftpack
+import scipy.interpolate
+import scipy.integrate
 
 class View(QWidget):
 
@@ -108,6 +110,10 @@ class View(QWidget):
     saveAll = QPushButton(QIcon.fromTheme('document-save'), '', self)
     saveAll.clicked.connect(self.savePlots)
 
+    self.normalize = QPushButton('Normalize', self) 
+    self.normalize.setCheckable(True)
+    self.normalize.clicked.connect(self.plot)
+
     toolLayout = QHBoxLayout()
     toolLayout.addWidget(addNaviButton)
     toolLayout.addWidget(self.diff)
@@ -115,6 +121,7 @@ class View(QWidget):
     toolLayout.addWidget(self.maxFreq)
     toolLayout.addWidget(autoRefresh)
     toolLayout.addWidget(saveAll)
+    toolLayout.addWidget(self.normalize)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
     plotLayout.addLayout(toolLayout)
@@ -152,7 +159,12 @@ class View(QWidget):
       if filt.isChecked():
         for wf in wfc:
           filt.apply(wf)
-          
+
+    if self.normalize.isChecked():
+      #normalize traces
+      for nWf, wf in enumerate(wfc):
+        wfc[nWf].normalize()
+
     if self.diff.isChecked() and len(wfc) > 0:
       wf0 = wfc.pop()
       for nWf, wf in enumerate(wfc):
@@ -172,6 +184,7 @@ class View(QWidget):
       for i in range(len(names)):
         subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
 
+      wf_ref = wfc[0]
       for nWf, wf in enumerate(wfc):
         for name, waveform in wf.waveforms.items():
           p = subplots[name]
@@ -191,6 +204,18 @@ class View(QWidget):
             p.plot(wf.time, waveform, label=str(nWf))
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
+          #print L2 difference
+          if nWf > 0 and not self.diff.isChecked():
+            t_min = max(wf.time.min(), wf_ref.time.min())
+            t_max = min(wf.time.max(), wf_ref.time.max())
+            truncate = lambda a: a[(a >= t_min) & (a <= t_max)]
+            time_union = numpy.union1d(truncate(wf.time), truncate(wf_ref.time))
+            wf_interp = scipy.interpolate.interp1d(wf.time, waveform)
+            ref_interp = scipy.interpolate.interp1d(wf_ref.time, wf_ref.waveforms[name])
+            wf_union = wf_interp(time_union)
+            ref_union = ref_interp(time_union)
+            diff = numpy.sqrt(scipy.integrate.trapz((wf_union - ref_union)**2, x=time_union))
+            p.text(0.05, 1-0.1*nWf, f"L2 diff={diff:.2e}", transform = p.transAxes)
 
       self.figure.tight_layout()
 
