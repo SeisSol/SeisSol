@@ -3,6 +3,7 @@ import pyproj
 import scipy.ndimage
 from scipy import interpolate
 from netCDF4 import Dataset
+from Yoffe import regularizedYoffe
 
 
 def writeNetcdf4SeisSol(sname, x, y, aName, aData, paraview_readable=False):
@@ -59,21 +60,22 @@ def fill_non_zero(array):
     newarr = array[~array.mask]
     return interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method="linear", fill_value=np.average(array))
 
-def upsample_quantities(allarr, spatial_order, spatial_zoom, padding='constant'):
+
+def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant"):
     nd = allarr.shape[0]
-    ny, nx  = [val*spatial_zoom for val in allarr[0].shape]
+    ny, nx = [val * spatial_zoom for val in allarr[0].shape]
     allarr0 = np.zeros((nd, ny, nx))
     for k in range(nd):
-        if padding=='extrapolate':
-            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), 'reflect', reflect_type='odd')
-        elif padding=='constant':
+        if padding == "extrapolate":
+            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "reflect", reflect_type="odd")
+        elif padding == "constant":
             my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)))
-        elif padding=='edge':
-            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), 'edge')
+        elif padding == "edge":
+            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "edge")
         else:
             print(f"unkown padding: {padding}")
             raise
-        allarr0[k, :, :] = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order)[spatial_zoom:-spatial_zoom,spatial_zoom:-spatial_zoom]
+        allarr0[k, :, :] = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order)[spatial_zoom:-spatial_zoom, spatial_zoom:-spatial_zoom]
     return allarr0
 
 
@@ -223,28 +225,27 @@ class FaultPlane:
 
     def assess_Yoffe_parameters(self):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
-        self.rise_time = np.zeros((ny, nx))
-        self.tacc = np.zeros((ny, nx))
+        self.rise_time = np.zeros((self.ny, self.nx))
+        self.tacc = np.zeros((self.ny, self.nx))
         for j in range(self.ny):
             for i in range(self.nx):
                 if not self.slip1[j, i]:
                     self.rise_time[j, i] = np.nan
                     self.tacc[j, i] = np.nan
                 else:
-                    first_non_zero = np.amin(numpy.where(self.aSR[j, i, :]!=0))
-                    self.rise_time[j, i] = (np.amax(np.where(self.aSR[j, i, :])[0])+ 1) * self.dt
+                    first_non_zero = np.amin(np.where(self.aSR[j, i, :] != 0))
+                    self.rise_time[j, i] = (np.amax(np.where(self.aSR[j, i, :])[0]) + 1) * self.dt
                     self.tacc[j, i] = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0] * self.dt
-                    if (first_non_zero-1)*self.dt>0.1*self.tacc[j, i]:
-                        print(f'warning: {first_non_zero-1} 0 detected in aSR[{i},{j}]')
-                        print('assessed rise_time and tacc might have too large values')
+                    if (first_non_zero - 1) * self.dt > 0.1 * self.tacc[j, i]:
+                        print(f"warning: {first_non_zero-1} 0 detected in aSR[{i},{j}]")
+                        print("assessed rise_time and tacc might have too large values")
         self.rise_time = fill_non_zero(self.rise_time)
         self.tacc = fill_non_zero(self.tacc)
 
         print("slip rise_time (min, 50%, max)", np.amin(self.rise_time), np.median(self.rise_time), np.amax(self.rise_time))
         print("tacc (min, 50%, max)", np.amin(self.tacc), np.median(self.tacc), np.amax(self.tacc))
 
-    
-    def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom, proj):
+    def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom, proj, use_Yoffe=False):
         # time vector
         ndt2 = (self.ndt - 1) * temporal_zoom + 1
         ny2, nx2 = self.ny * spatial_zoom, self.nx * spatial_zoom
@@ -259,35 +260,50 @@ class FaultPlane:
 
         # upsample spatially geometry (bilinear interpolation)
         allarr = np.array([self.x, self.y, self.depth])
-        pf.x, pf.y, pf.depth = upsample_quantities(allarr, 1, spatial_zoom, padding='extrapolate')
-        
+        pf.x, pf.y, pf.depth = upsample_quantities(allarr, 1, spatial_zoom, padding="extrapolate")
+
         # upsample other quantities
         allarr = np.array([self.t0, self.strike, self.dip, self.rake])
-        pf.t0, pf.strike, pf.dip, pf.rake = upsample_quantities(allarr, spatial_order, spatial_zoom, padding='edge')
+        pf.t0, pf.strike, pf.dip, pf.rake = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
+        # the interpolation may generate some acausality that we here remove
+        pf.t0 = np.maximum(pf.t0, np.amin(self.t0))
 
         allarr = np.array([self.slip1])
-        pf.slip1, = upsample_quantities(allarr, spatial_order, spatial_zoom, padding='constant')
+        (pf.slip1,) = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant")
 
         pf.compute_latlon_from_xy(proj)
         pf.PSarea = self.PSarea / spatial_zoom ** 2
 
         aSRa = np.zeros((pf.ny, pf.nx, self.ndt))
-        for k in range(self.ndt):
-            aSRa[:, :, k] = scipy.ndimage.zoom(self.aSR[:, :, k], spatial_zoom, order=spatial_order)
+        if use_Yoffe:
+            self.assess_Yoffe_parameters()
+            allarr = np.array([self.rise_time, self.tacc])
+            pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
+            pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))
+            pf.tacc = np.maximum(pf.tacc, np.amin(self.tacc))
+            ts = pf.tacc / 1.27
+            tr = pf.rise_time - 2.0 * ts
+            for j in range(pf.ny):
+                for i in range(pf.nx):
+                    for k, tk in enumerate(pf.myt):
+                        pf.aSR[j, i, k] = pf.slip1[j, i] * regularizedYoffe(tk, ts[j, i], tr[j, i])
+        else:
+            for k in range(self.ndt):
+                aSRa[:, :, k] = scipy.ndimage.zoom(self.aSR[:, :, k], spatial_zoom, order=spatial_order)
 
-        # interpolate temporally the AST
-        for j in range(pf.ny):
-            for i in range(pf.nx):
-                f = interpolate.interp1d(self.myt, aSRa[j, i, :], kind="quadratic")
-                pf.aSR[j, i, :] = f(pf.myt)
-                # With a cubic interpolation, the interpolated slip1 may be negative which does not make sense.
-                if pf.slip1[j, i] < 0:
-                    pf.aSR[j, i, :] = 0
-                    continue
-                # should be the SR
-                integral_STF = np.trapz(np.abs(pf.aSR[j, i, :]), dx=pf.dt)
-                if abs(integral_STF) > 0:
-                    pf.aSR[j, i, :] = pf.slip1[j, i] * pf.aSR[j, i, :] / integral_STF
+            # interpolate temporally the AST
+            for j in range(pf.ny):
+                for i in range(pf.nx):
+                    f = interpolate.interp1d(self.myt, aSRa[j, i, :], kind="quadratic")
+                    pf.aSR[j, i, :] = f(pf.myt)
+                    # With a cubic interpolation, the interpolated slip1 may be negative which does not make sense.
+                    if pf.slip1[j, i] < 0:
+                        pf.aSR[j, i, :] = 0
+                        continue
+                    # should be the SR
+                    integral_STF = np.trapz(np.abs(pf.aSR[j, i, :]), dx=pf.dt)
+                    if abs(integral_STF) > 0:
+                        pf.aSR[j, i, :] = pf.slip1[j, i] * pf.aSR[j, i, :] / integral_STF
         return pf
 
     def generate_netcdf(self, prefix, spatial_order, spatial_zoom, write_paraview):

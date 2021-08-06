@@ -34,6 +34,14 @@ parser.add_argument(
     help="level of temporal upsampling",
     type=int,
 )
+
+parser.add_argument(
+    "--use_Yoffe",
+    help="replace the discretized STF with a Yoffe function (e.g. for comparison with FL33)",
+    dest="use_Yoffe",
+    action="store_true",
+)
+
 args = parser.parse_args()
 
 p1 = FaultPlane()
@@ -46,6 +54,7 @@ p2 = p1.upsample_fault(
     spatial_zoom=args.spatial_zoom[0],
     temporal_zoom=args.temporal_zoom[0],
     proj=args.proj,
+    use_Yoffe=args.use_Yoffe,
 )
 prefix, ext = os.path.splitext(args.filename)
 fnout = prefix + "_resampled" + ".srf"

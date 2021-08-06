@@ -9,10 +9,9 @@ In addition, no spurious waves, related to the multi point-sources representatio
 
 The current implementation allows imposing kinematic models parameterized by regularized Yoffe function (see Tinti et al., 2005, doi:10.1029/2005JB003644).
 The Yoffe functions are parametrized by ``rupture_onset``, ``acc_time`` and ``effective_rise_time``, where ``rupture_onset`` is the onset time of the rupture, 
-``acc_time`` is the time to the peak slip-rate, and ``effective_rise_time`` is the duration of slip.
+``acc_time`` is (approximatively) the time to the peak slip-rate, and ``effective_rise_time`` is the duration of slip.
 The slip distribution is defined using easi by the ``strike_slip`` and ``dip_slip`` variables.  
 
 Warning: the direction of positive ``strike_slip`` and ``dip_slip`` is based on the convention of Seissol (e.g. positive strike_slip for right-lateral faulting).   
-
 
 A fully working example based on Northridge is given at https://github.com/SeisSol/Examples/tree/master/Northridge_FL33.
