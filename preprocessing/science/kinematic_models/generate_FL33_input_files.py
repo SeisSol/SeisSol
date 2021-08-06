@@ -41,8 +41,8 @@ args = parser.parse_args()
 
 p1 = FaultPlane()
 p1.init_from_srf(args.filename)
-p1.compute_time()
-p1.compute_Yoffe()
+p1.compute_time_array()
+p1.assess_Yoffe_parameters()
 prefix, ext = os.path.splitext(args.filename)
 p1.generate_netcdf(
     prefix,

@@ -59,6 +59,23 @@ def fill_non_zero(array):
     newarr = array[~array.mask]
     return interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method="linear", fill_value=np.average(array))
 
+def upsample_quantities(allarr, spatial_order, spatial_zoom, padding='constant'):
+    nd = allarr.shape[0]
+    ny, nx  = [val*spatial_zoom for val in allarr[0].shape]
+    allarr0 = np.zeros((nd, ny, nx))
+    for k in range(nd):
+        if padding=='extrapolate':
+            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), 'reflect', reflect_type='odd')
+        elif padding=='constant':
+            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)))
+        elif padding=='edge':
+            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), 'edge')
+        else:
+            print(f"unkown padding: {padding}")
+            raise
+        allarr0[k, :, :] = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order)[spatial_zoom:-spatial_zoom,spatial_zoom:-spatial_zoom]
+    return allarr0
+
 
 class FaultPlane:
     def __init__(self):
@@ -94,13 +111,12 @@ class FaultPlane:
         self.strike = np.zeros((ny, nx))
         self.dip = np.zeros((ny, nx))
         self.rake = np.zeros((ny, nx))
-        self.rise_time = np.zeros((ny, nx))
-        self.tacc = np.zeros((ny, nx))
 
     def init_aSR(self):
         self.aSR = np.zeros((self.ny, self.nx, self.ndt))
 
     def extend_aSR(self, ndt_old, ndt_new):
+        "extend aSR array to more time samplings"
         tmpSR = np.copy(self.aSR)
         self.ndt = ndt_new
         self.aSR = np.zeros((self.ny, self.nx, self.ndt))
@@ -125,10 +141,11 @@ class FaultPlane:
         else:
             self.lon, self.lat = self.x, self.y
 
-    def compute_time(self):
+    def compute_time_array(self):
         self.myt = np.linspace(0, (self.ndt - 1) * self.dt, self.ndt)
 
     def write_srf(self, fname):
+        "write kinematic model to a srf file (standard rutpure format)"
         with open(fname, "w") as fout:
             fout.write("1.0\n")
             fout.write("POINTS %d\n" % (self.nx * self.ny))
@@ -141,6 +158,7 @@ class FaultPlane:
         print("done writing", fname)
 
     def init_from_srf(self, fname):
+        "init object by reading a srf file (standard rutpure format)"
         with open(fname) as fid:
             # version
             line = fid.readline()
@@ -191,7 +209,7 @@ class FaultPlane:
                     if ndt1 == 0:
                         continue
                     if ndt1 > self.ndt:
-                        print("a larger ndt (%d> %d)was found for point source (i,j) = (%d, %d) extending aSR array..." % (ndt1, self.ndt, i, j))
+                        print(f"a larger ndt ({ndt1}> {self.ndt}) was found for point source (i,j) = ({i}, {j}) extending aSR array...")
                         self.extend_aSR(self.ndt, ndt1)
                     if abs(dt - self.dt) > 1e-6:
                         print("this script assumes that dt is the same for all sources", dt, self.dt)
@@ -203,22 +221,29 @@ class FaultPlane:
                             self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
                             break
 
-    def compute_Yoffe(self):
+    def assess_Yoffe_parameters(self):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
+        self.rise_time = np.zeros((ny, nx))
+        self.tacc = np.zeros((ny, nx))
         for j in range(self.ny):
             for i in range(self.nx):
                 if not self.slip1[j, i]:
                     self.rise_time[j, i] = np.nan
                     self.tacc[j, i] = np.nan
                 else:
-                    self.rise_time[j, i] = (np.amax(np.where(self.aSR[j, i, :])[0]) + 1) * self.dt
+                    first_non_zero = np.amin(numpy.where(self.aSR[j, i, :]!=0))
+                    self.rise_time[j, i] = (np.amax(np.where(self.aSR[j, i, :])[0])+ 1) * self.dt
                     self.tacc[j, i] = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0] * self.dt
+                    if (first_non_zero-1)*self.dt>0.1*self.tacc[j, i]:
+                        print(f'warning: {first_non_zero-1} 0 detected in aSR[{i},{j}]')
+                        print('assessed rise_time and tacc might have too large values')
         self.rise_time = fill_non_zero(self.rise_time)
         self.tacc = fill_non_zero(self.tacc)
 
         print("slip rise_time (min, 50%, max)", np.amin(self.rise_time), np.median(self.rise_time), np.amax(self.rise_time))
         print("tacc (min, 50%, max)", np.amin(self.tacc), np.median(self.tacc), np.amax(self.tacc))
 
+    
     def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom, proj):
         # time vector
         ndt2 = (self.ndt - 1) * temporal_zoom + 1
@@ -230,16 +255,19 @@ class FaultPlane:
         pf.init_aSR()
 
         pf.dt = self.dt / temporal_zoom
-        pf.compute_time()
+        pf.compute_time_array()
 
-        # upsample spatially all these quantitites
-        allarr = np.array([self.x, self.y, self.depth, self.t0, self.slip1, self.strike, self.dip, self.rake])
-        nd = allarr.shape[0]
-        allarr0 = np.zeros((nd, pf.ny, pf.nx))
+        # upsample spatially geometry (bilinear interpolation)
+        allarr = np.array([self.x, self.y, self.depth])
+        pf.x, pf.y, pf.depth = upsample_quantities(allarr, 1, spatial_zoom, padding='extrapolate')
+        
+        # upsample other quantities
+        allarr = np.array([self.t0, self.strike, self.dip, self.rake])
+        pf.t0, pf.strike, pf.dip, pf.rake = upsample_quantities(allarr, spatial_order, spatial_zoom, padding='edge')
 
-        for k in range(nd):
-            allarr0[k, :, :] = scipy.ndimage.zoom(allarr[k, :, :], spatial_zoom, order=spatial_order)
-        pf.x, pf.y, pf.depth, pf.t0, pf.slip1, pf.strike, pf.dip, pf.rake = allarr0
+        allarr = np.array([self.slip1])
+        pf.slip1, = upsample_quantities(allarr, spatial_order, spatial_zoom, padding='constant')
+
         pf.compute_latlon_from_xy(proj)
         pf.PSarea = self.PSarea / spatial_zoom ** 2
 

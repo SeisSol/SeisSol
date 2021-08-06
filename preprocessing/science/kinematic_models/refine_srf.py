@@ -39,7 +39,7 @@ args = parser.parse_args()
 p1 = FaultPlane()
 p1.init_from_srf(args.filename)
 p1.compute_xy_from_latlon(args.proj)
-p1.compute_time()
+p1.compute_time_array()
 
 p2 = p1.upsample_fault(
     spatial_order=args.spatial_order[0],
