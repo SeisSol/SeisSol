@@ -310,7 +310,7 @@ class FaultPlane:
         "generate netcdf files to be used with SeisSol friction law 33"
 
         # pad the data to get correct value on the edges
-        slip = np.pad(self.slip1, ((1, 1), (1, 1)))
+        slip = np.pad(self.slip1, ((1, 1), (1, 1)))/100.
         rake = np.pad(self.rake, ((1, 1), (1, 1)), "edge")
         rupttime = np.pad(self.t0, ((1, 1), (1, 1)), "edge")
         rise_time = np.pad(self.rise_time, ((1, 1), (1, 1)), "edge")
