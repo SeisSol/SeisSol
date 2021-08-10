@@ -402,7 +402,6 @@ private:
 
     void computeLocalIntegrationFlops(unsigned numberOfCells,
                                       CellLocalInformation const* cellInformation,
-                                      real* (*faceDisplacements)[4],
                                       long long& nonZeroFlops,
                                       long long& hardwareFlops);
 

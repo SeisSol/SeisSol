@@ -940,7 +940,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
 void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(
     unsigned numberOfCells,
     CellLocalInformation const* cellInformation,
-    real* (*faceDisplacements)[4],
     long long& nonZeroFlops,
     long long& hardwareFlops  )
 {
@@ -957,7 +956,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(
     hardwareFlops += cellHardware;
     // Contribution from displacement/integrated displacement
     for (unsigned face = 0; face < 4; ++face) {
-      if (faceDisplacements[cell][face] != nullptr) {
+      if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
         GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
                                                              cellInformation[cell].faceTypes[face],
@@ -1007,14 +1006,12 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 #ifdef USE_MPI
   computeLocalIntegrationFlops( m_meshStructure->numberOfCopyCells,
                                 m_clusterData->child<Copy>().var(m_lts->cellInformation),
-                                m_clusterData->child<Copy>().var(m_lts->faceDisplacements),
                                 m_flops_nonZero[LocalCopy],
                                 m_flops_hardware[LocalCopy] );
 #endif
 
   computeLocalIntegrationFlops( m_meshStructure->numberOfInteriorCells,
                                 m_clusterData->child<Interior>().var(m_lts->cellInformation),
-                                m_clusterData->child<Interior>().var(m_lts->faceDisplacements),
                                 m_flops_nonZero[LocalInterior],
                                 m_flops_hardware[LocalInterior] );
 
