@@ -143,21 +143,11 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       };
 
       addOutput(velocities);
-      auto T = init::T::view::create(boundaryMapping[face]->TData);
-      alignas(ALIGNMENT) real rotateVelocityToGlobalData[init::rotateVelocityToGlobal::Size];
-      auto rotateVelocityToGlobal = init::rotateVelocityToGlobal::view::create(rotateVelocityToGlobalData);
-      for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-          // Extract part that rotates velocity from T
-          rotateVelocityToGlobal(i,j) = T(i+6, j+6);
-        }
-      }
 
       kernel::subTriangleDisplacement dkrnl;
       dkrnl.faceDisplacement = displacementDofs[face];
       dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
       dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace.get();
-      dkrnl.rotateVelocityToGlobal = rotateVelocityToGlobalData;
       dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
       dkrnl.execute(triRefiner.maxDepth);
 
@@ -365,7 +355,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
       if (!isDuplicate(ltsId)) {
         for (unsigned face = 0; face < 4; ++face) {
           if (initializers::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
-            assert(displacements[cell] != nullptr);
+            assert(faceDisplacements[cell][face] != nullptr);
 
             surfaceDofs[surfaceCell]      = dofs[cell];
             displacementDofs[surfaceCell] = faceDisplacements[cell][face];

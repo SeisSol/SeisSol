@@ -76,11 +76,24 @@ def addKernels(generator, aderdg, include_tensors):
                                           (4**depth, numberOf2DBasisFunctions),
                                           alignStride=True) for depth in range(maxDepth+1)]
 
-  rotateVelocityToGlobal = Tensor('rotateVelocityToGlobal', (3,3), alignStride=True)
+  displacementRotationMatrix = Tensor('displacementRotationMatrix', (3,3), alignStride=True)
   subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= \
-                                          subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.MV2nTo2m['lm'] * faceDisplacement['mn'] * rotateVelocityToGlobal['pn']
+                                          subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.MV2nTo2m['lm'] * faceDisplacement['mp']
   subTriangleVelocity = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
 
   generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)
   generator.addFamily('subTriangleVelocity', simpleParameterSpace(maxDepth+1), subTriangleVelocity)
+
+  rotatedFaceDisplacement = OptionalDimTensor('rotatedFaceDisplacement',
+                                              aderdg.Q.optName(),
+                                              aderdg.Q.optSize(),
+                                              aderdg.Q.optPos(),
+                                              (numberOf2DBasisFunctions, 3),
+                                              alignStride=True)
+  generator.add('rotateFaceDisplacement',
+                rotatedFaceDisplacement["mp"] <= faceDisplacement['mn'] * displacementRotationMatrix['pn'] )
+
+  addVelocity = lambda f: faceDisplacement['kp'] <= faceDisplacement['kp'] \
+                          + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * selectVelocity['qp']
+  generator.addFamily('addVelocity', simpleParameterSpace(4), addVelocity)
 

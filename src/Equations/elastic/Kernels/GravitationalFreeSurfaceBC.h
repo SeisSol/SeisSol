@@ -92,8 +92,33 @@ public:
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
     assert(boundaryMapping.TinvData != nullptr);
+    assert(boundaryMapping.TData != nullptr);
+    auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+    auto T = init::Tinv::view::create(boundaryMapping.TData);
     auto projectKernel = projectKernelPrototype;
-    projectKernel.Tinv = boundaryMapping.TinvData;
+    projectKernel.Tinv = Tinv.data();
+
+    // Prepare projection of displacement/velocity to face-nodal basis.
+    alignas(ALIGNMENT) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+    auto rotateDisplacementToFaceNormal = init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
+    alignas(ALIGNMENT) real rotateDisplacementToGlobalData[init::displacementRotationMatrix::Size];
+    auto rotateDisplacementToGlobal = init::displacementRotationMatrix::view::create(rotateDisplacementToGlobalData);
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        // Extract part that rotates velocity from T
+        rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+        rotateDisplacementToGlobal(i,j) = T(i+6, j+6);
+      }
+    }
+    static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
+    alignas(ALIGNMENT) real rotatedFaceDisplacement[init::rotatedFaceDisplacement::Size];
+    // Rotate face displacement to face-normal coordinate system in which the computation is
+    // more convenient.
+    auto rotateFaceDisplacementKrnl = kernel::rotateFaceDisplacement();
+    rotateFaceDisplacementKrnl.faceDisplacement = displacementNodal;
+    rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
+    rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacement;
+    rotateFaceDisplacementKrnl.execute();
 
     // Temporary buffer to store dofs at some time t
     alignas(ALIGNMENT) real dofsVolumeInteriorModalStorage[tensor::I::size()];
@@ -176,10 +201,10 @@ public:
     constexpr auto integratedEtaSize = init::averageNormalDisplacement::size();
     constexpr auto etaSize = init::faceDisplacement::size();
 
-    auto curValue = ode::ODEVector{{integratedDisplacementNodal, displacementNodal},
+    auto curValue = ode::ODEVector{{integratedDisplacementNodal, rotatedFaceDisplacement},
                                    {integratedEtaSize,           etaSize}};
 
-    // Apply boundary condition to integrated displacement (start from 0 each PDE timestep)
+    // Apply initial condition to integrated displacement (start from 0 each PDE timestep)
     std::fill_n(integratedDisplacementNodal, integratedEtaSize, 0.0);
 
     // Setup ODE solver
@@ -189,6 +214,13 @@ public:
 
     odeSolver.setConfig(odeSolverConfig);
     odeSolver.solve(f, curValue, timeSpan);
+
+    // Rotate face displacement back to global coordinate system which we use as storage
+    // coordinate system
+    rotateFaceDisplacementKrnl.faceDisplacement = rotatedFaceDisplacement;
+    rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
+    rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodal;
+    rotateFaceDisplacementKrnl.execute();
   }
 
 private:

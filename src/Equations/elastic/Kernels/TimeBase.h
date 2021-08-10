@@ -89,6 +89,7 @@ class seissol::kernels::TimeBase {
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     kernel::derivative m_krnlPrototype;
     kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype;
+    kernel::addVelocity addVelocityKrnl;
 
   /*
    *! Offsets of the derivatives.
