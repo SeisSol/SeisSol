@@ -21,6 +21,7 @@ add_executable(SeisSol-rconv
   src/Map.cpp
   src/NRFWriter.cpp
   src/SRF.cpp)
+install(TARGETS SeisSol-rconv)
 
 target_include_directories(SeisSol-rconv PUBLIC src
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../src" # SeisSol :(
@@ -43,7 +44,7 @@ else()
         pkg_check_modules(PROJ4 QUIET proj>=4.9)
         if (PROJ4_FOUND)
             target_include_directories(SeisSol-rconv PUBLIC ${PROJ4_INCLUDEDIR})
-            target_link_libraries(SeisSol-rconv PUBLIC ${PROJ4_LIBRARIES})
+            target_link_libraries(SeisSol-rconv PUBLIC ${PROJ4_LDFLAGS})
         endif()
     endif()
 endif()
