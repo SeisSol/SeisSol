@@ -781,17 +781,19 @@ bool seissol::initializers::isAcousticSideOfElasticAcousticInterface(CellMateria
                                               unsigned int face) {
 #ifdef USE_ANISOTROPIC
   return false;
-#endif
+#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.neighbor[face].mu > eps && material.local.mu < eps;
+#endif
 }
 bool seissol::initializers::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
 #ifdef USE_ANISOTROPIC
   return false;
-#endif
+#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.mu > eps && material.neighbor[face].mu < eps;
+#endif
 }
 
 bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
