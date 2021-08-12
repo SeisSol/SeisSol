@@ -17,7 +17,6 @@ double getGravitationalAcceleration();
 
 class GravitationalFreeSurfaceBc {
 public:
-  // TODO(Lukas) Make configurable!
   GravitationalFreeSurfaceBc()
       : odeSolver(ode::RungeKuttaODESolver(
       {init::averageNormalDisplacement::size(),

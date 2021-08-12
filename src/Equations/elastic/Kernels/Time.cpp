@@ -145,7 +145,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
-  // Only a fraction of cells need the displacement
+  // Only a small fraction of cells have the gravitational free surface boundary condition
   const bool hasGravitationalFreeSurfaceBc = updateDisplacement
                                              && std::any_of(std::begin(data.cellInformation.faceTypes),
                                                             std::end(data.cellInformation.faceTypes),

@@ -204,9 +204,13 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto t = time;
 
     const auto g = gravitationalAcceleration;
-    assert(std::abs(g - 9.81e-3) < 10e-15); // Only supports this choice of g currently!
+    if (std::abs(g - 9.81e-3) > 10e-15) {
+      logError() << "Ocean scenario only supports g=9.81e-3 currently!";
+    }
+    if (materialData.local.mu != 0.0) {
+      logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
+    }
     const double pi = std::acos(-1);
-    assert(materialData.local.mu == 0); // has to be acoustic
     const double rho = materialData.local.rho;
 
     const double Lx = 10.0; // km

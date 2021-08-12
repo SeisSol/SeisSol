@@ -13,12 +13,11 @@ std::pair<std::size_t, std::size_t> ODEVector::index(std::size_t idx) const {
     const auto begin = offsets[i];
     const auto end = begin + sizes[i];
     assert(begin <= idx);
-    // TODO(Lukas) Verify this logic!
     if (idx < end) {
       return {i, idx - begin};
     }
   }
-  assert(false); // Unreachable!
+  std::abort(); // Unreachable!
 }
 
 ODEVector::ODEVector(std::vector<real*> storages,

@@ -514,10 +514,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (initializers::requiresDisplacement(cellInformation[cell],
-                                                material[cell],
-                                                face)
-            || requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
         }
       }
@@ -541,8 +538,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])
-        || requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
           boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
           boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;

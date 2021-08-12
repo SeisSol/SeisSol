@@ -278,9 +278,7 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
         coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-        if (!initializers::requiresDisplacement(cellInformation[cell],
-                                                material[cell],
-                                                side)
+        if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
             && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
             && cellInformation[cell].faceTypes[side] != FaceType::analytical) {
           continue;
