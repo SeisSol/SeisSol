@@ -1,6 +1,7 @@
 #ifndef EIGENVALUES_H
 #define EIGENVALUES_H
 
+#include <numeric>
 #include <Eigen/Eigenvalues>
 
 namespace seissol{
