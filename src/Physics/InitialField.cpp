@@ -13,11 +13,15 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
-  : m_varField{0,1,2},
-    m_ampField{100.0, 100.0, 100.0},
-    m_phase(phase),
-    m_kVec(kVec)
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
+               double phase,
+               std::array<double, 3> kVec,
+               std::vector<int> varField, 
+               std::vector<std::complex<double>> ampField)
+  : m_phase(phase),
+    m_kVec(kVec),
+    m_varField(varField),
+    m_ampField(ampField)
 {
   assert(m_varField.size() == m_ampField.size());
 
@@ -32,7 +36,6 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, d
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
 }
-
 
 void seissol::physics::Planarwave::evaluate(double time,
                                             std::vector<std::array<double, 3>> const& points,
@@ -54,6 +57,8 @@ void seissol::physics::Planarwave::evaluate(double time,
   }
 }
 
+
+
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMaterialData& materialData, real phase)
   : m_kVec({{{M_PI, 0.0, 0.0},
              {0.0, M_PI, 0.0},
@@ -66,9 +71,9 @@ seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMater
 }
 
 void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
-                                                        std::vector<std::array<double, 3>> const& points,
-                                                        const CellMaterialData& materialData,
-                                                        yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+                                                         std::vector<std::array<double, 3>> const& points,
+                                                         const CellMaterialData& materialData,
+                                                         yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
  
@@ -87,13 +92,21 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
   }
 }
 
-seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData)
-  //set the wave number vector such that it points in the direction of intendet travelling
-  //the magnitude of the vector is the inverse of the wavelength
-  : Planarwave(materialData, 0.0, {0.0, 0.0, -10}),
+seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData, const TravellingWaveParameters& travellingWaveParameters)
+  //Set phase to 0.5*M_PI, so we have a zero at the origin
+  //The wave travels in direction of kVec
+  //2*pi / magnitude(kVec) is the wave length of the wave
+  : Planarwave(materialData, 0.5*M_PI, travellingWaveParameters.kVec, travellingWaveParameters.varField, travellingWaveParameters.ampField),
   //origin is a point on the wavefront at time zero
-    m_origin({0.0, 0.0, -0.5})
+    m_origin(travellingWaveParameters.origin)
 {
+  logInfo() << "Impose a travelling wave as initial condition";
+  logInfo() << "Origin = (" << m_origin[0] << ", " << m_origin[1] << ", " << m_origin[2] << ")";
+  logInfo() << "kVec = (" << m_kVec[0] << ", " << m_kVec[1] << ", " << m_kVec[2] << ")";
+  logInfo() << "Combine following wave modes";
+  for (size_t i = 0; i < m_ampField.size(); i++) {
+    logInfo() << "(" << m_varField[i] << ": " << m_ampField[i] << ")";
+  }
 }
 
 void seissol::physics::TravellingWave::evaluate(double time,
@@ -113,7 +126,7 @@ void seissol::physics::TravellingWave::evaluate(double time,
                         - m_kVec[1]*(points[i][1] - m_origin[1]) 
                         - m_kVec[2]*(points[i][2] - m_origin[2]) 
                         + m_phase);
-        if(arg.imag() > -M_PI && arg.imag() < M_PI) {
+        if(arg.imag() > -0.5*M_PI && arg.imag() < 1.5*M_PI) {
           dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();
         }
       }

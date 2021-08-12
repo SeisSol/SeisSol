@@ -180,7 +180,7 @@ MODULE Eval_friction_law_mod
 
         CASE DEFAULT
           logError(*) 'ERROR in friction.f90: friction law case',EQN%FL,' not implemented!'
-          call exit(134)
+          call MPI_ABORT(MPI%commWorld, 134)
     END SELECT    
 
   END SUBROUTINE Eval_friction_law
@@ -935,16 +935,16 @@ MODULE Eval_friction_law_mod
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              P_f = DISC%DynRup%TP(:,iFace,2)
          ELSE
-              P_f = 0.0
+              P_f = ZERO
          ENDIF
 
          DO j=1,nSVupdates   !This loop corrects SV values
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
              !1.update SV using Vold from the previous time step
-             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+             CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-                 S = -LocMu*(P - P_f)
+                 S = -LocMu*min(ZERO, P - P_f)
                  DO iBndGP = 1, nBndGP
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
@@ -957,7 +957,7 @@ MODULE Eval_friction_law_mod
              ENDIF
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
-             n_stress = P - P_f
+             n_stress = min(ZERO, P - P_f)
              CALL IterativelyInvertSR (EQN, DISC, iFace, nBndGP, nSRupdates, LocSR, LocSV, &
                              n_stress, Shtest, invZ, SRtest, has_converged)
 
@@ -976,16 +976,16 @@ MODULE Eval_friction_law_mod
             !logError(*) 'nonConvergence RS Newton', time
             if (tmp(1).NE.tmp(1)) then
                logError(*) 'NaN detected', time
-               call exit(134)
+               call MPI_ABORT(MPI%commWorld, 134)
             endif
          ENDIF
          
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+         CALL updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
 
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-             S = -LocMu*(P - P_f)
+             S = -LocMu*min(ZERO, P - P_f)
              DO iBndGP = 1, nBndGP
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
@@ -1012,8 +1012,9 @@ MODULE Eval_friction_law_mod
          LocMu  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
 
          ! update stress change
-         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
-         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
+         n_stress = min(ZERO, P - P_f)
+         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*n_stress
+         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*n_stress
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(:,4,iFace)
          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(:,6,iFace)
          !
@@ -1083,12 +1084,13 @@ MODULE Eval_friction_law_mod
   !
  END SUBROUTINE rate_and_state
 
-   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV)
+   SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
     TYPE(tDiscretization)          :: DISC
+    TYPE (tMPI)                    :: MPI
     ! Argument list declaration
     INTEGER                  :: iFace, nBndGP
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
@@ -1118,7 +1120,7 @@ MODULE Eval_friction_law_mod
         ! low-velocity steady state friction coefficient
         flv = RS_f0 - (RS_b-RS_a)* LOG(SR_tmp/RS_sr0)
         ! steady state friction coefficient
-        fss = RS_fw + (flv - RS_fw)/(1.0D0+(SR_tmp/RS_srW)**8d0)**(1.0D0/8.0D0)
+        fss = RS_fw + (flv - RS_fw)/(1.0D0+(SR_tmp/RS_srW)**8)**(1.0D0/8.0D0)
         ! steady-state state variable
         ! For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
         SVss = RS_a * LOG(2.0D0*RS_sr0/SR_tmp * (EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
@@ -1129,7 +1131,7 @@ MODULE Eval_friction_law_mod
 
     IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
        logError(*) 'NaN detected'
-       call exit(134)
+       call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 
 

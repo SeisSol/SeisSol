@@ -11,11 +11,44 @@
 #include "Geometry/MeshReader.h"
 #include <Physics/InitialField.h>
 
-void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
+namespace seissol::writer {
+
+CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) :
+    out(), isEnabled(false), fileName(std::move(fileName)) { }
+
+void CsvAnalysisWriter::writeHeader() {
+  if (isEnabled) {
+    out << "variable,norm,error\n";
+  }
+}
+
+void CsvAnalysisWriter::addObservation(std::string_view variable,
+                                       std::string_view normType,
+                                       real error) {
+  if (isEnabled) {
+    out << variable << "," << normType << "," << error << "\n";
+  }
+}
+
+void CsvAnalysisWriter::enable() {
+  isEnabled = true;
+  out.open(fileName);
+}
+
+CsvAnalysisWriter::~CsvAnalysisWriter() {
+  if (isEnabled) {
+    out.close();
+    if (!out) {
+      logError() << "Error when writing analysis output to file";
+    }
+  }
+}
+
+void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  if (initialConditionType == "Zero") {
+  if (initialConditionType == "Zero" || initialConditionType == "Travelling") {
     return;
   }
   logInfo(mpi.rank())
@@ -85,7 +118,8 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
     alignas(ALIGNMENT) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
 #ifdef _OPENMP
-#pragma omp parallel for firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
+    // Note: Adding default(none) leads error when using gcc-8
+#pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
     for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
 #ifdef _OPENMP
@@ -175,8 +209,6 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
     }
 
-    // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
-
 #ifdef USE_MPI
     const auto& comm = mpi.comm();
 
@@ -206,6 +238,12 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     auto analyticalLInfMPI = ErrorArray_t{0.0};
     MPI_Reduce(analyticalLInfLocal.data(), analyticalLInfMPI.data(), analyticalLInfLocal.size(), MPI_DOUBLE, MPI_MAX, 0, comm);
 
+    auto csvWriter = CsvAnalysisWriter(fileName);
+
+    if (mpi.rank() == 0) {
+      csvWriter.enable();
+      csvWriter.writeHeader();
+    }
 
     for (unsigned int i = 0; i < numberOfQuantities; ++i) {
       VrtxCoords centerSend;
@@ -225,12 +263,24 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
         } else {
           MPI_Recv(centerRecv, 3, MPI_DOUBLE,  errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
         }
-        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1MPI[i] << "\t" << errL1MPI[i] / analyticalL1MPI[i];
-        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << std::sqrt(errL2MPI[i]) << "\t" << std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
-        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfRecv[i].val << "\t" << errLInfRecv[i].val / analyticalLInfMPI[i]
+
+        const auto errL1 = errL1MPI[i];
+        const auto errL2 = std::sqrt(errL2MPI[i]);
+        const auto errLInf = errLInfRecv[i].val;
+        const auto errL1Rel = errL1 / analyticalL1MPI[i];
+        const auto errL2Rel = std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
+        const auto errLInfRel = errLInf / analyticalLInfMPI[i];
+        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
+        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
+        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
             << "at rank " << errLInfRecv[i].rank
             << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
-
+        csvWriter.addObservation(std::to_string(i), "L1", errL1);
+        csvWriter.addObservation(std::to_string(i), "L2", errL2);
+        csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
+        csvWriter.addObservation(std::to_string(i), "L1_rel", errL1Rel);
+        csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
+        csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
       }
     }
 #else
@@ -239,13 +289,25 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       MeshTools::center(elements[elemLInfLocal[i]],
             vertices,
             center);
-
-      logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i] << "\t" << errL1Local[i] / analyticalL1Local[i];
-      logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]) << "\t" << std::sqrt(errL2Local[i] / analyticalL2Local[i]);
-      logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i] << "\t" << errLInfLocal[i] /analyticalLInfLocal[i]
+      const auto errL1 = errL1Local[i];
+      const auto errL2 = std::sqrt(errL2Local[i]);
+      const auto errLInf = errLInfLocal[i];
+      const auto errL1Rel = errL1 / analyticalL1Local[i];
+      const auto errL2Rel = std::sqrt(errL2Local[i] / analyticalL2Local[i]);
+      const auto errLInfRel = errLInf / analyticalLInfLocal[i];
+      logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
+      logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
+      logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
           << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
+      csvWriter.addObservation(std::to_string(i), "L1", errL1);
+      csvWriter.addObservation(std::to_string(i), "L2", errL2);
+      csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
+      csvWriter.addObservation(std::to_string(i), "L1_rel", errL1Rel);
+      csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
+      csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
     }
 #endif // USE_MPI
   }
 }
+} // namespace seissol::writer
 

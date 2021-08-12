@@ -159,7 +159,7 @@ contains
   ! *                                                               * !
   ! ***************************************************************** !
 
-  function XYInElement(xS,yS,iElem,epsilon,MESH)
+  function XYInElement(xS,yS,iElem,epsilon,MESH,MPI)
     !-------------------------------------------------------------------------!
     
     !-------------------------------------------------------------------------!
@@ -171,6 +171,7 @@ contains
     type(tUnstructMesh)      :: MESH
     type(tDiscretization)    :: DISC
     type(tInputOutput)       :: IO
+    TYPE (tMPI) :: MPI
     integer     :: iElem
     real        :: xS, yS
     real        :: epsilon
@@ -228,7 +229,7 @@ contains
 
       if(dist1<3*dist2) then
 
-          call QuadTrafoXY2XiEta(xi,eta,xS,yS,x,y)
+          call QuadTrafoXY2XiEta(xi,eta,xS,yS,x,y,MPI)
 
           if ((xi .lt. (0.-epsilon)).or.(eta .lt.(0.-epsilon)) .or.        &
               (xi .gt. (1.+epsilon)).or.(eta .gt.(1.+epsilon)))     then
@@ -254,7 +255,7 @@ contains
       !
 
       !
-      call TrafoXY2XiEta(xi,eta,xS,yS,x,y,4)
+      call TrafoXY2XiEta(xi,eta,xS,yS,x,y,4,MPI)
 
       if ((xi .lt. (0.-epsilon)).or.(eta .lt.(0.-epsilon)) .or.        &
           (xi .gt. (1.+epsilon)).or.(eta .gt.(1.+epsilon)))     then
@@ -428,11 +429,12 @@ contains
   ! *                                                               * !
   ! ***************************************************************** !
 
-  subroutine TrafoXY2XiEta(xi,eta,xP,yP,x,y,eType)
+  subroutine TrafoXY2XiEta(xi,eta,xP,yP,x,y,eType,MPI)
     !-------------------------------------------------------------------------!
     implicit none
     !-------------------------------------------------------------------------!
     ! Argument list declaration
+    TYPE (tMPI) :: MPI
     integer     :: eType                               ! Element type         !
     real        :: xP, yP                              ! Input:  xP, yP       !
     real        :: xi, eta, zeta                       ! Output: xi eta       !
@@ -445,7 +447,7 @@ contains
     if(eType.eq.3) then
       call TriTrafoXY2XiEta(xi,eta,xP,yP,x,y)
     elseif(eType.eq.4) then
-      call QuadTrafoXY2XiEta(xi,eta,xP,yP,x,y)
+      call QuadTrafoXY2XiEta(xi,eta,xP,yP,x,y,MPI)
     endif
     !
   end subroutine TrafoXY2XiEta
@@ -565,13 +567,14 @@ contains
   ! *                                                               * !
   ! ***************************************************************** !
 
-  subroutine QuadTrafoXY2XiEta(xi,eta,xP,yP,x,y)
+  subroutine QuadTrafoXY2XiEta(xi,eta,xP,yP,x,y,MPI)
 
     use COMMON_operators_mod
     !-------------------------------------------------------------------------!
     implicit none
     !-------------------------------------------------------------------------!
     ! Argument list declaration
+    TYPE (tMPI) :: MPI
     real        :: xP, yP                              ! Input:  xP, yP       !
     real        :: xi, eta                             ! Output: xi eta       !
     real        :: x(4)              !
@@ -663,7 +666,7 @@ contains
         if(count>20) then
             write(*,*) ' | Error in QuadTrafoXY2XiEta. '
             write(*,*) ' |  Inverse of Jacobian not founded.'
-            call exit(134)
+            call MPI_ABORT(mpi%commWorld, 134)
         endif
     enddo
     

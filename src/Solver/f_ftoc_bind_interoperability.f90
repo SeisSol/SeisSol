@@ -62,6 +62,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+   subroutine c_interoperability_setTravellingWaveInformation( origin, kVec, ampField ) bind( C, name='c_interoperability_setTravellingWaveInformation')
+      use iso_c_binding, only: c_double
+      implicit none
+      real(kind=c_double), dimension(*), intent(in) :: origin
+      real(kind=c_double), dimension(*), intent(in) :: kVec
+      real(kind=c_double), dimension(*), intent(in) :: ampField
+    end subroutine
+  end interface
 
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )
@@ -72,21 +81,23 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_initializeClusteredLts
-    subroutine c_interoperability_initializeClusteredLts( i_clustering, i_enableFreeSurfaceIntegration ) bind( C, name='c_interoperability_initializeClusteredLts' )
+  interface
+    subroutine c_interoperability_initializeClusteredLts( i_clustering, i_enableFreeSurfaceIntegration, usePlasticity ) bind( C, name='c_interoperability_initializeClusteredLts' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value  :: i_clustering
       logical(kind=c_bool), value :: i_enableFreeSurfaceIntegration
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
-  interface c_interoperability_initializeMemoryLayout
-    subroutine c_interoperability_initializeMemoryLayout(clustering, enableFreeSurfaceIntegration ) bind( C, name='c_interoperability_initializeMemoryLayout' )
+  interface
+    subroutine c_interoperability_initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity) bind( C, name='c_interoperability_initializeMemoryLayout' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value  :: clustering
       logical(kind=c_bool), value :: enableFreeSurfaceIntegration
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
@@ -227,13 +238,19 @@ module f_ftoc_bind_interoperability
   end interface
 
 
-  interface c_interoperability_initializeCellLocalMatrices
-    subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )
+  interface
+    subroutine c_interoperability_initializeCellLocalMatrices(usePlasticity) bind( C, name='c_interoperability_initializeCellLocalMatrices' )
+      use iso_c_binding
+      implicit none
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
-  interface c_interoperability_synchronizeCellLocalData
-    subroutine c_interoperability_synchronizeCellLocalData() bind( C, name='c_interoperability_synchronizeCellLocalData' )
+  interface
+    subroutine c_interoperability_synchronizeCellLocalData( usePlasticity ) bind( C, name='c_interoperability_synchronizeCellLocalData' )
+      use iso_c_binding
+      implicit none
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 

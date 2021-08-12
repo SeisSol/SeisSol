@@ -111,12 +111,14 @@ struct seissol::initializers::LTS {
 #endif
   
   /// \todo Memkind
-  void addTo(LTSTree& tree) {
-#ifdef USE_PLASTICITY
-    LayerMask plasticityMask = LayerMask(Ghost);
-#else
-    LayerMask plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
-#endif
+  void addTo(LTSTree& tree, bool usePlasticity) {
+    LayerMask plasticityMask;
+    if (usePlasticity) {
+      plasticityMask = LayerMask(Ghost);
+    } else {
+      plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+
     tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
     if (kernels::size<tensor::Qane>() > 0) {
       tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );

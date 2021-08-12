@@ -73,16 +73,20 @@ extern "C" {
                                          i_timeStepWidth );
   }
 
-  void c_interoperability_initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
-    e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
+  void c_interoperability_initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration, bool usePlasticity ) {
+    e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration, usePlasticity );
   }
 
-  void c_interoperability_initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
-    e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration);
+  void c_interoperability_initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
+    e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity);
   }
 
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
+  }
+
+  void c_interoperability_setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField) {
+    e_interoperability.setTravellingWaveInformation(origin, kVec, ampField);
   }
 
   void c_interoperability_setInitialConditionType(char* type)
@@ -186,7 +190,6 @@ extern "C" {
     e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
   }
       
-#ifdef USE_PLASTICITY
  void c_interoperability_setInitialLoading( int    i_meshId,
                                             double *i_initialLoading ) {
     e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
@@ -200,14 +203,13 @@ extern "C" {
   void c_interoperability_setTv(double tv) {
     e_interoperability.setTv(tv);
   }
-#endif
 
-  void c_interoperability_initializeCellLocalMatrices() {
-    e_interoperability.initializeCellLocalMatrices();
+  void c_interoperability_initializeCellLocalMatrices(bool usePlasticity) {
+    e_interoperability.initializeCellLocalMatrices(usePlasticity);
   }
 
-  void c_interoperability_synchronizeCellLocalData() {
-    e_interoperability.synchronizeCellLocalData();
+  void c_interoperability_synchronizeCellLocalData(bool usePlasticity) {
+    e_interoperability.synchronizeCellLocalData(usePlasticity);
   }
 
   void c_interoperability_synchronizeCopyLayerDofs() {
@@ -377,6 +379,22 @@ seissol::Interoperability::~Interoperability()
   delete[] m_ltsFaceToMeshFace;
 }
 
+void seissol::Interoperability::setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField) {
+  assert(origin != nullptr);
+  assert(kVec != nullptr);
+  assert(ampField != nullptr);
+
+  m_travellingWaveParameters.origin = {origin[0], origin[1], origin[2]};
+  m_travellingWaveParameters.kVec = {kVec[0], kVec[1], kVec[2]};
+  constexpr double eps = 1e-15;
+  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    if (std::abs(ampField[i]) > eps) {
+      m_travellingWaveParameters.varField.push_back(i);
+      m_travellingWaveParameters.ampField.push_back(ampField[i]);
+    }
+  }
+}
+
 void seissol::Interoperability::setInitialConditionType(char const* type) {
   assert(type != nullptr);
   // Note: Pointer to type gets deleted before doing the error computation.
@@ -393,16 +411,18 @@ void seissol::Interoperability::setTimeStepWidth( int    i_meshId,
   seissol::SeisSol::main.getLtsLayout().setTimeStepWidth( (i_meshId)-1, i_timeStepWidth );
 }
 
-void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
+void seissol::Interoperability::initializeClusteredLts(int clustering,
+                                                       bool enableFreeSurfaceIntegration,
+                                                       bool usePlasticity) {
   // assert a valid clustering
-  assert( i_clustering > 0 );
+  assert(clustering > 0 );
 
   // either derive a GTS or LTS layout
-  if( i_clustering == 1 ) {
+  if(clustering == 1 ) {
     seissol::SeisSol::main.getLtsLayout().deriveLayout( single, 1);
   }
   else {
-    seissol::SeisSol::main.getLtsLayout().deriveLayout( multiRate, i_clustering );
+    seissol::SeisSol::main.getLtsLayout().deriveLayout(multiRate, clustering );
   }
 
   // get the mesh structure
@@ -422,7 +442,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(m_timeStepping,
                                                           m_meshStructure,
                                                           numberOfDRCopyFaces,
-                                                          numberOfDRInteriorFaces);
+                                                          numberOfDRInteriorFaces,
+                                                          usePlasticity);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
@@ -451,14 +472,15 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
 }
 
-void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
+void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
   // initialize memory layout
   seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
 
   // add clusters
-  seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
-                                                    m_meshStructure,
-                                                    seissol::SeisSol::main.getMemoryManager() );
+  seissol::SeisSol::main.timeManager().addClusters(m_timeStepping,
+                                                   m_meshStructure,
+                                                   seissol::SeisSol::main.getMemoryManager(),
+                                                   usePlasticity);
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalDataOnHost();
@@ -715,7 +737,6 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 #endif
 }
 
-#ifdef USE_PLASTICITY
 void seissol::Interoperability::setInitialLoading( int i_meshId, double *i_initialLoading ) {
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
 
@@ -744,9 +765,8 @@ void seissol::Interoperability::setPlasticParameters( int i_meshId, double* i_pl
 void seissol::Interoperability::setTv(double tv) {
   seissol::SeisSol::main.timeManager().setTv(tv);
 }
-#endif
 
-void seissol::Interoperability::initializeCellLocalMatrices()
+void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
 {
   // \todo Move this to some common initialization place
   MeshReader& meshReader = seissol::SeisSol::main.meshReader();
@@ -781,7 +801,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                          memoryManager.getBoundaryTree(),
                                          memoryManager.getBoundary());
 
-  memoryManager.recordExecutionPaths();
+  memoryManager.recordExecutionPaths(usePlasticity);
 #endif
 }
 
@@ -804,11 +824,11 @@ void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> c
   }
 }
 
-void seissol::Interoperability::synchronizeCellLocalData() {
+void seissol::Interoperability::synchronizeCellLocalData(bool usePlasticity) {
   synchronize(m_lts->material);
-#ifdef USE_PLASTICITY
-  synchronize(m_lts->plasticity);
-#endif
+  if (usePlasticity) {
+    synchronize(m_lts->plasticity);
+  }
 }
 
 void seissol::Interoperability::synchronizeCopyLayerDofs() {
@@ -929,7 +949,9 @@ void seissol::Interoperability::initializeIO(
 	// (at least at the moment ...)
 
 	// TODO(Lukas) Free the mesh reader if not doing convergence test.
-	seissol::SeisSol::main.analysisWriter().init(&seissol::SeisSol::main.meshReader());
+	seissol::SeisSol::main.analysisWriter().init(
+	    &seissol::SeisSol::main.meshReader(),
+	    freeSurfaceFilename);
 	//seissol::SeisSol::main.freeMeshReader();
 }
 
@@ -960,7 +982,7 @@ void seissol::Interoperability::initInitialConditions()
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else if (m_initialConditionType == "Travelling") {
-    m_iniConds.emplace_back(new physics::TravellingWave(m_ltsLut.lookup(m_lts->material, 0)));
+    m_iniConds.emplace_back(new physics::TravellingWave(m_ltsLut.lookup(m_lts->material, 0), m_travellingWaveParameters));
   } else if (m_initialConditionType == "Scholte") {
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {

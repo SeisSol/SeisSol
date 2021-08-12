@@ -98,7 +98,7 @@ Installing PSpaMM
 
 .. code-block:: bash
 
-   git clone https://github.com/peterwauligmann/PSpaMM.git
+   git clone https://github.com/SeisSol/PSpaMM.git
    ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
 
 Installing GemmForge (for GPU)
@@ -108,10 +108,7 @@ Installing GemmForge (for GPU)
 
 .. code-block:: bash
 
-   pip install gemmforge
-
-   # in case if you need GemmForge with the latest changes
-   pip install git+https://github.com/ravil-mobile/gemmforge.git 
+   pip install git+https://github.com/ravil-mobile/gemmforge.git
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------

@@ -66,6 +66,7 @@ class seissol::Interoperability {
   // private:
     // Type of the initial condition.
     std::string m_initialConditionType;
+    TravellingWaveParameters m_travellingWaveParameters;
     
     /* Brain dump of SeisSol's Fortran parts:
      * Raw fotran-pointer to cope with limited modularity of the
@@ -119,6 +120,8 @@ class seissol::Interoperability {
     */
    void setInitialConditionType(char const *type);
 
+   void setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField);
+
    /**
     * Sets the fortran domain.
     *
@@ -149,8 +152,8 @@ class seissol::Interoperability {
     * @param i_clustering clustering strategy
     * @param enableFreeSurfaceIntegration
     **/
-   void initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration );
-   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration);
+   void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -237,10 +240,8 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_initialLoading initial loading (stress tensor).
     **/
-#ifdef USE_PLASTICITY
    void setInitialLoading( int    i_meshId,
                            double *i_initialLoading );
-#endif
 
    /**
     * Sets the parameters for a cell (plasticity).
@@ -248,17 +249,15 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_plasticParameters cell dependent plastic Parameters (volume, cohesion...).
     **/
-#ifdef USE_PLASTICITY
    void setPlasticParameters( int    i_meshId,
                               double *i_plasticParameters );
 
    void setTv(double tv);
-#endif
 
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
     **/
-   void initializeCellLocalMatrices();
+   void initializeCellLocalMatrices(bool usePlasticity);
 
    template<typename T>
    void synchronize(seissol::initializers::Variable<T> const& handle);
@@ -266,7 +265,7 @@ class seissol::Interoperability {
    /**
     * Synchronizes the cell local material data.
     **/
-   void synchronizeCellLocalData();
+   void synchronizeCellLocalData(bool usePlasticity);
 
    /**
     * Synchronizes the DOFs in the copy layer.

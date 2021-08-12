@@ -130,17 +130,17 @@ CONTAINS
     logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
     logInfo0(*) '<                                                         >'
     !                                                                        !
-    CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE.)
+    CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE., MPI=MPI)
     !                                                                        !
     CALL readpar_header(IO,IC,actual_version_of_readpar,programTitle) !
     !                                                                        !
-    CALL readpar_equations(EQN,DISC,SOURCE,IC,IO)                  !
+    CALL readpar_equations(EQN,DISC,SOURCE,IC,IO,MPI)                        !
     !                                                                        !
     CALL readpar_ini_condition(EQN,IC,SOURCE,IO)                   !
     !                                                                        !
-    CALL readpar_boundaries(EQN,BND,IC,DISC,IO,CalledFromStructCode)    !
+    CALL readpar_boundaries(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)     !
     !                                                                        !                                                                        !
-    CALL readpar_sourceterm(EQN,SOURCE,IO)                                   !
+    CALL readpar_sourceterm(EQN,SOURCE,IO, MPI)                              !
     !                                                                        !
     CALL readpar_spongelayer(DISC,EQN,SOURCE,IO)
     !                                                                        !
@@ -148,7 +148,7 @@ CONTAINS
     !                                                                        !
     CALL readpar_discretisation(EQN,usMESH,DISC,SOURCE,IO)         !
     !                                                                        !
-    CALL readpar_output(EQN,DISC,IO,CalledFromStructCode)          !
+    CALL readpar_output(EQN,DISC,IO,MPI,CalledFromStructCode)                !
     !                                                                        !
     CALL readpar_abort(DISC,IO)                                    !
     !                                                                        !
@@ -213,7 +213,7 @@ CONTAINS
   ! E Q U A T I O N S
   !============================================================================
 
-  SUBROUTINE readpar_equations(EQN,DISC,SOURCE,IC, IO)
+  SUBROUTINE readpar_equations(EQN,DISC,SOURCE,IC, IO, MPI)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
     IMPLICIT NONE
@@ -223,6 +223,7 @@ CONTAINS
     TYPE (tSource)             :: SOURCE
     TYPE (tInitialCondition)   :: IC
     TYPE (tInputOutput)        :: IO
+    TYPE (tMPI)                :: MPI
     ! localVariables
     INTEGER                    :: intDummy
     INTEGER                    :: readStat
@@ -288,32 +289,19 @@ CONTAINS
 
     !
 
-#if defined(USE_PLASTICITY)
-    if (Plasticity .eq. 0) then
-      logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
-      call exit(134)
-    endif
-#endif
-
     SELECT CASE(Plasticity)
     CASE(0)
       logInfo0(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
-#if !defined(USE_PLASTICITY)
-       logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
-       call exit(134)
-#else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
 
 #if defined(USE_PLASTIC_IP)
        logInfo0(*) 'Integration Points approach used for plasticity.'
 #elif defined(USE_PLASTIC_NB)
        logInfo0(*) 'Nodal Basis approach used for plasticity.'
-
 #endif
 
-#endif
         EQN%Plasticity = Plasticity
         !first constant, can be overwritten in ini_model
         EQN%Tv = Tv
@@ -387,7 +375,7 @@ CONTAINS
     END SELECT
 
     IF(EQN%Adjoint.EQ.1) THEN
-     call readadjoint(IO, DISC, SOURCE, AdjFileName)
+     call readadjoint(IO, DISC, SOURCE, AdjFileName, MPI)
     END IF
     !
     inquire(file=MaterialFileName , exist=fileExists)
@@ -453,11 +441,12 @@ CONTAINS
     !------------------------------------------------------------------------
      !Adjoint set to yes
     !------------------------------------------------------------------------
-  SUBROUTINE readadjoint(IO, DISC, SOURCE, AdjFileName)
+  SUBROUTINE readadjoint(IO, DISC, SOURCE, AdjFileName, MPI)
     IMPLICIT NONE
     TYPE (tInputOutput)                               :: IO
     TYPE (tDiscretization)                            :: DISC
     TYPE (tSource)                                    :: SOURCE
+    TYPE (tMPI)                                       :: MPI
     INTENT(INOUT)                                     :: IO, SOURCE
     INTEGER                                           :: i
     CHARACTER(600)                                    :: AdjFileName
@@ -468,7 +457,8 @@ CONTAINS
       CALL OpenFile(                                       &
         UnitNr       = IO%UNIT%other01                , &
         Name         = ADJFileName                    , &
-        create       = .FALSE.                          )
+        create       = .FALSE.                        , &
+        MPI          = MPI                              )
       !
       ! Inversion information is read now
       !
@@ -538,24 +528,15 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tSource)             :: SOURCE
     TYPE (tInputOutput)        :: IO
-    ! localVariables
-    INTEGER                    :: i, j, k, iLambda, intDummy
-    INTEGER                    :: counter, iZones, iVar
-    INTEGER                    :: allocstat
-    REAL                       :: lambda(3), Re, Im
-    COMPLEX                    :: IU
-    CHARACTER(LEN=600)         :: cdummy
     !------------------------------------------------------------------------
     INTENT(OUT)                :: IC
     INTENT(IN)                 :: EQN
     INTENT(INOUT)              :: IO, SOURCE
     !------------------------------------------------------------------------
-    CHARACTER(Len=600)         :: cICType, IniConditionFile
-    REAL                       :: xc(3), amplitude, hwidth(3)
-    INTEGER                    :: nZones, variable
+    CHARACTER(Len=600)         :: cICType
+    REAL                       :: origin(3), kVec(3), ampField(NUMBER_OF_QUANTITIES)
     INTEGER                    :: readStat
-    NAMELIST                   /IniCondition/ cICType, variable, xc, amplitude, hwidth, &
-                                              IniConditionFile, nZones
+    NAMELIST                   /IniCondition/ cICType, origin, kVec, ampField
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -566,18 +547,19 @@ CONTAINS
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
     cICType = 'Zero'
-    variable = 1
-    xc(:) = 0.0                 ! x,y,z - coordinate, in inputfile you can choose different values vor x,y,z
-    amplitude = 0.0
-    hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
-    !
+    origin(:) = 0
+    kVec(:) = 0
+    ampField(:) = 0
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
     ENDIF
 
     ! Renaming all variables in the beginning
-     IC%cICType = cICType
+    IC%cICType = cICType
+    IC%origin = origin
+    IC%kVec = kVec
+    IC%ampField = ampField
 
      logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
        !
@@ -585,19 +567,19 @@ CONTAINS
    !
    CASE('Zero')
        logInfo(*) 'Zero initial condition'
-   CASE('Planarwave')
+   CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
-   CASE('SuperimposedPlanarwave')
+   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Superimposed Planarwave initial condition'
-    CASE('Travelling')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Travelling wave initial condition'
-    CASE('Scholte')
+   CASE('Travelling')                                                                ! CASE tPlanarwave
+       logInfo(*) 'Travelling wave initial condition' 
+   CASE('Scholte')
        logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
    CASE('Snell')
        logInfo(*) 'Snells law (elastic-acoustic) initial condition'
    CASE('Ocean')
        logInfo(*) 'An uncoupled ocean test case for acoustic equations'
-   CASE DEFAULT
+   CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
        logError(*) TRIM(IC%cICType),'|'
@@ -611,7 +593,7 @@ CONTAINS
   !------------------------------------------------------------------------
   !------------------------------------------------------------------------
 
-  subroutine readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+  subroutine readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
     IMPLICIT NONE
@@ -621,6 +603,7 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tDiscretization)     :: DISC
     TYPE (tInputOutput)        :: IO
+    TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
     INTEGER                    :: allocStat, OutputMask(16), i
@@ -661,8 +644,9 @@ CONTAINS
       logInfo(*) ' Pickpoints read from ', TRIM(PPFileName)
       CALL OpenFile(                                 &
             UnitNr       = IO%UNIT%other01         , &
-            Name         = PPFileName            , &
-            create       = .FALSE.                          )
+            Name         = PPFileName              , &
+            create       = .FALSE.                 , &
+            MPI          = MPI                       )
         DO i = 1, nOutPoints
           READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
@@ -789,7 +773,7 @@ CONTAINS
   ! B O U N D A R I E S
   !============================================================================
 
-  SUBROUTINE readpar_boundaries(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+  SUBROUTINE readpar_boundaries(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
     IMPLICIT NONE
@@ -799,6 +783,7 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tDiscretization)     :: DISC
     TYPE (tInputOutput)        :: IO
+    TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
     INTEGER                    :: stat
@@ -878,7 +863,7 @@ CONTAINS
           logInfo(*) '-----------------------------------  '
 
           IF(EQN%DR.EQ.1) THEN
-         call readdr(IO, EQN, DISC, BND, IC)
+         call readdr(IO, EQN, DISC, BND, IC, MPI)
        ENDIF ! EQN%DR.EQ.1
       !--------------------------------------------------------------------------------------!
       ! Inflow
@@ -897,7 +882,7 @@ CONTAINS
             logError(*) 'could not allocate Inflow variables!'                               ! Error Handler
             call exit(134)                                                                             ! Error Handler
          END IF                                                                              ! Error Handler
-      call readinfl(BND, IC, EQN, IO, DISC, BC_if)
+      call readinfl(BND, IC, EQN, IO, DISC, MPI, BC_if)
       END IF
       !
       !--------------------------------------------------------------------------------------!
@@ -935,14 +920,15 @@ CONTAINS
     !------------------------------------------------------------------------
      !Dynamic Rupture
     !------------------------------------------------------------------------
-  SUBROUTINE readdr(IO, EQN, DISC, BND, IC)
+  SUBROUTINE readdr(IO, EQN, DISC, BND, IC, MPI)
     IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     TYPE (tDiscretization)                 :: DISC
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
-    INTENT(INOUT)                          :: IO, EQN, DISC, BND
+    TYPE (tMPI)                            :: MPI
+    INTENT(INOUT)                          :: IO, EQN, DISC, BND, MPI
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
                                               thermalPress, SlipRateOutputType, readStat
@@ -1136,7 +1122,7 @@ CONTAINS
            elseif(DISC%DynRup%OutputPointType.EQ.3) THEN
                 ! in case of OutputPointType 3, read in receiver locations:
                 ! DISC%DynRup%DynRup_out_atPickpoint%nOutPoints is for option 3 the number of pickpoints
-                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
            ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
                 ! elementwise output -> 2 dimensional fault output
                 call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
@@ -1144,7 +1130,7 @@ CONTAINS
                 ! ALICE: TO BE DONE
                 ! fault receiver + 2 dimensional fault output
                 call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
-                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
            ELSE
                logError(*) 'Unkown fault output type (e.g.3,4,5)',DISC%DynRup%OutputPointType
                call exit(134)
@@ -1154,13 +1140,14 @@ CONTAINS
     !------------------------------------------------------------------------
      !Inflow Boundaries
     !------------------------------------------------------------------------
-  SUBROUTINE readinfl(BND, IC, EQN, IO, DISC, n4)
+  SUBROUTINE readinfl(BND, IC, EQN, IO, DISC, MPI, n4)
     IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     TYPE (tDiscretization)                 :: DISC
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
+    TYPE (tMPI)                            :: MPI
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: n4, i, j, iVar, readstat, startComment
     INTEGER                                :: nsteps, nPW, iObject, isteps
@@ -1246,7 +1233,8 @@ CONTAINS
                 CALL OpenFile(                                        &
                       UnitNr       = IO%UNIT%other01                , &
                       Name         = PWFileName                     , &
-                      create       = .FALSE.                          )
+                      create       = .FALSE.                        , &
+                      MPI          = MPI                              )
                 logInfo(*) 'Reading inflow wave time-history file ...  '
                 READ(IO%UNIT%other01,'(i10,a)') nsteps                        ! Number of timesteps included
                 BND%ObjInflow(iObject)%PW%TimeHistnSteps = nsteps
@@ -1344,7 +1332,7 @@ CONTAINS
    ! S O U R C E   T E R M
    !============================================================================
 
-  SUBROUTINE readpar_sourceterm(EQN,SOURCE,IO)
+  SUBROUTINE readpar_sourceterm(EQN,SOURCE,IO,MPI)
    !------------------------------------------------------------------------
    IMPLICIT NONE
    !------------------------------------------------------------------------
@@ -1352,6 +1340,7 @@ CONTAINS
    TYPE (tEquations)                :: EQN
    TYPE (tSource)                   :: SOURCE
    TYPE (tInputOutput)              :: IO
+   TYPE (tMPI)                      :: MPI
    ! local variable declaration
    INTEGER                          :: i,j,k,iVar,iDummy1
    INTEGER                          :: startComment
@@ -1532,7 +1521,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading single force file ...  '
        !
        ! LEGEND
@@ -1611,7 +1601,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading rupture model file of Type  ',SOURCE%RP%Type
        !
        ! Rupture Plane Geometrie and Subfault information is read now
@@ -1796,7 +1787,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading rupture model file ...  '
        !
        ! Moment Tensor, Rupture Plane Geometrie and Subfault information is read now
@@ -1852,7 +1844,8 @@ CONTAINS
        CALL OpenFile(                                       &
             UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
-            create       = .FALSE.                          )
+            create       = .FALSE.                        , &
+            MPI          = MPI                              )
        logInfo(*) 'Reading rupture model file ...  '
        !
        ! Moment Tensor, Rupture Plane Geometrie and Subfault information is read now
@@ -2568,13 +2561,14 @@ ALLOCATE( SpacePositionx(nDirac), &
   ! O U T P U T
   !============================================================================
 
-    SUBROUTINE readpar_output(EQN,DISC,IO,CalledFromStructCode)
+    SUBROUTINE readpar_output(EQN,DISC,IO,MPI,CalledFromStructCode)
       !------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------------------------------------
       TYPE (tEquations)             :: EQN
       TYPE (tDiscretization)        :: DISC
       TYPE (tInputOutput)           :: IO
+      TYPE (tMPI)                   :: MPI
       LOGICAL                       :: CalledFromStructCode
       ! local Variables
       INTEGER                       :: i,n, NPTS
@@ -2941,8 +2935,9 @@ ALLOCATE( SpacePositionx(nDirac), &
          logInfo(*) 'Record Points read from ', TRIM(RFileName)
          CALL OpenFile(                                 &
                UnitNr       = IO%UNIT%other01         , &
-               Name         = RFileName            , &
-               create       = .FALSE.                          )
+               Name         = RFileName               , &
+               create       = .FALSE.                 , &
+               MPI          = MPI                       )
 
          DO i = 1,nRecordPoints
             READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
@@ -2999,7 +2994,8 @@ ALLOCATE( SpacePositionx(nDirac), &
               CALL OpenFile(                                       &
                    UnitNr       = IO%UNIT%other01                , &
                    Name         = IO%PGMLocationsFile            , &
-                   create       = .FALSE.                          )
+                   create       = .FALSE.                        , &
+                   MPI          = MPI                              )
               READ(IO%UNIT%other01,'(i10)') IO%nPGMRecordPoint                         ! Number of Peak Ground Motion Locations
               logInfo(*) 'Reading ',IO%nPGMRecordPoint,' PGM locations ... '
               logInfo(*) ' '

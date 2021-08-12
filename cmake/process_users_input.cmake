@@ -6,7 +6,8 @@ option(MPI "Use MPI parallelization" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
-option(ADDRESS_SANITIZER "Use Address Sanitizer" OFF)
+option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
+option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
@@ -41,7 +42,7 @@ set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
 set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86)
 set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
@@ -55,7 +56,6 @@ set(RUPTURE_OPTIONS quadrature cellaverage)
 set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS ${RUPTURE_OPTIONS})
 
 
-option(PLASTICITY "Use plasticity")
 set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
@@ -70,6 +70,7 @@ option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
 
+option(PROXY_PYBINDING "enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
@@ -223,3 +224,11 @@ endfunction()
 
 cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
+
+if (PROXY_PYBINDING)
+    set(EXTRA_CXX_FLAGS -fPIC)
+
+    # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
+    # generate position independent code
+    set(ENABLE_PIC_COMPILATION ON)
+endif()

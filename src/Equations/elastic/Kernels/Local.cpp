@@ -278,6 +278,7 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
       starOffset += tensor::star::size(i);
     }
     volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.streamPtr = device.api->getDefaultStream();
     volKrnl.execute();
   }
 
@@ -292,6 +293,7 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
       localFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
       localFluxKrnl.AplusT = const_cast<const real **>(entry.content[*EntityId::AplusT]->getPointers());
       localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.streamPtr = device.api->getDefaultStream();
       localFluxKrnl.execute(face);
     }
   }
