@@ -2201,7 +2201,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: readStat
     INTEGER                    :: vertexWeightElement
     INTEGER                    :: vertexWeightDynamicRupture
-    INTEGER                    :: vertexWeightDisplacement
+    INTEGER                    :: vertexWeightFreeSurfaceWithGravity
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2215,7 +2215,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
                                             ScalingMatrixY, ScalingMatrixZ, &
-                                            vertexWeightElement, vertexWeightDynamicRupture, vertexWeightDisplacement
+                                            vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2241,7 +2241,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     periodic_direction(:) = 0
     vertexWeightElement = 100
     vertexWeightDynamicRupture = 100
-    vertexWeightDisplacement = 100
+    vertexWeightFreeSurfaceWithGravity = 100
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
     IF (readStat.NE.0) THEN
@@ -2262,7 +2262,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     MESH%vertexWeightElement = vertexWeightElement
     MESH%vertexWeightDynamicRupture = vertexWeightDynamicRupture
-    MESH%vertexWeightDisplacement = vertexWeightDisplacement
+    MESH%vertexWeightFreeSurfaceWithGravity = vertexWeightFreeSurfaceWithGravity
 
        SELECT CASE(IO%meshgenerator)
        CASE('Gambit3D-fast','Netcdf','PUML')

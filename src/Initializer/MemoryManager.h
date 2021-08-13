@@ -207,8 +207,8 @@ class seissol::initializers::MemoryManager {
     void initializeDisplacements();
 
     /**
-      * Initializes the displacement accumulation buffer.
-    */
+     * Initializes the displacement accumulation buffer.
+     */
   void initializeFaceDisplacements();
 
     /**

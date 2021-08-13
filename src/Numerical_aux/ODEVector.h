@@ -37,9 +37,9 @@ public:
 
   ODEVector& operator=(const ODEVector& other);
 
-  real normDifferenceTo(ODEVector& other, bool useLInfNorm = true);
+  real l2normDifferenceTo(ODEVector& other, bool useLInfNorm = true);
 
-  real norm();
+  real l2Norm();
 
   void print();
 };

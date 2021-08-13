@@ -98,7 +98,7 @@ ODEVector& ODEVector::operator=(const ODEVector& other) {
   return *this;
 }
 
-real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
+real ODEVector::l2normDifferenceTo(ODEVector& other, bool useLInfNorm) {
   // Computes the L2 or LInf norm of the difference between two vectors.
   real error = 0.0;
   real maxError = -1;
@@ -114,7 +114,7 @@ real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
   return std::sqrt(error);
 }
 
-real ODEVector::norm() {
+real ODEVector::l2Norm() {
   // Computes the L2 norm.
   real norm = 0.0;
   for (std::size_t i = 0; i < storages.size(); ++i) {

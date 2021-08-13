@@ -197,7 +197,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   int maxCluster = getCluster(globalMaxTimestep, globalMinTimestep, m_rate);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
-    int requiresDisplacement = 0;
+    int freeSurface = 0;
 
     unsigned int faceids[4];
     PUML::Downward::faces(mesh, cells[cell], faceids);
@@ -212,12 +212,12 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
       int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
 
       if (faceType == FaceType::freeSurfaceGravity) {
-        requiresDisplacement++;
+        freeSurface++;
       }
     }
 
     const int costDynamicRupture = vertexWeightDynamicRupture * dynamicRupture;
-    const int costDisplacement = vertexWeightDisplacement * requiresDisplacement;
+    const int costDisplacement = vertexWeightFreeSurfaceWithGravity * freeSurface;
     const int costPerTimestep = vertexWeightElement + costDynamicRupture + costDisplacement;
     m_vertexWeights[m_ncon * cell] = costPerTimestep * ipow(m_rate, maxCluster - cluster[cell]);
   }

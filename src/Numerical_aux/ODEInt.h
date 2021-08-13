@@ -60,6 +60,16 @@ public:
 
   void setConfig(ODESolverConfig newConfig);
 
+
+  /*!
+   * @tparam Func is a callable type (e.g. functor/lambda)
+   * @param f is a function with arguments
+        f(ODEVector& du, ODEVector& u, double evaluationTime).
+        which sets the right hand side of the ODE in du
+        and takes u, du and evaluationTime as input.
+   * @param curValue is the current solution of the ODE
+   * @param timeSpan is the time span in which the ODE should be solved.
+   */
   template<typename Func>
   void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
