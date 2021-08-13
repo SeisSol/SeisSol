@@ -305,7 +305,7 @@ MODULE TypesDef
 #endif
       INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
       INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
-      INTEGER                    :: vertexWeightDisplacement ! Additional parmetis vertex weight for each displacement face
+      INTEGER                    :: vertexWeightFreeSurfaceWithGravity ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge
