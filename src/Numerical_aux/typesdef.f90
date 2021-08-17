@@ -1155,6 +1155,9 @@ MODULE TypesDef
   !< Data for the initial condition (variable name : IC)
   TYPE tInitialCondition
      CHARACTER (LEN=25)                     :: cICType                          !< CHARACTER flag for initial data
+     REAL                                   :: origin(3)
+     REAL                                   :: kVec(3)
+     REAL                                   :: ampField(NUMBER_OF_QUANTITIES)
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<

@@ -62,6 +62,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+   subroutine c_interoperability_setTravellingWaveInformation( origin, kVec, ampField ) bind( C, name='c_interoperability_setTravellingWaveInformation')
+      use iso_c_binding, only: c_double
+      implicit none
+      real(kind=c_double), dimension(*), intent(in) :: origin
+      real(kind=c_double), dimension(*), intent(in) :: kVec
+      real(kind=c_double), dimension(*), intent(in) :: ampField
+    end subroutine
+  end interface
 
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )

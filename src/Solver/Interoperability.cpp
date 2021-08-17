@@ -89,6 +89,10 @@ extern "C" {
     seissol::SeisSol::main.getGravitationSetup().acceleration = gravitationalAcceleration;
   }
 
+  void c_interoperability_setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField) {
+    e_interoperability.setTravellingWaveInformation(origin, kVec, ampField);
+  }
+
   void c_interoperability_setInitialConditionType(char* type)
   {
     e_interoperability.setInitialConditionType(type);
@@ -371,6 +375,22 @@ seissol::Interoperability::Interoperability() :
 seissol::Interoperability::~Interoperability()
 {
   delete[] m_ltsFaceToMeshFace;
+}
+
+void seissol::Interoperability::setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField) {
+  assert(origin != nullptr);
+  assert(kVec != nullptr);
+  assert(ampField != nullptr);
+
+  m_travellingWaveParameters.origin = {origin[0], origin[1], origin[2]};
+  m_travellingWaveParameters.kVec = {kVec[0], kVec[1], kVec[2]};
+  constexpr double eps = 1e-15;
+  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    if (std::abs(ampField[i]) > eps) {
+      m_travellingWaveParameters.varField.push_back(i);
+      m_travellingWaveParameters.ampField.push_back(ampField[i]);
+    }
+  }
 }
 
 void seissol::Interoperability::setInitialConditionType(char const* type) {
@@ -932,6 +952,8 @@ void seissol::Interoperability::initInitialConditions()
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
+  } else if (m_initialConditionType == "Travelling") {
+    m_iniConds.emplace_back(new physics::TravellingWave(m_ltsLut.lookup(m_lts->material, 0), m_travellingWaveParameters));
   } else if (m_initialConditionType == "Scholte") {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::ScholteWave());

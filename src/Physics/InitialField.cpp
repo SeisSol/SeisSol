@@ -13,11 +13,15 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
-  : m_varField{1,8},
-    m_ampField{1.0, 1.0},
-    m_phase(phase),
-    m_kVec(kVec)
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
+               double phase,
+               std::array<double, 3> kVec,
+               std::vector<int> varField, 
+               std::vector<std::complex<double>> ampField)
+  : m_phase(phase),
+    m_kVec(kVec),
+    m_varField(varField),
+    m_ampField(ampField)
 {
   assert(m_varField.size() == m_ampField.size());
 
@@ -83,9 +87,9 @@ seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMater
 }
 
 void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
-                                                        std::vector<std::array<double, 3>> const& points,
-                                                        const CellMaterialData& materialData,
-                                                        yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+                                                         std::vector<std::array<double, 3>> const& points,
+                                                         const CellMaterialData& materialData,
+                                                         yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
  
@@ -99,6 +103,48 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += dofsPW(i,j);
+      }
+    }
+  }
+}
+
+seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materialData, const TravellingWaveParameters& travellingWaveParameters)
+  //Set phase to 0.5*M_PI, so we have a zero at the origin
+  //The wave travels in direction of kVec
+  //2*pi / magnitude(kVec) is the wave length of the wave
+  : Planarwave(materialData, 0.5*M_PI, travellingWaveParameters.kVec, travellingWaveParameters.varField, travellingWaveParameters.ampField),
+  //origin is a point on the wavefront at time zero
+    m_origin(travellingWaveParameters.origin)
+{
+  logInfo() << "Impose a travelling wave as initial condition";
+  logInfo() << "Origin = (" << m_origin[0] << ", " << m_origin[1] << ", " << m_origin[2] << ")";
+  logInfo() << "kVec = (" << m_kVec[0] << ", " << m_kVec[1] << ", " << m_kVec[2] << ")";
+  logInfo() << "Combine following wave modes";
+  for (size_t i = 0; i < m_ampField.size(); i++) {
+    logInfo() << "(" << m_varField[i] << ": " << m_ampField[i] << ")";
+  }
+}
+
+void seissol::physics::TravellingWave::evaluate(double time,
+				       	        std::vector<std::array<double, 3>> const& points,
+				       	        const CellMaterialData& materialData,
+				       	        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+  dofsQp.setZero();
+
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  for (unsigned v = 0; v < m_varField.size(); ++v) {
+    const auto omega =  m_lambdaA[m_varField[v]];
+    for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
+      for (size_t i = 0; i < points.size(); ++i) {
+        auto arg = std::complex<double>(0.0, 1.0) * (
+                          omega * time
+                        - m_kVec[0]*(points[i][0] - m_origin[0]) 
+                        - m_kVec[1]*(points[i][1] - m_origin[1]) 
+                        - m_kVec[2]*(points[i][2] - m_origin[2]) 
+                        + m_phase);
+        if(arg.imag() > -0.5*M_PI && arg.imag() < 1.5*M_PI) {
+          dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();
+        }
       }
     }
   }
