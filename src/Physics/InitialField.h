@@ -17,6 +17,12 @@ namespace seissol {
                             std::vector<std::array<double, 3>> const& points,
                             const CellMaterialData& materialData,
                             yateto::DenseTensorView<2,real,unsigned>& dofsQP) const = 0;
+
+      virtual void evaluateDisplacement(
+          double time,
+          std::vector<std::array<double, 3>> const& points,
+          const CellMaterialData& materialData,
+          yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
 
     class ZeroField : public InitialField {
@@ -122,6 +128,22 @@ namespace seissol {
                         const CellMaterialData& materialData,
                         yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
       };
+
+  class SloshingLake : public InitialField {
+  public:
+    SloshingLake() = default;
+    void evaluate(double time,
+                  std::vector<std::array<double, 3>> const& points,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2,real,unsigned>& dofsQp) const override;
+    void evaluateDisplacement(double time,
+                              std::vector<std::array<double, 3>> const& points,
+                              const CellMaterialData& materialData,
+                              yateto::DenseTensorView<2, real, unsigned>& dofsQp) const override;
+  private:
+    ZeroField zeroField{};
+  };
+
   }
 }
 

@@ -572,6 +572,8 @@ CONTAINS
        logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
    CASE('Snell')
        logInfo(*) 'Snells law (elastic-acoustic) initial condition'
+   CASE('SloshingLake')
+       logInfo(*) 'Sloshing lake initial condition'
    CASE('Ocean')
        logInfo(*) 'An uncoupled ocean test case for acoustic equations'
    CASE DEFAULT                                                             ! CASE DEFAULT

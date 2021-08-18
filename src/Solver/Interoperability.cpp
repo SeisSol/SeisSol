@@ -960,6 +960,8 @@ void seissol::Interoperability::initInitialConditions()
   } else if (m_initialConditionType == "Snell") {
     initialConditionDescription = "Snell's law (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::SnellsLaw());
+  } else if (m_initialConditionType == "SloshingLake") {
+    m_iniConds.emplace_back(new physics::SloshingLake());
   } else if (m_initialConditionType.rfind("Ocean", 0) == 0) {
     // Accept variants such as Ocean_0, Ocean_1
     const auto delimiter = std::string{"_"};

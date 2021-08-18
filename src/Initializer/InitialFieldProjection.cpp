@@ -116,7 +116,42 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
       kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
     }
     krnl.execute();
+
+    // Interpolate initial displacement
+    auto* faceDisplacements = ltsLut.lookup(lts.faceDisplacements, meshId);
+    const CellLocalInformation& cellInformation = ltsLut.lookup(lts.cellInformation, meshId);
+    const CellBoundaryMapping* cellBoundaryMappings = ltsLut.lookup(lts.boundaryMapping, meshId);
+
+    for (unsigned face = 0; face < 4; ++face) {
+      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) continue;
+      real* curFaceDisplacements = faceDisplacements[face];
+      auto iniCondDisplacement = init::faceDisplacement::view::create(curFaceDisplacements);
+
+      assert(curFaceDisplacements != nullptr);
+      // Note: faceDisplacments are already in nodal basis
+      auto* nodes = cellBoundaryMappings[face].nodes;
+
+      auto nodesVec = std::vector<std::array<double, 3>>{};
+      int offset = 0;
+      for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
+        auto curNode = std::array<double, 3>{};
+        curNode[0] = nodes[offset++];
+        curNode[1] = nodes[offset++];
+        curNode[2] = nodes[offset++];
+        nodesVec.push_back(curNode);
+      }
+
+#ifdef MULTIPLE_SIMULATIONS
+      for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+        auto sub = iniCondDisplacement.subtensor(s, yateto::slice<>(), yateto::slice<>());
+        iniFields[0]->evaluateDisplacement(0.0, nodesVec, material, iniCondDisplacement);
+      }
+#else
+       iniFields[0]->evaluateDisplacement(0.0, nodesVec, material, iniCondDisplacement);
+#endif
+    }
   }
+
 #ifdef _OPENMP
   }
 #endif

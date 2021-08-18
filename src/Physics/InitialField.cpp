@@ -13,6 +13,13 @@
 
 extern seissol::Interoperability e_interoperability;
 
+void seissol::physics::InitialField::evaluateDisplacement(double time,
+                                                          std::vector<std::array<double, 3>> const& points,
+                                                          const CellMaterialData& materialData,
+                                                          yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+  dofsQP.setZero();
+}
+
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
                std::array<double, 3> kVec,
@@ -333,4 +340,38 @@ void seissol::physics::Ocean::evaluate(double time,
 #else
   dofsQp.setZero();
 #endif
+}
+
+void seissol::physics::SloshingLake::evaluate(double time,
+                                              std::vector<std::array<double, 3>> const& points,
+                                              const CellMaterialData& materialData,
+                                              yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+  zeroField.evaluate(time, points, materialData, dofsQp);
+}
+
+void seissol::physics::SloshingLake::evaluateDisplacement(double time,
+                                                          std::vector<std::array<double, 3>> const& points,
+                                                          const CellMaterialData& materialData,
+                                                          yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+
+    for (size_t i = 0; i < points.size(); ++i) {
+    const auto x = points[i][0];
+    const auto y = points[i][1];
+    const auto z = points[i][2];
+    const auto t = time;
+
+    const double xCenter = 0.0;
+    const double yCenter = 0.0;
+
+    const double dX = (x - xCenter);
+    const double dY = (y - yCenter);
+    const double distance = dX * dX + dY * dY;
+
+    const double variance = 5.0 * 5.0;
+    const double displacementMax = 5.0;
+
+    dofsQp(i, 0) = 0;
+    dofsQp(i, 1) = 0;
+    dofsQp(i, 2) = displacementMax * std::exp(-distance/(2 * variance));
+  }
 }
