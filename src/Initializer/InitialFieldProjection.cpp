@@ -123,11 +123,11 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
     const CellBoundaryMapping* cellBoundaryMappings = ltsLut.lookup(lts.boundaryMapping, meshId);
 
     for (unsigned face = 0; face < 4; ++face) {
-      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) continue;
+      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity
+          || faceDisplacements[face] == nullptr) continue;
       real* curFaceDisplacements = faceDisplacements[face];
       auto iniCondDisplacement = init::faceDisplacement::view::create(curFaceDisplacements);
 
-      assert(curFaceDisplacements != nullptr);
       // Note: faceDisplacments are already in nodal basis
       auto* nodes = cellBoundaryMappings[face].nodes;
 
