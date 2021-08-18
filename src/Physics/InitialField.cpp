@@ -18,10 +18,10 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                std::array<double, 3> kVec,
                std::vector<int> varField, 
                std::vector<std::complex<double>> ampField)
-  : m_phase(phase),
-    m_kVec(kVec),
-    m_varField(varField),
-    m_ampField(ampField)
+  : m_varField(varField),
+    m_ampField(ampField),
+    m_phase(phase),
+    m_kVec(kVec)
 {
   assert(m_varField.size() == m_ampField.size());
 

@@ -74,7 +74,7 @@ namespace seissol {
                                     Tneigh&           QgodNeighbor );
 
     template<typename T, typename Tmatrix>
-    void getTransposedFreeSurfaceGodunovState( bool isAcoustic,
+    void getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
                                                T& QgodLocal,
                                                T& QgodNeighbor,
                                                Tmatrix& R);
@@ -167,11 +167,13 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
 }
 
 template<typename T, typename Tmatrix>
-void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
+void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
                                                            T&        QgodLocal,
                                                            T&        QgodNeighbor,
                                                            Tmatrix&  R)
 {
+  assert(("Poroelastic Free Surface only works with Armadillo, there's a template spezialization for that. You should never end up here", materialtype != MaterialType::poroelastic));
+
   constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
   for (size_t i = 0; i < relevant_quantities; i++) {
     for (size_t j = 0; j < relevant_quantities; j++) {
@@ -180,12 +182,15 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
   }
 
   QgodLocal.setZero();
-  if (isAcoustic) {
-    // Acoustic material only has one traction (=pressure) and one velocity comp.
-    // relevant to the Riemann problem
-    QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
-    QgodLocal(6, 6) = 1.0;
-  } else {
+  switch(materialtype) {
+    case MaterialType::acoustic: {
+      // Acoustic material only has one traction (=pressure) and one velocity comp.
+      // relevant to the Riemann problem
+      QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+      QgodLocal(6, 6) = 1.0;
+      break;
+    }
+    default: {
       std::array<int, 3> traction_indices = {0,3,5};
       std::array<int, 3> velocity_indices = {6,7,8};
       using Matrix33 = Eigen::Matrix<double, 3, 3>;
@@ -193,6 +198,8 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
       Matrix33 R21 = R(velocity_indices, {0,1,2});
       Matrix33 S = (-(R21 * R11.inverse())).eval();
       setBlocks(QgodLocal, S, traction_indices, velocity_indices);
+      break;
+    }
   }
 }
 

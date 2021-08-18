@@ -48,6 +48,7 @@
 namespace seissol {
   namespace model {
     enum class MaterialType {
+      acoustic,
       elastic,
       viscoelastic,
       anisotropic,

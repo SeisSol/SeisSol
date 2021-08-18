@@ -425,6 +425,7 @@ if (TESTING)
   endif()
 
   set(test_sources ${test_sources} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Eigenvalues.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h

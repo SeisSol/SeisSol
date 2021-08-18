@@ -1,22 +1,22 @@
 #ifndef MODEL_POROELASTICSETUP_H_
 #define MODEL_POROELASTICSETUP_H_
 
-#ifdef USE_POROELASTIC
+#ifdef HAS_ARMADILLO
 #define ARMA_ALLOW_FAKE_GCC
 #include <armadillo>
 #endif
-#include <iomanip>
+#include <cassert>
 
 #include <yateto/TensorView.h>
 
 #include "Model/common.hpp"
 #include "Kernels/common.hpp"
 #include "Numerical_aux/Transformation.h"
+#include "Numerical_aux/Eigenvalues.h"
 #include "generated_code/init.h"
 
 namespace seissol {
   namespace model {
-#ifdef USE_POROELASTIC
     struct additionalPoroelasticParameters {
       Eigen::Matrix<double, 6, 1> alpha;
       double K_bar; 
@@ -67,14 +67,12 @@ namespace seissol {
       AT.setZero();
     }
 
+#ifdef HAS_ARMADILLO
     template<>
-    inline void setToZero(arma::Mat<std::complex<double> >::fixed<13, 13>& AT) {
-      for (size_t row = 0; row < AT.n_rows; row++) {
-        for (size_t col = 0; col < AT.n_cols; col++) {
-          AT(row, col) = 0;
-        }
-      }
+    inline void setToZero(arma::Mat<std::complex<double>>::fixed<13,13>& AT) {
+      AT.zeros();
     }
+#endif
 
     template<typename T>
     inline void getTransposedCoefficientMatrix( PoroElasticMaterial const& material,
@@ -234,61 +232,60 @@ namespace seissol {
       ET(12,12) = e_2;
     }
 
-  template<typename T>
-  void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
-                                                             T&        QgodLocal,
-                                                             T&        QgodNeighbor,
-                                                             arma::Mat<double>&  R)
-  {
-    constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
-    for (size_t i = 0; i < relevant_quantities; i++) {
-      for (size_t j = 0; j < relevant_quantities; j++) {
-        QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+#ifdef HAS_ARMADILLO
+    template<typename T>
+    void getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
+                                               T&        QgodLocal,
+                                               T&        QgodNeighbor,
+                                               arma::Mat<double>::fixed<13,13>& R)
+    {
+      assert(("This specialization is for armadillo matrices. This is only used for poroelastic materials. You should never end up here.",
+            materialtype == MaterialType::poroelastic));
+    
+      constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+      for (size_t i = 0; i < relevant_quantities; i++) {
+        for (size_t j = 0; j < relevant_quantities; j++) {
+          QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+        }
       }
+    
+      QgodLocal.setZero();
+      arma::uvec traction_indices = {0,3,5,9};
+      arma::uvec velocity_indices = {6,7,8,10,11,12};
+      arma::uvec column_indices = {5, 7, 9, 11};
+      arma::mat R11 = R.submat(traction_indices, column_indices);
+      arma::mat R21 = R.submat(velocity_indices, column_indices);
+      arma::mat S = (-(R21 * inv(R11))).eval();
+      setBlocks(QgodLocal, S, traction_indices, velocity_indices);
     }
-  
-    QgodLocal.setZero();
-    if (isAcoustic) {
-      // Acoustic material only has one traction (=pressure) and one velocity comp.
-      // relevant to the Riemann problem
-      QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
-      QgodLocal(6, 6) = 1.0;
-    } else {
-        arma::uvec traction_indices = {0,3,5,9};
-        arma::uvec velocity_indices = {6,7,8,10,11,12};
-        arma::uvec column_indices = {5, 7, 9, 11};
-        arma::mat R11 = R.submat(traction_indices, column_indices);
-        arma::mat R21 = R.submat(velocity_indices, column_indices);
-        arma::mat S = (-(R21 * inv(R11))).eval();
-        setBlocks(QgodLocal, S, traction_indices, velocity_indices);
-    }
-  }
+
     template<>
     inline void getTransposedGodunovState( PoroElasticMaterial const&        local,
-        PoroElasticMaterial const&        neighbor,
-        FaceType                          faceType,
-        init::QgodLocal::view::type&      QgodLocal,
-        init::QgodNeighbor::view::type&   QgodNeighbor )
+                                           PoroElasticMaterial const&        neighbor,
+                                           FaceType                          faceType,
+                                           init::QgodLocal::view::type&      QgodLocal,
+                                           init::QgodNeighbor::view::type&   QgodNeighbor )
     {
-      constexpr auto tolerance = 1.0e-10;
+      constexpr auto tolerance = 1e-7;
 
       using CMatrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using Matrix = typename arma::Mat<double>;
-      using Vector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
-      struct eigenDecomposition { Vector eigenvalues; CMatrix eigenvectors; };
+      using Matrix = typename arma::Mat<double>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using CVector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
       auto getEigenDecomposition = [&tolerance](PoroElasticMaterial const& material) {
         CMatrix coeff(arma::fill::zeros);
         getTransposedCoefficientMatrix(material, 0, coeff);
 
 	CMatrix arma_eigenvectors(arma::fill::zeros);
-	Vector arma_eigenvalues(arma::fill::zeros);
-	arma::eig_gen(arma_eigenvalues, arma_eigenvectors, coeff.t());
+	CVector arma_eigenvalues(arma::fill::zeros);
+	arma::eig_gen(arma_eigenvalues, arma_eigenvectors, coeff.t(), "balance");
 
 #ifndef NDEBUG
         //check number of eigenvalues
+        //also check that the imaginary parts are zero
         int ev_neg = 0;
         int ev_pos = 0;
         for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+          assert(std::abs(arma_eigenvalues(i).imag()) < tolerance);
           if (arma_eigenvalues(i).real() < -tolerance) {
             ++ev_neg;
           } else if (arma_eigenvalues(i).real() > tolerance) {
@@ -308,26 +305,29 @@ namespace seissol {
         const CMatrix diff = matrix_mult - vector_mult;
         const double norm = arma::norm(diff);
         
-        assert(norm < tolerance);
+        std::stringstream messageStream;
+        messageStream << "Residual " << norm << " is larger than " << tolerance << ": Eigensolver is not accurate enough";
+        assert((messageStream.str().c_str(), norm < tolerance));
 #endif
-        return eigenDecomposition({arma_eigenvalues, arma_eigenvectors});
+        return std::pair<CVector, CMatrix>({arma_eigenvalues, arma_eigenvectors});
       };
-      auto eigen_local = getEigenDecomposition(local);
-      auto eigen_neighbor = getEigenDecomposition(neighbor); 	
+      auto [local_eigenvalues, local_eigenvectors] = getEigenDecomposition(local);
+      auto [neighbor_eigenvalues, neighbor_eigenvectors] = getEigenDecomposition(neighbor); 	
+
 
       CMatrix chi_minus(arma::fill::zeros);
       CMatrix chi_plus(arma::fill::zeros);
       for(int i = 0; i < 13; i++) {
-        if(eigen_local.eigenvalues(i).real() < -tolerance) {
+        if(local_eigenvalues(i).real() < -tolerance) {
           chi_minus(i,i) = 1.0;
         }
         //also include the zero eigenvalues here, otherwise the matrix R will be singular
-        if(eigen_local.eigenvalues(i).real() > tolerance) {
+        if(local_eigenvalues(i).real() > tolerance) {
           chi_plus(i,i) = 1.0;
         }
       }
 
-      CMatrix R = eigen_local.eigenvectors * chi_minus + eigen_neighbor.eigenvectors * chi_plus;
+      CMatrix R = local_eigenvectors * chi_minus + neighbor_eigenvectors * chi_plus;
       //set null space eigenvectors manually
       R(1,0) = 1.0;
       R(2,1) = 1.0;
@@ -336,7 +336,7 @@ namespace seissol {
       R(4,12) = 1.0;
       if (faceType == FaceType::freeSurface) {
         Matrix R_real = arma::real(R);
-        getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R_real);
+        getTransposedFreeSurfaceGodunovState(MaterialType::poroelastic, QgodLocal, QgodNeighbor, R_real);
       } else {
 	CMatrix R_inv = inv(R);
         CMatrix godunov_minus = R * chi_minus * R_inv;
@@ -354,12 +354,24 @@ namespace seissol {
         }
       }
     }
+#else //HAS_ARMADILLO
+    template<>
+    inline void getTransposedGodunovState( PoroElasticMaterial const&        local,
+        PoroElasticMaterial const&        neighbor,
+        FaceType                          faceType,
+        init::QgodLocal::view::type&      QgodLocal,
+        init::QgodNeighbor::view::type&   QgodNeighbor )
+    {
+      assert(("Poroelastic Materials can only be used with armadillo. The eigen3 eigensolver is not accurate enough", false));
+    }
+#endif //HAS_ARMADILLO
 
     template<typename Tview>
     inline void calcZinv( yateto::DenseTensorView<2, real, unsigned> &Zinv, 
         Tview &sourceMatrix, 
         size_t quantity,
         real timeStepWidth) {
+      //This function needs the matrix Z, which is only included, if we compile the poroelastic version of SeisSol
       using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
       using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
 
@@ -383,6 +395,7 @@ namespace seissol {
     //constexpr for loop since we need to instatiate the view templates
     template<size_t i_start, size_t i_end, typename Tview>
     struct for_loop {
+      //This function needs the matrix Z, which is only included, if we compile the poroelastic version of SeisSol
       for_loop(real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
           Tview &sourceMatrix, 
           real timeStepWidth) {
@@ -410,7 +423,6 @@ namespace seissol {
 
       localData->typicalTimeStepWidth = timeStepWidth;
     }
-#endif
   }
 }
 #endif

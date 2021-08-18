@@ -4,15 +4,22 @@
 #include <numeric>
 #include <Eigen/Eigenvalues>
 
+#include <yateto/TensorView.h>
+
 namespace seissol{
   namespace eigenvalues{
 
+    //struct to store an eigenvalue decomposition
+    //vectors: Matrix of Eigenvectors in column-major format
+    //values: Vector of Eigenvalues
     template<typename T, size_t dim>
     struct Eigenpair{
       std::array<T, dim*dim> vectors;
       std::array<T, dim> values;
     };
 
+    //computes the eigenvalue decomposition of M
+    //M is a dense Matrix in column-major format
     template<typename T, size_t dim>
     void computeEigenvaluesWithEigen3(std::array<T, dim*dim>& M, Eigenpair<T, dim>& output) {
       using Matrix = Eigen::Matrix<T, dim, dim, Eigen::ColMajor>;
@@ -40,10 +47,14 @@ namespace seissol{
           R(i,j) = eigenvectors(i,sortedIndices[j]);
         }
       }
-    };
+    }
+  } //namespace eigenvalues
+} //namespace seissol
 
 #ifdef HAS_ARMADILLO
 #include <armadillo>
+namespace seissol{
+  namespace eigenvalues{
     template<typename T, size_t dim>
      void computeEigenvaluesWithArmadillo(std::array<T, dim*dim>& M, Eigenpair<T, dim>& output) {
        using Matrix = typename arma::Mat<T>::template fixed<dim, dim>;
@@ -71,9 +82,9 @@ namespace seissol{
            R(i,j) = arma_eigenvectors(i,sortedIndices[j]);
          }
        }
-     };
-#endif //HAS_ARMADILLO
+     }
   } //namespace eigenvalues
 } //namespace seissol
+#endif //HAS_ARMADILLO
 
 #endif //EIGENVALUES_H

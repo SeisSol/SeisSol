@@ -118,8 +118,12 @@ src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
-src/Equations/poroelastic/Model/datastructures.cpp
 )
+if(${EQUATIONS} STREQUAL "poroelastic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Model/datastructures.cpp
+    )
+endif()
 
 if (MPI)
   target_sources(SeisSol-lib PUBLIC
