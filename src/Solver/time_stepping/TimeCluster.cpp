@@ -651,18 +651,26 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   m_timeKernel.computeBatchedAder(m_timeStepWidth, tmp, table);
   m_localKernel.computeBatchedIntegral(table, tmp);
 
-  ConditionalKey key(*KernelNames::Displacements);
-  if (table.find(key) != table.end()) {
-    BatchTable &entry = table[key];
-    // NOTE: ivelocities have been computed implicitly, i.e
-    // it is 6th, 7the and 8th columns of idofs
-    device.algorithms.accumulateBatchedData((entry.content[*EntityId::Ivelocities])->getPointers(),
-                                            (entry.content[*EntityId::Displacements])->getPointers(),
-                                            tensor::displacement::Size,
-                                            (entry.content[*EntityId::Displacements])->getSize());
+  for (unsigned face = 0; face < 4; ++face) {
+    ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
+    if (table.find(key) != table.end()) {
+      BatchTable &entry = table[key];
+      // NOTE: integrated velocities have been computed implicitly, i.e
+      // it is 6th, 7the and 8th columns of integrated dofs
+
+      kernel::gpu_addVelocity displacementKrnl;
+      displacementKrnl.faceDisplacement = entry.content[*EntityId::FaceDisplacement]->getPointers();
+      displacementKrnl.integratedVelocities = const_cast<real const**>(entry.content[*EntityId::Ivelocities]->getPointers());
+      displacementKrnl.V3mTo2nFace = m_globalDataOnDevice->V3mTo2nFace;
+
+      // Note: this kernel doesn't require tmp. memory
+      displacementKrnl.numElements = entry.content[*EntityId::FaceDisplacement]->getSize();
+      displacementKrnl.streamPtr = device.api->getDefaultStream();
+      displacementKrnl.execute(face);
+    }
   }
 
-  key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
+  ConditionalKey key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
   if (table.find(key) != table.end()) {
     BatchTable &entry = table[key];
 
