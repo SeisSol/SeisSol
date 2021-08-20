@@ -31,7 +31,7 @@ ci_builder_pre:
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
-        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8
+        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 cmake
         - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
         - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
         - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
