@@ -16,7 +16,6 @@ ci_builder_pre:
     script:
         - echo "checking availability of ci_testing_cc"
         - git --version
-        - cat .gitmodules
         - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
         - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
         - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
@@ -63,7 +62,6 @@ ci_builder_build:
              - precision: single
     script:
         - echo "now building"
-        - cat .git/config
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
         - git submodule update --init --recursive
         - cmake --version
