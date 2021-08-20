@@ -123,7 +123,6 @@ gpu_pre_build:
         - echo "HOST arch.:" $HOST
         - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
         - nvidia-smi
-        - cat .git/config
             
 gpu_build:
     stage: build
@@ -137,12 +136,8 @@ gpu_build:
         entrypoint: [""]
     before_script:
         - git submodule init
-        - cat .git/config
-        - cat .gitmodules
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
         - git submodule sync
-        - cat .gitmodules
-        - cat .git/config
         - git submodule --quiet update --init --recursive 
     script:
         - export CTEST_OUTPUT_ON_FAILURE=1
