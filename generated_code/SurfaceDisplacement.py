@@ -43,8 +43,10 @@ import numpy as np
 from yateto import Tensor, simpleParameterSpace
 from yateto.memory import CSCMemoryLayout
 from multSim import OptionalDimTensor
+from common import generate_kernel_name_prefix
 
-def addKernels(generator, aderdg, include_tensors):
+
+def addKernels(generator, aderdg, include_tensors, targets):
   maxDepth = 3
 
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
@@ -97,3 +99,20 @@ def addKernels(generator, aderdg, include_tensors):
                           + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * selectVelocity['qp']
   generator.addFamily('addVelocity', simpleParameterSpace(4), addVelocity)
 
+  if 'gpu' in targets:
+    name_prefix = generate_kernel_name_prefix(target='gpu')
+
+    integratedVelocities = OptionalDimTensor('integratedVelocities',
+                                             aderdg.I.optName(),
+                                             aderdg.I.optSize(),
+                                             aderdg.I.optPos(),
+                                             (numberOf3DBasisFunctions, 3),
+                                              alignStride=True)
+
+    addVelocity = lambda f: faceDisplacement['kp'] <= faceDisplacement['kp'] \
+                            + aderdg.db.V3mTo2nFace[f]['kl'] * integratedVelocities['lp']
+
+    generator.addFamily(f'{name_prefix}addVelocity',
+                        simpleParameterSpace(4),
+                        addVelocity,
+                        target='gpu')

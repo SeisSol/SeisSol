@@ -145,24 +145,36 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
 
 
 void LocalIntegrationRecorder::recordDisplacements() {
-  real **displacements = currentLayer->var(currentHandler->displacements);
-  std::vector<real *> iVelocitiesPtrs{};
-  std::vector<real *> displacementsPtrs{};
+  real *(*faceDisplacements)[4] = currentLayer->var(currentHandler->faceDisplacements);
+  std::array<std::vector<real *>, 4> iVelocitiesPtrs{{}};
+  std::array<std::vector<real *>, 4> displacementsPtrs{};
+
+  constexpr unsigned numStressComponents{6};
+  constexpr unsigned offsetToVelocities = numStressComponents * (init::I::Stop[0] - init::I::Start[0]);
 
   // NOTE: velocity components are between 6th and 8th columns
-  constexpr unsigned OFFSET_TO_VELOCITIES = 6 * seissol::tensor::I::Shape[0];
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
-    if (displacements[cell] != nullptr) {
-      real *iVelocity = &idofsAddressRegistry[cell][OFFSET_TO_VELOCITIES];
-      iVelocitiesPtrs.push_back(iVelocity);
-      displacementsPtrs.push_back(displacements[cell]);
+    auto data = currentLoader->entry(cell);
+
+    for (unsigned face = 0; face < 4; ++face) {
+      auto isRequired = faceDisplacements[cell][face] != nullptr;
+      auto notFreeSurfaceGravity = data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity;
+
+      if (isRequired && notFreeSurfaceGravity) {
+        real *integratedVelocity = &idofsAddressRegistry[cell][offsetToVelocities];
+        iVelocitiesPtrs[face].push_back(integratedVelocity);
+        displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
+      }
     }
   }
-  if (!displacementsPtrs.empty()) {
-    ConditionalKey key(*KernelNames::Displacements);
-    checkKey(key);
-    (*currentTable)[key].content[*EntityId::Ivelocities] = new BatchPointers(iVelocitiesPtrs);
-    (*currentTable)[key].content[*EntityId::Displacements] = new BatchPointers(displacementsPtrs);
+
+  for (unsigned face = 0; face < 4; ++face) {
+    if (!displacementsPtrs[face].empty()) {
+      ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
+      checkKey(key);
+      (*currentTable)[key].content[*EntityId::Ivelocities] = new BatchPointers(iVelocitiesPtrs[face]);
+      (*currentTable)[key].content[*EntityId::FaceDisplacement] = new BatchPointers(displacementsPtrs[face]);
+    }
   }
 }
