@@ -555,34 +555,6 @@ CONTAINS
     IC%origin = origin
     IC%kVec = kVec
     IC%ampField = ampField
-
-     logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
-       !
-   SELECT CASE(IC%cICType)
-   !
-   CASE('Zero')
-       logInfo(*) 'Zero initial condition'
-   CASE('Planarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Planarwave initial condition'
-   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Superimposed Planarwave initial condition'
-   CASE('Travelling')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Travelling wave initial condition'
-   CASE('Scholte')
-       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
-   CASE('Snell')
-       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
-   CASE('Ocean')
-       logInfo(*) 'An uncoupled ocean test case for acoustic equations'
-   CASE DEFAULT                                                             ! CASE DEFAULT
-       logError(*) 'none of the possible'           ,&
-            ' initial conditions was chosen'
-       logError(*) TRIM(IC%cICType),'|'
-       call exit(134)
-    END SELECT
-    !
-    logInfo(*) 'to calculate the initial values.'
-    !
   END SUBROUTINE readpar_ini_condition
 
   !------------------------------------------------------------------------
