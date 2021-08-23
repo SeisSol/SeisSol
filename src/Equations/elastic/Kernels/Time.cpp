@@ -117,9 +117,6 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
   projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-
-  addVelocityKrnl.V3mTo2nFace = global->V3mTo2nFace;
-  addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
 }
 
 void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
@@ -145,7 +142,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
-  // Only a small fraction of cells have the gravitational free surface boundary condition
+  // Only a small fraction of cells has the gravitational free surface boundary condition
   const bool hasGravitationalFreeSurfaceBc = updateDisplacement
                                              && std::any_of(std::begin(data.cellInformation.faceTypes),
                                                             std::end(data.cellInformation.faceTypes),
@@ -215,11 +212,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
           i_timeStepWidth,
           data.material,
           data.cellInformation.faceTypes[face]
-      );
-    } else {
-      addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
-      addVelocityKrnl.I = o_timeIntegrated;
-      addVelocityKrnl.execute(face);
+          );
     }
   }
 }

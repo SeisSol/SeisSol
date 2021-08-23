@@ -625,6 +625,21 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   m_timeStepWidth
     );
 
+    for (unsigned face = 0; face < 4; ++face) {
+      auto& curFaceDisplacements = data.faceDisplacements[face];
+      // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
+      if (curFaceDisplacements != nullptr
+          && data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) {
+        kernel::addVelocity addVelocityKrnl;
+
+        addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
+        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
+        addVelocityKrnl.I = l_bufferPointer;
+        addVelocityKrnl.execute(face);
+      }
+    }
+
     // update lts buffers if required
     // TODO: Integrate this step into the kernel
     if (!l_resetBuffers && l_buffersProvided) {
