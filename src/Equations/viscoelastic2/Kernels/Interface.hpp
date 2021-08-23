@@ -51,7 +51,7 @@ namespace seissol::kernels {
       alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
       GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
     };
-  LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, dofs, dofsAne)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
   LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 }
 
