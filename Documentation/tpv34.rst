@@ -49,7 +49,7 @@ For TPV34, we are using CVM-H version 15.1.0 and we use
 Detailed explanations are provided at 
 https://github.com/SeisSol/Examples/blob/master/tpv34/generate_ASAGI_file.sh. 
 We generate 2 netcdf files of different spatial resolution to map more finely the 3D material properties close to the fault. 
-The domain of validity of each netcdf files read by ASAGI is defined by the yaml tpv34-material.yaml file:
+The domain of validity of each netcdf files read by ASAGI is defined by the yaml tpv34_material.yaml file:
 
 .. code-block:: YAML
 
@@ -60,7 +60,7 @@ The domain of validity of each netcdf files read by ASAGI is defined by the yaml
         limits:
           x: [-25000.0, 25000.0]
           y: [-25000.0, 25000.0]
-          z: [-25000.0, 0.0]
+          z: [-15000.0, 0.0]
         components: !ASAGI
           file: tpv34_rhomulambda-inner.nc
           parameters: [rho, mu, lambda]
