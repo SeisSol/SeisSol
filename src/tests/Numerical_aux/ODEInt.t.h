@@ -52,8 +52,6 @@ public:
       // f(x)' = 2f(x) and f(0) = 1
       // Solution: exp(2x)
       // Solution for int u dx is exp(2x)/2 - C (C=0.5)
-      du[0] = u[1];
-      du[1] = 2 * u[1];
       for (int i = 0; i < sizeSolution; ++i) {
         dUIntegratedStorage[i] = uStorage[i];
         dUStorage[i] = 2 * uStorage[i];
