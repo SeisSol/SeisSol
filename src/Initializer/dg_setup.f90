@@ -282,6 +282,9 @@ CONTAINS
 
     ! Set used initial conditions.
     call c_interoperability_setInitialConditionType(trim(IC%cICType) // c_null_char)
+    if (IC%cICType == "Travelling") then
+      call c_interoperability_setTravellingWaveInformation(IC%origin, IC%kVec, IC%ampField)
+    endif
 
     ! malloc fortran arrays
     call ini_calc_deltaT( eqn%eqType,     &
@@ -491,6 +494,7 @@ CONTAINS
   endif
 
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
+  call c_interoperability_initializeGravitationalAcceleration(EQN%GravitationalAcceleration)
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))

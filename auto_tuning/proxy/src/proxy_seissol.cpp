@@ -68,6 +68,8 @@ extern long long pspamm_num_total_flops;
 #include <hbwmalloc.h>
 #endif
 
+#include "likwid_wrapper.h"
+#include <utils/args.h>
 #include "proxy_common.hpp"
 
 #ifdef __MIC__
@@ -140,6 +142,10 @@ void testKernel(unsigned kernel, unsigned timesteps) {
 
 
 ProxyOutput runProxy(ProxyConfig config) {
+  LIKWID_MARKER_INIT;
+
+  registerMarkers();
+
   bool enableDynamicRupture = false;
   if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
     enableDynamicRupture = true;
@@ -261,5 +267,7 @@ ProxyOutput runProxy(ProxyConfig config) {
 #ifdef ACL_DEVICE
   device.finalize();
 #endif
+
+  LIKWID_MARKER_CLOSE;
   return output;
 }

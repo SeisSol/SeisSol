@@ -232,13 +232,13 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
-    REAL                       :: FreqCentral, FreqRatio, Tv
+    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
-                                           FreqRatio, AdjFileName
+                                           FreqRatio, AdjFileName, GravitationalAcceleration
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -274,6 +274,7 @@ CONTAINS
 #else
     Anelasticity        = 0
 #endif
+    GravitationalAcceleration = 9.81
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
@@ -385,6 +386,7 @@ CONTAINS
     !
     EQN%MaterialFileName = MaterialFileName
     EQN%BoundaryFileName = BoundaryFileName
+    EQN%GravitationalAcceleration = GravitationalAcceleration
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
@@ -521,24 +523,15 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tSource)             :: SOURCE
     TYPE (tInputOutput)        :: IO
-    ! localVariables
-    INTEGER                    :: i, j, k, iLambda, intDummy
-    INTEGER                    :: counter, iZones, iVar
-    INTEGER                    :: allocstat
-    REAL                       :: lambda(3), Re, Im
-    COMPLEX                    :: IU
-    CHARACTER(LEN=600)         :: cdummy
     !------------------------------------------------------------------------
     INTENT(OUT)                :: IC
     INTENT(IN)                 :: EQN
     INTENT(INOUT)              :: IO, SOURCE
     !------------------------------------------------------------------------
-    CHARACTER(Len=600)         :: cICType, IniConditionFile
-    REAL                       :: xc(3), amplitude, hwidth(3)
-    INTEGER                    :: nZones, variable
+    CHARACTER(Len=600)         :: cICType
+    REAL                       :: origin(3), kVec(3), ampField(NUMBER_OF_QUANTITIES)
     INTEGER                    :: readStat
-    NAMELIST                   /IniCondition/ cICType, variable, xc, amplitude, hwidth, &
-                                              IniConditionFile, nZones
+    NAMELIST                   /IniCondition/ cICType, origin, kVec, ampField
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -549,44 +542,19 @@ CONTAINS
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
     cICType = 'Zero'
-    variable = 1
-    xc(:) = 0.0                 ! x,y,z - coordinate, in inputfile you can choose different values vor x,y,z
-    amplitude = 0.0
-    hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
-    !
+    origin(:) = 0
+    kVec(:) = 0
+    ampField(:) = 0
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
     ENDIF
 
     ! Renaming all variables in the beginning
-     IC%cICType = cICType
-
-     logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
-       !
-   SELECT CASE(IC%cICType)
-   !
-   CASE('Zero')
-       logInfo(*) 'Zero initial condition'
-   CASE('Planarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Planarwave initial condition'
-   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Superimposed Planarwave initial condition'
-   CASE('Scholte')
-       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
-   CASE('Snell')
-       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
-   CASE('Ocean')
-       logInfo(*) 'An uncoupled ocean test case for acoustic equations'
-   CASE DEFAULT                                                             ! CASE DEFAULT
-       logError(*) 'none of the possible'           ,&
-            ' initial conditions was chosen'
-       logError(*) TRIM(IC%cICType),'|'
-       call exit(134)
-    END SELECT
-    !
-    logInfo(*) 'to calculate the initial values.'
-    !
+    IC%cICType = cICType
+    IC%origin = origin
+    IC%kVec = kVec
+    IC%ampField = ampField
   END SUBROUTINE readpar_ini_condition
 
   !------------------------------------------------------------------------
@@ -2222,6 +2190,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
     INTEGER                    :: readStat
+    INTEGER                    :: vertexWeightElement
+    INTEGER                    :: vertexWeightDynamicRupture
+    INTEGER                    :: vertexWeightFreeSurfaceWithGravity
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2234,7 +2205,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     CHARACTER(LEN=600)               :: MeshFile, meshgenerator
     NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
-                                            ScalingMatrixY, ScalingMatrixZ
+                                            ScalingMatrixY, ScalingMatrixZ, &
+                                            vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2258,6 +2230,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     ScalingMatrixZ(3) = 1.0
     periodic = 0
     periodic_direction(:) = 0
+    vertexWeightElement = 100
+    vertexWeightDynamicRupture = 100
+    vertexWeightFreeSurfaceWithGravity = 100
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
     IF (readStat.NE.0) THEN
@@ -2274,7 +2249,12 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     IO%meshgenerator = trim(meshgenerator)
 
-       EQN%HexaDimension = 3
+    EQN%HexaDimension = 3
+
+    MESH%vertexWeightElement = vertexWeightElement
+    MESH%vertexWeightDynamicRupture = vertexWeightDynamicRupture
+    MESH%vertexWeightFreeSurfaceWithGravity = vertexWeightFreeSurfaceWithGravity
+
        SELECT CASE(IO%meshgenerator)
        CASE('Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then

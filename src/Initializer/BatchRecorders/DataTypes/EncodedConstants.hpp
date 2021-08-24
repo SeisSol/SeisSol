@@ -18,7 +18,7 @@ enum struct EntityId : size_t {
   Godunov,
   FluxSolver,
   Ivelocities, // 6th, 7the and 8th columns of Idofs
-  Displacements,
+  FaceDisplacement,
   NodalStressTensor,
   Pstrains,
   ElementsIds,
@@ -43,7 +43,7 @@ enum struct KernelNames : size_t {
   Volume = 1 << 1,
   LocalFlux = 1 << 2,
   NeighborFlux = 1 << 3,
-  Displacements = 1 << 4,
+  FaceDisplacements = 1 << 4,
   Plasticity = 1 << 5,
   DrTime = 1 << 6,
   DrSpaceMap = 1 << 7,
@@ -59,7 +59,7 @@ enum struct ComputationKind : size_t {
   WithGtsBuffers = 1 << 4,
   WithLtsBuffers = 1 << 5,
   Count = 6,
-  Any = encodeAny(Count)
+  None = encodeAny(Count)
 };
 
 enum struct FaceKinds : size_t {
@@ -69,7 +69,7 @@ enum struct FaceKinds : size_t {
   DynamicRupture = 1 << 3,
   Periodic = 1 << 4,
   Count = 5,
-  Any = encodeAny(Count)
+  None = encodeAny(Count)
 };
 
 enum struct FaceId : size_t { Count = 4, Any = ALL_BITS };

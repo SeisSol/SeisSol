@@ -47,51 +47,6 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                                )
     include_tensors.add(identity_rotation)
 
-    project2nFaceTo3m = tensor_collection_from_constant_expression(
-        base_name='project2nFaceTo3m',
-        expressions=lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.V2nTo2m['kl'],
-        group_indices=range(4),
-        target_indices='jl')
-
-    aderdg.db.update(project2nFaceTo3m)
-
-    selectZDisplacementFromQuantities = np.zeros(aderdg.numberOfQuantities())
-    selectZDisplacementFromQuantities[8] = 1
-    selectZDisplacementFromQuantities= Tensor('selectZDisplacementFromQuantities',
-                                              selectZDisplacementFromQuantities.shape,
-                                              selectZDisplacementFromQuantities,
-                                              )
-
-    selectZDisplacementFromDisplacements = np.zeros(3)
-    selectZDisplacementFromDisplacements[2] = 1
-    selectZDisplacementFromDisplacements = Tensor('selectZDisplacementFromDisplacements',
-                                                  selectZDisplacementFromDisplacements.shape,
-                                                  selectZDisplacementFromDisplacements,
-                                                  )
-
-    aderdg.INodalDisplacement = OptionalDimTensor('INodalDisplacement',
-                                                aderdg.Q.optName(),
-                                                aderdg.Q.optSize(),
-                                                aderdg.Q.optPos(),
-                                                (aderdg.numberOf2DBasisFunctions(),),
-                                                alignStride=True)
-
-    displacement = OptionalDimTensor('displacement',
-                                     aderdg.Q.optName(),
-                                     aderdg.Q.optSize(),
-                                     aderdg.Q.optPos(),
-                                     (aderdg.numberOf3DBasisFunctions(), 3),
-                                     alignStride=True)
-
-    dt = Scalar('dt')
-    displacementAvgNodal = lambda side: aderdg.INodalDisplacement['i'] <= \
-                                        aderdg.db.V3mTo2nFace[side]['ij'] * aderdg.I['jk'] * selectZDisplacementFromQuantities['k'] \
-                                        + dt * aderdg.db.V3mTo2nFace[side]['ij'] * displacement['jk'] * selectZDisplacementFromDisplacements['k']
-
-    generator.addFamily('displacementAvgNodal',
-                        simpleParameterSpace(4),
-                        displacementAvgNodal)
-
     aderdg.INodalUpdate = OptionalDimTensor('INodalUpdate',
                                           aderdg.INodal.optName(),
                                           aderdg.INodal.optSize(),

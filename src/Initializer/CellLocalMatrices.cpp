@@ -44,6 +44,7 @@
 #include <cassert>
 
 #include <Initializer/ParameterDB.h>
+#include "Initializer/MemoryManager.h"
 #include <Numerical_aux/Transformation.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
@@ -213,7 +214,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
         }
@@ -263,6 +265,7 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
+    auto* material = it->var(i_lts->material);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP

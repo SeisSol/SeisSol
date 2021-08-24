@@ -85,6 +85,14 @@ extern "C" {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
   }
 
+  void c_interoperability_initializeGravitationalAcceleration(double gravitationalAcceleration) {
+    seissol::SeisSol::main.getGravitationSetup().acceleration = gravitationalAcceleration;
+  }
+
+  void c_interoperability_setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField) {
+    e_interoperability.setTravellingWaveInformation(origin, kVec, ampField);
+  }
+
   void c_interoperability_setInitialConditionType(char* type)
   {
     e_interoperability.setInitialConditionType(type);
@@ -367,6 +375,22 @@ seissol::Interoperability::Interoperability() :
 seissol::Interoperability::~Interoperability()
 {
   delete[] m_ltsFaceToMeshFace;
+}
+
+void seissol::Interoperability::setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField) {
+  assert(origin != nullptr);
+  assert(kVec != nullptr);
+  assert(ampField != nullptr);
+
+  m_travellingWaveParameters.origin = {origin[0], origin[1], origin[2]};
+  m_travellingWaveParameters.kVec = {kVec[0], kVec[1], kVec[2]};
+  constexpr double eps = 1e-15;
+  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    if (std::abs(ampField[i]) > eps) {
+      m_travellingWaveParameters.varField.push_back(i);
+      m_travellingWaveParameters.ampField.push_back(ampField[i]);
+    }
+  }
 }
 
 void seissol::Interoperability::setInitialConditionType(char const* type) {
@@ -794,6 +818,7 @@ void seissol::Interoperability::enableFreeSurfaceOutput(int maxRefinementDepth)
 	seissol::SeisSol::main.freeSurfaceWriter().enable();
 
 	seissol::SeisSol::main.freeSurfaceIntegrator().initialize( maxRefinementDepth,
+								m_globalData,
 								m_lts,
 								m_ltsTree,
 								&m_ltsLut );
@@ -907,6 +932,7 @@ void seissol::Interoperability::copyDynamicRuptureState()
 
 void seissol::Interoperability::initInitialConditions()
 {
+  auto initialConditionDescription = m_initialConditionType;
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
@@ -926,16 +952,29 @@ void seissol::Interoperability::initInitialConditions()
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
+  } else if (m_initialConditionType == "Travelling") {
+    m_iniConds.emplace_back(new physics::TravellingWave(m_ltsLut.lookup(m_lts->material, 0), m_travellingWaveParameters));
   } else if (m_initialConditionType == "Scholte") {
+    initialConditionDescription = "Scholte wave (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {
+    initialConditionDescription = "Snell's law (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::SnellsLaw());
-  } else if (m_initialConditionType == "Ocean") {
-    m_iniConds.emplace_back(new physics::Ocean());
+  } else if (m_initialConditionType.rfind("Ocean", 0) == 0) {
+    // Accept variants such as Ocean_0, Ocean_1
+    const auto delimiter = std::string{"_"};
+    const auto modeStr = m_initialConditionType.substr(m_initialConditionType.find(delimiter)+1);
+    const auto mode = std::stoi(modeStr);
+    initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode " + modeStr + ")";
+    const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
+
+    m_iniConds.emplace_back(new physics::Ocean(mode, g));
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }
+  logInfo(MPI::mpi.rank()) << "Using initial condition " << initialConditionDescription << ".";
+
 }
 
 void seissol::Interoperability::projectInitialField()
