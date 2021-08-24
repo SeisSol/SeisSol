@@ -66,11 +66,11 @@ ODEVector& ODEVector::operator+=(ODEVector& rhs) {
   return *this;
 }
 
-ODEVector& ODEVector::operator*=(real rhs) {
+ODEVector& ODEVector::operator*=(real scalar) {
   for (std::size_t i = 0; i < storages.size(); ++i) {
 #pragma omp simd
     for (std::size_t j = 0; j < sizes[i]; ++j) {
-      storages[i][j] *= rhs;
+      storages[i][j] *= scalar;
     }
   }
   return *this;
@@ -98,7 +98,7 @@ ODEVector& ODEVector::operator=(const ODEVector& other) {
   return *this;
 }
 
-real ODEVector::l2normDifferenceTo(ODEVector& other, bool useLInfNorm) {
+real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
   // Computes the L2 or LInf norm of the difference between two vectors.
   real error = 0.0;
   real maxError = -1;
