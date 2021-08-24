@@ -457,6 +457,12 @@ struct MemoryProperties {
   size_t pagesizeStack{PAGESIZE_STACK};
 };
 
+namespace seissol {
+struct GravitationSetup {
+  double acceleration = 9.81; // m/s
+};
+} // namespace seissol
+
 struct TravellingWaveParameters {
   std::array<double, 3> origin;
   std::array<double, 3> kVec;

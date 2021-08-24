@@ -494,6 +494,7 @@ CONTAINS
   endif
 
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
+  call c_interoperability_initializeGravitationalAcceleration(EQN%GravitationalAcceleration)
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))

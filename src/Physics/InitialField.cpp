@@ -232,6 +232,12 @@ void seissol::physics::SnellsLaw::evaluate(double time,
 #endif
 }
 
+seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
+: mode(mode), gravitationalAcceleration(gravitationalAcceleration) {
+  if (mode < 0 || mode > 3) {
+    throw std::runtime_error("Wave mode " + std::to_string(mode) + " is not supported.");
+  }
+}
 void seissol::physics::Ocean::evaluate(double time,
                                        std::vector<std::array<double, 3>> const& points,
                                        const CellMaterialData& materialData,
@@ -243,32 +249,86 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto z = points[i][2];
     const auto t = time;
 
-    const double g = 9.81; // m/s
+    const auto g = gravitationalAcceleration;
+    if (std::abs(g - 9.81e-3) > 10e-15) {
+      logError() << "Ocean scenario only supports g=9.81e-3 currently!";
+    }
+    if (materialData.local.mu != 0.0) {
+      logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
+    }
     const double pi = std::acos(-1);
-    assert(materialData.local.mu == 0); // has to be acoustic
     const double rho = materialData.local.rho;
 
-    const double k_x = pi/100; // 1/m
-    const double k_y = pi/100; // 1/m
-    constexpr double k_star = 0.0444284459948;
-    constexpr double omega = 0.276857520383318;
+    const double Lx = 10.0; // km
+    const double Ly = 10.0; // km
+    const double k_x = pi / Lx; // 1/km
+    const double k_y = pi / Ly; // 1/km
 
-    const auto B = g * k_star/(omega*omega);
-    const auto pressure = -std::sin(k_x*x)*std::sin(k_y*y)*std::sin(omega*t)*(std::sinh(k_star*z)
-        + B * std::cosh(k_star*z));
+    constexpr auto k_stars = std::array<double, 3>{
+      0.4452003497054692,
+      1.5733628061766445,
+      4.713305873881573
+    };
 
-    dofsQp(i,0) = pressure;
-    dofsQp(i,1) = pressure;
-    dofsQp(i,2) = pressure;
-    dofsQp(i,3) = 0.0;
-    dofsQp(i,4) = 0.0;
-    dofsQp(i,5) = 0.0;
-    dofsQp(i,6) = (k_x/(omega*rho))*cos(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::sinh(k_star*z)
-        + B * std::cosh(k_star*z));
-    dofsQp(i,7) = (k_y/(omega*rho))*std::sin(k_x*x)*cos(k_y*y)*cos(omega*t)*(std::sinh(k_star*z)
-        + B * std::cosh(k_star*z));
-    dofsQp(i,8) = (k_star/(omega*rho))*std::sin(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::cosh(k_star*z)
-        + B * std::sinh(k_star*z));
+    // Note: Could be computed on the fly but it's better to pre-compute them with higher precision!
+    constexpr auto omegas = std::array<double, 3>{
+      0.0427240277969087,
+      2.4523337594491745,
+      7.1012991617572165
+    };
+
+    const auto k_star = k_stars[mode];
+    const auto omega = omegas[mode];
+
+    const auto B = g * k_star / (omega * omega);
+    constexpr auto scalingFactor = 1;
+
+    // Shear stresses are zero for elastic
+    dofsQp(i, 3) = 0.0;
+    dofsQp(i, 4) = 0.0;
+    dofsQp(i, 5) = 0.0;
+
+    if (mode == 0) {
+      // Gravity mode
+      const auto pressure = -std::sin(k_x * x) * std::sin(k_y * y) * std::sin(omega * t) *
+                            (std::sinh(k_star * z) + B * std::cosh(k_star * z));
+      dofsQp(i, 0) = scalingFactor * pressure;
+      dofsQp(i, 1) = scalingFactor * pressure;
+      dofsQp(i, 2) = scalingFactor * pressure;
+
+      dofsQp(i, 6) =
+          scalingFactor * (k_x / (omega * rho)) * std::cos(k_x * x) * std::sin(k_y * y) * std::cos(omega * t) *
+          (std::sinh(k_star * z)
+           + B * std::cosh(k_star * z));
+      dofsQp(i, 7) =
+          scalingFactor * (k_y / (omega * rho)) * std::sin(k_x * x) * std::cos(k_y * y) * std::cos(omega * t) *
+          (std::sinh(k_star * z)
+           + B * std::cosh(k_star * z));
+      dofsQp(i, 8) =
+          scalingFactor * (k_star / (omega * rho)) * std::sin(k_x * x) * std::sin(k_y * y) * std::cos(omega * t) *
+          (std::cosh(k_star * z)
+           + B * std::sinh(k_star * z));
+    } else {
+      // Elastic-acoustic mode
+      const auto pressure = -std::sin(k_x * x) * std::sin(k_y * y) * std::sin(omega * t) *
+                            (std::sin(k_star * z) + B * std::cos(k_star * z));
+      dofsQp(i, 0) = scalingFactor * pressure;
+      dofsQp(i, 1) = scalingFactor * pressure;
+      dofsQp(i, 2) = scalingFactor * pressure;
+      dofsQp(i, 6) =
+          scalingFactor * (k_x / (omega * rho)) * std::cos(k_x * x) * std::sin(k_y * y) * std::cos(omega * t) *
+          (std::sin(k_star * z)
+           + B * std::cos(k_star * z));
+      dofsQp(i, 7) =
+          scalingFactor * (k_y / (omega * rho)) * std::sin(k_x * x) * std::cos(k_y * y) * std::cos(omega * t) *
+          (std::sin(k_star * z)
+           + B * std::cos(k_star * z));
+      dofsQp(i, 8) =
+          scalingFactor * (k_star / (omega * rho)) * std::sin(k_x * x) * std::sin(k_y * y) * std::cos(omega * t) *
+          (std::cos(k_star * z)
+           - B * std::sin(k_star * z));
+    }
+
   }
 #else
   dofsQp.setZero();

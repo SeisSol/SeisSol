@@ -99,6 +99,8 @@ src/Numerical_aux/typesdef.f90
 src/Numerical_aux/dgbasis.f90
 src/Numerical_aux/gauss.f90
 src/Numerical_aux/operators.f90
+src/Numerical_aux/ODEInt.cpp
+src/Numerical_aux/ODEVector.cpp
 src/Modules/ModulesF.f90
 src/seissolxx.f90
 src/Physics/ini_model.f90
@@ -122,6 +124,8 @@ src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
+
+src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 )
 
 target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})

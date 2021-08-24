@@ -400,10 +400,10 @@ private:
     }
 #endif // ACL_DEVICE
 
-    void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
-                                        CellLocalInformation const* cellInformation,
-                                        long long&                  nonZeroFlops,
-                                        long long&                  hardwareFlops  );
+    void computeLocalIntegrationFlops(unsigned numberOfCells,
+                                      CellLocalInformation const* cellInformation,
+                                      long long& nonZeroFlops,
+                                      long long& hardwareFlops);
 
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,
@@ -588,6 +588,12 @@ private:
      **/
     void computeNeighboringInterior();
 
+
+    /**
+     * Returns number of cells managed by this cluster.
+     * @return Number of cells
+     */
+    long getNumberOfCells() const;
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
     /**

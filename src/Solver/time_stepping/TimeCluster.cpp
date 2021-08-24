@@ -81,7 +81,6 @@
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
-#include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
 
 #include <cassert>
@@ -580,7 +579,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   real** buffers = i_layerData.var(m_lts->buffers);
   real** derivatives = i_layerData.var(m_lts->derivatives);
-  real** displacements = i_layerData.var(m_lts->displacements);
   CellMaterialData* materialData = i_layerData.var(m_lts->material);
 
   kernels::LocalData::Loader loader;
@@ -612,7 +610,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                              data,
                              tmp,
                              l_bufferPointer,
-                             derivatives[l_cell]);
+                             derivatives[l_cell],
+                             m_fullUpdateTime,
+                             true);
 
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
@@ -624,14 +624,20 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );
-    
-    // Update displacement
-    if (displacements[l_cell] != nullptr) {
-      kernel::addVelocity krnl;
-      krnl.I = l_bufferPointer;
-      krnl.selectVelocity = init::selectVelocity::Values;
-      krnl.displacement = displacements[l_cell];
-      krnl.execute();
+
+    for (unsigned face = 0; face < 4; ++face) {
+      auto& curFaceDisplacements = data.faceDisplacements[face];
+      // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
+      if (curFaceDisplacements != nullptr
+          && data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) {
+        kernel::addVelocity addVelocityKrnl;
+
+        addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
+        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
+        addVelocityKrnl.I = l_bufferPointer;
+        addVelocityKrnl.execute(face);
+      }
     }
 
     // update lts buffers if required
@@ -660,18 +666,26 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   m_timeKernel.computeBatchedAder(m_timeStepWidth, tmp, table);
   m_localKernel.computeBatchedIntegral(table, tmp);
 
-  ConditionalKey key(*KernelNames::Displacements);
-  if (table.find(key) != table.end()) {
-    BatchTable &entry = table[key];
-    // NOTE: ivelocities have been computed implicitly, i.e
-    // it is 6th, 7the and 8th columns of idofs
-    device.algorithms.accumulateBatchedData((entry.content[*EntityId::Ivelocities])->getPointers(),
-                                            (entry.content[*EntityId::Displacements])->getPointers(),
-                                            tensor::displacement::Size,
-                                            (entry.content[*EntityId::Displacements])->getSize());
+  for (unsigned face = 0; face < 4; ++face) {
+    ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
+    if (table.find(key) != table.end()) {
+      BatchTable &entry = table[key];
+      // NOTE: integrated velocities have been computed implicitly, i.e
+      // it is 6th, 7the and 8th columns of integrated dofs
+
+      kernel::gpu_addVelocity displacementKrnl;
+      displacementKrnl.faceDisplacement = entry.content[*EntityId::FaceDisplacement]->getPointers();
+      displacementKrnl.integratedVelocities = const_cast<real const**>(entry.content[*EntityId::Ivelocities]->getPointers());
+      displacementKrnl.V3mTo2nFace = m_globalDataOnDevice->V3mTo2nFace;
+
+      // Note: this kernel doesn't require tmp. memory
+      displacementKrnl.numElements = entry.content[*EntityId::FaceDisplacement]->getSize();
+      displacementKrnl.streamPtr = device.api->getDefaultStream();
+      displacementKrnl.execute(face);
+    }
   }
 
-  key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
+  ConditionalKey key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
   if (table.find(key) != table.end()) {
     BatchTable &entry = table[key];
 
@@ -946,23 +960,34 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   m_updatable.neighboringInterior = false;
 }
 
-void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned                    numberOfCells,
-                                                                        CellLocalInformation const* cellInformation,
-                                                                        long long&                  nonZeroFlops,
-                                                                        long long&                  hardwareFlops  )
+void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(
+    unsigned numberOfCells,
+    CellLocalInformation const* cellInformation,
+    long long& nonZeroFlops,
+    long long& hardwareFlops  )
 {
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
     unsigned cellNonZero, cellHardware;
-    // TODO(Lukas) Maybe include avg. displacement computation here at some point.
     m_timeKernel.flopsAder(cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
     m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
+    // Contribution from displacement/integrated displacement
+    for (unsigned face = 0; face < 4; ++face) {
+      if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
+        const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
+        GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
+                                                             cellInformation[cell].faceTypes[face],
+                                                             m_timeKernel);
+        nonZeroFlops += nonZeroFlopsDisplacement;
+        hardwareFlops += hardwareFlopsDisplacement;
+      }
+    }
   }
 }
 
@@ -1039,6 +1064,12 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_nonZero[PlasticityYield],
                                                   m_flops_hardware[PlasticityYield] );
 }
+
+long seissol::time_stepping::TimeCluster::getNumberOfCells() const {
+  return m_clusterData->child<Copy>().getNumberOfCells() +
+         m_clusterData->child<Interior>().getNumberOfCells();
+}
+
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 void seissol::time_stepping::TimeCluster::pollForCopyLayerSends(){
