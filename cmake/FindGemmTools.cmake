@@ -32,7 +32,10 @@ string(REPLACE "," ";" _GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 
 foreach(component ${_GEMM_TOOLS_LIST})
     if ("${component}" STREQUAL "LIBXSMM")
+        # TODO(Lukas) Remove next line
         find_package(Libxsmm_executable REQUIRED)
+        find_package(LIBXSMM REQUIRED)
+        find_package(BLAS REQUIRED)
 
     elseif ("${component}" STREQUAL "PSpaMM")
         find_package(PSpaMM REQUIRED)
@@ -64,6 +67,6 @@ foreach(component ${_GEMM_TOOLS_LIST})
 
 endforeach()
 
-set(GemmTools_INCLUDE_DIRS ${MKL_INCLUDE_DIRS} ${OpenBLAS_INCLUDE_DIRS} ${BLIS_INCLUDE_DIRS})
-set(GemmTools_LIBRARIES ${MKL_LIBRARIES} ${OpenBLAS_LIBRARIES} ${BLIS_LIBRARIES})
+set(GemmTools_INCLUDE_DIRS ${MKL_INCLUDE_DIRS} ${OpenBLAS_INCLUDE_DIRS} ${BLIS_INCLUDE_DIRS} ${LIBXSMM_INCLUDE_DIRS})
+set(GemmTools_LIBRARIES ${MKL_LIBRARIES} ${OpenBLAS_LIBRARIES} ${BLIS_LIBRARIES} ${LIBXSMM_LIBRARIES} ${BLAS_LIBRARIES})
 set(GemmTools_COMPILER_DEFINITIONS ${MKL_COMPILER_DEFINITIONS})

@@ -45,7 +45,7 @@ import sys
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
@@ -147,7 +147,9 @@ gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
 gemm_generators = []
 
 for tool in gemm_tool_list:
-  if hasattr(gemm_configuration, tool):
+  if tool == 'LIBXSMM':
+      gemm_generators.append(LIBXSMM_JIT(arch))
+  elif hasattr(gemm_configuration, tool):
     specific_gemm_class = getattr(gemm_configuration, tool)
     gemm_generators.append(specific_gemm_class(arch))
   else:
