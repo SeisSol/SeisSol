@@ -149,10 +149,6 @@ void LocalIntegrationRecorder::recordDisplacements() {
   std::array<std::vector<real *>, 4> iVelocitiesPtrs{{}};
   std::array<std::vector<real *>, 4> displacementsPtrs{};
 
-  constexpr unsigned numStressComponents{6};
-  constexpr unsigned offsetToVelocities = numStressComponents * (init::I::Stop[0] - init::I::Start[0]);
-
-  // NOTE: velocity components are between 6th and 8th columns
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
     auto data = currentLoader->entry(cell);
@@ -162,8 +158,10 @@ void LocalIntegrationRecorder::recordDisplacements() {
       auto notFreeSurfaceGravity = data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
-        real *integratedVelocity = &idofsAddressRegistry[cell][offsetToVelocities];
-        iVelocitiesPtrs[face].push_back(integratedVelocity);
+        auto Iview = init::I::view::create(idofsAddressRegistry[cell]);
+        // NOTE: velocity components are between 6th and 8th columns
+        constexpr unsigned firstVelocityComponent{6};
+        iVelocitiesPtrs[face].push_back(&Iview(0, firstVelocityComponent));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
       }
     }
