@@ -153,10 +153,12 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
   pointSources.A[index] = subfault.area;
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
+      [[fallthrough]]
+    case seissol::model::MaterialType::poroelastic:
       if (subfault.mu != 0) {
-        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+        logError() << "There are specific fault parameters for the fault. This is only compatible with isotropic (visco)elastic materials.";
       }
-      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
     default:
       seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
