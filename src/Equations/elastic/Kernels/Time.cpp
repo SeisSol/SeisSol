@@ -71,6 +71,8 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
+#include "Kernels/GravitationalFreeSurfaceBC.h"
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
@@ -122,13 +124,13 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.Zinv = init::Zinv::Values;
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
-#else
+#else //USE_STP
   checkGlobalData(global, ALIGNMENT);
+
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-  displacementAvgNodalPrototype.V3mTo2nFace = global->V3mTo2nFace;
-  displacementAvgNodalPrototype.selectZDisplacementFromQuantities = init::selectZDisplacementFromQuantities::Values;
-  displacementAvgNodalPrototype.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
-#endif
+
+  projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+#endif //USE_STP
 }
 
 void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
@@ -146,19 +148,22 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                          LocalData& data,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
-                                         real* o_timeDerivatives) {
+                                         real* o_timeDerivatives,
+                                         double startTime,
+                                         bool updateDisplacement) {
+
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
-  // Only a fraction of cells need the average displacement
-  bool needsAvgDisplacement = false;
-  for (const auto faceType : data.cellInformation.faceTypes) {
-    if (faceType == FaceType::freeSurfaceGravity) {
-      needsAvgDisplacement = true;
-      break;
-    }
-  }
+  // Only a small fraction of cells has the gravitational free surface boundary condition
+  const bool hasGravitationalFreeSurfaceBc = updateDisplacement
+                                             && std::any_of(std::begin(data.cellInformation.faceTypes),
+                                                            std::end(data.cellInformation.faceTypes),
+                                                            [](const FaceType f) {
+                                                              return f == FaceType::freeSurfaceGravity;
+                                             });
+
 #ifdef USE_STP
   real stpRhs[tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
   real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
@@ -172,7 +177,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.stp = stp;
   krnl.stpRhs = stpRhs;
   krnl.execute();
-#else
+#else //USE_STP
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
@@ -199,7 +204,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   intKrnl.power = i_timeStepWidth;
   intKrnl.execute0();
 
-  if (needsAvgDisplacement) {
+  if (hasGravitationalFreeSurfaceBc) {
     // First derivative if needed later in kernel
     std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
   } else if (o_timeDerivatives != nullptr) {
@@ -216,30 +221,29 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     intKrnl.execute(der);
   }
 
-  // Compute average displacement over timestep if needed.
-  alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
-
-  if (needsAvgDisplacement) {
-    kernels::computeAverageDisplacement(i_timeStepWidth,
-                                        derivativesBuffer,
-                                        m_derivativesOffsets,
-                                        twiceTimeIntegrated);
-
-    for (int side = 0; side < 4; ++side) {
-      if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
-        assert(data.displacements != nullptr);
-
-        auto krnl = displacementAvgNodalPrototype;
-        krnl.dt = i_timeStepWidth;
-        krnl.I = twiceTimeIntegrated;
-        krnl.displacement = data.displacements;
-
-        krnl.INodalDisplacement = tmp.nodalAvgDisplacements[side];
-        krnl.execute(side);
-      }
+  // Do not compute it like this if at interface
+  // Compute integrated displacement over time step if needed.
+  auto& bc = tmp.gravitationalFreeSurfaceBc;
+  for (unsigned face = 0; face < 4; ++face) {
+    if (data.faceDisplacements[face] == nullptr) continue;
+    if (data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
+      std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
+      bc.evaluate(
+          face,
+          projectRotatedKrnlPrototype,
+          data.boundaryMapping[face],
+          data.faceDisplacements[face],
+          tmp.nodalAvgDisplacements[face].data(),
+          *this,
+          derivativesBuffer,
+          startTime,
+          i_timeStepWidth,
+          data.material,
+          data.cellInformation.faceTypes[face]
+          );
     }
   }
-#endif
+#endif //USE_STP
 }
 
 void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,

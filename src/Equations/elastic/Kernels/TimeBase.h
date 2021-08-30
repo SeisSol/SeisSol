@@ -86,14 +86,24 @@ class GlobalData;
 
 class seissol::kernels::TimeBase {
   protected:
+    static void checkGlobalData(GlobalData const* global, size_t alignment);
 #ifdef USE_STP
     kernel::stp m_krnlPrototype;
 #else    
     kernel::derivative m_krnlPrototype;
 #endif
-    static void checkGlobalData(GlobalData const* global, size_t alignment);
-    kernel::displacementAvgNodal displacementAvgNodalPrototype;
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+    kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype;
+
+  /*
+   *! Offsets of the derivatives.
+   *
+   * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing derivatives follow:
+   *   1st derivative: o_derivativesOffset[1]
+   *   2nd derivative: o_derivativesOffset[2]
+   *   ...
+   * * Offset are always counted from position zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
+   */
+  unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;
@@ -105,16 +115,6 @@ public:
      * Constructor, which initializes the time kernel.
      **/
     TimeBase();
-
-    /*
-     *! Offsets of the derivatives.
-     *
-     * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing derivatives follow:
-     *   1st derivative: o_derivativesOffset[1]
-     *   2nd derivative: o_derivativesOffset[2]
-     *   ...
-     * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
-     */
 };
 
 #endif

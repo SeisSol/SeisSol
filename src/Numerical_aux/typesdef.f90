@@ -303,6 +303,9 @@ MODULE TypesDef
      INTEGER                   :: nNode_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
      INTEGER                   :: nElem_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
 #endif
+      INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
+      INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
+      INTEGER                    :: vertexWeightFreeSurfaceWithGravity ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge
@@ -897,6 +900,7 @@ MODULE TypesDef
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
+     REAL                                   :: gravitationalAcceleration        !< The value of g, the gravitational acceleration. Default: 9.81 m/s^2
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
      CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties

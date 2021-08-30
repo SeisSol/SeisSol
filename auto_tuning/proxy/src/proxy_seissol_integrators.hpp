@@ -30,6 +30,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
 
+void registerMarkers() {
+    #pragma omp parallel
+    {
+        LIKWID_MARKER_REGISTER("ader");
+        LIKWID_MARKER_REGISTER("localwoader");
+        LIKWID_MARKER_REGISTER("local");
+        LIKWID_MARKER_REGISTER("neighboring");
+    }
+}
+
 namespace proxy::cpu {
   void computeAderIntegration() {
     auto&                 layer           = m_ltsTree->child(0).child<Interior>();
@@ -43,6 +53,7 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     #pragma omp parallel
     {
+    LIKWID_MARKER_START("ader");
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
@@ -55,6 +66,7 @@ namespace proxy::cpu {
                                              derivatives[l_cell] );
     }
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("ader");
     }
   #endif
   }
@@ -70,6 +82,7 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     #pragma omp parallel
     {
+    LIKWID_MARKER_START("localwoader");
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
@@ -84,6 +97,7 @@ namespace proxy::cpu {
                                     0);
     }
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("localwoader");
     }
   #endif
   }
@@ -100,6 +114,7 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     #pragma omp parallel
     {
+    LIKWID_MARKER_START("local");
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
@@ -119,6 +134,7 @@ namespace proxy::cpu {
                                     0);
     }
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("local");
     }
   #endif
   }
@@ -145,6 +161,7 @@ namespace proxy::cpu {
     #pragma omp parallel private(l_timeIntegrated)
   #  endif
     {
+    LIKWID_MARKER_START("neighboring");
     #pragma omp for schedule(static)
   #endif
     for( unsigned l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -191,6 +208,7 @@ namespace proxy::cpu {
     }
 
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("neighboring");
     }
   #endif
   }

@@ -116,7 +116,6 @@ add_custom_command(
        COMMENT "Codegen for tensor stuff."
        )
 
-
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
 elseif (PLASTICITY_METHOD STREQUAL "nb")
@@ -203,6 +202,10 @@ if (MPI)
   target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_Fortran)
 
   target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
+
+  if (MINI_SEISSOL)
+    target_compile_definitions(SeisSol-lib PUBLIC USE_MINI_SEISSOL)
+  endif()
 endif()
 
 if (COMMTHREAD)
@@ -359,8 +362,7 @@ target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
 # SeisSol proxy-core
-add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
-                               auto_tuning/proxy/src/flop_counter.cpp)
+add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
 target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
 
 if (PROXY_PYBINDING)
@@ -380,6 +382,11 @@ add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 
+find_package(likwid QUIET)
+if (likwid_FOUND)
+    target_compile_definitions(SeisSol-proxy PRIVATE LIKWID_PERFMON)
+    target_link_libraries(SeisSol-proxy PRIVATE likwid::likwid)
+endif()
 
 if (TESTING)
   include(cmake/testing.cmake)
@@ -429,6 +436,7 @@ if (TESTING)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/ODEInt.t.h      
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
     ${SeisSol_NETCDF_TEST_FILES}

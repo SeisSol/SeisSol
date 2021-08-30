@@ -7,6 +7,7 @@ Tv=0.05
 !Attenuation parameters (ignored if not compiled with attenuation)
 FreqCentral=2.5
 FreqRatio=100
+GravitationalAcceleration = 9.81 ! value of gravitational acceleration
 /
 
 &IniCondition
@@ -82,6 +83,10 @@ PPFileName = 'tpv33_faultreceivers.dat'
 &MeshNml
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
 meshgenerator = 'PUML'          ! Name of meshgenerator (Gambit3D-fast, Netcdf or PUML)
+vertexWeightElement = 100 ! Base vertex weight for each element used as input to ParMETIS
+vertexWeightDynamicRupture = 200 ! Weight that's added for each DR face to element vertex weight
+vertexWeightGravitationalFreeSurface = 300 ! Weight that's added for each free surface with gravity face to element vertex weight
+
 /
 
 &Discretization

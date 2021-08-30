@@ -109,6 +109,14 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface
+    subroutine c_interoperability_initializeGravitationalAcceleration(gravitationalAcceleration) bind ( C, name='c_interoperability_initializeGravitationalAcceleration')
+      use iso_c_binding
+      implicit none
+      real (kind=c_double), value :: gravitationalAcceleration
+    end subroutine
+  end interface
+
 
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface

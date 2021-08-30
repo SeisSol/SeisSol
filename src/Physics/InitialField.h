@@ -101,11 +101,22 @@ namespace seissol {
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
+    /*
+     * From
+     * Abrahams, L. S., Krenz, L., Dunham, E. M., & Gabriel, A. A. (2019, December).
+     * Verification of a 3D fully-coupled earthquake and tsunami model.
+     * In AGU Fall Meeting Abstracts (Vol. 2019, pp. NH43F-1000).
+     * A 3D extension of the 2D scenario in
+     * Lotto, G. C., & Dunham, E. M. (2015).
+     * High-order finite difference modeling of tsunami generation in a compressible ocean from offshore earthquakes.
+     * Computational Geosciences, 19(2), 327-340.
+     */
       class Ocean : public InitialField {
+      private:
+        const int mode;
+        const double gravitationalAcceleration;
       public:
-          Ocean() {
-
-          }
+          Ocean(int mode, double gravitationalAcceleration);
           void evaluate(double time,
                         std::vector<std::array<double, 3>> const& points,
                         const CellMaterialData& materialData,
