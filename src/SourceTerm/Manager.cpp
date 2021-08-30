@@ -153,7 +153,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
   pointSources.A[index] = subfault.area;
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
-      [[fallthrough]]
+      [[fallthrough]];
     case seissol::model::MaterialType::poroelastic:
       if (subfault.mu != 0) {
         logError() << "There are specific fault parameters for the fault. This is only compatible with isotropic (visco)elastic materials.";

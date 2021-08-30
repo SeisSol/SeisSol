@@ -506,7 +506,6 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
        layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
        ++layer, ++boundaryLayer) {
     CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
-    CellMaterialData* material = layer->var(m_lts.material);
 
     unsigned numberOfBoundaryFaces = 0;
 #ifdef _OPENMP
@@ -533,7 +532,6 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto* cellInformation = layer->var(m_lts.cellInformation);
     auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
     auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation);
-    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
 
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {

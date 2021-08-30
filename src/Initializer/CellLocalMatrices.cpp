@@ -270,7 +270,6 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
-    auto* material = it->var(i_lts->material);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP
@@ -513,6 +512,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
       switch (plusMaterial->getMaterialType()) {
+        case seissol::model::MaterialType::acoustic: {
+          logError() << "Dynamic Rupture does not work with an acoustic material.";
+          break;
+        }
         case seissol::model::MaterialType::poroelastic: {
           logError() << "Dynamic Rupture does not work with poroelasticity yet.";
           //TODO(SW): Make DR work with poroelasticity

@@ -212,8 +212,6 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
       int cellIds[2];
       PUML::Upward::cells(mesh, faces[faceids[face]], cellIds);
 
-      int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-
       if (faceType == FaceType::freeSurfaceGravity) {
         freeSurface++;
       }
