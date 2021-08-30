@@ -91,7 +91,8 @@ namespace seissol {
           AT(5,12) = -1 / params.rho_2;
 
           AT(6, 0) = -params.c_bar(0, 0);
-          AT(6, 1) = -params.c_bar(1, 0); AT(6, 2) = -params.c_bar(2, 0);
+          AT(6, 1) = -params.c_bar(1, 0);
+          AT(6, 2) = -params.c_bar(2, 0);
           AT(6, 3) = -params.c_bar(5, 0);
           AT(6, 4) = -params.c_bar(3, 0);
           AT(6, 5) = -params.c_bar(4, 0);
@@ -239,8 +240,9 @@ namespace seissol {
                                                T&        QgodNeighbor,
                                                arma::Mat<double>::fixed<13,13>& R)
     {
-      assert(("This specialization is for armadillo matrices. This is only used for poroelastic materials. You should never end up here.",
-            materialtype == MaterialType::poroelastic));
+      if (materialtype != MaterialType::poroelastic) {
+        logError() << "This specialization is for armadillo matrices. This is only used for poroelastic materials. You should never end up here.";
+      }
     
       constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
       for (size_t i = 0; i < relevant_quantities; i++) {
@@ -321,7 +323,6 @@ namespace seissol {
         if(local_eigenvalues(i).real() < -tolerance) {
           chi_minus(i,i) = 1.0;
         }
-        //also include the zero eigenvalues here, otherwise the matrix R will be singular
         if(local_eigenvalues(i).real() > tolerance) {
           chi_plus(i,i) = 1.0;
         }
@@ -362,7 +363,7 @@ namespace seissol {
         init::QgodLocal::view::type&      QgodLocal,
         init::QgodNeighbor::view::type&   QgodNeighbor )
     {
-      assert(("Poroelastic Materials can only be used with armadillo. The eigen3 eigensolver is not accurate enough", false));
+      logError() << "Poroelastic Materials can only be used with armadillo. The eigen3 eigensolver is not accurate enough";
     }
 #endif //HAS_ARMADILLO
 
@@ -371,7 +372,6 @@ namespace seissol {
         Tview &sourceMatrix, 
         size_t quantity,
         real timeStepWidth) {
-      //This function needs the matrix Z, which is only included, if we compile the poroelastic version of SeisSol
       using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
       using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
 
@@ -395,7 +395,6 @@ namespace seissol {
     //constexpr for loop since we need to instatiate the view templates
     template<size_t i_start, size_t i_end, typename Tview>
     struct for_loop {
-      //This function needs the matrix Z, which is only included, if we compile the poroelastic version of SeisSol
       for_loop(real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
           Tview &sourceMatrix, 
           real timeStepWidth) {

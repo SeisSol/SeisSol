@@ -9,17 +9,29 @@
 namespace seissol{
   namespace eigenvalues{
 
-    //struct to store an eigenvalue decomposition
-    //vectors: Matrix of Eigenvectors in column-major format
-    //values: Vector of Eigenvalues
+
+    /**
+     * Stores an eigenpair of a dim x dim matrix of type T, i.e. a vector of eigenvalues and a matrix of eigenvectors
+     */
     template<typename T, size_t dim>
     struct Eigenpair{
+      /** 
+       * vectors: Matrix of Eigenvectors in column-major format
+       */
       std::array<T, dim*dim> vectors;
+      /**
+       * values: Vector of eigenvalues, in the same ordering as the eigenvectors
+       */
       std::array<T, dim> values;
     };
 
-    //computes the eigenvalue decomposition of M
-    //M is a dense Matrix in column-major format
+    /**
+     * Computes the eigenvalue decomposition of a dim x dim matrix of type T
+     * The eigenvalues are sorted by their real parts
+     * As a backend this function uses the eigen3 library
+     * @param M: Dense matrix of size dim x dim, stored in column-major format
+     * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
+     */
     template<typename T, size_t dim>
     void computeEigenvaluesWithEigen3(std::array<T, dim*dim>& M, Eigenpair<T, dim>& output) {
       using Matrix = Eigen::Matrix<T, dim, dim, Eigen::ColMajor>;
@@ -55,6 +67,13 @@ namespace seissol{
 #include <armadillo>
 namespace seissol{
   namespace eigenvalues{
+    /**
+     * Computes the eigenvalue decomposition of a dim x dim matrix of type T
+     * The eigenvalues are sorted by their real parts
+     * As a backend this function uses the armadillo library
+     * @param M: Dense matrix of size dim x dim, stored in column-major format
+     * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
+     */
     template<typename T, size_t dim>
      void computeEigenvaluesWithArmadillo(std::array<T, dim*dim>& M, Eigenpair<T, dim>& output) {
        using Matrix = typename arma::Mat<T>::template fixed<dim, dim>;

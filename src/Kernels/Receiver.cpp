@@ -91,7 +91,6 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.executeSTP (timeStepWidth, receiver.data, timeEvaluated, stp);
-      //TODO(SW): Fix Flop Counter
       g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
       g_SeisSolHardwareFlopsOther += m_hardwareFlops;
 
@@ -110,7 +109,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
         }
-#else
+#else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
           receiver.output.push_back(qAtPoint(quantity));
         }
@@ -121,7 +120,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
     }
   }
   return receiverTime;
-#else
+#else //USE_STP
   real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
   real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
   real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
@@ -162,7 +161,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
         }
-#else
+#else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
           if (!std::isfinite(qAtPoint(quantity))) {
             logError() << "Detected Inf/NaN in receiver output. Aborting.";

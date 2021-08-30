@@ -1857,8 +1857,8 @@ CONTAINS
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,'(a15)') char_dummy                          ! Read comment
        SOURCE%RP%SolidVelocityComponent(:) = 0.
-       IF( index(char_dummy, 'solid').gt.0 ) THEN                        ! Check for solid velocity component (optional)
-           READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read solid velocity component
+       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for (solid) velocity component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read (solid) velocity component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
        SOURCE%RP%PressureComponent(:) = 0.

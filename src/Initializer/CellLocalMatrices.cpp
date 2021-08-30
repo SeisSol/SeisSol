@@ -239,10 +239,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 }
 
 void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
-    unsigned               meshId,
-    unsigned               side,
-    double*                surfaceArea,
-    double*                volume )
+                            unsigned               meshId,
+                            unsigned               side,
+                            double*                surfaceArea,
+                            double*                volume )
 {
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
   std::vector<Element> const& elements = i_meshReader.getElements();
@@ -364,7 +364,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
-#ifndef USE_POROELASTIC
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
   real APlusData[tensor::star::size(0)];
@@ -569,7 +568,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
-#endif
 }
 
 void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,

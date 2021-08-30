@@ -360,7 +360,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
         sources[cluster].tensor[clusterSource][6+i] /= material.rho;
       }
 #else
-      logWarning() << "For the poroelastic equation we do not scale the force components with the density. Make sure you know what you do.";
+      logWarning() << "For the poroelastic equation we do not scale the force components with the density. Read the documentation to see how sources in poroelastic media are defined.";
 #endif
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],

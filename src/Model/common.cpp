@@ -114,12 +114,13 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
 #elif USE_VISCOELASTIC2
   seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
 #elif USE_POROELASTIC
-    unsigned origin = 10; 
-    seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
-    seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
-
-    o_T(9, 9) = 1;
-    o_Tinv(9,9) = 1;
+  //pressure
+  o_T(9, 9) = 1;
+  o_Tinv(9,9) = 1;
+  //fluid velocities
+  unsigned origin = 10; 
+  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
+  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
 #endif 
 }
 
