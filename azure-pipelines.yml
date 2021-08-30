@@ -5,4 +5,3 @@ jobs:
           build_types: ['Release', 'Debug']
           precisions: ['single', 'double']
           equations: ['elastic', 'anisotropic', 'viscoelastic2', 'poroelastic']
-          equations: ['poroelastic']
