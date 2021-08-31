@@ -21,7 +21,7 @@ We then project the data (see :ref:`On the use of projections` for the choice of
 
 .. code-block:: bash
 
-   python SeisSol/Meshing/creating_geometric_models/create_surface_from_rectilinear_grid.py --proj '+init=EPSG:23839' data/GEBCO_2014_2D_118.1904_-2.4353_121.6855_1.0113.nc bathy.stl
+   python3 SeisSol/Meshing/creating_geometric_models/create_surface_from_rectilinear_grid.py --proj '+init=EPSG:23839' data/GEBCO_2014_2D_118.1904_-2.4353_121.6855_1.0113.nc bathy.stl
 
 We then load the stl file into SimModeler
 
@@ -84,9 +84,9 @@ We therefore generate the faults using:
 .. code-block:: bash
 
     dx=0.5e3
-    python SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py ExampleFiles/SimModeler_workflow/segmentSouth_d90_long.dat 0 90 --dd $dx --maxdepth 16e3 --extend 4e3
-    python SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py ExampleFiles/SimModeler_workflow/smootherNorthBend.dat 0 65 --dd $dx --maxdepth 16e3 --extend 4e3
-    python SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFault.dat 2 ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFaultDip.dat --dd $dx --maxdepth 16e3 --extend 4e3
+    python3 SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/segmentSouth_d90_long.dat 0 90 --dd $dx --maxdepth 16e3 --extend 4e3
+    python3 SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/smootherNorthBend.dat 0 65 --dd $dx --maxdepth 16e3 --extend 4e3
+    python3 SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFault.dat 2 SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFaultDip.dat --dd $dx --maxdepth 16e3 --extend 4e3
 
 
 Mutual surface intersection
