@@ -48,7 +48,7 @@
  
 void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3][3],
                                                 real const i_localSolidVelocityComponent[3],
-                                                real const i_localPressureComponent[1],
+                                                real i_localPressureComponent,
                                                 real const i_localFluidVelocityComponent[3],
                                                 real strike,
                                                 real dip,
@@ -112,7 +112,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   o_forceComponents[7] = f[1];
   o_forceComponents[8] = f[2];
 #ifdef USE_POROELASTIC
-  o_forceComponents[9] = i_localPressureComponent[0];
+  o_forceComponents[9] = i_localPressureComponent;
   o_forceComponents[10] = f[3];
   o_forceComponents[11] = f[4];
   o_forceComponents[12] = f[5];

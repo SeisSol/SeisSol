@@ -75,13 +75,13 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
 #ifdef USE_STP
-  real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
-  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK)));
-  real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
+  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
+  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
 
   kernel::evaluateDOFSAtPointSTP krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
-  krnl.stp = stp;
+  krnl.spaceTimePredictor = stp;
 
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
 
@@ -90,7 +90,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
     for (auto& receiver : m_receivers) {
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
-      m_timeKernel.executeSTP (timeStepWidth, receiver.data, timeEvaluated, stp);
+      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
       g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
       g_SeisSolHardwareFlopsOther += m_hardwareFlops;
 

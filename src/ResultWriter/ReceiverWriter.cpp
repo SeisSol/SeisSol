@@ -63,7 +63,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
 
   std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
 #ifdef USE_POROELASTIC
-  std::vector<std::string> additionalNames({"p", "u_f", "v_f", "w_f"});
+  std::array<std::string, 4> additionalNames({"p", "u_f", "v_f", "w_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
 

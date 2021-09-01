@@ -93,6 +93,6 @@ def addKernels(generator, aderdg):
   generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
 
   stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
-  stp = OptionalDimTensor('stp', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
-  evaluateDOFSAtPointSTP = QAtPoint['p'] <= stp['kpt'] * basisFunctionsAtPoint['k'] * timeBasisFunctionsAtPoint['t']
+  spaceTimePredictor = OptionalDimTensor('spaceTimePredictor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
+  evaluateDOFSAtPointSTP = QAtPoint['p'] <= spaceTimePredictor['kpt'] * basisFunctionsAtPoint['k'] * timeBasisFunctionsAtPoint['t']
   generator.add('evaluateDOFSAtPointSTP', evaluateDOFSAtPointSTP)

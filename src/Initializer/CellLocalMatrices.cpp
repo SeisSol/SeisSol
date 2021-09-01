@@ -130,8 +130,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
-      unsigned clusterID = cellInformation[cell].clusterId;
-      auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterID];
+      unsigned clusterId = cellInformation[cell].clusterId;
+      auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
       unsigned meshId = ltsToMesh[cell];
 
       real x[4];

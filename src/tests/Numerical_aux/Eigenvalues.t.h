@@ -27,7 +27,7 @@ class seissol::unit_test::EigenvaluesTestSuite : public CxxTest::TestSuite
         eigenvalues::Eigenpair<std::complex<real>, dim> eigenpair{};
         eigenvalues::computeEigenvaluesWithEigen3(M, eigenpair);
         testResidual<dim>(M, eigenpair);
-#ifdef HAS_ARMADILLO
+#ifdef USE_POROELASTIC
         eigenvalues::computeEigenvaluesWithArmadillo(M, eigenpair);
         testResidual<dim>(M, eigenpair);
 #endif

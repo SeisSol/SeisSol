@@ -196,15 +196,15 @@ namespace seissol {
 
     template<>
     void MaterialParameterDB<seissol::model::PoroElasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::PoroElasticMaterial> &adapter) {
-      adapter.addBindingPoint("bulk_solid", &seissol::model::PoroElasticMaterial::bulk_solid);
+      adapter.addBindingPoint("bulk_solid", &seissol::model::PoroElasticMaterial::bulkSolid);
       adapter.addBindingPoint("rho", &seissol::model::PoroElasticMaterial::rho);
       adapter.addBindingPoint("lambda", &seissol::model::PoroElasticMaterial::lambda);
       adapter.addBindingPoint("mu", &seissol::model::PoroElasticMaterial::mu);
       adapter.addBindingPoint("porosity", &seissol::model::PoroElasticMaterial::porosity);
       adapter.addBindingPoint("permeability", &seissol::model::PoroElasticMaterial::permeability);
       adapter.addBindingPoint("tortuosity", &seissol::model::PoroElasticMaterial::tortuosity);
-      adapter.addBindingPoint("bulk_fluid", &seissol::model::PoroElasticMaterial::bulk_fluid);
-      adapter.addBindingPoint("rho_fluid", &seissol::model::PoroElasticMaterial::rho_fluid);
+      adapter.addBindingPoint("bulk_fluid", &seissol::model::PoroElasticMaterial::bulkFluid);
+      adapter.addBindingPoint("rho_fluid", &seissol::model::PoroElasticMaterial::rhoFluid);
       adapter.addBindingPoint("viscosity", &seissol::model::PoroElasticMaterial::viscosity);
     }
 

@@ -85,16 +85,18 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
     template<typename T>
     void test_matrix(init::QgodLocal::view::type QgodLocal, T solution) {
-      double frob_squared_diff = 0.0;
-      double frob_squared_a = 0.0;
+      //compute the frobenius norms squared: ||QgodLocal - solution||^2 and ||solution||^2
+      double frobDiffSquared= 0.0;
+      double frobASquared = 0.0;
       for (unsigned int i = 0; i < solution[0].size(); i++) {
         for (unsigned int j = 0; j < solution.size(); j++) {
           const auto diff = (QgodLocal(i,j) - solution[j][i]);
-          frob_squared_diff += diff*diff;
-          frob_squared_a += solution[j][i]*solution[j][i];
+          frobDiffSquared += diff*diff;
+          frobASquared += solution[j][i]*solution[j][i];
         }
       }
-      TS_ASSERT_DELTA(frob_squared_diff, 0, epsilon*frob_squared_a*epsilon*frob_squared_a);
+      //Check whether ||QgodLocal - solution||^2 < epsilon^2 * ||solution||^2
+      TS_ASSERT_DELTA(frobDiffSquared, 0, epsilon*frobASquared*epsilon*frobASquared);
     }
 
     void test_nan(init::QgodLocal::view::type QgodNeighbor) {

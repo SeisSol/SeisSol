@@ -68,9 +68,9 @@ waves on unstructured meshes – I. The two-dimensional isotropic case with exte
 Mij and di are defined in a fault local coordinate system defined by strike, dip and rake, see for instance here:
 `https://github.com/SeisSol/SeisSol/blob/master/src/SourceTerm/PointSource.cpp#L48 <https://github.com/SeisSol/SeisSol/blob/master/src/SourceTerm/PointSource.cpp#L48>`__
 
-Above equations also hold true for viscoelastic or anisotropic materials.
+The above equations also hold for viscoelastic or anisotropic materials.
 In the viscoelastic case, the equations are extended by the memory variables.
-In the anisotropic case :math:`\lambda` and :math:`\mu` are replaced by the entries of the Hooke tensor :math:`c_{ij}`.
+In the anisotropic case, :math:`\lambda` and :math:`\mu` are replaced by the entries of the Hooke tensor :math:`c_{ij}`.
 
 For poroelastic materials, we add the possibility to consider forces in the fluid or pressure sources.
 To do so, add these two lines before `Number of subfaults`:

@@ -314,8 +314,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned i = 0; i < 3; i++) {
     localSolidVelocityComponent[i] = solidVelocityComponent[i];
   }
-  real localPressureComponent[1];
-  localPressureComponent[0] = pressureComponent[0];
+  real localPressureComponent = *pressureComponent;
   real localFluidVelocityComponent[3];
   for (unsigned i = 0; i < 3; i++) {
     localFluidVelocityComponent[i] = fluidVelocityComponent[i];

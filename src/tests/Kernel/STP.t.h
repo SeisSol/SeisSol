@@ -5,6 +5,7 @@
 #include <limits>
 #include <math.h>
 #include <type_traits>
+#include <random>
 
 #include "generated_code/kernel.h"
 #include "generated_code/init.h"
@@ -56,9 +57,11 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
 
     //prepare Geometry
     std::srand(0);
-    real x[] = {(real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX};
-    real y[] = {(real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX};
-    real z[] = {(real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX, (real)std::rand()/RAND_MAX};
+    std::mt19937 generator(20210109); //Standard mersenne_twister_engine seeded with today's date
+    std::uniform_real_distribution<real> distribution(0,1);
+    real x[] = {distribution(generator), distribution(generator), distribution(generator), distribution(generator)};
+    real y[] = {distribution(generator), distribution(generator), distribution(generator), distribution(generator)};
+    real z[] = {distribution(generator), distribution(generator), distribution(generator), distribution(generator)};
     real gradXi[3];
     real gradEta[3];
     real gradZeta[3];
@@ -112,7 +115,7 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     model::calcZinv(Zinv12, ET, 12, dt);
   }
 
-  void prepareKernel(seissol::kernel::stp& m_krnlPrototype) { 
+  void prepareKernel(seissol::kernel::spaceTimePredictor& m_krnlPrototype) { 
     for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
       if (n > 0) {
         for (int d = 0; d < 3; ++d) {
@@ -123,19 +126,19 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     }
     for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
       m_krnlPrototype.selectQuantity(k) = seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
-      m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
+      m_krnlPrototype.selectQuantityG(k) = init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
     }
     m_krnlPrototype.timeInt = seissol::init::timeInt::Values;
     m_krnlPrototype.wHat = seissol::init::wHat::Values;
   }
 
-  void prepareLHS(seissol::kernel::stp_test_lhs& m_krnlPrototype) { 
+  void prepareLHS(seissol::kernel::stpTestLhs& m_krnlPrototype) { 
     m_krnlPrototype.Z = seissol::init::Z::Values;
-    m_krnlPrototype.delta_large = seissol::init::delta_large::Values;
-    m_krnlPrototype.delta_small = seissol::init::delta_small::Values;
+    m_krnlPrototype.deltaLarge = seissol::init::deltaLarge::Values;
+    m_krnlPrototype.deltaSmall = seissol::init::deltaSmall::Values;
   }
 
-  void prepareRHS(seissol::kernel::stp_test_rhs& m_krnlPrototype) { 
+  void prepareRHS(seissol::kernel::stpTestRhs& m_krnlPrototype) { 
     for (size_t i = 0; i < 3; i++) {
       m_krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
     }
@@ -156,10 +159,10 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
 
   void solveWithKernel(real stp[], real* QData) {
     real o_timeIntegrated[seissol::tensor::I::size()];
-    real stpRhs[seissol::tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
+    alignas(PAGESIZE_STACK) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
     std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
-    seissol::kernel::stp krnl;
+    seissol::kernel::spaceTimePredictor krnl;
     prepareKernel(krnl);
 
     real A_values[seissol::tensor::star::size(0)] = {0};
@@ -187,31 +190,31 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     krnl.Q = QData;
     krnl.I = o_timeIntegrated;
     krnl.timestep = dt;
-    krnl.stp = stp;
-    krnl.stpRhs = stpRhs;
+    krnl.spaceTimePredictor = stp;
+    krnl.spaceTimePredictorRhs = stpRhs;
     krnl.execute();
   }
 
-  void compute_lhs(real* stp, real* lhs) {
-      kernel::stp_test_lhs test_lhs_krnl;
-      prepareLHS(test_lhs_krnl);
-      test_lhs_krnl.ET = sourceMatrix;
-      test_lhs_krnl.stp = stp;
-      test_lhs_krnl.test_lhs = lhs;
-      test_lhs_krnl.minus = -dt;
-      test_lhs_krnl.execute();
+  void computeLhs(real* stp, real* lhs) {
+      kernel::stpTestLhs testLhsKrnl;
+      prepareLHS(testLhsKrnl);
+      testLhsKrnl.ET = sourceMatrix;
+      testLhsKrnl.spaceTimePredictor = stp;
+      testLhsKrnl.testLhs = lhs;
+      testLhsKrnl.minus = -dt;
+      testLhsKrnl.execute();
   };
-  void compute_rhs(real* stp, real* QData, real* rhs) {
-      kernel::stp_test_rhs test_rhs_krnl;
-      prepareRHS(test_rhs_krnl);
-      test_rhs_krnl.Q = QData;
-      test_rhs_krnl.star(0) = starMatrices0;
-      test_rhs_krnl.star(1) = starMatrices1;
-      test_rhs_krnl.star(2) = starMatrices2;
-      test_rhs_krnl.stp = stp;
-      test_rhs_krnl.minus = -dt;
-      test_rhs_krnl.test_rhs = rhs;
-      test_rhs_krnl.execute();
+  void computeRhs(real* stp, real* QData, real* rhs) {
+      kernel::stpTestRhs testRhsKrnl;
+      prepareRHS(testRhsKrnl);
+      testRhsKrnl.Q = QData;
+      testRhsKrnl.star(0) = starMatrices0;
+      testRhsKrnl.star(1) = starMatrices1;
+      testRhsKrnl.star(2) = starMatrices2;
+      testRhsKrnl.spaceTimePredictor = stp;
+      testRhsKrnl.minus = -dt;
+      testRhsKrnl.testRhs = rhs;
+      testRhsKrnl.execute();
   };
 
   public:
@@ -220,9 +223,9 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
     };
 
     void testSTP() {
-      real stp[seissol::tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
-      real rhs[seissol::tensor::test_lhs::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
-      real lhs[seissol::tensor::test_rhs::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+      alignas(PAGESIZE_STACK) real stp[seissol::tensor::spaceTimePredictor::size()];
+      alignas(PAGESIZE_STACK) real rhs[seissol::tensor::testLhs::size()];
+      alignas(PAGESIZE_STACK) real lhs[seissol::tensor::testRhs::size()];
       real QData[NUMBER_OF_QUANTITIES*NUMBER_OF_BASIS_FUNCTIONS];
       std::fill(std::begin(stp), std::end(stp), 0);
       std::fill(std::begin(rhs), std::end(rhs), 0);
@@ -233,27 +236,27 @@ class seissol::unit_test::SpaceTimeTestSuite : public CxxTest::TestSuite
 
       solveWithKernel(stp, QData);
 
-      compute_lhs(stp, lhs);
-      compute_rhs(stp, QData, rhs);
+      computeLhs(stp, lhs);
+      computeRhs(stp, QData, rhs);
 
-      double diff_norm = 0;
-      double ref_norm = 0;
+      double diffNorm = 0;
+      double refNorm = 0;
 
-      auto lhs_view = init::test_lhs::view::create(lhs);
-      auto rhs_view = init::test_rhs::view::create(rhs);
+      auto lhsView = init::testLhs::view::create(lhs);
+      auto rhsView = init::testRhs::view::create(rhs);
       
      
-      for (size_t b = 0; b < tensor::stp::Shape[0] ; b++) {
-        for (size_t q = 0; q < tensor::stp::Shape[1] ; q++) {
-          for (size_t o = 0; o < tensor::stp::Shape[2] ; o++) {
-            const double d =  std::abs(lhs_view(b,q,o) - rhs_view(b,q,o));
-            const double a =  std::abs(lhs_view(b,q,o));
-            diff_norm += d*d;
-            ref_norm += a*a;
+      for (size_t b = 0; b < tensor::spaceTimePredictor::Shape[0] ; b++) {
+        for (size_t q = 0; q < tensor::spaceTimePredictor::Shape[1] ; q++) {
+          for (size_t o = 0; o < tensor::spaceTimePredictor::Shape[2] ; o++) {
+            const double d =  std::abs(lhsView(b,q,o) - rhsView(b,q,o));
+            const double a =  std::abs(lhsView(b,q,o));
+            diffNorm += d*d;
+            refNorm += a*a;
           }
         }
       }
 
-      TS_ASSERT(diff_norm / ref_norm < epsilon);
+      TS_ASSERT(diffNorm / refNorm < epsilon);
     }
 };

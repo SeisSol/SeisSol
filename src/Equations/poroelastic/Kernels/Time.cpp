@@ -1,74 +1,3 @@
-/******************************************************************************
-** Copyright (c) 2014-2015, Intel Corporation                                **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Time kernel of SeisSol.
- **/
-
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
 
@@ -103,7 +32,6 @@ seissol::kernels::TimeBase::TimeBase(){
 }
 
 void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
-#ifdef USE_STP
   for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
@@ -114,18 +42,10 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   }
   for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
+    m_krnlPrototype.selectQuantityG(k) = init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
-
-#else
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
-
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-#endif
 }
 
 void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
@@ -136,18 +56,17 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-#ifdef USE_STP
 void seissol::kernels::Time::executeSTP( double                      i_timeStepWidth,
                                          LocalData&                  data,
                                          real                        o_timeIntegrated[tensor::I::size()],
                                          real*                       stp )
 
 {
-  real stpRhs[tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
   assert( ((uintptr_t)stp) % PAGESIZE_STACK  == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
-  std::fill(stp, stp + tensor::stp::size(), 0);
-  kernel::stp krnl = m_krnlPrototype;
+  std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
+  kernel::spaceTimePredictor krnl = m_krnlPrototype;
  
   //libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the 
   //star matrices with dt before we execute the kernel.
@@ -164,12 +83,12 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   krnl.star(2) = C_values;
 
   //The matrix Zinv depends on the timestep
-  //Itf the timestep is not as expected e.g. when approaching a sync point
+  //If the timestep is not as expected e.g. when approaching a sync point
   //we have to recalculate it
   if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
     real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
-    model::for_loop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
+    model::zInvInitializerForLoop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
@@ -185,11 +104,10 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;
   krnl.timestep = i_timeStepWidth;
-  krnl.stp = stp;
-  krnl.stpRhs = stpRhs;
+  krnl.spaceTimePredictor = stp;
+  krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 }
-#endif
                                           
 
 void seissol::kernels::Time::computeAder( double i_timeStepWidth,
@@ -207,56 +125,9 @@ void seissol::kernels::Time::computeAder( double i_timeStepWidth,
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
-#ifdef USE_STP
-  real temporaryBuffer[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  alignas(PAGESIZE_STACK) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
   executeSTP( i_timeStepWidth, data, o_timeIntegrated, stpBuffer );
-#else
-  /*
-   * compute ADER scheme.
-   */
-  // temporary result
-  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
-  real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
-
-  kernel::derivative krnl = m_krnlPrototype;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
-  }
-
-  // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
-
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
-  }
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = o_timeIntegrated;
-  intKrnl.dQ(0) = data.dofs;
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
-  }
-  
-  // powers in the taylor-series expansion
-  intKrnl.power = i_timeStepWidth;
-
-  intKrnl.execute0();
-
-  // stream out frist derivative (order 0)
-  if (o_timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
-  }
-  
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
-    krnl.execute(der);
-
-    // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
-    intKrnl.execute(der);
-  }
-#endif
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
@@ -264,26 +135,11 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops =0;
 
-#ifdef USE_STP
-  o_nonZeroFlops = kernel::stp::NonZeroFlops;
-  o_hardwareFlops = kernel::stp::HardwareFlops;
+  o_nonZeroFlops = kernel::spaceTimePredictor::NonZeroFlops;
+  o_hardwareFlops = kernel::spaceTimePredictor::HardwareFlops;
   //we multiply the star matrices with dt before we execute the kernel
   o_nonZeroFlops += 3*init::star::size(0);
   o_hardwareFlops += 3*init::star::size(0);
-#else
-  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
-  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
-
-  // interate over derivatives
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
-
-    // update of time integrated DOFs
-    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(l_derivative);
-  }
-#endif
 }
 
 unsigned seissol::kernels::Time::bytesAder()
@@ -294,6 +150,10 @@ unsigned seissol::kernels::Time::bytesAder()
   reals += tensor::Q::size() + 2 * tensor::I::size();
   // star matrices, source matrix
   reals += yateto::computeFamilySize<tensor::star>();
+  // Zinv
+  reals += yateto::computeFamilySize<tensor::Zinv>();
+  // G
+  reals += 3;
            
   /// \todo incorporate derivatives
 

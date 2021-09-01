@@ -62,7 +62,7 @@ public:
       { 0.0, 0.0, 0.0 },
     };
     real l_localSolidVelocityComponent[3] = {0.0, 0.0, 0.0};
-    real l_localPressureComponent[1] = {0.0};
+    real l_localPressureComponent = 0.0;
     real l_localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
     real l_momentTensor[NUMBER_OF_QUANTITIES];

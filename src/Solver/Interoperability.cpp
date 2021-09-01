@@ -616,15 +616,15 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     parameterDB.setMaterialVector(&materials);
     parameterDB.evaluateModel(std::string(materialFileName), queryGen);
     for (unsigned int i = 0; i < nElements; i++) {
-      materialVal[i] =                materials[i].bulk_solid;
+      materialVal[i] =                materials[i].bulkSolid;
       materialVal[nElements + i] =    materials[i].rho;
       materialVal[2*nElements + i] =  materials[i].lambda;   
       materialVal[3*nElements + i] =  materials[i].mu;       
       materialVal[4*nElements + i] =  materials[i].porosity; 
       materialVal[5*nElements + i] =  materials[i].permeability;
       materialVal[6*nElements + i] =  materials[i].tortuosity;
-      materialVal[7*nElements + i] =  materials[i].bulk_fluid;
-      materialVal[8*nElements + i] =  materials[i].rho_fluid;
+      materialVal[7*nElements + i] =  materials[i].bulkFluid;
+      materialVal[8*nElements + i] =  materials[i].rhoFluid;
       materialVal[9*nElements + i] =  materials[i].viscosity; 
       calcWaveSpeeds(&materials[i], i);
     }

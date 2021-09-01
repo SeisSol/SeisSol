@@ -88,7 +88,7 @@ class seissol::kernels::TimeBase {
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment);
 #ifdef USE_STP
-    kernel::stp m_krnlPrototype;
+    kernel::spaceTimePredictor m_krnlPrototype;
 #else    
     kernel::derivative m_krnlPrototype;
 #endif

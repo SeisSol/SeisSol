@@ -38,6 +38,5 @@ jobs:
                         mkdir -p build && cd build
                         CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=${{ build_type }} -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=${{ precision }} -DEQUATIONS=${{ equation }} -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
                         make -j $(nproc)
-                        ./test_serial_test_suite
                         make test
 

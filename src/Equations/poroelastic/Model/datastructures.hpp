@@ -8,32 +8,32 @@
 namespace seissol {
   namespace model {
     struct PoroElasticMaterial : Material {
-      double bulk_solid;
+      double bulkSolid;
       double lambda;
       double mu;
       double porosity;
       double permeability;
       double tortuosity;
-      double bulk_fluid;
-      double rho_fluid;
+      double bulkFluid;
+      double rhoFluid;
       double viscosity;
 
       PoroElasticMaterial() {}
 
-      PoroElasticMaterial( double* i_materialVal, int i_numMaterialVals)
+      PoroElasticMaterial( double* materialValues, int numMaterialValues)
       { 
-        assert(i_numMaterialVals == 10);
+        assert(numMaterialValues == 10);
 
-        this->bulk_solid = i_materialVal[0];
-        this->rho = i_materialVal[1]; 
-        this->lambda = i_materialVal[2];    
-        this->mu = i_materialVal[3];
-        this->porosity = i_materialVal[4]; 
-        this->permeability = i_materialVal[5];
-        this->tortuosity = i_materialVal[6];
-        this->bulk_fluid = i_materialVal[7];
-        this->rho_fluid = i_materialVal[8];
-        this->viscosity = i_materialVal[9];  
+        this->bulkSolid = materialValues[0];
+        this->rho = materialValues[1]; 
+        this->lambda = materialValues[2];    
+        this->mu = materialValues[3];
+        this->porosity = materialValues[4]; 
+        this->permeability = materialValues[5];
+        this->tortuosity = materialValues[6];
+        this->bulkFluid = materialValues[7];
+        this->rhoFluid = materialValues[8];
+        this->viscosity = materialValues[9];  
       };
       virtual ~PoroElasticMaterial() {};
 
@@ -49,17 +49,9 @@ namespace seissol {
         return getPWaveSpeed();
       }
 
-#ifndef USE_POROELASTIC
-      //Return an estimate
-      double getPWaveSpeed() const final 
-      {
-        return std::sqrt(lambda + 2*mu) / rho;
-      };
-#else
       //only declare it here and define in a separate datastructures.cpp
       //to circumvent problems with circular includes
       double getPWaveSpeed() const final;
-#endif
 
       double getSWaveSpeed() const final
       {
