@@ -927,7 +927,7 @@ CONTAINS
     FL = 0
     RF_output_on = 0
     DS_output_on = 0
-    magnitude_output_on = 0
+    magnitude_output_on = 1
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
