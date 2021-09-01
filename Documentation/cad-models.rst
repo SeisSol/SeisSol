@@ -63,7 +63,7 @@ Here is a commented example of our use of Gdal to create a ts surface from a hig
    gdal_translate -of netCDF -co "FOMRAT=NC4" data/file250.tif data/file250.nc
    #python script from 'creating_geometric_model'
    #The specified hole allows to use algorithm described in 'remeshing the topography'
-   python create_surface_from_rectilinear_grid.py data/file250.nc data/file250.stl --proj "+init=EPSG:32645" --hole 84.8 86.5 27.1 28.3
+   python3 create_surface_from_rectilinear_grid.py data/file250.nc data/file250.stl --proj "+init=EPSG:32645" --hole 84.8 86.5 27.1 28.3
 
 
 Topographic data coarsening with SimModeler
