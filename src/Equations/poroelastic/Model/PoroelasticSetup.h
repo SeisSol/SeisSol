@@ -267,7 +267,7 @@ namespace seissol {
       using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
       auto getEigenDecomposition = [&zeroThreshold](PoroElasticMaterial const& material) {
         std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
-        auto ATView = yateto::DenseTensorView<2,std::complex<real>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+        auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
         getTransposedCoefficientMatrix(material, 0, ATView);
         std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
         //transpose AT to get A

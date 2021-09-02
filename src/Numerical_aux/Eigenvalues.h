@@ -33,9 +33,9 @@ namespace seissol::eigenvalues{
    * @param M: Dense matrix of size dim x dim, stored in column-major format
    * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
    */
-  template<size_t dim>
-  void computeEigenvaluesWithEigen3(std::array<std::complex<real>, dim*dim>& M, Eigenpair<std::complex<real>, dim>& output) {
-    using Matrix = Eigen::Matrix<std::complex<real>, dim, dim, Eigen::ColMajor>;
+  template<typename T, size_t dim>
+  void computeEigenvaluesWithEigen3(std::array<std::complex<T>, dim*dim>& M, Eigenpair<std::complex<T>, dim>& output) {
+    using Matrix = Eigen::Matrix<std::complex<T>, dim, dim, Eigen::ColMajor>;
     Matrix op(M.data());
     Eigen::ComplexEigenSolver<Matrix> ces;
     ces.compute(op);
@@ -54,7 +54,7 @@ namespace seissol::eigenvalues{
 
     auto eigenvectors = ces.eigenvectors();
 
-    auto R = yateto::DenseTensorView<2,std::complex<real>>(output.vectors.data(), {dim, dim});
+    auto R = yateto::DenseTensorView<2,std::complex<T>>(output.vectors.data(), {dim, dim});
     for (size_t j = 0; j < dim; ++j) {
       for (size_t i = 0; i < dim; ++i) {
         R(i,j) = eigenvectors(i,sortedIndices[j]);
@@ -68,13 +68,44 @@ namespace seissol::eigenvalues{
 #include "FC.h"
 
 namespace seissol::eigenvalues{
+  /*
+   * LAPACK distinguishes between double and single precision (i.e. zgeev for double,
+   * and cgeev for single).
+   */
   extern "C" {
 #define FC_zgeev FC_GLOBAL(zgeev, ZGEEV)
-    extern void FC_zgeev( char* jobVl, char* jobVr, int* n, std::complex<real>* A,
-        int* lda, std::complex<real>* ev, std::complex<real>* vl, int* ldvl, 
-        std::complex<real>* vr, int* ldvr, std::complex<real>* work, 
-        int* lwork, real* rwork, int* info );
+    extern void FC_zgeev(char* jobVl, char* jobVr, int* n, std::complex<double>* A,
+        int* lda, std::complex<double>* ev, std::complex<double>* vl, int* ldvl, 
+        std::complex<double>* vr, int* ldvr, std::complex<double>* work, 
+        int* lwork, double* rwork, int* info );
+#define FC_cgeev FC_GLOBAL(cgeev, CGEEV)
+    extern void FC_cgeev(char* jobVl, char* jobVr, int* n, std::complex<float>* A,
+        int* lda, std::complex<float>* ev, std::complex<float>* vl, int* ldvl, 
+        std::complex<float>* vr, int* ldvr, std::complex<float>* work, 
+        int* lwork, float* rwork, int* info );
   }
+
+template<typename T>
+void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::complex<T>* A,
+        int* lda, std::complex<T>* ev, std::complex<T>* vl, int* ldvl, 
+        std::complex<T>* vr, int* ldvr, std::complex<T>* work, 
+        int* lwork, T* rwork, int* info) {}
+
+template<>
+inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::complex<double>* A,
+        int* lda, std::complex<double>* ev, std::complex<double>* vl, int* ldvl,
+        std::complex<double>* vr, int* ldvr, std::complex<double>* work, 
+        int* lwork, double* rwork, int* info) {
+  FC_zgeev(jobVl, jobVr, n, A, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
+}
+
+template<>
+inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::complex<float>* A,
+        int* lda, std::complex<float>* ev, std::complex<float>* vl, int* ldvl, 
+        std::complex<float>* vr, int* ldvr, std::complex<float>* work, 
+        int* lwork, float* rwork, int* info) {
+  FC_cgeev(jobVl, jobVr, n, A, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
+};
 
   /**
    * Computes the eigenvalue decomposition of a dim x dim matrix of type T
@@ -83,25 +114,24 @@ namespace seissol::eigenvalues{
    * @param M: Dense matrix of size dim x dim, stored in column-major format
    * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
    */
-  template<size_t dim>
-  void computeEigenvaluesWithLapack(std::array<std::complex<real>, dim*dim>& M, Eigenpair<std::complex<real>, dim>& output) {
+  template<typename T, size_t dim>
+  void computeEigenvaluesWithLapack(std::array<std::complex<T>, dim*dim>& M, Eigenpair<std::complex<T>, dim>& output) {
     //set up lapack variables
     int n = dim, lda = dim, ldvl = dim, ldvr = dim; 
     int info;
     int lwork = 2*dim;
-    std::complex<real> wkopt;
-    real rwork[2*dim];
-    std::complex<real> w[dim], vl[dim*dim], vr[dim*dim];
-    std::complex<real> work[2*dim];
+    T rwork[2*dim];
+    std::complex<T> w[dim], vl[dim*dim], vr[dim*dim];
+    std::complex<T> work[2*dim];
     char computeVectors = 'V';
     char dontComputeVectors = 'N';
 
     //lapack overrides matrix, so copy to auxiliary array
-    std::complex<real> a[dim*dim];
+    std::complex<T> a[dim*dim];
     std::copy(M.begin(), M.end(), a);
 
     //Call LAPACK
-    FC_zgeev(&dontComputeVectors, &computeVectors, &n, a, &lda, w, vl, &ldvl, vr, &ldvr, work, &lwork, rwork, &info );
+    callLapackEigenvalueRoutine<T>(&dontComputeVectors, &computeVectors, &n, a, &lda, w, vl, &ldvl, vr, &ldvr, work, &lwork, rwork, &info );
 
     std::vector<size_t> sortedIndices(dim);
     std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
@@ -113,7 +143,7 @@ namespace seissol::eigenvalues{
       output.values[i] = w[sortedIndices[i]]; 
     }
 
-    auto R = yateto::DenseTensorView<2,std::complex<real>>(output.vectors.data(), {dim, dim});
+    auto R = yateto::DenseTensorView<2,std::complex<T>>(output.vectors.data(), {dim, dim});
     for (size_t j = 0; j < dim; ++j) {
       for (size_t i = 0; i < dim; ++i) {
         size_t sorted_j = sortedIndices[j];

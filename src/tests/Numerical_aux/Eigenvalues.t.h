@@ -19,12 +19,12 @@ class seissol::unit_test::EigenvaluesTestSuite : public CxxTest::TestSuite
     {
       const unsigned dim = 3;
 
-      std::array<std::array<std::complex<real>, dim*dim>, 2> matrices = {{
+      std::array<std::array<std::complex<double>, dim*dim>, 2> matrices = {{
         { 2.0,  -3.0,  -3.0, -2.0,  1.0, -2.0, -1.0,  1.0,   4.0},
         {-2.0,   3.0,   3.0,  2.0, -1.0,  2.0,  1.0, -1.0,  -4.0},
       }};
       for (auto& M : matrices) {
-        eigenvalues::Eigenpair<std::complex<real>, dim> eigenpair{};
+        eigenvalues::Eigenpair<std::complex<double>, dim> eigenpair{};
         eigenvalues::computeEigenvaluesWithEigen3(M, eigenpair);
         testResidual<dim>(M, eigenpair);
 #ifdef USE_POROELASTIC
@@ -36,9 +36,9 @@ class seissol::unit_test::EigenvaluesTestSuite : public CxxTest::TestSuite
     }
 
     template<unsigned dim>
-    void testResidual(std::array<std::complex<real>,dim*dim>& M, eigenvalues::Eigenpair<std::complex<real>, dim>& eigenpair) {
+    void testResidual(std::array<std::complex<double>,dim*dim>& M, eigenvalues::Eigenpair<std::complex<double>, dim>& eigenpair) {
       //compute M*R
-      std::array<std::complex<real>, dim*dim> M_R{};
+      std::array<std::complex<double>, dim*dim> M_R{};
       for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
           for (unsigned int k = 0; k < dim; k++) {
@@ -47,7 +47,7 @@ class seissol::unit_test::EigenvaluesTestSuite : public CxxTest::TestSuite
         }
       }
       //compute R*L
-      std::array<std::complex<real>, dim*dim> R_L{};
+      std::array<std::complex<double>, dim*dim> R_L{};
       for (unsigned int i = 0; i < dim; i++) {
         for (unsigned int j = 0; j < dim; j++) {
           R_L[i+dim*j] = eigenpair.vectors[i+dim*j] * eigenpair.values[j];
