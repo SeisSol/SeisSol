@@ -113,6 +113,8 @@ void seissol::kernels::TimeBase::checkGlobalData(GlobalData const* global, size_
 
 void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
 #ifdef USE_STP
+  //Note: We could use the space time predictor for elasticity.
+  //This is not tested and experimental
   for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
@@ -165,17 +167,19 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                              });
 
 #ifdef USE_STP
-  real stpRhs[tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
-  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
-  kernel::stp krnl = m_krnlPrototype;
+  //Note: We could use the space time predictor for elasticity.
+  //This is not tested and experimental
+  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictor::size()];
+  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()]{};
+  kernel::spaceTimePredictor krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;
   krnl.timestep = i_timeStepWidth;
-  krnl.stp = stp;
-  krnl.stpRhs = stpRhs;
+  krnl.spaceTimePredictor = stp;
+  krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
