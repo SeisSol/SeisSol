@@ -29,7 +29,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigendecomposition;
 #ifdef USE_POROELASTIC
-  computeEigenvaluesWithArmadillo(planeWaveOperator, eigendecomposition);
+  computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
 #else
   computeEigenvaluesWithEigen3(planeWaveOperator, eigendecomposition);
 #endif

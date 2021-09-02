@@ -1,11 +1,9 @@
 #ifndef MODEL_POROELASTICSETUP_H_
 #define MODEL_POROELASTICSETUP_H_
 
-#define ARMA_ALLOW_FAKE_GCC
-#include <armadillo>
-
 #include <cassert>
 
+#include <Eigen/Dense>
 #include <yateto/TensorView.h>
 
 #include "Model/common.hpp"
@@ -64,11 +62,6 @@ namespace seissol {
     template<typename T>
     inline void setToZero(T& AT) {
       AT.setZero();
-    }
-
-    template<>
-    inline void setToZero(arma::Mat<std::complex<double>>::fixed<13,13>& AT) {
-      AT.zeros();
     }
 
     template<typename T>
@@ -234,10 +227,10 @@ namespace seissol {
     void getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
                                                T&        QgodLocal,
                                                T&        QgodNeighbor,
-                                               arma::Mat<double>::fixed<13,13>& R)
+                                               Eigen::Matrix<double, 13,13>& R)
     {
       if (materialtype != MaterialType::poroelastic) {
-        logError() << "This specialization is for armadillo matrices. This is only used for poroelastic materials. You should never end up here.";
+        logError() << "This is only used for poroelastic materials. You should never end up here.";
       }
     
       constexpr size_t relevantQuantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
@@ -248,12 +241,15 @@ namespace seissol {
       }
     
       QgodLocal.setZero();
-      arma::uvec tractionIndices = {0,3,5,9};
-      arma::uvec velocityIndices = {6,7,8,10,11,12};
-      arma::uvec columnIndices = {5, 7, 9, 11};
-      arma::mat R11 = R.submat(tractionIndices, columnIndices);
-      arma::mat R21 = R.submat(velocityIndices, columnIndices);
-      arma::mat S = (-(R21 * inv(R11))).eval();
+      using Matrix44 = Eigen::Matrix<double, 4, 4>;
+      using Matrix64 = Eigen::Matrix<double, 6, 4>;
+
+      std::array<int, 4> tractionIndices = {0,3,5,9};
+      std::array<int, 6> velocityIndices = {6,7,8,10,11,12};
+      std::array<int, 4> columnIndices = {0,1,2,3};
+      Matrix44 R11 = R(tractionIndices, columnIndices);
+      Matrix64 R21 = R(velocityIndices, columnIndices);
+      Matrix64 S = (-(R21 * R11.inverse())).eval();
       setBlocks(QgodLocal, S, tractionIndices, velocityIndices);
     }
 
@@ -266,16 +262,24 @@ namespace seissol {
     {
       //Will be used to check, whether numbers are (numerically) zero
       constexpr auto zeroThreshold = 1e-7;
-      using CMatrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using Matrix = typename arma::Mat<double>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using CVector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
+      using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using Matrix = Eigen::Matrix<double, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
       auto getEigenDecomposition = [&zeroThreshold](PoroElasticMaterial const& material) {
-        CMatrix coeff(arma::fill::zeros);
-        getTransposedCoefficientMatrix(material, 0, coeff);
-
-        CMatrix armaEigenvectors(arma::fill::zeros);
-        CVector armaEigenvalues(arma::fill::zeros);
-        arma::eig_gen(armaEigenvalues, armaEigenvectors, coeff.t(), "balance");
+        std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
+        auto ATView = yateto::DenseTensorView<2,std::complex<real>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+        getTransposedCoefficientMatrix(material, 0, ATView);
+        std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
+        //transpose AT to get A
+        for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+          for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
+            A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
+          }
+        }
+        seissol::eigenvalues::Eigenpair<std::complex<double>, 13> eigenpair;
+        seissol::eigenvalues::computeEigenvaluesWithLapack(A, eigenpair);
+        CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
+        CVector eigenvalues = CVector(eigenpair.values.data());
 
 #ifndef NDEBUG
         //check number of eigenvalues
@@ -283,10 +287,10 @@ namespace seissol {
         int evNeg = 0;
         int evPos = 0;
         for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-          assert(std::abs(armaEigenvalues(i).imag()) < zeroThreshold);
-          if (armaEigenvalues(i).real() < -zeroThreshold) {
+          assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
+          if (eigenvalues(i).real() < -zeroThreshold) {
             ++evNeg;
-          } else if (armaEigenvalues(i).real() > zeroThreshold) {
+          } else if (eigenvalues(i).real() > zeroThreshold) {
             ++evPos;
           }
         }
@@ -294,27 +298,28 @@ namespace seissol {
         assert(evPos == 4);
 
         //check whether eigensolver is good enough
-        const CMatrix matrixMult = coeff.t() * armaEigenvectors;
-        CMatrix eigenvalueMatrix(arma::fill::zeros);
+        CMatrix coeff(A.data());
+        const CMatrix matrixMult = coeff * eigenvectors;
+        CMatrix eigenvalueMatrix = CMatrix::Zero();
         for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-          eigenvalueMatrix(i,i) = armaEigenvalues(i);
+          eigenvalueMatrix(i,i) = eigenvalues(i);
         }
-        const CMatrix vectorMult = armaEigenvectors * eigenvalueMatrix;
+        const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
         const CMatrix diff = matrixMult - vectorMult;
-        const double norm = arma::norm(diff);
+        const double norm = diff.norm();
         
         std::stringstream messageStream;
         messageStream << "Residual " << norm << " is larger than " << zeroThreshold << ": Eigensolver is not accurate enough";
         assert((messageStream.str().c_str(), norm < zeroThreshold));
 #endif
-        return std::pair<CVector, CMatrix>({armaEigenvalues, armaEigenvectors});
+        return std::pair<CVector, CMatrix>({eigenvalues, eigenvectors});
       };
       auto [localEigenvalues, localEigenvectors] = getEigenDecomposition(local);
-      auto [neighborEigenvalues, neighborEigenvectors] = getEigenDecomposition(neighbor); 
+      auto [neighborEigenvalues, neighborEigenvectors] = getEigenDecomposition(neighbor);
 
 
-      CMatrix chiMinus(arma::fill::zeros);
-      CMatrix chiPlus(arma::fill::zeros);
+      CMatrix chiMinus = CMatrix::Zero();
+      CMatrix chiPlus = CMatrix::Zero();
       for(int i = 0; i < 13; i++) {
         if(localEigenvalues(i).real() < -zeroThreshold) {
           chiMinus(i,i) = 1.0;
@@ -323,19 +328,18 @@ namespace seissol {
           chiPlus(i,i) = 1.0;
         }
       }
-
       CMatrix R = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
       //set null space eigenvectors manually
-      R(1,0) = 1.0;
-      R(2,1) = 1.0;
-      R(12,2) = 1.0;
-      R(11,3) = 1.0;
-      R(4,12) = 1.0;
+      R(1,4) = 1.0;
+      R(2,5) = 1.0;
+      R(12,6) = 1.0;
+      R(11,7) = 1.0;
+      R(4,8) = 1.0;
       if (faceType == FaceType::freeSurface) {
-        Matrix realR = arma::real(R);
+        Matrix realR = R.real();
         getTransposedFreeSurfaceGodunovState(MaterialType::poroelastic, QgodLocal, QgodNeighbor, realR);
       } else {
-        CMatrix invR = inv(R);
+        CMatrix invR = R.inverse();
         CMatrix godunovMinus = R * chiMinus * invR;
         CMatrix godunovPlus =  R * chiPlus * invR;
 

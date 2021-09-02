@@ -173,7 +173,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType material
                                                            Tmatrix&  R)
 {
   if (materialtype == MaterialType::poroelastic) {
-    logError() << "Poroelastic Free Surface only works with Armadillo, there's a template spezialization for that. You should never end up here";
+    logError() << "Poroelastic Free Surface has a template spezialization for the FreeSurfaceGodunovState. You should never end up here";
   }
 
   constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;

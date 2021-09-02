@@ -28,7 +28,7 @@ class seissol::unit_test::EigenvaluesTestSuite : public CxxTest::TestSuite
         eigenvalues::computeEigenvaluesWithEigen3(M, eigenpair);
         testResidual<dim>(M, eigenpair);
 #ifdef USE_POROELASTIC
-        eigenvalues::computeEigenvaluesWithArmadillo(M, eigenpair);
+        eigenvalues::computeEigenvaluesWithLapack(M, eigenpair);
         testResidual<dim>(M, eigenpair);
 #endif
       }
