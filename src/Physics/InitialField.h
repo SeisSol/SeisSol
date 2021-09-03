@@ -36,8 +36,8 @@ namespace seissol {
     Planarwave(const CellMaterialData& materialData, 
                double phase = 0.0, 
                std::array<double, 3> kVec = {M_PI, M_PI, M_PI},
-               std::vector<int> varField = {0,1,2}, 
-               std::vector<std::complex<double>> ampField = {100.0, 100.0, 100.0});
+               std::vector<int> varField = {1,8}, 
+               std::vector<std::complex<double>> ampField = {1.0, 1.0});
 
       void evaluate( double time,
                      std::vector<std::array<double, 3>> const& points,

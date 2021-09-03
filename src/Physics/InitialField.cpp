@@ -25,7 +25,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 {
   assert(m_varField.size() == m_ampField.size());
 
-  std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> planeWaveOperator;
+  std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> planeWaveOperator{};
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigendecomposition;
 #ifdef USE_POROELASTIC

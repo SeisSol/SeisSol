@@ -138,6 +138,7 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
       }
     }
   }
+  Coeff.setZero();
   getTransposedSourceCoefficientTensor(material, Coeff);
 
   for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
