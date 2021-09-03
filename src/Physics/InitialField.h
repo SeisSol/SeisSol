@@ -36,8 +36,20 @@ namespace seissol {
     Planarwave(const CellMaterialData& materialData, 
                double phase = 0.0, 
                std::array<double, 3> kVec = {M_PI, M_PI, M_PI},
+#ifndef USE_POROELASTIC
+               //Elastic materials have the following wave modes:
+               //-P, -S2, -S1, N, N, N, S1, S2, P
+               //Here we impose the -S2 and P mode
                std::vector<int> varField = {1,8}, 
-               std::vector<std::complex<double>> ampField = {1.0, 1.0});
+               std::vector<std::complex<double>> ampField = {1.0, 1.0}
+#else
+               //Poroelastic materials have the following wave modes:
+               //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+               //Here we impose -S1, -Ps and P
+               std::vector<int> varField = {2,3,12}, 
+               std::vector<std::complex<double>> ampField = {1.0, 1.0, 1.0}
+#endif
+               );
 
       void evaluate( double time,
                      std::vector<std::array<double, 3>> const& points,
