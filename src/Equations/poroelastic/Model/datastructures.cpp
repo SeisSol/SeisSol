@@ -21,5 +21,5 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
 //Return an estimate which neglects fluid effects
 double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   return std::sqrt(lambda + 2*mu) / rho;
-};
+}
 #endif
