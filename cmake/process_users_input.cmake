@@ -25,7 +25,7 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
@@ -160,7 +160,7 @@ else()
 endif()
 
 # check NUMBER_OF_MECHANISMS
-if (("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "anisotropic") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if ((NOT "${EQUATIONS}" MATCHES "viscoelastic.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
@@ -190,7 +190,11 @@ endif()
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------
 # PDE-Settings
-MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
+if (EQUATIONS STREQUAL "poroelastic")
+  set(NUMBER_OF_QUANTITIES "13")
+else()
+  MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
+endif()
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)

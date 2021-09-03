@@ -98,6 +98,12 @@ class seissol::kernels::Time : public TimeBase {
                      double startTime = 0.0,
                      bool updateDisplacement = false);
 
+#ifdef USE_STP
+    void executeSTP( double     i_timeStepWidth,
+                     LocalData& data,
+                     real       o_timeIntegrated[tensor::I::size()],
+                     real*      stp );
+#endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
                             ConditionalBatchTableT &table);

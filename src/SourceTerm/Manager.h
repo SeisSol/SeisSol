@@ -87,7 +87,9 @@ public:
                                   seissol::initializers::Lut*     ltsLut );
 
   void loadSourcesFromFSRM( double const*                   momentTensor,
-                            double const*                   velocityComponent,
+                            double const*                   solidVelocityComponent,
+                            double const*                   pressureComponent,
+                            double const*                   fluidVelocityComponent,
                             int                             numberOfSources,
                             double const*                   centres,
                             double const*                   strikes,

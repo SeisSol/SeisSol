@@ -320,8 +320,15 @@ CONTAINS
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
+#if defined(USE_POROELASTIC)      
+      EQN%Poroelasticity = 1
+      EQN%nVar = 13
+      EQN%nVarTotal = 13 
+      EQN%nBackgroundVar = 10
+#else
       EQN%nVarTotal = EQN%nVar
       EQN%nBackgroundVar = 3
+#endif
     CASE(1)
        logInfo(*) 'Viscoelastic attenuation assumed ... '
        EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
@@ -573,7 +580,7 @@ CONTAINS
     TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(12), i
+    INTEGER                    :: allocStat, OutputMask(16), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     INTEGER                    :: readStat
@@ -1823,10 +1830,20 @@ CONTAINS
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,'(a15)') char_dummy                          ! Read comment
-       SOURCE%RP%VelocityComponent(:) = 0.
-       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for velocity component (optional)
-           READ(IO%UNIT%other01,*) SOURCE%RP%VelocityComponent           ! Read velocity component
-           READ(IO%UNIT%other01,'(a15)')                                 ! Read comment
+       SOURCE%RP%SolidVelocityComponent(:) = 0.
+       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for (solid) velocity component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read (solid) velocity component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
+       ENDIF 
+       SOURCE%RP%PressureComponent(:) = 0.
+       IF( index(char_dummy, 'pressure').gt.0 ) THEN                     ! Check for pressure component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%PressureComponent           ! Read pressure component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
+       ENDIF 
+       SOURCE%RP%FluidVelocityComponent(:) = 0.
+       IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
        READ(IO%UNIT%other01,*)                                           ! Read comment 
@@ -2653,7 +2670,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%OutputMask = .FALSE.                                                                      !
          IO%OutputMask(:)      = .FALSE.                                                    !
          IO%OutputMask(1:3)    = .TRUE.                                                     ! x-y-z Coordinates
-         IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
+         IO%OutputMask(4:16)   = iOutputMask(1:13)                                           ! State vector
 
          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN                           ! Isotropic material
             IO%OutputMask(13:15)  = iOutputMaskMaterial(1:3)                                      ! Constants for Jacobians
@@ -2763,6 +2780,13 @@ ALLOCATE( SpacePositionx(nDirac), &
                 IO%TitleMask(10) = TRIM(' "u"')
                 IO%TitleMask(11) = TRIM(' "v"')
                 IO%TitleMask(12) = TRIM(' "w"')
+
+                IF(EQN%Poroelasticity.EQ.1) THEN
+                    IO%TitleMask(13) = TRIM(' "p"')
+                    IO%TitleMask(14) = TRIM(' "u_f"')
+                    IO%TitleMask(15) = TRIM(' "v_f"')
+                    IO%TitleMask(16) = TRIM(' "w_f"')
+                ENDIF
 
                 IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN
                     IO%TitleMask(13) = TRIM(' "rho0"')

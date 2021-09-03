@@ -162,7 +162,9 @@ class seissol::Interoperability {
 
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
-                               double const* velocityComponent,
+                               double const* solidVelocityComponent,
+                               double const* pressureComponent,
+                               double const* fluidVelocityComponent,
                                int           numberOfSources,
                                double const* centres,
                                double const* strikes,
@@ -177,8 +179,9 @@ class seissol::Interoperability {
     //! \todo Documentation
     void initializeModel( char*   materialFileName,
                           bool    anelasticity,
-                          bool    anisotropy,
                           bool    plasticity,
+                          bool    anisotropy,
+                          bool    poroelasticity,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,

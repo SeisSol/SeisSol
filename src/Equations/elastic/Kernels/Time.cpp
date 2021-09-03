@@ -112,11 +112,27 @@ void seissol::kernels::TimeBase::checkGlobalData(GlobalData const* global, size_
 }
 
 void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
+#ifdef USE_STP
+  //Note: We could use the space time predictor for elasticity.
+  //This is not tested and experimental
+  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+    if (n > 0) {
+      for (int d = 0; d < 3; ++d) {
+        m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
+      }
+    }
+    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+  }
+  m_krnlPrototype.Zinv = init::Zinv::Values;
+  m_krnlPrototype.timeInt = init::timeInt::Values;
+  m_krnlPrototype.wHat = init::wHat::Values;
+#else //USE_STP
   checkGlobalData(global, ALIGNMENT);
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
   projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+#endif //USE_STP
 }
 
 void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
@@ -150,6 +166,22 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                                               return f == FaceType::freeSurfaceGravity;
                                              });
 
+#ifdef USE_STP
+  //Note: We could use the space time predictor for elasticity.
+  //This is not tested and experimental
+  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictor::size()];
+  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()]{};
+  kernel::spaceTimePredictor krnl = m_krnlPrototype;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star(i) = data.localIntegration.starMatrices[i];
+  }
+  krnl.Q = const_cast<real*>(data.dofs);
+  krnl.I = o_timeIntegrated;
+  krnl.timestep = i_timeStepWidth;
+  krnl.spaceTimePredictor = stp;
+  krnl.spaceTimePredictorRhs = stpRhs;
+  krnl.execute();
+#else //USE_STP
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
@@ -215,6 +247,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
           );
     }
   }
+#endif //USE_STP
 }
 
 void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,

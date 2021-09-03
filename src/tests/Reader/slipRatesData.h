@@ -1,5 +1,6 @@
 #include <array>
 
+
 namespace seissol::unit_test {
 std::array<std::array<double,80>,3> slipRates = {{
   {

@@ -35,7 +35,7 @@ ci_builder_pre:
         - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
         - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
         - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
-        - sudo apt-get install -qq --yes unzip openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest
+        - sudo apt-get install -qq --yes unzip openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev
         - gfortran --version
         - pip3 install --upgrade pip
         - pip3 install 'numpy>=1.12.0'

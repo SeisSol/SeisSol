@@ -237,6 +237,7 @@ ProxyOutput runProxy(ProxyConfig config) {
       bytes_fun = &noestimate;
       break;
   }
+ 
 
   assert(flop_fun != nullptr);
   assert(bytes_fun != nullptr);
@@ -271,3 +272,4 @@ ProxyOutput runProxy(ProxyConfig config) {
   LIKWID_MARKER_CLOSE;
   return output;
 }
+

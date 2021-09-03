@@ -78,7 +78,8 @@ void setStarMatrix( real* i_AT,
 void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      i_meshReader,
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
-                                                         Lut*                   i_ltsLut )
+                                                         Lut*                   i_ltsLut,
+                                                         TimeStepping const&    timeStepping )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
@@ -129,6 +130,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      unsigned clusterId = cellInformation[cell].clusterId;
+      auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
       unsigned meshId = ltsToMesh[cell];
 
       real x[4];
@@ -223,10 +226,12 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       }
 
       seissol::model::initializeSpecificLocalData(  material[cell].local,
+                                                    timeStepWidth,
                                                     &localIntegration[cell].specific );
 
       seissol::model::initializeSpecificNeighborData( material[cell].local,
                                                       &neighboringIntegration[cell].specific );
+
     }
 #ifdef _OPENMP
     }
@@ -265,7 +270,6 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     auto* cellInformation = it->var(i_lts->cellInformation);
-    auto* material = it->var(i_lts->material);
     auto* boundary = it->var(i_lts->boundaryMapping);
 
 #ifdef _OPENMP
@@ -508,6 +512,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
       switch (plusMaterial->getMaterialType()) {
+        case seissol::model::MaterialType::acoustic: {
+          logError() << "Dynamic Rupture does not work with an acoustic material.";
+          break;
+        }
+        case seissol::model::MaterialType::poroelastic: {
+          logError() << "Dynamic Rupture does not work with poroelasticity yet.";
+          //TODO(SW): Make DR work with poroelasticity
+          break;
+        }
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
           //TODO(SW): Make DR work with anisotropy 

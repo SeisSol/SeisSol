@@ -1,7 +1,6 @@
 #include <cmath>
 #include <array>
 #include <numeric>
-#include <Eigen/Eigenvalues>
 
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
@@ -10,6 +9,7 @@
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
 #include <Solver/Interoperability.h>
+#include <Numerical_aux/Eigenvalues.h>
 
 extern seissol::Interoperability e_interoperability;
 
@@ -18,41 +18,23 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                std::array<double, 3> kVec,
                std::vector<int> varField, 
                std::vector<std::complex<double>> ampField)
-  : m_phase(phase),
-    m_kVec(kVec),
-    m_varField(varField),
-    m_ampField(ampField)
+  : m_varField(varField),
+    m_ampField(ampField),
+    m_phase(phase),
+    m_kVec(kVec)
 {
   assert(m_varField.size() == m_ampField.size());
 
-  std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
-  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator);
-
-  using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
-  Matrix op(planeWaveOperator);
-  Eigen::ComplexEigenSolver<Matrix> ces;
-  ces.compute(op);
-  
-  //sort eigenvalues so that we know which eigenvalue corresponds to which mode
-  auto eigenvalues = ces.eigenvalues();
-  std::vector<size_t> sortedIndices(NUMBER_OF_QUANTITIES);
-  std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
-  std::sort(sortedIndices.begin(), sortedIndices.end(), [&eigenvalues](size_t a, size_t b) {
-    return eigenvalues[a].real() < eigenvalues[b].real();
-  });
-
-  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-    m_lambdaA[i] = eigenvalues(sortedIndices[i],0);
-  }
-
-  auto eigenvectors = ces.eigenvectors();
-
-  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
-  for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      R(i,j) = eigenvectors(i,sortedIndices[j]);
-    }
-  }
+  std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> planeWaveOperator{};
+  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
+  seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigendecomposition;
+#ifdef USE_POROELASTIC
+  computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
+#else
+  computeEigenvaluesWithEigen3(planeWaveOperator, eigendecomposition);
+#endif
+  m_lambdaA = eigendecomposition.values;
+  m_eigenvectors = eigendecomposition.vectors;
 }
 
 void seissol::physics::Planarwave::evaluate(double time,
@@ -62,18 +44,20 @@ void seissol::physics::Planarwave::evaluate(double time,
 {
   dofsQP.setZero();
 
-  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
-        dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
+        dofsQP(i,j) += (R(j, m_varField[v]) * m_ampField[v] *
                         std::exp(std::complex<double>(0.0, 1.0) * (
                           omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + std::complex<double>(m_phase, 0)))).real();
       }
     }
   }
 }
+
+
 
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMaterialData& materialData, real phase)
   : m_kVec({{{M_PI, 0.0, 0.0},
@@ -131,7 +115,7 @@ void seissol::physics::TravellingWave::evaluate(double time,
 				       	        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
   dofsQp.setZero();
 
-  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {

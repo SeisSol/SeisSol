@@ -39,6 +39,7 @@
 
 #include "ReceiverWriter.h"
 
+#include <iterator>
 #include <sstream>
 #include <iomanip>
 #include <fstream>
@@ -61,6 +62,10 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   auto name = fileName(pointId);
 
   std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
+#ifdef USE_POROELASTIC
+  std::array<std::string, 4> additionalNames({"p", "u_f", "v_f", "w_f"});
+  names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
+#endif
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
@@ -141,8 +146,10 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<Eigen::Vector3d> c
   std::vector<short> contained(numberOfPoints);
   std::vector<unsigned> meshIds(numberOfPoints);
   
-  /// \todo Find a nicer solution that is not so hard-coded.
-  std::vector<unsigned> quantities{0, 1, 2, 3, 4, 5, 6, 7, 8};
+  // We want to plot all quantities except for the memory variables
+  const int n = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+  std::vector<unsigned> quantities(n);
+  std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";
   initializers::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
