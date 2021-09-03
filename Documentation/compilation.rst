@@ -108,7 +108,14 @@ Installing GemmForge (for GPU)
 
 .. code-block:: bash
 
-   pip install git+https://github.com/ravil-mobile/gemmforge.git
+   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+
+Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
+
+.. code-block:: bash
+
+   pip3 install https://github.com/ravil-mobile/chainforge.git
+
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------
