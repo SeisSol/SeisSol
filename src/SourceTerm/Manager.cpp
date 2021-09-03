@@ -315,6 +315,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::FSRM;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
+    sources[cluster].originalIndex.reserve(sources[cluster].numberOfSources);
     int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT, cmps[cluster].numberOfSources*tensor::mInvJInvPhisAtSources::size()*sizeof(real));
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
@@ -328,7 +329,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
-
+      sources[cluster].originalIndex[clusterSource] = fsrmIndex;
       computeMInvJInvPhisAtSources(centres3[fsrmIndex],
               sources[cluster].mInvJInvPhisAtSources[clusterSource],
               meshIds[sourceIndex], mesh);
@@ -412,6 +413,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::NRF;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
+    sources[cluster].originalIndex.reserve(sources[cluster].numberOfSources);
     int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT, cmps[cluster].numberOfSources*tensor::mInvJInvPhisAtSources::size()*sizeof(real));
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
@@ -427,6 +429,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned nrfIndex = originalIndex[sourceIndex];
+      sources[cluster].originalIndex[clusterSource] =  nrfIndex;
       transformNRFSourceToInternalSource( nrf.centres[nrfIndex],
                                           meshIds[sourceIndex],
                                           mesh,

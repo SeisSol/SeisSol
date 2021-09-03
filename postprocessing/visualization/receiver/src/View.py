@@ -77,7 +77,7 @@ class View(QWidget):
     self.navigations = []
     self.addNavigation(True)
     
-    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate() ]
+    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate(), Filters.MultipleSimulations() ]
     filterLayout = QVBoxLayout()    
     for f in self.filters:
       filterLayout.addWidget(f)

@@ -87,7 +87,9 @@ public:
     // dEtaT/dt = w_r
     // where the vales u_r/p_r are boundary extrapolated from the interior
     // The initial conditions are H(t^n) = 0, eta(t^n) = eta_0
-
+#ifdef MULTIPLE_SIMULATIONS
+      logError() << "Free Surface Gravity BC does not work with multiple simulations";
+#else
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
     assert(boundaryMapping.TinvData != nullptr);
@@ -220,6 +222,7 @@ public:
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
     rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodal;
     rotateFaceDisplacementKrnl.execute();
+#endif
   }
 
 private:

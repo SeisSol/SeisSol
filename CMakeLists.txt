@@ -111,6 +111,10 @@ add_custom_command(
        COMMENT "Codegen for tensor stuff."
        )
 
+if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+  target_compile_definitions(SeisSol-lib PUBLIC MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
+endif()
+
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
 elseif (PLASTICITY_METHOD STREQUAL "nb")

@@ -93,6 +93,11 @@ namespace seissol {
 
       /** Number of point sources in this struct. */
       unsigned numberOfSources;
+      
+      /** Original Index, i.e. the order in which the sources appear in the 
+       * input files */
+      std::vector<unsigned> originalIndex;
+
 
       PointSources() : mode(NRF), mInvJInvPhisAtSources(nullptr), tensor(nullptr), numberOfSources(0) {}
       ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); }

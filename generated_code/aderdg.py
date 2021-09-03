@@ -59,6 +59,7 @@ class ADERDGBase(ABC):
     transpose = multipleSimulations > 1
     self.transpose = lambda name: transpose
     self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
+    self.multipleSimulations = multipleSimulations
 
     self.db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(matricesDir, self.numberOf3DBasisFunctions()), transpose=self.transpose, alignStride=self.alignStride)
     clonesQP = {
@@ -98,14 +99,14 @@ class ADERDGBase(ABC):
 
     self.INodal = OptionalDimTensor('INodal',
                                     's',
-                                    False, #multipleSimulations,
+                                    multipleSimulations,
                                     0,
                                     (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
                                     alignStride=True)
 
     project2nFaceTo3m = tensor_collection_from_constant_expression(
       base_name='project2nFaceTo3m',
-      expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
+      expressions=lambda i: self.db.rDivM[i][self.t('jk')] * self.db.V2nTo2m['kl'],
       group_indices=range(4),
       target_indices='jl')
 

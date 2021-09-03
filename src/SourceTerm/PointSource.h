@@ -133,7 +133,8 @@ namespace seissol {
                                           std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
                                           double i_fromTime,
                                           double i_toTime,
-                                          real o_dofUpdate[tensor::Q::size()] );
+                                          real o_dofUpdate[tensor::Q::size()],
+                                          unsigned int sourceNumber);
     /**
      * Point sources in SeisSol (\delta(x-x_s) * S(t)).
      * 
@@ -147,7 +148,8 @@ namespace seissol {
                                            PiecewiseLinearFunction1D const& i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,
-                                           real o_dofUpdate[tensor::Q::size()] );
+                                           real o_dofUpdate[tensor::Q::size()],
+                                           unsigned int sourceNumber);
   }
 }
 
