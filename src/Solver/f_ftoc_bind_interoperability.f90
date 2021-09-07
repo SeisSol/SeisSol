@@ -62,6 +62,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+   subroutine c_interoperability_setTravellingWaveInformation( origin, kVec, ampField ) bind( C, name='c_interoperability_setTravellingWaveInformation')
+      use iso_c_binding, only: c_double
+      implicit none
+      real(kind=c_double), dimension(*), intent(in) :: origin
+      real(kind=c_double), dimension(*), intent(in) :: kVec
+      real(kind=c_double), dimension(*), intent(in) :: ampField
+    end subroutine
+  end interface
 
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )
@@ -100,6 +109,14 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface
+    subroutine c_interoperability_initializeGravitationalAcceleration(gravitationalAcceleration) bind ( C, name='c_interoperability_initializeGravitationalAcceleration')
+      use iso_c_binding
+      implicit none
+      real (kind=c_double), value :: gravitationalAcceleration
+    end subroutine
+  end interface
+
 
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
@@ -112,11 +129,13 @@ module f_ftoc_bind_interoperability
 
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
-    subroutine c_interoperability_setupFSRMPointSources( momentTensor, velocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
+    subroutine c_interoperability_setupFSRMPointSources( momentTensor, solidVelocityComponent, pressureComponent, fluidVelocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
       use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), dimension(*), intent(in) :: momentTensor
-      real(kind=c_double), dimension(*), intent(in) :: velocityComponent 
+      real(kind=c_double), dimension(*), intent(in) :: solidVelocityComponent 
+      real(kind=c_double), dimension(*), intent(in) :: pressureComponent 
+      real(kind=c_double), dimension(*), intent(in) :: fluidVelocityComponent 
       integer(kind=c_int), value                    :: numberOfSources
       real(kind=c_double), dimension(*), intent(in) :: centres
       real(kind=c_double), dimension(*), intent(in) :: strikes
@@ -132,13 +151,13 @@ module f_ftoc_bind_interoperability
   
   ! Don't forget to add // c_null_char to materialFileName when using this interface
   interface
-    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
+    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, poroelasticity, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: materialFileName
       integer(kind=c_int), value                        :: anelasticity
       integer(kind=c_int), value                        :: plasticity
-      integer(kind=c_int), value                        :: anisotropy
+      integer(kind=c_int), value                        :: anisotropy, poroelasticity
       real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress, waveSpeeds
     end subroutine
   end interface

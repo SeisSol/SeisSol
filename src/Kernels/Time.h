@@ -90,12 +90,20 @@ class seissol::kernels::Time : public TimeBase {
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeAder( double                      i_timeStepWidth,
-                      LocalData&                  data,
-                      LocalTmp&                   tmp,
-                      real                        o_timeIntegrated[tensor::I::size()],
-                      real*                       o_timeDerivatives = NULL );
+    void computeAder(double i_timeStepWidth,
+                     LocalData& data,
+                     LocalTmp& tmp,
+                     real o_timeIntegrated[tensor::I::size()],
+                     real* o_timeDerivatives = nullptr,
+                     double startTime = 0.0,
+                     bool updateDisplacement = false);
 
+#ifdef USE_STP
+    void executeSTP( double     i_timeStepWidth,
+                     LocalData& data,
+                     real       o_timeIntegrated[tensor::I::size()],
+                     real*      stp );
+#endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
                             ConditionalBatchTableT &table);

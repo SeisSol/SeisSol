@@ -51,6 +51,7 @@
 #include <array>
 #include <cassert>
 #include <stdint.h>
+#include "GravitationalFreeSurfaceBC.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -148,16 +149,16 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
     switch (data.cellInformation.faceTypes[face]) {
     case FaceType::freeSurfaceGravity:
       {
-      assert(cellBoundaryMapping != nullptr);
-      assert(materialData != nullptr);
-      auto* displ = tmp.nodalAvgDisplacements[face];
-      auto displacement = init::INodalDisplacement::view::create(displ);
+        assert(cellBoundaryMapping != nullptr);
+        assert(materialData != nullptr);
+        auto* displ = tmp.nodalAvgDisplacements[face].data();
+        auto displacement = init::averageNormalDisplacement::view::create(displ);
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local.rho;
-            const double g = 9.81; // [m/s^2]
+            const double g = getGravitationalAcceleration(); // [m/s^2]
             const double pressureAtBnd = -1 * rho * g * displacement(i);
 
             boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
@@ -169,7 +170,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
-                                 m_projectKrnlPrototype,
+                                 m_projectRotatedKrnlPrototype,
                                  applyFreeSurfaceBc,
                                  dofsFaceBoundaryNodal);
 

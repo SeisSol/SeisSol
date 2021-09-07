@@ -303,6 +303,9 @@ MODULE TypesDef
      INTEGER                   :: nNode_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
      INTEGER                   :: nElem_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
 #endif
+      INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
+      INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
+      INTEGER                    :: vertexWeightFreeSurfaceWithGravity ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge
@@ -897,6 +900,7 @@ MODULE TypesDef
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
+     REAL                                   :: gravitationalAcceleration        !< The value of g, the gravitational acceleration. Default: 9.81 m/s^2
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
      CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties
@@ -1154,6 +1158,9 @@ MODULE TypesDef
   !< Data for the initial condition (variable name : IC)
   TYPE tInitialCondition
      CHARACTER (LEN=25)                     :: cICType                          !< CHARACTER flag for initial data
+     REAL                                   :: origin(3)
+     REAL                                   :: kVec(3)
+     REAL                                   :: ampField(NUMBER_OF_QUANTITIES)
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<
@@ -1324,7 +1331,9 @@ MODULE TypesDef
      REAL, POINTER                   :: n_dip(:)                                !< Normal vector along dip
      REAL, POINTER                   :: corner(:)                               !< Position of the top left corner of the rupture plane
      REAL                            :: MomentTensor(3,3)                       !< The seismic moment tensor
-     REAL                            :: VelocityComponent(3)                    !< The source velocity component
+     REAL                            :: SolidVelocityComponent(3)               !< The source solid velocity component
+     REAL                            :: PressureComponent(1)                    !< The source pressure component
+     REAL                            :: FluidVelocityComponent(3)               !< The source fluid velocity component
      REAL                            :: TensorRotation(3,3)                     !< The rotation matrix of the moment tensor
      REAL                            :: TensorRotationT(3,3)                    !< The transpose rotation matrix of the moment tensor
      REAL, POINTER                   :: TWindowStart(:)                         !< Point in Time when a Time Window starts

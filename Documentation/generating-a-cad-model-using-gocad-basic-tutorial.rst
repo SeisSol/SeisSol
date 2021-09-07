@@ -5,9 +5,9 @@ Input files
 -----------
 
 The python scripts used in this tutorial are
-`here <https://github.com/SeisSol/Meshing/tree/master/GocadRelatedScripts>`__
+`here <https://github.com/SeisSol/Meshing/tree/master/creating_geometric_models>`__
 and the input files are
-`here <https://github.com/SeisSol/Meshing/tree/master/GocadRelatedScripts/ExampleFiles>`__.
+`here <https://github.com/SeisSol/Meshing/tree/master/creating_geometric_models/ExampleFiles>`__.
 
 Two \*.dat files contain the structured point clouds representing the
 topographic layer and the fault. The \*.pl file (Gocad ASCII File
@@ -18,11 +18,11 @@ Triangulating structured point clouds
 -------------------------------------
 
 | First, we construct triangulated surfaces from the structured point
-  clouds using createGOCADTSurfNXNY.py
-| ``python createGOCADTSurfNXNY.py --NX 161 topography.dat topography.ts``
+  clouds using create_surface_from_structured_grid.py
+| ``python3 create_surface_from_structured_grid.py --NX 161 topography.dat topography.ts``
 | If the points of the cloud share the same coordinates along a row or a
   column, then the -NX option can be omitted
-| ``python createGOCADTSurfNXNY.py ScecRoughFault.dat fault.ts``
+| ``python3 create_surface_from_structured_grid.py topography.dat topography.ts``
 
 CAD model generation in GOCAD
 -----------------------------
@@ -84,8 +84,8 @@ A third option for creating the side surface
   'Dissociate vertices'.
 | To trim the tube at the requested depth, we export the curve ctopo in
   a pl file (File > Export > Gocad ASCII >ctopo.pl) and we use the
-  script ChangeDepthPl.py:
-| ``python ChangeDepthPl.py ctopo.pl ctopo_new.pl --depth 60e3``
+  script change_depth_pl_curve.py:
+| ``python3 change_depth_pl_curve.py ctopo.pl ctopo_new.pl --depth 60e3``
 | Then we import ctopo_new.pl into the project, create the bottom
   surface of the box from it (using Surface > New > Closed Curved). We
   can then intersected this new surface with the tube, and remove the
@@ -98,8 +98,8 @@ Now the triangulation of all surfaces of the CAD model is conforming,
 and we can export the CAD surface in a ts format.
 
 | File > Export > Gocad ASCII > choose a filename (example test.ts).
-| Now let's convert the ts file to stl using convertTs2Stl.py:
-| ``convertTs2Stl.py test.ts``
+| Now let's convert the ts file to stl using convertTs.py:
+| ``python3 convertTs.py test.ts``
 | The --merged option merges all surfaces in a single stl 'solid'. If
   not set, each Gocad surface will be isolated into a different stl
   'solid'. Each surface will then be viewed as a different entity by

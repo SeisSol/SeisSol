@@ -42,20 +42,21 @@
 
 #include <Initializer/tree/InterfaceHelper.hpp>
 #include <Initializer/LTS.h>
+#include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
-namespace seissol {
-  namespace kernels {
+namespace seissol::kernels {
     struct LocalTmp {
-        alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
+        alignas(ALIGNMENT) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+        GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc{};
+
     };
 #ifndef ACL_DEVICE
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, boundaryMapping, material)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
 #else
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, displacements, localIntegrationOnDevice, plasticity)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs, faceDisplacements, localIntegrationOnDevice, plasticity, boundaryMapping, material)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, neighIntegrationOnDevice)
 #endif
   }
-}
 
 #endif

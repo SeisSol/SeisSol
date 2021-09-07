@@ -253,7 +253,7 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
   auto partitionMetis = [&] {
     PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
-    double* nodeWeights = new double[seissol::MPI::mpi.size()];
+    auto* nodeWeights = new double[seissol::MPI::mpi.size()];
     MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
     double sum = 0.0;
     for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {

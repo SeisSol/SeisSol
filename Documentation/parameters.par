@@ -7,6 +7,7 @@ Tv=0.05
 !Attenuation parameters (ignored if not compiled with attenuation)
 FreqCentral=2.5
 FreqRatio=100
+GravitationalAcceleration = 9.81 ! value of gravitational acceleration
 /
 
 &IniCondition
@@ -15,10 +16,15 @@ cICType = 'Zero'                  ! Initial Condition
 !Possible values are
 !Zero        All zero - the standard case to work with point source or dynamic rupture
 !Planarwave  A planar wave for convergence tests, needs periodic boundary conditions
+!Travelling  A planar wave travelling wave (one period of a plane wave), needs more parameters to be specified
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
 !Ocean       An uncoupled ocean test case for acoustic equations
 
+!The following parameters are only needed for the travelling wave IC:
+origin = 0 0 0.5             ! Origin of the wave 
+kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength of the travelling wave is 2*pi / norm(kVec)
+ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 /
 
 &Boundaries
@@ -77,6 +83,10 @@ PPFileName = 'tpv33_faultreceivers.dat'
 &MeshNml
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
 meshgenerator = 'PUML'          ! Name of meshgenerator (Gambit3D-fast, Netcdf or PUML)
+vertexWeightElement = 100 ! Base vertex weight for each element used as input to ParMETIS
+vertexWeightDynamicRupture = 200 ! Weight that's added for each DR face to element vertex weight
+vertexWeightGravitationalFreeSurface = 300 ! Weight that's added for each free surface with gravity face to element vertex weight
+
 /
 
 &Discretization

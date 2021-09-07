@@ -232,13 +232,13 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
-    REAL                       :: FreqCentral, FreqRatio, Tv
+    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
-                                           FreqRatio, AdjFileName
+                                           FreqRatio, AdjFileName, GravitationalAcceleration
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -274,6 +274,7 @@ CONTAINS
 #else
     Anelasticity        = 0
 #endif
+    GravitationalAcceleration = 9.81
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
@@ -319,8 +320,15 @@ CONTAINS
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
+#if defined(USE_POROELASTIC)      
+      EQN%Poroelasticity = 1
+      EQN%nVar = 13
+      EQN%nVarTotal = 13 
+      EQN%nBackgroundVar = 10
+#else
       EQN%nVarTotal = EQN%nVar
       EQN%nBackgroundVar = 3
+#endif
     CASE(1)
        logInfo(*) 'Viscoelastic attenuation assumed ... '
        EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
@@ -385,6 +393,7 @@ CONTAINS
     !
     EQN%MaterialFileName = MaterialFileName
     EQN%BoundaryFileName = BoundaryFileName
+    EQN%GravitationalAcceleration = GravitationalAcceleration
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
@@ -521,24 +530,15 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tSource)             :: SOURCE
     TYPE (tInputOutput)        :: IO
-    ! localVariables
-    INTEGER                    :: i, j, k, iLambda, intDummy
-    INTEGER                    :: counter, iZones, iVar
-    INTEGER                    :: allocstat
-    REAL                       :: lambda(3), Re, Im
-    COMPLEX                    :: IU
-    CHARACTER(LEN=600)         :: cdummy
     !------------------------------------------------------------------------
     INTENT(OUT)                :: IC
     INTENT(IN)                 :: EQN
     INTENT(INOUT)              :: IO, SOURCE
     !------------------------------------------------------------------------
-    CHARACTER(Len=600)         :: cICType, IniConditionFile
-    REAL                       :: xc(3), amplitude, hwidth(3)
-    INTEGER                    :: nZones, variable
+    CHARACTER(Len=600)         :: cICType
+    REAL                       :: origin(3), kVec(3), ampField(NUMBER_OF_QUANTITIES)
     INTEGER                    :: readStat
-    NAMELIST                   /IniCondition/ cICType, variable, xc, amplitude, hwidth, &
-                                              IniConditionFile, nZones
+    NAMELIST                   /IniCondition/ cICType, origin, kVec, ampField
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -549,44 +549,19 @@ CONTAINS
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
     cICType = 'Zero'
-    variable = 1
-    xc(:) = 0.0                 ! x,y,z - coordinate, in inputfile you can choose different values vor x,y,z
-    amplitude = 0.0
-    hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
-    !
+    origin(:) = 0
+    kVec(:) = 0
+    ampField(:) = 0
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
     ENDIF
 
     ! Renaming all variables in the beginning
-     IC%cICType = cICType
-
-     logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
-       !
-   SELECT CASE(IC%cICType)
-   !
-   CASE('Zero')
-       logInfo(*) 'Zero initial condition'
-   CASE('Planarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Planarwave initial condition'
-   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Superimposed Planarwave initial condition'
-   CASE('Scholte')
-       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
-   CASE('Snell')
-       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
-   CASE('Ocean')
-       logInfo(*) 'An uncoupled ocean test case for acoustic equations'
-   CASE DEFAULT                                                             ! CASE DEFAULT
-       logError(*) 'none of the possible'           ,&
-            ' initial conditions was chosen'
-       logError(*) TRIM(IC%cICType),'|'
-       call exit(134)
-    END SELECT
-    !
-    logInfo(*) 'to calculate the initial values.'
-    !
+    IC%cICType = cICType
+    IC%origin = origin
+    IC%kVec = kVec
+    IC%ampField = ampField
   END SUBROUTINE readpar_ini_condition
 
   !------------------------------------------------------------------------
@@ -605,7 +580,7 @@ CONTAINS
     TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(12), i
+    INTEGER                    :: allocStat, OutputMask(16), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     INTEGER                    :: readStat
@@ -959,7 +934,7 @@ CONTAINS
     FL = 0
     RF_output_on = 0
     DS_output_on = 0
-    magnitude_output_on = 0
+    magnitude_output_on = 1
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
@@ -1855,10 +1830,20 @@ CONTAINS
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,'(a15)') char_dummy                          ! Read comment
-       SOURCE%RP%VelocityComponent(:) = 0.
-       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for velocity component (optional)
-           READ(IO%UNIT%other01,*) SOURCE%RP%VelocityComponent           ! Read velocity component
-           READ(IO%UNIT%other01,'(a15)')                                 ! Read comment
+       SOURCE%RP%SolidVelocityComponent(:) = 0.
+       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for (solid) velocity component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read (solid) velocity component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
+       ENDIF 
+       SOURCE%RP%PressureComponent(:) = 0.
+       IF( index(char_dummy, 'pressure').gt.0 ) THEN                     ! Check for pressure component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%PressureComponent           ! Read pressure component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
+       ENDIF 
+       SOURCE%RP%FluidVelocityComponent(:) = 0.
+       IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
        READ(IO%UNIT%other01,*)                                           ! Read comment 
@@ -2222,6 +2207,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
     INTEGER                    :: readStat
+    INTEGER                    :: vertexWeightElement
+    INTEGER                    :: vertexWeightDynamicRupture
+    INTEGER                    :: vertexWeightFreeSurfaceWithGravity
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2234,7 +2222,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     CHARACTER(LEN=600)               :: MeshFile, meshgenerator
     NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
-                                            ScalingMatrixY, ScalingMatrixZ
+                                            ScalingMatrixY, ScalingMatrixZ, &
+                                            vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2258,6 +2247,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     ScalingMatrixZ(3) = 1.0
     periodic = 0
     periodic_direction(:) = 0
+    vertexWeightElement = 100
+    vertexWeightDynamicRupture = 100
+    vertexWeightFreeSurfaceWithGravity = 100
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
     IF (readStat.NE.0) THEN
@@ -2274,7 +2266,12 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     IO%meshgenerator = trim(meshgenerator)
 
-       EQN%HexaDimension = 3
+    EQN%HexaDimension = 3
+
+    MESH%vertexWeightElement = vertexWeightElement
+    MESH%vertexWeightDynamicRupture = vertexWeightDynamicRupture
+    MESH%vertexWeightFreeSurfaceWithGravity = vertexWeightFreeSurfaceWithGravity
+
        SELECT CASE(IO%meshgenerator)
        CASE('Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then
@@ -2676,7 +2673,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%OutputMask = .FALSE.                                                                      !
          IO%OutputMask(:)      = .FALSE.                                                    !
          IO%OutputMask(1:3)    = .TRUE.                                                     ! x-y-z Coordinates
-         IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
+         IO%OutputMask(4:16)   = iOutputMask(1:13)                                           ! State vector
 
          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN                           ! Isotropic material
             IO%OutputMask(13:15)  = iOutputMaskMaterial(1:3)                                      ! Constants for Jacobians
@@ -2786,6 +2783,13 @@ ALLOCATE( SpacePositionx(nDirac), &
                 IO%TitleMask(10) = TRIM(' "u"')
                 IO%TitleMask(11) = TRIM(' "v"')
                 IO%TitleMask(12) = TRIM(' "w"')
+
+                IF(EQN%Poroelasticity.EQ.1) THEN
+                    IO%TitleMask(13) = TRIM(' "p"')
+                    IO%TitleMask(14) = TRIM(' "u_f"')
+                    IO%TitleMask(15) = TRIM(' "v_f"')
+                    IO%TitleMask(16) = TRIM(' "w_f"')
+                ENDIF
 
                 IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN
                     IO%TitleMask(13) = TRIM(' "rho0"')

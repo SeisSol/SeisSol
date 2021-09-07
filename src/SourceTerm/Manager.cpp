@@ -153,10 +153,12 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
   pointSources.A[index] = subfault.area;
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
+      [[fallthrough]];
+    case seissol::model::MaterialType::poroelastic:
       if (subfault.mu != 0) {
-        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+        logError() << "There are specific fault parameters for the fault. This is only compatible with isotropic (visco)elastic materials.";
       }
-      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
     default:
       seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
@@ -246,7 +248,9 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
-                                                        double const*                   velocityComponent,
+                                                        double const*                   solidVelocityComponent,
+                                                        double const*                   pressureComponent,
+                                                        double const*                   fluidVelocityComponent,
                                                         int                             numberOfSources,
                                                         double const*                   centres,
                                                         double const*                   strikes,
@@ -306,9 +310,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
-  real localVelocityComponent[3];
+  real localSolidVelocityComponent[3];
   for (unsigned i = 0; i < 3; i++) {
-    localVelocityComponent[i] = velocityComponent[i];
+    localSolidVelocityComponent[i] = solidVelocityComponent[i];
+  }
+  real localPressureComponent = *pressureComponent;
+  real localFluidVelocityComponent[3];
+  for (unsigned i = 0; i < 3; i++) {
+    localFluidVelocityComponent[i] = fluidVelocityComponent[i];
   }
   
   sources = new PointSources[ltsTree->numChildren()];
@@ -332,21 +341,26 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       computeMInvJInvPhisAtSources(centres3[fsrmIndex],
               sources[cluster].mInvJInvPhisAtSources[clusterSource],
               meshIds[sourceIndex], mesh);
-
       transformMomentTensor( localMomentTensor,
-                             localVelocityComponent,
+                             localSolidVelocityComponent,
+                             localPressureComponent,
+                             localFluidVelocityComponent,
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
                              sources[cluster].tensor[clusterSource]);
 
-      for (unsigned i = 0; i < 9; ++i) {
+      for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
       }
+#ifndef USE_POROELASTIC
       seissol::model::Material& material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
       for (unsigned i = 0; i < 3; ++i) {
         sources[cluster].tensor[clusterSource][6+i] /= material.rho;
       }
+#else
+      logWarning() << "For the poroelastic equation we do not scale the force components with the density. Read the documentation to see how sources in poroelastic media are defined.";
+#endif
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],
                                           numberOfSamples,

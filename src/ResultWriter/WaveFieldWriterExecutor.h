@@ -147,7 +147,8 @@ public:
 		m_numVariables = info.bufferSize(param.bufferIds[OUTPUT_FLAGS]) / sizeof(bool);
 		m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OUTPUT_FLAGS]));
 
-		const char* varNames[16] = {
+
+		const char* varNames[20] = {
 			"sigma_xx",
 			"sigma_yy",
 			"sigma_zz",
@@ -157,18 +158,23 @@ public:
 			"u",
 			"v",
 			"w",
+			"p",
+			"u_f",
+			"v_f",
+			"w_f",
 			"ep_xx",
 			"ep_yy",
 			"ep_zz",
 			"ep_xy",
 			"ep_yz",
 			"ep_xz",
-			"eta",
+			"eta"
 		};
 
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
 			if (m_outputFlags[i]) {
+        assert(i < 20);
 				variables.push_back(varNames[i]);
       }
 		}

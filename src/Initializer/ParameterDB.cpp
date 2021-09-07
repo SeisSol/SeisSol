@@ -195,6 +195,20 @@ namespace seissol {
     }
 
     template<>
+    void MaterialParameterDB<seissol::model::PoroElasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::PoroElasticMaterial> &adapter) {
+      adapter.addBindingPoint("bulk_solid", &seissol::model::PoroElasticMaterial::bulkSolid);
+      adapter.addBindingPoint("rho", &seissol::model::PoroElasticMaterial::rho);
+      adapter.addBindingPoint("lambda", &seissol::model::PoroElasticMaterial::lambda);
+      adapter.addBindingPoint("mu", &seissol::model::PoroElasticMaterial::mu);
+      adapter.addBindingPoint("porosity", &seissol::model::PoroElasticMaterial::porosity);
+      adapter.addBindingPoint("permeability", &seissol::model::PoroElasticMaterial::permeability);
+      adapter.addBindingPoint("tortuosity", &seissol::model::PoroElasticMaterial::tortuosity);
+      adapter.addBindingPoint("bulk_fluid", &seissol::model::PoroElasticMaterial::bulkFluid);
+      adapter.addBindingPoint("rho_fluid", &seissol::model::PoroElasticMaterial::rhoFluid);
+      adapter.addBindingPoint("viscosity", &seissol::model::PoroElasticMaterial::viscosity);
+    }
+
+    template<>
     void MaterialParameterDB<seissol::model::Plasticity>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::Plasticity> &adapter) {
       adapter.addBindingPoint("bulkFriction", &seissol::model::Plasticity::bulkFriction);
       adapter.addBindingPoint("plastCo", &seissol::model::Plasticity::plastCo);
@@ -439,6 +453,7 @@ easi::Component* seissol::initializers::loadEasiModel(const std::string& fileNam
 template class seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
+template class seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::Plasticity>;
 
 
