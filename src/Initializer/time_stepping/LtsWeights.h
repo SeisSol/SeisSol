@@ -58,25 +58,36 @@ namespace seissol {
 
 class seissol::initializers::time_stepping::LtsWeights {
 public:
-  LtsWeights(std::string const& velocityModel, unsigned rate,
-             int vertexWeightElement, int vertexWeightDynamicRupture, int vertexWeightFreeSurfaceWithGravity)
-      : m_velocityModel(velocityModel), m_rate(rate), vertexWeightElement(vertexWeightElement),
-        vertexWeightDynamicRupture(vertexWeightDynamicRupture),
-        vertexWeightFreeSurfaceWithGravity(vertexWeightFreeSurfaceWithGravity) {}
+  LtsWeights(std::string const& velocityModel,
+             unsigned rate,
+             int vertexWeightElement,
+             int vertexWeightDynamicRupture,
+             int vertexWeightFreeSurfaceWithGravity) : m_velocityModel(velocityModel),
+                                                       m_rate(rate),
+                                                       vertexWeightElement(vertexWeightElement),
+                                                       vertexWeightDynamicRupture(vertexWeightDynamicRupture),
+                                                       vertexWeightFreeSurfaceWithGravity(vertexWeightFreeSurfaceWithGravity) {}
 
-  ~LtsWeights() {
-    delete[] m_vertexWeights;
-  }
+  ~LtsWeights() = default;
   
   void computeWeights(PUML::TETPUML const& mesh);
   
-  int* vertexWeights() const { return m_vertexWeights; }
+  const int* vertexWeights() const;
+  const double* imbalances() const;
   int nWeightsPerVertex() const { return m_ncon; }
 
 private:
-  void computeMaxTimesteps( PUML::TETPUML const&  mesh,
-                            std::vector<double> const& pWaveVel,
-                            std::vector<double>& timestep );
+  struct GlobalTimeStepDetails {
+    double globalMinTimeStep{};
+    double globalMaxTimeStep{};
+    std::vector<double> timeSteps{};
+  };
+
+  GlobalTimeStepDetails collectGlobalTimeStepDetails(PUML::TETPUML const &mesh);
+
+  void computeMaxTimesteps(PUML::TETPUML const& mesh,
+                           std::vector<double> const& pWaveVel,
+                           std::vector<double>& timeSteps);
 
   int getCluster( double    timestep,
                   double    globalMinTimestep,
@@ -85,20 +96,24 @@ private:
   int getBoundaryCondition( int const* boundaryCond,
                             unsigned cell,
                             unsigned face );
-                        
-  int ipow(int x, int y);
-  
-  int enforceMaximumDifference( PUML::TETPUML const& mesh,
-                                int* cluster );
 
-  int enforceMaximumDifferenceLocal(  PUML::TETPUML const& mesh,
-                                      int* cluster,
-                                      int maxDifference = 1 );
+  std::vector<int> produceClusterIds(const GlobalTimeStepDetails& details, PUML::TETPUML const &mesh);
+  void setVertexWeights(const GlobalTimeStepDetails& details, PUML::TETPUML const &mesh, std::vector<int>& cluster);
+  void setImbalances();
+                        
+  static int ipow(int x, int y);
+  
+  int enforceMaximumDifference(PUML::TETPUML const& mesh, std::vector<int>& cluster);
+
+  int enforceMaximumDifferenceLocal(PUML::TETPUML const& mesh,
+                                    std::vector<int>& cluster,
+                                    int maxDifference = 1);
 
   std::string m_velocityModel;
   unsigned m_rate;
-  int* m_vertexWeights = nullptr;
-  int m_ncon = 1;
+  std::vector<int> m_vertexWeights{};
+  std::vector<double> m_imbalances{};
+  int m_ncon{1};
   int vertexWeightElement;
   int vertexWeightDynamicRupture;
   int vertexWeightFreeSurfaceWithGravity;
