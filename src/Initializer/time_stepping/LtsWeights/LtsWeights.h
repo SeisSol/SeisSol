@@ -43,80 +43,73 @@
 #define INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
 
 #include <string>
+#include <vector>
+#include <limits>
 
 #ifndef PUML_PUML_H
 namespace PUML { class TETPUML; }
 #endif // PUML_PUML_H
 
-namespace seissol {
-  namespace initializers {
-    namespace time_stepping {
-      class LtsWeights;
-    }
-  }
-}
 
-class seissol::initializers::time_stepping::LtsWeights {
+namespace seissol::initializers::time_stepping {
+struct LtsWeightsConfig {
+  std::string velocityModel{};
+  unsigned rate{};
+  int vertexWeightElement{};
+  int vertexWeightDynamicRupture{};
+  int vertexWeightFreeSurfaceWithGravity{};
+};
+
+
+class LtsWeights {
 public:
-  LtsWeights(std::string const& velocityModel,
-             unsigned rate,
-             int vertexWeightElement,
-             int vertexWeightDynamicRupture,
-             int vertexWeightFreeSurfaceWithGravity) : m_velocityModel(velocityModel),
-                                                       m_rate(rate),
-                                                       vertexWeightElement(vertexWeightElement),
-                                                       vertexWeightDynamicRupture(vertexWeightDynamicRupture),
-                                                       vertexWeightFreeSurfaceWithGravity(vertexWeightFreeSurfaceWithGravity) {}
+  LtsWeights(const LtsWeightsConfig &config) : m_velocityModel(config.velocityModel),
+                                               m_rate(config.rate),
+                                               m_vertexWeightElement(config.vertexWeightElement),
+                                               m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
+                                               m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity) {}
 
-  ~LtsWeights() = default;
-  
-  void computeWeights(PUML::TETPUML const& mesh);
-  
-  const int* vertexWeights() const;
-  const double* imbalances() const;
-  int nWeightsPerVertex() const { return m_ncon; }
+  virtual ~LtsWeights() = default;
+  void computeWeights(PUML::TETPUML const &mesh);
 
-private:
+  const int *vertexWeights() const;
+  const double *imbalances() const;
+  int nWeightsPerVertex() const;
+
+protected:
   struct GlobalTimeStepDetails {
     double globalMinTimeStep{};
     double globalMaxTimeStep{};
     std::vector<double> timeSteps{};
-  };
+  } m_details;
 
-  GlobalTimeStepDetails collectGlobalTimeStepDetails(PUML::TETPUML const &mesh);
+  GlobalTimeStepDetails collectGlobalTimeStepDetails();
+  void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps);
+  int getCluster(double timestep, double globalMinTimestep, unsigned rate);
+  int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
+  std::vector<int> computeClusterIds();
+  int enforceMaximumDifference();
+  int enforceMaximumDifferenceLocal(int maxDifference = 1);
+  std::vector<int> computeCostsPerTimestep();
 
-  void computeMaxTimesteps(PUML::TETPUML const& mesh,
-                           std::vector<double> const& pWaveVel,
-                           std::vector<double>& timeSteps);
-
-  int getCluster( double    timestep,
-                  double    globalMinTimestep,
-                  unsigned  rate  );
-
-  int getBoundaryCondition( int const* boundaryCond,
-                            unsigned cell,
-                            unsigned face );
-
-  std::vector<int> produceClusterIds(const GlobalTimeStepDetails& details, PUML::TETPUML const &mesh);
-  void setVertexWeights(const GlobalTimeStepDetails& details, PUML::TETPUML const &mesh, std::vector<int>& cluster);
-  void setImbalances();
-                        
   static int ipow(int x, int y);
-  
-  int enforceMaximumDifference(PUML::TETPUML const& mesh, std::vector<int>& cluster);
 
-  int enforceMaximumDifferenceLocal(PUML::TETPUML const& mesh,
-                                    std::vector<int>& cluster,
-                                    int maxDifference = 1);
+  virtual void setVertexWeights() = 0;
+  virtual void setAllowedImbalances() = 0;
+  virtual int evaluateNumberOfConstraints() = 0;
 
-  std::string m_velocityModel;
-  unsigned m_rate;
+  std::string m_velocityModel{};
+  unsigned m_rate{};
   std::vector<int> m_vertexWeights{};
   std::vector<double> m_imbalances{};
-  int m_ncon{1};
-  int vertexWeightElement;
-  int vertexWeightDynamicRupture;
-  int vertexWeightFreeSurfaceWithGravity;
+  std::vector<int> m_cellCosts{};
+  int m_vertexWeightElement{};
+  int m_vertexWeightDynamicRupture{};
+  int m_vertexWeightFreeSurfaceWithGravity{};
+  int m_ncon{std::numeric_limits<int>::infinity()};
+  const PUML::TETPUML * m_mesh{nullptr};
+  std::vector<int> m_clusterIds{};
 };
+}
 
 #endif

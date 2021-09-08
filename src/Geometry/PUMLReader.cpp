@@ -48,7 +48,7 @@
 #include "PUMLReader.h"
 #include "Monitoring/instrumentation.fpp"
 
-#include "Initializer/time_stepping/LtsWeights.h"
+#include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
 #include <hdf5.h>
 #include <sstream>

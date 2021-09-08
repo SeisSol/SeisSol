@@ -47,12 +47,9 @@
 #include <PUML/Upward.h>
 #include "LtsWeights.h"
 
-#include <Eigen/Dense>
-
 #include <Initializer/ParameterDB.h>
 #include <Parallel/MPI.h>
 
-#include <generated_code/tensor.h>
 #include <generated_code/init.h>
 
 namespace seissol::initializers::time_stepping {
@@ -69,18 +66,54 @@ public:
   }
 };
 
-void LtsWeights::computeMaxTimesteps(PUML::TETPUML const &mesh,
-                                     std::vector<double> const &pWaveVel,
+void LtsWeights::computeWeights(PUML::TETPUML const &mesh) {
+  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
+
+  // Note: Return value optimization is guaranteed while returning temp. objects in C++17
+  m_mesh = &mesh;
+  m_details = collectGlobalTimeStepDetails();
+  m_clusterIds = computeClusterIds();
+  m_ncon = evaluateNumberOfConstraints();
+  auto totalNumberOfReductions = enforceMaximumDifference();
+  m_cellCosts = computeCostsPerTimestep();
+
+  if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
+  m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
+
+  // calling virtual functions
+  setVertexWeights();
+  setAllowedImbalances();
+
+  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights. Done. " << utils::nospace << '('
+                                    << totalNumberOfReductions << " reductions.)";
+}
+
+const int* LtsWeights::vertexWeights() const {
+  assert(!m_vertexWeights.empty() && "vertex weights are not initialized");
+  return m_vertexWeights.data();
+}
+
+const double* LtsWeights::imbalances() const {
+  assert(!m_imbalances.empty() && "weight imbalances are not initialized");
+  return m_imbalances.data();
+}
+
+int LtsWeights::nWeightsPerVertex() const {
+  assert(m_ncon != std::numeric_limits<int>::infinity() && "num. constrains has not been initialized yet");
+  return m_ncon;
+}
+
+void LtsWeights::computeMaxTimesteps(std::vector<double> const &pWaveVel,
                                      std::vector<double> &timeSteps) {
-  std::vector<PUML::TETPUML::cell_t> const &cells = mesh.cells();
-  std::vector<PUML::TETPUML::vertex_t> const &vertices = mesh.vertices();
+  std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
+  std::vector<PUML::TETPUML::vertex_t> const &vertices = m_mesh->vertices();
 
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     // Compute insphere radius
     Eigen::Vector3d barycentre(0., 0., 0.);
     Eigen::Vector3d x[4];
     unsigned vertLids[4];
-    PUML::Downward::vertices(mesh, cells[cell], vertLids);
+    PUML::Downward::vertices(*m_mesh, cells[cell], vertLids);
     for (unsigned vtx = 0; vtx < 4; ++vtx) {
       for (unsigned d = 0; d < 3; ++d) {
         x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
@@ -109,8 +142,7 @@ int LtsWeights::getCluster(double timestep, double globalMinTimestep, unsigned r
     return 0;
   }
 
-  double upper;
-  upper = rate * globalMinTimestep;
+  double upper = rate * globalMinTimestep;
 
   int cluster = 0;
   while (upper <= timestep) {
@@ -141,13 +173,13 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(PUML::TETPUML const &mesh) {
+LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails() {
 
-  const auto &cells = mesh.cells();
+  const auto &cells = m_mesh->cells();
   std::vector<double> pWaveVel;
   pWaveVel.resize(cells.size());
 
-  seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);
+  seissol::initializers::ElementBarycentreGeneratorPUML queryGen(*m_mesh);
   //up to now we only distinguish between anisotropic elastic any other isotropic material
 #ifdef USE_ANISOTROPIC
   std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
@@ -167,7 +199,7 @@ LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(PUML:
 
   GlobalTimeStepDetails details{};
   details.timeSteps.resize(cells.size());
-  computeMaxTimesteps(mesh, pWaveVel, details.timeSteps);
+  computeMaxTimesteps(pWaveVel, details.timeSteps);
 
   double localMinTimestep = *std::min_element(details.timeSteps.begin(), details.timeSteps.end());
   double localMaxTimestep = *std::max_element(details.timeSteps.begin(), details.timeSteps.end());
@@ -182,72 +214,45 @@ LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(PUML:
   return details;
 }
 
-std::vector<int> LtsWeights::produceClusterIds(const GlobalTimeStepDetails& details, PUML::TETPUML const &mesh) {
-  const auto &cells = mesh.cells();
-
-  std::vector<int> cluster{};
-  cluster.resize(cells.size());
-
+std::vector<int> LtsWeights::computeClusterIds() {
+  const auto &cells = m_mesh->cells();
+  std::vector<int> clusterIds(cells.size(), 0);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    cluster[cell] = getCluster(details.timeSteps[cell], details.globalMinTimeStep, m_rate);
+    clusterIds[cell] = getCluster(m_details.timeSteps[cell], m_details.globalMinTimeStep, m_rate);
   }
-
-  return cluster;
+  return clusterIds;
 }
 
-void LtsWeights::setVertexWeights(const GlobalTimeStepDetails& details,
-                                  PUML::TETPUML const &mesh,
-                                  std::vector<int>& cluster) {
+std::vector<int> LtsWeights::computeCostsPerTimestep() {
+  const auto &cells = m_mesh->cells();
 
-  const auto &cells = mesh.cells();
-  if (!m_vertexWeights.empty()) {m_vertexWeights.clear();}
-  //m_ncon = 2;
-  m_ncon = 1;
-  m_vertexWeights.resize(cells.size() * m_ncon);
-  int maxCluster = getCluster(details.globalMaxTimeStep, details.globalMinTimeStep, m_rate);
-
-  int const *boundaryCond = mesh.cellData(1);
+  std::vector<int> cellCosts(cells.size());
+  int const *boundaryCond = m_mesh->cellData(1);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
     int freeSurface = 0;
 
     unsigned int faceids[4];
-    PUML::Downward::faces(mesh, cells[cell], faceids);
+    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
 
     for (unsigned face = 0; face < 4; ++face) {
       const auto faceType = static_cast<FaceType>(getBoundaryCondition(boundaryCond, cell, face));
-      dynamicRupture += (getBoundaryCondition(boundaryCond, cell, face) == 3) ? 1 : 0;
-
-      if (faceType == FaceType::freeSurfaceGravity) {
-        freeSurface++;
-      }
+      dynamicRupture += (faceType == FaceType::dynamicRupture) ? 1 : 0;
+      freeSurface += (faceType == FaceType::freeSurfaceGravity) ? 1 : 0;
     }
 
-    const int costDynamicRupture = vertexWeightDynamicRupture * dynamicRupture;
-    const int costDisplacement = vertexWeightFreeSurfaceWithGravity * freeSurface;
-    const int costPerTimestep = vertexWeightElement + costDynamicRupture + costDisplacement;
-    m_vertexWeights[m_ncon * cell] = costPerTimestep * LtsWeights::ipow(m_rate, maxCluster - cluster[cell]);
+    const int costDynamicRupture = m_vertexWeightDynamicRupture * dynamicRupture;
+    const int costDisplacement = m_vertexWeightFreeSurfaceWithGravity * freeSurface;
+    cellCosts[cell] = m_vertexWeightElement + costDynamicRupture + costDisplacement;
   }
+  return cellCosts;
 }
 
-void LtsWeights::computeWeights(PUML::TETPUML const &mesh) {
-  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
-
-  auto details = collectGlobalTimeStepDetails(mesh);
-  auto cluster = produceClusterIds(details, mesh);
-  int totalNumberOfReductions = enforceMaximumDifference(mesh, cluster);
-  setVertexWeights(details, mesh, cluster);
-  setImbalances();
-
-  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights. Done. " << utils::nospace << '('
-                                    << totalNumberOfReductions << " reductions.)";
-}
-
-int LtsWeights::enforceMaximumDifference(PUML::TETPUML const &mesh, std::vector<int>& cluster) {
+int LtsWeights::enforceMaximumDifference() {
   int totalNumberOfReductions = 0;
   int globalNumberOfReductions;
   do {
-    int localNumberOfReductions = enforceMaximumDifferenceLocal(mesh, cluster);
+    int localNumberOfReductions = enforceMaximumDifferenceLocal();
 
 #ifdef USE_MPI
     MPI_Allreduce(&localNumberOfReductions, &globalNumberOfReductions, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
@@ -259,12 +264,12 @@ int LtsWeights::enforceMaximumDifference(PUML::TETPUML const &mesh, std::vector<
   return totalNumberOfReductions;
 }
 
-int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::vector<int>& cluster, int maxDifference) {
+int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   int numberOfReductions = 0;
 
-  std::vector<PUML::TETPUML::cell_t> const &cells = mesh.cells();
-  std::vector<PUML::TETPUML::face_t> const &faces = mesh.faces();
-  int const *boundaryCond = mesh.cellData(1);
+  std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
+  std::vector<PUML::TETPUML::face_t> const &faces = m_mesh->faces();
+  int const *boundaryCond = m_mesh->cellData(1);
 
 #ifdef USE_MPI
   std::unordered_map<int, std::vector<int>> rankToSharedFaces;
@@ -272,10 +277,10 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
 #endif // USE_MPI
 
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    int timeCluster = cluster[cell];
+    int timeCluster = m_clusterIds[cell];
 
     unsigned int faceids[4];
-    PUML::Downward::faces(mesh, cells[cell], faceids);
+    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
     for (unsigned f = 0; f < 4; ++f) {
       int difference = maxDifference;
       int boundary = getBoundaryCondition(boundaryCond, cell, f);
@@ -285,10 +290,10 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
         auto const &face = faces[faceids[f]];
         if (!face.isShared()) {
           int cellIds[2];
-          PUML::Upward::cells(mesh, face, cellIds);
+          PUML::Upward::cells(*m_mesh, face, cellIds);
 
           int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          int otherTimeCluster = cluster[neighbourCell];
+          int otherTimeCluster = m_clusterIds[neighbourCell];
 
           if (boundary == 3) {
             difference = 0;
@@ -307,7 +312,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
 #endif // USE_MPI
       }
     }
-    cluster[cell] = timeCluster;
+    m_clusterIds[cell] = timeCluster;
   }
 
 #ifdef USE_MPI
@@ -328,7 +333,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
     copy[ex].resize(exchangeSize);
 
     for (unsigned n = 0; n < exchangeSize; ++n) {
-      copy[ex][n] = cluster[localFaceIdToLocalCellId[exchange->second[n]]];
+      copy[ex][n] = m_clusterIds[localFaceIdToLocalCellId[exchange->second[n]]];
     }
     MPI_Isend(copy[ex].data(), exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(), &requests[ex]);
     MPI_Irecv(ghost[ex].data(), exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(),
@@ -346,11 +351,11 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
       int otherTimeCluster = ghost[ex][n];
 
       int cellIds[2];
-      PUML::Upward::cells(mesh, faces[exchange->second[n]], cellIds);
+      PUML::Upward::cells(*m_mesh, faces[exchange->second[n]], cellIds);
       int cell = (cellIds[0] >= 0) ? cellIds[0] : cellIds[1];
 
       unsigned int faceids[4];
-      PUML::Downward::faces(mesh, cells[cell], faceids);
+      PUML::Downward::faces(*m_mesh, cells[cell], faceids);
       unsigned f = 0;
       for (; f < 4 && static_cast<int>(faceids[f]) != exchange->second[n]; ++f);
       assert(f != 4);
@@ -360,8 +365,8 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
         difference = 0;
       }
 
-      if (cluster[cell] > otherTimeCluster + difference) {
-        cluster[cell] = otherTimeCluster + difference;
+      if (m_clusterIds[cell] > otherTimeCluster + difference) {
+        m_clusterIds[cell] = otherTimeCluster + difference;
         ++numberOfReductions;
       }
     }
@@ -371,22 +376,5 @@ int LtsWeights::enforceMaximumDifferenceLocal(PUML::TETPUML const &mesh, std::ve
 #endif // USE_MPI
 
   return numberOfReductions;
-}
-
-void LtsWeights::setImbalances() {
-  m_imbalances.resize(m_ncon);
-  for (int i = 0; i < m_ncon; ++i) {
-    m_imbalances[i] = 1.01;
-  }
-}
-
-const int* LtsWeights::vertexWeights() const {
-  assert(!m_vertexWeights.empty() && "vertex weights are not initialized");
-  return m_vertexWeights.data();
-}
-
-const double* LtsWeights::imbalances() const {
-  assert(!m_imbalances.empty() && "weight imbalances are not initialized");
-  return m_imbalances.data();
 }
 } // namespace seissol::initializers::time_stepping
