@@ -6,7 +6,7 @@ from netCDF4 import Dataset
 from Yoffe import regularizedYoffe
 
 
-def writeNetcdf4SeisSol(sname, x, y, aName, aData, paraview_readable=False):
+def writeNetcdf(sname, x, y, aName, aData, paraview_readable=False):
     """create a netcdf file either readable by ASAGI
     or by paraview (paraview_readable=True)"""
     if paraview_readable:
@@ -44,7 +44,7 @@ def writeNetcdf4SeisSol(sname, x, y, aName, aData, paraview_readable=False):
             mat[:] = newarr
 
 
-def fill_non_zero(array):
+def interpolate_nan_from_neighbors(array):
     """rise_time and tacc may not be defined where there is no slip (no SR function).
     in this case, we interpolate from neighbors
     source: https://stackoverflow.com/questions/37662180/interpolate-missing-values-2d-python
@@ -179,10 +179,9 @@ class FaultPlane:
                 raise
             if line_el[1] != "1":
                 print("only one plane supported")
-                raise
+                raise NotImplementedError
             line_el = fid.readline().split()
-            nx = int(line_el[2])
-            ny = int(line_el[3])
+            nx, ny = [int(val) for val in line_el[2:4]]
             line_el = fid.readline().split()
             # check that the plane data are consistent with the number of points
             assert int(line_el[1]) == nx * ny
@@ -191,17 +190,14 @@ class FaultPlane:
                 for i in range(nx):
                     # first header line
                     line = fid.readline()
-                    if abs(version - 1.0) < 1e-03:
-                        self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], dt = [float(v) for v in line.split()]
-                    else:
-                        # srf version 2 has also density and Vs in that line
-                        self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], dt = [float(v) for v in line.split()[0:-2]]
+                    # rho_vs are only present for srf version 2
+                    self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
                     # second header line
                     line = fid.readline()
                     self.rake[j, i], self.slip1[j, i], ndt1, slip2, ndt2, slip3, ndt3 = [float(v) for v in line.split()]
                     if max(slip2, slip3) > 0.0:
                         print("this script assumes slip2 and slip3 are zero", slip2, slip3)
-                        raise
+                        raise NotImplementedError
                     ndt1 = int(ndt1)
                     if max(i, j) == 0:
                         self.ndt = ndt1
@@ -215,7 +211,7 @@ class FaultPlane:
                         self.extend_aSR(self.ndt, ndt1)
                     if abs(dt - self.dt) > 1e-6:
                         print("this script assumes that dt is the same for all sources", dt, self.dt)
-                        raise
+                        raise NotImplementedError
                     while True:
                         line = fid.readline()
                         lSTF.extend(line.split())
@@ -233,14 +229,14 @@ class FaultPlane:
                     self.rise_time[j, i] = np.nan
                     self.tacc[j, i] = np.nan
                 else:
-                    first_non_zero = np.amin(np.where(self.aSR[j, i, :] != 0))
-                    self.rise_time[j, i] = (np.amax(np.where(self.aSR[j, i, :])[0]) + 1) * self.dt
-                    self.tacc[j, i] = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0] * self.dt
-                    if (first_non_zero - 1) * self.dt > 0.1 * self.tacc[j, i]:
-                        print(f"warning: {first_non_zero-1} 0 detected in aSR[{i},{j}]")
-                        print("assessed rise_time and tacc might have too large values")
-        self.rise_time = fill_non_zero(self.rise_time)
-        self.tacc = fill_non_zero(self.tacc)
+                    first_non_zero = np.amin(np.where(self.aSR[j, i, :])[0])
+                    last_non_zero = np.amax(np.where(self.aSR[j, i, :])[0])
+                    id_max = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0]
+                    self.rise_time[j, i] = (last_non_zero - first_non_zero + 1) * self.dt
+                    self.tacc[j, i] = (id_max - first_non_zero + 1) * self.dt
+                    self.t0[j, i] += first_non_zero * self.dt
+        self.rise_time = interpolate_nan_from_neighbors(self.rise_time)
+        self.tacc = interpolate_nan_from_neighbors(self.tacc)
 
         print("slip rise_time (min, 50%, max)", np.amin(self.rise_time), np.median(self.rise_time), np.amax(self.rise_time))
         print("tacc (min, 50%, max)", np.amin(self.tacc), np.median(self.tacc), np.amax(self.tacc))
@@ -309,8 +305,9 @@ class FaultPlane:
     def generate_netcdf(self, prefix, spatial_order, spatial_zoom, write_paraview):
         "generate netcdf files to be used with SeisSol friction law 33"
 
+        cm2m = 0.01
         # pad the data to get correct value on the edges
-        slip = np.pad(self.slip1, ((1, 1), (1, 1)))/100.
+        slip = np.pad(self.slip1, ((1, 1), (1, 1))) * cm2m
         rake = np.pad(self.rake, ((1, 1), (1, 1)), "edge")
         rupttime = np.pad(self.t0, ((1, 1), (1, 1)), "edge")
         rise_time = np.pad(self.rise_time, ((1, 1), (1, 1)), "edge")
@@ -322,7 +319,7 @@ class FaultPlane:
 
         # 1. Write non-upsampled data
         ny, nx = slip.shape
-        dx = np.sqrt(self.PSarea / 1e4)
+        dx = np.sqrt(self.PSarea * cm2m * cm2m)
         x = np.linspace(0, nx - 1, nx) * dx
         y = np.linspace(0, ny - 1, ny) * dx
         ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
@@ -330,12 +327,13 @@ class FaultPlane:
 
         if write_paraview:
             # we need to write one file per dataset because there is currently a bug in paraview
-            # writeNetcdf4SeisSol(prefix, x, y, ldataName, lgridded_myData, paraview_readable=True)
+            # else we could use:
+            # writeNetcdf(prefix, x, y, ldataName, lgridded_myData, paraview_readable=True)
             for i, sdata in enumerate(ldataName):
-                writeNetcdf4SeisSol(prefix + "_" + sdata, x, y, [sdata], [lgridded_myData[i]], paraview_readable=True)
-        writeNetcdf4SeisSol(prefix, x, y, ldataName, lgridded_myData)
+                writeNetcdf(prefix + "_" + sdata, x, y, [sdata], [lgridded_myData[i]], paraview_readable=True)
+        writeNetcdf(prefix, x, y, ldataName, lgridded_myData)
 
-        # 2. Write psampled data
+        # 2. Write upsampled data
         allarr = np.array(lgridded_myData)
         nd = allarr.shape[0]
         ny2, nx2 = ny * spatial_zoom, nx * spatial_zoom
@@ -344,6 +342,8 @@ class FaultPlane:
         for k in range(nd):
             allarr0[k, :, :] = scipy.ndimage.zoom(allarr[k, :, :], spatial_zoom, order=spatial_order)
         strike_slip1, dip_slip1, rupttime1, rise_time1, tacc1 = allarr0
+        # upsampled duration, rise_time and acc_time may not be smaller than initial values
+        # at least rise_time could lead to a non-causal kinematic model
         rupttime1 = np.maximum(rupttime1, np.amin(rupttime))
         rise_time1 = np.maximum(rise_time1, np.amin(rise_time))
         tacc1 = np.maximum(tacc1, np.amin(tacc))
@@ -354,11 +354,11 @@ class FaultPlane:
         lgridded_myData = [strike_slip1, dip_slip1, rupttime1, rise_time1, tacc1]
         prefix2 = f"{prefix}_{spatial_zoom}_o{spatial_order}"
         if write_paraview:
-            # writeNetcdf4SeisSol(prefix2, xb, yb, ldataName, lgridded_myData)
+            # see comment above
             for i, sdata in enumerate(ldataName):
-                writeNetcdf4SeisSol(prefix2 + sdata, xb, yb, [sdata], [lgridded_myData[i]], paraview_readable=True)
+                writeNetcdf(prefix2 + sdata, xb, yb, [sdata], [lgridded_myData[i]], paraview_readable=True)
 
-        writeNetcdf4SeisSol(prefix2, xb, yb, ldataName, lgridded_myData)
+        writeNetcdf(prefix2, xb, yb, ldataName, lgridded_myData)
 
     def generate_fault_yaml(self, prefix, spatial_order, spatial_zoom, proj):
         self.compute_xy_from_latlon(proj)
