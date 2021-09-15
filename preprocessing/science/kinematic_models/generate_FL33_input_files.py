@@ -44,14 +44,14 @@ p1.init_from_srf(args.filename)
 p1.compute_time_array()
 p1.assess_Yoffe_parameters()
 prefix, ext = os.path.splitext(args.filename)
-p1.generate_netcdf(
+p1.generate_netcdf_fl33(
     prefix,
     spatial_order=args.spatial_order[0],
     spatial_zoom=args.spatial_zoom[0],
     write_paraview=args.write_paraview,
 )
 if args.generate_yaml:
-    p1.generate_fault_yaml(
+    p1.generate_fault_yaml_fl33(
         prefix,
         spatial_order=args.spatial_order[0],
         spatial_zoom=args.spatial_zoom[0],

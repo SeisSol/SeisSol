@@ -83,7 +83,7 @@ class FaultPlane:
         self.nx = 0
         self.ny = 0
         self.ndt = 0
-        self.PSarea = 0
+        self.PSarea_cm2 = 0
         self.dt = 0
         # array member initialized to dummy value
         self.lon = 0
@@ -152,7 +152,7 @@ class FaultPlane:
             fout.write("POINTS %d\n" % (self.nx * self.ny))
             for j in range(self.ny):
                 for i in range(self.nx):
-                    fout.write("%g %g %g %g %g %e %g %g\n" % (self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], self.dt))
+                    fout.write("%g %g %g %g %g %e %g %g\n" % (self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea_cm2, self.t0[j, i], self.dt))
                     fout.write("%g %g %d %f %d %f %d\n" % (self.rake[j, i], self.slip1[j, i], self.ndt, 0.0, 0, 0.0, 0))
                     np.savetxt(fout, self.aSR[j, i, :], fmt="%g", newline=" ")
                     fout.write("\n")
@@ -190,7 +190,7 @@ class FaultPlane:
                     # first header line
                     line = fid.readline()
                     # rho_vs are only present for srf version 2
-                    self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea, self.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
+                    self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea_cm2, self.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
                     # second header line
                     line = fid.readline()
                     self.rake[j, i], self.slip1[j, i], ndt1, slip2, ndt2, slip3, ndt3 = [float(v) for v in line.split()]
@@ -267,8 +267,8 @@ class FaultPlane:
         allarr = np.array([self.slip1])
         (pf.slip1,) = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant")
         pf.compute_latlon_from_xy(proj)
-        pf.PSarea = self.PSarea / spatial_zoom ** 2
-        ratio_potency = np.sum(pf.slip1) * pf.PSarea / (np.sum(self.slip1) * self.PSarea)
+        pf.PSarea_cm2 = self.PSarea_cm2 / spatial_zoom ** 2
+        ratio_potency = np.sum(pf.slip1) * pf.PSarea_cm2 / (np.sum(self.slip1) * self.PSarea_cm2)
         print(f"potency ratio (upscaled over initial): {ratio_potency}")
 
         if use_Yoffe:
@@ -303,78 +303,61 @@ class FaultPlane:
                         pf.aSR[j, i, :] = pf.slip1[j, i] * pf.aSR[j, i, :] / integral_STF
         return pf
 
-    def generate_netcdf(self, prefix, spatial_order, spatial_zoom, write_paraview):
+    def generate_netcdf_fl33(self, prefix, spatial_order, spatial_zoom, write_paraview):
         "generate netcdf files to be used with SeisSol friction law 33"
 
         cm2m = 0.01
-        # pad the data to get correct value on the edges
-        slip = np.pad(self.slip1, ((1, 1), (1, 1))) * cm2m
-        rake = np.pad(self.rake, ((1, 1), (1, 1)), "edge")
-        rupttime = np.pad(self.t0, ((1, 1), (1, 1)), "edge")
-        rise_time = np.pad(self.rise_time, ((1, 1), (1, 1)), "edge")
-        tacc = np.pad(self.tacc, ((1, 1), (1, 1)), "edge")
+        (slip,) = upsample_quantities(np.array([self.slip1]), spatial_order, spatial_zoom, padding="constant")
+        allarr = np.array([self.t0, self.rake, self.rise_time, self.tacc])
+        rupttime, rake, rise_time, tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
+        # upsampled duration, rise_time and acc_time may not be smaller than initial values
+        # at least rise_time could lead to a non-causal kinematic model
+        rupttime = np.maximum(rupttime, np.amin(self.t0))
+        rise_time = np.maximum(rise_time, np.amin(self.rise_time))
+        tacc = np.maximum(tacc, np.amin(self.tacc))
 
         rake_rad = np.radians(rake)
-        strike_slip = slip * np.cos(rake_rad)
-        dip_slip = slip * np.sin(rake_rad)
+        strike_slip = slip * np.cos(rake_rad) * cm2m
+        dip_slip = slip * np.sin(rake_rad) * cm2m
 
-        # 1. Write non-upsampled data
         ny, nx = slip.shape
-        dx = np.sqrt(self.PSarea * cm2m * cm2m)
-        x = np.linspace(0, nx - 1, nx) * dx
-        y = np.linspace(0, ny - 1, ny) * dx
+        dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
         lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc]
 
-        if write_paraview:
-            # we need to write one file per dataset because there is currently a bug in paraview
-            # else we could use:
-            # writeNetcdf(prefix, x, y, ldataName, lgridded_myData, paraview_readable=True)
-            for i, sdata in enumerate(ldataName):
-                writeNetcdf(prefix + "_" + sdata, x, y, [sdata], [lgridded_myData[i]], paraview_readable=True)
-        writeNetcdf(prefix, x, y, ldataName, lgridded_myData)
+        xb = np.linspace(0, self.nx - 1, nx) * dx
+        yb = np.linspace(0, self.ny - 1, ny) * dx
 
-        # 2. Write upsampled data
-        allarr = np.array(lgridded_myData)
-        nd = allarr.shape[0]
-        ny2, nx2 = ny * spatial_zoom, nx * spatial_zoom
-        allarr0 = np.zeros((nd, ny2, nx2))
-
-        for k in range(nd):
-            allarr0[k, :, :] = scipy.ndimage.zoom(allarr[k, :, :], spatial_zoom, order=spatial_order)
-        strike_slip1, dip_slip1, rupttime1, rise_time1, tacc1 = allarr0
-        # upsampled duration, rise_time and acc_time may not be smaller than initial values
-        # at least rise_time could lead to a non-causal kinematic model
-        rupttime1 = np.maximum(rupttime1, np.amin(rupttime))
-        rise_time1 = np.maximum(rise_time1, np.amin(rise_time))
-        tacc1 = np.maximum(tacc1, np.amin(tacc))
-
-        xb = np.linspace(0, nx - 1, nx2) * dx
-        yb = np.linspace(0, ny - 1, ny2) * dx
-
-        lgridded_myData = [strike_slip1, dip_slip1, rupttime1, rise_time1, tacc1]
         prefix2 = f"{prefix}_{spatial_zoom}_o{spatial_order}"
         if write_paraview:
             # see comment above
             for i, sdata in enumerate(ldataName):
                 writeNetcdf(prefix2 + sdata, xb, yb, [sdata], [lgridded_myData[i]], paraview_readable=True)
-
         writeNetcdf(prefix2, xb, yb, ldataName, lgridded_myData)
 
-    def generate_fault_yaml(self, prefix, spatial_order, spatial_zoom, proj):
+    def generate_fault_yaml_fl33(self, prefix, spatial_order, spatial_zoom, proj):
         cm2m = 0.01
+        km2m = 1e3
         self.compute_xy_from_latlon(proj)
         nx, ny = self.nx, self.ny
-        p0 = np.array([self.x[0, 0], self.y[0, 0], -1e3 * self.depth[0, 0]])
-        p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -1e3 * self.depth[ny - 1, 0]])
-        p2 = np.array([self.x[0, nx - 1], self.y[0, nx - 1], -1e3 * self.depth[0, nx - 1]])
+        p0 = np.array([self.x[0, 0], self.y[0, 0], -km2m * self.depth[0, 0]])
+        p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
+        p2 = np.array([self.x[0, nx - 1], self.y[0, nx - 1], -km2m * self.depth[0, nx - 1]])
         hw = p1 - p0
+        dx1 = np.linalg.norm(hw) / ny
         hw = hw / np.linalg.norm(hw)
         hh = p2 - p0
+        dx2 = np.linalg.norm(hh) / nx
+        if abs(dx1 - dx2) / dx2 > 0.01:
+            print("subfauts are not square", dx1, dx2)
+            raise NotImplementedError
         hh = hh / np.linalg.norm(hh)
-        dx = np.sqrt(self.PSarea * cm2m * cm2m)
-        t1 = -np.dot(p0, hh) + dx
-        t2 = -np.dot(p0, hw) + dx
+        dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
+        # a kinematic model defines the fault quantities at the subfault center
+        # a netcdf file defines the quantities at the nodes
+        # therefore the dx/2
+        t1 = -np.dot(p0, hh) + dx * 0.5
+        t2 = -np.dot(p0, hw) + dx * 0.5
         template_yaml = f"""!Switch
 [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !EvalModel
     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
