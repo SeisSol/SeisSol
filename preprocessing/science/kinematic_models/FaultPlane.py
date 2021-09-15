@@ -62,20 +62,19 @@ def interpolate_nan_from_neighbors(array):
 
 
 def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant"):
+    """1. pad
+    2. upsample, adding spatial_zoom per node
+    """
     nd = allarr.shape[0]
     ny, nx = [val * spatial_zoom for val in allarr[0].shape]
     allarr0 = np.zeros((nd, ny, nx))
     for k in range(nd):
         if padding == "extrapolate":
             my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "reflect", reflect_type="odd")
-        elif padding == "constant":
-            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)))
-        elif padding == "edge":
-            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "edge")
         else:
-            print(f"unkown padding: {padding}")
-            raise
-        allarr0[k, :, :] = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order)[spatial_zoom:-spatial_zoom, spatial_zoom:-spatial_zoom]
+            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), padding)
+        allarr0[k, :, :] = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)[spatial_zoom:-spatial_zoom, spatial_zoom:-spatial_zoom]
+
     return allarr0
 
 
@@ -242,6 +241,7 @@ class FaultPlane:
         print("tacc (min, 50%, max)", np.amin(self.tacc), np.median(self.tacc), np.amax(self.tacc))
 
     def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom, proj, use_Yoffe=False):
+        "increase spatial and temporal resolution of kinematic model by interpolation"
         # time vector
         ndt2 = (self.ndt - 1) * temporal_zoom + 1
         ny2, nx2 = self.ny * spatial_zoom, self.nx * spatial_zoom
@@ -256,21 +256,21 @@ class FaultPlane:
 
         # upsample spatially geometry (bilinear interpolation)
         allarr = np.array([self.x, self.y, self.depth])
-        pf.x, pf.y, pf.depth = upsample_quantities(allarr, 1, spatial_zoom, padding="extrapolate")
+        pf.x, pf.y, pf.depth = upsample_quantities(allarr, spatial_order=1, spatial_zoom=spatial_zoom, padding="extrapolate")
 
         # upsample other quantities
         allarr = np.array([self.t0, self.strike, self.dip, self.rake])
         pf.t0, pf.strike, pf.dip, pf.rake = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
-        # the interpolation may generate some acausality that we here remove
+        # the interpolation may generate some acausality that we here prevent
         pf.t0 = np.maximum(pf.t0, np.amin(self.t0))
 
         allarr = np.array([self.slip1])
         (pf.slip1,) = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant")
-
         pf.compute_latlon_from_xy(proj)
         pf.PSarea = self.PSarea / spatial_zoom ** 2
+        ratio_potency = np.sum(pf.slip1) * pf.PSarea / (np.sum(self.slip1) * self.PSarea)
+        print(f"potency ratio (upscaled over initial): {ratio_potency}")
 
-        aSRa = np.zeros((pf.ny, pf.nx, self.ndt))
         if use_Yoffe:
             self.assess_Yoffe_parameters()
             allarr = np.array([self.rise_time, self.tacc])
@@ -284,8 +284,9 @@ class FaultPlane:
                     for k, tk in enumerate(pf.myt):
                         pf.aSR[j, i, k] = pf.slip1[j, i] * regularizedYoffe(tk, ts[j, i], tr[j, i])
         else:
+            aSRa = np.zeros((pf.ny, pf.nx, self.ndt))
             for k in range(self.ndt):
-                aSRa[:, :, k] = scipy.ndimage.zoom(self.aSR[:, :, k], spatial_zoom, order=spatial_order)
+                aSRa[:, :, k] = upsample_quantities(np.array([self.aSR[:, :, k]]), spatial_order, spatial_zoom, padding="constant")
 
             # interpolate temporally the AST
             for j in range(pf.ny):
@@ -361,6 +362,7 @@ class FaultPlane:
         writeNetcdf(prefix2, xb, yb, ldataName, lgridded_myData)
 
     def generate_fault_yaml(self, prefix, spatial_order, spatial_zoom, proj):
+        cm2m = 0.01
         self.compute_xy_from_latlon(proj)
         nx, ny = self.nx, self.ny
         p0 = np.array([self.x[0, 0], self.y[0, 0], -1e3 * self.depth[0, 0]])
@@ -370,7 +372,7 @@ class FaultPlane:
         hw = hw / np.linalg.norm(hw)
         hh = p2 - p0
         hh = hh / np.linalg.norm(hh)
-        dx = np.sqrt(self.PSarea / 1e4)
+        dx = np.sqrt(self.PSarea * cm2m * cm2m)
         t1 = -np.dot(p0, hh) + dx
         t2 = -np.dot(p0, hw) + dx
         template_yaml = f"""!Switch
