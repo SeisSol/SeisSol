@@ -5,7 +5,7 @@ from FaultPlane import FaultPlane
 
 parser = argparse.ArgumentParser(
     description="generate yaml and netcdf input to be used with friction law 33 based on a (here"
-    + "updasampled) kinematic model in the standard rupture format srf file."
+    + "upsampled) kinematic model in the standard rupture format srf file."
 )
 parser.add_argument("filename", help="filename of the srf file")
 parser.add_argument(

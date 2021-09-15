@@ -3,12 +3,12 @@ import argparse
 from FaultPlane import FaultPlane
 
 parser = argparse.ArgumentParser(
-    description="upsample temporally and spatially a kinematic model (should be a planar model) in the standard rupture format"
+    description="upsample temporally and spatially a kinematic model (should consist of only one segment) in the standard rupture format"
 )
 parser.add_argument("filename", help="filename of the srf file")
 parser.add_argument(
     "--proj",
-    help="proj4 string (might be better to upsample the geometry in the local coordinate system)",
+    help="transform geometry given proj4 string (as it might be better to upsample the geometry in the local coordinate system)",
 )
 parser.add_argument(
     "--spatial_order",
