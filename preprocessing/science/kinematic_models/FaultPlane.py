@@ -360,16 +360,14 @@ class FaultPlane:
         hw = hw / np.linalg.norm(hw)
         hh = p2 - p0
         dx2 = np.linalg.norm(hh) / nx
-        if abs(dx1 - dx2) / dx2 > 0.01:
-            print("subfauts are not square", dx1, dx2)
-            raise NotImplementedError
         hh = hh / np.linalg.norm(hh)
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         # a kinematic model defines the fault quantities at the subfault center
         # a netcdf file defines the quantities at the nodes
         # therefore the dx/2
-        t1 = -np.dot(p0, hh) + dx * 0.5
-        t2 = -np.dot(p0, hw) + dx * 0.5
+        # the term dxi/np.sqrt(dx1*dx2) allow accounting for non-square patches
+        t1 = -np.dot(p0, hh) + dx * 0.5 * dx1 / np.sqrt(dx1 * dx2)
+        t2 = -np.dot(p0, hw) + dx * 0.5 * dx2 / np.sqrt(dx1 * dx2)
         template_yaml = f"""!Switch
 [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !EvalModel
     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
