@@ -61,19 +61,29 @@ def interpolate_nan_from_neighbors(array):
     return interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method="linear", fill_value=np.average(array))
 
 
-def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant"):
+def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant", extra_padding_layer=False):
     """1. pad
     2. upsample, adding spatial_zoom per node
     """
     nd = allarr.shape[0]
     ny, nx = [val * spatial_zoom for val in allarr[0].shape]
+    if extra_padding_layer:
+        # required for vertex aligned netcdf format
+        nx = nx + 2
+        ny = ny + 2
     allarr0 = np.zeros((nd, ny, nx))
     for k in range(nd):
         if padding == "extrapolate":
             my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "reflect", reflect_type="odd")
         else:
             my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), padding)
-        allarr0[k, :, :] = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)[spatial_zoom:-spatial_zoom, spatial_zoom:-spatial_zoom]
+        if extra_padding_layer:
+            ncrop = spatial_zoom - 1
+        else:
+            ncrop = spatial_zoom
+        my_array = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)
+        if ncrop > 0:
+            allarr0[k, :, :] = my_array[ncrop:-ncrop, ncrop:-ncrop]
 
     return allarr0
 
@@ -307,9 +317,12 @@ class FaultPlane:
         "generate netcdf files to be used with SeisSol friction law 33"
 
         cm2m = 0.01
-        (slip,) = upsample_quantities(np.array([self.slip1]), spatial_order, spatial_zoom, padding="constant")
+        # a kinematic model defines the fault quantities at the subfault center
+        # a netcdf file defines the quantities at the nodes
+        # therefore the extra_padding_layer=True, and the added di below
+        (slip,) = upsample_quantities(np.array([self.slip1]), spatial_order, spatial_zoom, padding="constant", extra_padding_layer=True)
         allarr = np.array([self.t0, self.rake, self.rise_time, self.tacc])
-        rupttime, rake, rise_time, tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
+        rupttime, rake, rise_time, tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge", extra_padding_layer=True)
         # upsampled duration, rise_time and acc_time may not be smaller than initial values
         # at least rise_time could lead to a non-causal kinematic model
         rupttime = np.maximum(rupttime, np.amin(self.t0))
@@ -324,10 +337,9 @@ class FaultPlane:
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
         lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc]
-
-        xb = np.linspace(0, self.nx - 1, nx) * dx
-        yb = np.linspace(0, self.ny - 1, ny) * dx
-
+        di = 1.0 / (2 * spatial_zoom)
+        xb = np.linspace(-di, self.nx + di, nx) * dx
+        yb = np.linspace(-di, self.ny + di, ny) * dx
         prefix2 = f"{prefix}_{spatial_zoom}_o{spatial_order}"
         if write_paraview:
             # see comment above
