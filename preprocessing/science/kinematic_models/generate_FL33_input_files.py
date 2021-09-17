@@ -48,6 +48,7 @@ p1.generate_netcdf_fl33(
     prefix,
     spatial_order=args.spatial_order[0],
     spatial_zoom=args.spatial_zoom[0],
+    proj=args.generate_yaml,
     write_paraview=args.write_paraview,
 )
 if args.generate_yaml:

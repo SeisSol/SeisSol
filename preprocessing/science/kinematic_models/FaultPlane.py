@@ -279,7 +279,7 @@ class FaultPlane:
         pf.compute_latlon_from_xy(proj)
         pf.PSarea_cm2 = self.PSarea_cm2 / spatial_zoom ** 2
         ratio_potency = np.sum(pf.slip1) * pf.PSarea_cm2 / (np.sum(self.slip1) * self.PSarea_cm2)
-        print(f"potency ratio (upscaled over initial): {ratio_potency}")
+        print(f"seismic potency ratio (upscaled over initial): {ratio_potency}")
 
         if use_Yoffe:
             self.assess_Yoffe_parameters()
@@ -313,14 +313,55 @@ class FaultPlane:
                         pf.aSR[j, i, :] = pf.slip1[j, i] * pf.aSR[j, i, :] / integral_STF
         return pf
 
-    def generate_netcdf_fl33(self, prefix, spatial_order, spatial_zoom, write_paraview):
+    def compute_corrected_slip_for_differing_area(self, proj):
+        """
+        self.PSarea_cm2 may slightly differ from the patch area from the fault geometry
+        (e.g. due to the projection)
+        Therefore, we need to update slip to keep seismic potency (area*slip) unchanged
+        """
+        cm2m = 0.01
+        km2m = 1e3
+        PSarea_m2 = self.PSarea_cm2 * cm2m * cm2m
+        self.compute_xy_from_latlon(proj)
+        nx, ny = self.nx, self.ny
+        # Compute actual dx and dy from coordinates
+        dy = np.zeros((ny, nx))
+        dx = np.zeros((ny, nx))
+        # central difference for the inside
+        coords = np.array((self.x, self.y, -km2m * self.depth))
+        for i in range(0, nx):
+            p0 = coords[:, 0 : ny - 2, i] - coords[:, 2:ny, i]
+            dy[1 : ny - 1, i] = 0.5 * np.linalg.norm(p0, axis=0)
+        # special case of 0 and ny-1
+        p0 = coords[:, 1, :] - coords[:, 0, :]
+        dy[0, :] = np.linalg.norm(p0, axis=0)
+        p0 = coords[:, ny - 1, :] - coords[:, ny - 2, :]
+        dy[ny - 1, :] = np.linalg.norm(p0, axis=0)
+        # dx for coordinates
+        for j in range(0, ny):
+            p0 = coords[:, j, 0 : nx - 2] - coords[:, j, 2:nx]
+            dx[j, 1 : nx - 1] = 0.5 * np.linalg.norm(p0, axis=0)
+        p0 = coords[:, :, 1] - coords[:, :, 0]
+        dx[:, 0] = np.linalg.norm(p0, axis=0)
+        p0 = coords[:, :, nx - 1] - coords[:, :, nx - 2]
+        dx[:, nx - 1] = np.linalg.norm(p0, axis=0)
+        factor_area = dx[:, :] * dy[:, :] / PSarea_m2
+        slip1 = self.slip1 * factor_area
+        print(
+            f"done correcting slip for area. \
+The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_area)}"
+        )
+        return slip1
+
+    def generate_netcdf_fl33(self, prefix, spatial_order, spatial_zoom, proj, write_paraview):
         "generate netcdf files to be used with SeisSol friction law 33"
 
         cm2m = 0.01
         # a kinematic model defines the fault quantities at the subfault center
         # a netcdf file defines the quantities at the nodes
         # therefore the extra_padding_layer=True, and the added di below
-        (slip,) = upsample_quantities(np.array([self.slip1]), spatial_order, spatial_zoom, padding="constant", extra_padding_layer=True)
+        cslip = self.compute_corrected_slip_for_differing_area(proj)
+        (slip,) = upsample_quantities(np.array([cslip]), spatial_order, spatial_zoom, padding="constant", extra_padding_layer=True)
         allarr = np.array([self.t0, self.rake, self.rise_time, self.tacc])
         rupttime, rake, rise_time, tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge", extra_padding_layer=True)
         # upsampled duration, rise_time and acc_time may not be smaller than initial values
@@ -356,10 +397,10 @@ class FaultPlane:
         p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
         p2 = np.array([self.x[0, nx - 1], self.y[0, nx - 1], -km2m * self.depth[0, nx - 1]])
         hw = p1 - p0
-        dx1 = np.linalg.norm(hw) / ny
+        dx1 = np.linalg.norm(hw) / (ny - 1)
         hw = hw / np.linalg.norm(hw)
         hh = p2 - p0
-        dx2 = np.linalg.norm(hh) / nx
+        dx2 = np.linalg.norm(hh) / (nx - 1)
         hh = hh / np.linalg.norm(hh)
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         # a kinematic model defines the fault quantities at the subfault center
