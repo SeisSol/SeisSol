@@ -357,6 +357,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         "generate netcdf files to be used with SeisSol friction law 33"
 
         cm2m = 0.01
+        km2m = 1e3
         # a kinematic model defines the fault quantities at the subfault center
         # a netcdf file defines the quantities at the nodes
         # therefore the extra_padding_layer=True, and the added di below
@@ -378,9 +379,22 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
         lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc]
-        di = 1.0 / (2 * spatial_zoom)
-        xb = np.linspace(-di, self.nx + di, nx) * dx
-        yb = np.linspace(-di, self.ny + di, ny) * dx
+        # we could do directly
+        # di = 1.0 / (2 * spatial_zoom)
+        # xb = np.linspace(-di, self.nx + di, nx) * dx
+        # yb = np.linspace(-di, self.ny + di, ny) * dx
+        # But we compute xb and yb based on the upsampled coordinates, to account for possible warping due to the projection
+        allarr = np.array([self.x, self.y, -km2m * self.depth])
+        coords = upsample_quantities(allarr, spatial_order=1, spatial_zoom=spatial_zoom, padding="extrapolate", extra_padding_layer=True)
+
+        p0 = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
+        dx1 = np.linalg.norm(p0, axis=0)
+        xb = np.cumsum(dx1) - 1.5 * dx1[0]
+
+        p0 = coords[:, :, (nx - 1) // 2] - coords[:, :, (nx - 1) // 2 - 1]
+        dy1 = np.linalg.norm(p0, axis=0)
+        yb = np.cumsum(dy1) - 1.5 * dy1[0]
+
         prefix2 = f"{prefix}_{spatial_zoom}_o{spatial_order}"
         if write_paraview:
             # see comment above
