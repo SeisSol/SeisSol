@@ -197,8 +197,8 @@ Two additional thermal pressurization parameters are space-dependent and therefo
 
   !ConstantMap
   map:
-    alpha_hy: 1e-4                  ! Hydraulic diffusivity [m^2/s]
-    TP_half_width_shear_zone: 0.01  ! Half width of shearing zone [m]
+    alpha_hy: 1e-4                  # Hydraulic diffusivity [m^2/s]
+    TP_half_width_shear_zone: 0.01  # Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
 
