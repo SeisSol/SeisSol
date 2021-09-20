@@ -3,6 +3,10 @@ Slip-rate imposed on a DR boundary
 
 This "pseudo" friction law allows imposing slip-rate on a dynamic rupture boundary.
 The FL id for this friction law is 33.
+The advantage of this approach is that the displacement discontinuity can be accurately represented in SeisSol's discontinuous finite element space. 
+A multi point-source representation, in comparison, may give rise to spurious waves due the continuity of the basis functions within a finite element (smearing), 
+and to the discrete spatial sampling between point sources (aliasing).
+
 The advantage of this approach compared to a multi point-source representation is that the fault slip is not condensed to points. 
 Therefore the discontinuity of the displacement across the fault can be accurately accounted for.
 In addition, no spurious waves, related to the multi point-sources representation, are generated.
