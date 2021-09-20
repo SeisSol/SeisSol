@@ -8,6 +8,14 @@ Therefore the discontinuity of the displacement across the fault can be accurate
 In addition, no spurious waves, related to the multi point-sources representation, are generated.
 
 The current implementation allows imposing kinematic models parameterized by regularized Yoffe function (see Tinti et al., 2005, doi:10.1029/2005JB003644).
+
+.. figure:: LatexFigures/Yoffe_example.png
+   :alt: a typical Yoffe function.
+   :width: 15.00000cm
+
+   Typical shape of a Yoffe function. We here use rupture_onset=0, acc_time=0.2 and effective_rise_time=1.0.
+
+
 The Yoffe functions are parametrized by ``rupture_onset``, ``acc_time`` and ``effective_rise_time``, where ``rupture_onset`` is the onset time of the rupture, 
 ``acc_time`` is (approximatively) the time to the peak slip-rate, and ``effective_rise_time`` is the duration of slip.
 The slip distribution is defined by the ``strike_slip`` and ``dip_slip`` variables.  
