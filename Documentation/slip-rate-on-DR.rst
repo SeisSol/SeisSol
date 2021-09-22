@@ -11,7 +11,7 @@ The advantage of this approach compared to a multi point-source representation i
 Therefore the discontinuity of the displacement across the fault can be accurately accounted for.
 In addition, no spurious waves, related to the multi point-sources representation, are generated.
 
-The current implementation allows imposing kinematic models parameterized by regularized Yoffe function (see Tinti et al., 2005, doi:10.1029/2005JB003644).
+The current implementation allows imposing kinematic models parameterized by regularized Yoffe function (see Tinti et al., 2005, https://doi.org/10.1785/0120040177).
 
 .. figure:: LatexFigures/Yoffe_example.png
    :alt: a typical Yoffe function.
