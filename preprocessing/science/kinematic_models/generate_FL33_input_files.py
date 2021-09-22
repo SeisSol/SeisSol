@@ -1,7 +1,7 @@
 import os
 import argparse
 from FaultPlane import FaultPlane
-
+import os.path
 
 parser = argparse.ArgumentParser(
     description="generate yaml and netcdf input to be used with friction law 33 based on a (here"
@@ -44,6 +44,8 @@ p1.init_from_srf(args.filename)
 p1.compute_time_array()
 p1.assess_Yoffe_parameters()
 prefix, ext = os.path.splitext(args.filename)
+prefix = os.path.basename(prefix)
+
 p1.generate_netcdf_fl33(
     prefix,
     spatial_order=args.spatial_order[0],
