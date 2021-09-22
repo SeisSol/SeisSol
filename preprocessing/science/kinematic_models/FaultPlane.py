@@ -5,42 +5,51 @@ from scipy import interpolate
 from netCDF4 import Dataset
 from Yoffe import regularizedYoffe
 
-
-def writeNetcdf(sname, x, y, aName, aData, paraview_readable=False):
+def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
     """create a netcdf file either readable by ASAGI
-    or by paraview (paraview_readable=True)"""
-    if paraview_readable:
-        fname = sname + "_paraview.nc"
-    else:
-        fname = sname + "_ASAGI.nc"
+    or by paraview (paraview_readable=True)
+
+    Parameters
+    ----------
+    sname: str prefix name of output file
+    lDimVar: list of 1d numpy array containing the dimension variables
+    lName: list if str containing the name of the nd variables
+    lData: list if n-d numpy array containing the data
+    paraview_readable: bool
+    """
+    fname = f"{sname}.nc"
     print("writing " + fname)
 
-    nx = x.shape[0]
-    ny = y.shape[0]
-
     with Dataset(fname, "w", format="NETCDF4") as rootgrp:
-        rootgrp.createDimension("u", nx)
-        rootgrp.createDimension("v", ny)
-        vx = rootgrp.createVariable("u", "f4", ("u",))
-        vx[:] = x
-        vy = rootgrp.createVariable("v", "f4", ("v",))
-        vy[:] = y
+        #Create dimension and 1d variables
+        sdimVarNames='uvwxyz'
+        dims = []
+        for i, xi in enumerate(lDimVar):
+            nxi = xi.shape[0]
+            dimName=sdimVarNames[i]
+            dims.append(dimName)
+            rootgrp.createDimension(dimName, nxi)
+            vx = rootgrp.createVariable(dimName, "f4", (dimName,))
+            vx[:] = xi
+        dims.reverse()
+        dims = tuple(dims)
+
         if paraview_readable:
-            for i in range(len(aName)):
-                vTd = rootgrp.createVariable(aName[i], "f4", ("v", "u"))
-                vTd[:, :] = aData[i][:, :]
+            for i in range(len(lName)):
+                vTd = rootgrp.createVariable(lName[i], "f4", dims)
+                vTd[:] = lData[i]
         else:
-            ldata4 = [(name, "f4") for name in aName]
-            ldata8 = [(name, "f8") for name in aName]
+            ldata4 = [(name, "f4") for name in lName]
+            ldata8 = [(name, "f8") for name in lName]
             mattype4 = np.dtype(ldata4)
             mattype8 = np.dtype(ldata8)
             mat_t = rootgrp.createCompoundType(mattype4, "material")
 
-            # this transform the 4 D array into an array of tuples
-            arr = np.stack([aData[i] for i in range(len(aName))], axis=2)
+            # this transform the nD array into an array of tuples
+            arr = np.stack([lData[i] for i in range(len(lName))], axis=len(dims))
             newarr = arr.view(dtype=mattype8)
             newarr = newarr.reshape(newarr.shape[:-1])
-            mat = rootgrp.createVariable("data", mat_t, ("v", "u"))
+            mat = rootgrp.createVariable("data", mat_t, dims)
             mat[:] = newarr
 
 
@@ -287,6 +296,7 @@ class FaultPlane:
             pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
             pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))
             pf.tacc = np.maximum(pf.tacc, np.amin(self.tacc))
+            print('using ts = tacc / 1.27 to compute the regularized Yoffe')
             ts = pf.tacc / 1.27
             tr = pf.rise_time - 2.0 * ts
             for j in range(pf.ny):
@@ -399,8 +409,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         if write_paraview:
             # see comment above
             for i, sdata in enumerate(ldataName):
-                writeNetcdf(prefix2 + sdata, xb, yb, [sdata], [lgridded_myData[i]], paraview_readable=True)
-        writeNetcdf(prefix2, xb, yb, ldataName, lgridded_myData)
+                writeNetcdf(prefix2 + sdata, [xb, yb], [sdata], [lgridded_myData[i]], paraview_readable=True)
+        writeNetcdf(prefix2, [xb, yb], ldataName, lgridded_myData)
 
     def generate_fault_yaml_fl33(self, prefix, spatial_order, spatial_zoom, proj):
         cm2m = 0.01
@@ -423,8 +433,9 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # the term dxi/np.sqrt(dx1*dx2) allow accounting for non-square patches
         t1 = -np.dot(p0, hh) + dx * 0.5 * dx1 / np.sqrt(dx1 * dx2)
         t2 = -np.dot(p0, hw) + dx * 0.5 * dx2 / np.sqrt(dx1 * dx2)
+
         template_yaml = f"""!Switch
-[strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !EvalModel
+[strike_slip, dip_slip, rupture_onset, tau_S, tau_R]: !EvalModel
     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
     model: !Switch
         [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !AffineMap
@@ -453,8 +464,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
           strike_slip: return -strike_slip;
           dip_slip: return dip_slip;
           rupture_onset: return rupture_onset;
-          acc_time: return acc_time;
-          effective_rise_time: return effective_rise_time;
+          tau_S: return acc_time/1.27;
+          tau_R: return effective_rise_time - 2.*acc_time/1.27;
         """
         fname = f"{prefix}_fault.yaml"
         with open(fname, "w") as fid:

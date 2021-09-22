@@ -7,10 +7,6 @@ The advantage of this approach is that the displacement discontinuity can be acc
 A multi point-source representation, in comparison, may give rise to spurious waves due the continuity of the basis functions within a finite element (smearing), 
 and to the discrete spatial sampling between point sources (aliasing).
 
-The advantage of this approach compared to a multi point-source representation is that the fault slip is not condensed to points. 
-Therefore the discontinuity of the displacement across the fault can be accurately accounted for.
-In addition, no spurious waves, related to the multi point-sources representation, are generated.
-
 The current implementation allows imposing kinematic models parameterized by regularized Yoffe function (see Tinti et al., 2005, https://doi.org/10.1785/0120040177).
 
 .. figure:: LatexFigures/Yoffe_example.png
@@ -20,8 +16,13 @@ The current implementation allows imposing kinematic models parameterized by reg
    Typical shape of a Yoffe function. We here use rupture_onset=0, acc_time=0.2 and effective_rise_time=1.0.
 
 
-The Yoffe functions are parametrized by ``rupture_onset``, ``acc_time`` and ``effective_rise_time``, where ``rupture_onset`` is the onset time of the rupture, 
-``acc_time`` is (approximatively) the time to the peak slip-rate, and ``effective_rise_time`` is the duration of slip.
+The Yoffe functions are parametrized by ``rupture_onset``, ``tau_S`` and ``tau_R``, where ``rupture_onset`` is the onset time of the rupture, 
+``tau_S`` is a parameter closely related (see hereafter) with ``T_acc``, the duration of the positive slip acceleration (time to the peak slip-rate), 
+and ``tau_R`` is a parameter that, in combination with ``tau_S``, allow defining the effective duration of slip ``tau^eff_R``.
+
+For typical ``tau_S/tau_R`` ratio, we can assume ``T_acc = 1.27 tau_S``. Yet, the factor can range from about 1.15 (for ``tau_S/tau_R`` close to 0) to about 1.4 (for ``tau_S/tau_R`` close to 0.4).
+In addition, we can typically assume ``tau^eff_R = tau_R + 2 tau_S``.
+
 The slip distribution is defined by the ``strike_slip`` and ``dip_slip`` variables.  
 All these parameters are read by easi from the dynamic rupture yaml file.
 

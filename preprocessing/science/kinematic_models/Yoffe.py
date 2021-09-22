@@ -2,6 +2,9 @@ from math import sqrt, asin, atan, pi
 
 
 def C1(t, ts, tr):
+    """ C1 to C6 are analytical functions
+    used for building the regularized Yoffe function
+    """
     return (
         (0.5 * t + 0.25 * tr) * sqrt(t * (tr - t))
         + (t * tr - tr * tr) * asin(sqrt(t / tr))
@@ -39,6 +42,10 @@ def C6(t, ts, tr):
 
 
 def regularizedYoffe(t, ts, tr):
+    """
+    Implementation of the regularized Yoffe function
+    defined in Appendix of Tinti et al. (2005), https://doi.org/10.1785/0120040177
+    """
     assert ts < tr
     K = 2.0 / (pi * tr * ts * ts)
     if tr > 2.0 * ts:

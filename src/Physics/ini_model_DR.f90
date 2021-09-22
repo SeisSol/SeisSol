@@ -280,12 +280,8 @@ MODULE ini_model_DR_mod
         call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
         call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
         call c_interoperability_addFaultParameter("rupture_onset" // c_null_char, DISC%DynRup%Yoffeonset)
-        call c_interoperability_addFaultParameter("acc_time" // c_null_char, DISC%DynRup%YoffeTS)
-        call c_interoperability_addFaultParameter("effective_rise_time" // c_null_char, DISC%DynRup%YoffeTR)
-        ! Ts = time_acc*(1./1.27)
-        DISC%DynRup%YoffeTS(:,:) =  DISC%DynRup%YoffeTS(:,:)/1.27
-        ! Tr = rise_time_effective - 2.0*Ts;
-        DISC%DynRup%YoffeTR(:,:) =  DISC%DynRup%YoffeTR(:,:) - 2.0 * DISC%DynRup%YoffeTS(:,:)
+        call c_interoperability_addFaultParameter("tau_S" // c_null_char, DISC%DynRup%YoffeTS)
+        call c_interoperability_addFaultParameter("tau_R" // c_null_char, DISC%DynRup%YoffeTR)
 
     CASE(3,4,7,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )

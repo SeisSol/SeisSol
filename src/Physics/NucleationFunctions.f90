@@ -108,6 +108,8 @@ CONTAINS
   END FUNCTION Calc_SmoothStep
 
   FUNCTION C1(t, ts, tr) result(rC1)
+    ! C1 to C6 are analytical functions
+    ! used for building the regularized Yoffe function
     IMPLICIT NONE
     REAL        :: t, ts, tr, rC1
     rC1 = (0.5 * t + 0.25 * tr) * sqrt(t * (tr - t)) &
@@ -159,6 +161,8 @@ CONTAINS
 
 
   FUNCTION regularizedYoffe(t, ts, tr) result(Gnuc)
+    ! Implementation of the regularized Yoffe function
+    ! defined in Appendix of Tinti et al. (2005)
     IMPLICIT NONE
     REAL        :: t, ts, tr
     REAL        :: K, Gnuc
