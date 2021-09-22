@@ -19,7 +19,7 @@ cohesiveZoneWidth = cohesiveZoneWidth[DS>0]
 ndsp = (len(np.where(DS>0)[0]))
 naslp = (len(np.where(ASl>0.1)[0]))
 
-print('DS defined over %d pc of elements that sliped more that 10cm' %(ndsp/naslp*100))
+print('DS defined over %d pc of elements that sliped more than 10cm' %(ndsp/naslp*100))
 
 for i in range(5,100,5):
    print('%dth percentile: %.2f' %(i, np.percentile(cohesiveZoneWidth, i)))
