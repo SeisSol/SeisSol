@@ -457,7 +457,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                     dip_slip:    0.0
                     rupture_onset:    0.0
                     acc_time:  1e100
-                    effective_rise_time:  1e100
+                    effective_rise_time:  2e100
     components: !FunctionMap
        map:
           #Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
