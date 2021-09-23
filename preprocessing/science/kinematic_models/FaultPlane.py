@@ -447,7 +447,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                 ub: {t2}
               components: !Any
                 - !ASAGI
-                    file: {prefix}_{spatial_zoom}_o{spatial_order}_ASAGI.nc
+                    file: {prefix}_{spatial_zoom}_o{spatial_order}.nc
                     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
                     var: data
                     interpolation: linear
