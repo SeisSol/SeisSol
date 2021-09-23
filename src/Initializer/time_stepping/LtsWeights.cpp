@@ -69,7 +69,8 @@ public:
 
 void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML::TETPUML const&  mesh,
                                                                             std::vector<double> const& pWaveVel,
-                                                                            std::vector<double>& timestep ) {
+                                                                            std::vector<double>& timestep,
+                                                                            double maximumAllowedTimeStep ) {
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
   std::vector<PUML::TETPUML::vertex_t> const& vertices = mesh.vertices();
 
@@ -98,7 +99,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML
     double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
     
     // Compute maximum timestep (CFL=1)
-    timestep[cell] = 2.0 * insphere / (pWaveVel[cell] * (2*CONVERGENCE_ORDER-1));
+    timestep[cell] = std::fmin(maximumAllowedTimeStep, 2.0 * insphere / (pWaveVel[cell] * (2*CONVERGENCE_ORDER-1)));
   }
 }
 
@@ -143,7 +144,8 @@ int seissol::initializers::time_stepping::LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETPUML const& mesh,
+                                                                      double maximumAllowedTimeStep ) {
   logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
 
   const auto& cells = mesh.cells();
@@ -172,7 +174,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   }
   std::vector<double> timestep;
   timestep.resize(cells.size());
-  computeMaxTimesteps(mesh, pWaveVel, timestep);
+  computeMaxTimesteps(mesh, pWaveVel, timestep, maximumAllowedTimeStep);
 
   double localMinTimestep = *std::min_element(timestep.begin(), timestep.end());
   double localMaxTimestep = *std::max_element(timestep.begin(), timestep.end());

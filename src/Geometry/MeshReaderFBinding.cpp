@@ -287,7 +287,7 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool hasFault, double const displacement[3],
                       double const scalingMatrix[3][3], char const* easiVelocityModel, int clusterRate,
                       int vertexWeightElement, int vertexWeightDynamicRupture, int vertexWeightFreeSurfaceWithGravity,
-                      bool usePlasticity) {
+                      bool usePlasticity, double maximumAllowedTimeStep) {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
@@ -322,7 +322,8 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
 
 	seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate, vertexWeightElement,
                                                               vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity);
-	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, checkPointFile, &ltsWeights, tpwgt, readPartitionFromFile));
+	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, maximumAllowedTimeStep, checkPointFile, 
+                                                              &ltsWeights, tpwgt, readPartitionFromFile));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 

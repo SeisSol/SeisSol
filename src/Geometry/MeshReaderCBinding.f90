@@ -81,7 +81,8 @@ module MeshReaderCBinding
         end subroutine
 
         subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, &
-                clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity, usePlasticity) bind(C, name="read_mesh_puml_c")
+                clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity, usePlasticity, &
+                maximumAllowedTimeStep) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
             character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
@@ -90,6 +91,7 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in) :: scalingMatrix
             integer(kind=c_int), value, intent(in) :: clusterRate, vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity
             logical(kind=c_bool), value :: usePlasticity
+            real(kind=c_double), value :: maximumAllowedTimeStep
         end subroutine
     end interface
 
@@ -143,7 +145,8 @@ contains
                                     MESH%vertexWeightElement, &
                                     MESH%vertexWeightDynamicRupture, &
                                     MESH%vertexWeightFreeSurfaceWithGravity, &
-                                    logical(EQN%Plasticity == 1, 1))
+                                    logical(EQN%Plasticity == 1, 1), &
+                                    DISC%FixTimeStep)
         else
             logError(*) 'Unknown mesh reader'
             call MPI_ABORT(m_mpi%commWorld, 134)

@@ -34,44 +34,10 @@ Stability with Local time stepping
 ----------------------------------
 
 To ensure the stability of SeisSol using attenuation and local time-stepping (LTS),
-it seems necessary to limit the number of clusters of the local time stepping.
+it seems necessary to limit the maximum timestep using parameter ``FixTimeStep`` of the ``&Discretization`` namelist, in the main parameter file.
 Else, very large elements, rarely updated by the LTS, get unstable.
-This can be achieved by using the following patch, which in most cases should not affect the LTS speed-up.
-
-.. code:: diff
-
-    --- a/src/Initializer/time_stepping/MultiRate.hpp
-    +++ b/src/Initializer/time_stepping/MultiRate.hpp
-    @@ -78,7 +78,12 @@ class seissol::initializers::time_stepping::MultiRate {
-           double l_lower = i_minimumTimeStepWidth;
-           double l_upper = i_multiRate*l_lower;
-     
-    +#if NUMBER_OF_QUANTITIES > 9
-    +      unsigned int l_id_max=6;
-    +#endif
-    +
-           for( unsigned int l_id = 0; ; l_id++ ) {
-    +
-             // the first cluster with an upper bound above the time step width is our
-             if( l_upper > i_timeStepWidth ) {
-               o_clusterTimeStepWidth = l_lower;
-    @@ -89,6 +94,11 @@ class seissol::initializers::time_stepping::MultiRate {
-             // update interval and continue searching
-             l_lower = l_upper;
-             l_upper = i_multiRate * l_lower;
-    +#if NUMBER_OF_QUANTITIES > 9
-    +        if( l_id == l_id_max-1 ) {
-    +          l_upper = std::numeric_limits<double>::max();
-    +         }
-    +#endif
-           }
-         }
-
-
-l_id_max, the maximum cluster id, is here hardcoded to 6. 
-This probably depends on the minimum mesh size and the order of accuracy used.
-The higher the order and the smaller the minimum mesh size, the larger l_id_max.
-As we did not investigate in detail the dependence of l_id_max with the simulation order and the minimum mesh size, we did not include the patch in the master branch yet.
+Practically, a value of 0.0025 seems low enough to ensure stability.
+In most cases, this should not affect the LTS speed-up.
 
 Compiling
 ---------

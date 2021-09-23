@@ -68,7 +68,7 @@ public:
     delete[] m_vertexWeights;
   }
   
-  void computeWeights(PUML::TETPUML const& mesh);
+  void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
   
   int* vertexWeights() const { return m_vertexWeights; }
   int nWeightsPerVertex() const { return m_ncon; }
@@ -76,7 +76,7 @@ public:
 private:
   void computeMaxTimesteps( PUML::TETPUML const&  mesh,
                             std::vector<double> const& pWaveVel,
-                            std::vector<double>& timestep );
+                            std::vector<double>& timestep, double maximumAllowedTimeStep );
 
   int getCluster( double    timestep,
                   double    globalMinTimestep,
