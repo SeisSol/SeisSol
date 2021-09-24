@@ -419,6 +419,19 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   }
   delete[] contained;
 
+  // Checking that all sources are within the domain
+  int globalnumSources = numSources;
+#ifdef USE_MPI
+  MPI_Reduce(&numSources, &globalnumSources, 1, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
+#endif
+
+  if (rank==0) {
+     int numSourceOutside = nrf.source - globalnumSources;
+     if (numSourceOutside > 0) {
+        logError() << nrf.source - globalnumSources <<" point sources are outside the domain.";
+     }
+  }
+
   logInfo(rank) << "Mapping point sources to LTS cells...";
   mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut);
   
