@@ -411,11 +411,11 @@ void seissol::writer::WaveFieldWriter::write(double time)
 		real* managedBuffer = async::Module<WaveFieldWriterExecutor,
 				WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(nextId);
 		m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
-	    for (unsigned int j = 0; j < m_numCells; j++) {
-          if (!std::isfinite(managedBuffer[j])) {
-            logError() << "Detected Inf/NaN in volume output. Aborting.";
-          }
-        }
+		for (unsigned int j = 0; j < m_numCells; j++) {
+			if (!std::isfinite(managedBuffer[j])) {
+ 				logError() << "Detected Inf/NaN in volume output. Aborting.";
+			}
+		}
 		sendBuffer(nextId, m_numCells*sizeof(real));
 
 		nextId++;

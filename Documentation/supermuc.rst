@@ -136,6 +136,7 @@ For that modules and compiler need to be switched:
     export FC=mpifc
 
 Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
+To enable sanitizer, add `-DADDRESS_SANITIZER_DEBUG=ON` to the argument list of cmake, and change the `CMAKE_BUILD_TYPE` to `RelWithDebInfo` or `Debug`.
 
 Running SeisSol
 ---------------
