@@ -415,7 +415,11 @@ void seissol::writer::WaveFieldWriter::write(double time)
 			m_variableSubsamplerPStrain->get(m_pstrain, m_map, 
 			i - (m_numVariables - WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES), managedBuffer);
 		}
-
+		for (unsigned int j = 0; j < m_numCells; j++) {
+			if (!std::isfinite(managedBuffer[j])) {
+ 				logError() << "Detected Inf/NaN in volume output. Aborting.";
+			}
+		}
 		sendBuffer(nextId, m_numCells*sizeof(real));
 
 		nextId++;

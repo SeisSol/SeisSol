@@ -316,7 +316,7 @@ CONTAINS
     EQN%Anelasticity = Anelasticity
     SELECT CASE(Anelasticity)
     CASE(0)
-      logInfo(*) 'No attenuation assumed. '
+      logInfo0(*) 'No attenuation assumed. '
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
@@ -330,12 +330,13 @@ CONTAINS
       EQN%nBackgroundVar = 3
 #endif
     CASE(1)
-       logInfo(*) 'Viscoelastic attenuation assumed ... '
+       logInfo0(*) 'Viscoelastic attenuation assumed ... '
        EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
        EQN%nMechanisms = NUMBER_OF_RELAXATION_MECHANISMS
        IF(EQN%Anisotropy.NE.2)   THEN
-         EQN%nAneFuncperMech = 6                                                    !
-         logInfo(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per Mechanism.'                                                   !
+         EQN%nAneFuncperMech = 6
+         logInfo0(*) '... using ', NUMBER_OF_RELAXATION_MECHANISMS,' mechanisms.'
+         logInfo0(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per mechanism.'
        ENDIF
        EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms
        EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
@@ -348,10 +349,10 @@ CONTAINS
     !
       SELECT CASE(Adjoint)
       CASE(0)
-         logInfo(*) 'No adjoint wavefield generated. '
+         logInfo0(*) 'No adjoint wavefield generated. '
          EQN%Adjoint = Adjoint
       CASE(1)
-         logInfo(*) 'Adjoint wavefield simultaneously generated. '
+         logInfo0(*) 'Adjoint wavefield simultaneously generated. '
          EQN%Adjoint = Adjoint
       CASE DEFAULT
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
@@ -361,13 +362,13 @@ CONTAINS
     EQN%Anisotropy = Anisotropy
     SELECT CASE(Anisotropy)
     CASE(0)
-      logInfo(*) 'Isotropic material is assumed. '
+      logInfo0(*) 'Isotropic material is assumed. '
       EQN%nNonZeroEV = 3
     CASE(1)
       IF(Anelasticity.EQ.1) THEN
         logError(*) 'Anelasticity does not work together with Anisotropy'
       END IF
-      logInfo(*) 'Full triclinic material is assumed. '
+      logInfo0(*) 'Full triclinic material is assumed. '
       EQN%nBackgroundVar = 22
       EQN%nNonZeroEV = 3
     CASE DEFAULT
@@ -610,12 +611,13 @@ CONTAINS
      logInfo(*) '| '
      logInfo(*) 'Record points for DR are allocated'
      logInfo(*) 'Output interval:',DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval,'.'
+     logInfo0(*) 'Number of pickPoints = ', nOutPoints
 
      ALLOCATE(X(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
      ALLOCATE(Y(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
      ALLOCATE(Z(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
 
-      logInfo(*) ' Pickpoints read from ', TRIM(PPFileName)
+      logInfo0(*) ' Pickpoints read from ', TRIM(PPFileName)
       CALL OpenFile(                                 &
             UnitNr       = IO%UNIT%other01         , &
             Name         = PPFileName              , &
@@ -2762,9 +2764,9 @@ ALLOCATE( SpacePositionx(nDirac), &
       !                                                                        !
       SELECT CASE(IO%Format)
       case(6)
-         logInfo0(*) 'Output data is in XDMF format (new implementation)'
+         logInfo0(*) 'Volume output is in XDMF format (new implementation)'
       case(10)
-         logInfo0(*) 'Output data is disabled'
+         logInfo0(*) 'Volume output is disabled'
       CASE DEFAULT
          logError(*) 'print_format must be {6,10}'
          call exit(134)
@@ -2878,7 +2880,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            ! we don't want output, so avoid confusing time stepping by setting
            ! plot interval to "infinity"
            IO%outInterval%TimeInterval = 1E99
-           logInfo0(*) 'No output (FORMAT=10) specified, delta T set to: ', IO%OutInterval%TimeInterval
+           logInfo(*) 'No volume output specified (FORMAT=10), delta T set to: ', IO%OutInterval%TimeInterval
          ELSE
            IO%outInterval%TimeInterval = TimeInterval          !
            logInfo0(*) 'Output data are generated at delta T= ', IO%OutInterval%TimeInterval
@@ -2917,11 +2919,11 @@ ALLOCATE( SpacePositionx(nDirac), &
        ENDIF
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
-     logInfo(*) 'Number of Record Points = ', IO%nRecordPoint
+     logInfo0(*) 'Number of Record Points = ', IO%nRecordPoint
      ALLOCATE( X(IO%nRecordPoint), Y(IO%nRecordPoint), Z(IO%nRecordPoint) )
       ! Read the single record points
       IF (nRecordPoints .GT. 0) THEN
-         logInfo(*) 'Record Points read from ', TRIM(RFileName)
+         logInfo0(*) 'Record Points read from ', TRIM(RFileName)
          CALL OpenFile(                                 &
                UnitNr       = IO%UNIT%other01         , &
                Name         = RFileName               , &
@@ -2931,10 +2933,10 @@ ALLOCATE( SpacePositionx(nDirac), &
          DO i = 1,nRecordPoints
             READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
-               logInfo0(*) 'in point :'                             !
-               logInfo0(*) 'x = ', X(i)         !
-               logInfo0(*) 'y = ', Y(i)         !
-               logInfo0(*) 'z = ', Z(i)         !
+               logInfo(*) 'in point :'                             !
+               logInfo(*) 'x = ', X(i)         !
+               logInfo(*) 'y = ', Y(i)         !
+               logInfo(*) 'z = ', Z(i)         !
 
          ENDDO
          !
@@ -3080,23 +3082,23 @@ ALLOCATE( SpacePositionx(nDirac), &
       SELECT CASE(Refinement)
          CASE(0)
 
-            logInfo0(*) 'Refinement is disabled'
+            logInfo0(*) 'Refinement for volume output is disabled'
 
          CASE(1)
 
-             logInfo0(*) 'Refinement strategy is Face Extraction :  4 subcells per cell'
+             logInfo0(*) 'Refinement strategy for volume output is Face Extraction :  4 subcells per cell'
 
          CASE(2)
 
-             logInfo0(*) 'Refinement strategy is Equal Face Area : 8 subcells per cell'
+             logInfo0(*) 'Refinement strategy for volume output is Equal Face Area : 8 subcells per cell'
 
          CASE(3)
 
-             logInfo0(*) 'Refinement strategy is Equal Face Area and Face Extraction : 32 subcells per cell'
+             logInfo0(*) 'Refinement strategy for volume output is Equal Face Area and Face Extraction : 32 subcells per cell'
 
          CASE DEFAULT
 
-             logError(*) 'Refinement strategy is N O T supported'
+             logError(*) 'Refinement strategy', Refinement,' for volume output is N O T supported'
              call exit(134)
 
       END SELECT
