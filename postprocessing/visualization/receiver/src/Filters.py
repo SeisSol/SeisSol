@@ -66,27 +66,22 @@ class Lowpass(Filter):
 
     lowpassOrderLabel = QLabel('Order', self)
     self.lowpassOrder = QSpinBox(self)
-    self.lowpassOrder.setValue(8)
+    self.lowpassOrder.setValue(4)
     self.lowpassOrder.valueChanged.connect(self.filterChanged)
-    attenuationLabel = QLabel('Attenuation (dB)', self)
-    self.attenuation = QDoubleSpinBox(self)
-    self.attenuation.setValue(40.0)
-    self.attenuation.valueChanged.connect(self.filterChanged)
     cutoffLabel = QLabel('Cutoff (Hz)', self)
     self.cutoff = QDoubleSpinBox(self)
-    self.cutoff.setValue(3.0)
-    self.cutoff.setMinimum(1.0)
+    self.cutoff.setValue(0.5)
+    self.cutoff.setSingleStep(0.1)
     self.cutoff.valueChanged.connect(self.filterChanged)
 
     filterLayout = QFormLayout(self)
     filterLayout.addRow(lowpassOrderLabel, self.lowpassOrder)
-    filterLayout.addRow(attenuationLabel, self.attenuation)
     filterLayout.addRow(cutoffLabel, self.cutoff)
     
   def apply(self, wf):
     Fs = 1.0 / (wf.time[1] - wf.time[0])
-    fc = self.cutoff.value() * 2.0 / Fs
-    b, a = scipy.signal.cheby2(self.lowpassOrder.value(), self.attenuation.value(), fc)
+    cutoff = min(0.5 * Fs, max(1. / Fs, self.cutoff.value()))
+    b, a = scipy.signal.butter(self.lowpassOrder.value(), cutoff, 'low', fs=Fs)
     for name in wf.waveforms.keys():
       wf.waveforms[name] = scipy.signal.filtfilt(b, a, wf.waveforms[name])
       
