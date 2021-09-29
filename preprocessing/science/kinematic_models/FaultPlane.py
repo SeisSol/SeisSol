@@ -396,7 +396,7 @@ class FaultPlane:
         print("slip rise_time (min, 50%, max)", np.amin(self.rise_time), np.median(self.rise_time), np.amax(self.rise_time))
         print("tacc (min, 50%, max)", np.amin(self.tacc), np.median(self.tacc), np.amax(self.tacc))
 
-    def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom, proj, use_Yoffe=False):
+    def upsample_fault(self, spatial_order, spatial_zoom, temporal_zoom, proj, use_Yoffe=False, time_smoothing_kernel_as_dt_fraction=0.5):
         "increase spatial and temporal resolution of kinematic model by interpolation"
         # time vector
         ndt2 = (self.ndt - 1) * temporal_zoom + 1
@@ -455,7 +455,7 @@ class FaultPlane:
                     f = interpolate.interp1d(self.myt, aSRa[j, i, :], kind="linear")
                     pf.aSR[j, i, :] = f(pf.myt)
                     tapper = cosine_taper(pf.ndt, self.dt / (pf.ndt * pf.dt))
-                    pf.aSR[j, i, :] = tapper * ndimage.gaussian_filter1d(pf.aSR[j, i, :], 0.5 * self.dt / pf.dt, mode="constant")
+                    pf.aSR[j, i, :] = tapper * ndimage.gaussian_filter1d(pf.aSR[j, i, :], time_smoothing_kernel_as_dt_fraction * self.dt / pf.dt, mode="constant")
                     # With a cubic interpolation, the interpolated slip1 may be negative which does not make sense.
                     if pf.slip1[j, i] < 0:
                         pf.aSR[j, i, :] = 0

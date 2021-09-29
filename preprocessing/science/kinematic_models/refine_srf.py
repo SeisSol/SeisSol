@@ -36,6 +36,15 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--time_smoothing_kernel_as_dt_fraction",
+    nargs=1,
+    metavar=("alpha_dt"),
+    default=([0.5]),
+    help="sigma, expressed as a portion of dt, of the gaussian kernel used to smooth SR",
+    type=float,
+)
+
+parser.add_argument(
     "--use_Yoffe",
     help="replace the discretized STF with a Yoffe function (e.g. for comparison with FL33)",
     dest="use_Yoffe",
@@ -55,6 +64,7 @@ p2 = p1.upsample_fault(
     temporal_zoom=args.temporal_zoom[0],
     proj=args.proj,
     use_Yoffe=args.use_Yoffe,
+    time_smoothing_kernel_as_dt_fraction=args.time_smoothing_kernel_as_dt_fraction[0],
 )
 prefix, ext = os.path.splitext(args.filename)
 fnout = prefix + "_resampled" + ".srf"
