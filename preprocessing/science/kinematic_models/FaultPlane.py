@@ -55,6 +55,99 @@ def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
             mat[:] = newarr
 
 
+def cosine_taper(npts, p=0.1, freqs=None, flimit=None, halfcosine=True, sactaper=False):
+    """
+    Cosine Taper. (copied from obspy:
+    https://docs.obspy.org/master/_modules/obspy/signal/invsim.html#cosine_taper
+
+    :type npts: int
+    :param npts: Number of points of cosine taper.
+    :type p: float
+    :param p: Decimal percentage of cosine taper (ranging from 0 to 1). Default
+        is 0.1 (10%) which tapers 5% from the beginning and 5% form the end.
+    :rtype: float NumPy :class:`~numpy.ndarray`
+    :return: Cosine taper array/vector of length npts.
+    :type freqs: NumPy :class:`~numpy.ndarray`
+    :param freqs: Frequencies as, for example, returned by fftfreq
+    :type flimit: list or tuple of floats
+    :param flimit: The list or tuple defines the four corner frequencies
+        (f1, f2, f3, f4) of the cosine taper which is one between f2 and f3 and
+        tapers to zero for f1 < f < f2 and f3 < f < f4.
+    :type halfcosine: bool
+    :param halfcosine: If True the taper is a half cosine function. If False it
+        is a quarter cosine function.
+    :type sactaper: bool
+    :param sactaper: If set to True the cosine taper already tapers at the
+        corner frequency (SAC behavior). By default, the taper has a value
+        of 1.0 at the corner frequencies.
+
+    .. rubric:: Example
+
+    >>> tap = cosine_taper(100, 1.0)
+    >>> tap2 = 0.5 * (1 + np.cos(np.linspace(np.pi, 2 * np.pi, 50)))
+    >>> np.allclose(tap[0:50], tap2)
+    True
+    >>> npts = 100
+    >>> p = 0.1
+    >>> tap3 = cosine_taper(npts, p)
+    >>> (tap3[int(npts*p/2):int(npts*(1-p/2))]==np.ones(int(npts*(1-p)))).all()
+    True
+    """
+    if p < 0 or p > 1:
+        msg = "Decimal taper percentage must be between 0 and 1."
+        raise ValueError(msg)
+    if p == 0.0 or p == 1.0:
+        frac = int(npts * p / 2.0)
+    else:
+        frac = int(npts * p / 2.0 + 0.5)
+
+    if freqs is not None and flimit is not None:
+        fl1, fl2, fl3, fl4 = flimit
+        idx1 = np.argmin(abs(freqs - fl1))
+        idx2 = np.argmin(abs(freqs - fl2))
+        idx3 = np.argmin(abs(freqs - fl3))
+        idx4 = np.argmin(abs(freqs - fl4))
+    else:
+        idx1 = 0
+        idx2 = frac - 1
+        idx3 = npts - frac
+        idx4 = npts - 1
+    if sactaper:
+        # in SAC the second and third
+        # index are already tapered
+        idx2 += 1
+        idx3 -= 1
+
+    # Very small data lengths or small decimal taper percentages can result in
+    # idx1 == idx2 and idx3 == idx4. This breaks the following calculations.
+    if idx1 == idx2:
+        idx2 += 1
+    if idx3 == idx4:
+        idx3 -= 1
+
+    # the taper at idx1 and idx4 equals zero and
+    # at idx2 and idx3 equals one
+    cos_win = np.zeros(npts)
+    if halfcosine:
+        # cos_win[idx1:idx2+1] =  0.5 * (1.0 + np.cos((np.pi * \
+        #    (idx2 - np.arange(idx1, idx2+1)) / (idx2 - idx1))))
+        cos_win[idx1 : idx2 + 1] = 0.5 * (1.0 - np.cos((np.pi * (np.arange(idx1, idx2 + 1) - float(idx1)) / (idx2 - idx1))))
+        cos_win[idx2 + 1 : idx3] = 1.0
+        cos_win[idx3 : idx4 + 1] = 0.5 * (1.0 + np.cos((np.pi * (float(idx3) - np.arange(idx3, idx4 + 1)) / (idx4 - idx3))))
+    else:
+        cos_win[idx1 : idx2 + 1] = np.cos(-(np.pi / 2.0 * (float(idx2) - np.arange(idx1, idx2 + 1)) / (idx2 - idx1)))
+        cos_win[idx2 + 1 : idx3] = 1.0
+        cos_win[idx3 : idx4 + 1] = np.cos((np.pi / 2.0 * (float(idx3) - np.arange(idx3, idx4 + 1)) / (idx4 - idx3)))
+
+    # if indices are identical division by zero
+    # causes NaN values in cos_win
+    if idx1 == idx2:
+        cos_win[idx1] = 0.0
+    if idx3 == idx4:
+        cos_win[idx3] = 0.0
+    return cos_win
+
+
 def interpolate_nan_from_neighbors(array):
     """rise_time and tacc may not be defined where there is no slip (no SR function).
     in this case, we interpolate from neighbors
@@ -114,10 +207,10 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
             # the rock rigidity is not know by this script (would require some python binding of easi).
             # the subfault area is typically constant over the kinematic model
             # So we just want to perserve subfault average.
-            print('trying to perserve subfault average...')
+            print("trying to perserve subfault average...")
             my_array = np.maximum(0, my_array)
             best_misfit = float("inf")
-            # The algorithm does not seem to converge, but produces better model 
+            # The algorithm does not seem to converge, but produces better model
             # (given the misfit) that inital after 2-3 iterations
             niter = 30
             for i in range(niter):
@@ -126,7 +219,10 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
                 # having a misfit as misfit = np.linalg.norm(correction) does not makes sense as for almost 0 slip, correction can be large
                 misfit = np.linalg.norm(my_array0 - block_average) / len(my_array0)
                 if best_misfit > misfit:
-                    print(f"misfit improved at it {i}: {misfit}")
+                    if i == 0:
+                        print(f"misfit at iter {i}: {misfit}")
+                    else:
+                        print(f"misfit improved at iter {i}: {misfit}")
                     best_misfit = misfit
                     best = np.copy(my_array)
                 my_array = scipy.ndimage.zoom(correction * my_array0, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)
@@ -352,8 +448,14 @@ class FaultPlane:
             # interpolate temporally the AST
             for j in range(pf.ny):
                 for i in range(pf.nx):
-                    f = interpolate.interp1d(self.myt, aSRa[j, i, :], kind="quadratic")
+                    # 1. upsample with linear interpolation
+                    # 2. apply a gauss kernel to smooth out sharp edges
+                    # 3. tapper the signal smoothly to 0 at both time ends
+                    # 4. rescale SR to ensure integral (SR) = slip
+                    f = interpolate.interp1d(self.myt, aSRa[j, i, :], kind="linear")
                     pf.aSR[j, i, :] = f(pf.myt)
+                    tapper = cosine_taper(pf.ndt, self.dt / (pf.ndt * pf.dt))
+                    pf.aSR[j, i, :] = tapper * ndimage.gaussian_filter1d(pf.aSR[j, i, :], 0.5 * self.dt / pf.dt, mode="constant")
                     # With a cubic interpolation, the interpolated slip1 may be negative which does not make sense.
                     if pf.slip1[j, i] < 0:
                         pf.aSR[j, i, :] = 0
