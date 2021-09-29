@@ -1,7 +1,9 @@
 Slip-rate imposed on a DR boundary
 ===================================
 
-This "pseudo" friction law allows imposing slip-rate on a dynamic rupture boundary.
+This "pseudo" friction law allows imposing slip-rate of a kinematic source model as a boundary condition on a fault plane.
+This implentation is equivalent to the approach used e.g. in Tinti et al. (2005, https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2005JB003644) and Causse et al. (2014,  https://academic.oup.com/gji/article/196/3/1754/583512#9427920).
+
 The FL id for this friction law is 33.
 The advantage of this approach is that the displacement discontinuity can be accurately represented in SeisSol's discontinuous finite element space. 
 A multi point-source representation, in comparison, may give rise to spurious waves due the continuity of the basis functions within a finite element (smearing), 
