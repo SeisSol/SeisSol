@@ -4,6 +4,8 @@ import scipy.ndimage
 from scipy import interpolate
 from netCDF4 import Dataset
 from Yoffe import regularizedYoffe
+from scipy import ndimage
+
 
 def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
     """create a netcdf file either readable by ASAGI
@@ -21,12 +23,12 @@ def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
     print("writing " + fname)
 
     with Dataset(fname, "w", format="NETCDF4") as rootgrp:
-        #Create dimension and 1d variables
-        sdimVarNames='uvwxyz'
+        # Create dimension and 1d variables
+        sdimVarNames = "uvwxyz"
         dims = []
         for i, xi in enumerate(lDimVar):
             nxi = xi.shape[0]
-            dimName=sdimVarNames[i]
+            dimName = sdimVarNames[i]
             dims.append(dimName)
             rootgrp.createDimension(dimName, nxi)
             vx = rootgrp.createVariable(dimName, "f4", (dimName,))
@@ -70,7 +72,21 @@ def interpolate_nan_from_neighbors(array):
     return interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method="linear", fill_value=np.average(array))
 
 
-def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant", extra_padding_layer=False):
+def compute_block_mean(ar, fact):
+    """
+    dowsample array ar by factor fact
+    https://stackoverflow.com/questions/18666014/downsample-array-in-python
+    """
+    assert isinstance(fact, int), type(fact)
+    sx, sy = ar.shape
+    X, Y = np.ogrid[0:sx, 0:sy]
+    regions = sy // fact * (X // fact) + Y // fact
+    res = ndimage.mean(ar, labels=regions, index=np.arange(regions.max() + 1))
+    res.shape = (sx // fact, sy // fact)
+    return res
+
+
+def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant", extra_padding_layer=False, minimize_block_average_variations=False):
     """1. pad
     2. upsample, adding spatial_zoom per node
     """
@@ -83,14 +99,39 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
     allarr0 = np.zeros((nd, ny, nx))
     for k in range(nd):
         if padding == "extrapolate":
-            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "reflect", reflect_type="odd")
+            my_array0 = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), "reflect", reflect_type="odd")
         else:
-            my_array = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), padding)
+            my_array0 = np.pad(allarr[k, :, :], ((1, 1), (1, 1)), padding)
         if extra_padding_layer:
             ncrop = spatial_zoom - 1
         else:
             ncrop = spatial_zoom
-        my_array = scipy.ndimage.zoom(my_array, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)
+        my_array = scipy.ndimage.zoom(my_array0, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)
+        if minimize_block_average_variations:
+            # inspired by Tinti et al. (2005) (Appendix A)
+            # This is for the specific case of fault slip.
+            # We want to preserve the seismic moment of each subfault after interpolation
+            # the rock rigidity is not know by this script (would require some python binding of easi).
+            # the subfault area is typically constant over the kinematic model
+            # So we just want to perserve subfault average.
+            print('trying to perserve subfault average...')
+            my_array = np.maximum(0, my_array)
+            best_misfit = float("inf")
+            # The algorithm does not seem to converge, but produces better model 
+            # (given the misfit) that inital after 2-3 iterations
+            niter = 30
+            for i in range(niter):
+                block_average = compute_block_mean(my_array, spatial_zoom)
+                correction = my_array0 / block_average
+                # having a misfit as misfit = np.linalg.norm(correction) does not makes sense as for almost 0 slip, correction can be large
+                misfit = np.linalg.norm(my_array0 - block_average) / len(my_array0)
+                if best_misfit > misfit:
+                    print(f"misfit improved at it {i}: {misfit}")
+                    best_misfit = misfit
+                    best = np.copy(my_array)
+                my_array = scipy.ndimage.zoom(correction * my_array0, spatial_zoom, order=spatial_order, mode="grid-constant", grid_mode=True)
+                my_array = np.maximum(0, my_array)
+            my_array = best
         if ncrop > 0:
             allarr0[k, :, :] = my_array[ncrop:-ncrop, ncrop:-ncrop]
 
@@ -284,7 +325,7 @@ class FaultPlane:
         pf.t0 = np.maximum(pf.t0, np.amin(self.t0))
 
         allarr = np.array([self.slip1])
-        (pf.slip1,) = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant")
+        (pf.slip1,) = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant", minimize_block_average_variations=True)
         pf.compute_latlon_from_xy(proj)
         pf.PSarea_cm2 = self.PSarea_cm2 / spatial_zoom ** 2
         ratio_potency = np.sum(pf.slip1) * pf.PSarea_cm2 / (np.sum(self.slip1) * self.PSarea_cm2)
@@ -296,7 +337,7 @@ class FaultPlane:
             pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
             pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))
             pf.tacc = np.maximum(pf.tacc, np.amin(self.tacc))
-            print('using ts = tacc / 1.27 to compute the regularized Yoffe')
+            print("using ts = tacc / 1.27 to compute the regularized Yoffe")
             ts = pf.tacc / 1.27
             tr = pf.rise_time - 2.0 * ts
             for j in range(pf.ny):
@@ -372,7 +413,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # a netcdf file defines the quantities at the nodes
         # therefore the extra_padding_layer=True, and the added di below
         cslip = self.compute_corrected_slip_for_differing_area(proj)
-        (slip,) = upsample_quantities(np.array([cslip]), spatial_order, spatial_zoom, padding="constant", extra_padding_layer=True)
+        (slip,) = upsample_quantities(np.array([cslip]), spatial_order, spatial_zoom, padding="constant", extra_padding_layer=True, minimize_block_average_variations=True)
         allarr = np.array([self.t0, self.rake, self.rise_time, self.tacc])
         rupttime, rake, rise_time, tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge", extra_padding_layer=True)
         # upsampled duration, rise_time and acc_time may not be smaller than initial values
