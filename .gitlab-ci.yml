@@ -114,16 +114,35 @@ gpu_pre_build:
     variables:
         GIT_STRATEGY: clone
     image:
-        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        name: ravilmobile/seissol-base:gcc-8_cuda-10
         entrypoint: [""]
     before_script:
         - git branch -vva
         - echo $commit_author_name
     script:
         - echo "HOST arch.:" $HOST
-        - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
+        - echo "GPU model:" $GPU_MODEL
         - nvidia-smi
-            
+
+
+.common_gpu_test_script: &common_gpu_steps
+    - export CTEST_OUTPUT_ON_FAILURE=1
+    - if [[ "${BACKEND}" == "hipsycl" ]]; then
+        export CC=/usr/bin/gcc-9 ;
+        export CXX=/usr/bin/g++-9 ;
+        export FC=/usr/bin/gfortran-9 ;
+        export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH ;
+        export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH ;
+      else
+        export CC=/usr/bin/gcc-8 ;
+        export CXX=/usr/bin/g++-8 ;
+      fi ;
+    - if [[ "${BACKEND}" == "hip" ]]; then
+        . /etc/profile.d/rocm.sh ;
+        export HIP_PLATFORM=nvidia ;
+      fi ;
+
+
 gpu_build:
     stage: build
     tags:
@@ -132,34 +151,36 @@ gpu_build:
     needs:
         - job: gpu_pre_build
     image:
-        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        name: ravilmobile/seissol-base:gcc-8_cuda-10
         entrypoint: [""]
+    parallel:
+        matrix:
+        - BACKEND: [nvidia, hipsycl]
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
         - git submodule sync
         - git submodule --quiet update --init --recursive 
     script:
-        - export CTEST_OUTPUT_ON_FAILURE=1
-        - . /opt/spack-environment/seissol_env.sh
-        - . /opt/spack-environment/cuda_env.sh
+        - *common_gpu_steps
         - pip3 install git+https://github.com/ravil-mobile/gemmforge.git
         - set -euo pipefail
         - for precision in double single; do
-            mkdir -p ./build_${precision} && cd ./build_${precision} ;
+            mkdir -p ./build_${BACKEND}_${precision} && cd ./build_${BACKEND}_${precision} ;
             cmake ..
             -DCMAKE_BUILD_TYPE=Release
-            -DDEVICE_ARCH=${GPU_VENDOR}
+            -DDEVICE_ARCH=${BACKEND}
             -DDEVICE_SUB_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision} ;
-            make -j ;
+            make -j2 ;
             cd .. ;
           done;
         - set +u
     artifacts:
         paths:
             - build_*
+
 
 gpu_convergence_test:
     stage: test
@@ -169,21 +190,22 @@ gpu_convergence_test:
     needs:
         - job: gpu_build
     image:
-        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        name: ravilmobile/seissol-base:gcc-8_cuda-10
         entrypoint: [""]
+    parallel:
+        matrix:
+        - BACKEND: [nvidia, hipsycl]
     script:
-        - export CTEST_OUTPUT_ON_FAILURE=1
-        - . /opt/spack-environment/seissol_env.sh
-        - . /opt/spack-environment/cuda_env.sh
+        - *common_gpu_steps
         - git clone https://github.com/SeisSol/Examples.git tests
         - pip3 install -r ./tests/convergence_elastic/requirements.txt
         - set -euo pipefail
         - for precision in double single; do
-            cd ./build_${precision} ;
-            echo "Elastic Convergence test with precision - " ${precision} ;
+            cd ./build_${BACKEND}_${precision} ;
+            echo "[${BACKEND}] Elastic Convergence test with precision - ${precision}" ;
             cp -r ../tests/convergence_elastic/* . ;
             PYTHONPATH=$PWD python3 ./elastic_convergence_runner
-            --executable $PWD/SeisSol_Release_?nvidia_?_elastic
+            --executable $PWD/SeisSol_Release_*
             --tmp-dir /tmp/seissol
             --sizes 4 8 16
             --expected-errors 1e-2 1e-4 5e-5
@@ -197,6 +219,7 @@ gpu_convergence_test:
         paths:
             - build_*
 
+
 gpu_performance_test:
     stage: performance_eval
     tags:
@@ -205,17 +228,18 @@ gpu_performance_test:
     needs:
         - job: gpu_convergence_test
     image:
-        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        name: ravilmobile/seissol-base:gcc-8_cuda-10
         entrypoint: [""]
+    parallel:
+        matrix:
+        - BACKEND: [nvidia, hipsycl]
     script:
-        - export CTEST_OUTPUT_ON_FAILURE=1
-        - . /opt/spack-environment/seissol_env.sh
-        - . /opt/spack-environment/cuda_env.sh
+        - *common_gpu_steps
         - set -euo pipefail
         - for precision in double single; do
-            echo "Running SeiSol proxy with precision - " ${precision} ;
-            cd ./build_${precision} ;
-            ./SeisSol_proxy_Release_?${GPU_VENDOR}_?_elastic 100000 100 all ;
+            echo "[${BACKEND}] Running SeiSol proxy with precision - ${precision}" ;
+            cd ./build_${BACKEND}_${precision} ;
+            ./SeisSol_proxy_Release_* 100000 100 all ;
             cd .. ;
           done;
         - set +u
