@@ -337,7 +337,7 @@ void read_mesh_puml_c(const char* meshfile,
 		vertexWeightFreeSurfaceWithGravity
 	};
 
-	LtsWeightsTypes ltsWeightsType;
+	LtsWeightsTypes ltsWeightsType{};
 	try {
 		ltsWeightsType = convertLtsIdToType(ltsWeightsTypeId);
 	}

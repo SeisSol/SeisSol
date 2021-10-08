@@ -230,7 +230,7 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
   int const *boundaryCond = m_mesh->cellData(1);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
-    int freeSurface = 0;
+    int freeSurfaceWithGravity = 0;
 
     unsigned int faceids[4];
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
@@ -238,11 +238,11 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
     for (unsigned face = 0; face < 4; ++face) {
       const auto faceType = static_cast<FaceType>(getBoundaryCondition(boundaryCond, cell, face));
       dynamicRupture += (faceType == FaceType::dynamicRupture) ? 1 : 0;
-      freeSurface += (faceType == FaceType::freeSurfaceGravity) ? 1 : 0;
+      freeSurfaceWithGravity += (faceType == FaceType::freeSurfaceGravity) ? 1 : 0;
     }
 
     const int costDynamicRupture = m_vertexWeightDynamicRupture * dynamicRupture;
-    const int costDisplacement = m_vertexWeightFreeSurfaceWithGravity * freeSurface;
+    const int costDisplacement = m_vertexWeightFreeSurfaceWithGravity * freeSurfaceWithGravity;
     cellCosts[cell] = m_vertexWeightElement + costDynamicRupture + costDisplacement;
   }
   return cellCosts;
