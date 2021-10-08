@@ -1,7 +1,7 @@
 &equations
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
-!off-fault plasticity parameter (ignored in Plasticity=0)
+!off-fault plasticity parameters (ignored if Plasticity=0)
 Plasticity=0
 Tv=0.05
 !Attenuation parameters (ignored if not compiled with attenuation)
@@ -91,7 +91,7 @@ vertexWeightGravitationalFreeSurface = 300 ! Weight that's added for each free s
 
 &Discretization
 CFL = 0.5                            ! CFL number (<=1.0)
-FixTimeStep = 5                      ! Manualy chosen minimum time
+FixTimeStep = 5                      ! Manually chosen maximum time step
 ClusteredLTS = 2                     ! 1 for Global time stepping, 2,3,5,... Local time stepping (advised value 2)
 !ClusteredLTS defines the multi-rate for the time steps of the clusters 2 for Local time stepping
 /
