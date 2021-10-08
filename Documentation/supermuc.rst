@@ -127,6 +127,7 @@ Note that to use sanitzer (https://en.wikipedia.org/wiki/AddressSanitizer), Seis
 For that modules and compiler need to be switched:
 
 ::
+
     module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.8-gcc8-impi
     module unload intel-mpi intel
     module load intel-mpi/2019-gcc
@@ -136,7 +137,7 @@ For that modules and compiler need to be switched:
     export FC=mpifc
 
 Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
-To enable sanitizer, add `-DADDRESS_SANITIZER_DEBUG=ON` to the argument list of cmake, and change the `CMAKE_BUILD_TYPE` to `RelWithDebInfo` or `Debug`.
+To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
 Running SeisSol
 ---------------
