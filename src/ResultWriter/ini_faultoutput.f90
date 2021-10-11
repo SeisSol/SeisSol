@@ -178,7 +178,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                                   !
            logError(*) 'cannot open ',ptsoutfile          !
            logError(*) 'Error status: ', stat
-           STOP                                                              !
+           call MPI_ABORT(MPI%commWorld, 134)                                                              !
         END IF                                                               !
         CLOSE( DISC%DynRup%DynRup_out_atPickpoint%VFILE(i) )
       ELSE
@@ -193,7 +193,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                                   !
            logError(*) 'cannot open ',ptsoutfile           !
            logError(*) 'Error status: ', stat
-           STOP                                                              !
+           call MPI_ABORT(MPI%commWorld, 134)                                                              !
         END IF                                                               !
         !
         ! Creating the header for the output File
@@ -261,7 +261,7 @@ CONTAINS
       IF( stat.NE.0) THEN
         logError(*) 'cannot open ',ptsoutfile
         logError(*) 'Error status: ', stat
-        STOP
+        call MPI_ABORT(MPI%commWorld, 134)
       END IF
       !
       ! load stress values of nearest boundary GP: iBndGP

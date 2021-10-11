@@ -48,6 +48,7 @@
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Initializer/typedefs.hpp"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
 #include "SourceTerm/Manager.h"
@@ -59,7 +60,9 @@
 #include "ResultWriter/FaultWriter.h"
 
 #include "ResultWriter/AnalysisWriter.h"
-#include <yaml-cpp/yaml.h>
+#include <memory>
+
+#include "Parallel/Pin.h"
 
 class MeshReader;
 
@@ -72,8 +75,18 @@ namespace seissol
 class SeisSol
 {
 private:
+  // Note: This HAS to be the first member so that it is initialized before all others!
+  // Otherwise it will NOT work.
+  // The reason for this is simple yet weird:
+  // MPI sets the affinity mask for the process
+  // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
+  // => Initialize it first, to avoid this.
+  parallel::Pinning pinning;
+
 	/** The name of the parameter file */
 	std::string m_parameterFile;
+
+	GravitationSetup gravitationSetup;
 
 	/** Async I/O handler (needs to be initialize before other I/O modules) */
 	io::AsyncIO m_asyncIO;
@@ -85,7 +98,7 @@ private:
 	 */
 	initializers::time_stepping::LtsLayout m_ltsLayout;
 
-	initializers::MemoryManager m_memoryManager;
+  std::unique_ptr<initializers::MemoryManager> m_memoryManager{nullptr};
 
 	//! time manager
 	time_stepping::TimeManager  m_timeManager;
@@ -122,8 +135,6 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
-  //! Input parameters
-  YAML::Node m_inputParams;
 
 private:
 	/**
@@ -131,10 +142,16 @@ private:
 	 */
 	SeisSol()
 		: m_meshReader(0L)
-	{}
+	{
+	  m_memoryManager = std::make_unique<initializers::MemoryManager>();
+	}
 
 public:
-	/**
+  const parallel::Pinning& getPinning() {
+	  return pinning;
+	}
+
+  /**
 	 * Cleanup data structures
 	 */
 	virtual ~SeisSol()
@@ -160,7 +177,7 @@ public:
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
 
 	initializers::MemoryManager& getMemoryManager() {
-    return m_memoryManager;
+    return *(m_memoryManager.get());
   }
 
 	time_stepping::TimeManager& timeManager()
@@ -269,10 +286,17 @@ public:
 		return *m_meshReader;
 	}
 
-	void setInputParams(const YAML::Node& Params);
+  /**
+   * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
+   * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
+   * at the very end of a program execution
+   */
+	void deleteMemoryManager() {
+    m_memoryManager.reset(nullptr);
+	}
 
-	const YAML::Node& getInputParams() {
-	  return m_inputParams;
+	GravitationSetup& getGravitationSetup() {
+	  return gravitationSetup;
 	}
 
 public:

@@ -47,8 +47,8 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/Boundary.h>
 #include <DynamicRupture/DR_factory.h>
-
 
 namespace seissol {
   namespace initializers {
@@ -76,6 +76,7 @@ namespace seissol {
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
+
     void initializeFrictionMatrices(    seissol::initializers::BaseDrInitializer* FrictionInitializer,
                                         seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
                                         DynamicRupture *dynRup,
@@ -85,6 +86,12 @@ namespace seissol {
                                         seissol::Interoperability &e_interoperability
     );
 
+      void copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                    LTS*              lts,
+                                    LTSTree*          dynRupTree,
+                                    DynamicRupture*   dynRup,
+                                    LTSTree*          boundaryTree,
+                                    Boundary*         boundary);
   }
 }
 

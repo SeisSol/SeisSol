@@ -44,6 +44,8 @@
 
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
+#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include <limits>
 
 namespace seissol {
   namespace kernels {
@@ -55,12 +57,20 @@ class seissol::kernels::Plasticity {
 public:
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
-  static unsigned computePlasticity( double                      relaxTime,
+  static unsigned computePlasticity( double                      oneMinusIntegratingFactor,
                                      double                      timeStepWidth,
+                                     double                      T_v,
                                      GlobalData const*           global,
                                      PlasticityData const*       plasticityData,
                                      real                        degreesOfFreedom[tensor::Q::size()],
                                      real*                       pstrain);
+
+  static unsigned computePlasticityBatched(double relaxTime,
+                                           double timeStepWidth,
+                                           double T_v,
+                                           GlobalData const *global,
+                                           initializers::recording::ConditionalBatchTableT &table,
+                                           PlasticityData *plasticity);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
                                 long long&  o_hardwareFlopsCheck,

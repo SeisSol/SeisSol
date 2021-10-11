@@ -51,6 +51,9 @@ MODULE magnitude_output_mod
   USE TypesDef
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
+#ifdef PARALLEL
+    INCLUDE 'mpif.h'
+#endif
   PRIVATE
   !---------------------------------------------------------------------------!
   PUBLIC  :: magnitude_output
@@ -63,7 +66,7 @@ MODULE magnitude_output_mod
 
 CONTAINS
 
-  SUBROUTINE magnitude_output(MaterialVal,DISC,MESH,MPI,IO)
+  SUBROUTINE magnitude_output(MaterialVal,DISC,MESH,MPI,IO,DR_comm)
     !< routine outputs the magnitude for each MPI domain that contains a subfault
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -73,60 +76,19 @@ CONTAINS
     TYPE(tUnstructMesh)             :: MESH
     TYPE(tMPI)                      :: MPI
     TYPE(tInputOutput)              :: IO
+    integer                         :: DR_comm !< dynamic rupture communicator
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: iElem,iSide,nSide,iFace
-    INTEGER                         :: stat, UNIT_MAG
-    REAL                            :: magnitude
+    INTEGER                         :: stat, UNIT_MAG, iErr, rankDR
+    REAL                            :: magnitude, magnitude0
     REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
     CHARACTER (LEN=5)               :: cmyrank
     CHARACTER (len=200)             :: MAG_FILE
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DISC, MESH, MPI, IO
+    INTENT(IN)    :: DISC, MESH, MPI, IO, DR_comm
     !-------------------------------------------------------------------------!
-
-    ! generate unique name out of MPI rank
-#ifdef PARALLEL
-    ! pure MPI case
-    WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
-    WRITE(MAG_FILE, '(a,a5,a5,a4)') TRIM(IO%OutputFile),'-MAG-',TRIM(cmyrank),'.dat'
-    UNIT_MAG = 299875+MPI%myrank
-#else
-    WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-MAG','.dat'
-    UNIT_MAG = 299875
-#endif
-    !
-    INQUIRE(FILE = MAG_FILE, EXIST = exist)
-    IF(exist) THEN
-        ! If file exists, then append data
-        OPEN(UNIT     = UNIT_MAG                                          , & !
-             FILE     = MAG_FILE                                          , & !
-             FORM     = 'FORMATTED'                                      , & !
-             STATUS   = 'OLD'                                            , & !
-             POSITION = 'APPEND'                                         , & !
-             RECL     = 80000                                            , & !
-             IOSTAT   = stat                                               ) !
-        IF(stat.NE.0) THEN                                              !
-           logError(*) 'cannot open ',MAG_FILE         !
-           logError(*) 'Error status: ', stat                !
-           STOP                                                          !
-        ENDIF
-    ELSE
-        ! open file
-        OPEN(UNIT   = UNIT_MAG                                            , & !
-             FILE     = MAG_FILE                                          , & !
-             FORM     = 'FORMATTED'                                      , & !
-             STATUS   = 'NEW'                                            , & !
-             RECL     = 80000                                            , & !
-             IOSTAT   = stat                                               ) !
-        IF(stat.NE.0) THEN                                              !
-           logError(*) 'cannot open ',MAG_FILE         !
-           logError(*) 'Error status: ', stat                !
-           STOP                                                          !
-        ENDIF
-        !
-    ENDIF
     !
     ! Compute output
     magnitude = 0.0D0
@@ -142,11 +104,56 @@ CONTAINS
            magnitude = magnitude + DISC%DynRup%averaged_Slip(iFace)*DISC%Galerkin%geoSurfaces(iSide,iElem)*MaterialVal(iElem,2)
        ENDIF
     ENDDO
-    !
-    ! Write output
-    WRITE(UNIT_MAG,*) magnitude
+#ifdef PARALLEL
+    CALL MPI_REDUCE(magnitude,magnitude0,1,MPI%MPI_AUTO_REAL,MPI_SUM,0, DR_comm,iErr)
+    CALL MPI_Comm_rank(DR_comm, rankDR, iErr)
+#else
+    magnitude0 = magnitude
+    rankDR = 0
+#endif
+    IF (rankDR.EQ.0) THEN
 
-    CLOSE( UNIT_Mag )
+        WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-MAG','.dat'
+        UNIT_MAG = 299875
+        !
+        INQUIRE(FILE = MAG_FILE, EXIST = exist)
+        IF(exist) THEN
+            ! If file exists, then append data
+            OPEN(UNIT     = UNIT_MAG                                          , & !
+                 FILE     = MAG_FILE                                          , & !
+                 FORM     = 'FORMATTED'                                      , & !
+                 STATUS   = 'OLD'                                            , & !
+                 POSITION = 'APPEND'                                         , & !
+                 RECL     = 80000                                            , & !
+                 IOSTAT   = stat                                               ) !
+            IF(stat.NE.0) THEN                                              !
+               logError(*) 'cannot open ',MAG_FILE         !
+               logError(*) 'Error status: ', stat                !
+               call exit(134)                                                          !
+            ENDIF
+        ELSE
+            ! open file
+            OPEN(UNIT   = UNIT_MAG                                            , & !
+                 FILE     = MAG_FILE                                          , & !
+                 FORM     = 'FORMATTED'                                      , & !
+                 STATUS   = 'NEW'                                            , & !
+                 RECL     = 80000                                            , & !
+                 IOSTAT   = stat                                               ) !
+            IF(stat.NE.0) THEN                                              !
+               logError(*) 'cannot open ',MAG_FILE         !
+               logError(*) 'Error status: ', stat                !
+               call exit(134)                                                          !
+            ENDIF
+            !
+        ENDIF
+        !
+        ! Write output
+        WRITE(UNIT_MAG,*) magnitude0
+        write(FORTRAN_STDOUT, '(A, I8, A)', advance='no') 'Rank: ', MPI%myrank, ' | Info    |'
+        write(FORTRAN_STDOUT,*) 'seismic moment', magnitude0, 'Mw', 2./3.*log10(magnitude0)-6.07
+        CLOSE( UNIT_Mag )
+
+    ENDIF 
 
   END SUBROUTINE magnitude_output
 
@@ -203,7 +210,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',MAG_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call exit(134)                                                          !
         ENDIF
     ELSE
         ! open file
@@ -216,7 +223,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',MAG_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call exit(134)                                                          !
         ENDIF
         WRITE(UNIT_MAG,*) '#time MomentRate FrictionalEnergyRate'
         !

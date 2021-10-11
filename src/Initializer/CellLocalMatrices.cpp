@@ -44,6 +44,7 @@
 #include <cassert>
 
 #include <Initializer/ParameterDB.h>
+#include "Initializer/MemoryManager.h"
 #include <Numerical_aux/Transformation.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
@@ -51,6 +52,9 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 #include <utils/logger.h>
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -74,7 +78,8 @@ void setStarMatrix( real* i_AT,
 void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      i_meshReader,
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
-                                                         Lut*                   i_ltsLut )
+                                                         Lut*                   i_ltsLut,
+                                                         TimeStepping const&    timeStepping )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
@@ -125,6 +130,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      unsigned clusterId = cellInformation[cell].clusterId;
+      auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
       unsigned meshId = ltsToMesh[cell];
 
       real x[4];
@@ -210,7 +217,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
         }
@@ -218,10 +226,12 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       }
 
       seissol::model::initializeSpecificLocalData(  material[cell].local,
+                                                    timeStepWidth,
                                                     &localIntegration[cell].specific );
 
       seissol::model::initializeSpecificNeighborData( material[cell].local,
                                                       &neighboringIntegration[cell].specific );
+
     }
 #ifdef _OPENMP
     }
@@ -392,7 +402,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
-
       /// Face information
       faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
@@ -522,6 +531,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
 
       switch (plusMaterial->getMaterialType()) {
+        case seissol::model::MaterialType::acoustic: {
+          logError() << "Dynamic Rupture does not work with an acoustic material.";
+          break;
+        }
+        case seissol::model::MaterialType::poroelastic: {
+          logError() << "Dynamic Rupture does not work with poroelasticity yet.";
+          //TODO(SW): Make DR work with poroelasticity
+          break;
+        }
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
           //TODO(SW): Make DR work with anisotropy 
@@ -594,5 +612,25 @@ void seissol::initializers::initializeFrictionMatrices(
       faultParameters,
       ltsFaceToMeshFace,
       e_interoperability);
+}
 
+void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                                     LTS*              lts,
+                                                     LTSTree*          dynRupTree,
+                                                     DynamicRupture*   dynRup,
+                                                     LTSTree*          boundaryTree,
+                                                     Boundary*         boundary) {
+#ifdef ACL_DEVICE
+  // Byte-copy of element compute-static data from the host to device
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const std::vector<size_t > &variableSizes = ltsTree->getVariableSizes();
+
+  device.api->copyTo(ltsTree->var(lts->localIntegrationOnDevice),
+                     ltsTree->var(lts->localIntegration),
+                     variableSizes[lts->localIntegration.index]);
+
+  device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
+                     ltsTree->var(lts->neighboringIntegration),
+                     variableSizes[lts->neighboringIntegration.index]);
+#endif // ACL_DEVICE
 }

@@ -197,10 +197,10 @@ MODULE TypesDef
      REAL, POINTER                          :: geoTangent1(:,:)                 !< Vector 1 in the side plane
      REAL, POINTER                          :: geoTangent2(:,:)                 !< Vector 2 in the side plane
 
-     real*8, allocatable, dimension( :, :, : )    :: forwardRotation  !< forward rotation matrix from xyz- to face-normal-space
-     real*8, allocatable, dimension( :, :, : )    :: backwardRotation !< backward rotation matrix from face-normal-space to x-y-z space
+     REAL(KIND=8), allocatable, dimension( :, :, : )    :: forwardRotation  !< forward rotation matrix from xyz- to face-normal-space
+     REAL(KIND=8), allocatable, dimension( :, :, : )    :: backwardRotation !< backward rotation matrix from face-normal-space to x-y-z space
 
-     real*8, allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
+     REAL(KIND=8), allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
   END TYPE tFault
 
   !< Description of all the vertices in the domain (the first index runs from 1 to MESH%nNode)
@@ -303,6 +303,9 @@ MODULE TypesDef
      INTEGER                   :: nNode_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
      INTEGER                   :: nElem_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
 #endif
+      INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
+      INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
+      INTEGER                    :: vertexWeightFreeSurfaceWithGravity ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge
@@ -376,13 +379,13 @@ MODULE TypesDef
     !   Reference: Intel® Fortran Compiler XE 13.0 User and Reference Guides
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
-    real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
+    REAL(KIND=8), allocatable   :: dgvar(:,:,:,:)               !< storage of all unknowns (solution).
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
     REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
     REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
 !    integer              :: nSourceTermElems !< number of elemens having a source term
-!    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
+!    REAL(KIND=8), allocatable  :: dgsourceterms(:,:,:)         !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
     real              :: totcputime
@@ -611,7 +614,7 @@ MODULE TypesDef
      INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
      INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
      REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
-     REAL                         , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
+     REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
@@ -806,9 +809,7 @@ MODULE TypesDef
      TYPE(tSparseTensor3), POINTER          :: FLStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      TYPE(tSparseTensor3), POINTER          :: FRStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      !< Dynamic Rupture variables to exchange dgvar values of MPI-fault elements since the Taylor derivatives are needed in friction
-     INTEGER                                :: nFault_MPI                       !< Nr of MPI boundary elements which are also fault elements for Dynamic Rupture
      INTEGER, POINTER                       :: Domain_Fault_Elem(:)             !< Numbers of the elements adjacent to an MPI boundary (inside)
-     REAL, POINTER                          :: MPI_DR_dgvar(:,:,:)              !< dgvar values of MPI-fault elements
   END TYPE tMPIBoundary
 
   TYPE tRealMessage                                                             !< Defines a vector message of type real
@@ -899,6 +900,7 @@ MODULE TypesDef
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
+     REAL                                   :: gravitationalAcceleration        !< The value of g, the gravitational acceleration. Default: 9.81 m/s^2
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
      CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties
@@ -1086,10 +1088,10 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
-	 LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
+     LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
                                                                                 !< .TRUE.  = integrate and output for this variable
                                                                                 !< .FALSE. = do not integrate and output for this variable
-	 REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
+     REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
                                                                                 !< Format is xMin, xMax, yMin, yMax, zMin, zMax
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
@@ -1153,6 +1155,9 @@ MODULE TypesDef
   !< Data for the initial condition (variable name : IC)
   TYPE tInitialCondition
      CHARACTER (LEN=25)                     :: cICType                          !< CHARACTER flag for initial data
+     REAL                                   :: origin(3)
+     REAL                                   :: kVec(3)
+     REAL                                   :: ampField(NUMBER_OF_QUANTITIES)
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<
@@ -1323,7 +1328,9 @@ MODULE TypesDef
      REAL, POINTER                   :: n_dip(:)                                !< Normal vector along dip
      REAL, POINTER                   :: corner(:)                               !< Position of the top left corner of the rupture plane
      REAL                            :: MomentTensor(3,3)                       !< The seismic moment tensor
-     REAL                            :: VelocityComponent(3)                    !< The source velocity component
+     REAL                            :: SolidVelocityComponent(3)               !< The source solid velocity component
+     REAL                            :: PressureComponent(1)                    !< The source pressure component
+     REAL                            :: FluidVelocityComponent(3)               !< The source fluid velocity component
      REAL                            :: TensorRotation(3,3)                     !< The rotation matrix of the moment tensor
      REAL                            :: TensorRotationT(3,3)                    !< The transpose rotation matrix of the moment tensor
      REAL, POINTER                   :: TWindowStart(:)                         !< Point in Time when a Time Window starts

@@ -46,6 +46,13 @@ function(get_arch_flags architecture compiler)
 	    # https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
             set(CPU_ARCH_FLAGS "-mcpu=thunderx2t99" PARENT_SCOPE)
         endif()
+    # AMD Rome/ Epyc 2nd Gen
+    elseif ("${HOST_ARCH}" STREQUAL "rome")
+        if (compiler STREQUAL "Intel")
+            set(CPU_ARCH_FLAGS "-march=core-avx2" "-fma" PARENT_SCOPE)
+        elseif(compiler MATCHES "GNU|Clang")
+            set(CPU_ARCH_FLAGS "-march=znver2" "-mtune=znver2" PARENT_SCOPE)
+    endif()
 
     # IBM power 9
     elseif ("${HOST_ARCH}" STREQUAL "power9")

@@ -127,7 +127,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',RF_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call MPI_ABORT(MPI%commWorld, 134)                                                          !
         ENDIF
     ELSE
         ! open file
@@ -140,7 +140,7 @@ CONTAINS
         IF(stat.NE.0) THEN                                              !
            logError(*) 'cannot open ',RF_FILE         !
            logError(*) 'Error status: ', stat                !
-           STOP                                                          !
+           call MPI_ABORT(MPI%commWorld, 134)                                                          !
         ENDIF
         !
         ! add header with information of total nr of lines:

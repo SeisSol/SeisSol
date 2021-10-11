@@ -110,8 +110,10 @@ elif cmdLineArgs.equations == 'elastic':
     adg = equations.ElasticADERDG(**cmdArgsDict)
 elif cmdLineArgs.equations == 'viscoelastic':
     adg = equations.ViscoelasticADERDG(**cmdArgsDict)
-else:
+elif cmdLineArgs.equations == 'viscoelastic2':
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
+else:
+    adg = equations.PoroelasticADERDG(**cmdArgsDict)
 
 include_tensors = set()
 generator = Generator(arch)
@@ -130,9 +132,13 @@ include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, 
                                                  cmdLineArgs.dynamicRuptureMethod,
                                                  targets))
 
-Plasticity.addKernels(generator, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
+Plasticity.addKernels(generator, 
+                      adg,
+                      cmdLineArgs.matricesDir,
+                      cmdLineArgs.PlasticityMethod,
+                      targets)
 NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
-SurfaceDisplacement.addKernels(generator, adg)
+SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
 Point.addKernels(generator, adg)
 
 # pick up the user's defined gemm tools

@@ -3,9 +3,12 @@ option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
 option(METIS "Use metis for partitioning" ON)
 option(MPI "Use MPI parallelization" ON)
+option(MINI_SEISSOL "Use MiniSeisSol to compute node weights for load balancing" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
+option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
+option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
@@ -22,14 +25,14 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of the target host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx thunderx2t99 power9)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx rome thunderx2t99 power9)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64           16     16)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64   32       16     16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -40,7 +43,7 @@ set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
 set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86)
 set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
@@ -54,7 +57,6 @@ set(RUPTURE_OPTIONS quadrature cellaverage)
 set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS ${RUPTURE_OPTIONS})
 
 
-option(PLASTICITY "Use plasticity")
 set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
@@ -65,9 +67,11 @@ set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 
-
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
+option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
+
+option(PROXY_PYBINDING "enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
 set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
@@ -126,6 +130,7 @@ endif()
 
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
     set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
+    set(WITH_GPU on)
 endif()
 message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 
@@ -155,7 +160,7 @@ else()
 endif()
 
 # check NUMBER_OF_MECHANISMS
-if (("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "anisotropic") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if ((NOT "${EQUATIONS}" MATCHES "viscoelastic.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
@@ -185,7 +190,11 @@ endif()
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------
 # PDE-Settings
-MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
+if (EQUATIONS STREQUAL "poroelastic")
+  set(NUMBER_OF_QUANTITIES "13")
+else()
+  MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
+endif()
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
@@ -216,3 +225,11 @@ endfunction()
 
 cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
+
+if (PROXY_PYBINDING)
+    set(EXTRA_CXX_FLAGS -fPIC)
+
+    # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
+    # generate position independent code
+    set(ENABLE_PIC_COMPILATION ON)
+endif()

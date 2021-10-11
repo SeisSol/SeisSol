@@ -207,6 +207,63 @@ T BasisFunctionGenerator<T>::operator()(unsigned int i,
 
 //------------------------------------------------------------------------------
 
+template<class T>
+class TimeBasisFunctionGenerator {
+private:
+    T tau_;
+
+    static T sampleJacobiPolynomial(T x, unsigned int n);
+
+public:
+    TimeBasisFunctionGenerator(T tau) :
+      tau_(tau)
+    {}
+
+    T operator()(unsigned int i) const;
+
+};
+
+template<class T>
+class SampledTimeBasisFunctions {
+  static_assert(std::is_arithmetic<T>::value, "Type T for SampledTimeBasisFunctions must be arithmetic.");
+  
+public:
+    std::vector<T> m_data;
+
+public:
+    SampledTimeBasisFunctions(unsigned int order, T tau)
+    	: m_data(order)
+    {
+        TimeBasisFunctionGenerator<T> gen(tau);
+
+        for (unsigned int ord = 0; ord < order; ord++) {
+          m_data[ord] = gen(ord);
+        }
+    }
+
+    template<class ConstIterator>
+    T evalWithCoeffs(ConstIterator coeffIter) const
+    {
+        return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
+    }
+
+    unsigned int getSize() const
+    {
+        return m_data.size();
+    }
+};
+
+template<class T>
+T TimeBasisFunctionGenerator<T>::sampleJacobiPolynomial(T x, unsigned int n) {
+  return seissol::functions::JacobiP(n, 0, 0, x);
+}
+
+
+template<class T>
+T TimeBasisFunctionGenerator<T>::operator()(unsigned int i) const {
+  return functions::DubinerP<1>({i}, {tau_});
+}
+
 } // namespace basisFunction
 } //namespace seissol
 

@@ -48,9 +48,9 @@ void seissol::localIntegration( struct GlobalData* globalData,
                                 initializers::LTS& lts,
                                 initializers::Layer& layer ) {
   kernels::Local localKernel;
-  localKernel.setGlobalData(globalData);
+  localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
-  timeKernel.setGlobalData(globalData);
+  timeKernel.setHostGlobalData(globalData);
 
   real**                buffers                       = layer.var(lts.buffers);
 
@@ -63,7 +63,7 @@ void seissol::localIntegration( struct GlobalData* globalData,
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
-    timeKernel.computeAder(1.0,
+    timeKernel.computeAder(miniSeisSolTimeStep,
                            data,
                            tmp,
                            buffers[cell],
@@ -138,15 +138,24 @@ void seissol::fakeData(initializers::LTS& lts,
   fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells());
   fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());
   fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
+
+#ifdef USE_POROELASTIC
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
+    localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
+  }
+#endif
 }
 
-double seissol::miniSeisSol(initializers::MemoryManager& memoryManager) {
-  struct GlobalData* globalData = memoryManager.getGlobalData();
+double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
+  struct GlobalData* globalData = memoryManager.getGlobalDataOnHost();
 
   initializers::LTSTree ltsTree;
   initializers::LTS     lts;
-  
-  lts.addTo(ltsTree);
+
+  lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
   

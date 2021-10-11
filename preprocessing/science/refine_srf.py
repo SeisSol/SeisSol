@@ -5,6 +5,7 @@ import scipy.ndimage
 from scipy import interpolate
 from math import floor
 import os
+import argparse
 
 
 class FaultPlane:
@@ -52,7 +53,7 @@ class FaultPlane:
         self.aSR[:, :, 0:ndt_old] = tmpSR[:, :, :]
 
     def compute_xy_from_latlon(self, proj_string):
-        if args.proj != None:
+        if args.proj:
             lla = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")
             myproj = pyproj.Proj(proj_string)
             self.x, self.y = pyproj.transform(lla, myproj, self.lon, self.lat)
@@ -61,7 +62,7 @@ class FaultPlane:
             self.x, self.y = self.lon, self.lat
 
     def compute_latlon_from_xy(self, proj_string):
-        if args.proj != None:
+        if args.proj:
             lla = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")
             myproj = pyproj.Proj(proj_string)
             self.lon, self.lat = pyproj.transform(myproj, lla, self.x, self.y)
@@ -190,14 +191,12 @@ class FaultPlane:
         return pf
 
 
-import argparse
-
 parser = argparse.ArgumentParser(description="upsample temporally and spatially a kinematic model (should be a planar model) in the standard rupture format")
 parser.add_argument("filename", help="filename of the srf file")
 parser.add_argument("--proj", help="proj4 string (might be better to upsample the geometry in the local coordinate system)")
 parser.add_argument("--spatial_order", nargs=1, metavar=("spatial_order"), default=([3]), help="spatial order of the interpolation", type=int)
-parser.add_argument("--spatial_zoom", nargs=1, metavar=("spatial_zoom"), default=([3]), help="level of spatial upsampling", type=int)
-parser.add_argument("--temporal_zoom", nargs=1, metavar=("temporal_zoom"), default=([10]), help="level of temporal upsampling", type=int)
+parser.add_argument("--spatial_zoom", nargs=1, metavar=("spatial_zoom"), required=True, help="level of spatial upsampling", type=int)
+parser.add_argument("--temporal_zoom", nargs=1, metavar=("temporal_zoom"), required=True, help="level of temporal upsampling", type=int)
 args = parser.parse_args()
 
 p1 = FaultPlane()

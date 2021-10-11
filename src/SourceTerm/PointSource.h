@@ -43,6 +43,7 @@
 #define SOURCETERM_POINTSOURCE_H_
 
 #include <Initializer/typedefs.hpp>
+#include "SourceTerm/typedefs.hpp"
 
 namespace seissol {
   namespace sourceterm {
@@ -65,11 +66,13 @@ namespace seissol {
      *
      **/    
     void transformMomentTensor(real const i_localMomentTensor[3][3],
-                               real const i_localVelocityComponent[3],
+                               real const i_localSolidVelocityComponent[3],
+                               real i_localPressureComponent,
+                               real const i_localFluidVelocityComponent[3],
                                real strike,
                                real dip,
                                real rake,
-                               real o_forceComponents[NUMBER_OF_QUANTITIES]);
+                               real o_forceComponents[seissol::sourceterm::PointSources::TensorSize]);
 
     /** Converts equally spaced time samples to a one-dimensional
      *  piecewise linear function.
