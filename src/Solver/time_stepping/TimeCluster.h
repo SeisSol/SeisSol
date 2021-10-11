@@ -498,7 +498,7 @@ private:
                  unsigned int i_globalClusterId,
                  bool usePlasticity,                  
                  MeshStructure* i_meshStructure,
-                 CompoundGlobalData* i_globalData,
+                 CompoundGlobalData i_globalData,
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS* i_lts,

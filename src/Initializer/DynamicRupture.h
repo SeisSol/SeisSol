@@ -171,6 +171,7 @@ public:
     tree.addScratchpadMemory(  imposedStatePlusOnHost,          1,      seissol::memory::PinnedMemory);
     tree.addScratchpadMemory(  imposedStateMinusOnHost,         1,      seissol::memory::PinnedMemory);
 #endif
+};
 
 struct seissol::initializers::LTS_LinearSlipWeakeningFL2 : public seissol::initializers::DynamicRupture {
     Variable<real[ numOfPointsPadded ]>                   d_c;

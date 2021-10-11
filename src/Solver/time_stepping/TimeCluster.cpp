@@ -98,18 +98,18 @@ extern volatile unsigned int* volatile g_handleSends;
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
 
-seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
-                                                  unsigned int                   i_globalClusterId,
+seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
+                                                  unsigned int i_globalClusterId,
                                                   bool usePlasticity,
-                                                  MeshStructure                 *i_meshStructure,
-                                                  CompoundGlobalData             i_globalData,
+                                                  MeshStructure* i_meshStructure,
+                                                  CompoundGlobalData i_globalData,
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
-                                                  seissol::dr::fr_law::BaseFrictionSolver*        i_FrictonLaw,
-                                                  dr::output::Output_Base*            i_DrOutput,
-                                                  LoopStatistics*                        i_loopStatistics ):
+                                                  seissol::dr::fr_law::BaseFrictionSolver* i_FrictonLaw,
+                                                  dr::output::Output_Base* i_DrOutput,
+                                                  LoopStatistics* i_loopStatistics ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -580,7 +580,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   real** buffers = i_layerData.var(m_lts->buffers);
   real** derivatives = i_layerData.var(m_lts->derivatives);
-  real** displacements = i_layerData.var(m_lts->displacements);
   CellMaterialData* materialData = i_layerData.var(m_lts->material);
 
   kernels::LocalData::Loader loader;

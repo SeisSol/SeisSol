@@ -43,7 +43,6 @@ extern "C" {
   void fortran_main();
 }
 #include <yaml-cpp/yaml.h>
-#include <fty/include/Fty.hpp>
 int main(int argc, char* argv[])
 {
 	EPIK_TRACER("SeisSol");
@@ -51,18 +50,6 @@ int main(int argc, char* argv[])
 
 	// Initialize SeisSol
 	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
-
-  fty::Loader<fty::AsLowercase> Loader{};
-  try {
-    YAML::Node Params = Loader.load(seissol::SeisSol::main.parameterFile());
-    seissol::SeisSol::main.setInputParams(Params);
-  }
-  catch (const std::exception& Error) {
-    std::cerr << Error.what() << std::endl;
-    seissol::SeisSol::main.finalize();
-    return 1;
-  }
-
 
 	// Initialize Fortan Part and run SeisSol
 	if (runSeisSol)

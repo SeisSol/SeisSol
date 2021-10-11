@@ -1188,8 +1188,6 @@ void seissol::Interoperability::getDynRupStateVar(int ltsFace, unsigned int mesh
   f_interoperability_getDynRupStateVar(m_domain, fFace, &stateVar[ltsFace][0]);
 }
 
-
-
 void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int meshFace, real (*nucleationStressInFaultCS)[52][6]) {
   int fFace = meshFace + 1;
   real tmpNucleationStressInFaultCS[tensor::QInterpolated::Shape[0] * 6] = {0};
@@ -1200,7 +1198,6 @@ void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int mes
     }
   }
 }
-
 
 void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
                                               real *i_RS_f0,
@@ -1216,7 +1213,6 @@ void seissol::Interoperability::getDynRupTP(real TP_grid[TP_grid_nz],
                                             real TP_DFinv[TP_grid_nz]) {
   f_interoperability_getDynRupTP(m_domain,  &TP_grid[0], &TP_DFinv[0]);
 }
-
 
 void seissol::Interoperability::copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
         real (*mu)[seissol::init::QInterpolated::Stop[0]],
@@ -1264,18 +1260,10 @@ void seissol::Interoperability::copyFrictionOutputToFortranStrength(unsigned int
   f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
 }
 
-
-
 void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(unsigned int ltsFace, unsigned int meshFace,  real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]
 ){
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputInitialStress( m_domain, fFace, &initialStressInFaultCS[ltsFace][0][0]);
-}
-
-
-void seissol::Interoperability::calcElementwiseFaultoutput(double time)
-{
-	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
 }
 
 void seissol::Interoperability::reportDeviceMemoryStatus() {
