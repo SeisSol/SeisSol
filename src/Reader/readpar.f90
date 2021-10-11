@@ -2399,13 +2399,13 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                          :: DGFineOut1D, DGMethod, ClusteredLTS, CKMethod, &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
-                                        Order, Material, nPolyMap
+                                        Order, Material, nPolyMap, LtsWeightTypeId
     REAL                             :: CFL, FixTimeStep
     NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
-                                                      nPolyMap, CFL, FixTimeStep
+                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2425,6 +2425,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     nPolyMap = 0                                                               !                                                                  !
     Material = 1
     FixTimeStep = 5000
+    LtsWeightTypeId = 0
     !                                                              ! DGM :
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Discretization)
     IF (readStat.NE.0) THEN
@@ -2449,6 +2450,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     case default
       logInfo(*) 'Using multi-rate clustered LTS:', disc%galerkin%clusteredLts
     endselect
+
+    disc%galerkin%ltsWeightTypeId = LtsWeightTypeId
+    if ((DISC%Galerkin%clusteredLts > 0) .and. (DISC%Galerkin%ltsWeightTypeId > 0)) then
+        logInfo(*) 'Using memory balancing for LTS scheme of type', DISC%Galerkin%ltsWeightTypeId
+    end if
 
     DISC%Galerkin%DGMethod = DGMethod
     DISC%Galerkin%CKMethod = CKMethod    ! Default: standard CK procedure (0)
