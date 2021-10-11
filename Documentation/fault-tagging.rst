@@ -45,7 +45,7 @@ Then pumgen is run using the xml option:
    pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
 
 
-Using More Than 189 Dynamic Rupture Tags
+Using more than 189 dynamic rupture tags
 ----------------------------------------
 
 Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic rupture tags. To overcome this limitation, it is necessary to patch PUMGen, SeisSol and the PUML submodule of SeisSol. This can be done with:
