@@ -347,7 +347,8 @@ MODULE TypesDef
                                                      !< 4 = rec RK DG
                                                      !< 5 = Nonlinear ADER DG
                                                      !< 6 = local RK-DG, ADD eqn.
-    integer           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
+    INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
+    INTEGER           :: ltsWeightTypeId             !< 0 = exponential, 1 = balanced exponential, 2 = encoded
     INTEGER           :: CKMethod                    !< 0 = regular CK
                                                      !< 1 = local space-time DG
                                                      !<
