@@ -108,9 +108,4 @@ index a3c65b5d..c3ebf0ab 100644
    std::vector<int> computeClusterIds();
    int enforceMaximumDifference();
    int enforceMaximumDifferenceLocal(int maxDifference = 1);
-diff --git a/submodules/PUML b/submodules/PUML
---- a/submodules/PUML
-+++ b/submodules/PUML
-@@ -1 +1 @@
--Subproject commit 57bfa7df18ab3610e66a5827a64dca6b28bd168b
-+Subproject commit 57bfa7df18ab3610e66a5827a64dca6b28bd168b-dirty
+
