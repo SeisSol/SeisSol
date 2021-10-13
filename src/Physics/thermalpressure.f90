@@ -64,7 +64,7 @@ MODULE Thermalpressure_mod
 CONTAINS
 
   SUBROUTINE Calc_ThermalPressure(EQN,dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, &
-             Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp, pressure)
+             Lambda, theta, sigma, Sh, SR, TP_grid, DFinv, temp, pressure)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!
@@ -74,65 +74,59 @@ CONTAINS
     TYPE(tEquations)    :: EQN
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
-    INTEGER     :: i
     INTEGER     :: TP_grid_nz
     REAL        :: omega(TP_grid_nz)                                                  ! shear heating source
     REAL        :: Sh, SR, dt, tauV                                           ! shear stress, slip rate
-    REAL        :: Dwn(TP_grid_nz), DFinv(TP_grid_nz)                                         !
+    REAL        :: TP_grid(TP_grid_nz), DFinv(TP_grid_nz)                                         !
+    REAL        :: normalized_TP_grid(TP_grid_nz)
     REAL        :: alpha_th, alpha_hy, rho_c                                  ! thermal and hydraulic diffusivities
-    REAL        :: theta(TP_grid_nz), sigma(TP_grid_nz)                                       ! stored diffusion from previous timestep
-    REAL        :: theta_current(TP_grid_nz), sigma_current(TP_grid_nz)                       ! diffusion next timestep
-    REAL        :: tmp(TP_grid_nz)
+    REAL        :: theta(TP_grid_nz), sigma(TP_grid_nz)                       ! stored diffusion from previous timestep
+    REAL        :: exp_alpha_th(TP_grid_nz), exp_alpha_hy(TP_grid_nz)         ! intermediate variables for optimization
     REAL        :: Lambda, Lambda_prime
-    REAL        :: T,p, TP_half_width_shear_zone
+    REAL        :: TP_half_width_shear_zone
     REAL        :: temp, pressure                                      ! temperatur, pressure in space domain
-    REAL        :: temp_ini, pressure_ini                                      ! temperatur, pressure in space domain
     !-------------------------------------------------------------------------!
-    INTENT(IN)  :: EQN, dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, Lambda, Sh, SR, Dwn, DFinv
+    INTENT(IN)  :: EQN, dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, Lambda, Sh, SR, TP_grid, DFinv
     INTENT(INOUT):: theta, sigma
     INTENT(OUT) :: temp, pressure
     !-------------------------------------------------------------------------!
 
-
     tauV = Sh*SR !fault strenght*slip rate
     Lambda_prime = Lambda*alpha_th/(alpha_hy-alpha_th)
-    tmp = (Dwn/TP_half_width_shear_zone)**2
+    !Gaussian shear zone in spectral domain, normalized by w
+    normalized_TP_grid(:) = (TP_grid(:)/TP_half_width_shear_zone)**2
     !1. Calculate diffusion of the field at previous timestep
 
     !temperature
-    theta_current = theta*exp(-alpha_th*dt*tmp)
+    exp_alpha_th(:) = exp(-alpha_th*dt*normalized_TP_grid(:))
+    theta(:) = theta(:) * exp_alpha_th(:)
     !pore pressure + lambda'*temp
-    sigma_current = sigma*exp(-alpha_hy*dt*tmp)
+    exp_alpha_hy(:) = exp(-alpha_hy*dt*normalized_TP_grid(:))
+    sigma(:) = sigma(:) * exp_alpha_hy(:)
 
     !2. Add current contribution and get new temperature
-    CALL heat_source(TP_half_width_shear_zone,alpha_th,dt,Dwn,TP_grid_nz,omega)
-    theta = theta_current + (tauV/rho_c)*omega
-    CALL heat_source(TP_half_width_shear_zone,alpha_hy,dt,Dwn,TP_grid_nz,omega)
-    sigma = sigma_current + ((Lambda+Lambda_prime)*tauV)/(rho_c)*omega
+    omega(:) = heat_source(alpha_th, dt, TP_grid, normalized_TP_grid, exp_alpha_th, TP_grid_nz)
+    theta(:) = theta(:) + (tauV / rho_c) * omega(:)
+    omega(:) = heat_source(alpha_hy, dt, TP_grid, normalized_TP_grid, exp_alpha_hy, TP_grid_nz)
+    sigma(:) = sigma(:) + (((Lambda + Lambda_prime) * tauV) / rho_c) * omega(:)
 
     !3. Recover temperature and pressure using inverse Fourier
     ! transformation with the calculated fourier coefficients
 
-    T = 0.0
-    p = 0.0
-
-    !new contribution
-    DO i=1,TP_grid_nz
-       T = T + (DFinv(i)/TP_half_width_shear_zone)*theta(i)
-       p = p + (DFinv(i)/TP_half_width_shear_zone)*sigma(i)
-    ENDDO
+    temp = SUM(DFinv(:) / TP_half_width_shear_zone * theta(:))
+    pressure = SUM(DFinv(:) / TP_half_width_shear_zone * sigma(:))
 
     !Update pore pressure change (sigma = pore pressure + lambda'*temp)
     !In the BIEM code (Lapusta) they use T without initial value
-    p = p - Lambda_prime*T
+    pressure = pressure - Lambda_prime * temp
 
     !Temp and pore pressure change at single GP on the fault + initial values
-    temp = T + EQN%Temp_0
-    pressure = -p + EQN%Pressure_0
+    temp = temp + EQN%Temp_0
+    pressure = -pressure + EQN%Pressure_0
  
   END SUBROUTINE Calc_ThermalPressure
 
-  SUBROUTINE  heat_source(TP_half_width_shear_zone, alpha, dt, Dwn, TP_grid_nz, omega)
+  FUNCTION heat_source(alpha, dt, TP_grid, normalized_TP_grid, exp_alpha, TP_grid_nz) result(omega)
 
     !-------------------------------------------------------------------------!
 
@@ -140,29 +134,24 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
-    REAL        :: TP_half_width_shear_zone
-    INTEGER     :: TP_grid_nz                                                         ! number of points at the fault
-    REAL        :: Dwn(TP_grid_nz)                                                    ! insert DISC%DynRup%TP_grid
-    REAL        :: Sh, SR                                                     ! current shear stress and slip rate
-    REAL        :: alpha, dt                                                      ! difussion parameter
-    REAL        :: omega(TP_grid_nz)                                                  !
-    REAL        :: tmp(TP_grid_nz)
+    INTEGER     :: TP_grid_nz                                                 ! number of points at the fault
+    REAL        :: alpha, dt                                                  ! difusion parameter
+    REAL        :: omega(TP_grid_nz), exp_alpha(:)                            ! exp_alpha is exp(-alpha*dt*normalized_TP_grid(:))
+    REAL        :: TP_grid(TP_grid_nz)
+    REAL        :: normalized_TP_grid(TP_grid_nz)
     REAL, PARAMETER :: pi=3.141592653589793     ! CONSTANT pi
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: TP_half_width_shear_zone, alpha, dt, Dwn, TP_grid_nz
-    INTENT(OUT)   :: omega
+    INTENT(IN)    :: alpha, dt, normalized_TP_grid, TP_grid_nz
     !-------------------------------------------------------------------------!
-    !Gaussian shear zone in spectral domain, normalized by w
-    tmp = (Dwn/TP_half_width_shear_zone)**2
     !original function in spatial domain
     !omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
     !function in the wavenumber domain *including additional factors in front of the heat source function*
-    !omega = 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**tmp)) 
-    !inserting Dwn/TP_half_width_shear_zone (scaled) for Dwn cancels out TP_half_width_shear_zone
-    omega = 1.0/(alpha*tmp*(sqrt(2.0*pi)))*exp(-0.5*(Dwn)**2)*(1.0 - exp(-alpha*dt*tmp))
+    !omega = 1/(*alpha*TP_grid**2**(sqrt(2.0*pi))*exp(-0.5*(TP_grid*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**normalized_TP_grid)) 
+    !inserting TP_grid/TP_half_width_shear_zone (scaled) for TP_grid cancels out TP_half_width_shear_zone
+    omega = 1.0/(alpha*normalized_TP_grid(:) * sqrt(2.0*pi))*exp(-0.5*(TP_grid(:))**2) * (1.0 - exp_alpha(:))
 
     RETURN
 
-  END SUBROUTINE heat_source
+  END FUNCTION heat_source
 
 END MODULE Thermalpressure_mod
