@@ -78,7 +78,12 @@ class seissol::initializers::time_stepping::MultiRate {
       double l_lower = i_minimumTimeStepWidth;
       double l_upper = i_multiRate*l_lower;
 
+#if NUMBER_OF_QUANTITIES > 9
+      unsigned int l_id_max=6;
+#endif
+
       for( unsigned int l_id = 0; ; l_id++ ) {
+
         // the first cluster with an upper bound above the time step width is our
         if( l_upper > i_timeStepWidth ) {
           o_clusterTimeStepWidth = l_lower;
@@ -89,6 +94,11 @@ class seissol::initializers::time_stepping::MultiRate {
         // update interval and continue searching
         l_lower = l_upper;
         l_upper = i_multiRate * l_lower;
+#if NUMBER_OF_QUANTITIES > 9
+        if( l_id == l_id_max-1 ) {
+          l_upper = std::numeric_limits<double>::max();
+         }
+#endif
       }
     }
 
