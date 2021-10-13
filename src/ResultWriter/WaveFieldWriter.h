@@ -140,7 +140,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
   
   unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
 	std::vector<unsigned int> generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner, 
-		const std::vector<unsigned> &LtsClusteringData, std::map<int, int> newToOldCellMap);
+		const std::vector<unsigned> &LtsClusteringData, std::map<int, int> &newToOldCellMap);
 
 public:
 	WaveFieldWriter()

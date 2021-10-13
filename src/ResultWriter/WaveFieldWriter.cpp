@@ -123,7 +123,7 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 
 
 std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClusteringData(
-	refinement::MeshRefiner<double>* meshRefiner, const std::vector<unsigned> &LtsClusteringData, std::map<int, int> newToOldCellMap) {
+	refinement::MeshRefiner<double>* meshRefiner, const std::vector<unsigned> &LtsClusteringData, std::map<int, int> &newToOldCellMap) {
 	//subsampling preserves the order of the cells, so we just need to repeat the LtsClusteringData kSubCellsPerCell times.
 	//we also need to account for the extractRegion filter via the newToOldCellMap hash map
 	std::vector<unsigned int> refinedClusteringData(meshRefiner->getNumCells());
