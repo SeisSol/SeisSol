@@ -52,22 +52,22 @@ Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic r
 
 .. code-block::
 
-  cd PUMGen
-  git apply $path_to_seissol/SeisSol/Documentation/patchesI64/patch_PUMGen.diff
+   cd PUMGen
+   git apply $path_to_seissol/SeisSol/Documentation/patchesI64/patch_PUMGen.diff
 
 
 .. code-block::
 
-  cd SeisSol
-  git apply Documentation/patchesI64/patch_SeisSol.diff
+   cd SeisSol
+   git apply Documentation/patchesI64/patch_SeisSol.diff
 
 
 and finally:
 
 .. code-block::
 
-  cd SeisSol/submodules/PUML/
-  git apply ../../Documentation/patchesI64/patch_PUML.diff
+   cd SeisSol/submodules/PUML/
+   git apply ../../Documentation/patchesI64/patch_PUML.diff
 
 
 Meshes with more than 255 tags can be created using pumgen -xml option, e.g. :
