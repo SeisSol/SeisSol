@@ -121,6 +121,25 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
   return const_cells;
 }
 
+
+std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClusteringData(
+	refinement::MeshRefiner<double>* meshRefiner, const std::vector<unsigned> &LtsClusteringData, std::map<int, int> newToOldCellMap) {
+	//subsampling preserves the order of the cells, so we just need to repeat the LtsClusteringData kSubCellsPerCell times.
+	//we also need to account for the extractRegion filter via the newToOldCellMap hash map
+	std::vector<unsigned int> refinedClusteringData(meshRefiner->getNumCells());
+
+	size_t kSubCellsPerCell = static_cast<size_t> (meshRefiner->getkSubCellsPerCell());
+	for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
+		if (m_extractRegion) {
+			refinedClusteringData[j] = LtsClusteringData.data()[newToOldCellMap[static_cast<size_t> (j/kSubCellsPerCell)]];
+		} else {
+			refinedClusteringData[j] = LtsClusteringData.data()[static_cast<size_t> (j/kSubCellsPerCell)];
+		}
+	}
+	return refinedClusteringData;
+}
+
+
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
     int order, int numAlignedDOF,
     const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
@@ -213,12 +232,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
 				// Assign the new map
-				size_t i_new = subElements.size();
-				m_map[i_new] = map[i];
+				size_t iNew = subElements.size();
+				m_map[iNew] = map[i];
 
 				// Push the address of the element into the vector
 				subElements.push_back(&(allElements[i]));
-				newToOldCellMap.insert(std::pair<size_t,size_t>(i_new, i));
+				newToOldCellMap.insert(std::pair<size_t,size_t>(iNew, i));
 
 				// Push the vertices into the map which makes sure that the entries are unique
 				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
@@ -266,19 +285,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Create mesh buffers
 	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
 	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner->getVertexData(), meshRefiner->getNumVertices() * 3 * sizeof(double));
-
-	//subsampling preserves the order of the cells, so basically, we need to repeat the LtsClusteringData kSubCellsPerCell times.
-	//we also need to account for the extractRegion filter via the newToOldCellMap hash map
-	unsigned int* clustering_data = new unsigned int[meshRefiner->getNumCells()];
-	size_t kSubCellsPerCell = (size_t) meshRefiner->getkSubCellsPerCell();
-	for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
-		if (m_extractRegion) {
-			clustering_data[j] = LtsClusteringData.data()[newToOldCellMap[(size_t) (j/kSubCellsPerCell)]];
-		} else {
-			clustering_data[j] = LtsClusteringData.data()[(size_t) (j/kSubCellsPerCell)];
-		}
-	}
-	param.bufferIds[CLUSTERING] = addSyncBuffer(clustering_data, meshRefiner->getNumCells() * sizeof(unsigned int));
+	std::vector<unsigned int> refinedClusteringData = generateRefinedClusteringData(meshRefiner, LtsClusteringData, newToOldCellMap);
+	param.bufferIds[CLUSTERING] = addSyncBuffer(refinedClusteringData.data(), meshRefiner->getNumCells() * sizeof(unsigned int));
 
 	// Create data buffers
 	bool first = false;
