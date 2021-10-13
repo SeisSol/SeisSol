@@ -913,6 +913,7 @@ MODULE TypesDef
      REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
      real, allocatable                      :: InitialStressInFaultCS(:,:,:)
      real, allocatable                      :: NucleationStressInFaultCS(:,:,:)
+     real, allocatable                      :: NucleationStressInFaultCS2(:,:,:)
      REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
      REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
      REAL                                   :: IniSlipRate1                     !< Initial slip rate value at fault
