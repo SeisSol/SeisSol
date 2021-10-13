@@ -50,13 +50,14 @@ Using more than 189 dynamic rupture tags
 
 Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic rupture tags. To overcome this limitation, it is necessary to patch PUMGen, SeisSol and the PUML submodule of SeisSol. This can be done with:
 
-
 .. code-block::
+
   cd PUMGen
   git apply $path_to_seissol/SeisSol/Documentation/patchesI64/patch_PUMGen.diff
 
 
 .. code-block::
+
   cd SeisSol
   git apply Documentation/patchesI64/patch_SeisSol.diff
 
@@ -64,6 +65,7 @@ Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic r
 and finally:
 
 .. code-block::
+
   cd SeisSol/submodules/PUML/
   git apply ../../Documentation/patchesI64/patch_PUML.diff
 
@@ -71,6 +73,7 @@ and finally:
 Meshes with more than 255 tags can be created using pumgen -xml option, e.g. :
 
 .. code-block:: xml
+
    <boundaryCondition tag="3">13245</boundaryCondition>
    .
    .
