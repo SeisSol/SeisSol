@@ -83,7 +83,7 @@ CONTAINS
       TYPE(tBoundary)          :: BND                                           ! BND    data structure
       REAL                     :: MaterialVal(MESH%nElem,EQN%nBackgroundVar)    ! Local Mean Values
       REAL                     :: dt, time                                      ! Timestep and time
-	  ! local variable declaration
+          ! local variable declaration
       LOGICAL                  :: isOnPickpoint
       LOGICAL                  :: isOnElementwise
       LOGICAL                  :: isOnFaultoutput
@@ -394,7 +394,7 @@ CONTAINS
              P_f = 0.0
           ENDIF
 
-          if (EQN%FL.eq.33) then 
+          if (EQN%FL.eq.33) then
              !case of ImposedSlipRateOnDRBoundary 'friction law': we add the additional stress to the fault output
              !to show the imposed SR
              eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
@@ -447,9 +447,9 @@ CONTAINS
           CASE DEFAULT
             ! linear slip weakening
             Strength = -MuVal*MIN(LocP+P_0 -P_f,ZERO) - cohesion
-          CASE(3,4)
+          CASE(3,4,103)
              ! rate and state (once everything is tested and cohesion works for RS, this option could be merged to default)
-             Strength = -MuVal*MIN(LocP+P_0 -P_f, ZERO)
+             Strength = -MuVal*MIN(LocP+P_0 -P_f,ZERO)
           CASE(6)
             ! exception for bimaterial with LSW case
             ! modify strength according to prakash clifton
@@ -499,7 +499,7 @@ CONTAINS
 
           ! rotate into fault system
           LocMat = MATMUL(rotmat,tmp_mat)
-         
+
           CALL create_strike_dip_unit_vectors(NormalVect_n, strike_vector, dip_vector)
 
           ! sliprate
@@ -520,7 +520,7 @@ CONTAINS
           !       w_speed(1)*rho) * NorDivisor
           ! Store Values into Output vector OutVal
 
-          if (EQN%FL.eq.33) then 
+          if (EQN%FL.eq.33) then
              !case of ImposedSlipRateOnDRBoundary 'friction law': we plot the Stress from Godunov state, because we want to see the traction change from the imposed slip distribution
              TracMat(4)=LocMat(4)
              TracMat(6)=LocMat(6)
@@ -579,9 +579,9 @@ CONTAINS
                   scalarprod = dot_product(crossprod(:),NormalVect_n(:))
                   !TU 2.11.15 :cos1**2 can be greater than 1 because of rounding errors -> min
                   IF (scalarprod.GT.0) THEN
-                      sin1=sqrt(1-min(1.0,cos1**2))
+                      sin1=sqrt(1-min(1d0,cos1**2))
                   ELSE
-                      sin1=-sqrt(1-min(1.0,cos1**2))
+                      sin1=-sqrt(1-min(1d0,cos1**2))
                   ENDIF
 
                   OutVars = OutVars + 1
@@ -842,7 +842,7 @@ CONTAINS
             IF( stat.NE.0) THEN
                logError(*) 'cannot open ',ptsoutfile
                logError(*) 'Error status: ', stat
-               call MPI_ABORT(MPI%commWorld, 134)
+               call exit(134)
             END IF
             !
             DO k=1,DISC%DynRup%DynRup_out_atPickpoint%CurrentPick(iOutPoints)
