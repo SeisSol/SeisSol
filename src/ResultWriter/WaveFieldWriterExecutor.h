@@ -65,6 +65,7 @@ enum BufferTags {
 	OUTPUT_FLAGS,
 	CELLS,
 	VERTICES,
+	CLUSTERING,
 	VARIABLE0,
 	LOWCELLS,
 	LOWVERTICES,
@@ -206,6 +207,7 @@ public:
 			static_cast<const double*>(info.buffer(param.bufferIds[VERTICES])),
 			param.timestep != 0);
 
+		setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[CLUSTERING])));
 		logInfo(rank) << "High order output initialized";
 
 		//
