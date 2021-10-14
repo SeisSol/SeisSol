@@ -474,8 +474,8 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
     layer->setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * layerSize);
     layer->setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * layerSize);
 
-    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
-    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
+    constexpr auto UpperStageFactor = dr::pipeline::DRPipeline::TailSize * dr::pipeline::DRPipeline::DefaultBatchSize;
+    constexpr auto LowerStageFactor = dr::pipeline::DRPipeline::NumStages * dr::pipeline::DRPipeline::DefaultBatchSize;
     layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
     layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
     layer->setScratchpadSize(m_dynRup.imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
@@ -825,21 +825,21 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
 void seissol::initializers::MemoryManager::initializeFrictionFactory() {
   /*
   dr::factory::AbstractFactory *Factory = seissol::dr::factory::getFactory(FrictionLaw);
-  std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
+  std::tie(m_dynRup, m_DRInitializer, m_FrictonLaw, m_DROutput) = Factory->produce();
   delete Factory;    // prepare the data
 */
   dr::factory::AbstractFactory *Factory = nullptr;
   try {
     // reading input provided by parameters.par
-    m_dynRupParameter = new dr::DrParameterT;
+    m_dynRupParameter = new dr::DRParameters;
     m_dynRupParameter->setAllInputParam(m_inputParams);
 
     Factory = seissol::dr::factory::getFactory(m_dynRupParameter);
-    std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
+    std::tie(m_dynRup, m_DRInitializer, m_FrictonLaw, m_DROutput) = Factory->produce();
 
-    m_DrInitializer->setInputParam(m_dynRupParameter);
+    m_DRInitializer->setInputParam(m_dynRupParameter);
     m_FrictonLaw->setInputParam(m_dynRupParameter);
-    m_DrOutput->setInputParam(m_dynRupParameter);
+    m_DROutput->setInputParam(m_dynRupParameter);
 
     delete Factory;    // prepare the data
   }

@@ -9,132 +9,73 @@
 #include <tuple>
 #include <stdexcept>
 #include <Initializer/DynamicRupture.h>
-#include "DR_initializer_base.h"
-#include "DR_solver_base.h"
+#include "DynamicRupture/Initializers/Initializers.h"
+#include "DynamicRupture/FrictionLaws/FrictionLaws.h"
 #include "DR_output.h"
-#include "DR_solver_rate_and_state.h"
-#include "DR_solver_linear.h"
-#include "DR_solver_legacy_RS.h"
 
-
-namespace seissol {
-  namespace dr {
-    namespace factory {
-      class AbstractFactory;
-      struct Factory_FL_0;
-      struct Factory_FL_2;
-      struct Factory_FL_3; //aging law
-      struct Factory_FL_4; //slip law
-      struct Factory_FL_6;
-      struct Factory_FL_7;
-      struct Factory_FL_16;
-      struct Factory_FL_33;
-      struct Factory_FL_103;
-      struct Factory_FL_103_Thermal;
-      seissol::dr::factory::AbstractFactory* getFactory(dr::DrParameterT *DynRupParameter);
-    }
-  }
+namespace seissol::dr::factory {
+  using products = std::tuple<seissol::initializers::DynamicRupture*,seissol::dr::initializers::BaseDRInitializer*, seissol::dr::friction_law::BaseFrictionLaw*, seissol::dr::output::Output_Base*>;
+  class AbstractFactory;
+  struct Factory_FL_0; // no fault
+  struct Factory_FL_2; // linear slip weakening
+  struct Factory_FL_3; // aging law
+  struct Factory_FL_4; // slip law
+  struct Factory_FL_6; // bimaterial lsw
+  struct Factory_FL_7; // velocity weakening
+  struct Factory_FL_16; // linears slip weakening
+  struct Factory_FL_33; // imposes slip
+  struct Factory_FL_103; // rate and state
+  struct Factory_FL_103_Thermal; // rate and state with thermal pressurization
+  seissol::dr::factory::AbstractFactory* getFactory(dr::DRParameters *DynRupParameter);
 }
 
-
-using products = std::tuple<seissol::initializers::DynamicRupture*,seissol::initializers::BaseDrInitializer*, seissol::dr::fr_law::BaseFrictionSolver*, seissol::dr::output::Output_Base*>;
 class seissol::dr::factory::AbstractFactory {
 public:
   virtual ~AbstractFactory() {}
   virtual products produce() = 0;
 };
+
 class seissol::dr::factory::Factory_FL_0 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::DynamicRupture,
-                           new seissol::initializers::Init_NoFaultFL0,
-                           new seissol::dr::fr_law::SolverNoFaultFL0,
-                           new seissol::dr::output::Output_NoFaultFL0);
-  }
+  virtual products produce() override;
 };
 
 class seissol::dr::factory::Factory_FL_2 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_LinearSlipWeakeningFL2,
-                           new seissol::initializers::Init_LinearSlipWeakeningFL2,
-                           new seissol::dr::fr_law::LinearSlipWeakeningSolverFL2,
-                           new seissol::dr::output::Output_LinearSlipWeakeningFL2);
-  }
+  virtual products produce() override;
 };
+
 class seissol::dr::factory::Factory_FL_3 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_RateAndStateFL3,
-                           new seissol::initializers::Init_RateAndStateFL3,
-                           new seissol::dr::fr_law::Solver_FL_3,
-                           new seissol::dr::output::Output_RateAndStateFL3);
-  }
+  virtual products produce();
 };
 
 class seissol::dr::factory::Factory_FL_4 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_RateAndStateFL3,
-                           new seissol::initializers::Init_RateAndStateFL3,
-                           new seissol::dr::fr_law::Solver_FL_4,
-                           new seissol::dr::output::Output_RateAndStateFL3);
-  }
+  virtual products produce() override;
 };
 
 class seissol::dr::factory::Factory_FL_6 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_LinearBimaterialFL6,
-                           new seissol::initializers::Init_LinearBimaterialFL6,
-                           new seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6,
-                           new seissol::dr::output::Output_LinearBimaterialFL6);
-  }
+  virtual products produce() override;
 };
 
 
 class seissol::dr::factory::Factory_FL_7 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_RateAndStateFL3,
-                           new seissol::initializers::Init_RateAndStateFL3,
-                           new seissol::dr::fr_law::SolverRateAndStateVwFL7,
-                           new seissol::dr::output::Output_RateAndStateFL3);
-  }
+  virtual products produce() override;
 };
 
 class seissol::dr::factory::Factory_FL_16 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_LinearSlipWeakeningFL16,
-                           new seissol::initializers::Init_LinearSlipWeakeningFL16,
-                           new seissol::dr::fr_law::LinearSlipWeakeningSolverFL16,
-                           new seissol::dr::output::Output_LinearSlipWeakeningFL2);
-  }
+  virtual products produce() override;
 };
 
 class seissol::dr::factory::Factory_FL_33 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_ImposedSlipRatesFL33,
-                           new seissol::initializers::Init_ImposedSlipRatesFL33,
-                           new seissol::dr::fr_law::SolverImposedSlipRatesFL33,
-                           new seissol::dr::output::Output_ImposedSlipRatesFL33);
-  }
+  virtual products produce() override;
 };
 
 class seissol::dr::factory::Factory_FL_103 : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_RateAndStateFL103,
-                           new seissol::initializers::Init_RateAndStateFL103,
-                           new seissol::dr::fr_law::RateAndStateNucFL103,
-                           new seissol::dr::output::Output_RateAndStateFL103);
-  }
+  virtual products produce() override;
 };
 
 class seissol::dr::factory::Factory_FL_103_Thermal : public seissol::dr::factory::AbstractFactory {
-  virtual products produce() override {
-    return std::make_tuple(new seissol::initializers::LTS_RateAndStateFL103TP,
-                           new seissol::initializers::Init_RateAndStateFL103TP,
-                           new seissol::dr::fr_law::RateAndStateThermalFL103,
-                           new seissol::dr::output::Output_RateAndStateFL103);
-  }
+  virtual products produce() override;
 };
 
-seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(dr::DrParameterT *DynRupParameter);
-
-int temporary_main();
+seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(dr::DRParameters *DynRupParameter);
 
 #endif //SEISSOL_DR_FACTORY_H

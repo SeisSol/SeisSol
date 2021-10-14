@@ -78,8 +78,8 @@ namespace seissol {
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
 
-    void initializeFrictionMatrices(    seissol::initializers::BaseDrInitializer* FrictionInitializer,
-                                        seissol::dr::fr_law::BaseFrictionSolver* FrictionSolver,
+    void initializeFrictionMatrices(    seissol::dr::initializers::BaseDRInitializer* FrictionInitializer,
+                                        seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
                                         DynamicRupture *dynRup,
                                         LTSTree* dynRupTree,
                                         std::unordered_map<std::string, double*> faultParameters,

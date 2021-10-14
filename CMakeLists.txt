@@ -163,7 +163,7 @@ else()
     -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
   )
   add_dependencies(SeisSol-lib yaml-cpp-build)
-  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
+  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib64/libyaml-cpp.a")
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 endif()
 

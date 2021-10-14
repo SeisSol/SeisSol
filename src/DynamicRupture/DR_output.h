@@ -1,13 +1,7 @@
-//
-// Created by adrian on 09.07.20.
-//
-
 #ifndef SEISSOL_DR_OUTPUT_H
 #define SEISSOL_DR_OUTPUT_H
 
 #include <yaml-cpp/yaml.h>
-
-
 
 /*
  * Currently this is only an interface to the old Fortran output writer.
@@ -16,7 +10,7 @@
 namespace seissol {
     namespace dr {
         namespace output {
-            class Output_Base;      //abstrac class, implements output that all FLs have in common
+            class Output_Base;      //abstract class, implements output that all FLs have in common
             class Output_NoFaultFL0;  //No SolverNoFaultFL0
             class Output_LinearSlipWeakeningFL2;  //for linear slip laws FL2, FL16 and FL6
             class Output_RateAndStateFL3; //dummy class, not implemented, could be replaced by Output_RateAndStateFL103
@@ -28,16 +22,16 @@ namespace seissol {
 }
 
 /*
- * Currently this class only copies values computed in C++ dynamic rupture back to Fortran to have it availabe for the output writer
+ * Currently this class only copies values computed in C++ dynamic rupture back to Fortran to have it available for the output writer
  */
 class seissol::dr::output::Output_Base{
 protected:
-  dr::DrParameterT *m_Params; //currently not required, but later for fully C++ implementation important
+  dr::DRParameters *m_Params; // currently, not required, but later for fully C++ implementation important
 public:
     virtual ~Output_Base() {}
 
   //set the parameters from .par file with yaml to this class attributes.
-  void setInputParam(dr::DrParameterT *DynRupParameter) {
+  void setInputParam(dr::DRParameters *DynRupParameter) {
     m_Params = DynRupParameter;
   }
 

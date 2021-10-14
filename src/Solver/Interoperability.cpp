@@ -820,7 +820,7 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            m_timeStepping );
   //added by adrian
   seissol::initializers::initializeFrictionMatrices(
-      seissol::SeisSol::main.getMemoryManager().getDrInitializer(),
+      seissol::SeisSol::main.getMemoryManager().getDRInitializer(),
       seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
       seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
       seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
