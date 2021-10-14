@@ -138,7 +138,7 @@ namespace seissol::dr::friction_law {
 
         //-------------------------------------
         // calculate SlipRates
-        SlipRateMagnitude[ltsFace][iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) * impAndEta[ltsFace].inv_eta_s);
+        SlipRateMagnitude[ltsFace][iBndGP] = std::max((real)0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) * impAndEta[ltsFace].inv_eta_s);
 
         slipRateStrike[ltsFace][iBndGP] = SlipRateMagnitude[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
         slipRateDip[ltsFace][iBndGP]  = SlipRateMagnitude[ltsFace][iBndGP] * (initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / TotalShearStressYZ[iBndGP];
