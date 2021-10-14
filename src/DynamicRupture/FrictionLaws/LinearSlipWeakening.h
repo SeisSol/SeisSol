@@ -31,7 +31,7 @@ namespace seissol::dr::friction_law {
                           real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                           real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                           real fullUpdateTime,
-                          real timeWeights[CONVERGENCE_ORDER]) override {
+                          double timeWeights[CONVERGENCE_ORDER]) override {
 
       copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 

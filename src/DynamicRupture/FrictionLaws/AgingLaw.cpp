@@ -9,7 +9,7 @@ void seissol::dr::friction_law::AgingLaw::evaluate(seissol::initializers::Layer&
                                                    real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                                    real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                                    real fullUpdateTime,
-                                                   real timeWeights[CONVERGENCE_ORDER]) {
+                                                   double timeWeights[CONVERGENCE_ORDER]) {
   seissol::initializers::LTS_RateAndStateFL3 *ConcreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateFL3 *>(dynRup);
 
   seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus                           = layerData.var(ConcreteLts->waveSpeedsPlus);

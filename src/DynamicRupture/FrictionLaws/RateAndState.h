@@ -32,7 +32,7 @@ public:
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real fullUpdateTime,
-                        real timeWeights[CONVERGENCE_ORDER]) override {
+                        double timeWeights[CONVERGENCE_ORDER]) override {
     //first copy all Variables from the Base Lts dynRup tree
     static_cast<Derived*>(this)->copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
 
@@ -143,7 +143,7 @@ protected:
 
   //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   //!as a consequence, the SR is affected the AlmostZero value when too small
-  const double AlmostZero = 1e-45;
+  const real AlmostZero = 1e-45;
 
   //!PARAMETERS of THE optimisation loops
   //!absolute tolerance on the function to be optimzed

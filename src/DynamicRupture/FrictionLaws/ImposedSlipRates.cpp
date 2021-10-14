@@ -16,7 +16,7 @@ void seissol::dr::friction_law::ImposedSlipRates::evaluate(seissol::initializers
                                                            real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                                            real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                                            real fullUpdateTime,
-                                                           real timeWeights[CONVERGENCE_ORDER]) {
+                                                           double timeWeights[CONVERGENCE_ORDER]) {
 
   copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 

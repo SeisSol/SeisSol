@@ -65,7 +65,7 @@ namespace seissol::dr::friction_law {
       real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       const FaultStresses &faultStresses,
-      real timeWeights[CONVERGENCE_ORDER],
+      double timeWeights[CONVERGENCE_ORDER],
       unsigned int ltsFace
   ) {
     //this initialization of the kernel could be moved to the initializer

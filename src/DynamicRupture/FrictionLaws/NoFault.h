@@ -18,7 +18,7 @@ public:
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real fullUpdateTime,
-                        real timeWeights[CONVERGENCE_ORDER]) override;
+                        double timeWeights[CONVERGENCE_ORDER]) override;
 };
 
 #endif //SEISSOL_NOFAULT_H

@@ -102,7 +102,7 @@ protected:
   void postcomputeImposedStateFromNewStress(real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                             real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                             const FaultStresses &faultStresses,
-                                            real timeWeights[CONVERGENCE_ORDER],
+                                            double timeWeights[CONVERGENCE_ORDER],
                                             unsigned int ltsFace);
 
   /*
@@ -143,7 +143,7 @@ public:
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real fullUpdateTime,
-                        real timeWeights[CONVERGENCE_ORDER]) = 0;
+                        double timeWeights[CONVERGENCE_ORDER]) = 0;
 
   /*
    * compute the DeltaT from the current timePoints

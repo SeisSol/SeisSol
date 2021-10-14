@@ -8,7 +8,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL2::calcStrengthHook(std:
     //-------------------------------------
     //calculate Fault Strength
     //fault strength (Uphoff eq 2.44) with addition cohesion term
-    Strength[iBndGP] = cohesion[ltsFace][iBndGP] - mu[ltsFace][iBndGP] * std::min(initialStressInFaultCS[ltsFace][iBndGP][0] + faultStresses.NormalStressGP[iTimeGP][iBndGP], 0.0);
+    Strength[iBndGP] = cohesion[ltsFace][iBndGP] - mu[ltsFace][iBndGP] * std::min(initialStressInFaultCS[ltsFace][iBndGP][0] + faultStresses.NormalStressGP[iTimeGP][iBndGP], (real)0.0);
   }
 }
 
@@ -35,7 +35,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL2::calcStateVariableHook
     //-------------------------------------
     //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
     //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
-    stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], 1.0);
+    stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], (real)1.0);
   }
 }
 
@@ -71,7 +71,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL16::calcStateVariableHoo
         f2 = 0.0;
       }
     } else {
-      f2 = std::max(0.0, std::min( 1.0, (m_fullUpdateTime - forced_rupture_time[ltsFace][iBndGP] ) / m_Params->t_0));
+      f2 = std::max((real)0.0, std::min( (real)1.0, (m_fullUpdateTime - forced_rupture_time[ltsFace][iBndGP] ) / m_Params->t_0));
     }
     stateVariablePsi[iBndGP] = std::max(stateVariablePsi[iBndGP], f2);
   }
@@ -108,7 +108,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::calcStateVa
     //-------------------------------------
     //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
     //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
-    stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], 1.0);
+    stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], (real)1.0);
   }
 }
 
@@ -128,5 +128,5 @@ strengthData = layerData.var(ConcreteLts->strengthData);
 void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::prak_clif_mod(real &strength, real &sigma, real &LocSlipRate, real &mu, real &dt){
   real expterm;
   expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star)*dt/ m_Params->prakash_length);
-  strength =  strength*expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
+  strength =  strength*expterm - std::max((real)0.0,-mu*sigma)*(expterm-1.0);
 }

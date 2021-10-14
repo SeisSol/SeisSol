@@ -26,7 +26,7 @@ void seissol::dr::friction_law::VelocityWeakening::evaluate(seissol::initializer
                                                             real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                                             real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                                                             real fullUpdateTime,
-                                                            real timeWeights[CONVERGENCE_ORDER]) {
+                                                            double timeWeights[CONVERGENCE_ORDER]) {
   VelocityWeakening::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)

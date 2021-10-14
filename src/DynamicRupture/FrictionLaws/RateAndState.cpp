@@ -239,7 +239,7 @@ bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR (unsig
                                                                            std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                                                                            std::array<real, numOfPointsPadded> &sh_stress, std::array<real, numOfPointsPadded> &SRtest ){
 
-  double tmp[numOfPointsPadded], tmp2[numOfPointsPadded], tmp3[numOfPointsPadded], mu_f[numOfPointsPadded], dmu_f[numOfPointsPadded], NR[numOfPointsPadded], dNR[numOfPointsPadded];
+  real tmp[numOfPointsPadded], tmp2[numOfPointsPadded], tmp3[numOfPointsPadded], mu_f[numOfPointsPadded], dmu_f[numOfPointsPadded], NR[numOfPointsPadded], dNR[numOfPointsPadded];
   //double AlmostZero = 1e-45;
   bool has_converged = false;
 
@@ -304,7 +304,7 @@ bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR_Brent(
   std::function<double(double, int)> F;
   double tol = 1e-30;
 
-  double *RS_a = RS_a_array[ltsFace];
+  real *RS_a = RS_a_array[ltsFace];
   double RS_sr0_ = m_Params->rs_sr0;
   double invEta = impAndEta[ltsFace].inv_eta_s;
 
