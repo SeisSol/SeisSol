@@ -28,6 +28,7 @@ iOutputMask allows switching on and off the writing of seissol unknowns.
 The 6 first digits controls the components of the stress tensor
 (sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, and sigma_xz), 
 and the 3 last digits the velocity components (u, v, w).
+When using poroelasticity, 4 more flags are added, for pore pressure (p) and fluid velocities (u_f, v_f, w_f).
 
 iPlasticityMask
 ---------------

@@ -159,10 +159,12 @@ public:
 			"u",
 			"v",
 			"w",
+#ifdef USE_POROELASTIC
 			"p",
 			"u_f",
 			"v_f",
 			"w_f",
+#endif
 			"ep_xx",
 			"ep_yy",
 			"ep_zz",
@@ -175,7 +177,11 @@ public:
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
 			if (m_outputFlags[i]) {
-        assert(i < 20);
+#ifdef USE_POROELASTIC
+				assert(i < 20);
+#else
+				assert(i < 16);
+#endif
 				variables.push_back(varNames[i]);
       }
 		}
