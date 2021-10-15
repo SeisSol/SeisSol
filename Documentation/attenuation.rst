@@ -34,10 +34,9 @@ Stability with Local time stepping
 ----------------------------------
 
 The maximum timestep may need to be decreased in SeisSol to avoid stability issues when using attenuation and local time stepping.
-Practically, we found that if the maximum timestep is below :math:`0.25 t_3` with :math:`t_3 = 1/ f_3 = 1/(sqrt(FreqRatio)  FreqCentral)`, stability should be ensured.
-This is done be default by SeisSol when attenuation is turned on.
-If SeisSol is yet unstable, further decrease of the maximum timestep can be enforced using the parameter ``FixTimeStep`` of the ``&Discretization`` namelist, in the main parameter file.
-
+Practically, we found that if the maximum timestep is below :math:`0.25 T_3` with :math:`T_3 = 1/ f_3 = 1/(\mathrm{FreqCentral \sqrt{ \mathrm{FreqRatio}})`, stability should be ensured.
+This is done be default by SeisSol when attenuation is turned on, and the parameter ``FixTimeStep`` of the the ``&Discretization`` namelist (main parameter file) is not set.
+If SeisSol is yet unstable, further decrease of the maximum timestep can be tried by manually setting the value of ``FixTimeStep``.
 
 Compiling
 ---------
@@ -97,19 +96,19 @@ FreqCentral and FreqRatio
 
 | The relaxation frequencies are logarithmically equispaced, i.e.
 
-| :math:`log(f_{i+1})-log(f_i) =` constant.
+| :math:`\log(f_{i+1})-\log(f_i) =` constant.
 
 In the parameter file, one has to give a frequency ratio of maximum to minimum frequency and a central frequency. 
 For example, in the case of 3 mechanisms the following relations define the relaxation frequencies:
 
-| :math:`f_2 = FreqCentral`
+| :math:`f_2 = \mathrm{FreqCentral}`
 
-| :math:`log(f_3)-log(f_2) = log(f_2) - log(f_1)`
+| :math:`\log(f_3)-\log(f_2) = \log(f_2) - \log(f_1)`
 
-| :math:`f_3 / f_1 = FreqRatio`
+| :math:`f_3 / f_1 = \mathrm{FreqRatio}`
 
-This leads  to:
-| :math:`f_1 = FreqCentral / sqrt(FreqRatio)` and   `f_3 = FreqCentral  sqrt(FreqRatio)`
+This leads  to :math:`f_1 = \mathrm{FreqCentral} / \sqrt{\mathrm{FreqRatio}}` and :math:`f_3 = \mathrm{FreqCentral}  \sqrt{\mathrm{FreqRatio}}`.  
+
 Outside of the frequency band :math:`f_1 - f_3`, Q goes to infinity, yielding
 elastic behavior.
 
