@@ -2400,7 +2400,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, LtsWeightTypeId
-    REAL                             :: CFL, FixTimeStep
+    REAL                             :: CFL, FixTimeStep, StableDt
     NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
@@ -2545,6 +2545,18 @@ ALLOCATE( SpacePositionx(nDirac), &
     DISC%CFL = CFL                               ! minimum Courant number
     logInfo(*) 'The minimum COURANT number:    ', DISC%CFL
     !
+
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    StableDt = 0.25 / (EQN%FreqCentral * sqrt(EQN%FreqRatio))
+    if (abs(FixTimeStep-5000).LE.1e-3) THEN
+        logInfo0(*) 'FixTimeStep is too large for attenuation, lowering to', StableDt
+        FixTimeStep = StableDt
+    else
+        if (FixTimeStep.GT.StableDt) THEN
+           logWarning(*) 'FixTimeStep', FixTimeStep, 'might be too large for attenuation (a stable estimate for FixTimeStep is ', StableDt, ')'
+        endif
+    endif
+#endif
         DISC%FixTimeStep = FixTimeStep
         logInfo(*) 'Specified dt_fix            : ', DISC%FixTimeStep
         logInfo(*) 'Actual timestep is min of dt_CFL and dt_fix. '
