@@ -2,7 +2,7 @@
 
 void seissol::dr::initializers::BaseDRInitializer::setInputParam(dr::DRParameters *DynRupParameter) {
   m_Params = DynRupParameter;
-};
+}
 
 void  seissol::dr::initializers::BaseDRInitializer::initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                                                                seissol::initializers::LTSTree* dynRupTree,

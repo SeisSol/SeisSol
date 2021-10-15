@@ -153,9 +153,6 @@ private:
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
     dr::pipeline::DrPipeline drPipeline;
 #endif
-  //added by Adrian
-    dr::friction_law::BaseFrictionLaw* m_FrictonLaw;
-    dr::output::Output_Base* m_DrOutput;
 
     /*
      * element data and mpi queues
@@ -172,7 +169,11 @@ private:
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
 
-    //! time step width of the performed time step.
+    //added by Adrian
+    dr::friction_law::BaseFrictionLaw* m_FrictonLaw;
+    dr::output::Output_Base* m_DrOutput;
+
+  //! time step width of the performed time step.
     double m_timeStepWidth;
     
     //! Mapping of cells to point sources

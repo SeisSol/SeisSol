@@ -469,17 +469,17 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto layer = m_dynRupTree.beginLeaf(); layer != m_dynRupTree.endLeaf(); ++layer) {
     const auto layerSize = layer->getNumberOfCells();
-    layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnDevice, QInterpolatedSize * layerSize);
-    layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnDevice, QInterpolatedSize * layerSize);
-    layer->setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * layerSize);
-    layer->setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * layerSize);
+    layer->setScratchpadSize(m_dynRup->QInterpolatedPlusOnDevice, QInterpolatedSize * layerSize);
+    layer->setScratchpadSize(m_dynRup->QInterpolatedMinusOnDevice, QInterpolatedSize * layerSize);
+    layer->setScratchpadSize(m_dynRup->idofsPlusOnDevice, idofsSize * layerSize);
+    layer->setScratchpadSize(m_dynRup->idofsMinusOnDevice, idofsSize * layerSize);
 
-    constexpr auto UpperStageFactor = dr::pipeline::DRPipeline::TailSize * dr::pipeline::DRPipeline::DefaultBatchSize;
-    constexpr auto LowerStageFactor = dr::pipeline::DRPipeline::NumStages * dr::pipeline::DRPipeline::DefaultBatchSize;
-    layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup.imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
-    layer->setScratchpadSize(m_dynRup.imposedStateMinusOnHost, LowerStageFactor *  imposedStateSize);
+    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
+    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
+    layer->setScratchpadSize(m_dynRup->QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
+    layer->setScratchpadSize(m_dynRup->QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
+    layer->setScratchpadSize(m_dynRup->imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
+    layer->setScratchpadSize(m_dynRup->imposedStateMinusOnHost, LowerStageFactor *  imposedStateSize);
   }
   m_dynRupTree.allocateScratchPads();
 #endif
@@ -771,7 +771,7 @@ void seissol::initializers::MemoryManager::recordExecutionPaths(bool usePlastici
   recording::CompositeRecorder<seissol::initializers::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
   for (LTSTree::leaf_iterator it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
-    drRecorder.record(m_dynRup, *it);
+    drRecorder.record(*m_dynRup, *it);
   }
 }
 #endif // ACL_DEVICE

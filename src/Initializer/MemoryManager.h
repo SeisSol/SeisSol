@@ -160,7 +160,7 @@ class seissol::initializers::MemoryManager {
     LTS                   m_lts;
     
     LTSTree               m_dynRupTree;
-    DynamicRupture*        m_dynRup;
+    DynamicRupture*       m_dynRup;
 
     //added by Adrian
     seissol::dr::initializers::BaseDRInitializer* m_DRInitializer = nullptr;

@@ -9,7 +9,7 @@
 
 namespace seissol::dr::friction_law {
   class BaseFrictionLaw;
-};
+}
 
 //Base class, has implementations of methods that are used by each friction law
 class seissol::dr::friction_law::BaseFrictionLaw {

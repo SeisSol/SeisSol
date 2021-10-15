@@ -19,7 +19,7 @@ void seissol::dr::friction_law::VelocityWeakening::copyLtsTreeToLocal(seissol::i
   /*a
    * Add new LTS parameter specific for this
    */
-};
+}
 
 void seissol::dr::friction_law::VelocityWeakening::evaluate(seissol::initializers::Layer&  layerData,
                                                             seissol::initializers::DynamicRupture *dynRup,

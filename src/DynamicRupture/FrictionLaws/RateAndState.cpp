@@ -296,6 +296,7 @@ bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR (unsig
       SRtest[iBndGP] = std::max(AlmostZero,SRtest[iBndGP]-tmp3[iBndGP]);
     }
   }
+  return has_converged;
 }
 
 bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR_Brent(unsigned int ltsFace, int nSRupdates,
