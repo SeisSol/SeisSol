@@ -135,6 +135,8 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
+  //! Input parameters
+  YAML::Node m_inputParams;
 
 private:
 	/**
@@ -285,6 +287,12 @@ public:
 	{
 		return *m_meshReader;
 	}
+
+  void setInputParams(const YAML::Node& Params);
+
+  const YAML::Node& getInputParams() {
+    return m_inputParams;
+  }
 
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
