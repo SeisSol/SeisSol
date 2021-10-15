@@ -34,8 +34,8 @@ Stability with Local time stepping
 ----------------------------------
 
 The maximum timestep may need to be decreased in SeisSol to avoid stability issues when using attenuation and local time stepping.
-Practically, we found that if the maximum timestep is below :math:`0.25 T_3` with :math:`T_3 = 1/ f_3 = 1/(\mathrm{FreqCentral \sqrt{ \mathrm{FreqRatio}})`, stability should be ensured.
-This is done be default by SeisSol when attenuation is turned on, and the parameter ``FixTimeStep`` of the the ``&Discretization`` namelist (main parameter file) is not set.
+Practically, we found that if the maximum timestep is below :math:`0.25 T_3` with :math:`T_3 = 1/ f_3 = 1/(\mathrm{FreqCentral} \sqrt{ \mathrm{FreqRatio}})`, stability should be ensured.
+This is done by default by SeisSol when attenuation is turned on, and the parameter ``FixTimeStep`` of the the ``&Discretization`` namelist (main parameter file) is not set.
 If SeisSol is yet unstable, further decrease of the maximum timestep can be tried by manually setting the value of ``FixTimeStep``.
 
 Compiling

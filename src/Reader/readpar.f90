@@ -2548,6 +2548,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     StableDt = 0.25 / (EQN%FreqCentral * sqrt(EQN%FreqRatio))
+    ! 5000 is the default value. if FixTimeStep = 5000 then FixTimeStep was not set in the Namelist
     if (abs(FixTimeStep-5000).LE.1e-3) THEN
         logInfo0(*) 'FixTimeStep is too large for attenuation, lowering to', StableDt
         FixTimeStep = StableDt
