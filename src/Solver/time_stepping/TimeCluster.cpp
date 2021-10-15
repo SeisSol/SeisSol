@@ -123,18 +123,16 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
  m_dynRup(                  i_dynRup                   ),
+ //Code added by Adrian:
+ m_FrictonLaw(              i_FrictonLaw               ),
+ m_DrOutput(                i_DrOutput                 ),
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
  m_pointSources(            NULL                       ),
 
  m_loopStatistics(          i_loopStatistics           ),
- m_receiverCluster(          nullptr                   ),
- //Code added by Adrian:
- m_FrictonLaw(              i_FrictonLaw               ),
- m_DrOutput(                   i_DrOutput                    )
-
-
+ m_receiverCluster(          nullptr                   )
 {
     // assert all pointers are valid
     assert( m_meshStructure                            != nullptr );
@@ -256,6 +254,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
   real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
+  //Todo: Fix warning
   alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
@@ -278,6 +277,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativeMinus[prefetchFace] );
   } //End layerData.getNumberOfCells()-loop
 
+  //Todo: Why did Adrian move this out of the loop
   m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights);
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());

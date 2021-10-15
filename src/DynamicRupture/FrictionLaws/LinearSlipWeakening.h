@@ -9,7 +9,7 @@ namespace seissol::dr::friction_law {
   class LinearSlipWeakeningLawFL2;   //linear slip weakening
   class LinearSlipWeakeningLawFL16;  //Linear slip weakening forced time rapture
   class LinearSlipWeakeningLawBimaterialFL6;  //solver for bimaterial faults, currently has a bug, solution to the bug inside the function
-};
+}
 
 /*
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
