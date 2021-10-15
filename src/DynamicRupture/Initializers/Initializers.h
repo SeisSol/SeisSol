@@ -8,4 +8,4 @@
 #include "NoFaultInitializer.h"
 #include "RateAndStateInitializer.h"
 
-#endif //SEISSOL_INITIALIZERS_H
+#endif // SEISSOL_INITIALIZERS_H
