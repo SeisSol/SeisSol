@@ -70,7 +70,7 @@ public:
                                                m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity) {}
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const &mesh);
+  void computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep);
 
   const int *vertexWeights() const;
   const double *imbalances() const;
@@ -83,8 +83,8 @@ protected:
     std::vector<double> timeSteps{};
   } m_details;
 
-  GlobalTimeStepDetails collectGlobalTimeStepDetails();
-  void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps);
+  GlobalTimeStepDetails collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
+  void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, unsigned rate);
   int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
   std::vector<int> computeClusterIds();
