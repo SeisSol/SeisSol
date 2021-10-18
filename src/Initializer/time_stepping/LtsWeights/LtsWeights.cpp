@@ -66,12 +66,12 @@ public:
   }
 };
 
-void LtsWeights::computeWeights(PUML::TETPUML const &mesh) {
+void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep) {
   logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
-  m_details = collectGlobalTimeStepDetails();
+  m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_clusterIds = computeClusterIds();
   m_ncon = evaluateNumberOfConstraints();
   auto totalNumberOfReductions = enforceMaximumDifference();
@@ -104,7 +104,7 @@ int LtsWeights::nWeightsPerVertex() const {
 }
 
 void LtsWeights::computeMaxTimesteps(std::vector<double> const &pWaveVel,
-                                     std::vector<double> &timeSteps) {
+                                     std::vector<double> &timeSteps, double maximumAllowedTimeStep) {
   std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
   std::vector<PUML::TETPUML::vertex_t> const &vertices = m_mesh->vertices();
 
@@ -133,7 +133,7 @@ void LtsWeights::computeMaxTimesteps(std::vector<double> const &pWaveVel,
     double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
 
     // Compute maximum timestep (CFL=1)
-    timeSteps[cell] = 2.0 * insphere / (pWaveVel[cell] * (2 * CONVERGENCE_ORDER - 1));
+    timeSteps[cell] = std::fmin(maximumAllowedTimeStep, 2.0 * insphere / (pWaveVel[cell] * (2 * CONVERGENCE_ORDER - 1)));
   }
 }
 
@@ -173,7 +173,7 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails() {
+LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
 
   const auto &cells = m_mesh->cells();
   std::vector<double> pWaveVel;
@@ -199,7 +199,7 @@ LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails() {
 
   GlobalTimeStepDetails details{};
   details.timeSteps.resize(cells.size());
-  computeMaxTimesteps(pWaveVel, details.timeSteps);
+  computeMaxTimesteps(pWaveVel, details.timeSteps, maximumAllowedTimeStep);
 
   double localMinTimestep = *std::min_element(details.timeSteps.begin(), details.timeSteps.end());
   double localMaxTimestep = *std::max_element(details.timeSteps.begin(), details.timeSteps.end());
