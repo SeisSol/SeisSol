@@ -295,7 +295,8 @@ void read_mesh_puml_c(const char* meshfile,
                       int vertexWeightElement,
                       int vertexWeightDynamicRupture,
                       int vertexWeightFreeSurfaceWithGravity,
-                      bool usePlasticity) {
+                      bool usePlasticity,
+                      double maximumAllowedTimeStep) {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
@@ -346,7 +347,8 @@ void read_mesh_puml_c(const char* meshfile,
 	}
 
 	auto ltsWeights = getLtsWeightsImplementation(ltsWeightsType, config);
-	auto meshReader = new seissol::PUMLReader(meshfile, checkPointFile, ltsWeights.get(), tpwgt, readPartitionFromFile);
+	auto meshReader = new seissol::PUMLReader(meshfile, maximumAllowedTimeStep, checkPointFile,
+        ltsWeights.get(), tpwgt, readPartitionFromFile);
 	seissol::SeisSol::main.setMeshReader(meshReader);
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);

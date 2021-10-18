@@ -24,7 +24,7 @@ class seissol::unit_test::LTSWeightsTestSuite : public CxxTest::TestSuite
       LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1 };
 
       auto ltsWeights = std::make_unique<ExponentialWeights>(config);
-      PUMLReader pumlReader("Testing/mesh.h5", "", ltsWeights.get());
+      PUMLReader pumlReader("Testing/mesh.h5", 5000.0, "", ltsWeights.get());
       std::cout.clear();
 
       std::array<unsigned, 24> expectedWeights = {
