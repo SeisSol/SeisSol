@@ -24,8 +24,8 @@ Manually fixing an intersection in Gocad
 | The next step is to import the intersected surfaces in SimModeler.
   Then we use the standard procedure:
 | File > Export > Gocad ASCII > choose a filename (example test.ts).
-| We then convert the ts file to stl using convertTs2Stl.py:
-| ``python convertTs2Stl.py test.ts``
+| We then convert the ts file to stl using convertTs.py:
+| ``python convertTs.py test.ts``
 | Finally we import the stl file in SimModeler using:
 | File > Import Discrete Data > unclick all option, select file and
   click on OK.

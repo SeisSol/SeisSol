@@ -48,6 +48,7 @@
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Initializer/typedefs.hpp"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
 #include "SourceTerm/Manager.h"
@@ -84,6 +85,8 @@ private:
 
 	/** The name of the parameter file */
 	std::string m_parameterFile;
+
+	GravitationSetup gravitationSetup;
 
 	/** Async I/O handler (needs to be initialize before other I/O modules) */
 	io::AsyncIO m_asyncIO;
@@ -290,6 +293,10 @@ public:
    */
 	void deleteMemoryManager() {
     m_memoryManager.reset(nullptr);
+	}
+
+	GravitationSetup& getGravitationSetup() {
+	  return gravitationSetup;
 	}
 
 public:

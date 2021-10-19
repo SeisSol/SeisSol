@@ -56,6 +56,7 @@ namespace seissol {
                   FaceType faceTp = FaceType::regular);
   
   double miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity);
+  const real miniSeisSolTimeStep = 1.0;
 }
 
 

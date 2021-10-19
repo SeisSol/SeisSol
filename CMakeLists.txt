@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.9)
 
+# use <PackageName>_ROOT variables
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+# honor CMAKE_REQUIRED_LIBRARIES in the include file check macros
 if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
 endif()
@@ -38,6 +43,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
+
+# check linker flags for std::filesystem
+include(filesystem)
 
 # Generate version.h
 
@@ -93,9 +101,11 @@ add_custom_command(
        generated_code/Point.py
        generated_code/elastic.py
        generated_code/viscoelastic2.py
+       generated_code/poroelastic.py
        generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
+       generated_code/matrices/matrices_poroelastic.xml
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
@@ -194,6 +204,10 @@ if (MPI)
   target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_Fortran)
 
   target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
+
+  if (MINI_SEISSOL)
+    target_compile_definitions(SeisSol-lib PUBLIC USE_MINI_SEISSOL)
+  endif()
 endif()
 
 if (COMMTHREAD)
@@ -256,11 +270,33 @@ if (MEMKIND)
   target_compile_definitions(SeisSol-lib PUBLIC USE_MEMKIND)
 endif()
 
+if(${EQUATIONS} STREQUAL "poroelastic")
+  include(CheckLanguage)
+  check_language(Fortran)
+  if(CMAKE_Fortran_COMPILER)
+    enable_language(Fortran)
+    include(FortranCInterface)
+    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
+    find_package(LAPACK REQUIRED)
+    target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    message(${LAPACK_LIBRARIES})
+    target_link_libraries(SeisSol-lib PUBLIC ${LAPACK_LIBRARIES})
+  else()
+    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
+  endif()
+endif()
+
 if (WITH_GPU)
   add_subdirectory(submodules/Device)
   target_include_directories(SeisSol-lib PUBLIC submodules/Device)
   target_link_libraries(SeisSol-lib PUBLIC device)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
+endif()
+
+if (ADDRESS_SANITIZER_DEBUG)
+  target_link_libraries(SeisSol-lib PUBLIC debug
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
+  )
 endif()
 
 target_include_directories(SeisSol-lib PUBLIC
@@ -299,7 +335,7 @@ endif()
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp" "-lstdc++fs")
+  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -310,14 +346,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 
-  target_link_libraries(SeisSol-lib PUBLIC "-lstdc++fs")
-
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
-  target_link_libraries(SeisSol-lib PUBLIC "-lstdc++fs")
 endif()
+target_link_libraries(SeisSol-lib PUBLIC ${FILESYSTEM_LIBRARIES})
 
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
@@ -337,8 +371,7 @@ target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
 # SeisSol proxy-core
-add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp
-                               auto_tuning/proxy/src/flop_counter.cpp)
+add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
 target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
 
 if (PROXY_PYBINDING)
@@ -357,6 +390,12 @@ endif()
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+
+find_package(likwid QUIET)
+if (likwid_FOUND)
+    target_compile_definitions(SeisSol-proxy PRIVATE LIKWID_PERFMON)
+    target_link_libraries(SeisSol-proxy PRIVATE likwid::likwid)
+endif()
 
 if (TESTING)
   include(cmake/testing.cmake)
@@ -401,24 +440,32 @@ if (TESTING)
   set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
   endif()
 
+  set(test_sources ${test_sources} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Eigenvalues.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/ODEInt.t.h      
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+    ${SeisSol_NETCDF_TEST_FILES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
+    )
+  if(${EQUATIONS} STREQUAL "poroelastic")
+    set(test_sources ${test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h)
+  endif()
   CXXTEST_ADD_TEST_MPI(
-          test_serial_test_suite
-          1
-          test_serial.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-	      ${SeisSol_NETCDF_TEST_FILES}
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
-  )
+    test_serial_test_suite
+    1
+    test_serial.cpp
+    ${test_sources}
+    )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 

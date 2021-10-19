@@ -191,6 +191,7 @@ namespace seissol {
 
     template<>
     inline void initializeSpecificLocalData( ViscoElasticMaterial const& material,
+                                             real timeStepWidth,
                                              ViscoElasticLocalData* localData )
     {
       auto E = init::E::view::create(localData->E);

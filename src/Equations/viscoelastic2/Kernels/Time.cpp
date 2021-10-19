@@ -69,12 +69,13 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          LocalData&                  data,
-                                          LocalTmp&                   tmp,
-                                          real                        o_timeIntegrated[tensor::I::size()],
-                                          real*                       o_timeDerivatives )
-{
+void seissol::kernels::Time::computeAder(double i_timeStepWidth,
+                                         LocalData& data,
+                                         LocalTmp& tmp,
+                                         real o_timeIntegrated[tensor::I::size()],
+                                         real* o_timeDerivatives,
+                                         double startTime,
+                                         bool updateDisplacement) {
   /*
    * assert alignments.
    */
@@ -140,6 +141,9 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     intKrnl.power *= i_timeStepWidth / real(der+1);    
     intKrnl.execute(der);
   }
+
+  // TODO(Lukas) Implement!
+  // Compute integrated displacement over time step if needed.
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,

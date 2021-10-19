@@ -232,13 +232,13 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
-    REAL                       :: FreqCentral, FreqRatio, Tv
+    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
-                                           FreqRatio, AdjFileName
+                                           FreqRatio, AdjFileName, GravitationalAcceleration
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -274,6 +274,7 @@ CONTAINS
 #else
     Anelasticity        = 0
 #endif
+    GravitationalAcceleration = 9.81
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
@@ -315,19 +316,27 @@ CONTAINS
     EQN%Anelasticity = Anelasticity
     SELECT CASE(Anelasticity)
     CASE(0)
-      logInfo(*) 'No attenuation assumed. '
+      logInfo0(*) 'No attenuation assumed. '
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
+#if defined(USE_POROELASTIC)      
+      EQN%Poroelasticity = 1
+      EQN%nVar = 13
+      EQN%nVarTotal = 13 
+      EQN%nBackgroundVar = 10
+#else
       EQN%nVarTotal = EQN%nVar
       EQN%nBackgroundVar = 3
+#endif
     CASE(1)
-       logInfo(*) 'Viscoelastic attenuation assumed ... '
+       logInfo0(*) 'Viscoelastic attenuation assumed ... '
        EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
        EQN%nMechanisms = NUMBER_OF_RELAXATION_MECHANISMS
        IF(EQN%Anisotropy.NE.2)   THEN
-         EQN%nAneFuncperMech = 6                                                    !
-         logInfo(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per Mechanism.'                                                   !
+         EQN%nAneFuncperMech = 6
+         logInfo0(*) '... using ', NUMBER_OF_RELAXATION_MECHANISMS,' mechanisms.'
+         logInfo0(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per mechanism.'
        ENDIF
        EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms
        EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
@@ -340,10 +349,10 @@ CONTAINS
     !
       SELECT CASE(Adjoint)
       CASE(0)
-         logInfo(*) 'No adjoint wavefield generated. '
+         logInfo0(*) 'No adjoint wavefield generated. '
          EQN%Adjoint = Adjoint
       CASE(1)
-         logInfo(*) 'Adjoint wavefield simultaneously generated. '
+         logInfo0(*) 'Adjoint wavefield simultaneously generated. '
          EQN%Adjoint = Adjoint
       CASE DEFAULT
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
@@ -353,13 +362,13 @@ CONTAINS
     EQN%Anisotropy = Anisotropy
     SELECT CASE(Anisotropy)
     CASE(0)
-      logInfo(*) 'Isotropic material is assumed. '
+      logInfo0(*) 'Isotropic material is assumed. '
       EQN%nNonZeroEV = 3
     CASE(1)
       IF(Anelasticity.EQ.1) THEN
         logError(*) 'Anelasticity does not work together with Anisotropy'
       END IF
-      logInfo(*) 'Full triclinic material is assumed. '
+      logInfo0(*) 'Full triclinic material is assumed. '
       EQN%nBackgroundVar = 22
       EQN%nNonZeroEV = 3
     CASE DEFAULT
@@ -385,6 +394,7 @@ CONTAINS
     !
     EQN%MaterialFileName = MaterialFileName
     EQN%BoundaryFileName = BoundaryFileName
+    EQN%GravitationalAcceleration = GravitationalAcceleration
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
@@ -521,24 +531,15 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tSource)             :: SOURCE
     TYPE (tInputOutput)        :: IO
-    ! localVariables
-    INTEGER                    :: i, j, k, iLambda, intDummy
-    INTEGER                    :: counter, iZones, iVar
-    INTEGER                    :: allocstat
-    REAL                       :: lambda(3), Re, Im
-    COMPLEX                    :: IU
-    CHARACTER(LEN=600)         :: cdummy
     !------------------------------------------------------------------------
     INTENT(OUT)                :: IC
     INTENT(IN)                 :: EQN
     INTENT(INOUT)              :: IO, SOURCE
     !------------------------------------------------------------------------
-    CHARACTER(Len=600)         :: cICType, IniConditionFile
-    REAL                       :: xc(3), amplitude, hwidth(3)
-    INTEGER                    :: nZones, variable
+    CHARACTER(Len=600)         :: cICType
+    REAL                       :: origin(3), kVec(3), ampField(NUMBER_OF_QUANTITIES)
     INTEGER                    :: readStat
-    NAMELIST                   /IniCondition/ cICType, variable, xc, amplitude, hwidth, &
-                                              IniConditionFile, nZones
+    NAMELIST                   /IniCondition/ cICType, origin, kVec, ampField
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -549,44 +550,19 @@ CONTAINS
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
     cICType = 'Zero'
-    variable = 1
-    xc(:) = 0.0                 ! x,y,z - coordinate, in inputfile you can choose different values vor x,y,z
-    amplitude = 0.0
-    hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
-    !
+    origin(:) = 0
+    kVec(:) = 0
+    ampField(:) = 0
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
     ENDIF
 
     ! Renaming all variables in the beginning
-     IC%cICType = cICType
-
-     logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
-       !
-   SELECT CASE(IC%cICType)
-   !
-   CASE('Zero')
-       logInfo(*) 'Zero initial condition'
-   CASE('Planarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Planarwave initial condition'
-   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Superimposed Planarwave initial condition'
-   CASE('Scholte')
-       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
-   CASE('Snell')
-       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
-   CASE('Ocean')
-       logInfo(*) 'An uncoupled ocean test case for acoustic equations'
-   CASE DEFAULT                                                             ! CASE DEFAULT
-       logError(*) 'none of the possible'           ,&
-            ' initial conditions was chosen'
-       logError(*) TRIM(IC%cICType),'|'
-       call exit(134)
-    END SELECT
-    !
-    logInfo(*) 'to calculate the initial values.'
-    !
+    IC%cICType = cICType
+    IC%origin = origin
+    IC%kVec = kVec
+    IC%ampField = ampField
   END SUBROUTINE readpar_ini_condition
 
   !------------------------------------------------------------------------
@@ -605,7 +581,7 @@ CONTAINS
     TYPE (tMPI)                :: MPI
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(12), i
+    INTEGER                    :: allocStat, OutputMask(16), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     INTEGER                    :: readStat
@@ -635,12 +611,13 @@ CONTAINS
      logInfo(*) '| '
      logInfo(*) 'Record points for DR are allocated'
      logInfo(*) 'Output interval:',DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval,'.'
+     logInfo0(*) 'Number of pickPoints = ', nOutPoints
 
      ALLOCATE(X(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
      ALLOCATE(Y(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
      ALLOCATE(Z(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
 
-      logInfo(*) ' Pickpoints read from ', TRIM(PPFileName)
+      logInfo0(*) ' Pickpoints read from ', TRIM(PPFileName)
       CALL OpenFile(                                 &
             UnitNr       = IO%UNIT%other01         , &
             Name         = PPFileName              , &
@@ -959,7 +936,7 @@ CONTAINS
     FL = 0
     RF_output_on = 0
     DS_output_on = 0
-    magnitude_output_on = 0
+    magnitude_output_on = 1
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
@@ -1855,10 +1832,20 @@ CONTAINS
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,'(a15)') char_dummy                          ! Read comment
-       SOURCE%RP%VelocityComponent(:) = 0.
-       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for velocity component (optional)
-           READ(IO%UNIT%other01,*) SOURCE%RP%VelocityComponent           ! Read velocity component
-           READ(IO%UNIT%other01,'(a15)')                                 ! Read comment
+       SOURCE%RP%SolidVelocityComponent(:) = 0.
+       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for (solid) velocity component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read (solid) velocity component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
+       ENDIF 
+       SOURCE%RP%PressureComponent(:) = 0.
+       IF( index(char_dummy, 'pressure').gt.0 ) THEN                     ! Check for pressure component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%PressureComponent           ! Read pressure component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
+       ENDIF 
+       SOURCE%RP%FluidVelocityComponent(:) = 0.
+       IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
+           READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
        ENDIF 
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
        READ(IO%UNIT%other01,*)                                           ! Read comment 
@@ -2222,6 +2209,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
     INTEGER                    :: readStat
+    INTEGER                    :: vertexWeightElement
+    INTEGER                    :: vertexWeightDynamicRupture
+    INTEGER                    :: vertexWeightFreeSurfaceWithGravity
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2234,7 +2224,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     CHARACTER(LEN=600)               :: MeshFile, meshgenerator
     NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
-                                            ScalingMatrixY, ScalingMatrixZ
+                                            ScalingMatrixY, ScalingMatrixZ, &
+                                            vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2258,6 +2249,9 @@ ALLOCATE( SpacePositionx(nDirac), &
     ScalingMatrixZ(3) = 1.0
     periodic = 0
     periodic_direction(:) = 0
+    vertexWeightElement = 100
+    vertexWeightDynamicRupture = 100
+    vertexWeightFreeSurfaceWithGravity = 100
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
     IF (readStat.NE.0) THEN
@@ -2274,7 +2268,12 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     IO%meshgenerator = trim(meshgenerator)
 
-       EQN%HexaDimension = 3
+    EQN%HexaDimension = 3
+
+    MESH%vertexWeightElement = vertexWeightElement
+    MESH%vertexWeightDynamicRupture = vertexWeightDynamicRupture
+    MESH%vertexWeightFreeSurfaceWithGravity = vertexWeightFreeSurfaceWithGravity
+
        SELECT CASE(IO%meshgenerator)
        CASE('Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then
@@ -2400,13 +2399,13 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                          :: DGFineOut1D, DGMethod, ClusteredLTS, CKMethod, &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
-                                        Order, Material, nPolyMap
-    REAL                             :: CFL, FixTimeStep
+                                        Order, Material, nPolyMap, LtsWeightTypeId
+    REAL                             :: CFL, FixTimeStep, StableDt
     NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
-                                                      nPolyMap, CFL, FixTimeStep
+                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2426,6 +2425,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     nPolyMap = 0                                                               !                                                                  !
     Material = 1
     FixTimeStep = 5000
+    LtsWeightTypeId = 0
     !                                                              ! DGM :
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Discretization)
     IF (readStat.NE.0) THEN
@@ -2450,6 +2450,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     case default
       logInfo(*) 'Using multi-rate clustered LTS:', disc%galerkin%clusteredLts
     endselect
+
+    disc%galerkin%ltsWeightTypeId = LtsWeightTypeId
+    if ((DISC%Galerkin%clusteredLts > 0) .and. (DISC%Galerkin%ltsWeightTypeId > 0)) then
+        logInfo(*) 'Using memory balancing for LTS scheme of type', DISC%Galerkin%ltsWeightTypeId
+    end if
 
     DISC%Galerkin%DGMethod = DGMethod
     DISC%Galerkin%CKMethod = CKMethod    ! Default: standard CK procedure (0)
@@ -2540,6 +2545,19 @@ ALLOCATE( SpacePositionx(nDirac), &
     DISC%CFL = CFL                               ! minimum Courant number
     logInfo(*) 'The minimum COURANT number:    ', DISC%CFL
     !
+
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    StableDt = 0.25 / (EQN%FreqCentral * sqrt(EQN%FreqRatio))
+    ! 5000 is the default value. if FixTimeStep = 5000 then FixTimeStep was not set in the Namelist
+    if (abs(FixTimeStep-5000).LE.1e-3) THEN
+        logInfo0(*) 'FixTimeStep is too large for attenuation, lowering to', StableDt
+        FixTimeStep = StableDt
+    else
+        if (FixTimeStep.GT.StableDt) THEN
+           logWarning(*) 'FixTimeStep', FixTimeStep, 'might be too large for attenuation (a stable estimate for FixTimeStep is ', StableDt, ')'
+        endif
+    endif
+#endif
         DISC%FixTimeStep = FixTimeStep
         logInfo(*) 'Specified dt_fix            : ', DISC%FixTimeStep
         logInfo(*) 'Actual timestep is min of dt_CFL and dt_fix. '
@@ -2673,7 +2691,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%OutputMask = .FALSE.                                                                      !
          IO%OutputMask(:)      = .FALSE.                                                    !
          IO%OutputMask(1:3)    = .TRUE.                                                     ! x-y-z Coordinates
-         IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
+         IO%OutputMask(4:16)   = iOutputMask(1:13)                                           ! State vector
 
          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN                           ! Isotropic material
             IO%OutputMask(13:15)  = iOutputMaskMaterial(1:3)                                      ! Constants for Jacobians
@@ -2762,9 +2780,9 @@ ALLOCATE( SpacePositionx(nDirac), &
       !                                                                        !
       SELECT CASE(IO%Format)
       case(6)
-         logInfo0(*) 'Output data is in XDMF format (new implementation)'
+         logInfo0(*) 'Volume output is in XDMF format (new implementation)'
       case(10)
-         logInfo0(*) 'Output data is disabled'
+         logInfo0(*) 'Volume output is disabled'
       CASE DEFAULT
          logError(*) 'print_format must be {6,10}'
          call exit(134)
@@ -2783,6 +2801,13 @@ ALLOCATE( SpacePositionx(nDirac), &
                 IO%TitleMask(10) = TRIM(' "u"')
                 IO%TitleMask(11) = TRIM(' "v"')
                 IO%TitleMask(12) = TRIM(' "w"')
+
+                IF(EQN%Poroelasticity.EQ.1) THEN
+                    IO%TitleMask(13) = TRIM(' "p"')
+                    IO%TitleMask(14) = TRIM(' "u_f"')
+                    IO%TitleMask(15) = TRIM(' "v_f"')
+                    IO%TitleMask(16) = TRIM(' "w_f"')
+                ENDIF
 
                 IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN
                     IO%TitleMask(13) = TRIM(' "rho0"')
@@ -2871,7 +2896,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            ! we don't want output, so avoid confusing time stepping by setting
            ! plot interval to "infinity"
            IO%outInterval%TimeInterval = 1E99
-           logInfo0(*) 'No output (FORMAT=10) specified, delta T set to: ', IO%OutInterval%TimeInterval
+           logInfo(*) 'No volume output specified (FORMAT=10), delta T set to: ', IO%OutInterval%TimeInterval
          ELSE
            IO%outInterval%TimeInterval = TimeInterval          !
            logInfo0(*) 'Output data are generated at delta T= ', IO%OutInterval%TimeInterval
@@ -2910,11 +2935,11 @@ ALLOCATE( SpacePositionx(nDirac), &
        ENDIF
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
-     logInfo(*) 'Number of Record Points = ', IO%nRecordPoint
+     logInfo0(*) 'Number of Record Points = ', IO%nRecordPoint
      ALLOCATE( X(IO%nRecordPoint), Y(IO%nRecordPoint), Z(IO%nRecordPoint) )
       ! Read the single record points
       IF (nRecordPoints .GT. 0) THEN
-         logInfo(*) 'Record Points read from ', TRIM(RFileName)
+         logInfo0(*) 'Record Points read from ', TRIM(RFileName)
          CALL OpenFile(                                 &
                UnitNr       = IO%UNIT%other01         , &
                Name         = RFileName               , &
@@ -2924,10 +2949,10 @@ ALLOCATE( SpacePositionx(nDirac), &
          DO i = 1,nRecordPoints
             READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
-               logInfo0(*) 'in point :'                             !
-               logInfo0(*) 'x = ', X(i)         !
-               logInfo0(*) 'y = ', Y(i)         !
-               logInfo0(*) 'z = ', Z(i)         !
+               logInfo(*) 'in point :'                             !
+               logInfo(*) 'x = ', X(i)         !
+               logInfo(*) 'y = ', Y(i)         !
+               logInfo(*) 'z = ', Z(i)         !
 
          ENDDO
          !
@@ -3073,23 +3098,23 @@ ALLOCATE( SpacePositionx(nDirac), &
       SELECT CASE(Refinement)
          CASE(0)
 
-            logInfo0(*) 'Refinement is disabled'
+            logInfo0(*) 'Refinement for volume output is disabled'
 
          CASE(1)
 
-             logInfo0(*) 'Refinement strategy is Face Extraction :  4 subcells per cell'
+             logInfo0(*) 'Refinement strategy for volume output is Face Extraction :  4 subcells per cell'
 
          CASE(2)
 
-             logInfo0(*) 'Refinement strategy is Equal Face Area : 8 subcells per cell'
+             logInfo0(*) 'Refinement strategy for volume output is Equal Face Area : 8 subcells per cell'
 
          CASE(3)
 
-             logInfo0(*) 'Refinement strategy is Equal Face Area and Face Extraction : 32 subcells per cell'
+             logInfo0(*) 'Refinement strategy for volume output is Equal Face Area and Face Extraction : 32 subcells per cell'
 
          CASE DEFAULT
 
-             logError(*) 'Refinement strategy is N O T supported'
+             logError(*) 'Refinement strategy', Refinement,' for volume output is N O T supported'
              call exit(134)
 
       END SELECT

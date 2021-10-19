@@ -21,19 +21,20 @@ Useful scripts
 --------------
 
 A collection of python scripts typically used to create the surfaces used in the CAD model
-is available  `here <https://github.com/SeisSol/Meshing/tree/master/GocadRelatedScripts>`__.
+is available  `here <https://github.com/SeisSol/Meshing/tree/master/creating_geometric_models>`__.
 They are documented (try -h option).
 The most important scripts are:
 
--  ``createFaultFromCurve.py`` allows creating a ts surface from a fault trace. 
-   The fault trace is resampled, smoothed, and extended using either a constant dip, a depth varying dip, or an along-strike varying dip. 
-   This script has been used to generate all the faults of the Kaikoura model (Ulrich et al., 2019).
--  ``createGOCADTSurf_NXNY.py``, which allows creating a ts surface from a structured grid of points.
--  ``createGOCADTSurf.py``, which allows creating a ts surface from a partially structured grid of points.
-   Contrary to ``createGOCADTSurf_NXNY.py``, the number of nodes on a line (resp. on a column) should not constant.
+-  ``create_fault_from_trace.py`` allows creating a meshed surface from a fault trace. 
+   The fault trace is resampled, smoothed, and extended using either a constant, a depth-varying, or an along-strike varying dip. 
+- ``create_surface_from_rectilinear_grid.py`` allows creating a meshed surface from a (possibly sparse, e.g. Slab2.0 dataset) structured dataset (e.g. netcdf).
+-  ``create_surface_from_structured_grid.py`` allows creating a meshed surface from structured grid of nodes.
+   Vertices in a row or a column do not necessary share the same x and y values (non rectilinear grid).
+-  ``surface_from_one_dim_structured_grid.py`` allows creating a meshed surface from a partially structured grid of nodes.
+   The point set should consist of serveral lines of nodes of same y (or x, depending on args.axis) coordinates.
+   Contrary to ``create_surface_from_structured_grid.py``, the number of nodes on a line (resp. on a column) is not necessarily constant.
    On the other hand, the lines (resp. the columns) of the point cloud should share constant ordinates (resp. abscissa).
-   This script is used for creating the Sumatra fault of our Sumatra models (see Uphoff et al., 2017).
--  ``convertTs2Stl.py``, which allows converting the geometric model from Gocad into a stl file, inputted into the mesh generator (e.g. SimModeler).
+-  ``convertTs.py`` allows converting the geometric model from Gocad into another supported format (e.g. stl, bstl).
 
 
 Processing high-resolution topographic data
@@ -60,9 +61,9 @@ Here is a commented example of our use of Gdal to create a ts surface from a hig
    gdalwarp -te 83.7 26. 88.1 29.4 data/file250b.tif data/file250.tif
    #change format
    gdal_translate -of netCDF -co "FOMRAT=NC4" data/file250.tif data/file250.nc
-   #python script from 'GocadRelatedScript'
+   #python script from 'creating_geometric_model'
    #The specified hole allows to use algorithm described in 'remeshing the topography'
-   python createGOCADTSurfNXNY_netcdf.py data/file250.nc data/file250.stl --proj "+init=EPSG:32645" --hole 84.8 86.5 27.1 28.3
+   python3 create_surface_from_rectilinear_grid.py data/file250.nc data/file250.stl --proj "+init=EPSG:32645" --hole 84.8 86.5 27.1 28.3
 
 
 Topographic data coarsening with SimModeler

@@ -48,11 +48,14 @@
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <Parallel/Pin.h>
+
 volatile bool g_executeCommThread;
 volatile unsigned int* volatile g_handleRecvs;
 volatile unsigned int* volatile g_handleSends;
 pthread_t g_commThread;
 #endif
+
+#include <chrono>
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
@@ -306,16 +309,38 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
   device::DeviceInstance &device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
+
+  // Setup timeout for aborting after a period of not updating
+  const auto timeoutMinimum = std::chrono::minutes(15);
+  const auto numberOfCells = std::accumulate(m_clusters.begin(), m_clusters.end(), 0L,
+                                             [](const long sum, const auto& cluster) {
+                                               return sum + cluster->getNumberOfCells();
+                                             });
+  const auto timeoutFromCells = numberOfCells * std::chrono::milliseconds(1);
+  const auto timeout = std::max<std::common_type_t<decltype(timeoutMinimum), decltype(timeoutFromCells)>>(
+      timeoutMinimum, timeoutFromCells);
+  auto lastUpdateTime = std::chrono::steady_clock::now();
+
+
   // iterate until all queues are empty and the next synchronization point in time is reached
   while( !( m_localCopyQueue.empty()       && m_localInteriorQueue.empty() &&
             m_neighboringCopyQueue.empty() && m_neighboringInteriorQueue.empty() ) ) {
+    bool wasSomethingUpdated = false;
 #ifdef USE_MPI
+    const auto currentTime = std::chrono::steady_clock::now();
+    const auto timeSinceLastUpdate = currentTime - lastUpdateTime;
+    if (timeSinceLastUpdate > timeout) {
+      const auto durationInSeconds = std::chrono::duration_cast<std::chrono::seconds>(timeSinceLastUpdate);
+      logError() << "No update for "  << durationInSeconds.count() << " seconds. Aborting.";
+    }
+
     // iterate over all items of the local copy queue and update everything possible
     for( std::list<TimeCluster*>::iterator l_cluster = m_localCopyQueue.begin(); l_cluster != m_localCopyQueue.end(); ) {
       if( (*l_cluster)->computeLocalCopy() ) {
         unsigned int l_clusterId = (*l_cluster)->m_clusterId;
         l_cluster = m_localCopyQueue.erase( l_cluster );
         updateClusterDependencies( l_clusterId );
+        wasSomethingUpdated = true;
       }
       else l_cluster++;
     }
@@ -326,6 +351,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
         unsigned int l_clusterId = (*l_cluster)->m_clusterId;
         l_cluster = m_neighboringCopyQueue.erase( l_cluster );
         updateClusterDependencies( l_clusterId );
+        wasSomethingUpdated = true;
       }
       else l_cluster++;
     }
@@ -337,6 +363,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
       l_timeCluster->computeLocalInterior();
       m_localInteriorQueue.pop();
       updateClusterDependencies(l_timeCluster->m_clusterId);
+      wasSomethingUpdated = true;
     }
 
     // update a single interior region (if present) with neighboring updates
@@ -345,6 +372,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
       l_timeCluster->computeNeighboringInterior();
       m_neighboringInteriorQueue.pop();
       updateClusterDependencies(l_timeCluster->m_clusterId);
+      wasSomethingUpdated = true;
     }
 
     // print progress of largest time cluster
@@ -356,6 +384,10 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
 
       logInfo(rank) << "#max-updates since sync: " << m_logUpdates
                          << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
+    }
+
+    if (wasSomethingUpdated) {
+      lastUpdateTime = std::chrono::steady_clock::now();
     }
   }
 #ifdef ACL_DEVICE

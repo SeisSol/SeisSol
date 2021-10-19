@@ -71,11 +71,10 @@ Building SeisSol
 ::
 
   ##### module load for SeisSol
-  module load scons gcc/9 cmake/3.14.4 python/3.6_intel
+  module load gcc/9 cmake python/3.6_intel
   module load libszip/2.1.1
-  module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load hdf5/1.8.21-impi-cxx-frt-threadsafe 
-  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
+  module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
+  module load netcdf-hdf5-all/4.6_hdf5-1.8-intel19-impi
   module load numactl
 
   ####### for pspamm.py
@@ -124,6 +123,22 @@ set compiler options, run cmake, and compile with:
    CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
    make -j 48
 
+Note that to use sanitzer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
+For that modules and compiler need to be switched:
+
+::
+
+    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.8-gcc8-impi
+    module unload intel-mpi intel
+    module load intel-mpi/2019-gcc
+    module switch gcc gcc/9
+    export CC=mpigcc
+    export CXX=mpigxx
+    export FC=mpifc
+
+Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
+To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
+
 Running SeisSol
 ---------------
 
@@ -139,8 +154,8 @@ Running SeisSol
   #SBATCH -o ./%j.%x.out
   #SBATCH -e ./%j.%x.err
 
-  #Initial working directory (also --chdir):
-  #SBATCH --workdir=<work directory>
+  #Initial working directory:
+  #SBATCH --chdir=<work directory>
 
   #Notification and type
   #SBATCH --mail-type=END

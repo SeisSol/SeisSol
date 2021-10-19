@@ -149,7 +149,8 @@ CONTAINS
         !
         ! Write output
         WRITE(UNIT_MAG,*) magnitude0
-        logInfo0(*) 'seismic moment', magnitude0, 'Mw', 2./3.*log10(magnitude0)-6.07
+        write(FORTRAN_STDOUT, '(A, I8, A)', advance='no') 'Rank: ', MPI%myrank, ' | Info    |'
+        write(FORTRAN_STDOUT,*) 'seismic moment', magnitude0, 'Mw', 2./3.*log10(magnitude0)-6.07
         CLOSE( UNIT_Mag )
 
     ENDIF 

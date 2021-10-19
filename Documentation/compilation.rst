@@ -98,7 +98,7 @@ Installing PSpaMM
 
 .. code-block:: bash
 
-   git clone https://github.com/peterwauligmann/PSpaMM.git
+   git clone https://github.com/SeisSol/PSpaMM.git
    ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
 
 Installing GemmForge (for GPU)
@@ -108,7 +108,14 @@ Installing GemmForge (for GPU)
 
 .. code-block:: bash
 
-   pip install git+https://github.com/ravil-mobile/gemmforge.git
+   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+
+Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
+
+.. code-block:: bash
+
+   pip3 install https://github.com/ravil-mobile/chainforge.git
+
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------

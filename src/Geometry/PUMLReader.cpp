@@ -48,7 +48,7 @@
 #include "PUMLReader.h"
 #include "Monitoring/instrumentation.fpp"
 
-#include "Initializer/time_stepping/LtsWeights.h"
+#include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
 #include <hdf5.h>
 #include <sstream>
@@ -73,7 +73,9 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
+seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeStep,
+                                const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights,
+                                double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -83,7 +85,7 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile
   
 	if (ltsWeights != nullptr) {
 		generatePUML(puml);
-		ltsWeights->computeWeights(puml);
+		ltsWeights->computeWeights(puml, maximumAllowedTimeStep);
 	}
 	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
 
@@ -253,7 +255,7 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
   auto partitionMetis = [&] {
     PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
-    double* nodeWeights = new double[seissol::MPI::mpi.size()];
+    auto* nodeWeights = new double[seissol::MPI::mpi.size()];
     MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
     double sum = 0.0;
     for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
@@ -267,7 +269,15 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
     double* nodeWeights = &tpwgt;
 #endif
 
-    metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
+    auto status = metis.partition(partition,
+                                  ltsWeights->vertexWeights(),
+                                  ltsWeights->imbalances(),
+                                  ltsWeights->nWeightsPerVertex(),
+                                  nodeWeights);
+
+    if (status == PUML::TETPartitionMetis::Status::Error) {
+      logError() << "mesh partitioning step failed";
+    }
 
 #ifdef USE_MPI
     delete[] nodeWeights;

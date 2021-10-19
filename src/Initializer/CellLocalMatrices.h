@@ -58,7 +58,8 @@ namespace seissol {
      void initializeCellLocalMatrices( MeshReader const&      i_meshReader,                                                    
                                        LTSTree*               io_ltsTree,
                                        LTS*                   i_lts,
-                                       Lut*                   i_ltsLut );
+                                       Lut*                   i_ltsLut,
+                                       TimeStepping const&    timeStepping );
                                        
      void initializeBoundaryMappings(MeshReader const& i_meshReader,
                                      const EasiBoundary* easiBoundary,

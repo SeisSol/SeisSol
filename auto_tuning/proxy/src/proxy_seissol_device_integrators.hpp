@@ -47,7 +47,7 @@ namespace proxy::device {
 
     ConditionalBatchTableT &table = layer.getCondBatchTable();
 
-    m_timeKernel.computeBatchedAder(static_cast<double>(m_timeStepWidthSimulation), tmp, table);
+    m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
     device.api->synchDevice();
   }
 
@@ -74,7 +74,7 @@ namespace proxy::device {
 
     ConditionalBatchTableT &table = layer.getCondBatchTable();
 
-    m_timeKernel.computeBatchedAder(static_cast<double>(m_timeStepWidthSimulation), tmp, table);
+    m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
     m_localKernel.computeBatchedIntegral(table, tmp);
     device.api->synchDevice();
   }
@@ -90,7 +90,7 @@ namespace proxy::device {
 
     seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                           0.0,
-                                                         static_cast<double>(m_timeStepWidthSimulation),
+                                                         static_cast<double>(seissol::miniSeisSolTimeStep),
                                                          table);
     m_neighborKernel.computeBatchedNeighborsIntegral(table);
     device.api->synchDevice();

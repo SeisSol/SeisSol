@@ -343,6 +343,8 @@ struct LocalIntegrationData {
   seissol::model::ViscoElasticLocalData specific;
 #elif defined USE_ELASTIC
   seissol::model::ElasticLocalData specific;
+#elif defined USE_POROELASTIC
+  seissol::model::PoroelasticLocalData specific;
 #endif
 };
 
@@ -360,6 +362,8 @@ struct NeighboringIntegrationData {
   seissol::model::ViscoElasticNeighborData specific;
 #elif defined USE_ELASTIC
   seissol::model::ElasticNeighborData specific;
+#elif defined USE_POROELASTIC
+  seissol::model::PoroelasticNeighborData specific;
 #endif
 };
 
@@ -376,8 +380,11 @@ struct CellMaterialData {
 #elif defined USE_ELASTIC
   seissol::model::ElasticMaterial local;
   seissol::model::ElasticMaterial neighbor[4];
+#elif defined USE_POROELASTIC
+  seissol::model::PoroElasticMaterial local;
+  seissol::model::PoroElasticMaterial neighbor[4];
 #else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 
@@ -455,6 +462,19 @@ struct MemoryProperties {
   size_t alignment{ALIGNMENT};
   size_t pagesizeHeap{PAGESIZE_HEAP};
   size_t pagesizeStack{PAGESIZE_STACK};
+};
+
+namespace seissol {
+struct GravitationSetup {
+  double acceleration = 9.81; // m/s
+};
+} // namespace seissol
+
+struct TravellingWaveParameters {
+  std::array<double, 3> origin;
+  std::array<double, 3> kVec;
+  std::vector<int> varField;
+  std::vector<std::complex<double>> ampField;
 };
 
 #endif

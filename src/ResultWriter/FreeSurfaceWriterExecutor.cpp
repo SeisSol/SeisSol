@@ -71,7 +71,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
 		outputName += "-surface";
 
-    m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS;
+    m_numVariables = 2*FREESURFACE_NUMBER_OF_COMPONENTS + 1;
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
       variables.push_back(LABELS[i]);
@@ -98,5 +98,5 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 }
 
 char const * const seissol::writer::FreeSurfaceWriterExecutor::LABELS[] = {
-	"u", "v", "w", "U", "V", "W"
+	"u", "v", "w", "U", "V", "W", "locationFlag"
 };
