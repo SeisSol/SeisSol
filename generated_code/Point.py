@@ -46,12 +46,19 @@ from multSim import OptionalDimTensor
 def addKernels(generator, aderdg):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
+  order = aderdg.order
   ## Point sources
   mStiffnessTensor = Tensor('stiffnessTensor', (3,3,3,3))
   mSlip = Tensor('mSlip', (3,))
   mNormal = Tensor('mNormal', (3,))
   mArea = Scalar('mArea')
+  basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
+  timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (order,))
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
+  JInv = Scalar('JInv')
+
+  generator.add('computeMInvJInvPhisAtSources',
+    mInvJInvPhisAtSources['k'] <= JInv * aderdg.db.M3inv['kl'] * basisFunctionsAtPoint['l'])
 
   #extract the moment tensors entries in SeisSol ordering (xx, yy, zz, xy, yz, xz)
   assert(numberOfQuantities >= 6)
@@ -81,7 +88,11 @@ def addKernels(generator, aderdg):
   generator.add('sourceFSRM', sourceFSRM)
 
   ## Receiver output
-  basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
   QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
   evaluateDOFSAtPoint = QAtPoint['p'] <= aderdg.Q['kp'] * basisFunctionsAtPoint['k']
   generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
+
+  stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
+  spaceTimePredictor = OptionalDimTensor('spaceTimePredictor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
+  evaluateDOFSAtPointSTP = QAtPoint['p'] <= spaceTimePredictor['kpt'] * basisFunctionsAtPoint['k'] * timeBasisFunctionsAtPoint['t']
+  generator.add('evaluateDOFSAtPointSTP', evaluateDOFSAtPointSTP)

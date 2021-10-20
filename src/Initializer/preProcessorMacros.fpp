@@ -98,7 +98,7 @@
 #endif
 
 #ifndef CONVERGENCE_ORDER
-#error  Preprocessor flag ONVERGENCE_ORDER not set.
+#error  Preprocessor flag CONVERGENCE_ORDER not set.
 #endif
 
 #if 0
@@ -159,8 +159,9 @@
 #endif
 
 #if defined(REAL_SIZE)
-#define REAL_TYPE real*REAL_SIZE
+#define REAL_TYPE real(kind=REAL_SIZE)
 #else
 #error Unknown real size.
 #endif
 
+#define ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(X) X == 0 ? 1 : X

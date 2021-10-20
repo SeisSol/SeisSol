@@ -16,8 +16,10 @@ class seissol::unit_test::LTSWeightsTestSuite : public CxxTest::TestSuite
 
     void testTimeStepsState()
     {
+// PUMLReader is only available with MPI
+#ifdef USE_MPI
       std::cout.setstate(std::ios_base::failbit);
-      seissol::initializers::time_stepping::LtsWeights ltsWeights("Testing/material.yaml", 2);
+      seissol::initializers::time_stepping::LtsWeights ltsWeights("Testing/material.yaml", 2, 1, 1, 1);
       PUMLReader pumlReader("Testing/mesh.h5", "", &ltsWeights);
       std::cout.clear();
 
@@ -27,6 +29,7 @@ class seissol::unit_test::LTSWeightsTestSuite : public CxxTest::TestSuite
       for (int i = 0; i < 24; i++) {
         TS_ASSERT_EQUALS(ltsWeights.vertexWeights()[i], expectedWeights[i]);
       }
+#endif
     }
 
 };

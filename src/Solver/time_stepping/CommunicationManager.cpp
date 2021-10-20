@@ -40,11 +40,13 @@ void seissol::time_stepping::SerialCommunicationManager::progression() {
 }
 
 seissol::time_stepping::ThreadedCommunicationManager::ThreadedCommunicationManager(
-    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters)
+    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters,
+    const seissol::parallel::Pinning* pinning)
     : AbstractCommunicationManager(std::move(ghostClusters)),
       thread(),
       shouldReset(false),
-      isFinished(false) {
+      isFinished(false),
+      pinning(pinning) {
 }
 
 void seissol::time_stepping::ThreadedCommunicationManager::progression() {
@@ -67,14 +69,13 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
   isFinished.store(false);
   AbstractCommunicationManager::reset(newSyncTime);
 
-  const auto freeMask = parallel::getFreeCPUsMask();
   // Start a new communication thread.
   // Note: Easier than keeping one alive, and not that expensive.
-  thread = std::thread([this, &freeMask](){
+  thread = std::thread([this](){
     // Pin this thread to the last core
     // We compute the mask outside of the thread because otherwise
     // it confuses profilers and debuggers!
-    parallel::pinToCPUMask(freeMask);
+    pinning->pinToFreeCPUs();
     while(!shouldReset.load() && !isFinished.load()) {
       isFinished.store(this->poll());
     }

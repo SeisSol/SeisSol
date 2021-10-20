@@ -9,6 +9,7 @@
 #include "Geometry/refinement/MeshRefiner.h"
 #include "Geometry/refinement/RefinerUtils.h"
 #include "Geometry/refinement/VariableSubSampler.h"
+#include "Kernels/precision.hpp"
 
 
 namespace seissol {
@@ -21,14 +22,14 @@ class seissol::unit_test::VariableSubsamplerTestSuite : public CxxTest::TestSuit
 {
   public:
     //We do all tests in double precision
-    const double epsilon = std::numeric_limits<double>::epsilon();
+    const double epsilon = std::numeric_limits<real>::epsilon();
 
     void testDivideBy4() {
       std::srand(1234);
       seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
       seissol::refinement::VariableSubsampler<double> subsampler(1, refineBy4, 3, 9, 12);
 
-      std::array<double, 36> expectedDOFs = {
+      std::array<real, 36> expectedDOFs = {
         -0.95909429432054482678,
         -0.24576668840548565598,
         -0.073841666364211855367,
@@ -68,13 +69,13 @@ class seissol::unit_test::VariableSubsamplerTestSuite : public CxxTest::TestSuit
       };
 
       //For order 3 there are 108 DOFs (taking alignment into account)
-      double dofs[108];
+      real dofs[108];
       for (int i = 0; i < 108; i++) {
-        dofs[i] = (double)std::rand()/RAND_MAX;
+        dofs[i] = (real)std::rand()/RAND_MAX;
       } 
       unsigned int cellMap[1] = {0};
       //A triangle is divided into four subtriangles there are 9 quantities.
-      double outDofs[36];
+      real outDofs[36];
       std::fill(std::begin(outDofs), std::end(outDofs), 0);
 
       for (unsigned var = 0; var < 9; var++) {

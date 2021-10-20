@@ -197,10 +197,10 @@ MODULE TypesDef
      REAL, POINTER                          :: geoTangent1(:,:)                 !< Vector 1 in the side plane
      REAL, POINTER                          :: geoTangent2(:,:)                 !< Vector 2 in the side plane
 
-     real*8, allocatable, dimension( :, :, : )    :: forwardRotation  !< forward rotation matrix from xyz- to face-normal-space
-     real*8, allocatable, dimension( :, :, : )    :: backwardRotation !< backward rotation matrix from face-normal-space to x-y-z space
+     REAL(KIND=8), allocatable, dimension( :, :, : )    :: forwardRotation  !< forward rotation matrix from xyz- to face-normal-space
+     REAL(KIND=8), allocatable, dimension( :, :, : )    :: backwardRotation !< backward rotation matrix from face-normal-space to x-y-z space
 
-     real*8, allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
+     REAL(KIND=8), allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
   END TYPE tFault
 
   !< Description of all the vertices in the domain (the first index runs from 1 to MESH%nNode)
@@ -303,6 +303,9 @@ MODULE TypesDef
      INTEGER                   :: nNode_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
      INTEGER                   :: nElem_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
 #endif
+      INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
+      INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
+      INTEGER                    :: vertexWeightFreeSurfaceWithGravity ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge
@@ -352,7 +355,6 @@ MODULE TypesDef
                                                      !< 1 = Rusanov
     !< Important numbers
     INTEGER           :: nMinPoly                    !< Min. deg. of basis poly.
-    INTEGER           :: nMaxPoly                    !< Max. deg. of basis poly.
     INTEGER           :: nPoly                       !< Degree of the polynomials
     INTEGER           :: nPolyRec                    !< Degree of rec. polynomials
     INTEGER           :: nPolyMatOrig                !< Degree of A,B,C polynomial
@@ -377,13 +379,13 @@ MODULE TypesDef
     !   Reference: Intel® Fortran Compiler XE 13.0 User and Reference Guides
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
-    real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
+    REAL(KIND=8), allocatable   :: dgvar(:,:,:,:)               !< storage of all unknowns (solution).
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
     REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
     REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
 !    integer              :: nSourceTermElems !< number of elemens having a source term
-!    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
+!    REAL(KIND=8), allocatable  :: dgsourceterms(:,:,:)         !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
     real              :: totcputime
@@ -394,13 +396,6 @@ MODULE TypesDef
     REAL, POINTER     :: geoTangent2(:,:,:) => NULL()!< Vector 2 in the side plane
     REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Triangle surface in 2D for fault
     !< Other variables related to the DG - Method
-    REAL, ALLOCATABLE :: cPoly(:,:,:,:)              !< Coeff. of base polynomials
-    REAL, ALLOCATABLE :: cPoly_Tri(:,:,:,:)          !< Coeff. of base polynomials
-    REAL, ALLOCATABLE :: cPoly_Quad(:,:,:,:)         !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D(:,:,:,:,:) => NULL()!< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D_Tet(:,:,:,:,:) => NULL() !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D_Hex(:,:,:,:,:) => NULL() !< Coeff. of base polynomials
-    REAL, POINTER     :: cPolyRec(:,:,:,:) => NULL() !< Coeff. of rec. polynomials
     REAL, POINTER     :: KMatrix(:,:) => NULL()      !< Precalculated i. integrals
     REAL, POINTER     :: F1Matrix(:,:) => NULL()     !< Precalculated b. integrals
     REAL, POINTER     :: F2Matrix(:,:) => NULL()     !< Precalculated b. integrals
@@ -430,24 +425,6 @@ MODULE TypesDef
     REAL, POINTER     :: bndGaussW_Hex(:)    => NULL()         !< Gaussweights on boundary
     REAL, POINTER     :: FR_GP(:,:)    => NULL()              !< Neighbor flux of GP of nc edge
     !<
-    REAL, ALLOCATABLE :: MassMatrix(:,:,:)           !< Mass Matrix
-    REAL, ALLOCATABLE :: iMassMatrix(:,:,:)          !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Tet(:,:,:) => NULL()      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Tet(:,:,:) => NULL()     !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Hex(:,:,:) => NULL()      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Hex(:,:,:) => NULL()     !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Tri(:,:,:) => NULL()      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Tri(:,:,:) => NULL()     !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Quad(:,:,:) => NULL()     !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Quad(:,:,:)  => NULL()   !< Inverse Mass Matrix
-    REAL, POINTER     :: FMatrix(:,:,:,:) => NULL()           !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix_Tri(:,:,:,:) => NULL()       !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D(:,:,:,:,:) => NULL()       !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D_Tet(:,:,:,:,:,:) => NULL() !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D_Hex(:,:,:,:,:,:) => NULL() !< Flux matrices (Quadfree)
-    REAL, POINTER     :: Kxi(:,:) => NULL()                   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta(:,:) => NULL()                  !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta(:,:) => NULL()                 !< Stiffness Matrix (zeta)
     REAL, POINTER     :: Coeff_level0(:,:,:,:) => NULL()      !< ADER DG Coefficients
     REAL, POINTER     :: Coeff_level03D(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
     REAL, POINTER     :: Coeff_level03D_Tet(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
@@ -462,16 +439,6 @@ MODULE TypesDef
     INTEGER, POINTER  :: NonZeroCoeffIndex_Tet(:,:) => NULL() !< Index into "
     INTEGER           :: NonZeroCoeff_Hex            !< Number of non-zero coeffs
     INTEGER, POINTER  :: NonZeroCoeffIndex_Hex(:,:) => NULL() !< Index into "
-    INTEGER, POINTER  :: NonZeroCPoly(:,:) => NULL()      !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPoly_Tet(:,:) => NULL()  !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPoly_Hex(:,:) => NULL()  !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPolyIndex(:,:,:,:) => NULL()
-    INTEGER, POINTER  :: NonZeroCPolyIndex_Tet(:,:,:,:) => NULL()
-    INTEGER, POINTER  :: NonZeroCPolyIndex_Hex(:,:,:,:)  => NULL()     !<
-    INTEGER, ALLOCATABLE  :: NonZeroCPoly_Tri(:,:)           !< Non zero coeff in cpoly
-    INTEGER, ALLOCATABLE  :: NonZeroCPolyIndex_Tri(:,:,:,:)  !<
-    INTEGER, ALLOCATABLE  :: NonZeroCPoly_Quad(:,:)          !< Non zero coeff in cpoly
-    INTEGER, ALLOCATABLE  :: NonZeroCPolyIndex_Quad(:,:,:,:) !<
 
     !<
     REAL              :: intGaussWSum                !< Sum of int. Gaussweights
@@ -484,19 +451,6 @@ MODULE TypesDef
     REAL, POINTER     :: Faculty(:) => NULL()                 !< Precalculated Faculties...
     REAL, POINTER     :: dtPowerFactor(:,:) => NULL()         !< dt^k/k!< for Taylor series
     REAL, POINTER     :: dtPowerFactorInt(:,:) => NULL()      !< dt^(k+1)/(k+1)!< for Taylor series
-    REAL, POINTER     :: IntGPBaseFunc(:,:,:) => NULL()       !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad(:,:,:,:) => NULL()     !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc(:,:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D(:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseFunc_Tet(:,:,:) => NULL()       !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad_Tet(:,:,:,:) => NULL()     !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc_Tet(:,:,:,:) => NULL()     !< Precalc. basis functions
-!    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseFunc_Hex(:,:,:) => NULL()       !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad_Hex(:,:,:,:) => NULL()     !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc_Hex(:,:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D_Hex(:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: RecIntGPBaseFunc(:,:) => NULL()      !< Precalc. basis functions
     INTEGER, POINTER  :: SectorPoints(:,:) => NULL()
     REAL, POINTER     :: UnitElementPoints(:,:) => NULL()
     REAL, POINTER     :: SectorVectors(:,:,:) => NULL()
@@ -543,9 +497,6 @@ MODULE TypesDef
     !<
     REAL, POINTER     :: MaxWaveSpeed(:) => NULL()           !< Max. wavespeed over edges
     REAL, POINTER     :: WaveSpeed(:,:) => NULL()           !< All Wavespeeds over edges
-    REAL, POINTER     :: cTimePoly(:,:,:) => NULL()           !< Coefficients and matrices
-    REAL, POINTER     :: TimeMassMatrix(:,:,:) => NULL()      !< for projection on series
-    REAL, POINTER     :: iTimeMassMatrix(:,:,:) => NULL()     !< in time. Basis: Legendre
 
     !<
     !< DG sponge layer for general 3D domains
@@ -594,56 +545,6 @@ MODULE TypesDef
     TYPE(tSparseTensor3), POINTER     :: BSpHexa(:) => NULL()        !< Sparse star tensor B
     TYPE(tSparseTensor3), POINTER     :: CSpHexa(:) => NULL()        !< Sparse star tensor C
     TYPE(tSparseTensor3), POINTER     :: ESpHexa(:) => NULL()        !< Sparse star tensor E
-
-
-    !<
-    !< Stiffness matrix (tensors)
-    REAL, POINTER     :: Kxi_k_Tet(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_k_Tet(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_k_Tet(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: Kxi_m_Tet(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_m_Tet(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_m_Tet(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: ADGxi_Tet(:,:,:)        =>NULL()   !< Transpose stiffness / mass in xi   (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGeta_Tet(:,:,:)       =>NULL()   !< Transpose stiffness / mass in eta  (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGzeta_Tet(:,:,:)      =>NULL()   !< Transpose stiffness / mass in zeta (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGklm_Tet(:,:,:)       =>NULL()   !< ADER-DG tensor for space dependent reaction term (= identical to identity matrix for constant material per element -> to be optimized!)
-    REAL, POINTER     :: FluxInt_Tet(:,:,:,:,:,:)=>NULL()   !< Flux matrices integrals
-    !<
-    REAL, POINTER     :: Kxi_k_Hex(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_k_Hex(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_k_Hex(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: Kxi_m_Hex(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta_m_Hex(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta_m_Hex(:,:,:)      =>NULL()   !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: ADGxi_Hex(:,:,:)        =>NULL()   !< Stiff / Mass matrix (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGeta_Hex(:,:,:)       =>NULL()   !< Stiff / Mass matrix (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: ADGzeta_Hex(:,:,:)      =>NULL()   !< Stiff / Mass matrix (Used in Cauchy Kowalewski)
-    REAL, POINTER     :: FluxInt_Hex(:,:,:,:,:,:)=>NULL()   !< Flux matrices integrals
-
-    !< Sparse version of tensors
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_k_Tet_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_k_Tet_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_k_Tet_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_m_Tet_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_m_Tet_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_m_Tet_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGxi_Tet_Sp         =>NULL() !< Transpose stiffness / mass in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGeta_Tet_Sp        =>NULL() !< Transpose stiffness / mass in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGzeta_Tet_Sp       =>NULL() !< Transpose stiffness / mass in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGklm_Tet_Sp        =>NULL() !< ADER-DG tensor for space dependent reaction term (= identical to identity matrix for constant material per element -> to be optimized!)
-    TYPE(tSparseTensor3b), POINTER    :: FluxInt_Tet_Sp(:,:,:)=>NULL() !< Flux matrices integrals (sparse)
-    !<
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_k_Hex_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_k_Hex_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_k_Hex_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kxi_m_Hex_Sp         =>NULL() !< Stiffness in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Keta_m_Hex_Sp        =>NULL() !< Stiffness in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: Kzeta_m_Hex_Sp       =>NULL() !< Stiffness in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGxi_Hex_Sp         =>NULL() !< Transpose stiffness / mass in xi (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGeta_Hex_Sp        =>NULL() !< Transpose stiffness / mass in eta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: ADGzeta_Hex_Sp       =>NULL() !< Transpose stiffness / mass in zeta (sparse)
-    TYPE(tSparseTensor3b), POINTER    :: FluxInt_Hex_Sp(:,:,:)=>NULL() !< Flux matrices integrals (sparse)
   END TYPE tGalerkin
 
   TYPE tAdjoint
@@ -713,7 +614,7 @@ MODULE TypesDef
      INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
      INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
      REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
-     REAL                         , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
+     REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
@@ -908,9 +809,7 @@ MODULE TypesDef
      TYPE(tSparseTensor3), POINTER          :: FLStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      TYPE(tSparseTensor3), POINTER          :: FRStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      !< Dynamic Rupture variables to exchange dgvar values of MPI-fault elements since the Taylor derivatives are needed in friction
-     INTEGER                                :: nFault_MPI                       !< Nr of MPI boundary elements which are also fault elements for Dynamic Rupture
      INTEGER, POINTER                       :: Domain_Fault_Elem(:)             !< Numbers of the elements adjacent to an MPI boundary (inside)
-     REAL, POINTER                          :: MPI_DR_dgvar(:,:,:)              !< dgvar values of MPI-fault elements
   END TYPE tMPIBoundary
 
   TYPE tRealMessage                                                             !< Defines a vector message of type real
@@ -988,7 +887,6 @@ MODULE TypesDef
      REAL, POINTER                          :: PlastCo(:) => NULL()             !< Cohesion for the Drucker-Prager plasticity, element-dependent
      REAL,POINTER                           :: BulkFriction(:) => NULL()        !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
-     INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order points, (2) = average of an element
      REAL, POINTER                          :: IniStress(:,:) => NULL()         !< Initial stress (loading) for the whole domain, only used for plastic calculations
      INTEGER                                :: Adjoint                          !< (0) = no adjoint, (1) = adjoint reverse-time field is generated simultaneously to forward field
      INTEGER                                :: EndIteration                     !< The index of the last iteration in the simulation
@@ -1002,6 +900,7 @@ MODULE TypesDef
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
+     REAL                                   :: gravitationalAcceleration        !< The value of g, the gravitational acceleration. Default: 9.81 m/s^2
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
      CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties
@@ -1189,10 +1088,10 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
-	 LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
+     LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
                                                                                 !< .TRUE.  = integrate and output for this variable
                                                                                 !< .FALSE. = do not integrate and output for this variable
-	 REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
+     REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
                                                                                 !< Format is xMin, xMax, yMin, yMax, zMin, zMax
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
@@ -1256,6 +1155,9 @@ MODULE TypesDef
   !< Data for the initial condition (variable name : IC)
   TYPE tInitialCondition
      CHARACTER (LEN=25)                     :: cICType                          !< CHARACTER flag for initial data
+     REAL                                   :: origin(3)
+     REAL                                   :: kVec(3)
+     REAL                                   :: ampField(NUMBER_OF_QUANTITIES)
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<
@@ -1426,7 +1328,9 @@ MODULE TypesDef
      REAL, POINTER                   :: n_dip(:)                                !< Normal vector along dip
      REAL, POINTER                   :: corner(:)                               !< Position of the top left corner of the rupture plane
      REAL                            :: MomentTensor(3,3)                       !< The seismic moment tensor
-     REAL                            :: VelocityComponent(3)                    !< The source velocity component
+     REAL                            :: SolidVelocityComponent(3)               !< The source solid velocity component
+     REAL                            :: PressureComponent(1)                    !< The source pressure component
+     REAL                            :: FluidVelocityComponent(3)               !< The source fluid velocity component
      REAL                            :: TensorRotation(3,3)                     !< The rotation matrix of the moment tensor
      REAL                            :: TensorRotationT(3,3)                    !< The transpose rotation matrix of the moment tensor
      REAL, POINTER                   :: TWindowStart(:)                         !< Point in Time when a Time Window starts

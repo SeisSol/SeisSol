@@ -170,9 +170,10 @@ class seissol::time_stepping::TimeManager {
      * @param i_memoryManager memory manager.
      * @param i_meshToClusters mapping from the mesh to the clusters.
      **/
-    void addClusters( struct TimeStepping&               i_timeStepping,
-                      struct MeshStructure*              i_meshStructure,
-                      initializers::MemoryManager&       i_memoryManager );
+    void addClusters(TimeStepping& i_timeStepping,
+                     MeshStructure* i_meshStructure,
+                     initializers::MemoryManager& i_memoryManager,
+                     bool usePlasticity);
 
     /**
      * Advance in time until all clusters reach the next synchronization time.

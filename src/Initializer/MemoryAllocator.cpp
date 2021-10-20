@@ -69,8 +69,13 @@
  * Aligned memory allocation.
  **/
 #include "MemoryAllocator.h"
+#include <Parallel/MPI.h>
 
 #include <utils/logger.h>
+
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
 
 void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind i_memkind)
 {
@@ -84,8 +89,8 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
       return l_ptrBuffer;
     }
 
-#ifdef USE_MEMKIND
-    if( i_memkind == 0 ) {
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
+  if( i_memkind == 0 ) {
 #endif
       if (i_alignment % (sizeof(void*)) != 0) {
         l_ptrBuffer = malloc( i_size );
@@ -94,14 +99,33 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
         error = (posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
       }
 #ifdef USE_MEMKIND
-    } else {
+    }
+    else if (i_memkind == HighBandwidth) {
       if (i_alignment % (sizeof(void*)) != 0) {
         l_ptrBuffer = hbw_malloc( i_size );
         error = (l_ptrBuffer == NULL);
       } else {
         error = (hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
-      } 
-    }
+      }
+#endif
+
+#ifdef ACL_DEVICE
+  }
+  else if (i_memkind == DeviceGlobalMemory) {
+    l_ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(i_size);
+  }
+  else if (i_memkind == DeviceUnifiedMemory) {
+    l_ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(i_size);
+  }
+  else if (i_memkind == PinnedMemory) {
+    l_ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(i_size);
+#endif
+
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
+  }
+  else {
+    logError() << "unknown memkind type used (" << i_memkind << "). Please, refer to the documentation";
+  }
 #endif
     
     if (error) {
@@ -111,16 +135,30 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
     return l_ptrBuffer;
 }
 
-void seissol::memory::free(void* i_pointer, enum Memkind i_memkind)
-{
-#ifdef USE_MEMKIND
-    if (i_memkind == Standard) {
+void seissol::memory::free(void* i_pointer, enum Memkind i_memkind) {
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
+  if (i_memkind == Standard) {
 #endif
-      ::free( i_pointer );
+    ::free(i_pointer);
 #ifdef USE_MEMKIND
-    } else {
+    } else if (i_memkind == HighBandwidth) {
       hbw_free( i_pointer );
-    }
+#endif
+
+#ifdef ACL_DEVICE
+  }
+  else if ((i_memkind == DeviceGlobalMemory) || (i_memkind == DeviceUnifiedMemory)) {
+    device::DeviceInstance::getInstance().api->freeMem(i_pointer);
+  }
+  else if (i_memkind == PinnedMemory) {
+    device::DeviceInstance::getInstance().api->freePinnedMem(i_pointer);
+#endif
+
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
+  }
+  else {
+    logError() << "unknown memkind type used (" << i_memkind << "). Please, refer to the documentation";
+  }
 #endif
 }
 

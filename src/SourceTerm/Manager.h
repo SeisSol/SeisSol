@@ -42,6 +42,7 @@
 
 #include "typedefs.hpp"
 #include "NRF.h"
+#include <cstdarg>
 
 #include <Initializer/tree/Lut.hpp>
 #include <Solver/time_stepping/TimeManager.h>
@@ -50,8 +51,13 @@
 
 namespace seissol {
   namespace sourceterm {
+    void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
+                                      real* mInvJInvPhisAtSources,
+                                      unsigned meshId,
+                                      MeshReader const& mesh);
     void transformNRFSourceToInternalSource( Eigen::Vector3d const&   centre,
-                                             unsigned                 element,
+                                             unsigned                 meshId,
+                                             MeshReader const&        mesh,
                                              Subfault const&          subfault,
                                              Offsets const&           offsets,
                                              Offsets const&           nextOffsets,
@@ -79,7 +85,9 @@ public:
                                   seissol::initializers::Lut*     ltsLut );
 
   void loadSourcesFromFSRM( double const*                   momentTensor,
-                            double const*                   velocityComponent,
+                            double const*                   solidVelocityComponent,
+                            double const*                   pressureComponent,
+                            double const*                   fluidVelocityComponent,
                             int                             numberOfSources,
                             double const*                   centres,
                             double const*                   strikes,

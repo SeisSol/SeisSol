@@ -7,12 +7,12 @@ In order to run SeisSol, you need to first install:
 -  Numpy (>= 1.12.0)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 7.0, gcc, g++, gfortran)
+-  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.15), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
+-  CMake (>3.10), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -39,9 +39,13 @@ Installing CMake
 
 .. code-block:: bash
 
-  wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.4/cmake-3.16.4-Linux-x86_64.tar.gz | tar -xvz -C "/" && mv "/cmake-3.16.4-Linux-x86_64" "${HOME}/bin/cmake"
+  # you will need at least version 3.10.2 for GNU Compiler Collection 
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.10.2/cmake-3.10.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.10.2-Linux-x86_64" "${HOME}/bin/cmake")
+  
+  # use version 3.16.2 for Intel Compiler Collection
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.16.2-Linux-x86_64" "${HOME}/bin/cmake")
+  
   ln -s ${HOME}/bin/cmake/bin/cmake ${HOME}/bin
-
 
 Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
   
@@ -94,8 +98,24 @@ Installing PSpaMM
 
 .. code-block:: bash
 
-   git clone https://github.com/peterwauligmann/PSpaMM.git
+   git clone https://github.com/SeisSol/PSpaMM.git
    ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
+
+Installing GemmForge (for GPU)
+------------------------------
+
+.. _gemmforge_installation:
+
+.. code-block:: bash
+
+   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+
+Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
+
+.. code-block:: bash
+
+   pip3 install https://github.com/ravil-mobile/chainforge.git
+
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------
@@ -103,7 +123,7 @@ Installing ParMetis (Optional: PUML mesh format)
 .. code-block:: bash
 
   wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
-  tar -xvf parmetis-4.0.3
+  tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
   make config cc=mpicc cxx=mpiCC prefix=$HOME 
@@ -139,7 +159,7 @@ Compile SeisSol with (e.g.)
 .. code-block:: bash
 
     mkdir build-release && cd build-release
-    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=skx -DPRECISION=double ..
+    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=skx -DPRECISION=double ..
     make -j48
 
 Here, the :code:`DCMAKE_INSTALL_PREFIX` controlls, in which folder the software is installed.

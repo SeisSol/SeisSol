@@ -62,6 +62,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+   subroutine c_interoperability_setTravellingWaveInformation( origin, kVec, ampField ) bind( C, name='c_interoperability_setTravellingWaveInformation')
+      use iso_c_binding, only: c_double
+      implicit none
+      real(kind=c_double), dimension(*), intent(in) :: origin
+      real(kind=c_double), dimension(*), intent(in) :: kVec
+      real(kind=c_double), dimension(*), intent(in) :: ampField
+    end subroutine
+  end interface
 
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )
@@ -72,21 +81,23 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_initializeClusteredLts
-    subroutine c_interoperability_initializeClusteredLts( i_clustering, i_enableFreeSurfaceIntegration ) bind( C, name='c_interoperability_initializeClusteredLts' )
+  interface
+    subroutine c_interoperability_initializeClusteredLts( i_clustering, i_enableFreeSurfaceIntegration, usePlasticity ) bind( C, name='c_interoperability_initializeClusteredLts' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value  :: i_clustering
       logical(kind=c_bool), value :: i_enableFreeSurfaceIntegration
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
-  interface c_interoperability_initializeMemoryLayout
-    subroutine c_interoperability_initializeMemoryLayout(clustering, enableFreeSurfaceIntegration ) bind( C, name='c_interoperability_initializeMemoryLayout' )
+  interface
+    subroutine c_interoperability_initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity) bind( C, name='c_interoperability_initializeMemoryLayout' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value  :: clustering
       logical(kind=c_bool), value :: enableFreeSurfaceIntegration
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
@@ -95,6 +106,14 @@ module f_ftoc_bind_interoperability
       use iso_c_binding
       implicit none
       character(kind=c_char), dimension(*), intent(in) :: fileName
+    end subroutine
+  end interface
+
+  interface
+    subroutine c_interoperability_initializeGravitationalAcceleration(gravitationalAcceleration) bind ( C, name='c_interoperability_initializeGravitationalAcceleration')
+      use iso_c_binding
+      implicit none
+      real (kind=c_double), value :: gravitationalAcceleration
     end subroutine
   end interface
 
@@ -110,11 +129,13 @@ module f_ftoc_bind_interoperability
 
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
-    subroutine c_interoperability_setupFSRMPointSources( momentTensor, velocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
+    subroutine c_interoperability_setupFSRMPointSources( momentTensor, solidVelocityComponent, pressureComponent, fluidVelocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
       use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), dimension(*), intent(in) :: momentTensor
-      real(kind=c_double), dimension(*), intent(in) :: velocityComponent 
+      real(kind=c_double), dimension(*), intent(in) :: solidVelocityComponent 
+      real(kind=c_double), dimension(*), intent(in) :: pressureComponent 
+      real(kind=c_double), dimension(*), intent(in) :: fluidVelocityComponent 
       integer(kind=c_int), value                    :: numberOfSources
       real(kind=c_double), dimension(*), intent(in) :: centres
       real(kind=c_double), dimension(*), intent(in) :: strikes
@@ -130,13 +151,13 @@ module f_ftoc_bind_interoperability
   
   ! Don't forget to add // c_null_char to materialFileName when using this interface
   interface
-    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
+    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, poroelasticity, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: materialFileName
       integer(kind=c_int), value                        :: anelasticity
       integer(kind=c_int), value                        :: plasticity
-      integer(kind=c_int), value                        :: anisotropy
+      integer(kind=c_int), value                        :: anisotropy, poroelasticity
       real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress, waveSpeeds
     end subroutine
   end interface
@@ -225,13 +246,19 @@ module f_ftoc_bind_interoperability
   end interface
 
 
-  interface c_interoperability_initializeCellLocalMatrices
-    subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )
+  interface
+    subroutine c_interoperability_initializeCellLocalMatrices(usePlasticity) bind( C, name='c_interoperability_initializeCellLocalMatrices' )
+      use iso_c_binding
+      implicit none
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
-  interface c_interoperability_synchronizeCellLocalData
-    subroutine c_interoperability_synchronizeCellLocalData() bind( C, name='c_interoperability_synchronizeCellLocalData' )
+  interface
+    subroutine c_interoperability_synchronizeCellLocalData( usePlasticity ) bind( C, name='c_interoperability_synchronizeCellLocalData' )
+      use iso_c_binding
+      implicit none
+      logical(kind=c_bool), value :: usePlasticity
     end subroutine
   end interface
 
@@ -340,5 +367,53 @@ module f_ftoc_bind_interoperability
   interface c_interoperability_finalizeIO
     subroutine c_interoperability_finalizeIO() bind( C, name='c_interoperability_finalizeIO' )
     end subroutine
+  end interface
+
+  interface c_interoperability_report_device_memory_status
+    subroutine c_interoperability_report_device_memory_status() bind( C, name='c_interoperability_report_device_memory_status' )
+    end subroutine
+  end interface
+
+  interface c_interoperability_deallocateMemoryManager
+    subroutine c_interoperability_deallocateMemoryManager() bind( C, name='c_interoperability_deallocateMemoryManager' )
+    end subroutine
+  end interface
+
+  interface c_interoperability_TetraDubinerP
+      subroutine c_interoperability_TetraDubinerP(phis, xi, eta, zeta, N) bind( C, name='c_interoperability_TetraDubinerP' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta, zeta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
+
+  interface c_interoperability_TriDubinerP
+      subroutine c_interoperability_TriDubinerP(phis, xi, eta, N) bind( C, name='c_interoperability_TriDubinerP' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
+
+  interface c_interoperability_gradTriDubinerP
+      subroutine c_interoperability_gradTriDubinerP(phis, xi, eta, N) bind( C, name='c_interoperability_gradTriDubinerP' )
+          use iso_c_binding
+          implicit none
+          real(kind=c_double), dimension(*), intent(out) :: phis
+          real(kind=c_double), value :: xi, eta
+          integer(kind=c_int), value :: N
+      end subroutine
+  end interface
+
+  interface
+    real(kind=c_double) function c_interoperability_M2invDiagonal(no) bind( C, name='c_interoperability_M2invDiagonal' )
+      use iso_c_binding, only: c_int, c_double
+      implicit none
+      integer(kind=c_int), intent(in), value  :: no
+    end function
   end interface
 end module

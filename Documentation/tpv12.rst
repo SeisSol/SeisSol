@@ -34,8 +34,8 @@ The nucleation zone is a square measuring 3000 m × 3000 m. The center of
 the square is located 12000 m down-dip (at a depth of 10392.30 m), and
 is centered along-strike.
 
-The geometry is generated with GMSH. All the files that are needed for
-the simulation are provided in
+The geometry is generated with `Gmsh <https://gmsh.info/>`_. All the files that are needed for
+the simulation are provided at https://github.com/SeisSol/Examples/tree/master/tpv12_13.
 
 .. figure:: LatexFigures/tpv12mesh2.png
    :alt: Diagram of a 60-degree dipping fault in Gmsh.
@@ -45,8 +45,7 @@ the simulation are provided in
    500 km long and 500 km wide and 50 km high. The fault cuts through the free surface. 
 
 The geometry and mesh generation process is similar to TPV5. The
-planar-fault geometry is built with Gmsh (Figure [fig:tpv12geo]). All
-the files that are needed for the simulation are provided in .
+planar-fault geometry is built with Gmsh (Figure [fig:tpv12geo]).
 
 Nucleation
 ~~~~~~~~~~

@@ -4,7 +4,7 @@
 macro(CXXTEST_ADD_TEST_MPI _cxxtest_testname _ranks _cxxtest_outfname)
     set(_cxxtest_real_outfname ${CMAKE_CURRENT_BINARY_DIR}/${_cxxtest_outfname})
     if (MPI)
-        set(_cxxtest_command_prefix mpirun -n ${_ranks})
+        set(_cxxtest_command_prefix mpirun -n ${_ranks} --oversubscribe)
     else()
         set(_cxxtest_command_prefix)
     endif()

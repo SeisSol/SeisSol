@@ -83,6 +83,7 @@ class Navigation(QWidget):
 
     layout = QVBoxLayout(self)
     layout.addLayout(buttonLayout)
+    self.receiverList.setMaximumWidth(120)
     layout.addWidget(self.receiverList)
 
   def selectFolder(self):

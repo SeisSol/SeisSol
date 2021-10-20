@@ -29,3 +29,10 @@ variables
 
    | **u**, **v**, **w**: ground velocities, x y and z components
    | **U**, **V**, **W**: ground displacements, x y and z components
+
+Additionally, the writer outputs a quantity called "locationFlag", which has the values
+0 and 1 when at the elastic or acoustic side of an elastic-acoustic interface.
+In this way, we can distinguish between both sides of the interface even though they have the same coordinates.
+It has the value 2 for an ordinary free surface boundary condition and the value 3 for a free surface with gravity
+boundary condition.
+This value can be used to filter the output (which contains all these surfaces), for example using Paraview's Threshold filter.

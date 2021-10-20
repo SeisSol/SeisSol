@@ -47,6 +47,7 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/Boundary.h>
 
 namespace seissol {
   namespace initializers {
@@ -57,7 +58,8 @@ namespace seissol {
      void initializeCellLocalMatrices( MeshReader const&      i_meshReader,                                                    
                                        LTSTree*               io_ltsTree,
                                        LTS*                   i_lts,
-                                       Lut*                   i_ltsLut );
+                                       Lut*                   i_ltsLut,
+                                       TimeStepping const&    timeStepping );
                                        
      void initializeBoundaryMappings(MeshReader const& i_meshReader,
                                      const EasiBoundary* easiBoundary,
@@ -74,6 +76,13 @@ namespace seissol {
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
+
+      void copyCellMatricesToDevice(LTSTree*          ltsTree,
+                                    LTS*              lts,
+                                    LTSTree*          dynRupTree,
+                                    DynamicRupture*   dynRup,
+                                    LTSTree*          boundaryTree,
+                                    Boundary*         boundary);
   }
 }
 

@@ -81,7 +81,7 @@ namespace seissol {
                         double                        syncPointInterval )
         : m_quantities(quantities),
           m_samplingInterval(samplingInterval), m_syncPointInterval(syncPointInterval) {
-        m_timeKernel.setGlobalData(global);
+        m_timeKernel.setHostGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
 

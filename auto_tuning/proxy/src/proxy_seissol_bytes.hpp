@@ -26,7 +26,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 double bytes_local(unsigned int i_timesteps) {
-  unsigned nrOfCells = m_ltsTree.child(0).child<Interior>().getNumberOfCells();
+  unsigned nrOfCells = m_ltsTree->child(0).child<Interior>().getNumberOfCells();
 
   double bytes = static_cast<double>(m_timeKernel.bytesAder() + m_localKernel.bytesIntegral());
   double elems = static_cast<double>(nrOfCells);
@@ -36,7 +36,7 @@ double bytes_local(unsigned int i_timesteps) {
 }
 
 double bytes_neigh(unsigned int i_timesteps) {
-  unsigned nrOfCells = m_ltsTree.child(0).child<Interior>().getNumberOfCells();
+  unsigned nrOfCells = m_ltsTree->child(0).child<Interior>().getNumberOfCells();
 
   double bytes = static_cast<double>(m_neighborKernel.bytesNeighborsIntegral());
   double elems = static_cast<double>(nrOfCells);

@@ -45,8 +45,7 @@
 #include "CommunicationManager.h"
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
-
-
+#include "SeisSol.h"
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
@@ -59,9 +58,10 @@ seissol::time_stepping::TimeManager::TimeManager():
 seissol::time_stepping::TimeManager::~TimeManager() {
 }
 
-void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_timeStepping,
-                                                      struct MeshStructure* i_meshStructure,
-                                                      initializers::MemoryManager& i_memoryManager) {
+void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
+                                                      MeshStructure* i_meshStructure,
+                                                      initializers::MemoryManager& i_memoryManager,
+                                                      bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
   std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
@@ -72,12 +72,11 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
 
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
-    struct MeshStructure *l_meshStructure = nullptr;
-    struct GlobalData *l_globalData = nullptr;
-    i_memoryManager.getMemoryLayout(localClusterId,
-                                    l_meshStructure,
-                                    l_globalData
-                                     );
+    MeshStructure* l_meshStructure = nullptr;
+    CompoundGlobalData l_globalData;
+
+    // get memory layout of this cluster
+    std::tie(l_meshStructure, l_globalData) = i_memoryManager.getMemoryLayout(localClusterId);
 
     const unsigned int l_globalClusterId = m_timeStepping.clusterIds[localClusterId];
     // chop off at synchronization time
@@ -102,6 +101,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           m_timeStepping.clusterIds[localClusterId],
+          usePlasticity,
           type,
           timeStepSize,
           timeStepRate,
@@ -207,7 +207,9 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
   }
 
   if (useCommthread) {
-    communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters));
+    communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
+                                                                          &seissol::SeisSol::main.getPinning()
+                                                                          );
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
@@ -232,6 +234,10 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   communicationManager->reset(synchronizationTime);
 
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+#ifdef ACL_DEVICE
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
+#endif
 
   auto updateCluster = [&](auto* cluster) {
     // A cluster yields once it is blocked by other cluster.
@@ -279,6 +285,9 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     }
     finished &= communicationManager->checkIfFinished();
   }
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime()

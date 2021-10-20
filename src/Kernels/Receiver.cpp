@@ -38,6 +38,7 @@
  **/
 
 #include "Receiver.h"
+#include "Numerical_aux/BasisFunction.h"
 
 #include <Initializer/PointMapper.h>
 #include <Numerical_aux/Transformation.h>
@@ -73,6 +74,53 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
+#ifdef USE_STP
+  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
+  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+
+  kernel::evaluateDOFSAtPointSTP krnl;
+  krnl.QAtPoint = timeEvaluatedAtPoint;
+  krnl.spaceTimePredictor = stp;
+
+  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+
+  double receiverTime = time;
+  if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
+    for (auto& receiver : m_receivers) {
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
+
+      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
+      g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
+      g_SeisSolHardwareFlopsOther += m_hardwareFlops;
+
+      receiverTime = time;
+      while (receiverTime < expansionPoint + timeStepWidth) {
+        //eval time basis
+        double tau = (time - expansionPoint) / timeStepWidth;
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
+        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
+        krnl.execute();
+
+        receiver.output.push_back(receiverTime);
+#ifdef MULTIPLE_SIMULATIONS
+        for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+          for (auto quantity : m_quantities) {
+            receiver.output.push_back(qAtPoint(sim, quantity));
+          }
+        }
+#else //MULTIPLE_SIMULATIONS
+        for (auto quantity : m_quantities) {
+          receiver.output.push_back(qAtPoint(quantity));
+        }
+#endif //MULTITPLE_SIMULATIONS
+
+        receiverTime += m_samplingInterval;
+      }
+    }
+  }
+  return receiverTime;
+#else //USE_STP
   real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
   real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
   real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
@@ -88,7 +136,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
-      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,
@@ -107,19 +155,26 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
+           if (!std::isfinite(qAtPoint(sim, quantity))) {
+            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+          }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
         }
-#else
+#else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
+          if (!std::isfinite(qAtPoint(quantity))) {
+            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+          }
           receiver.output.push_back(qAtPoint(quantity));
         }
-#endif
+#endif //MULTITPLE_SIMULATIONS
 
         receiverTime += m_samplingInterval;
       }
     }
   }
   return receiverTime;
+#endif //USE_STP
 }
 
