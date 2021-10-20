@@ -578,7 +578,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         t2 = -np.dot(p0, hw) + dx * 0.5 * dx2 / np.sqrt(dx1 * dx2)
 
         template_yaml = f"""!Switch
-[strike_slip, dip_slip, rupture_onset, tau_S, tau_R]: !EvalModel
+[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
     parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
     model: !Switch
         [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !AffineMap
@@ -609,6 +609,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
           rupture_onset: return rupture_onset;
           tau_S: return acc_time/1.27;
           tau_R: return effective_rise_time - 2.*acc_time/1.27;
+          rupture_rise_time: return effective_rise_time;
         """
         fname = f"{prefix}_fault.yaml"
         with open(fname, "w") as fid:
