@@ -14,7 +14,6 @@
 #include "DR_output.h"
 
 namespace seissol::dr::factory {
-  using products = std::tuple<seissol::initializers::DynamicRupture*,seissol::dr::initializers::BaseDRInitializer*, seissol::dr::friction_law::BaseFrictionLaw*, seissol::dr::output::Output_Base*>;
   class AbstractFactory;
   struct Factory_FL_0; // no fault
   struct Factory_FL_2; // linear slip weakening
@@ -27,6 +26,12 @@ namespace seissol::dr::factory {
   struct Factory_FL_103; // rate and state
   struct Factory_FL_103_Thermal; // rate and state with thermal pressurization
   seissol::dr::factory::AbstractFactory* getFactory(dr::DRParameters *DynRupParameter);
+  struct products {
+    seissol::initializers::DynamicRupture* ltsTree;
+    seissol::dr::initializers::BaseDRInitializer* initializer;
+    seissol::dr::friction_law::BaseFrictionLaw* fl;
+    seissol::dr::output::Output_Base* output;
+  };
 }
 
 class seissol::dr::factory::AbstractFactory {

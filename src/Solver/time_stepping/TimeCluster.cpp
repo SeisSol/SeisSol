@@ -261,7 +261,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_FrictonLaw->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
+  #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;

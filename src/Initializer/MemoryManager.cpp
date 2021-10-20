@@ -835,7 +835,11 @@ void seissol::initializers::MemoryManager::initializeFrictionFactory() {
     m_dynRupParameter->setAllInputParam(m_inputParams);
 
     Factory = seissol::dr::factory::getFactory(m_dynRupParameter);
-    std::tie(m_dynRup, m_DRInitializer, m_FrictonLaw, m_DROutput) = Factory->produce();
+    auto product = Factory->produce();
+    m_dynRup = product.ltsTree;
+    m_DRInitializer = product.initializer;
+    m_FrictonLaw = product.fl;
+    m_DROutput = product.output;
 
     m_DRInitializer->setInputParam(m_dynRupParameter);
     m_FrictonLaw->setInputParam(m_dynRupParameter);
