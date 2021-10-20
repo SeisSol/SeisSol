@@ -1023,10 +1023,14 @@ CONTAINS
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
              CONTINUE
-           CASE(33) !ImposedSlipRateOnDRBoundary
-             DISC%DynRup%t_0 = t_0
+           CASE(33, 34) !ImposedSlipRateOnDRBoundary
+             IF (EQN%FL.EQ.33) THEN
+                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
+             ELSE
+                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
+             ENDIF
              IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
-               logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+               logWarning(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
                DISC%DynRup%SlipRateOutputType = 0
              ENDIF
            CASE(3,4,7,103)
