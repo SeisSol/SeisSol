@@ -134,7 +134,7 @@ MODULE Eval_friction_law_mod
                                 resampleMatrix,                            &
                                 DISC,EQN,MESH,MPI,IO)                          
                                 
-        CASE(33)
+        CASE(33, 34)
            CALL ImposedSlipRateOnDRBoundary(                               & !
                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
@@ -564,9 +564,17 @@ MODULE Eval_friction_law_mod
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
       tn=tn + time_inc
-      DO iBndGP=1,nBndGP
-         Gnuc(iBndGP) = regularizedYoffe(tn-DISC%DynRup%Yoffeonset(iBndGP, iFace), DISC%DynRup%YoffeTS(iBndGP, iFace), DISC%DynRup%YoffeTR(iBndGP, iFace))
-      ENDDO
+
+      IF (EQN%FL.EQ.33) THEN
+        DO iBndGP=1,nBndGP
+          Gnuc(iBndGP) = regularizedYoffe(tn-DISC%DynRup%RuptureOnset(iBndGP, iFace), DISC%DynRup%YoffeTS(iBndGP, iFace), DISC%DynRup%YoffeTR(iBndGP, iFace))
+        ENDDO
+      ELSE ! FL.EQ.34
+        DO iBndGP=1,nBndGP
+          Gnuc(iBndGP) = Calc_SmoothStepIncrement(tn-DISC%DynRup%RuptureOnset(iBndGP, iFace), DISC%DynRup%RuptureRiseTime(iBndGP, iFace),  time_inc)/time_inc
+        ENDDO
+      ENDIF
+
       !EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
       LocTracXY(:)  = XYStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc(:)
       LocTracXZ(:) =  XZStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc(:)

@@ -9,13 +9,13 @@ The advantage of this approach is that the displacement discontinuity can be acc
 A multi point-source representation, in comparison, may give rise to spurious waves due the continuity of the basis functions within a finite element (smearing), 
 and to the discrete spatial sampling between point sources (aliasing).
 
-The current implementation allows imposing kinematic models parameterized by regularized Yoffe function (see Tinti et al., 2005, https://doi.org/10.1785/0120040177).
+The current implementation allows either imposing kinematic models parameterized by regularized Yoffe functions (FL=33, see Tinti et al., 2005, https://doi.org/10.1785/0120040177) or by Gaussian  source time functions (FL=34).
 
 .. figure:: LatexFigures/Yoffe_example.png
    :alt: a typical Yoffe function.
    :width: 15.00000cm
 
-   Typical shape of a Yoffe function. We here use rupture_onset=0, acc_time=0.2 and effective_rise_time=1.0.
+   Shape of a regularized Yoffe function (blue) and a Gaussian source time function (orange). We here use rupture_onset=0, acc_time=0.2 and effective_rise_time=1.0.
 
 
 The Yoffe functions are parametrized by ``rupture_onset``, ``tau_S`` and ``tau_R``, where ``rupture_onset`` is the onset time of the rupture, 
@@ -24,6 +24,9 @@ and ``tau_R`` is a parameter that, in combination with ``tau_S``, allow defining
 
 For typical ``tau_S/tau_R`` ratio, we can assume ``T_acc = 1.27 tau_S``. Yet, the factor can range from about 1.15 (for ``tau_S/tau_R`` close to 0) to about 1.4 (for ``tau_S/tau_R`` close to 0.4).
 In addition, we can typically assume ``tau^eff_R = tau_R + 2 tau_S``.
+Note that in the code, we apply ``tau_R = max(tau_R, tau_S)`` to ensure that ``tau_R`` >= ``tau_S`` (the contrary could occur after interpolation from ASAGI).
+
+The Gaussian source time functions are parametrized by ``rupture_onset`` and  ``rupture_rise_time``.
 
 The slip distribution is defined by the ``strike_slip`` and ``dip_slip`` variables.  
 All these parameters are read by easi from the dynamic rupture yaml file.
