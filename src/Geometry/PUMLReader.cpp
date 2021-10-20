@@ -73,7 +73,9 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
+seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeStep,
+                                const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights,
+                                double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -83,7 +85,7 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile
   
 	if (ltsWeights != nullptr) {
 		generatePUML(puml);
-		ltsWeights->computeWeights(puml);
+		ltsWeights->computeWeights(puml, maximumAllowedTimeStep);
 	}
 	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
 
