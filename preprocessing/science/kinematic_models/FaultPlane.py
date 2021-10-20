@@ -374,7 +374,7 @@ class FaultPlane:
                             self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
                             break
 
-    def assess_Yoffe_parameters(self):
+    def assess_STF_parameters(self):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
         self.rise_time = np.zeros((self.ny, self.nx))
         self.tacc = np.zeros((self.ny, self.nx))
@@ -428,7 +428,7 @@ class FaultPlane:
         print(f"seismic potency ratio (upscaled over initial): {ratio_potency}")
 
         if use_Yoffe:
-            self.assess_Yoffe_parameters()
+            self.assess_STF_parameters()
             allarr = np.array([self.rise_time, self.tacc])
             pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
             pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))
