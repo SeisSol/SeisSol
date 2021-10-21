@@ -3,8 +3,9 @@ FROM ravilmobile/seissol-compilers:gcc-8_cuda-10
 
 RUN apt-get update -yqq && \
 apt-get install -yqq autotools-dev autoconf libtool \
+libnuma-dev libnuma1 \
 flex libopenblas-dev bzip2 python-pip \
-vim gdb python-pip && \
+vim gdb vim && \
 pip install scons==3.1.0 && \
 pip3 install numpy scons==3.1.0 
 
@@ -69,6 +70,7 @@ RUN export VERSION=4.0.3 && \
 wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-${VERSION}.tar.gz && \
 tar -xvf parmetis-${VERSION}.tar.gz && \
 cd parmetis-${VERSION} && \
+sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h && \
 CC=mpicc CXX=mpicxx make config prefix=/usr && \
 make -j4 && make install && \
 cp build/Linux-x86_64/libmetis/libmetis.a /usr/lib && \
@@ -95,7 +97,9 @@ cd ../.. && rm -rf ./PROJ*
 
 
 RUN git clone https://github.com/SCOREC/core.git && \
-mkdir -p core/build && cd core/build && \
+cd core && \
+git checkout v2.2.6 && \
+mkdir -p ./build && cd ./build && \
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr \
 -DCMAKE_C_COMPILER=mpicc \
 -DCMAKE_CXX_COMPILER=mpicxx \

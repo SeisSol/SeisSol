@@ -156,7 +156,7 @@ gpu_build:
             -DDEVICE_SUB_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision} ;
-            make -j ;
+            make -j 3 ;
             cd .. ;
           done;
         - set +u

@@ -4,7 +4,7 @@ services:
   compilers:
     build:
       context: .
-      dockerfile: Dockerfile.cuda10
+      dockerfile: Dockerfile.compilers
     image: ravilmobile/seissol-compilers:gcc-8_cuda-10 
 
   seissol-base:
