@@ -1,9 +1,0 @@
-#!/usr/bin/env python
-
-import os
-
-Import('env')
-
-env.testSourceFiles.append(os.path.abspath('GodunovState.t.h'))
-
-Export('env')

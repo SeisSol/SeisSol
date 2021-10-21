@@ -74,17 +74,15 @@
 #include "NRFReader.h"
 #include "PointSource.h"
 #include "DATReader.h"
+#include "Numerical_aux/Transformation.h"
+#include "generated_code/kernel.h"
+#include "generated_code/init.h"
+#include "generated_code/tensor.h"
 
 #include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
 #include <utils/logger.h>
 #include <cstring>
-
-#if defined(__AVX__)
-#include <immintrin.h>
-#endif
-
-extern seissol::Interoperability e_interoperability;
 
 template<typename T>
 class index_sort_by_value
@@ -98,8 +96,40 @@ public:
     }
 };
 
+/**
+ * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
+ * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
+ */
+void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
+                                                       real* mInvJInvPhisAtSources,
+                                                       unsigned meshId,
+                                                       MeshReader const& mesh) {
+  auto const& elements = mesh.getElements();
+  auto const& vertices = mesh.getVertices();
+
+  double const* coords[4];
+  for (unsigned v = 0; v < 4; ++v) {
+    coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
+  }
+  auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
+          coords[0], coords[1], coords[2], coords[3], centre);
+  auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+          CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+
+  double volume = MeshTools::volume(elements[meshId], vertices);
+  double JInv = 1.0 / (6.0 * volume);
+
+  kernel::computeMInvJInvPhisAtSources krnl;
+  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
+  krnl.M3inv = init::M3inv::Values;
+  krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources;
+  krnl.JInv = JInv;
+  krnl.execute();
+}
+
 void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d const&    centre,
-                                                              unsigned                  element,
+                                                              unsigned                  meshId,
+                                                              MeshReader const&         mesh,
                                                               Subfault const&           subfault,
                                                               Offsets const&            offsets,
                                                               Offsets const&            nextOffsets,
@@ -108,11 +138,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
                                                               PointSources&             pointSources,
                                                               unsigned                  index )
 {
-  e_interoperability.computeMInvJInvPhisAtSources( centre(0),
-                                                   centre(1),
-                                                   centre(2),
-                                                   element,
-                                                   pointSources.mInvJInvPhisAtSources[index] );
+  computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   real* faultBasis = pointSources.tensor[index];
   faultBasis[0] = subfault.tan1(0);
@@ -128,10 +154,12 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Eigen::Vector3d co
   pointSources.A[index] = subfault.area;
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
+      [[fallthrough]];
+    case seissol::model::MaterialType::poroelastic:
       if (subfault.mu != 0) {
-        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+        logError() << "There are specific fault parameters for the fault. This is only compatible with isotropic (visco)elastic materials.";
       }
-      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      material->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
     default:
       seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
@@ -221,7 +249,9 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
-                                                        double const*                   velocityComponent,
+                                                        double const*                   solidVelocityComponent,
+                                                        double const*                   pressureComponent,
+                                                        double const*                   fluidVelocityComponent,
                                                         int                             numberOfSources,
                                                         double const*                   centres,
                                                         double const*                   strikes,
@@ -281,9 +311,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
-  real localVelocityComponent[3];
+  real localSolidVelocityComponent[3];
   for (unsigned i = 0; i < 3; i++) {
-    localVelocityComponent[i] = velocityComponent[i];
+    localSolidVelocityComponent[i] = solidVelocityComponent[i];
+  }
+  real localPressureComponent = *pressureComponent;
+  real localFluidVelocityComponent[3];
+  for (unsigned i = 0; i < 3; i++) {
+    localFluidVelocityComponent[i] = fluidVelocityComponent[i];
   }
   
   sources = new PointSources[ltsTree->numChildren()];
@@ -304,26 +339,29 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
 
-      e_interoperability.computeMInvJInvPhisAtSources( centres3[fsrmIndex](0),
-                                                       centres3[fsrmIndex](1),
-                                                       centres3[fsrmIndex](2),
-                                                       meshIds[sourceIndex],
-                                                       sources[cluster].mInvJInvPhisAtSources[clusterSource] );
-
+      computeMInvJInvPhisAtSources(centres3[fsrmIndex],
+              sources[cluster].mInvJInvPhisAtSources[clusterSource],
+              meshIds[sourceIndex], mesh);
       transformMomentTensor( localMomentTensor,
-                             localVelocityComponent,
+                             localSolidVelocityComponent,
+                             localPressureComponent,
+                             localFluidVelocityComponent,
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
                              sources[cluster].tensor[clusterSource]);
 
-      for (unsigned i = 0; i < 9; ++i) {
+      for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
       }
+#ifndef USE_POROELASTIC
       seissol::model::Material& material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
       for (unsigned i = 0; i < 3; ++i) {
         sources[cluster].tensor[clusterSource][6+i] /= material.rho;
       }
+#else
+      logWarning() << "For the poroelastic equation we do not scale the force components with the density. Read the documentation to see how sources in poroelastic media are defined.";
+#endif
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],
                                           numberOfSamples,
@@ -382,6 +420,19 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   }
   delete[] contained;
 
+  // Checking that all sources are within the domain
+  int globalnumSources = numSources;
+#ifdef USE_MPI
+  MPI_Reduce(&numSources, &globalnumSources, 1, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
+#endif
+
+  if (rank==0) {
+     int numSourceOutside = nrf.source - globalnumSources;
+     if (numSourceOutside > 0) {
+        logError() << nrf.source - globalnumSources <<" point sources are outside the domain.";
+     }
+  }
+
   logInfo(rank) << "Mapping point sources to LTS cells...";
   mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut);
   
@@ -406,6 +457,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
       unsigned nrfIndex = originalIndex[sourceIndex];
       transformNRFSourceToInternalSource( nrf.centres[nrfIndex],
                                           meshIds[sourceIndex],
+                                          mesh,
                                           nrf.subfaults[nrfIndex],
                                           nrf.sroffsets[nrfIndex],
                                           nrf.sroffsets[nrfIndex+1],

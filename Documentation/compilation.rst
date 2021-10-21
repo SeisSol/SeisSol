@@ -5,15 +5,14 @@ In order to run SeisSol, you need to first install:
 
 -  Python (>= 3.5)
 -  Numpy (>= 1.12.0)
--  SCons (>= 3.0, for instructions see below)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 17.0, icc, icpc, ifort) or GCC (>= 5.0, gcc, g++, gfortran)
+-  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (for compiling submodules ImpalaJIT and yaml-cpp)
+-  CMake (>3.10), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -29,23 +28,27 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
   export LIBRARY_PATH=$HOME/lib:$LIBRARY_PATH
   export LD_LIBRARY_PATH=$HOME/lib:$LD_LIBRARY_PATH
   export PKG_CONFIG_PATH=$HOME/lib/pkgconfig:$PKG_CONFIG_PATH
+  export CMAKE_PREFIX_PATH=$HOME
   export EDITOR=vi
   export CPATH=$HOME/include:$CPATH 
 
   # run "exec bash" or "source ~/.bashrc" to apply environment to the current shell
 
-Installing SCons
+Installing CMake
 ----------------
 
 .. code-block:: bash
 
-  wget http://prdownloads.sourceforge.net/scons/scons-3.0.5.tar.gz
-  tar -xaf scons-3.0.5.tar.gz
-  cd scons-3.0.5
-  python setup.py install --prefix=$HOME
-  cd ..
+  # you will need at least version 3.10.2 for GNU Compiler Collection 
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.10.2/cmake-3.10.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.10.2-Linux-x86_64" "${HOME}/bin/cmake")
+  
+  # use version 3.16.2 for Intel Compiler Collection
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.16.2-Linux-x86_64" "${HOME}/bin/cmake")
+  
+  ln -s ${HOME}/bin/cmake/bin/cmake ${HOME}/bin
 
-
+Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
+  
 Installing HDF5
 ---------------
 
@@ -95,8 +98,24 @@ Installing PSpaMM
 
 .. code-block:: bash
 
-   git clone https://github.com/peterwauligmann/PSpaMM.git
+   git clone https://github.com/SeisSol/PSpaMM.git
    ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
+
+Installing GemmForge (for GPU)
+------------------------------
+
+.. _gemmforge_installation:
+
+.. code-block:: bash
+
+   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+
+Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
+
+.. code-block:: bash
+
+   pip3 install https://github.com/ravil-mobile/chainforge.git
+
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------
@@ -104,7 +123,7 @@ Installing ParMetis (Optional: PUML mesh format)
 .. code-block:: bash
 
   wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
-  tar -xvf parmetis-4.0.3
+  tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
   make config cc=mpicc cxx=mpiCC prefix=$HOME 
@@ -139,61 +158,29 @@ Compile SeisSol with (e.g.)
 
 .. code-block:: bash
 
-  scons compiler=gcc netcdf=yes hdf5=yes order=4 parallelization=hybrid 
+    mkdir build-release && cd build-release
+    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=skx -DPRECISION=double ..
+    make -j48
 
-You may also save your favorite settings in a configuration file:
-Add the following build variables to the file
-build/options/supermuc_mac_cluster.py
+Here, the :code:`DCMAKE_INSTALL_PREFIX` controlls, in which folder the software is installed.
+You have to adjust the :code:`CMAKE_PREFIX_PATH` and :code:`PKG_CONFIG_PATH` in the same manner - if you install all dependencies in a different directory, you need to replace :code:`${HOME}` by the path to this directory.
+It is also important that the executables of the matrix mutiplication generators (Libxsmm, PSpaMM) have to be in :code:`$PATH`.
+You can also compile just the proxy by :command:`make SeisSol-proxy` or only SeisSol with :command:`make SeisSol-bin`   
 
-.. code-block:: python
+Note: CMake tries to detect the correct MPI wrappers.
 
-   compileMode='release' 
-   parallelization='hybrid' 
-   arch='$ARCH' 
-   order='$ORDER' 
-   generatedKernels = 'yes'
-   compiler = 'gcc' # alternative: 'intel'
-   logLevel = 'info'
+You can also run :command:`ccmake ..` to see all available options and toggle them.
 
-   netcdf='yes' 
-   netcdfDir='path_to_netcdf' 
-   hdf5='yes'
-   hdf5Dir='path_to_hdf5'
+.. figure:: LatexFigures/ccmake.png
+   :alt: An example of ccmake with some options
 
-   ##  additionally for puml mesh format
-   metis = 'yes'
-   metisDir='path_to_parmetis'
-
-   ##  optional for ASAGI
-   asagi = 'yes'
-   zlibDir = 'path_to_asagi' #e.g. <path_to_ASAGI>/build/lib/
-
-| with: 
-| compileMode - release / relWithDebInfo/ debug
-| parallelization - omp/ mpi / hybrid (mpi/openmp)
-| logLevel - info/ debug, warning or error 
-| ARCH - target architecture 
-| ORDER - convergence order (=max polynomial order +1)
-| generatedKernels - yes/no
-
-Get your executable with
-
-.. code-block:: bash
-
-   scons -j 32 buildVariablesFile=build/options/supermuc_mac_cluster.py
-
-NOTE: SCons will try to detect the correct MPI wrappers. If this fails,
-you can overwrite the detected wrappers with the variables "mpicc",
-"mpicxx" and "mpif90".
-
-you can run ``scons -h`` to get some help on options
 
 Running SeisSol
 ---------------
 
 1. Follow the instructions on :ref:`Configuration <Configuration>`.
 2. run SeisSol version of interest. To run the example:
-   ``./SeisSol_release_.... PARAMETER.PAR``
+   :command:`./SeisSol_release_.... PARAMETER.PAR`
 
 Further information regarding meshing and parameter files etc. can be
 found in the documentation folder. See also :ref:`A first example <a_first_example>`.

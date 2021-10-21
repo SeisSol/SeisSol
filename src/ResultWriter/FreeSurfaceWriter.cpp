@@ -106,6 +106,19 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
   }
 }
 
+void seissol::writer::FreeSurfaceWriter::setUp()	{
+    setExecutor(m_executor);
+    if (isAffinityNecessary()) {
+      const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
+      logInfo(seissol::MPI::mpi.rank()) << "Free surface writer thread affinity:" <<
+        parallel::Pinning::maskToString(freeCpus);
+      if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+        logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+      }
+    }
+}
+
+
 void seissol::writer::FreeSurfaceWriter::enable()
 {
 	m_enabled = true;
@@ -150,12 +163,13 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
 
-	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-		addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(double));
+	for (auto & velocity : m_freeSurfaceIntegrator->velocities) {
+		addBuffer(velocity, nCells * sizeof(real));
 	}
-	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-		addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(double));
+	for (auto & displacement : m_freeSurfaceIntegrator->displacements) {
+		addBuffer(displacement, nCells * sizeof(real));
 	}
+	addBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(double));
 
 	//
 	// Send all buffers for initialization
@@ -203,7 +217,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	FreeSurfaceParam param;
 	param.time = time;
 
-	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
+	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS + 1; ++i) {
 		sendBuffer(FreeSurfaceWriterExecutor::VARIABLES0 + i);
 	}
 

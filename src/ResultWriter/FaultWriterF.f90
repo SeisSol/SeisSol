@@ -79,7 +79,7 @@ contains
 
         type(tUnstructPoint), dimension(:)  :: points
         integer, dimension(:)               :: outputMask
-        real, dimension(:,:,:), target      :: dataBuffer
+        REAL_TYPE, dimension(:,:,:), target :: dataBuffer
         character(len=60)                   :: outputPrefix
         real                                :: interval
         character(len=64)                   :: xdmfWriterBackend
@@ -89,7 +89,7 @@ contains
         integer :: nCells
         integer :: nVertices
         integer :: i, j
-        real, dimension(:), pointer :: dummyBuffer
+        REAL_TYPE, dimension(:), pointer :: dummyBuffer
         type(c_ptr) :: cDataBuffer(SIZE(dataBuffer, 3))
 
         ! TODO do not dublicate local vertices

@@ -1,4 +1,5 @@
 add_library(SeisSol-lib
+
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/GlobalData.cpp
@@ -13,6 +14,7 @@ src/Initializer/InitialFieldProjection.cpp
 src/Modules/Modules.cpp
 src/Modules/ModulesC.cpp
 src/Model/common.cpp
+src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Transformation.cpp
 src/Numerical_aux/Statistics.cpp
 
@@ -32,6 +34,7 @@ src/Solver/Interoperability.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
@@ -54,11 +57,6 @@ src/Reader/readparC.cpp
 #Reader/StressReaderC.cpp
 src/Checkpoint/Manager.cpp
 
-# TODO: Only if mpi?
-src/Checkpoint/mpio/Wavefield.cpp
-src/Checkpoint/mpio/FaultAsync.cpp
-src/Checkpoint/mpio/Fault.cpp
-src/Checkpoint/mpio/WavefieldAsync.cpp
 
 # Checkpoint/sionlib/Wavefield.cpp
 # Checkpoint/sionlib/Fault.cpp
@@ -79,7 +77,6 @@ src/ResultWriter/FreeSurfaceWriter.cpp
 
 # Fortran:
 src/Monitoring/bindMonitoring.f90
-src/Geometry/mpiextractmesh.f90
 src/Geometry/allocate_mesh.f90
 src/Geometry/MeshReaderCBinding.f90
 src/Solver/close_seissol.f90
@@ -88,7 +85,6 @@ src/Solver/mpiexchangevalues.f90
 src/Solver/prak_clif_mod.f90
 src/Solver/calc_seissol.f90
 src/Solver/f_ctof_bind_interoperability.f90
-src/Solver/plasticity.f90
 src/Solver/f_ftoc_bind_interoperability.f90
 src/Numerical_aux/quadpoints.f90
 src/Numerical_aux/jacobinormal.f90
@@ -99,14 +95,16 @@ src/Numerical_aux/typesdef.f90
 src/Numerical_aux/dgbasis.f90
 src/Numerical_aux/gauss.f90
 src/Numerical_aux/operators.f90
+src/Numerical_aux/ODEInt.cpp
+src/Numerical_aux/ODEVector.cpp
 src/Modules/ModulesF.f90
 src/seissolxx.f90
 src/Physics/ini_model.f90
 src/Physics/Evaluate_friction_law.f90
 src/Physics/ini_model_DR.f90
-src/Physics/InitialField.cpp
 src/Physics/NucleationFunctions.f90
 src/Physics/thermalpressure.f90
+src/Physics/InitialField.cpp
 src/Reader/readpar.f90
 src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90
@@ -122,7 +120,21 @@ src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
+
+src/Equations/poroelastic/Model/datastructures.cpp
+src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 )
+
+if (MPI)
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Wavefield.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/FaultAsync.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Fault.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/WavefieldAsync.cpp
+)
+endif()
+
+target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
 
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC
@@ -134,7 +146,8 @@ endif()
 if (HDF5 AND METIS AND MPI)
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/LtsWeights.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/WeightsModels.cpp
     )
 endif()
 
@@ -152,6 +165,7 @@ if (ASAGI)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Reader/AsagiModule.cpp
     )
 endif()
+
 
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
@@ -192,5 +206,50 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
   target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
+
+elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Time.cpp
+  )
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_STP)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_POROELASTIC)
+endif()
+
+target_include_directories(SeisSol-lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
+
+if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
+
+  target_sources(SeisSol-lib PUBLIC
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
+
+  find_package(CUDA REQUIRED)
+  set(CUDA_NVCC_FLAGS -std=c++14;
+                      -Xptxas -v;
+                      -arch=${DEVICE_SUB_ARCH};
+                      -DREAL_SIZE=${REAL_SIZE_IN_BYTES};
+                      --compiler-options ${EXTRA_CXX_FLAGS};
+                      -O3;)
+
+  set(DEVICE_SRC ${DEVICE_SRC} ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+                               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu)
+  set_source_files_properties(${DEVICE_SRC} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
+
+  cuda_add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
+  target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
+                                                       ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+                                                       ${CMAKE_BINARY_DIR}/src/generated_code
+                                                       ${CMAKE_CURRENT_SOURCE_DIR}/src
+                                                       ${CUDA_TOOLKIT_ROOT_DIR})
+  target_compile_options(Seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
+
+  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
+  add_dependencies(Seissol-device-lib SeisSol-lib)
 
 endif()

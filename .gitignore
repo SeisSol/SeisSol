@@ -60,3 +60,6 @@ postprocessing/validation/XDMFCubeCheck/build
 *.dblite
 config.log
 .sconf_temp
+/cmake-build-debug/
+/cmake-build-release/
+/cmake-build-relwithdebinfo/

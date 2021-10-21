@@ -24,8 +24,8 @@ Manually fixing an intersection in Gocad
 | The next step is to import the intersected surfaces in SimModeler.
   Then we use the standard procedure:
 | File > Export > Gocad ASCII > choose a filename (example test.ts).
-| We then convert the ts file to stl using convertTs2Stl.py:
-| ``python convertTs2Stl.py test.ts``
+| We then convert the ts file to stl using convertTs.py:
+| ``python convertTs.py test.ts``
 | Finally we import the stl file in SimModeler using:
 | File > Import Discrete Data > unclick all option, select file and
   click on OK.
@@ -105,7 +105,7 @@ edges. For instance here:
 | When then apply this manual procedure on all detected small features,
   and we finally make the mutual intersection. Hopefully, the model once loaded in SimModeler is then free of small features!
 
-.. |overall view| image:: https://www.geophysik.uni-muenchen.de/~ulrich/ManuallyFixingAnIntersection0.png
-.. |localizing small features| image:: https://www.geophysik.uni-muenchen.de/~ulrich/ManuallyFixingAnIntersection1.png
-.. |fixing intersection| image:: https://www.geophysik.uni-muenchen.de/~ulrich/ManuallyFixingAnIntersection2.png
+.. |overall view| image:: LatexFigures/ManuallyFixingAnIntersection0.png
+.. |localizing small features| image:: LatexFigures/ManuallyFixingAnIntersection1.png
+.. |fixing intersection| image:: LatexFigures/ManuallyFixingAnIntersection2.png
 

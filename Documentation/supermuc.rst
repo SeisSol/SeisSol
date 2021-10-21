@@ -1,17 +1,18 @@
 .. _compile_run_supermuc:
 
-Compiling and running SeisSol on Supermuc
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Accessing github from SuperMUC
-==============================
+SuperMUC-NG
+===========
+
+Accessing github
+----------------
 
 SuperMUC restricts access to outside sources and thus does not allow connections to https servers. 
 Nevertheless, GitHub can be used if remote port forwarding is correctly set.
 Here, we described the procedure to set up such port forwarding.
 
 
-1. Add to you ~/.ssh/config the following lines:
+1. On your local machine, add to your ~/.ssh/config the following lines:
 
 ::
 
@@ -33,11 +34,11 @@ where ddddd is an arbitrary 5-digital port number.
     
 With ddddd the same port number as before.
 
-4. Create SSH key by typing 
+4. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
 
 ::
 
-   ssh-keygen -t rsa 
+  ssh-keygen -t rsa 
 
 5. Go to https://github.com/settings/ssh, add a new SSH key, pasting the public key you just created on supermuc  ~/.ssh/id_rsa.pub. 
 Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol including the submodules using:
@@ -53,8 +54,8 @@ Pay attention to the git clone address ('https://github.com/' replaced by 'git@g
 If it works, you will see several lines of ‘cloning ….’.
 
 
-Supermuc-NG
-===========
+Building SeisSol
+----------------
 
 1. clone SeisSol including the submodules using 
 
@@ -65,24 +66,20 @@ Supermuc-NG
   git submodule update --init
  
 
-2. Load module. Could add these lines to .bashrc:
+2. Load module. Could add these lines to .bashrc (changing the order and adding additionnal modules may prevent a successful compilation):
 
 ::
 
   ##### module load for SeisSol
-  module load scons gcc cmake/3.6 python/3.6_intel slurm_setup
+  module load gcc/9 cmake python/3.6_intel
   module load libszip/2.1.1
-  module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load hdf5/1.8.20-intel-impi-threadsafe
-  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
+  module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
+  module load netcdf-hdf5-all/4.6_hdf5-1.8-intel19-impi
+  module load numactl
 
-  ####### universal setup for SeisSol
-  export PATH=~/local/bin:$PATH
-  export PKG_CONFIG_PATH=~/local/lib/pkgconfig/:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=~/local/lib:$PARMETIS_LIBDIR:$METIS_LIBDIR:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LD_LIBRARY_PATH
-  export CPATH=~/local/include:$PARMETIS_BASE/include:$METIS_BASE/include:$NETCDF_BASE/include:$HDF5_BASE/include:$CPATH
-  export LIBRARY_PATH=~/local/lib:$PARMETIS_LIBDIR:$METIS_LIBDIR:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LIBRARY_PATH
-    
+  ####### for pspamm.py
+  export PATH=~/bin:$PATH
+  
   ####  local setup for SeisSol. 
   export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
   export PKG_CONFIG_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -91,93 +88,59 @@ Supermuc-NG
 
 3. Install libxsmm, PSpaMM and ASAGI
 
-| See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
-| Note that on project pr63qo, we already installed and shared these libraries (no need to install).
-| The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-| If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.
+See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
+Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
+The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
+If you need to compile ASAGI, first clone ASAGI with:
 
 .. code-block:: bash
 
-  #!/bin/bash                                                                                                            
-  git submodule init
-  for module_full in `git config -l | awk -F"=" {'print $1'} | grep submodule ` ;
-  do
-   echo $module_full
-   module=$(git config ${module_full} | sed "s/.*github\.com\///")
-   if [ "$module" != "true" ]; then
-      echo $module
-      echo "git config ${module_full} git@github.com:${module}"
-      git config ${module_full} git@github.com:${module}
-   fi
-  done
-  git submodule update
-
-set compiler options:
+  git clone git@github.com:TUM-I5/ASAGI
+  cd ASAGI
+  git submodule update --init
+ 
+set compiler options, run cmake, and compile with:
 
 ::
 
-  $ export FC=mpif90
-  $ export CXX=mpiCC
-  $ export CC=mpicc
+  export FC=mpif90
+  export CXX=mpiCC
+  export CC=mpicc
 
-  $ make build
-  $ Cd build
-  $ CMAKE_PREFIX_PATH=$NETCDF_BASE
-  $ cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
-  $ make
-  $ make install
-  (Know errors: 1.Numa could not found - turn off Numa by -DNONUMA=on . )
+  mkdir build && cd build
+  CMAKE_PREFIX_PATH=$NETCDF_BASE
+  cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
+  make -j 48
+  make install
+  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
 
-4. Copy the SeisSol configuration to a file e.g. supermuc_ng.py
+4. Install SeisSol with cmake, e.g. with (more options with ccmake)
 
 ::
 
-  import os
-  # build options
-  compileMode                 = 'release'
-  #compileMode                 = 'relWithDebInfo'
-  #compileMode                 = 'debug'
-  parallelization             = 'hybrid'
-  #parallelization             = 'mpi'
-  generatedKernels            = 'yes'
-  #measureNodeLevelPerformance = 'none'
-  useExecutionEnvironment     = 'yes'
-  order = 4
-  equations='elastic'
-  #equations = 'viscoelastic2'
-  #numberOfMechanisms = 3
-  # machine dependent options
-  #compiler='gcc'
-  cppCompiler          = 'mpiCC'
-  fortranCompiler      = 'mpif90'
+   mkdir build-release && cd build-release
+   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   make -j 48
 
-  netcdf='yes'
-  hdf5='yes'
-  metis='yes'
-  netcdfDir=os.environ['NETCDF_BASE']
-  hdf5Dir=os.environ['HDF5_BASE']
-  metisDir=os.environ['PARMETIS_BASE']
-  
-  # ASAGI folder need to be verified.
-  asagi='yes'
-  zlibDir='/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib'
+Note that to use sanitzer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
+For that modules and compiler need to be switched:
 
-  phase=3 # for Supermuc-NG
-  if phase==1:
-     arch ='dsnb'
-  elif phase==2:
-     arch = 'dhsw'
-     #commThread ='yes'
-  else:
-     arch = 'dskx'
-     commThread ='yes'
+::
 
-  plasticity='no'
-  #logLevel                    = 'warning'
-  logLevel                    = 'warning'
-  logLevel0                   = 'info'
+    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.8-gcc8-impi
+    module unload intel-mpi intel
+    module load intel-mpi/2019-gcc
+    module switch gcc gcc/9
+    export CC=mpigcc
+    export CXX=mpigxx
+    export FC=mpifc
 
+Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
+To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
+
+Running SeisSol
+---------------
 
 5. Submission file for SeisSol on NG:
 
@@ -191,8 +154,8 @@ set compiler options:
   #SBATCH -o ./%j.%x.out
   #SBATCH -e ./%j.%x.err
 
-  #Initial working directory (also --chdir):
-  #SBATCH --workdir=<work directory>
+  #Initial working directory:
+  #SBATCH --chdir=<work directory>
 
   #Notification and type
   #SBATCH --mail-type=END
@@ -213,6 +176,7 @@ set compiler options:
   #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
   module load slurm_setup
+  
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
@@ -230,5 +194,7 @@ set compiler options:
   source /etc/profile.d/modules.sh
 
   echo $SLURM_NTASKS
-  srun ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
+  ulimit -Ss 2097152
+  mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
+
 

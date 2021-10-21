@@ -72,7 +72,7 @@ public:
     int getNumberOfVariables();
     void getIntegrationMask(bool* transferTo);
     void allocateMemory(seissol::initializers::LTSTree* ltsTree);
-    const double* getIntegrals(seissol::initializers::LTSTree* ltsTree);
+    const real* getIntegrals(seissol::initializers::LTSTree* ltsTree);
 };
 
 }

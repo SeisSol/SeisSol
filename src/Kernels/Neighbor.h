@@ -83,12 +83,15 @@ namespace seissol {
 
 class seissol::kernels::Neighbor : public NeighborBase {
   public:
-    void setGlobalData(GlobalData const* global);
+    void setHostGlobalData(GlobalData const* global);
+    void setGlobalData(const CompoundGlobalData& global);
 
     void computeNeighborsIntegral(NeighborData& data,
                                   CellDRMapping const (&cellDrMapping)[4],
                                   real* i_timeIntegrated[4],
                                   real* faceNeighbors_prefetch[4]);
+
+    void computeBatchedNeighborsIntegral(ConditionalBatchTableT &table);
 
     void flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                 const int i_neighboringIndices[4][2],

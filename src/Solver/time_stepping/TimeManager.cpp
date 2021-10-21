@@ -44,14 +44,18 @@
 #include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
+#include "SeisSol.h"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <Parallel/Pin.h>
+
 volatile bool g_executeCommThread;
 volatile unsigned int* volatile g_handleRecvs;
 volatile unsigned int* volatile g_handleSends;
 pthread_t g_commThread;
 #endif
+
+#include <chrono>
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
@@ -68,9 +72,10 @@ seissol::time_stepping::TimeManager::~TimeManager() {
   }
 }
 
-void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
-                                                       struct MeshStructure*              i_meshStructure,
-                                                       initializers::MemoryManager&       i_memoryManager ) {
+void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
+                                                      MeshStructure* i_meshStructure,
+                                                      initializers::MemoryManager& i_memoryManager,
+                                                      bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
@@ -81,18 +86,16 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
 
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    struct MeshStructure          *l_meshStructure           = NULL;
-    struct GlobalData             *l_globalData              = NULL;
+    MeshStructure* l_meshStructure = nullptr;
+    CompoundGlobalData l_globalData;
 
     // get memory layout of this cluster
-    i_memoryManager.getMemoryLayout( l_cluster,
-                                     l_meshStructure,
-                                     l_globalData
-                                     );
+    std::tie(l_meshStructure, l_globalData) = i_memoryManager.getMemoryLayout(l_cluster);
 
     // add this time cluster
     m_clusters.push_back( new TimeCluster( l_cluster,
                                            m_timeStepping.clusterIds[l_cluster],
+                                           usePlasticity,
                                            l_meshStructure,
                                            l_globalData,
                                            &i_memoryManager.getLtsTree()->child(l_cluster),
@@ -310,16 +313,42 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     updateClusterDependencies(l_cluster);
   }
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
+#endif
+
+  // Setup timeout for aborting after a period of not updating
+  const auto timeoutMinimum = std::chrono::minutes(15);
+  const auto numberOfCells = std::accumulate(m_clusters.begin(), m_clusters.end(), 0L,
+                                             [](const long sum, const auto& cluster) {
+                                               return sum + cluster->getNumberOfCells();
+                                             });
+  const auto timeoutFromCells = numberOfCells * std::chrono::milliseconds(1);
+  const auto timeout = std::max<std::common_type_t<decltype(timeoutMinimum), decltype(timeoutFromCells)>>(
+      timeoutMinimum, timeoutFromCells);
+  auto lastUpdateTime = std::chrono::steady_clock::now();
+
+
   // iterate until all queues are empty and the next synchronization point in time is reached
   while( !( m_localCopyQueue.empty()       && m_localInteriorQueue.empty() &&
             m_neighboringCopyQueue.empty() && m_neighboringInteriorQueue.empty() ) ) {
+    bool wasSomethingUpdated = false;
 #ifdef USE_MPI
+    const auto currentTime = std::chrono::steady_clock::now();
+    const auto timeSinceLastUpdate = currentTime - lastUpdateTime;
+    if (timeSinceLastUpdate > timeout) {
+      const auto durationInSeconds = std::chrono::duration_cast<std::chrono::seconds>(timeSinceLastUpdate);
+      logError() << "No update for "  << durationInSeconds.count() << " seconds. Aborting.";
+    }
+
     // iterate over all items of the local copy queue and update everything possible
     for( std::list<TimeCluster*>::iterator l_cluster = m_localCopyQueue.begin(); l_cluster != m_localCopyQueue.end(); ) {
       if( (*l_cluster)->computeLocalCopy() ) {
         unsigned int l_clusterId = (*l_cluster)->m_clusterId;
         l_cluster = m_localCopyQueue.erase( l_cluster );
         updateClusterDependencies( l_clusterId );
+        wasSomethingUpdated = true;
       }
       else l_cluster++;
     }
@@ -330,6 +359,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
         unsigned int l_clusterId = (*l_cluster)->m_clusterId;
         l_cluster = m_neighboringCopyQueue.erase( l_cluster );
         updateClusterDependencies( l_clusterId );
+        wasSomethingUpdated = true;
       }
       else l_cluster++;
     }
@@ -341,6 +371,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
       l_timeCluster->computeLocalInterior();
       m_localInteriorQueue.pop();
       updateClusterDependencies(l_timeCluster->m_clusterId);
+      wasSomethingUpdated = true;
     }
 
     // update a single interior region (if present) with neighboring updates
@@ -349,6 +380,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
       l_timeCluster->computeNeighboringInterior();
       m_neighboringInteriorQueue.pop();
       updateClusterDependencies(l_timeCluster->m_clusterId);
+      wasSomethingUpdated = true;
     }
 
     // print progress of largest time cluster
@@ -361,7 +393,14 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
       logInfo(rank) << "#max-updates since sync: " << m_logUpdates
                          << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
     }
+
+    if (wasSomethingUpdated) {
+      lastUpdateTime = std::chrono::steady_clock::now();
+    }
   }
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime()
@@ -413,7 +452,12 @@ void seissol::time_stepping::TimeManager::pollForCommunication() {
   // pin this thread to the last core
   volatile unsigned int l_signalSum = 0;
 
-  parallel::pinToFreeCPUs();
+  seissol::SeisSol::main.getPinning().pinToFreeCPUs();
+
+#ifdef ACL_DEVICE
+  // pthread should also get pinned to a dedicated device
+  device::DeviceInstance::getInstance().api->setDevice(MPI::mpi.getDeviceID());
+#endif // ACL_DEVICE
 
   //logInfo(0) << "Launching communication thread on OS core id:" << l_numberOfHWThreads;
 

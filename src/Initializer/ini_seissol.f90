@@ -99,7 +99,7 @@ CONTAINS
     INTEGER                        :: dummy(4)                                 !
     INTEGER                        :: nGraphVertex                             !
     INTEGER                        :: LocPoly                                  !
-	INTEGER						   :: IntegrationMask(1:9)					   !
+    INTEGER                        :: IntegrationMask(1:9)                     !
     INTEGER, POINTER               :: MetisWeight(:)                           !
     REAL                           :: AnelasticFactor(7,10)                    ! Factor of additional cost due to anelasticity
     REAL                           :: OrderFactor(7)                           ! Factor of additional cost due to order
@@ -249,7 +249,7 @@ CONTAINS
     !                                                                          !
     IF (allocStat .NE. 0) THEN                                                 ! Error Handling
        logError(*) 'could not allocate all variables!'      !
-       STOP                                                                    ! STOP
+       call MPI_ABORT(MPI%commWorld, 134)     
     END IF                                                                     !
     !                                                                          !
     pvar(:,:)  = 0.                                                            ! Initialize
@@ -262,11 +262,9 @@ CONTAINS
          EQN            = EQN                           , &                    !            OptionalFields%Backgroundvalue
          MESH           = MESH                          , &                    !
          DISC           = DISC                          , &                    !
-         IO             = IO                              )                    !
+         IO             = IO                            , &                     !
+         MPI            = MPI                             )                    !
     !                                                                          !
-    !
-    !T. Ulrich 08.2015 Read 2D basis Function for Vr output
-    CALL Read2dGF(DISC,IO)
     !
     IF (EQN%linearized) THEN                                                   !
        CALL ini_MODEL(                                      &                  ! Initialize Local Linearized calculation
@@ -302,7 +300,7 @@ CONTAINS
 
         IF(BND%periodic.NE.0)THEN
            logError(*) 'MetisWeights can only be computed for non-periodic boundary conditions!'
-           STOP
+           call MPI_ABORT(MPI%commWorld, 134)
         ENDIF
 
         ALLOCATE(MetisWeight(MESH%nElem))
@@ -364,12 +362,12 @@ CONTAINS
         logInfo(*) 'Metis weights computed successfully!'
         logInfo(*) 'weighted graph file written to ',TRIM(IO%MetisFile) // '.dgraph.weighted'
         logInfo(*) 'Terminating Programm !'
-        STOP
+        call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
 #endif
 
     ! TODO do we need to call this function when we read a checkpoint?? (SR)
-    CALL icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
+    CALL icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO, MPI)
     ! Pre-compute basis functions at Gauss points of non-conforming boundaries
  !   CALL NonConformingGPEvaluation3D(DISC, MESH, IO, BND)
  !   CALL DGSponge(0., EQN, DISC, MESH, BND, IC, SOURCE, IO) ! not yet done for hybrids/unified version

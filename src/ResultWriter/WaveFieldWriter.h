@@ -110,13 +110,13 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	unsigned int m_numLowCells;
 
 	/** Pointer to the degrees of freedom */
-	const double* m_dofs;
+	const real* m_dofs;
 
 	/** Pointer to the plastic strain */
-	const double* m_pstrain;
+	const real* m_pstrain;
 
 	/** Pointer to the integrals */
-	const double* m_integrals;
+	const real* m_integrals;
 
 	/** Mapping from the cell order to dofs order */
 	unsigned int* m_map;
@@ -139,6 +139,8 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
   
   unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
+	std::vector<unsigned int> generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner, 
+		const std::vector<unsigned> &LtsClusteringData, std::map<int, int> &newToOldCellMap);
 
 public:
 	WaveFieldWriter()
@@ -178,18 +180,7 @@ public:
 	/**
 	 * Called by ASYNC on all ranks
 	 */
-	void setUp()
-	{
-		setExecutor(m_executor);
-		if (isAffinityNecessary()) {
-		  const auto freeCpus = parallel::getFreeCPUsMask();
-		  logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
-		  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
-		    logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
-		  }
-		  setAffinityIfNecessary(freeCpus);
-		}
-	}
+	void setUp();
 
   void setWaveFieldInterval(double interval) {
     setSyncInterval(interval);
@@ -202,8 +193,8 @@ public:
 	 * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
-			const MeshReader &meshReader,
-			const double* dofs,  const double* pstrain, const double* integrals,
+			const MeshReader &meshReader,  const std::vector<unsigned> &LtsClusteringData,
+			const real* dofs,  const real* pstrain, const real* integrals,
 			unsigned int* map,
 			int refinement, int* outputMask, double* outputRegionBounds,
       xdmfwriter::BackendType backend);

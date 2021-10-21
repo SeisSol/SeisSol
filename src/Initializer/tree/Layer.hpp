@@ -42,9 +42,11 @@
 
 #include "Node.hpp"
 #include <Initializer/MemoryAllocator.h>
+#include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
 #include <bitset>
 #include <limits>
 #include <cstring>
+
 
 enum LayerType {
   Ghost    = (1 << 0),
@@ -61,6 +63,9 @@ namespace seissol {
     class Bucket;
     struct MemoryInfo;
     class Layer;
+#ifdef ACL_DEVICE
+    struct ScratchpadMemory;
+#endif
   }
 }
 
@@ -78,6 +83,10 @@ struct seissol::initializers::Bucket {
   Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
+#ifdef ACL_DEVICE
+struct seissol::initializers::ScratchpadMemory : public seissol::initializers::Bucket{};
+#endif
+
 struct seissol::initializers::MemoryInfo {
   size_t bytes;
   size_t alignment;
@@ -92,6 +101,12 @@ private:
   void** m_vars;
   void** m_buckets;
   size_t* m_bucketSizes;
+
+#ifdef ACL_DEVICE
+  void** m_scratchpads{};
+  size_t* m_scratchpadSizes{};
+  ConditionalBatchTableT m_conditionalBatchTable{};
+#endif
 
 public:
   Layer() : m_numberOfCells(0), m_vars(NULL), m_buckets(NULL), m_bucketSizes(NULL) {}
@@ -109,6 +124,14 @@ public:
     assert(m_buckets != nullptr && m_buckets[handle.index] != nullptr);
     return m_buckets[handle.index];
   }
+
+#ifdef ACL_DEVICE
+  void* getScratchpadMemory(ScratchpadMemory const& handle) {
+    assert(handle.index != std::numeric_limits<unsigned>::max());
+    assert(m_scratchpads != NULL/* && m_vars[handle.index] != NULL*/);
+    return (m_scratchpads[handle.index]);
+  }
+#endif
   
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
   inline bool isMasked(LayerMask layerMask) const {
@@ -140,11 +163,30 @@ public:
     m_bucketSizes = new size_t[numBuckets];
     std::fill(m_bucketSizes, m_bucketSizes + numBuckets, 0);
   }
+
+#ifdef ACL_DEVICE
+  inline void allocateScratchpadArrays(unsigned numScratchPads) {
+    assert(m_scratchpads == nullptr && m_scratchpadSizes == nullptr);
+
+    m_scratchpads = new void*[numScratchPads];
+    std::fill(m_scratchpads, m_scratchpads + numScratchPads, nullptr);
+
+    m_scratchpadSizes = new size_t[numScratchPads];
+    std::fill(m_scratchpadSizes, m_scratchpadSizes + numScratchPads, 0);
+  }
+#endif
   
   inline void setBucketSize(Bucket const& handle, size_t size) {
     assert(m_bucketSizes != NULL);
     m_bucketSizes[handle.index] = size;
   }
+
+#ifdef ACL_DEVICE
+  inline void setScratchpadSize(ScratchpadMemory const& handle, size_t size) {
+    assert(m_scratchpadSizes != NULL);
+    m_scratchpadSizes[handle.index] = size;
+  }
+#endif
 
   inline size_t getBucketSize(Bucket const& handle) {
     assert(m_bucketSizes != nullptr);
@@ -165,6 +207,16 @@ public:
     }
   }
 
+#ifdef ACL_DEVICE
+  // Overrides array's elements; if the corresponding local
+  // scratchpad mem. size is bigger then the one inside of the array
+  void findMaxScratchpadSizes(std::vector<size_t>& bytes) {
+    for (size_t id = 0; id < bytes.size(); ++id) {
+      bytes[id] = std::max(bytes[id], m_scratchpadSizes[id]);
+    }
+  }
+#endif
+
   void setMemoryRegionsForVariables(std::vector<MemoryInfo> const& vars, void** memory, std::vector<size_t>& offsets) {
     assert(m_vars != NULL);
     for (unsigned var = 0; var < vars.size(); ++var) {
@@ -180,10 +232,22 @@ public:
       m_buckets[bucket] = static_cast<char*>(memory[bucket]) + offsets[bucket];
     }
   }
+
+#ifdef ACL_DEVICE
+  void setMemoryRegionsForScratchpads(void** memory, size_t numScratchPads) {
+    assert(m_scratchpads != NULL);
+    for (size_t id = 0; id < numScratchPads; ++id) {
+      m_scratchpads[id] = static_cast<char*>(memory[id]);
+    }
+  }
+#endif
   
   void touchVariables(std::vector<MemoryInfo> const& vars) {
     for (unsigned var = 0; var < vars.size(); ++var) {
-      if (!isMasked(vars[var].mask)) {
+
+      // NOTE: we don't touch device global memory because it is in a different address space
+      // we will do deep-copy from the host to a device later on
+      if (!isMasked(vars[var].mask) && (vars[var].memkind != seissol::memory::DeviceGlobalMemory)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -193,6 +257,16 @@ public:
       }
     }
   }
+
+#ifdef ACL_DEVICE
+  ConditionalBatchTableT& getCondBatchTable() {
+    return m_conditionalBatchTable;
+  }
+
+  const ConditionalBatchTableT& getCondBatchTable() const {
+    return m_conditionalBatchTable;
+  }
+#endif // ACL_DEVICE
 };
 
 #endif
