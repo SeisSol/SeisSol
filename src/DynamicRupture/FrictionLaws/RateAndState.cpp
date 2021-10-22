@@ -1,9 +1,9 @@
 #include "RateAndState.h"
 
-void seissol::dr::friction_law::RateAndStateNucFL103::copyLtsTreeToLocalRS(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real fullUpdateTime) {
+namespace seissol::dr::friction_law {
+void RateAndStateNucFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
+                                                seissol::initializers::DynamicRupture* dynRup,
+                                                real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // maybe change later to const_cast?
@@ -21,7 +21,7 @@ void seissol::dr::friction_law::RateAndStateNucFL103::copyLtsTreeToLocalRS(
   dynStress_time = layerData.var(ConcreteLts->dynStress_time);
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::preCalcTime() {
+void RateAndStateNucFL103::preCalcTime() {
   dt = 0;
   for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
     dt += deltaT[iTimeGP];
@@ -31,8 +31,8 @@ void seissol::dr::friction_law::RateAndStateNucFL103::preCalcTime() {
   }
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::setInitialValues(
-    std::array<real, numOfPointsPadded>& LocSV, unsigned int ltsFace) {
+void RateAndStateNucFL103::setInitialValues(std::array<real, numOfPointsPadded>& LocSV,
+                                            unsigned int ltsFace) {
   if (m_fullUpdateTime <= m_Params->t_0) {
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       for (int i = 0; i < 6; i++) {
@@ -49,7 +49,7 @@ void seissol::dr::friction_law::RateAndStateNucFL103::setInitialValues(
   }
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::calcInitialSlipRate(
+void RateAndStateNucFL103::calcInitialSlipRate(
     std::array<real, numOfPointsPadded>& TotalShearStressYZ,
     FaultStresses& faultStresses,
     std::array<real, numOfPointsPadded>& stateVarZero,
@@ -88,7 +88,7 @@ void seissol::dr::friction_law::RateAndStateNucFL103::calcInitialSlipRate(
   } // End of iBndGP-loop
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::updateStateVariableIterative(
+void RateAndStateNucFL103::updateStateVariableIterative(
     bool& has_converged,
     std::array<real, numOfPointsPadded>& stateVarZero,
     std::array<real, numOfPointsPadded>& SR_tmp,
@@ -128,8 +128,8 @@ void seissol::dr::friction_law::RateAndStateNucFL103::updateStateVariableIterati
   } // End of iBndGP-loop
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::executeIfNotConverged(
-    std::array<real, numOfPointsPadded>& LocSV, unsigned ltsFace) {
+void RateAndStateNucFL103::executeIfNotConverged(std::array<real, numOfPointsPadded>& LocSV,
+                                                 unsigned ltsFace) {
   real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV[0] / RS_a_array[ltsFace][0]) *
              SlipRateMagnitude[ltsFace][0];
   //! logError(*) 'nonConvergence RS Newton', time
@@ -137,7 +137,7 @@ void seissol::dr::friction_law::RateAndStateNucFL103::executeIfNotConverged(
   assert(!std::isnan(tmp) && "nonConvergence RS Newton");
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::calcSlipRateAndTraction(
+void RateAndStateNucFL103::calcSlipRateAndTraction(
     std::array<real, numOfPointsPadded>& stateVarZero,
     std::array<real, numOfPointsPadded>& SR_tmp,
     std::array<real, numOfPointsPadded>& LocSV,
@@ -208,8 +208,8 @@ void seissol::dr::friction_law::RateAndStateNucFL103::calcSlipRateAndTraction(
   } // End of BndGP-loop
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::resampleStateVar(
-    real deltaStateVar[numOfPointsPadded], unsigned int ltsFace) {
+void RateAndStateNucFL103::resampleStateVar(real deltaStateVar[numOfPointsPadded],
+                                            unsigned int ltsFace) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resampleM = init::resample::Values;
   real resampledDeltaStateVar[numOfPointsPadded];
@@ -223,7 +223,7 @@ void seissol::dr::friction_law::RateAndStateNucFL103::resampleStateVar(
   }
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::saveDynamicStressOutput(unsigned int face) {
+void RateAndStateNucFL103::saveDynamicStressOutput(unsigned int face) {
   for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
     if (rupture_time[face][iBndGP] > 0.0 && rupture_time[face][iBndGP] <= m_fullUpdateTime &&
@@ -235,21 +235,20 @@ void seissol::dr::friction_law::RateAndStateNucFL103::saveDynamicStressOutput(un
   }
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::hookSetInitialP_f(
-    std::array<real, numOfPointsPadded>& P_f, unsigned int ltsFace) {
+void RateAndStateNucFL103::hookSetInitialP_f(std::array<real, numOfPointsPadded>& P_f,
+                                             unsigned int ltsFace) {
   for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
     P_f[iBndGP] = 0.0;
   }
 }
 
-void seissol::dr::friction_law::RateAndStateNucFL103::hookCalcP_f(
-    std::array<real, numOfPointsPadded>& P_f,
-    FaultStresses& faultStresses,
-    bool saveTmpInTP,
-    unsigned int iTimeGP,
-    unsigned int ltsFace) {}
+void RateAndStateNucFL103::hookCalcP_f(std::array<real, numOfPointsPadded>& P_f,
+                                       FaultStresses& faultStresses,
+                                       bool saveTmpInTP,
+                                       unsigned int iTimeGP,
+                                       unsigned int ltsFace) {}
 
-void seissol::dr::friction_law::RateAndStateNucFL103::updateStateVariable(
+void RateAndStateNucFL103::updateStateVariable(
     int iBndGP, unsigned int face, real SV0, real time_inc, real& SR_tmp, real& LocSV) {
   double flv, fss, SVss;
   double RS_fw = m_Params->mu_w;
@@ -274,13 +273,12 @@ void seissol::dr::friction_law::RateAndStateNucFL103::updateStateVariable(
   assert(!(std::isnan(LocSV) && iBndGP < numberOfPoints) && "NaN detected");
 }
 
-bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR(
-    unsigned int ltsFace,
-    int nSRupdates,
-    std::array<real, numOfPointsPadded>& LocSV,
-    std::array<real, numOfPointsPadded>& n_stress,
-    std::array<real, numOfPointsPadded>& sh_stress,
-    std::array<real, numOfPointsPadded>& SRtest) {
+bool RateAndStateNucFL103::IterativelyInvertSR(unsigned int ltsFace,
+                                               int nSRupdates,
+                                               std::array<real, numOfPointsPadded>& LocSV,
+                                               std::array<real, numOfPointsPadded>& n_stress,
+                                               std::array<real, numOfPointsPadded>& sh_stress,
+                                               std::array<real, numOfPointsPadded>& SRtest) {
 
   real tmp[numOfPointsPadded], tmp2[numOfPointsPadded], tmp3[numOfPointsPadded],
       mu_f[numOfPointsPadded], dmu_f[numOfPointsPadded], NR[numOfPointsPadded],
@@ -348,13 +346,12 @@ bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR(
   return has_converged;
 }
 
-bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR_Brent(
-    unsigned int ltsFace,
-    int nSRupdates,
-    std::array<real, numOfPointsPadded>& LocSV,
-    std::array<real, numOfPointsPadded>& n_stress,
-    std::array<real, numOfPointsPadded>& sh_stress,
-    std::array<real, numOfPointsPadded>& SRtest) {
+bool RateAndStateNucFL103::IterativelyInvertSR_Brent(unsigned int ltsFace,
+                                                     int nSRupdates,
+                                                     std::array<real, numOfPointsPadded>& LocSV,
+                                                     std::array<real, numOfPointsPadded>& n_stress,
+                                                     std::array<real, numOfPointsPadded>& sh_stress,
+                                                     std::array<real, numOfPointsPadded>& SRtest) {
   std::function<double(double, int)> F;
   double tol = 1e-30;
 
@@ -452,9 +449,7 @@ bool seissol::dr::friction_law::RateAndStateNucFL103::IterativelyInvertSR_Brent(
   }
   return true;
 }
-void seissol::dr::friction_law::RateAndStateNucFL103::updateMu(unsigned int ltsFace,
-                                                               unsigned int iBndGP,
-                                                               real LocSV) {
+void RateAndStateNucFL103::updateMu(unsigned int ltsFace, unsigned int iBndGP, real LocSV) {
   //! X in Asinh(x) for mu calculation
   real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) *
              SlipRateMagnitude[ltsFace][iBndGP];
@@ -463,15 +458,13 @@ void seissol::dr::friction_law::RateAndStateNucFL103::updateMu(unsigned int ltsF
       RS_a_array[ltsFace][iBndGP] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
 }
 
-void seissol::dr::friction_law::RateAndStateThermalFL103::initializeTP(
-    seissol::Interoperability& e_interoperability) {
+void RateAndStateThermalFL103::initializeTP(seissol::Interoperability& e_interoperability) {
   e_interoperability.getDynRupTP(TP_grid, TP_DFinv);
 }
 
-void seissol::dr::friction_law::RateAndStateThermalFL103::copyLtsTreeToLocalRS(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real fullUpdateTime) {
+void RateAndStateThermalFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
+                                                    seissol::initializers::DynamicRupture* dynRup,
+                                                    real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
   RateAndStateNucFL103::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
 
@@ -486,19 +479,18 @@ void seissol::dr::friction_law::RateAndStateThermalFL103::copyLtsTreeToLocalRS(
   alpha_hy = layerData.var(ConcreteLts->alpha_hy);
 }
 
-void seissol::dr::friction_law::RateAndStateThermalFL103::hookSetInitialP_f(
-    std::array<real, numOfPointsPadded>& P_f, unsigned int ltsFace) {
+void RateAndStateThermalFL103::hookSetInitialP_f(std::array<real, numOfPointsPadded>& P_f,
+                                                 unsigned int ltsFace) {
   for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
     P_f[iBndGP] = pressure[ltsFace][iBndGP];
   }
 }
 
-void seissol::dr::friction_law::RateAndStateThermalFL103::hookCalcP_f(
-    std::array<real, numOfPointsPadded>& P_f,
-    FaultStresses& faultStresses,
-    bool saveTmpInTP,
-    unsigned int iTimeGP,
-    unsigned int ltsFace) {
+void RateAndStateThermalFL103::hookCalcP_f(std::array<real, numOfPointsPadded>& P_f,
+                                           FaultStresses& faultStresses,
+                                           bool saveTmpInTP,
+                                           unsigned int iTimeGP,
+                                           unsigned int ltsFace) {
   for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
     // compute fault strength (Sh)
@@ -524,8 +516,9 @@ void seissol::dr::friction_law::RateAndStateThermalFL103::hookCalcP_f(
   }
 }
 
-void seissol::dr::friction_law::RateAndStateThermalFL103::Calc_ThermalPressure(
-    unsigned int iBndGP, unsigned int iTimeGP, unsigned int ltsFace) {
+void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int iBndGP,
+                                                    unsigned int iTimeGP,
+                                                    unsigned int ltsFace) {
   real tauV, Lambda_prime, T, p;
   real tmp[TP_grid_nz];
   real omega_theta[TP_grid_nz];
@@ -582,10 +575,10 @@ void seissol::dr::friction_law::RateAndStateThermalFL103::Calc_ThermalPressure(
   pressure[ltsFace][iBndGP] = -p + m_Params->IniPressure;
 }
 
-real seissol::dr::friction_law::RateAndStateThermalFL103::heat_source(real tmp,
-                                                                      real alpha,
-                                                                      unsigned int iTP_grid_nz,
-                                                                      unsigned int iTimeGP) {
+real RateAndStateThermalFL103::heat_source(real tmp,
+                                           real alpha,
+                                           unsigned int iTP_grid_nz,
+                                           unsigned int iTimeGP) {
   //! original function in spatial domain
   //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
   //! function in the wavenumber domain *including additional factors in front of the heat source
@@ -596,3 +589,4 @@ real seissol::dr::friction_law::RateAndStateThermalFL103::heat_source(real tmp,
          exp(-0.5 * seissol::dr::aux::power(TP_grid[iTP_grid_nz], 2)) *
          (1.0 - exp(-alpha * deltaT[iTimeGP] * tmp));
 }
+} // namespace seissol::dr::friction_law

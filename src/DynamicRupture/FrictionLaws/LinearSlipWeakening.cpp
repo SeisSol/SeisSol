@@ -1,10 +1,9 @@
 #include "LinearSlipWeakening.h"
-
-void seissol::dr::friction_law::LinearSlipWeakeningLawFL2::calcStrengthHook(
-    std::array<real, numOfPointsPadded>& Strength,
-    FaultStresses& faultStresses,
-    unsigned int iTimeGP,
-    unsigned int ltsFace) {
+namespace seissol::dr::friction_law {
+void LinearSlipWeakeningLawFL2::calcStrengthHook(std::array<real, numOfPointsPadded>& Strength,
+                                                 FaultStresses& faultStresses,
+                                                 unsigned int iTimeGP,
+                                                 unsigned int ltsFace) {
   for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
     //-------------------------------------
     // calculate Fault Strength
@@ -17,7 +16,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL2::calcStrengthHook(
   }
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawFL2::calcStateVariableHook(
+void LinearSlipWeakeningLawFL2::calcStateVariableHook(
     std::array<real, numOfPointsPadded>& stateVariablePsi,
     std::array<real, numOfPointsPadded>& outputSlip,
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
@@ -48,10 +47,9 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL2::calcStateVariableHook
   }
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawFL16::copyLtsTreeToLocal(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real fullUpdateTime) {
+void LinearSlipWeakeningLawFL16::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                                                    seissol::initializers::DynamicRupture* dynRup,
+                                                    real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
   LinearSlipWeakeningLawFL2::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // maybe change later to const_cast?
@@ -61,11 +59,11 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL16::copyLtsTreeToLocal(
   tn = layerData.var(ConcreteLts->tn);
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawFL16::setTimeHook(unsigned int ltsFace) {
+void LinearSlipWeakeningLawFL16::setTimeHook(unsigned int ltsFace) {
   tn[ltsFace] = m_fullUpdateTime;
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawFL16::calcStateVariableHook(
+void LinearSlipWeakeningLawFL16::calcStateVariableHook(
     std::array<real, numOfPointsPadded>& stateVariablePsi,
     std::array<real, numOfPointsPadded>& outputSlip,
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
@@ -93,7 +91,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawFL16::calcStateVariableHoo
   }
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::calcStrengthHook(
+void LinearSlipWeakeningLawBimaterialFL6::calcStrengthHook(
     std::array<real, numOfPointsPadded>& Strength,
     FaultStresses& faultStresses,
     unsigned int iTimeGP,
@@ -121,7 +119,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::calcStrengt
   }
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::calcStateVariableHook(
+void LinearSlipWeakeningLawBimaterialFL6::calcStateVariableHook(
     std::array<real, numOfPointsPadded>& stateVariablePsi,
     std::array<real, numOfPointsPadded>& outputSlip,
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
@@ -141,7 +139,7 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::calcStateVa
   }
 }
 
-void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::copyLtsTreeToLocal(
+void LinearSlipWeakeningLawBimaterialFL6::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real fullUpdateTime) {
@@ -156,9 +154,10 @@ void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::copyLtsTree
 /*
  * calculates strength
  */
-void seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6::prak_clif_mod(
+void LinearSlipWeakeningLawBimaterialFL6::prak_clif_mod(
     real& strength, real& sigma, real& LocSlipRate, real& mu, real& dt) {
   real expterm;
   expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star) * dt / m_Params->prakash_length);
   strength = strength * expterm - std::max((real)0.0, -mu * sigma) * (expterm - 1.0);
 }
+} // namespace seissol::dr::friction_law

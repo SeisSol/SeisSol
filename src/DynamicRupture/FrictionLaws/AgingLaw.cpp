@@ -1,13 +1,10 @@
 #include "AgingLaw.h"
-
-real seissol::dr::friction_law::AgingLaw::calcStateVariableHook(real SV0,
-                                                                real tmp,
-                                                                real time_inc,
-                                                                real RS_sl0) {
+namespace seissol::dr::friction_law {
+real AgingLaw::calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) {
   return SV0 * exp(-tmp * time_inc / RS_sl0) + RS_sl0 / tmp * (1.0 - exp(-tmp * time_inc / RS_sl0));
 }
 
-void seissol::dr::friction_law::AgingLaw::evaluate(
+void AgingLaw::evaluate(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -230,3 +227,5 @@ void seissol::dr::friction_law::AgingLaw::evaluate(
                                          ltsFace);
   } // end face-loop
 } // end evaluate function
+
+} // namespace seissol::dr::friction_law

@@ -1,6 +1,7 @@
 #include "AgingLawInitializer.h"
 
-void seissol::dr::initializers::AgingLawInitializer::initializeFrictionMatrices(
+namespace seissol::dr::initializers {
+void AgingLawInitializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -36,3 +37,4 @@ void seissol::dr::initializers::AgingLawInitializer::initializeFrictionMatrices(
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   } // leaf_iterator loop
 }
+} // namespace seissol::dr::initializers

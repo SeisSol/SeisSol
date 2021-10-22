@@ -1,12 +1,12 @@
 #include "NoFault.h"
 
-void seissol::dr::friction_law::NoFault::evaluate(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real fullUpdateTime,
-    double timeWeights[CONVERGENCE_ORDER]) {
+namespace seissol::dr::friction_law {
+void NoFault::evaluate(seissol::initializers::Layer& layerData,
+                       seissol::initializers::DynamicRupture* dynRup,
+                       real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                       real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                       real fullUpdateTime,
+                       double timeWeights[CONVERGENCE_ORDER]) {
   copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -35,3 +35,4 @@ void seissol::dr::friction_law::NoFault::evaluate(
                                          ltsFace);
   } // End of Loop over Faces
 } // End of Function evaluate
+} // namespace seissol::dr::friction_law

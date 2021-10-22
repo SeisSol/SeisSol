@@ -1,13 +1,10 @@
-//
-// Created by sebastian on 13/10/2021.
-//
-
 #include "VelocityWeakening.h"
 
-void seissol::dr::friction_law::VelocityWeakening::copyLtsTreeToLocal(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real fullUpdateTime) {
+namespace seissol::dr::friction_law {
+
+void VelocityWeakening::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                                           seissol::initializers::DynamicRupture* dynRup,
+                                           real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // TODO: change later to const_cast
@@ -25,7 +22,7 @@ void seissol::dr::friction_law::VelocityWeakening::copyLtsTreeToLocal(
    */
 }
 
-void seissol::dr::friction_law::VelocityWeakening::evaluate(
+void VelocityWeakening::evaluate(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -228,3 +225,5 @@ void seissol::dr::friction_law::VelocityWeakening::evaluate(
   } // End of Loop over Faces
 
 } // End of Function evaluate
+
+} // namespace seissol::dr::friction_law

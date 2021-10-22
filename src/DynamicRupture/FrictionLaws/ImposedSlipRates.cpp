@@ -1,9 +1,9 @@
 #include "ImposedSlipRates.h"
 
-void seissol::dr::friction_law::ImposedSlipRates::copyLtsTreeToLocal(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real fullUpdateTime) {
+namespace seissol::dr::friction_law {
+void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                                          seissol::initializers::DynamicRupture* dynRup,
+                                          real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
@@ -13,7 +13,7 @@ void seissol::dr::friction_law::ImposedSlipRates::copyLtsTreeToLocal(
   averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
 }
 
-void seissol::dr::friction_law::ImposedSlipRates::evaluate(
+void ImposedSlipRates::evaluate(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -91,3 +91,4 @@ void seissol::dr::friction_law::ImposedSlipRates::evaluate(
                                          ltsFace);
   } // End of Loop over Faces
 }
+} // namespace seissol::dr::friction_law

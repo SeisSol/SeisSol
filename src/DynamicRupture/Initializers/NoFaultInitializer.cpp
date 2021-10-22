@@ -1,6 +1,7 @@
 #include "NoFaultInitializer.h"
 
-void seissol::dr::initializers::NoFaultInitializer::initializeFrictionMatrices(
+namespace seissol::dr::initializers {
+void NoFaultInitializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -10,3 +11,4 @@ void seissol::dr::initializers::NoFaultInitializer::initializeFrictionMatrices(
   BaseDRInitializer::initializeFrictionMatrices(
       dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
 }
+} // namespace seissol::dr::initializers

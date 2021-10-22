@@ -1,11 +1,11 @@
 #include "BaseDRInitializer.h"
 
-void seissol::dr::initializers::BaseDRInitializer::setInputParam(
-    dr::DRParameters* DynRupParameter) {
+namespace seissol::dr::initializers {
+void BaseDRInitializer::setInputParam(dr::DRParameters* DynRupParameter) {
   m_Params = DynRupParameter;
 }
 
-void seissol::dr::initializers::BaseDRInitializer::initializeFrictionMatrices(
+void BaseDRInitializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -123,3 +123,4 @@ void seissol::dr::initializers::BaseDRInitializer::initializeFrictionMatrices(
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   } // leaf_iterator loop
 }
+} // namespace seissol::dr::initializers

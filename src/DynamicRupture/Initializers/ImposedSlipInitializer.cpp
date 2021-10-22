@@ -1,9 +1,10 @@
 #include "ImposedSlipInitializer.h"
 
+namespace seissol::dr::initializers {
 /*
  * nucleationStressInFaultCS initialized which is used to impose slip rates on the fault surface
  */
-void seissol::dr::initializers::ImposedSlipRatesFL33Initializer::initializeFrictionMatrices(
+void ImposedSlipRatesFL33Initializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -36,3 +37,4 @@ void seissol::dr::initializers::ImposedSlipRatesFL33Initializer::initializeFrict
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   } // leaf_iterator loop
 }
+} // namespace seissol::dr::initializers

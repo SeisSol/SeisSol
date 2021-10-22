@@ -1,5 +1,7 @@
 #include "LinearSlipWeakeningInitializer.h"
 
+namespace seissol::dr::initializers {
+
 void seissol::dr::initializers::LinearSlipWeakeningFL2Initializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
@@ -52,7 +54,7 @@ void seissol::dr::initializers::LinearSlipWeakeningFL2Initializer::initializeFri
   } // leaf_iterator loop
 }
 
-void seissol::dr::initializers::LinearSlipWeakeningFL16Initializer::initializeFrictionMatrices(
+void LinearSlipWeakeningFL16Initializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -94,7 +96,7 @@ void seissol::dr::initializers::LinearSlipWeakeningFL16Initializer::initializeFr
   } // leaf_iterator loop
 }
 
-void seissol::dr::initializers::LinearBimaterialFL6Initializer::initializeFrictionMatrices(
+void LinearBimaterialFL6Initializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -126,3 +128,4 @@ void seissol::dr::initializers::LinearBimaterialFL6Initializer::initializeFricti
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   } // leaf_iterator loop
 }
+} // namespace seissol::dr::initializers

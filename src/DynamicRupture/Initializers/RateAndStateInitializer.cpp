@@ -1,6 +1,7 @@
 #include "RateAndStateInitializer.h"
 
-void seissol::dr::initializers::RateAndStateFL103Initializer::initializeFrictionMatrices(
+namespace seissol::dr::initializers {
+void RateAndStateFL103Initializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -66,7 +67,7 @@ void seissol::dr::initializers::RateAndStateFL103Initializer::initializeFriction
   } // leaf_iterator loop
 }
 
-void seissol::dr::initializers::RateAndStateFL103TPInitializer::initializeFrictionMatrices(
+void RateAndStateFL103TPInitializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -120,3 +121,4 @@ void seissol::dr::initializers::RateAndStateFL103TPInitializer::initializeFricti
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   } // leaf_iterator loop
 }
+} // namespace seissol::dr::initializers
