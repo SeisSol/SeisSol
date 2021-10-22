@@ -2,7 +2,6 @@
 
 #include <Solver/Interoperability.h>
 
-
 seissol::dr::factory::AbstractFactory*
     seissol::dr::factory::getFactory(dr::DRParameters* DynRupParameter) {
   switch (DynRupParameter->FrictionLawType) {
