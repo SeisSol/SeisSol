@@ -576,9 +576,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol::initializers::Layer& i_layerData,
                                                                         double subTimeStart) {
   if (usePlasticity) {
-    computeNeighboringIntegrationImplementation<true>(i_layerData);
+    computeNeighboringIntegrationImplementation<true>(i_layerData, subTimeStart);
   } else {
-    computeNeighboringIntegrationImplementation<false>(i_layerData);
+    computeNeighboringIntegrationImplementation<false>(i_layerData, subTimeStart);
   }
 }
 #else // ACL_DEVICE
