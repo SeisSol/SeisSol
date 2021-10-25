@@ -12,7 +12,7 @@ class ImposedSlipRates;
 class seissol::dr::friction_law::ImposedSlipRates : public BaseFrictionLaw {
   protected:
   // Attributes
-  real (*nucleationStressInFaultCS)[numOfPointsPadded][6];
+  real (*nucleationStressInFaultCS)[numPaddedPoints][6];
 
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes

@@ -6,7 +6,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionLaws.h"
 #include "Initializer/InputAux.hpp"
-#include "DynamicRupture/DR_Parameters.h"
+#include "DynamicRupture/Parameters.h"
 
 namespace seissol::dr::initializers {
 class BaseDRInitializer; // general parameters initialized that are required by all friction laws
@@ -22,7 +22,7 @@ class BaseDRInitializer; // general parameters initialized that are required by 
 class seissol::dr::initializers::BaseDRInitializer {
   protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
-  static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
+  static constexpr int numPaddedPoints = init::QInterpolated::Stop[0];
   // YAML::Node m_InputParam;
   dr::DRParameters* m_Params;
 

@@ -31,46 +31,47 @@ void ImposedSlipRates::evaluate(
     FaultStresses faultStresses = {};
 
     // declare local variables
-    std::array<real, numOfPointsPadded> tmpSlip{0};
+    std::array<real, numPaddedPoints> tmpSlip{0};
     real tn = fullUpdateTime;
     real time_inc;
-    real Gnuc = 0.0;
+    real gNuc = 0.0;
 
     // compute stresses from Qinterpolated
     precomputeStressFromQInterpolated(
         faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-    for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) { // loop over time steps
-      time_inc = deltaT[iTimeGP];
+    for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
+      time_inc = deltaT[timeIndex];
       tn = tn + time_inc;
-      Gnuc = Calc_SmoothStepIncrement(tn, time_inc) / time_inc;
+      gNuc = calcSmoothStepIncrement(tn, time_inc) / time_inc;
 
-      for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
         //! EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
-        faultStresses.XYTractionResultGP[iTimeGP][iBndGP] =
-            faultStresses.XYStressGP[iTimeGP][iBndGP] -
-            impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
-        faultStresses.XZTractionResultGP[iTimeGP][iBndGP] =
-            faultStresses.XZStressGP[iTimeGP][iBndGP] -
-            impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;
-        slipRateStrike[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
-        slipRateDip[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;
-        SlipRateMagnitude[ltsFace][iBndGP] =
-            std::sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) +
-                      seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
+        faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
+            faultStresses.XYStressGP[timeIndex][pointIndex] -
+            impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
+        faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
+            faultStresses.XZStressGP[timeIndex][pointIndex] -
+            impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
+        slipRateStrike[ltsFace][pointIndex] =
+            nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
+        slipRateDip[ltsFace][pointIndex] = nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
+        slipRateMagnitude[ltsFace][pointIndex] =
+            std::sqrt(std::pow(slipRateStrike[ltsFace][pointIndex], 2) +
+                      std::pow(slipRateDip[ltsFace][pointIndex], 2));
 
         //! Update slip
-        slipStrike[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * time_inc;
-        slipDip[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * time_inc;
-        slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * time_inc;
-        tmpSlip[iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * time_inc;
+        slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * time_inc;
+        slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * time_inc;
+        slip[ltsFace][pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * time_inc;
+        tmpSlip[pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * time_inc;
 
-        tractionXY[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
-        tractionXZ[ltsFace][iBndGP] = faultStresses.XYTractionResultGP[iTimeGP][iBndGP];
+        tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+        tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
       }
     }
     // output rupture front
-    // outside of iTimeGP loop in order to safe an 'if' in a loop
+    // outside of timeIndex loop in order to safe an 'if' in a loop
     // this way, no subtimestep resolution possible
     saveRuptureFrontOutput(ltsFace);
 

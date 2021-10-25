@@ -11,11 +11,11 @@ void BaseFrictionLaw::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   slip = layerData.var(dynRup->slip);
   slipStrike = layerData.var(dynRup->slipStrike);
   slipDip = layerData.var(dynRup->slipDip);
-  SlipRateMagnitude = layerData.var(dynRup->slipRateMagnitude);
+  slipRateMagnitude = layerData.var(dynRup->slipRateMagnitude);
   slipRateStrike = layerData.var(dynRup->slipRateStrike);
   slipRateDip = layerData.var(dynRup->slipRateDip);
-  rupture_time = layerData.var(dynRup->rupture_time);
-  RF = layerData.var(dynRup->RF);
+  ruptureTime = layerData.var(dynRup->rupture_time);
+  ruptureFront = layerData.var(dynRup->RF);
   peakSR = layerData.var(dynRup->peakSR);
   tractionXY = layerData.var(dynRup->tractionXY);
   tractionXZ = layerData.var(dynRup->tractionXZ);
@@ -104,69 +104,77 @@ void BaseFrictionLaw::postcomputeImposedStateFromNewStress(
   }
 }
 
-real BaseFrictionLaw::Calc_SmoothStepIncrement(real current_time, real dt) {
-  real Gnuc;
-  real prevtime;
-  if (current_time > 0.0 && current_time <= m_Params->t_0) {
-    Gnuc = Calc_SmoothStep(current_time);
-    prevtime = current_time - dt;
-    if (prevtime > 0.0) {
-      Gnuc = Gnuc - Calc_SmoothStep(prevtime);
+/*
+ * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
+ */
+real BaseFrictionLaw::calcSmoothStepIncrement(real currentTime, real dt) {
+  real gNuc;
+  real prevTime;
+  if (currentTime > 0.0 && currentTime <= m_Params->t_0) {
+    gNuc = calcSmoothStep(currentTime);
+    prevTime = currentTime - dt;
+    if (prevTime > 0.0) {
+      gNuc = gNuc - calcSmoothStep(prevTime);
     }
   } else {
-    Gnuc = 0.0;
+    gNuc = 0.0;
   }
-  return Gnuc;
+  return gNuc;
 }
 
-real BaseFrictionLaw::Calc_SmoothStep(real current_time) {
-  real Gnuc;
-  if (current_time <= 0) {
-    Gnuc = 0.0;
+/*
+ * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
+ */
+real BaseFrictionLaw::calcSmoothStep(real currentTime) {
+  real gNuc;
+  if (currentTime <= 0) {
+    gNuc = 0.0;
   } else {
-    if (current_time < m_Params->t_0) {
-      Gnuc = std::exp(seissol::dr::aux::power(current_time - m_Params->t_0, 2) /
-                      (current_time * (current_time - 2.0 * m_Params->t_0)));
+    if (currentTime < m_Params->t_0) {
+      gNuc = std::exp(std::pow(currentTime - m_Params->t_0, 2) /
+                      (currentTime * (currentTime - 2.0 * m_Params->t_0)));
     } else {
-      Gnuc = 1.0;
+      gNuc = 1.0;
     }
   }
-  return Gnuc;
+  return gNuc;
 }
 
 void BaseFrictionLaw::saveRuptureFrontOutput(unsigned int ltsFace) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-    if (RF[ltsFace][iBndGP] && SlipRateMagnitude[ltsFace][iBndGP] > 0.001) {
-      rupture_time[ltsFace][iBndGP] = m_fullUpdateTime;
-      RF[ltsFace][iBndGP] = false;
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+    constexpr real ruptureFrontThreshold = 0.001;
+    if (ruptureFront[ltsFace][pointIndex] &&
+        slipRateMagnitude[ltsFace][pointIndex] > ruptureFrontThreshold) {
+      ruptureTime[ltsFace][pointIndex] = m_fullUpdateTime;
+      ruptureFront[ltsFace][pointIndex] = false;
     }
   }
 }
 
 void BaseFrictionLaw::savePeakSlipRateOutput(unsigned int ltsFace) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-    if (SlipRateMagnitude[ltsFace][iBndGP] > peakSR[ltsFace][iBndGP]) {
-      peakSR[ltsFace][iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+    if (slipRateMagnitude[ltsFace][pointIndex] > peakSR[ltsFace][pointIndex]) {
+      peakSR[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
     }
   }
 }
 
-void BaseFrictionLaw::saveAverageSlipOutput(std::array<real, numOfPointsPadded>& tmpSlip,
+void BaseFrictionLaw::saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip,
                                             unsigned int ltsFace) {
   real sum_tmpSlip = 0;
   if (m_Params->IsMagnitudeOutputOn) {
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++)
-      sum_tmpSlip += tmpSlip[iBndGP];
+    for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++)
+      sum_tmpSlip += tmpSlip[pointIndex];
     averaged_Slip[ltsFace] = averaged_Slip[ltsFace] + sum_tmpSlip / numberOfPoints;
   }
 }
 
 void BaseFrictionLaw::computeDeltaT(double* timePoints) {
   deltaT[0] = timePoints[0];
-  for (int iTimeGP = 1; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-    deltaT[iTimeGP] = timePoints[iTimeGP] - timePoints[iTimeGP - 1];
+  for (int timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+    deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
   }
-  deltaT[CONVERGENCE_ORDER - 1] =
-      deltaT[CONVERGENCE_ORDER - 1] + deltaT[0]; // to fill last segment of Gaussian integration
+  // to fill last segment of Gaussian integration
+  deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
 }
 } // namespace seissol::dr::friction_law

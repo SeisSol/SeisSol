@@ -49,17 +49,17 @@ class seissol::dr::friction_law::RateAndStateSolver
       // initialize local variables inside parallel face loop
       bool has_converged = false;
       FaultStresses faultStresses = {};
-      real deltaStateVar[numOfPointsPadded] = {0};
-      std::array<real, numOfPointsPadded> tmpSlip{0}; // required for averageSlip calculation
-      std::array<real, numOfPointsPadded> normalStress{0};
-      std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
-      std::array<real, numOfPointsPadded> stateVarZero{0};
-      std::array<real, numOfPointsPadded> SR_tmp{0};
-      std::array<real, numOfPointsPadded> LocSV{0};
-      std::array<real, numOfPointsPadded> SRtest{0};
+      real deltaStateVar[numPaddedPoints] = {0};
+      std::array<real, numPaddedPoints> tmpSlip{0}; // required for averageSlip calculation
+      std::array<real, numPaddedPoints> normalStress{0};
+      std::array<real, numPaddedPoints> TotalShearStressYZ{0};
+      std::array<real, numPaddedPoints> stateVarZero{0};
+      std::array<real, numPaddedPoints> SR_tmp{0};
+      std::array<real, numPaddedPoints> LocSV{0};
+      std::array<real, numPaddedPoints> SRtest{0};
 
       // for thermalPressure
-      std::array<real, numOfPointsPadded> P_f{0};
+      std::array<real, numPaddedPoints> P_f{0};
 
       // compute Godunov state
       precomputeStressFromQInterpolated(
@@ -68,16 +68,16 @@ class seissol::dr::friction_law::RateAndStateSolver
       // Compute Initial stress (only for FL103), and set initial StateVariable
       static_cast<Derived*>(this)->setInitialValues(LocSV, ltsFace);
 
-      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
+      for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
         // compute initial slip rates
         static_cast<Derived*>(this)->calcInitialSlipRate(
-            TotalShearStressYZ, faultStresses, stateVarZero, LocSV, SR_tmp, iTimeGP, ltsFace);
+            TotalShearStressYZ, faultStresses, stateVarZero, LocSV, SR_tmp, timeIndex, ltsFace);
         // compute initial thermal pressure (ony for FL103 TP)
         static_cast<Derived*>(this)->hookSetInitialP_f(P_f, ltsFace);
 
         for (unsigned int j = 0; j < nSVupdates; j++) {
           // compute pressure from thermal pressurization (only FL103 TP)
-          static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, false, iTimeGP, ltsFace);
+          static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, false, timeIndex, ltsFace);
           // compute slip rates by solving non-linear system of equations (with newton)
           static_cast<Derived*>(this)->updateStateVariableIterative(has_converged,
                                                                     stateVarZero,
@@ -88,7 +88,7 @@ class seissol::dr::friction_law::RateAndStateSolver
                                                                     TotalShearStressYZ,
                                                                     SRtest,
                                                                     faultStresses,
-                                                                    iTimeGP,
+                                                                    timeIndex,
                                                                     ltsFace);
         } // End nSVupdates-loop   j=1,nSVupdates   !This loop corrects SV values
 
@@ -97,7 +97,7 @@ class seissol::dr::friction_law::RateAndStateSolver
           static_cast<Derived*>(this)->executeIfNotConverged(LocSV, ltsFace);
         }
         // compute final thermal pressure for FL103TP
-        static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, true, iTimeGP, ltsFace);
+        static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, true, timeIndex, ltsFace);
         // compute final slip rates and traction from median value of the iterative solution and the
         // initial guess
         static_cast<Derived*>(this)->calcSlipRateAndTraction(stateVarZero,
@@ -108,10 +108,10 @@ class seissol::dr::friction_law::RateAndStateSolver
                                                              tmpSlip,
                                                              deltaStateVar,
                                                              faultStresses,
-                                                             iTimeGP,
+                                                             timeIndex,
                                                              ltsFace);
 
-      } // End of iTimeGP-loop
+      } // End of timeIndex-loop
 
       // resample state variables
       static_cast<Derived*>(this)->resampleStateVar(deltaStateVar, ltsFace);
@@ -119,7 +119,7 @@ class seissol::dr::friction_law::RateAndStateSolver
       //---------------------------------------------
 
       // output rupture front
-      // outside of iTimeGP loop in order to safe an 'if' in a loop
+      // outside of timeIndex loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
       saveRuptureFrontOutput(ltsFace);
 
@@ -155,17 +155,17 @@ class seissol::dr::friction_law::RateAndStateNucFL103
           seissol::dr::friction_law::RateAndStateNucFL103> {
   protected:
   // Attributes
-  real (*nucleationStressInFaultCS)[numOfPointsPadded][6];
+  real (*nucleationStressInFaultCS)[numPaddedPoints][6];
   real dt = 0;
-  real Gnuc = 0;
+  real gNuc = 0;
 
-  real (*RS_a_array)[numOfPointsPadded];
-  real (*RS_srW_array)[numOfPointsPadded];
-  real (*RS_sl0_array)[numOfPointsPadded];
+  real (*RS_a_array)[numPaddedPoints];
+  real (*RS_srW_array)[numPaddedPoints];
+  real (*RS_sl0_array)[numPaddedPoints];
 
-  bool (*DS)[numOfPointsPadded];
-  real (*stateVar)[numOfPointsPadded];
-  real (*dynStress_time)[numOfPointsPadded];
+  bool (*DS)[numPaddedPoints];
+  real (*stateVar)[numPaddedPoints];
+  real (*dynStress_time)[numPaddedPoints];
 
   //! TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   //! as a consequence, the SR is affected the AlmostZero value when too small
@@ -197,18 +197,18 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    * compute initial stress from nucleation Stress (only in FL103)
    * and set intial value of state variables
    */
-  void setInitialValues(std::array<real, numOfPointsPadded>& LocSV, unsigned int ltsFace);
+  void setInitialValues(std::array<real, numPaddedPoints>& LocSV, unsigned int ltsFace);
 
   /*
    * Compute shear stress magnitude, set reference state variable (StateVarZero)
    * Computre slip rate magnitude and set it as inital guess for iterations
    */
-  void calcInitialSlipRate(std::array<real, numOfPointsPadded>& TotalShearStressYZ,
+  void calcInitialSlipRate(std::array<real, numPaddedPoints>& TotalShearStressYZ,
                            FaultStresses& faultStresses,
-                           std::array<real, numOfPointsPadded>& stateVarZero,
-                           std::array<real, numOfPointsPadded>& LocSV,
-                           std::array<real, numOfPointsPadded>& SR_tmp,
-                           unsigned int iTimeGP,
+                           std::array<real, numPaddedPoints>& stateVarZero,
+                           std::array<real, numPaddedPoints>& LocSV,
+                           std::array<real, numPaddedPoints>& SR_tmp,
+                           unsigned int timeIndex,
                            unsigned int ltsFace);
 
   /*
@@ -217,54 +217,54 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    * friction mu is updated with new slip rate values
    */
   void updateStateVariableIterative(bool& has_converged,
-                                    std::array<real, numOfPointsPadded>& stateVarZero,
-                                    std::array<real, numOfPointsPadded>& SR_tmp,
-                                    std::array<real, numOfPointsPadded>& LocSV,
-                                    std::array<real, numOfPointsPadded>& P_f,
-                                    std::array<real, numOfPointsPadded>& normalStress,
-                                    std::array<real, numOfPointsPadded>& TotalShearStressYZ,
-                                    std::array<real, numOfPointsPadded>& SRtest,
+                                    std::array<real, numPaddedPoints>& stateVarZero,
+                                    std::array<real, numPaddedPoints>& SR_tmp,
+                                    std::array<real, numPaddedPoints>& LocSV,
+                                    std::array<real, numPaddedPoints>& P_f,
+                                    std::array<real, numPaddedPoints>& normalStress,
+                                    std::array<real, numPaddedPoints>& TotalShearStressYZ,
+                                    std::array<real, numPaddedPoints>& SRtest,
                                     FaultStresses& faultStresses,
-                                    unsigned int iTimeGP,
+                                    unsigned int timeIndex,
                                     unsigned int ltsFace);
 
   /*
    * Since Newton may have stability issues and not convergence to a solution, output an error in
    * this case.
    */
-  void executeIfNotConverged(std::array<real, numOfPointsPadded>& LocSV, unsigned ltsFace);
+  void executeIfNotConverged(std::array<real, numPaddedPoints>& LocSV, unsigned ltsFace);
 
   /*
    * Final slip rates and stresses are computed from the final slip rate values
    */
-  void calcSlipRateAndTraction(std::array<real, numOfPointsPadded>& stateVarZero,
-                               std::array<real, numOfPointsPadded>& SR_tmp,
-                               std::array<real, numOfPointsPadded>& LocSV,
-                               std::array<real, numOfPointsPadded>& normalStress,
-                               std::array<real, numOfPointsPadded>& TotalShearStressYZ,
-                               std::array<real, numOfPointsPadded>& tmpSlip,
-                               real deltaStateVar[numOfPointsPadded],
+  void calcSlipRateAndTraction(std::array<real, numPaddedPoints>& stateVarZero,
+                               std::array<real, numPaddedPoints>& SR_tmp,
+                               std::array<real, numPaddedPoints>& LocSV,
+                               std::array<real, numPaddedPoints>& normalStress,
+                               std::array<real, numPaddedPoints>& TotalShearStressYZ,
+                               std::array<real, numPaddedPoints>& tmpSlip,
+                               real deltaStateVar[numPaddedPoints],
                                FaultStresses& faultStresses,
-                               unsigned int iTimeGP,
+                               unsigned int timeIndex,
                                unsigned int ltsFace);
 
   /*
    * resample output state variable
    */
-  void resampleStateVar(real deltaStateVar[numOfPointsPadded], unsigned int ltsFace);
+  void resampleStateVar(real deltaStateVar[numPaddedPoints], unsigned int ltsFace);
 
   // output time when shear stress is equal to the dynamic stress after rupture arrived
   // currently only for linear slip weakening
   void saveDynamicStressOutput(unsigned int face);
 
   // set to zero since only required for Thermal pressure
-  virtual void hookSetInitialP_f(std::array<real, numOfPointsPadded>& P_f, unsigned int ltsFace);
+  virtual void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
 
   // empty since only required for Thermal pressure
-  virtual void hookCalcP_f(std::array<real, numOfPointsPadded>& P_f,
+  virtual void hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
                            FaultStresses& faultStresses,
                            bool saveTmpInTP,
-                           unsigned int iTimeGP,
+                           unsigned int timeIndex,
                            unsigned int ltsFace);
 
   protected:
@@ -273,7 +273,7 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    * (SR_tmp)
    */
   void updateStateVariable(
-      int iBndGP, unsigned int face, real SV0, real time_inc, real& SR_tmp, real& LocSV);
+      int pointIndex, unsigned int face, real SV0, real time_inc, real& SR_tmp, real& LocSV);
 
   /*
    * If the function did not converge it returns false
@@ -282,10 +282,10 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    */
   bool IterativelyInvertSR(unsigned int ltsFace,
                            int nSRupdates,
-                           std::array<real, numOfPointsPadded>& LocSV,
-                           std::array<real, numOfPointsPadded>& n_stress,
-                           std::array<real, numOfPointsPadded>& sh_stress,
-                           std::array<real, numOfPointsPadded>& SRtest);
+                           std::array<real, numPaddedPoints>& LocSV,
+                           std::array<real, numPaddedPoints>& n_stress,
+                           std::array<real, numPaddedPoints>& sh_stress,
+                           std::array<real, numPaddedPoints>& SRtest);
 
   /*
    * Alternative to IterativelyInvertSR: Instead of newton, brents method is used:
@@ -295,32 +295,32 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    */
   bool IterativelyInvertSR_Brent(unsigned int ltsFace,
                                  int nSRupdates,
-                                 std::array<real, numOfPointsPadded>& LocSV,
-                                 std::array<real, numOfPointsPadded>& n_stress,
-                                 std::array<real, numOfPointsPadded>& sh_stress,
-                                 std::array<real, numOfPointsPadded>& SRtest);
+                                 std::array<real, numPaddedPoints>& LocSV,
+                                 std::array<real, numPaddedPoints>& n_stress,
+                                 std::array<real, numPaddedPoints>& sh_stress,
+                                 std::array<real, numPaddedPoints>& SRtest);
 
   /*
    * update friction mu according to:
    * mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
    */
-  void updateMu(unsigned int ltsFace, unsigned int iBndGP, real LocSV);
+  void updateMu(unsigned int ltsFace, unsigned int pointIndex, real LocSV);
 }; // end class FL_103
 
 class seissol::dr::friction_law::RateAndStateThermalFL103
     : public seissol::dr::friction_law::RateAndStateNucFL103 {
   protected:
-  real (*temperature)[numOfPointsPadded];
-  real (*pressure)[numOfPointsPadded];
-  real (*TP_Theta)[numOfPointsPadded][TP_grid_nz];
-  real (*TP_sigma)[numOfPointsPadded][TP_grid_nz];
-  real (*TP_half_width_shear_zone)[numOfPointsPadded];
-  real (*alpha_hy)[numOfPointsPadded];
+  real (*temperature)[numPaddedPoints];
+  real (*pressure)[numPaddedPoints];
+  real (*TP_Theta)[numPaddedPoints][TP_grid_nz];
+  real (*TP_sigma)[numPaddedPoints][TP_grid_nz];
+  real (*TP_half_width_shear_zone)[numPaddedPoints];
+  real (*alpha_hy)[numPaddedPoints];
 
   real TP_grid[TP_grid_nz];
   real TP_DFinv[TP_grid_nz];
 
-  real faultStrength[numOfPointsPadded];
+  real faultStrength[numPaddedPoints];
   real Theta_tmp[TP_grid_nz];
   real Sigma_tmp[TP_grid_nz];
 
@@ -341,24 +341,24 @@ class seissol::dr::friction_law::RateAndStateThermalFL103
   /*
    * set initial value of thermal pressure
    */
-  void hookSetInitialP_f(std::array<real, numOfPointsPadded>& P_f, unsigned int ltsFace) override;
+  void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace) override;
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
    * bool saveTmpInTP is used to save final thermal pressure values for theta and sigma
    */
-  void hookCalcP_f(std::array<real, numOfPointsPadded>& P_f,
+  void hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
                    FaultStresses& faultStresses,
                    bool saveTmpInTP,
-                   unsigned int iTimeGP,
+                   unsigned int timeIndex,
                    unsigned int ltsFace) override;
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
    */
-  void Calc_ThermalPressure(unsigned int iBndGP, unsigned int iTimeGP, unsigned int ltsFace);
+  void Calc_ThermalPressure(unsigned int pointIndex, unsigned int timeIndex, unsigned int ltsFace);
 
-  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int iTimeGP);
+  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
 };
 
 #endif // SEISSOL_RATEANDSTATE_H

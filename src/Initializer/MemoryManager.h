@@ -87,7 +87,7 @@
 #include <Initializer/ParameterDB.h>
 
 //added by adrian
-#include <DynamicRupture/DR_factory.h>
+#include <DynamicRupture/Factory.h>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
@@ -165,7 +165,7 @@ class seissol::initializers::MemoryManager {
     //added by Adrian
     seissol::dr::initializers::BaseDRInitializer* m_DRInitializer = nullptr;
     seissol::dr::friction_law::BaseFrictionLaw* m_FrictonLaw = nullptr;
-    seissol::dr::output::Output_Base* m_DROutput = nullptr;
+    seissol::dr::output::OutputBase* m_DROutput = nullptr;
     dr::DRParameters* m_dynRupParameter;
     YAML::Node m_inputParams;
 
@@ -357,7 +357,7 @@ class seissol::initializers::MemoryManager {
     inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer;
     }
-    inline seissol::dr::output::Output_Base* getDROutput() {
+    inline seissol::dr::output::OutputBase* getDROutput() {
         return m_DROutput;
     }
 

@@ -48,7 +48,7 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/Boundary.h>
-#include <DynamicRupture/DR_factory.h>
+#include <DynamicRupture/Factory.h>
 
 namespace seissol {
   namespace initializers {

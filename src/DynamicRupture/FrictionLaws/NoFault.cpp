@@ -19,12 +19,12 @@ void NoFault::evaluate(seissol::initializers::Layer& layerData,
     precomputeStressFromQInterpolated(
         faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-    for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) { // loop over time steps
-      for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-        faultStresses.XYTractionResultGP[iTimeGP][iBndGP] =
-            faultStresses.XYStressGP[iTimeGP][iBndGP];
-        faultStresses.XZTractionResultGP[iTimeGP][iBndGP] =
-            faultStresses.XZStressGP[iTimeGP][iBndGP];
+    for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
+      for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+        faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
+            faultStresses.XYStressGP[timeIndex][pointIndex];
+        faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
+            faultStresses.XZStressGP[timeIndex][pointIndex];
       }
     }
     // save stresses in imposedState

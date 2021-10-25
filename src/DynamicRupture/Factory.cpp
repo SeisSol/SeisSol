@@ -1,4 +1,4 @@
-#include "DR_factory.h"
+#include "Factory.h"
 
 #include <Solver/Interoperability.h>
 
@@ -55,69 +55,69 @@ products Factory_FL_0::produce() {
   return {new seissol::initializers::DynamicRupture,
           new seissol::dr::initializers::NoFaultInitializer,
           new seissol::dr::friction_law::NoFault,
-          new seissol::dr::output::Output_NoFaultFL0};
+          new seissol::dr::output::OutputNoFaultFL0};
 }
 
 products Factory_FL_2::produce() {
   return {new seissol::initializers::LTS_LinearSlipWeakeningFL2,
           new seissol::dr::initializers::LinearSlipWeakeningFL2Initializer,
           new seissol::dr::friction_law::LinearSlipWeakeningLawFL2,
-          new seissol::dr::output::Output_LinearSlipWeakeningFL2};
+          new seissol::dr::output::OutputLinearSlipWeakeningFL2};
 }
 
 products Factory_FL_3::produce() {
   return {new seissol::initializers::LTS_RateAndStateFL3,
           new seissol::dr::initializers::AgingLawInitializer,
           new seissol::dr::friction_law::AgingLaw,
-          new seissol::dr::output::Output_RateAndStateFL3};
+          new seissol::dr::output::OutputRateAndStateFL3};
 }
 
 products Factory_FL_4::produce() {
   return {new seissol::initializers::LTS_RateAndStateFL3,
           new seissol::dr::initializers::AgingLawInitializer,
           new seissol::dr::friction_law::SlipLaw,
-          new seissol::dr::output::Output_RateAndStateFL3};
+          new seissol::dr::output::OutputRateAndStateFL3};
 }
 
 products Factory_FL_6::produce() {
   return {new seissol::initializers::LTS_LinearBimaterialFL6,
           new seissol::dr::initializers::LinearBimaterialFL6Initializer,
           new seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6,
-          new seissol::dr::output::Output_LinearBimaterialFL6};
+          new seissol::dr::output::OutputLinearBimaterialFL6};
 }
 
 products Factory_FL_7::produce() {
   return {new seissol::initializers::LTS_RateAndStateFL3,
           new seissol::dr::initializers::AgingLawInitializer,
           new seissol::dr::friction_law::VelocityWeakening,
-          new seissol::dr::output::Output_RateAndStateFL3};
+          new seissol::dr::output::OutputRateAndStateFL3};
 }
 
 products Factory_FL_16::produce() {
   return {new seissol::initializers::LTS_LinearSlipWeakeningFL16,
           new seissol::dr::initializers::LinearSlipWeakeningFL16Initializer,
           new seissol::dr::friction_law::LinearSlipWeakeningLawFL16,
-          new seissol::dr::output::Output_LinearSlipWeakeningFL2};
+          new seissol::dr::output::OutputLinearSlipWeakeningFL2};
 }
 
 products Factory_FL_33::produce() {
   return {new seissol::initializers::LTS_ImposedSlipRatesFL33,
           new seissol::dr::initializers::ImposedSlipRatesFL33Initializer,
           new seissol::dr::friction_law::ImposedSlipRates,
-          new seissol::dr::output::Output_ImposedSlipRatesFL33};
+          new seissol::dr::output::OutputImposedSlipRatesFL33};
 }
 
 products Factory_FL_103::produce() {
   return {new seissol::initializers::LTS_RateAndStateFL103,
           new seissol::dr::initializers::RateAndStateFL103Initializer,
           new seissol::dr::friction_law::RateAndStateNucFL103,
-          new seissol::dr::output::Output_RateAndStateFL103};
+          new seissol::dr::output::OutputRateAndStateFL103};
 }
 
 products Factory_FL_103_Thermal::produce() {
   return {new seissol::initializers::LTS_RateAndStateFL103TP,
           new seissol::dr::initializers::RateAndStateFL103TPInitializer,
           new seissol::dr::friction_law::RateAndStateThermalFL103,
-          new seissol::dr::output::Output_RateAndStateFL103};
+          new seissol::dr::output::OutputRateAndStateFL103};
 }
 } // namespace seissol::dr::factory

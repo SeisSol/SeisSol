@@ -18,103 +18,103 @@ void BaseDRInitializer::initializeFrictionMatrices(
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*iniBulkXX)[numOfPointsPadded] = it->var(dynRup->iniBulkXX);   // get from faultParameters
-    real(*iniBulkYY)[numOfPointsPadded] = it->var(dynRup->iniBulkYY);   // get from faultParameters
-    real(*iniBulkZZ)[numOfPointsPadded] = it->var(dynRup->iniBulkZZ);   // get from faultParameters
-    real(*iniShearXY)[numOfPointsPadded] = it->var(dynRup->iniShearXY); // get from faultParameters
-    real(*iniShearXZ)[numOfPointsPadded] = it->var(dynRup->iniShearXZ); // get from faultParameters
-    real(*iniShearYZ)[numOfPointsPadded] = it->var(dynRup->iniShearYZ); // get from faultParameters
-    real(*initialStressInFaultCS)[numOfPointsPadded][6] =
+    real(*iniBulkXX)[numPaddedPoints] = it->var(dynRup->iniBulkXX);   // get from faultParameters
+    real(*iniBulkYY)[numPaddedPoints] = it->var(dynRup->iniBulkYY);   // get from faultParameters
+    real(*iniBulkZZ)[numPaddedPoints] = it->var(dynRup->iniBulkZZ);   // get from faultParameters
+    real(*iniShearXY)[numPaddedPoints] = it->var(dynRup->iniShearXY); // get from faultParameters
+    real(*iniShearXZ)[numPaddedPoints] = it->var(dynRup->iniShearXZ); // get from faultParameters
+    real(*iniShearYZ)[numPaddedPoints] = it->var(dynRup->iniShearYZ); // get from faultParameters
+    real(*initialStressInFaultCS)[numPaddedPoints][6] =
         it->var(dynRup->initialStressInFaultCS); // get from fortran  EQN%InitialStressInFaultCS
-    real(*cohesion)[numOfPointsPadded] = it->var(dynRup->cohesion); // get from faultParameters
-    real(*mu)[numOfPointsPadded] = it->var(dynRup->mu);     // get from fortran  EQN%IniMu(:,:)
-    real(*slip)[numOfPointsPadded] = it->var(dynRup->slip); // = 0
-    real(*slipStrike)[numOfPointsPadded] = it->var(dynRup->slipStrike);               // = 0
-    real(*slipDip)[numOfPointsPadded] = it->var(dynRup->slipDip);                     // = 0
-    real(*slipRateMagnitude)[numOfPointsPadded] = it->var(dynRup->slipRateMagnitude); // = 0
-    real(*slipRateStrike)[numOfPointsPadded] =
+    real(*cohesion)[numPaddedPoints] = it->var(dynRup->cohesion); // get from faultParameters
+    real(*mu)[numPaddedPoints] = it->var(dynRup->mu);     // get from fortran  EQN%IniMu(:,:)
+    real(*slip)[numPaddedPoints] = it->var(dynRup->slip); // = 0
+    real(*slipStrike)[numPaddedPoints] = it->var(dynRup->slipStrike);               // = 0
+    real(*slipDip)[numPaddedPoints] = it->var(dynRup->slipDip);                     // = 0
+    real(*slipRateMagnitude)[numPaddedPoints] = it->var(dynRup->slipRateMagnitude); // = 0
+    real(*slipRateStrike)[numPaddedPoints] =
         it->var(dynRup->slipRateStrike); // get from fortran  EQN%IniSlipRate1
-    real(*slipRateDip)[numOfPointsPadded] =
+    real(*slipRateDip)[numPaddedPoints] =
         it->var(dynRup->slipRateDip); // get from fortran  EQN%IniSlipRate2
-    real(*rupture_time)[numOfPointsPadded] = it->var(dynRup->rupture_time); // = 0
-    bool(*RF)[numOfPointsPadded] = it->var(dynRup->RF);                     // get from fortran
-    real(*peakSR)[numOfPointsPadded] = it->var(dynRup->peakSR);             // = 0
-    real(*tractionXY)[numOfPointsPadded] = it->var(dynRup->tractionXY);     // = 0
-    real(*tractionXZ)[numOfPointsPadded] = it->var(dynRup->tractionXZ);     // = 0
+    real(*rupture_time)[numPaddedPoints] = it->var(dynRup->rupture_time); // = 0
+    bool(*RF)[numPaddedPoints] = it->var(dynRup->RF);                     // get from fortran
+    real(*peakSR)[numPaddedPoints] = it->var(dynRup->peakSR);             // = 0
+    real(*tractionXY)[numPaddedPoints] = it->var(dynRup->tractionXY);     // = 0
+    real(*tractionXZ)[numPaddedPoints] = it->var(dynRup->tractionXZ);     // = 0
 
     dynRup->IsFaultParameterizedByTraction = false;
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
-      for (unsigned iBndGP = 0; iBndGP < init::QInterpolated::Stop[0];
-           ++iBndGP) { // loop includes padded elements
-        slip[ltsFace][iBndGP] = 0.0;
-        slipStrike[ltsFace][iBndGP] = 0.0;
-        slipDip[ltsFace][iBndGP] = 0.0;
-        slipRateMagnitude[ltsFace][iBndGP] = 0.0;
-        rupture_time[ltsFace][iBndGP] = 0.0;
-        peakSR[ltsFace][iBndGP] = 0.0;
-        tractionXY[ltsFace][iBndGP] = 0.0;
-        tractionXZ[ltsFace][iBndGP] = 0.0;
+      for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0];
+           ++pointIndex) { // loop includes padded elements
+        slip[ltsFace][pointIndex] = 0.0;
+        slipStrike[ltsFace][pointIndex] = 0.0;
+        slipDip[ltsFace][pointIndex] = 0.0;
+        slipRateMagnitude[ltsFace][pointIndex] = 0.0;
+        rupture_time[ltsFace][pointIndex] = 0.0;
+        peakSR[ltsFace][pointIndex] = 0.0;
+        tractionXY[ltsFace][pointIndex] = 0.0;
+        tractionXZ[ltsFace][pointIndex] = 0.0;
       }
       // get initial values from fortran
-      for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
+      for (unsigned pointIndex = 0; pointIndex < numberOfPoints; ++pointIndex) {
         if (faultParameters["T_n"] != NULL) {
-          iniBulkXX[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["T_n"][(meshFace)*numberOfPoints + iBndGP]);
+          iniBulkXX[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["T_n"][(meshFace)*numberOfPoints + pointIndex]);
           dynRup->IsFaultParameterizedByTraction = true;
         } else if (faultParameters["s_xx"] != NULL)
-          iniBulkXX[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["s_xx"][(meshFace)*numberOfPoints + iBndGP]);
+          iniBulkXX[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["s_xx"][(meshFace)*numberOfPoints + pointIndex]);
         else
-          iniBulkXX[ltsFace][iBndGP] = 0.0;
+          iniBulkXX[ltsFace][pointIndex] = 0.0;
 
         if (faultParameters["s_yy"] != NULL)
-          iniBulkYY[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["s_yy"][(meshFace)*numberOfPoints + iBndGP]);
+          iniBulkYY[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["s_yy"][(meshFace)*numberOfPoints + pointIndex]);
         else
-          iniBulkYY[ltsFace][iBndGP] = 0.0;
+          iniBulkYY[ltsFace][pointIndex] = 0.0;
 
         if (faultParameters["s_zz"] != NULL)
-          iniBulkZZ[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["s_zz"][(meshFace)*numberOfPoints + iBndGP]);
+          iniBulkZZ[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["s_zz"][(meshFace)*numberOfPoints + pointIndex]);
         else
-          iniBulkZZ[ltsFace][iBndGP] = 0.0;
+          iniBulkZZ[ltsFace][pointIndex] = 0.0;
 
         if (faultParameters["T_s"] != NULL)
-          iniShearXY[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["T_s"][(meshFace)*numberOfPoints + iBndGP]);
+          iniShearXY[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["T_s"][(meshFace)*numberOfPoints + pointIndex]);
         else if (faultParameters["s_xy"] != NULL)
-          iniShearXY[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["s_xy"][(meshFace)*numberOfPoints + iBndGP]);
+          iniShearXY[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["s_xy"][(meshFace)*numberOfPoints + pointIndex]);
         else
-          iniShearXY[ltsFace][iBndGP] = 0.0;
+          iniShearXY[ltsFace][pointIndex] = 0.0;
 
         if (faultParameters["T_d"] != NULL)
-          iniShearXZ[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["T_d"][(meshFace)*numberOfPoints + iBndGP]);
+          iniShearXZ[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["T_d"][(meshFace)*numberOfPoints + pointIndex]);
         else if (faultParameters["s_xz"] != NULL)
-          iniShearXZ[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["s_xz"][(meshFace)*numberOfPoints + iBndGP]);
+          iniShearXZ[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["s_xz"][(meshFace)*numberOfPoints + pointIndex]);
         else
-          iniShearXZ[ltsFace][iBndGP] = 0.0;
+          iniShearXZ[ltsFace][pointIndex] = 0.0;
 
         if (faultParameters["s_yz"] != NULL)
-          iniShearYZ[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["s_yz"][(meshFace)*numberOfPoints + iBndGP]);
+          iniShearYZ[ltsFace][pointIndex] =
+              static_cast<real>(faultParameters["s_yz"][(meshFace)*numberOfPoints + pointIndex]);
         else
-          iniShearYZ[ltsFace][iBndGP] = 0.0;
+          iniShearYZ[ltsFace][pointIndex] = 0.0;
 
         if (faultParameters["cohesion"] != NULL) {
-          cohesion[ltsFace][iBndGP] =
-              static_cast<real>(faultParameters["cohesion"][(meshFace)*numberOfPoints + iBndGP]);
+          cohesion[ltsFace][pointIndex] = static_cast<real>(
+              faultParameters["cohesion"][(meshFace)*numberOfPoints + pointIndex]);
         } else {
-          cohesion[ltsFace][iBndGP] = 0.0;
+          cohesion[ltsFace][pointIndex] = 0.0;
         }
       }
       // initialize padded elements for vectorization
-      for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
-        cohesion[ltsFace][iBndGP] = 0.0;
+      for (unsigned pointIndex = numberOfPoints; pointIndex < numPaddedPoints; ++pointIndex) {
+        cohesion[ltsFace][pointIndex] = 0.0;
       }
       e_interoperability.getDynRupParameters(
           ltsFace, meshFace, initialStressInFaultCS, mu, slipRateStrike, slipRateDip, RF);

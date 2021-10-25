@@ -108,7 +108,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
                                                   seissol::dr::friction_law::BaseFrictionLaw* i_FrictonLaw,
-                                                  dr::output::Output_Base* i_DrOutput,
+                                                  dr::output::OutputBase* i_DrOutput,
                                                   LoopStatistics* i_loopStatistics ):
  // cluster ids
  m_clusterId(               i_clusterId                ),

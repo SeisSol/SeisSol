@@ -16,7 +16,7 @@ class seissol::dr::friction_law::VelocityWeakening
     : public seissol::dr::friction_law::BaseFrictionLaw {
   protected:
   // Attributes
-  real (*stateVar)[numOfPointsPadded];
+  real (*stateVar)[numPaddedPoints];
   real* RS_sl0;
   real* RS_a;
   /*

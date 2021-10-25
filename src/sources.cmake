@@ -125,10 +125,10 @@ src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
 #adrian code
-src/DynamicRupture/DR_math.h
-src/DynamicRupture/DR_factory.h
-src/DynamicRupture/DR_output.h
-src/DynamicRupture/DR_factory.cpp
+#src/DynamicRupture/Math.h
+#src/DynamicRupture/Factory.h
+#src/DynamicRupture/Output.h
+src/DynamicRupture/Factory.cpp
 src/DynamicRupture/FrictionLaws/AgingLaw.cpp
 src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
 src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
@@ -143,7 +143,7 @@ src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/NoFaultInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
-src/DynamicRupture/DR_Parameters.h
+#src/DynamicRupture/DR_Parameters.h
 )
 if (MPI)
   target_sources(SeisSol-lib PUBLIC

@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_PARAMETERS_H
-#define SEISSOL_DR_PARAMETERS_H
+#ifndef SEISSOL_PARAMETERS_H
+#define SEISSOL_PARAMETERS_H
 
 #include <yaml-cpp/yaml.h>
 
@@ -80,4 +80,4 @@ struct seissol::dr::DRParameters {
   }
 };
 
-#endif // SEISSOL_DR_PARAMETERS_H
+#endif // SEISSOL_PARAMETERS_H

@@ -23,7 +23,7 @@ void AgingLawInitializer::initializeFrictionMatrices(
     real* RS_b = it->var(ConcreteLts->RS_b);
     real* RS_sl0 = it->var(ConcreteLts->RS_sl0);
     real* RS_sr0 = it->var(ConcreteLts->RS_sr0);
-    real(*stateVar)[numOfPointsPadded] = it->var(ConcreteLts->stateVar);
+    real(*stateVar)[numPaddedPoints] = it->var(ConcreteLts->stateVar);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];

@@ -3,8 +3,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include "DynamicRupture/DR_Parameters.h"
-#include "DynamicRupture/DR_math.h"
+#include "DynamicRupture/Parameters.h"
+#include "DynamicRupture/Math.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
 
@@ -30,27 +30,27 @@ class seissol::dr::friction_law::BaseFrictionLaw {
 
   protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0]; // DISC%Galerkin%nBndGP
-  static constexpr int numOfPointsPadded =
+  static constexpr int numPaddedPoints =
       init::QInterpolated::Stop[0]; // number of points padded to next dividable number by four
   // YAML::Node m_InputParam;
   dr::DRParameters* m_Params;
   ImpedancesAndEta* impAndEta;
   real m_fullUpdateTime;
   real deltaT[CONVERGENCE_ORDER] = {};
-  real (*initialStressInFaultCS)[numOfPointsPadded][6];
-  real (*cohesion)[numOfPointsPadded];
-  real (*mu)[numOfPointsPadded];
-  real (*slip)[numOfPointsPadded];
-  real (*slipStrike)[numOfPointsPadded];
-  real (*slipDip)[numOfPointsPadded];
-  real (*SlipRateMagnitude)[numOfPointsPadded];
-  real (*slipRateStrike)[numOfPointsPadded];
-  real (*slipRateDip)[numOfPointsPadded];
-  real (*rupture_time)[numOfPointsPadded];
-  bool (*RF)[numOfPointsPadded];
-  real (*peakSR)[numOfPointsPadded];
-  real (*tractionXY)[numOfPointsPadded];
-  real (*tractionXZ)[numOfPointsPadded];
+  real (*initialStressInFaultCS)[numPaddedPoints][6];
+  real (*cohesion)[numPaddedPoints];
+  real (*mu)[numPaddedPoints];
+  real (*slip)[numPaddedPoints];
+  real (*slipStrike)[numPaddedPoints];
+  real (*slipDip)[numPaddedPoints];
+  real (*slipRateMagnitude)[numPaddedPoints];
+  real (*slipRateStrike)[numPaddedPoints];
+  real (*slipRateDip)[numPaddedPoints];
+  real (*ruptureTime)[numPaddedPoints];
+  bool (*ruptureFront)[numPaddedPoints];
+  real (*peakSR)[numPaddedPoints];
+  real (*tractionXY)[numPaddedPoints];
+  real (*tractionXZ)[numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 
@@ -65,13 +65,13 @@ class seissol::dr::friction_law::BaseFrictionLaw {
    * postcomputeImposedStateFromNewStress)
    */
   struct FaultStresses {
-    real XYTractionResultGP[CONVERGENCE_ORDER][numOfPointsPadded] = {
+    real XYTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
         {}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real XZTractionResultGP[CONVERGENCE_ORDER][numOfPointsPadded] = {
+    real XZTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
         {}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real NormalStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-    real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-    real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+    real NormalStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+    real XYStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+    real XZStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
   };
 
   /*
@@ -111,14 +111,14 @@ class seissol::dr::friction_law::BaseFrictionLaw {
       unsigned int ltsFace);
 
   /*
-   * Function from NucleationFunctions_mod.f90
+   * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
-  real Calc_SmoothStepIncrement(real current_time, real dt);
+  real calcSmoothStepIncrement(real current_time, real dt);
 
   /*
-   * Function from NucleationFunctions_mod.f90
+   * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
-  real Calc_SmoothStep(real current_time);
+  real calcSmoothStep(real current_time);
 
   /*
    * output rupture front, saves update time of the rupture front
@@ -135,7 +135,7 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   //    to this end, here the slip is computed and averaged per element
   //    in calc_seissol.f90 this value will be multiplied by the element surface
   //    and an output happened once at the end of the simulation
-  void saveAverageSlipOutput(std::array<real, numOfPointsPadded>& tmpSlip, unsigned int ltsFace);
+  void saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip, unsigned int ltsFace);
 
   public:
   /*

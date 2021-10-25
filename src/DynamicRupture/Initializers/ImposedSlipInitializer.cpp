@@ -23,7 +23,7 @@ void ImposedSlipRatesFL33Initializer::initializeFrictionMatrices(
        it != dynRupTree->endLeaf();
        ++it) {
 
-    real(*nucleationStressInFaultCS)[numOfPointsPadded][6] =
+    real(*nucleationStressInFaultCS)[numPaddedPoints][6] =
         it->var(ConcreteLts->nucleationStressInFaultCS);       // get from fortran
     real* averaged_Slip = it->var(ConcreteLts->averaged_Slip); // = 0
 

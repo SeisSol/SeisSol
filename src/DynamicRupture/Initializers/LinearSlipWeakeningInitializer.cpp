@@ -20,34 +20,34 @@ void seissol::dr::initializers::LinearSlipWeakeningFL2Initializer::initializeFri
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*d_c)[numOfPointsPadded] = it->var(ConcreteLts->d_c);   // from faultParameters
-    real(*mu_S)[numOfPointsPadded] = it->var(ConcreteLts->mu_S); // from faultParameters
-    real(*mu_D)[numOfPointsPadded] = it->var(ConcreteLts->mu_D); // from faultParameters
-    bool(*DS)[numOfPointsPadded] = it->var(ConcreteLts->DS);     // from parameter file
-    real* averaged_Slip = it->var(ConcreteLts->averaged_Slip);   // = 0
-    real(*dynStress_time)[numOfPointsPadded] = it->var(ConcreteLts->dynStress_time); // = 0
+    real(*d_c)[numPaddedPoints] = it->var(ConcreteLts->d_c);   // from faultParameters
+    real(*mu_S)[numPaddedPoints] = it->var(ConcreteLts->mu_S); // from faultParameters
+    real(*mu_D)[numPaddedPoints] = it->var(ConcreteLts->mu_D); // from faultParameters
+    bool(*DS)[numPaddedPoints] = it->var(ConcreteLts->DS);     // from parameter file
+    real* averaged_Slip = it->var(ConcreteLts->averaged_Slip); // = 0
+    real(*dynStress_time)[numPaddedPoints] = it->var(ConcreteLts->dynStress_time); // = 0
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       // initialize padded elements for vectorization
-      for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
-        d_c[ltsFace][iBndGP] = 0.0;
-        mu_S[ltsFace][iBndGP] = 0.0;
-        mu_D[ltsFace][iBndGP] = 0.0;
+      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
+        d_c[ltsFace][pointIndex] = 0.0;
+        mu_S[ltsFace][pointIndex] = 0.0;
+        mu_D[ltsFace][pointIndex] = 0.0;
       }
-      for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
-        d_c[ltsFace][iBndGP] =
-            static_cast<real>(faultParameters["d_c"][(meshFace)*numberOfPoints + iBndGP]);
-        mu_S[ltsFace][iBndGP] =
-            static_cast<real>(faultParameters["mu_s"][(meshFace)*numberOfPoints + iBndGP]);
-        mu_D[ltsFace][iBndGP] =
-            static_cast<real>(faultParameters["mu_d"][(meshFace)*numberOfPoints + iBndGP]);
+      for (unsigned pointIndex = 0; pointIndex < numberOfPoints; ++pointIndex) {
+        d_c[ltsFace][pointIndex] =
+            static_cast<real>(faultParameters["d_c"][(meshFace)*numberOfPoints + pointIndex]);
+        mu_S[ltsFace][pointIndex] =
+            static_cast<real>(faultParameters["mu_s"][(meshFace)*numberOfPoints + pointIndex]);
+        mu_D[ltsFace][pointIndex] =
+            static_cast<real>(faultParameters["mu_d"][(meshFace)*numberOfPoints + pointIndex]);
       }
       averaged_Slip[ltsFace] = 0.0;
-      for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded;
-           ++iBndGP) { // loop includes padded elements
-        dynStress_time[ltsFace][iBndGP] = 0.0;
-        DS[ltsFace][iBndGP] = m_Params->IsDsOutputOn;
+      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints;
+           ++pointIndex) { // loop includes padded elements
+        dynStress_time[ltsFace][pointIndex] = 0.0;
+        DS[ltsFace][pointIndex] = m_Params->IsDsOutputOn;
       }
     } // lts-face loop
     layerLtsFaceToMeshFace += it->getNumberOfCells();
@@ -73,7 +73,7 @@ void LinearSlipWeakeningFL16Initializer::initializeFrictionMatrices(
        it != dynRupTree->endLeaf();
        ++it) {
 
-    real(*forced_rupture_time)[numOfPointsPadded] =
+    real(*forced_rupture_time)[numPaddedPoints] =
         it->var(ConcreteLts->forced_rupture_time); // from faultParameters
     real* tn = it->var(ConcreteLts->tn);           // = 0
 
@@ -81,13 +81,13 @@ void LinearSlipWeakeningFL16Initializer::initializeFrictionMatrices(
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
       // initialize padded elements for vectorization
-      for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
-        forced_rupture_time[ltsFace][iBndGP] = 0.0;
+      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
+        forced_rupture_time[ltsFace][pointIndex] = 0.0;
       }
-      for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
+      for (unsigned pointIndex = 0; pointIndex < numberOfPoints; ++pointIndex) {
         if (faultParameters["forced_rupture_time"] != NULL) {
-          forced_rupture_time[ltsFace][iBndGP] = static_cast<real>(
-              faultParameters["forced_rupture_time"][(meshFace)*numberOfPoints + iBndGP]);
+          forced_rupture_time[ltsFace][pointIndex] = static_cast<real>(
+              faultParameters["forced_rupture_time"][(meshFace)*numberOfPoints + pointIndex]);
         }
       }
       tn[ltsFace] = 0.0;
@@ -114,15 +114,15 @@ void LinearBimaterialFL6Initializer::initializeFrictionMatrices(
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*strengthData)[numOfPointsPadded] = it->var(ConcreteLts->strengthData);
-    real(*mu)[numOfPointsPadded] = it->var(ConcreteLts->mu);
-    real(*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);
+    real(*strengthData)[numPaddedPoints] = it->var(ConcreteLts->strengthData);
+    real(*mu)[numPaddedPoints] = it->var(ConcreteLts->mu);
+    real(*initialStressInFaultCS)[numPaddedPoints][6] = it->var(dynRup->initialStressInFaultCS);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       // unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
-      for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
-        strengthData[ltsFace][iBndGP] =
-            mu[ltsFace][iBndGP] * initialStressInFaultCS[ltsFace][iBndGP][0];
+      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
+        strengthData[ltsFace][pointIndex] =
+            mu[ltsFace][pointIndex] * initialStressInFaultCS[ltsFace][pointIndex][0];
       }
     } // lts-face loop
     layerLtsFaceToMeshFace += it->getNumberOfCells();

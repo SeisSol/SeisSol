@@ -171,7 +171,7 @@ private:
 
     //added by Adrian
     dr::friction_law::BaseFrictionLaw* m_FrictonLaw;
-    dr::output::Output_Base* m_DrOutput;
+    dr::output::OutputBase* m_DrOutput;
 
   //! time step width of the performed time step.
     double m_timeStepWidth;
@@ -505,7 +505,7 @@ private:
                  seissol::initializers::LTS* i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
                  seissol::dr::friction_law::BaseFrictionLaw* i_FrictonLaw,
-                 dr::output::Output_Base* i_DrOutput,
+                 dr::output::OutputBase* i_DrOutput,
                  LoopStatistics* i_loopStatistics );
 
     /**

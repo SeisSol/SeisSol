@@ -23,42 +23,41 @@ void RateAndStateNucFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& la
 
 void RateAndStateNucFL103::preCalcTime() {
   dt = 0;
-  for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-    dt += deltaT[iTimeGP];
+  for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+    dt += deltaT[timeIndex];
   }
   if (m_fullUpdateTime <= m_Params->t_0) {
-    Gnuc = Calc_SmoothStepIncrement(m_fullUpdateTime, dt);
+    gNuc = calcSmoothStepIncrement(m_fullUpdateTime, dt);
   }
 }
 
-void RateAndStateNucFL103::setInitialValues(std::array<real, numOfPointsPadded>& LocSV,
+void RateAndStateNucFL103::setInitialValues(std::array<real, numPaddedPoints>& LocSV,
                                             unsigned int ltsFace) {
   if (m_fullUpdateTime <= m_Params->t_0) {
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       for (int i = 0; i < 6; i++) {
-        initialStressInFaultCS[ltsFace][iBndGP][i] +=
-            nucleationStressInFaultCS[ltsFace][iBndGP][i] * Gnuc;
+        initialStressInFaultCS[ltsFace][pointIndex][i] +=
+            nucleationStressInFaultCS[ltsFace][pointIndex][i] * gNuc;
       }
     }
   } // end If-Tnuc
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-    LocSV[iBndGP] =
-        stateVar[ltsFace]
-                [iBndGP]; // DISC%DynRup%StateVar(iBndGP,iFace)      //local varriable required
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+    LocSV[pointIndex] = stateVar[ltsFace][pointIndex]; // DISC%DynRup%StateVar(pointIndex,iFace)
+                                                       // //local varriable required
   }
 }
 
 void RateAndStateNucFL103::calcInitialSlipRate(
-    std::array<real, numOfPointsPadded>& TotalShearStressYZ,
+    std::array<real, numPaddedPoints>& TotalShearStressYZ,
     FaultStresses& faultStresses,
-    std::array<real, numOfPointsPadded>& stateVarZero,
-    std::array<real, numOfPointsPadded>& LocSV,
-    std::array<real, numOfPointsPadded>& SR_tmp,
-    unsigned int iTimeGP,
+    std::array<real, numPaddedPoints>& stateVarZero,
+    std::array<real, numPaddedPoints>& LocSV,
+    std::array<real, numPaddedPoints>& SR_tmp,
+    unsigned int timeIndex,
     unsigned int ltsFace) {
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
     // friction develops as                    mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
     // state variable SV develops as          dSV / dt = -(V - L) * (SV - SV_ss)
@@ -66,201 +65,210 @@ void RateAndStateNucFL103::calcInitialSlipRate(
     //                                        mu_ss = mu_w + [mu_lv - mu_w] / [ 1 + (V/Vw)^8 ] ^
     //                                        (1/8) ] mu_lv = mu_0 - (b-a) ln (V/V0)
 
-    TotalShearStressYZ[iBndGP] =
-        std::sqrt(seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][3] +
-                                              faultStresses.XYStressGP[iTimeGP][iBndGP],
-                                          2) +
-                  seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][5] +
-                                              faultStresses.XZStressGP[iTimeGP][iBndGP],
-                                          2));
+    TotalShearStressYZ[pointIndex] =
+        std::sqrt(std::pow(initialStressInFaultCS[ltsFace][pointIndex][3] +
+                               faultStresses.XYStressGP[timeIndex][pointIndex],
+                           2) +
+                  std::pow(initialStressInFaultCS[ltsFace][pointIndex][5] +
+                               faultStresses.XZStressGP[timeIndex][pointIndex],
+                           2));
 
     // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996)
     // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
-    stateVarZero[iBndGP] =
-        LocSV[iBndGP]; // Careful, the SV must always be corrected using SV0 and not LocSV!
+    stateVarZero[pointIndex] =
+        LocSV[pointIndex]; // Careful, the SV must always be corrected using SV0 and not LocSV!
 
     // The following process is adapted from that described by Kaneko et al. (2008)
-    SlipRateMagnitude[ltsFace][iBndGP] =
-        std::sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) +
-                  seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
-    SlipRateMagnitude[ltsFace][iBndGP] = std::max(AlmostZero, SlipRateMagnitude[ltsFace][iBndGP]);
-    SR_tmp[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
-  } // End of iBndGP-loop
+    slipRateMagnitude[ltsFace][pointIndex] =
+        std::sqrt(std::pow(slipRateStrike[ltsFace][pointIndex], 2) +
+                  std::pow(slipRateDip[ltsFace][pointIndex], 2));
+    slipRateMagnitude[ltsFace][pointIndex] =
+        std::max(AlmostZero, slipRateMagnitude[ltsFace][pointIndex]);
+    SR_tmp[pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
+  } // End of pointIndex-loop
 }
 
 void RateAndStateNucFL103::updateStateVariableIterative(
     bool& has_converged,
-    std::array<real, numOfPointsPadded>& stateVarZero,
-    std::array<real, numOfPointsPadded>& SR_tmp,
-    std::array<real, numOfPointsPadded>& LocSV,
-    std::array<real, numOfPointsPadded>& P_f,
-    std::array<real, numOfPointsPadded>& normalStress,
-    std::array<real, numOfPointsPadded>& TotalShearStressYZ,
-    std::array<real, numOfPointsPadded>& SRtest,
+    std::array<real, numPaddedPoints>& stateVarZero,
+    std::array<real, numPaddedPoints>& SR_tmp,
+    std::array<real, numPaddedPoints>& LocSV,
+    std::array<real, numPaddedPoints>& P_f,
+    std::array<real, numPaddedPoints>& normalStress,
+    std::array<real, numPaddedPoints>& TotalShearStressYZ,
+    std::array<real, numPaddedPoints>& SRtest,
     FaultStresses& faultStresses,
-    unsigned int iTimeGP,
+    unsigned int timeIndex,
     unsigned int ltsFace) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     // fault strength using LocMu and P_f from previous timestep/iteration
     // 1.update SV using Vold from the previous time step
-    updateStateVariable(
-        iBndGP, ltsFace, stateVarZero[iBndGP], deltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
-    normalStress[iBndGP] = faultStresses.NormalStressGP[iTimeGP][iBndGP] +
-                           initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP];
-  } // End of iBndGP-loop
+    updateStateVariable(pointIndex,
+                        ltsFace,
+                        stateVarZero[pointIndex],
+                        deltaT[timeIndex],
+                        SR_tmp[pointIndex],
+                        LocSV[pointIndex]);
+    normalStress[pointIndex] = faultStresses.NormalStressGP[timeIndex][pointIndex] +
+                               initialStressInFaultCS[ltsFace][pointIndex][0] - P_f[pointIndex];
+  } // End of pointIndex-loop
 
   // 2. solve for Vnew , applying the Newton-Raphson algorithm
   // effective normal stress including initial stresses and pore fluid pressure
   has_converged =
       IterativelyInvertSR(ltsFace, nSRupdates, LocSV, normalStress, TotalShearStressYZ, SRtest);
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     // 3. update theta, now using V=(Vnew+Vold)/2
     // For the next SV update, use the mean slip rate between the initial guess and the one found
     // (Kaneko 2008, step 6)
-    SR_tmp[iBndGP] = 0.5 * (SlipRateMagnitude[ltsFace][iBndGP] + fabs(SRtest[iBndGP]));
+    SR_tmp[pointIndex] = 0.5 * (slipRateMagnitude[ltsFace][pointIndex] + fabs(SRtest[pointIndex]));
 
     // 4. solve again for Vnew
-    SlipRateMagnitude[ltsFace][iBndGP] = fabs(SRtest[iBndGP]);
+    slipRateMagnitude[ltsFace][pointIndex] = fabs(SRtest[pointIndex]);
 
     // update LocMu
-    updateMu(ltsFace, iBndGP, LocSV[iBndGP]);
-  } // End of iBndGP-loop
+    updateMu(ltsFace, pointIndex, LocSV[pointIndex]);
+  } // End of pointIndex-loop
 }
 
-void RateAndStateNucFL103::executeIfNotConverged(std::array<real, numOfPointsPadded>& LocSV,
+void RateAndStateNucFL103::executeIfNotConverged(std::array<real, numPaddedPoints>& LocSV,
                                                  unsigned ltsFace) {
   real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV[0] / RS_a_array[ltsFace][0]) *
-             SlipRateMagnitude[ltsFace][0];
+             slipRateMagnitude[ltsFace][0];
   //! logError(*) 'nonConvergence RS Newton', time
   std::cout << "nonConvergence RS Newton, time: " << m_fullUpdateTime << std::endl;
   assert(!std::isnan(tmp) && "nonConvergence RS Newton");
 }
 
 void RateAndStateNucFL103::calcSlipRateAndTraction(
-    std::array<real, numOfPointsPadded>& stateVarZero,
-    std::array<real, numOfPointsPadded>& SR_tmp,
-    std::array<real, numOfPointsPadded>& LocSV,
-    std::array<real, numOfPointsPadded>& normalStress,
-    std::array<real, numOfPointsPadded>& TotalShearStressYZ,
-    std::array<real, numOfPointsPadded>& tmpSlip,
-    real deltaStateVar[numOfPointsPadded],
+    std::array<real, numPaddedPoints>& stateVarZero,
+    std::array<real, numPaddedPoints>& SR_tmp,
+    std::array<real, numPaddedPoints>& LocSV,
+    std::array<real, numPaddedPoints>& normalStress,
+    std::array<real, numPaddedPoints>& TotalShearStressYZ,
+    std::array<real, numPaddedPoints>& tmpSlip,
+    real deltaStateVar[numPaddedPoints],
     FaultStresses& faultStresses,
-    unsigned int iTimeGP,
+    unsigned int timeIndex,
     unsigned int ltsFace) {
-  std::array<real, numOfPointsPadded> LocSlipRateMagnitude{0};
+  std::array<real, numPaddedPoints> LocslipRateMagnitude{0};
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     //! SV from mean slip rate in tmp
-    updateStateVariable(
-        iBndGP, ltsFace, stateVarZero[iBndGP], deltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
+    updateStateVariable(pointIndex,
+                        ltsFace,
+                        stateVarZero[pointIndex],
+                        deltaT[timeIndex],
+                        SR_tmp[pointIndex],
+                        LocSV[pointIndex]);
 
     //! update LocMu for next strength determination, only needed for last update
-    updateMu(ltsFace, iBndGP, LocSV[iBndGP]);
+    updateMu(ltsFace, pointIndex, LocSV[pointIndex]);
 
     //! update stress change
-    tractionXY[ltsFace][iBndGP] =
-        -((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) /
-          TotalShearStressYZ[iBndGP]) *
-        mu[ltsFace][iBndGP] * normalStress[iBndGP];
-    tractionXZ[ltsFace][iBndGP] =
-        -((initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) /
-          TotalShearStressYZ[iBndGP]) *
-        mu[ltsFace][iBndGP] * normalStress[iBndGP];
-    tractionXY[ltsFace][iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][3];
-    tractionXZ[ltsFace][iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][5];
+    tractionXY[ltsFace][pointIndex] = -((initialStressInFaultCS[ltsFace][pointIndex][3] +
+                                         faultStresses.XYStressGP[timeIndex][pointIndex]) /
+                                        TotalShearStressYZ[pointIndex]) *
+                                      mu[ltsFace][pointIndex] * normalStress[pointIndex];
+    tractionXZ[ltsFace][pointIndex] = -((initialStressInFaultCS[ltsFace][pointIndex][5] +
+                                         faultStresses.XZStressGP[timeIndex][pointIndex]) /
+                                        TotalShearStressYZ[pointIndex]) *
+                                      mu[ltsFace][pointIndex] * normalStress[pointIndex];
+    tractionXY[ltsFace][pointIndex] -= initialStressInFaultCS[ltsFace][pointIndex][3];
+    tractionXZ[ltsFace][pointIndex] -= initialStressInFaultCS[ltsFace][pointIndex][5];
 
     // Compute slip
     //! ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed in
     //! the solver, see linear slip weakening
-    slip[ltsFace][iBndGP] += SlipRateMagnitude[ltsFace][iBndGP] * deltaT[iTimeGP];
+    slip[ltsFace][pointIndex] += slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
 
     //! Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate
     //! caused by a free surface!)
-    slipRateStrike[ltsFace][iBndGP] =
+    slipRateStrike[ltsFace][pointIndex] =
         -impAndEta[ltsFace].inv_eta_s *
-        (tractionXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
-    slipRateDip[ltsFace][iBndGP] =
+        (tractionXY[ltsFace][pointIndex] - faultStresses.XYStressGP[timeIndex][pointIndex]);
+    slipRateDip[ltsFace][pointIndex] =
         -impAndEta[ltsFace].inv_eta_s *
-        (tractionXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
+        (tractionXZ[ltsFace][pointIndex] - faultStresses.XZStressGP[timeIndex][pointIndex]);
 
     //! TU 07.07.16: correct slipRateStrike and slipRateDip to avoid numerical errors
-    LocSlipRateMagnitude[iBndGP] =
-        sqrt(seissol::dr::aux::power(slipRateStrike[ltsFace][iBndGP], 2) +
-             seissol::dr::aux::power(slipRateDip[ltsFace][iBndGP], 2));
-    if (LocSlipRateMagnitude[iBndGP] != 0) {
-      slipRateStrike[ltsFace][iBndGP] *=
-          SlipRateMagnitude[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
-      slipRateDip[ltsFace][iBndGP] *=
-          SlipRateMagnitude[ltsFace][iBndGP] / LocSlipRateMagnitude[iBndGP];
+    LocslipRateMagnitude[pointIndex] = sqrt(std::pow(slipRateStrike[ltsFace][pointIndex], 2) +
+                                            std::pow(slipRateDip[ltsFace][pointIndex], 2));
+    if (LocslipRateMagnitude[pointIndex] != 0) {
+      slipRateStrike[ltsFace][pointIndex] *=
+          slipRateMagnitude[ltsFace][pointIndex] / LocslipRateMagnitude[pointIndex];
+      slipRateDip[ltsFace][pointIndex] *=
+          slipRateMagnitude[ltsFace][pointIndex] / LocslipRateMagnitude[pointIndex];
     }
-    tmpSlip[iBndGP] += LocSlipRateMagnitude[iBndGP] * deltaT[iTimeGP];
+    tmpSlip[pointIndex] += LocslipRateMagnitude[pointIndex] * deltaT[timeIndex];
 
-    slipStrike[ltsFace][iBndGP] += slipRateStrike[ltsFace][iBndGP] * deltaT[iTimeGP];
-    slipDip[ltsFace][iBndGP] += slipRateDip[ltsFace][iBndGP] * deltaT[iTimeGP];
+    slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
+    slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
 
     //! Save traction for flux computation
-    faultStresses.XYTractionResultGP[iTimeGP][iBndGP] = tractionXY[ltsFace][iBndGP];
-    faultStresses.XZTractionResultGP[iTimeGP][iBndGP] = tractionXZ[ltsFace][iBndGP];
+    faultStresses.XYTractionResultGP[timeIndex][pointIndex] = tractionXY[ltsFace][pointIndex];
+    faultStresses.XZTractionResultGP[timeIndex][pointIndex] = tractionXZ[ltsFace][pointIndex];
 
     // Could be outside TimeLoop, since only last time result is used later
-    deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[ltsFace][iBndGP];
+    deltaStateVar[pointIndex] = LocSV[pointIndex] - stateVar[ltsFace][pointIndex];
   } // End of BndGP-loop
 }
 
-void RateAndStateNucFL103::resampleStateVar(real deltaStateVar[numOfPointsPadded],
+void RateAndStateNucFL103::resampleStateVar(real deltaStateVar[numPaddedPoints],
                                             unsigned int ltsFace) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resampleM = init::resample::Values;
-  real resampledDeltaStateVar[numOfPointsPadded];
+  real resampledDeltaStateVar[numPaddedPoints];
   resampleKrnl.resamplePar = deltaStateVar;
   resampleKrnl.resampledPar = resampledDeltaStateVar; // output from execute
   resampleKrnl.execute();
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     // write back State Variable to lts tree
-    stateVar[ltsFace][iBndGP] = stateVar[ltsFace][iBndGP] + resampledDeltaStateVar[iBndGP];
+    stateVar[ltsFace][pointIndex] =
+        stateVar[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
   }
 }
 
 void RateAndStateNucFL103::saveDynamicStressOutput(unsigned int face) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
-    if (rupture_time[face][iBndGP] > 0.0 && rupture_time[face][iBndGP] <= m_fullUpdateTime &&
-        DS[iBndGP] &&
-        mu[face][iBndGP] <= (m_Params->mu_w + 0.05 * (m_Params->rs_f0 - m_Params->mu_w))) {
-      dynStress_time[face][iBndGP] = m_fullUpdateTime;
-      DS[face][iBndGP] = false;
+    if (ruptureTime[face][pointIndex] > 0.0 && ruptureTime[face][pointIndex] <= m_fullUpdateTime &&
+        DS[pointIndex] &&
+        mu[face][pointIndex] <= (m_Params->mu_w + 0.05 * (m_Params->rs_f0 - m_Params->mu_w))) {
+      dynStress_time[face][pointIndex] = m_fullUpdateTime;
+      DS[face][pointIndex] = false;
     }
   }
 }
 
-void RateAndStateNucFL103::hookSetInitialP_f(std::array<real, numOfPointsPadded>& P_f,
+void RateAndStateNucFL103::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
                                              unsigned int ltsFace) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-    P_f[iBndGP] = 0.0;
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+    P_f[pointIndex] = 0.0;
   }
 }
 
-void RateAndStateNucFL103::hookCalcP_f(std::array<real, numOfPointsPadded>& P_f,
+void RateAndStateNucFL103::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
                                        FaultStresses& faultStresses,
                                        bool saveTmpInTP,
-                                       unsigned int iTimeGP,
+                                       unsigned int timeIndex,
                                        unsigned int ltsFace) {}
 
 void RateAndStateNucFL103::updateStateVariable(
-    int iBndGP, unsigned int face, real SV0, real time_inc, real& SR_tmp, real& LocSV) {
+    int pointIndex, unsigned int face, real SV0, real time_inc, real& SR_tmp, real& LocSV) {
   double flv, fss, SVss;
   double RS_fw = m_Params->mu_w;
-  double RS_srW = RS_srW_array[face][iBndGP];
-  double RS_a = RS_a_array[face][iBndGP];
-  double RS_sl0 = RS_sl0_array[face][iBndGP];
+  double RS_srW = RS_srW_array[face][pointIndex];
+  double RS_a = RS_a_array[face][pointIndex];
+  double RS_sl0 = RS_sl0_array[face][pointIndex];
   double exp1;
 
   // low-velocity steady state friction coefficient
   flv = m_Params->rs_f0 - (m_Params->rs_b - RS_a) * log(SR_tmp / m_Params->rs_sr0);
   // steady state friction coefficient
-  fss = RS_fw + (flv - RS_fw) / pow(1.0 + seissol::dr::aux::power(SR_tmp / RS_srW, 8.0), 1.0 / 8.0);
+  fss = RS_fw + (flv - RS_fw) / pow(1.0 + std::pow(SR_tmp / RS_srW, 8.0), 1.0 / 8.0);
   // steady-state state variable
   // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
   SVss = RS_a * log(2.0 * m_Params->rs_sr0 / SR_tmp * (exp(fss / RS_a) - exp(-fss / RS_a)) / 2.0);
@@ -270,19 +278,18 @@ void RateAndStateNucFL103::updateStateVariable(
   exp1 = exp(-SR_tmp * (time_inc / RS_sl0));
   LocSV = SVss * (1.0 - exp1) + exp1 * SV0;
 
-  assert(!(std::isnan(LocSV) && iBndGP < numberOfPoints) && "NaN detected");
+  assert(!(std::isnan(LocSV) && pointIndex < numberOfPoints) && "NaN detected");
 }
 
 bool RateAndStateNucFL103::IterativelyInvertSR(unsigned int ltsFace,
                                                int nSRupdates,
-                                               std::array<real, numOfPointsPadded>& LocSV,
-                                               std::array<real, numOfPointsPadded>& n_stress,
-                                               std::array<real, numOfPointsPadded>& sh_stress,
-                                               std::array<real, numOfPointsPadded>& SRtest) {
+                                               std::array<real, numPaddedPoints>& LocSV,
+                                               std::array<real, numPaddedPoints>& n_stress,
+                                               std::array<real, numPaddedPoints>& sh_stress,
+                                               std::array<real, numPaddedPoints>& SRtest) {
 
-  real tmp[numOfPointsPadded], tmp2[numOfPointsPadded], tmp3[numOfPointsPadded],
-      mu_f[numOfPointsPadded], dmu_f[numOfPointsPadded], NR[numOfPointsPadded],
-      dNR[numOfPointsPadded];
+  real tmp[numPaddedPoints], tmp2[numPaddedPoints], tmp3[numPaddedPoints], mu_f[numPaddedPoints],
+      dmu_f[numPaddedPoints], NR[numPaddedPoints], dNR[numPaddedPoints];
   // double AlmostZero = 1e-45;
   bool has_converged = false;
 
@@ -296,35 +303,36 @@ bool RateAndStateNucFL103::IterativelyInvertSR(unsigned int ltsFace,
   //!         f = (mu*P_0-|S_0|)*S_0/|S_0|     (Coulomb's model of friction)
   //!  where mu = friction coefficient, dependening on the RSF law used
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     //! first guess = SR value of the previous step
-    SRtest[iBndGP] = SlipRateMagnitude[ltsFace][iBndGP];
-    tmp[iBndGP] = 0.5 / m_Params->rs_sr0 * exp(LocSV[iBndGP] / RS_a_array[ltsFace][iBndGP]);
+    SRtest[pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
+    tmp[pointIndex] =
+        0.5 / m_Params->rs_sr0 * exp(LocSV[pointIndex] / RS_a_array[ltsFace][pointIndex]);
   }
 
   for (int i = 0; i < nSRupdates; i++) {
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
       //! f = ( tmp2 * ABS(LocP+P_0)- ABS(S_0))*(S_0)/ABS(S_0)
       //! g = SRtest * 1.0/(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) + ABS(ShTest)
       //! for compiling reasons ASINH(X)=LOG(X+SQRT(X^2+1))
 
       //! calculate friction coefficient
-      tmp2[iBndGP] = tmp[iBndGP] * SRtest[iBndGP];
-      mu_f[iBndGP] = RS_a_array[ltsFace][iBndGP] *
-                     log(tmp2[iBndGP] + sqrt(seissol::dr::aux::power(tmp2[iBndGP], 2) + 1.0));
-      dmu_f[iBndGP] = RS_a_array[ltsFace][iBndGP] /
-                      sqrt(1.0 + seissol::dr::aux::power(tmp2[iBndGP], 2)) * tmp[iBndGP];
-      NR[iBndGP] = -impAndEta[ltsFace].inv_eta_s *
-                       (fabs(n_stress[iBndGP]) * mu_f[iBndGP] - sh_stress[iBndGP]) -
-                   SRtest[iBndGP];
+      tmp2[pointIndex] = tmp[pointIndex] * SRtest[pointIndex];
+      mu_f[pointIndex] = RS_a_array[ltsFace][pointIndex] *
+                         log(tmp2[pointIndex] + sqrt(std::pow(tmp2[pointIndex], 2) + 1.0));
+      dmu_f[pointIndex] = RS_a_array[ltsFace][pointIndex] /
+                          sqrt(1.0 + std::pow(tmp2[pointIndex], 2)) * tmp[pointIndex];
+      NR[pointIndex] = -impAndEta[ltsFace].inv_eta_s *
+                           (fabs(n_stress[pointIndex]) * mu_f[pointIndex] - sh_stress[pointIndex]) -
+                       SRtest[pointIndex];
     }
 
     has_converged = true;
 
     // max element of NR must be smaller then aTolF
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (fabs(NR[iBndGP]) >= aTolF) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+      if (fabs(NR[pointIndex]) >= aTolF) {
         has_converged = false;
         break;
       }
@@ -332,15 +340,16 @@ bool RateAndStateNucFL103::IterativelyInvertSR(unsigned int ltsFace,
     if (has_converged) {
       return has_converged;
     }
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
       //! derivative of NR
-      dNR[iBndGP] = -impAndEta[ltsFace].inv_eta_s * (fabs(n_stress[iBndGP]) * dmu_f[iBndGP]) - 1.0;
+      dNR[pointIndex] =
+          -impAndEta[ltsFace].inv_eta_s * (fabs(n_stress[pointIndex]) * dmu_f[pointIndex]) - 1.0;
       //! ratio
-      tmp3[iBndGP] = NR[iBndGP] / dNR[iBndGP];
+      tmp3[pointIndex] = NR[pointIndex] / dNR[pointIndex];
 
       //! update SRtest
-      SRtest[iBndGP] = std::max(AlmostZero, SRtest[iBndGP] - tmp3[iBndGP]);
+      SRtest[pointIndex] = std::max(AlmostZero, SRtest[pointIndex] - tmp3[pointIndex]);
     }
   }
   return has_converged;
@@ -348,10 +357,10 @@ bool RateAndStateNucFL103::IterativelyInvertSR(unsigned int ltsFace,
 
 bool RateAndStateNucFL103::IterativelyInvertSR_Brent(unsigned int ltsFace,
                                                      int nSRupdates,
-                                                     std::array<real, numOfPointsPadded>& LocSV,
-                                                     std::array<real, numOfPointsPadded>& n_stress,
-                                                     std::array<real, numOfPointsPadded>& sh_stress,
-                                                     std::array<real, numOfPointsPadded>& SRtest) {
+                                                     std::array<real, numPaddedPoints>& LocSV,
+                                                     std::array<real, numPaddedPoints>& n_stress,
+                                                     std::array<real, numPaddedPoints>& sh_stress,
+                                                     std::array<real, numPaddedPoints>& SRtest) {
   std::function<double(double, int)> F;
   double tol = 1e-30;
 
@@ -359,25 +368,25 @@ bool RateAndStateNucFL103::IterativelyInvertSR_Brent(unsigned int ltsFace,
   double RS_sr0_ = m_Params->rs_sr0;
   double invEta = impAndEta[ltsFace].inv_eta_s;
 
-  F = [invEta, &sh_stress, n_stress, RS_a, LocSV, RS_sr0_](double SR, int iBndGP) {
-    double tmp = 0.5 / RS_sr0_ * exp(LocSV[iBndGP] / RS_a[iBndGP]) * SR;
-    double mu_f = RS_a[iBndGP] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
-    return -invEta * (fabs(n_stress[iBndGP]) * mu_f - sh_stress[iBndGP]) - SR;
+  F = [invEta, &sh_stress, n_stress, RS_a, LocSV, RS_sr0_](double SR, int pointIndex) {
+    double tmp = 0.5 / RS_sr0_ * exp(LocSV[pointIndex] / RS_a[pointIndex]) * SR;
+    double mu_f = RS_a[pointIndex] * log(tmp + sqrt(std::pow(tmp, 2) + 1.0));
+    return -invEta * (fabs(n_stress[pointIndex]) * mu_f - sh_stress[pointIndex]) - SR;
   };
 
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     // TODO: use better boundaries?
-    double a =
-        SlipRateMagnitude[ltsFace][iBndGP] - impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
-    double b =
-        SlipRateMagnitude[ltsFace][iBndGP] + impAndEta[ltsFace].inv_eta_s * sh_stress[iBndGP];
+    double a = slipRateMagnitude[ltsFace][pointIndex] -
+               impAndEta[ltsFace].inv_eta_s * sh_stress[pointIndex];
+    double b = slipRateMagnitude[ltsFace][pointIndex] +
+               impAndEta[ltsFace].inv_eta_s * sh_stress[pointIndex];
 
     double eps = std::numeric_limits<double>::epsilon();
-    double Fa = F(a, iBndGP);
+    double Fa = F(a, pointIndex);
     // if(std::isinf(Fa)){
     //  Fa = std::numeric_limits<double>::max();
     //}
-    double Fb = F(b, iBndGP);
+    double Fb = F(b, pointIndex);
     assert(std::copysign(Fa, Fb) != Fa); // Fa and Fb have different signs
     double c = a;
     double Fc = Fa;
@@ -443,19 +452,19 @@ bool RateAndStateNucFL103::IterativelyInvertSR_Brent(unsigned int ltsFace,
       } else {
         b += std::copysign(tol1, xm);
       }
-      Fb = F(b, iBndGP);
+      Fb = F(b, pointIndex);
     }
-    SRtest[iBndGP] = b;
+    SRtest[pointIndex] = b;
   }
   return true;
 }
-void RateAndStateNucFL103::updateMu(unsigned int ltsFace, unsigned int iBndGP, real LocSV) {
+void RateAndStateNucFL103::updateMu(unsigned int ltsFace, unsigned int pointIndex, real LocSV) {
   //! X in Asinh(x) for mu calculation
-  real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) *
-             SlipRateMagnitude[ltsFace][iBndGP];
+  real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][pointIndex]) *
+             slipRateMagnitude[ltsFace][pointIndex];
   //! mu from locSlipRate with SINH(X)=LOG(X+SQRT(X^2+1))
-  mu[ltsFace][iBndGP] =
-      RS_a_array[ltsFace][iBndGP] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
+  mu[ltsFace][pointIndex] =
+      RS_a_array[ltsFace][pointIndex] * log(tmp + sqrt(std::pow(tmp, 2) + 1.0));
 }
 
 void RateAndStateThermalFL103::initializeTP(seissol::Interoperability& e_interoperability) {
@@ -479,114 +488,112 @@ void RateAndStateThermalFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer
   alpha_hy = layerData.var(ConcreteLts->alpha_hy);
 }
 
-void RateAndStateThermalFL103::hookSetInitialP_f(std::array<real, numOfPointsPadded>& P_f,
+void RateAndStateThermalFL103::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
                                                  unsigned int ltsFace) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-    P_f[iBndGP] = pressure[ltsFace][iBndGP];
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+    P_f[pointIndex] = pressure[ltsFace][pointIndex];
   }
 }
 
-void RateAndStateThermalFL103::hookCalcP_f(std::array<real, numOfPointsPadded>& P_f,
+void RateAndStateThermalFL103::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
                                            FaultStresses& faultStresses,
                                            bool saveTmpInTP,
-                                           unsigned int iTimeGP,
+                                           unsigned int timeIndex,
                                            unsigned int ltsFace) {
-  for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
     // compute fault strength (Sh)
-    faultStrength[iBndGP] =
-        -mu[ltsFace][iBndGP] * (faultStresses.NormalStressGP[iTimeGP][iBndGP] +
-                                initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
+    faultStrength[pointIndex] = -mu[ltsFace][pointIndex] *
+                                (faultStresses.NormalStressGP[timeIndex][pointIndex] +
+                                 initialStressInFaultCS[ltsFace][pointIndex][0] - P_f[pointIndex]);
 
     for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
       //! recover original values as it gets overwritten in the ThermalPressure routine
-      Theta_tmp[iTP_grid_nz] = TP_Theta[ltsFace][iBndGP][iTP_grid_nz];
-      Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][iBndGP][iTP_grid_nz];
+      Theta_tmp[iTP_grid_nz] = TP_Theta[ltsFace][pointIndex][iTP_grid_nz];
+      Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][pointIndex][iTP_grid_nz];
     }
     //! use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-    Calc_ThermalPressure(iBndGP, iTimeGP, ltsFace);
+    Calc_ThermalPressure(pointIndex, timeIndex, ltsFace);
 
-    P_f[iBndGP] = pressure[ltsFace][iBndGP];
+    P_f[pointIndex] = pressure[ltsFace][pointIndex];
     if (saveTmpInTP) {
       for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-        TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
-        TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+        TP_Theta[ltsFace][pointIndex][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
+        TP_sigma[ltsFace][pointIndex][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
       }
     }
   }
 }
 
-void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int iBndGP,
-                                                    unsigned int iTimeGP,
+void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
+                                                    unsigned int timeIndex,
                                                     unsigned int ltsFace) {
-  real tauV, Lambda_prime, T, p;
+  real localTemperature = 0.0;
+  real localPressure = 0.0;
+
+  real tauV = faultStrength[pointIndex] *
+              slipRateMagnitude[ltsFace][pointIndex]; //! fault strenght*slip rate
+  real lambdaPrime = m_Params->TP_lambda * m_Params->alpha_th /
+                     (alpha_hy[ltsFace][pointIndex] - m_Params->alpha_th);
+
   real tmp[TP_grid_nz];
-  real omega_theta[TP_grid_nz];
-  real omega_sigma[TP_grid_nz];
-  real theta_current[TP_grid_nz];
-  real sigma_current[TP_grid_nz];
-
-  T = 0.0;
-  p = 0.0;
-
-  tauV = faultStrength[iBndGP] * SlipRateMagnitude[ltsFace][iBndGP]; //! fault strenght*slip rate
-  Lambda_prime =
-      m_Params->TP_lambda * m_Params->alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params->alpha_th);
-
+  real omegaTheta[TP_grid_nz]{};
+  real omegaSigma[TP_grid_nz]{};
+  real thetaCurrent[TP_grid_nz]{};
+  real sigmaCurrent[TP_grid_nz]{};
   for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
     //! Gaussian shear zone in spectral domain, normalized by w
-    tmp[iTP_grid_nz] = seissol::dr::aux::power(
-        TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP], 2);
+    tmp[iTP_grid_nz] =
+        std::pow(TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][pointIndex], 2);
     //! 1. Calculate diffusion of the field at previous timestep
 
     //! temperature
-    theta_current[iTP_grid_nz] =
-        Theta_tmp[iTP_grid_nz] * exp(-m_Params->alpha_th * deltaT[iTimeGP] * tmp[iTP_grid_nz]);
+    thetaCurrent[iTP_grid_nz] =
+        Theta_tmp[iTP_grid_nz] * exp(-m_Params->alpha_th * deltaT[timeIndex] * tmp[iTP_grid_nz]);
     //! pore pressure + lambda'*temp
-    sigma_current[iTP_grid_nz] = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][iBndGP] *
-                                                              deltaT[iTimeGP] * tmp[iTP_grid_nz]);
+    sigmaCurrent[iTP_grid_nz] = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][pointIndex] *
+                                                             deltaT[timeIndex] * tmp[iTP_grid_nz]);
 
     //! 2. Add current contribution and get new temperature
-    omega_theta[iTP_grid_nz] =
-        heat_source(tmp[iTP_grid_nz], m_Params->alpha_th, iTP_grid_nz, iTimeGP);
+    omegaTheta[iTP_grid_nz] =
+        heat_source(tmp[iTP_grid_nz], m_Params->alpha_th, iTP_grid_nz, timeIndex);
     Theta_tmp[iTP_grid_nz] =
-        theta_current[iTP_grid_nz] + (tauV / m_Params->rho_c) * omega_theta[iTP_grid_nz];
-    omega_sigma[iTP_grid_nz] =
-        heat_source(tmp[iTP_grid_nz], alpha_hy[ltsFace][iBndGP], iTP_grid_nz, iTimeGP);
+        thetaCurrent[iTP_grid_nz] + (tauV / m_Params->rho_c) * omegaTheta[iTP_grid_nz];
+    omegaSigma[iTP_grid_nz] =
+        heat_source(tmp[iTP_grid_nz], alpha_hy[ltsFace][pointIndex], iTP_grid_nz, timeIndex);
     Sigma_tmp[iTP_grid_nz] =
-        sigma_current[iTP_grid_nz] + ((m_Params->TP_lambda + Lambda_prime) * tauV) /
-                                         (m_Params->rho_c) * omega_sigma[iTP_grid_nz];
+        sigmaCurrent[iTP_grid_nz] +
+        ((m_Params->TP_lambda + lambdaPrime) * tauV) / (m_Params->rho_c) * omegaSigma[iTP_grid_nz];
 
     //! 3. Recover temperature and pressure using inverse Fourier
     //! transformation with the calculated fourier coefficients
 
     //! new contribution
-    T += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP]) *
-         Theta_tmp[iTP_grid_nz];
-    p += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP]) *
-         Sigma_tmp[iTP_grid_nz];
+    localTemperature += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][pointIndex]) *
+                        Theta_tmp[iTP_grid_nz];
+    localPressure += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][pointIndex]) *
+                     Sigma_tmp[iTP_grid_nz];
   }
   // Update pore pressure change (sigma = pore pressure + lambda'*temp)
   // In the BIEM code (Lapusta) they use T without initial value
-  p = p - Lambda_prime * T;
+  localPressure = localPressure - lambdaPrime * localTemperature;
 
   // Temp and pore pressure change at single GP on the fault + initial values
-  temperature[ltsFace][iBndGP] = T + m_Params->IniTemp;
-  pressure[ltsFace][iBndGP] = -p + m_Params->IniPressure;
+  temperature[ltsFace][pointIndex] = localTemperature + m_Params->IniTemp;
+  pressure[ltsFace][pointIndex] = -localPressure + m_Params->IniPressure;
 }
 
 real RateAndStateThermalFL103::heat_source(real tmp,
                                            real alpha,
                                            unsigned int iTP_grid_nz,
-                                           unsigned int iTimeGP) {
+                                           unsigned int timeIndex) {
   //! original function in spatial domain
   //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
   //! function in the wavenumber domain *including additional factors in front of the heat source
   //! function* omega =
   //! 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**tmp))
   //! inserting Dwn/TP_half_width_shear_zone (scaled) for Dwn cancels out TP_half_width_shear_zone
-  return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
-         exp(-0.5 * seissol::dr::aux::power(TP_grid[iTP_grid_nz], 2)) *
-         (1.0 - exp(-alpha * deltaT[iTimeGP] * tmp));
+  return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) * exp(-0.5 * std::pow(TP_grid[iTP_grid_nz], 2)) *
+         (1.0 - exp(-alpha * deltaT[timeIndex] * tmp));
 }
 } // namespace seissol::dr::friction_law

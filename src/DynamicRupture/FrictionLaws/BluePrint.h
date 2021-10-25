@@ -13,7 +13,7 @@ class BluePrint;
 class seissol::dr::friction_law::BluePrint : public seissol::dr::friction_law::BaseFrictionLaw {
   protected:
   // Attributes
-  real (*templateAttribute)[numOfPointsPadded];
+  real (*templateAttribute)[numPaddedPoints];
 
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -52,14 +52,14 @@ class seissol::dr::friction_law::BluePrint : public seissol::dr::friction_law::B
       precomputeStressFromQInterpolated(
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) { // loop over time steps
+      for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
         /*
          * add friction law calculation here:
          * computed slip rates, traction, friction coefficients and state variables
          */
       }
       // output rupture front
-      // outside of iTimeGP loop in order to safe an 'if' in a loop
+      // outside of timeIndex loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
       saveRuptureFrontOutput(ltsFace);
 

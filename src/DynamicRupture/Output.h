@@ -1,9 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_H
-#define SEISSOL_DR_OUTPUT_H
+#ifndef SEISSOL_OUTPUT_H
+#define SEISSOL_OUTPUT_H
 
 #include <yaml-cpp/yaml.h>
 
-#include "DR_Parameters.h"
+#include "Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Solver/Interoperability.h"
 
@@ -11,31 +11,27 @@
  * Currently this is only an interface to the old Fortran output writer.
  * should be replaced fully implemented C++ output writer
  */
-namespace seissol {
-namespace dr {
-namespace output {
-class Output_Base;       // abstract class, implements output that all FLs have in common
-class Output_NoFaultFL0; // No SolverNoFaultFL0
-class Output_LinearSlipWeakeningFL2; // for linear slip laws FL2, FL16 and FL6
-class Output_RateAndStateFL3;        // dummy class, not implemented, could be replaced by
-                                     // Output_RateAndStateFL103
-class Output_LinearBimaterialFL6;    // extends output for Strength output
-class Output_ImposedSlipRatesFL33;   // SolverImposedSlipRatesFL33
-class Output_RateAndStateFL103;      // output for rate and state Friction laws
-} // namespace output
-} // namespace dr
-} // namespace seissol
+namespace seissol::dr::output {
+class OutputBase;                   // abstract class, implements output that all FLs have in common
+class OutputNoFaultFL0;             // No SolverNoFaultFL0
+class OutputLinearSlipWeakeningFL2; // for linear slip laws FL2, FL16 and FL6
+class OutputRateAndStateFL3;        // dummy class, not implemented, could be replaced by
+                                    // OutputRateAndStateFL103
+class OutputLinearBimaterialFL6;    // extends output for Strength output
+class OutputImposedSlipRatesFL33;   // SolverImposedSlipRatesFL33
+class OutputRateAndStateFL103;      // output for rate and state Friction laws
+} // namespace seissol::dr::output
 
 /*
  * Currently this class only copies values computed in C++ dynamic rupture back to Fortran to have
  * it available for the output writer
  */
-class seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputBase {
   protected:
   seissol::dr::DRParameters*
       m_Params; // currently, not required, but later for fully C++ implementation important
   public:
-  virtual ~Output_Base() {}
+  virtual ~OutputBase() {}
 
   // set the parameters from .par file with yaml to this class attributes.
   void setInputParam(dr::DRParameters* DynRupParameter) { m_Params = DynRupParameter; }
@@ -47,17 +43,17 @@ class seissol::dr::output::Output_Base {
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) {
-
-    real(*mu)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->mu);
-    real(*slip)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->slip);
-    real(*slipStrike)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->slipStrike);
-    real(*slipDip)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->slipDip);
-    real(*slipRateStrike)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->slipRateStrike);
-    real(*slipRateDip)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->slipRateDip);
-    real(*rupture_time)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->rupture_time);
-    real(*peakSR)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->peakSR);
-    real(*tractionXY)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->tractionXY);
-    real(*tractionXZ)[init::QInterpolated::Stop[0]] = layerData.var(dynRup->tractionXZ);
+    constexpr auto size = init::QInterpolated::Stop[0];
+    real(*mu)[size] = layerData.var(dynRup->mu);
+    real(*slip)[size] = layerData.var(dynRup->slip);
+    real(*slipStrike)[size] = layerData.var(dynRup->slipStrike);
+    real(*slipDip)[size] = layerData.var(dynRup->slipDip);
+    real(*slipRateStrike)[size] = layerData.var(dynRup->slipRateStrike);
+    real(*slipRateDip)[size] = layerData.var(dynRup->slipRateDip);
+    real(*rupture_time)[size] = layerData.var(dynRup->rupture_time);
+    real(*peakSR)[size] = layerData.var(dynRup->peakSR);
+    real(*tractionXY)[size] = layerData.var(dynRup->tractionXY);
+    real(*tractionXZ)[size] = layerData.var(dynRup->tractionXZ);
 
     DRFaceInformation* faceInformation = layerData.var(dynRup->faceInformation);
 
@@ -87,32 +83,32 @@ class seissol::dr::output::Output_Base {
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) = 0;
 };
 
-class seissol::dr::output::Output_NoFaultFL0 : public seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputNoFaultFL0 : public seissol::dr::output::OutputBase {
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
-    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
+    OutputBase::tiePointers(layerData, dynRup, e_interoperability);
   }
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
     // do nothing
   }
 };
 
-class seissol::dr::output::Output_LinearSlipWeakeningFL2 : public seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputLinearSlipWeakeningFL2 : public seissol::dr::output::OutputBase {
   public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
 
-    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
+    OutputBase::tiePointers(layerData, dynRup, e_interoperability);
 
     seissol::initializers::LTS_LinearSlipWeakeningFL2* ConcreteLts =
         dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL2*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(ConcreteLts->faceInformation);
     real* averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
-    real(*dynStress_time)[init::QInterpolated::Stop[0]] =
-        layerData.var(ConcreteLts->dynStress_time);
+    constexpr auto size = init::QInterpolated::Stop[0];
+    real(*dynStress_time)[size] = layerData.var(ConcreteLts->dynStress_time);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -129,12 +125,12 @@ class seissol::dr::output::Output_LinearSlipWeakeningFL2 : public seissol::dr::o
   }
 };
 
-class seissol::dr::output::Output_ImposedSlipRatesFL33 : public seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputImposedSlipRatesFL33 : public seissol::dr::output::OutputBase {
   public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
-    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
+    OutputBase::tiePointers(layerData, dynRup, e_interoperability);
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
@@ -144,23 +140,22 @@ class seissol::dr::output::Output_ImposedSlipRatesFL33 : public seissol::dr::out
   }
 };
 
-class seissol::dr::output::Output_RateAndStateFL103 : public seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputRateAndStateFL103 : public seissol::dr::output::OutputBase {
   public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
-    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
+    OutputBase::tiePointers(layerData, dynRup, e_interoperability);
     seissol::initializers::LTS_RateAndStateFL103* ConcreteLts =
         dynamic_cast<seissol::initializers::LTS_RateAndStateFL103*>(dynRup);
     // std::cout << "tie ptr for Init_FL_103\n";
 
     DRFaceInformation* faceInformation = layerData.var(ConcreteLts->faceInformation);
     real* averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
-    real(*dynStress_time)[init::QInterpolated::Stop[0]] =
-        layerData.var(ConcreteLts->dynStress_time);
-    real(*stateVar)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->stateVar);
-    real(*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6] =
-        layerData.var(dynRup->initialStressInFaultCS);
+    constexpr auto size = init::QInterpolated::Stop[0];
+    real(*dynStress_time)[size] = layerData.var(ConcreteLts->dynStress_time);
+    real(*stateVar)[size] = layerData.var(ConcreteLts->stateVar);
+    real(*initialStressInFaultCS)[size][6] = layerData.var(dynRup->initialStressInFaultCS);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -184,20 +179,20 @@ class seissol::dr::output::Output_RateAndStateFL103 : public seissol::dr::output
 
 // output_Strength
 
-class seissol::dr::output::Output_LinearBimaterialFL6 : public seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputLinearBimaterialFL6 : public seissol::dr::output::OutputBase {
   public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
-    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
+    OutputBase::tiePointers(layerData, dynRup, e_interoperability);
     seissol::initializers::LTS_LinearBimaterialFL6* ConcreteLts =
         dynamic_cast<seissol::initializers::LTS_LinearBimaterialFL6*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(ConcreteLts->faceInformation);
     real* averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
-    real(*dynStress_time)[init::QInterpolated::Stop[0]] =
-        layerData.var(ConcreteLts->dynStress_time);
-    real(*strength)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->strengthData);
+    constexpr auto size = init::QInterpolated::Stop[0];
+    real(*dynStress_time)[size] = layerData.var(ConcreteLts->dynStress_time);
+    real(*strength)[size] = layerData.var(ConcreteLts->strengthData);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -220,12 +215,12 @@ class seissol::dr::output::Output_LinearBimaterialFL6 : public seissol::dr::outp
 /*
  * Not implemented
  */
-class seissol::dr::output::Output_RateAndStateFL3 : public seissol::dr::output::Output_Base {
+class seissol::dr::output::OutputRateAndStateFL3 : public seissol::dr::output::OutputBase {
   public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
-    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
+    OutputBase::tiePointers(layerData, dynRup, e_interoperability);
     // seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3
     // *>(dynRup);
     std::cout << "tie ptr for Init_FL_3 (not implemented)\n";
@@ -238,4 +233,4 @@ class seissol::dr::output::Output_RateAndStateFL3 : public seissol::dr::output::
   }
 };
 
-#endif // SEISSOL_DR_OUTPUT_H
+#endif // SEISSOL_OUTPUT_H

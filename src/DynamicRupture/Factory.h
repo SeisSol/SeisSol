@@ -1,11 +1,11 @@
-#ifndef SEISSOL_DR_FACTORY_H
-#define SEISSOL_DR_FACTORY_H
+#ifndef SEISSOL_FACTORY_H
+#define SEISSOL_FACTORY_H
 
 #include <iostream>
 #include <stdexcept>
 #include <tuple>
 
-#include "DR_output.h"
+#include "Output.h"
 #include "DynamicRupture/FrictionLaws/FrictionLaws.h"
 #include "DynamicRupture/Initializers/Initializers.h"
 #include "Initializer/DynamicRupture.h"
@@ -15,7 +15,7 @@ struct products {
   seissol::initializers::DynamicRupture* ltsTree;
   seissol::dr::initializers::BaseDRInitializer* initializer;
   seissol::dr::friction_law::BaseFrictionLaw* fl;
-  seissol::dr::output::Output_Base* output;
+  seissol::dr::output::OutputBase* output;
 };
 class AbstractFactory;
 struct Factory_FL_0;           // no fault
@@ -80,4 +80,4 @@ class seissol::dr::factory::Factory_FL_103_Thermal : public seissol::dr::factory
 seissol::dr::factory::AbstractFactory*
     seissol::dr::factory::getFactory(dr::DRParameters* DynRupParameter);
 
-#endif // SEISSOL_DR_FACTORY_H
+#endif // SEISSOL_FACTORY_H
