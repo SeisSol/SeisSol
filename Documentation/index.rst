@@ -60,6 +60,15 @@ Characteristics of the SeisSol simulation software are:
 
 .. toctree::
   :maxdepth: 2
+  :caption: Seismic source
+
+  dynamic-rupture
+  standard-rupture-format
+  slip-rate-on-DR
+  point-source-older-implementation
+
+.. toctree::
+  :maxdepth: 2
   :caption: Output
   
   fault-output
@@ -68,16 +77,13 @@ Characteristics of the SeisSol simulation software are:
   postprocessing-and-visualization
   wave-field-output
   checkpointing
-
+ 
 .. toctree::
   :maxdepth: 2
   :caption: Further documentation
 
   PUML-mesh-format
   asagi
-  standard-rupture-format
-  point-source-older-implementation
-  dynamic-rupture
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
