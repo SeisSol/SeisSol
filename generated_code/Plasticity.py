@@ -53,7 +53,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   sShape = (numberOf3DBasisFunctions, 6)
   QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
 
-  sShape_eta = (numberOf3DBasisFunctions, 1)
+  sShape_eta = (numberOf3DBasisFunctions,)
   QEtaModal = OptionalDimTensor('QEtaModal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape_eta, alignStride=True)
 
   initialLoading = Tensor('initialLoading', (6,))
@@ -73,7 +73,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   meanStress = OptionalDimTensor('meanStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
   secondInvariant = OptionalDimTensor('secondInvariant', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
 
-  QEtaNodal = OptionalDimTensor('QEtaNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes, 1), alignStride=True)
+  QEtaNodal = OptionalDimTensor('QEtaNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
 
   selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
   selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
@@ -82,8 +82,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
   generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
   generator.add('plConvertToNodalNoLoading', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'])
-  generator.add('plConvertEtaModal2Nodal', QEtaNodal['kp'] <= db.v[aderdg.t('kl')] * QEtaModal['lp'])
-  generator.add('plConvertEtaNodal2Modal', QEtaModal['kp'] <= db.vInv[aderdg.t('kl')] * QEtaNodal['lp'])
+  generator.add('plConvertEtaModal2Nodal', QEtaNodal['k'] <= db.v[aderdg.t('kl')] * QEtaModal['l'])
+  generator.add('plConvertEtaNodal2Modal', QEtaModal['k'] <= db.vInv[aderdg.t('kl')] * QEtaNodal['l'])
   generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
   generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
