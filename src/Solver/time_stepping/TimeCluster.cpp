@@ -125,7 +125,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     // assert all pointers are valid
-    assert( m_meshStructure                            != nullptr );
     assert( m_clusterData                              != NULL );
     assert( m_globalDataOnHost                         != nullptr );
     if constexpr (seissol::isDeviceOn()) {
