@@ -47,6 +47,7 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "utils/logger.h"
 
@@ -89,7 +90,10 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	std::string m_outputPrefix;
 
 	/** The variable subsampler for the refined mesh */
-	refinement::VariableSubsampler<double>* m_variableSubsampler;
+	std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsampler;
+
+	/** The variable subsampler for the refined mesh (plastic strain) */
+	std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsamplerPStrain;
 
 	/** Number of variables */
 	unsigned int m_numVariables;
@@ -146,7 +150,6 @@ public:
 	WaveFieldWriter()
 		: m_enabled(false),
 		  m_extractRegion(false),
-		  m_variableSubsampler(0L),
 		  m_numVariables(0),
 		  m_outputFlags(0L),
 		  m_lowOutputFlags(0L),
@@ -196,7 +199,7 @@ public:
 			const MeshReader &meshReader,  const std::vector<unsigned> &LtsClusteringData,
 			const real* dofs,  const real* pstrain, const real* integrals,
 			unsigned int* map,
-			int refinement, int* outputMask, double* outputRegionBounds,
+			int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
       xdmfwriter::BackendType backend);
 
 	/**
@@ -220,8 +223,6 @@ public:
 
 		m_stopwatch.printTime("Time wave field writer frontend:");
 
-		delete m_variableSubsampler;
-		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
 		m_outputFlags = 0L;
 		delete [] m_lowOutputFlags;
