@@ -1,24 +1,22 @@
-//
-// Created by adrian on 03.09.20.
-//
-
-#ifndef SEISSOL_DR_PARAMETERS_H
-#define SEISSOL_DR_PARAMETERS_H
+#ifndef SEISSOL_PARAMETERS_H
+#define SEISSOL_PARAMETERS_H
 
 #include <yaml-cpp/yaml.h>
+
 #include "Initializer/InputAux.hpp"
+#include "Kernels/precision.hpp"
 
 namespace seissol {
-  namespace dr {
-    struct DrParameterT;
-  }
+namespace dr {
+struct DRParameters;
 }
+} // namespace seissol
 
 /*
  * Saves all dynamic rupture parameter read from parameter.par file
- * if values are not defined they are set to an inital value (mostly 0)
+ * if values are not defined they are set to an initial value (mostly 0)
  */
-struct seissol::dr::DrParameterT {
+struct seissol::dr::DRParameters {
   static constexpr unsigned int TP_grid_nz = 60;
   int OutputPointType{3};
   int SlipRateOutputType{1};
@@ -39,13 +37,12 @@ struct seissol::dr::DrParameterT {
   real rs_sr0{0.0};
   real mu_w{0.0};
   real alpha_th{0.0};
-  real rho_c {0.0};
-  real TP_lambda {0.0};
-  real IniTemp {0.0};
-  real IniPressure {0.0};
-  real v_star{0.0};        // Prakash-Clifton regularization parameter
+  real rho_c{0.0};
+  real TP_lambda{0.0};
+  real IniTemp{0.0};
+  real IniPressure{0.0};
+  real v_star{0.0}; // Prakash-Clifton regularization parameter
   real prakash_length{0.0};
-
 
   void setAllInputParam(const YAML::Node& Params) {
     using namespace initializers;
@@ -70,7 +67,7 @@ struct seissol::dr::DrParameterT {
     rs_sr0 = getParamIfExists(DrParams, "rs_sr0", 0.0);
     mu_w = getParamIfExists(DrParams, "mu_w", 0.0);
 
-    //if ThermalPress == true
+    // if ThermalPress == true
     alpha_th = getParamIfExists(DrParams, "alpha_th", 0.0);
     rho_c = getParamIfExists(DrParams, "rho_c", 0.0);
     TP_lambda = getParamIfExists(DrParams, "tp_lambda", 0.0);
@@ -83,4 +80,4 @@ struct seissol::dr::DrParameterT {
   }
 };
 
-#endif //SEISSOL_DR_PARAMETERS_H
+#endif // SEISSOL_PARAMETERS_H

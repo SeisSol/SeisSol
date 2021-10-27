@@ -820,7 +820,7 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            m_timeStepping );
   //added by adrian
   seissol::initializers::initializeFrictionMatrices(
-      seissol::SeisSol::main.getMemoryManager().getDrInitializer(),
+      seissol::SeisSol::main.getMemoryManager().getDRInitializer(),
       seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
       seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
       seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
@@ -1183,12 +1183,12 @@ void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFa
 }
 
 
-void seissol::Interoperability::getDynRupStateVar(int ltsFace, unsigned int meshFace, real (*stateVar)[52]) {
+void seissol::Interoperability::getDynRupStateVar(int ltsFace, unsigned int meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]) {
   int fFace = meshFace + 1;
   f_interoperability_getDynRupStateVar(m_domain, fFace, &stateVar[ltsFace][0]);
 }
 
-void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int meshFace, real (*nucleationStressInFaultCS)[52][6]) {
+void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6]) {
   int fFace = meshFace + 1;
   real tmpNucleationStressInFaultCS[tensor::QInterpolated::Shape[0] * 6] = {0};
   f_interoperability_getDynRupNucStress(m_domain, fFace, &tmpNucleationStressInFaultCS[0]);

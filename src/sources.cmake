@@ -125,15 +125,25 @@ src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
 #adrian code
-src/DynamicRupture/DR_math.h
-src/DynamicRupture/DR_factory.h
-src/DynamicRupture/DR_initializer_base.h
-src/DynamicRupture/DR_output.h
-src/DynamicRupture/DR_factory.cpp
-src/DynamicRupture/DR_solver_rate_and_state.h
-src/DynamicRupture/DR_Parameters.h
-src/DynamicRupture/DR_solver_linear.h
-src/DynamicRupture/DR_solver_legacy_RS.h
+#src/DynamicRupture/Math.h
+#src/DynamicRupture/Factory.h
+#src/DynamicRupture/Output.h
+src/DynamicRupture/Factory.cpp
+src/DynamicRupture/FrictionLaws/AgingLaw.cpp
+src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
+src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
+src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
+src/DynamicRupture/FrictionLaws/NoFault.cpp
+src/DynamicRupture/FrictionLaws/RateAndState.cpp
+src/DynamicRupture/FrictionLaws/SlipLaw.cpp
+src/DynamicRupture/FrictionLaws/VelocityWeakening.cpp
+src/DynamicRupture/Initializers/AgingLawInitializer.cpp
+src/DynamicRupture/Initializers/BaseDRInitializer.cpp
+src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
+src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
+src/DynamicRupture/Initializers/NoFaultInitializer.cpp
+src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
+#src/DynamicRupture/DR_Parameters.h
 )
 if (MPI)
   target_sources(SeisSol-lib PUBLIC

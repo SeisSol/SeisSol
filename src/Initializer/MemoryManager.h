@@ -87,7 +87,7 @@
 #include <Initializer/ParameterDB.h>
 
 //added by adrian
-#include <DynamicRupture/DR_factory.h>
+#include <DynamicRupture/Factory.h>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
@@ -160,13 +160,13 @@ class seissol::initializers::MemoryManager {
     LTS                   m_lts;
     
     LTSTree               m_dynRupTree;
-    DynamicRupture*        m_dynRup;
+    DynamicRupture*       m_dynRup;
 
     //added by Adrian
-    seissol::initializers::BaseDrInitializer* m_DrInitializer = nullptr;
-    seissol::dr::fr_law::BaseFrictionSolver* m_FrictonLaw = nullptr;
-    seissol::dr::output::Output_Base* m_DrOutput = nullptr;
-    dr::DrParameterT* m_dynRupParameter;
+    seissol::dr::initializers::BaseDRInitializer* m_DRInitializer = nullptr;
+    seissol::dr::friction_law::BaseFrictionLaw* m_FrictonLaw = nullptr;
+    seissol::dr::output::OutputBase* m_DROutput = nullptr;
+    dr::DRParameters* m_dynRupParameter;
     YAML::Node m_inputParams;
 
     LTSTree m_boundaryTree;
@@ -248,9 +248,9 @@ class seissol::initializers::MemoryManager {
     ~MemoryManager() {
         //added by adrian
         delete m_dynRup;
-        delete m_DrInitializer;
+        delete m_DRInitializer;
         delete m_FrictonLaw;
-        delete m_DrOutput;
+        delete m_DROutput;
         delete m_dynRupParameter;
     }
     
@@ -351,14 +351,14 @@ class seissol::initializers::MemoryManager {
     //added by Adrian
     void initializeFrictionFactory();
 
-    inline dr::fr_law::BaseFrictionSolver* getFrictionLaw() {
+    inline dr::friction_law::BaseFrictionLaw* getFrictionLaw() {
         return m_FrictonLaw;
     }
-    inline  initializers::BaseDrInitializer* getDrInitializer() {
-        return m_DrInitializer;
+    inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
+        return m_DRInitializer;
     }
-    inline seissol::dr::output::Output_Base* getDrOutput() {
-        return m_DrOutput;
+    inline seissol::dr::output::OutputBase* getDROutput() {
+        return m_DROutput;
     }
 
     void setInputParams(const YAML::Node& Params) {

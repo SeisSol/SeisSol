@@ -158,7 +158,6 @@ public:
     tree.addVar(      iniShearXY,                     mask,                 1,      seissol::memory::Standard );
     tree.addVar(      iniShearYZ,                     mask,                 1,      seissol::memory::Standard );
     tree.addVar(      iniShearXZ,                     mask,                 1,      seissol::memory::Standard );
-  }
 
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
@@ -171,6 +170,7 @@ public:
     tree.addScratchpadMemory(  imposedStatePlusOnHost,          1,      seissol::memory::PinnedMemory);
     tree.addScratchpadMemory(  imposedStateMinusOnHost,         1,      seissol::memory::PinnedMemory);
 #endif
+  }
 };
 
 struct seissol::initializers::LTS_LinearSlipWeakeningFL2 : public seissol::initializers::DynamicRupture {

@@ -105,7 +105,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
                                            i_memoryManager.getFrictionLaw(),
-                                           i_memoryManager.getDrOutput(),
+                                           i_memoryManager.getDROutput(),
                                            &m_loopStatistics )
                         );
   }
