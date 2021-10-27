@@ -40,6 +40,7 @@
 #ifndef MONITORING_LOOPSTATISTICS_H_
 #define MONITORING_LOOPSTATISTICS_H_
 
+#include <cassert>
 #include <algorithm>
 #include <unordered_map>
 #include <fstream>
@@ -63,6 +64,7 @@ public:
   unsigned getRegion(std::string const& name) {
     auto first = m_regions.cbegin();
     auto it = std::find(first, m_regions.cend(), name);
+    assert(it != m_regions.end());
     return std::distance(first, it);
   }
   

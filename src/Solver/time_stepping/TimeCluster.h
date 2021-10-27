@@ -194,6 +194,7 @@ private:
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
+    std::unordered_map<ActorState, unsigned> regionsActorState;
 
     kernels::ReceiverCluster* m_receiverCluster;
 
@@ -367,6 +368,7 @@ private:
     }
 
 public:
+    ActResult act() override;
     const LayerType layerType;
 
     //! time of the next receiver output

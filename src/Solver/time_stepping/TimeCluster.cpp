@@ -149,7 +149,13 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
-}
+
+  regionsActorState = {
+      {ActorState::Corrected, m_loopStatistics->getRegion("stateCorrected")},
+      {ActorState::Predicted, m_loopStatistics->getRegion("statePredicted")},
+      {ActorState::Synced, m_loopStatistics->getRegion("stateSynced")}
+  };
+};
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
 #ifndef NDEBUG
@@ -782,6 +788,15 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
 }
 
 namespace seissol::time_stepping {
+ActResult TimeCluster::act() {
+  const auto regionId = regionsActorState[state];
+  m_loopStatistics->begin(regionId);
+  const auto result = AbstractTimeCluster::act();
+  m_loopStatistics->end(regionId, 0, m_globalClusterId);
+
+  return result;
+}
+
 void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
   if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {
     lastSubTime = neighborCluster.ct.correctionTime;
@@ -905,5 +920,4 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
   }
 
 }
-
 }
