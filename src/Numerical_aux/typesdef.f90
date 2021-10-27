@@ -1093,6 +1093,9 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
+     INTEGER                                :: PlasticityMask(7)                !< Mask for variable output
+                                                                                !< .TRUE.  = do output for this variable
+                                                                                !< .FALSE. = do no output for this variable
      LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
                                                                                 !< .TRUE.  = integrate and output for this variable
                                                                                 !< .FALSE. = do not integrate and output for this variable
