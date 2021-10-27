@@ -1023,10 +1023,14 @@ CONTAINS
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
              CONTINUE
-           CASE(33) !ImposedSlipRateOnDRBoundary
-             DISC%DynRup%t_0 = t_0
+           CASE(33, 34) !ImposedSlipRateOnDRBoundary
+             IF (EQN%FL.EQ.33) THEN
+                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
+             ELSE
+                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
+             ENDIF
              IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
-               logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+               logWarning(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
                DISC%DynRup%SlipRateOutputType = 0
              ENDIF
            CASE(3,4,7,103)
@@ -2400,7 +2404,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, LtsWeightTypeId
-    REAL                             :: CFL, FixTimeStep
+    REAL                             :: CFL, FixTimeStep, StableDt
     NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
@@ -2545,6 +2549,19 @@ ALLOCATE( SpacePositionx(nDirac), &
     DISC%CFL = CFL                               ! minimum Courant number
     logInfo(*) 'The minimum COURANT number:    ', DISC%CFL
     !
+
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    StableDt = 0.25 / (EQN%FreqCentral * sqrt(EQN%FreqRatio))
+    ! 5000 is the default value. if FixTimeStep = 5000 then FixTimeStep was not set in the Namelist
+    if (abs(FixTimeStep-5000).LE.1e-3) THEN
+        logInfo0(*) 'FixTimeStep is too large for attenuation, lowering to', StableDt
+        FixTimeStep = StableDt
+    else
+        if (FixTimeStep.GT.StableDt) THEN
+           logWarning(*) 'FixTimeStep', FixTimeStep, 'might be too large for attenuation (a stable estimate for FixTimeStep is ', StableDt, ')'
+        endif
+    endif
+#endif
         DISC%FixTimeStep = FixTimeStep
         logInfo(*) 'Specified dt_fix            : ', DISC%FixTimeStep
         logInfo(*) 'Actual timestep is min of dt_CFL and dt_fix. '
@@ -2568,6 +2585,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                       :: i,n, NPTS
       INTEGER                       :: allocstat
       INTEGER                       :: iOutputMask(29)
+      INTEGER                       :: iPlasticityMask(7)
       INTEGER                       :: idimensionMask(3)
       INTEGER                       :: readStat
       CHARACTER(LEN=620)            :: Name
@@ -2594,7 +2612,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !!
       character(LEN=64)                :: checkPointBackend
       character(LEN=64)                :: xdmfWriterBackend
-      NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
+      NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
@@ -2635,6 +2653,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       ReceiverOutputInterval = 1.0e99
+      iPlasticityMask(1:6) = 0
+      iPlasticityMask(7) = 1
       !
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
     IF (readStat.NE.0) THEN
@@ -2689,8 +2709,8 @@ ALLOCATE( SpacePositionx(nDirac), &
             IO%OutputMask(24:34)  = iOutputMask(1:11)                                       ! Constants for Jacobians
          ENDIF
 
-         IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties
-            IO%OutputMask(13:19)  = iOutputMask(10:16)                                      ! plastic strain output
+         IF(EQN%Plasticity.EQ.1) THEN
+            IO%PlasticityMask(1:7)  = iPlasticityMask(1:7)                                  ! plastic strain output
          ENDIF
 
          IF(IO%Rotation.EQ.1) THEN

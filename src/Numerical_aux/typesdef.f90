@@ -649,6 +649,10 @@ MODULE TypesDef
      REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
      REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
      REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
+     REAL, allocatable                      :: RuptureOnset(:,:)                !< FL33,34 input parameter (rupture onset time of the source time function)
+     REAL, allocatable                      :: YoffeTS(:,:)                     !< FL33 input parameter (ts, related with the acceleration time of the Yoffe function)
+     REAL, allocatable                      :: YoffeTR(:,:)                     !< FL33 input parameter (tr, related with the effective rise time of the Yoffe function)
+     REAL, allocatable                      :: RuptureRiseTime(:,:)             !< FL34 input parameter (rupture effective rise time)
      REAL                                   :: t_0                              !< forced rupture decay time
      REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
@@ -1087,6 +1091,9 @@ MODULE TypesDef
      CHARACTER(LEN=35)                      :: SynthFile                        !< File where the synthetics from the last iteration of the inversion are found
      INTEGER                                :: MPIPickCleaningDone           !< Flag of having already performed MPI pickpoint cleaning
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
+                                                                                !< .TRUE.  = do output for this variable
+                                                                                !< .FALSE. = do no output for this variable
+     INTEGER                                :: PlasticityMask(7)                !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
      LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
