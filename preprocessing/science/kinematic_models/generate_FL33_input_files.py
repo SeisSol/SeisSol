@@ -32,10 +32,10 @@ parser.add_argument(
     default=False,
 )
 parser.add_argument(
-    "--generate_yaml",
+    "--generate_ts_yaml",
     metavar=("proj"),
     nargs=1,
-    help="generate fault yaml file. In this case the proj4 string describing the projection is required",
+    help="generate fault yaml file and write fault geometry (ts file). proj: proj4 string describing the projection.",
 )
 args = parser.parse_args()
 
@@ -50,13 +50,13 @@ p1.generate_netcdf_fl33(
     prefix,
     spatial_order=args.spatial_order[0],
     spatial_zoom=args.spatial_zoom[0],
-    proj=args.generate_yaml,
+    proj=args.generate_ts_yaml,
     write_paraview=args.write_paraview,
 )
-if args.generate_yaml:
-    p1.generate_fault_yaml_fl33(
+if args.generate_ts_yaml:
+    p1.generate_fault_ts_yaml_fl33(
         prefix,
         spatial_order=args.spatial_order[0],
         spatial_zoom=args.spatial_zoom[0],
-        proj=args.generate_yaml,
+        proj=args.generate_ts_yaml,
     )

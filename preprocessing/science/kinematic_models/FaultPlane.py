@@ -555,7 +555,9 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
                 writeNetcdf(prefix2 + sdata, [xb, yb], [sdata], [lgridded_myData[i]], paraview_readable=True)
         writeNetcdf(prefix2, [xb, yb], ldataName, lgridded_myData)
 
-    def generate_fault_yaml_fl33(self, prefix, spatial_order, spatial_zoom, proj):
+    def generate_fault_ts_yaml_fl33(self, prefix, spatial_order, spatial_zoom, proj):
+        """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
+        # Generate yaml file loading ASAGI file
         cm2m = 0.01
         km2m = 1e3
         self.compute_xy_from_latlon(proj)
@@ -563,6 +565,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         p0 = np.array([self.x[0, 0], self.y[0, 0], -km2m * self.depth[0, 0]])
         p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
         p2 = np.array([self.x[0, nx - 1], self.y[0, nx - 1], -km2m * self.depth[0, nx - 1]])
+        p3 = np.array([self.x[ny - 1, nx - 1], self.y[ny - 1, nx - 1], -km2m * self.depth[ny - 1, nx - 1]])
+
         hw = p1 - p0
         dx1 = np.linalg.norm(hw) / (ny - 1)
         hw = hw / np.linalg.norm(hw)
@@ -573,9 +577,10 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # a kinematic model defines the fault quantities at the subfault center
         # a netcdf file defines the quantities at the nodes
         # therefore the dx/2
-        # the term dxi/np.sqrt(dx1*dx2) allow accounting for non-square patches
-        t1 = -np.dot(p0, hh) + dx * 0.5 * dx1 / np.sqrt(dx1 * dx2)
-        t2 = -np.dot(p0, hw) + dx * 0.5 * dx2 / np.sqrt(dx1 * dx2)
+        # the term dxi/np.sqrt(dx1*dx2) allows accounting for non-square patches
+        non_square_factor = dx / np.sqrt(dx1 * dx2)
+        t1 = -np.dot(p0, hh) + 0.5 * dx1 * non_square_factor
+        t2 = -np.dot(p0, hw) + 0.5 * dx2 * non_square_factor
 
         template_yaml = f"""!Switch
 [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
@@ -614,4 +619,25 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         fname = f"{prefix}_fault.yaml"
         with open(fname, "w") as fid:
             fid.write(template_yaml)
+        print(f"done writing {fname}")
+
+        # Generate ts file containing mesh geometry
+        vertex = np.zeros((4, 3))
+        vertex[0, :] = p0 + 0.5 * (-hh * dx1 - hw * dx2) * non_square_factor
+        vertex[1, :] = p2 + 0.5 * (hh * dx1 - hw * dx2) * non_square_factor
+        vertex[2, :] = p3 + 0.5 * (hh * dx1 + hw * dx2) * non_square_factor
+        vertex[3, :] = p1 + 0.5 * (-hh * dx1 + hw * dx2) * non_square_factor
+
+        connect = np.zeros((2, 3), dtype=int)
+        connect[0, :] = [1, 2, 3]
+        connect[1, :] = [1, 3, 4]
+        fname = f"{prefix}_fault.ts"
+        with open(fname, "w") as fout:
+            fout.write("GOCAD TSURF 1\nHEADER {\nname:%s\nborder: true\nmesh: false\n*border*bstone: true\n}\nTFACE\n" % (fname))
+            for ivx in range(1, 5):
+                fout.write("VRTX %s %s %s %s\n" % (ivx, vertex[ivx - 1, 0], vertex[ivx - 1, 1], vertex[ivx - 1, 2]))
+
+            for i in range(2):
+                fout.write("TRGL %d %d %d\n" % (connect[i, 0], connect[i, 1], connect[i, 2]))
+            fout.write("END\n")
         print(f"done writing {fname}")
