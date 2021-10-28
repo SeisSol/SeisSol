@@ -30,13 +30,13 @@ ci_builder_pre:
         - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule set-url submodules/fty https://github.com/ravil-mobile/fty.git
-        - git submodule --quiet update --init --recursive 
+        - git submodule update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
-        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
-        - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
-        - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
-        - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
+        - sudo apt-get install -qq --yes gcc-9 g++-9 gfortran-9 pkg-config cmake cmake-data
+        - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100
+        - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100
+        - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-9 100
         - sudo apt-get install -qq --yes unzip openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev
         - gfortran --version
         - pip3 install --upgrade pip
@@ -49,6 +49,9 @@ ci_builder_pre:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+    artifacts:
+        paths:
+            - submodules
 
 
 ci_builder_build:
@@ -64,9 +67,7 @@ ci_builder_build:
              - precision: double
              - precision: single
     script:
-        - echo "now building"
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
-        - git submodule update --init --recursive
         - cmake --version
         - set -euo pipefail
         - export IFS=$'\n\t'
@@ -81,7 +82,7 @@ ci_builder_build:
                  mkdir -p $dirname && cd $dirname ;
                  pwd; 
                  CMAKE_PREFIX_PATH=~ ;
-                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
                  make -j $(nproc);
                  cd .. ; 
              done; 
@@ -92,23 +93,63 @@ ci_builder_build:
             - build_*
 
 
+cpu_tpv5_test:
+    stage: test
+    tags:
+        - ci_testing_cc
+    allow_failure: false
+    needs:
+        - job: ci_builder_build
+    variables:
+        elastic_domain_file: "tpv5_cell.h5"
+        fault_file: "tpv5-fault_cell.h5"
+        eps: "5e-6"
+    parallel:
+        matrix:
+            - precision: double
+            - precision: single
+    script: 
+        - echo "testing TPV5"
+        - git clone https://github.com/7bits-register/precomputed-seissol.git
+        - cd build_elastic_${precision}_Release
+        - cp -r ../precomputed-seissol/tpv5/* .
+        - mkdir ./output
+        - set -euo pipefail
+        - export NUM_COMP_CORES=$(expr $(nproc) - 1)
+        - export OMP_NUM_THREADS=$NUM_COMP_CORES
+        - export OMP_PLACES="cores($NUM_COMP_CORES)"
+        - ulimit -Ss unlimited
+        - ./SeisSol_Release_*_elastic ./parameters.par
+        - h5diff -v1 -d ${eps} --exclude-path /mesh0/clustering --exclude-path /mesh0/connect ./output/${elastic_domain_file} ./precomputed/${precision}/${elastic_domain_file}
+        - h5diff -v1 -d ${eps} ./output/${fault_file} ./precomputed/${precision}/${fault_file}
+        - set +u
+    artifacts:
+        paths:
+            - build_elastic_double_Release/output
+            - build_elastic_single_Release/output
+
+
 ci_builder_test:
-        stage: test
-        tags:
-            - ci_testing_cc
-        allow_failure: true
-        needs:
-            - job: ci_builder_build
-        parallel:
-            matrix:
-                - DIR: build_elastic_double_Release
-                - DIR: build_elastic_single_Release
-        script: 
-            - echo "testing"
-            - pwd
-            - ls
-            - cd $DIR
-            - make test
+    stage: test
+    tags:
+        - ci_testing_cc
+    allow_failure: true
+    needs:
+        - job: ci_builder_build
+    parallel:
+        matrix:
+            - precision: build_elastic_double_Release
+            - precision: build_elastic_single_Release
+    script: 
+        - pwd
+        - cd $DIR
+        - ls -l
+        - echo "***********"
+        - ls -l ./builds
+        - echo "***********"
+        - ls -l ..
+        - test_serial_test_suite
+        - make test
 
 
 pages:
@@ -182,7 +223,7 @@ gpu_build:
             -DDEVICE_SUB_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision} ;
-            make -j 4 ;
+            make -j 3 ;
             cd .. ;
           done;
         - set +u
