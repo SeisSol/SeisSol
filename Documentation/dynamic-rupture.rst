@@ -156,7 +156,7 @@ The fault strength is determined by
   
   \tau = \sigma_n \left[C - \left( \mu_s - \frac{\mu_s - \mu_d}{d_c}\right) \min\left(S, d_c\right)\right],
 
-where :math:`S = \int_0^t |V(t)| dt` is the accumulated fault slip, and the other variables are parameters of the friction, detailed below.
+where :math:`S(t) = \int_0^t |V(s)| ds` is the accumulated fault slip, and the other variables are parameters of the friction, detailed below.
 
 Friction parameters:
 
@@ -193,12 +193,10 @@ Rate-and-state friction
 ^^^^^^^^^^^^^^^^^^^^^^^
 Rate-and-state friction laws allow modeling the frictional shear strength variations as a function of slip rate and of the evolving properties of the contact population (Dieterich, 1979, 1981; Ruina, 1983).
 In SeisSol, we currently support 3 types of rate-and-state friction laws, which differ by the set of ordinary differential equations describing the evolution of the state variable.
-Friction law :code:`3` implements the ageing law, friction law :code:`4` implements the slip law, and friction law :code:`103` implements a slip law with strong rate-weakening".
-The type of rate-and-state friction law used is set by the FL variable in the DynamicRupture namelist (parameters.par):  
+The type of rate-and-state friction law is set by the FL variable in the DynamicRupture namelist (parameters.par):
+Friction law :code:`3` implements the ageing law, friction law :code:`4` implements the slip law, and friction law :code:`103` implements a slip law with strong rate-weakening.
+More details about these friction laws can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_ (TPV101 to 105) or in Pelties et al. (2013, `GMD <https://gmd.copernicus.org/articles/7/847/2014/>`_).
 
- 
-More details about these friction laws can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_
-(tpv101 to 105) or in Pelties et al. (2013, `GMD <https://gmd.copernicus.org/articles/7/847/2014/>`_).
 Some parameters are considered homogeneous across the fault and defined in the main parameter file.
 Others can spatially vary (:code:`rs_a`, :code:`RS_sl0` for FL=3,4 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
 Examples of input files for the `ageing law <https://github.com/SeisSol/Examples/tree/master/tpv101>`_
