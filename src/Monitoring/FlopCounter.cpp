@@ -70,7 +70,6 @@ void printPerformance(double wallTime) {
                     + g_SeisSolHardwareFlopsPlasticity;
   const double gflopsPerSecond = flops * 1.e-9 / wallTime;
 
-  logInfo(rank) << gflopsPerSecond << "GFLOPS on rank" << rank << ".";
 
   double flopsSum = 0;
   MPI_Reduce(
@@ -84,9 +83,8 @@ void printPerformance(double wallTime) {
   );
   if (rank == 0) {
     const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
-    logInfo(rank) << flopsPerRank << "GFLOPS per rank on average.";
-    logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS in total.";
-
+    logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS"
+    << "(rank 0:" << gflopsPerSecond << "GFLOPS, average over ranks:" << flopsPerRank << "GFLOPS)";
   }
 }
   
