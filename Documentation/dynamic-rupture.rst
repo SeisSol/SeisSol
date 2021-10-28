@@ -145,10 +145,10 @@ Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the 
 Friction laws
 ~~~~~~~~~~~~~
 
-Linear Slip-Weakening Friction
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Linear slip-weakening friction (:code:`FL=2`, :code:`FL=6`, :code:`FL=16`)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Linear slip-weakening friction is widely used for dynamic rupture simulations.
+The linear slip-weakening friction is widely used for dynamic rupture simulations.
 
 The fault strength is determined by 
 
@@ -156,15 +156,12 @@ The fault strength is determined by
   
   \tau = \sigma_n \left[C - \left( \mu_s - \frac{\mu_s - \mu_d}{d_c}\right) \min\left(S, d_c\right)\right],
 
-where :math:`S = \int_0^t |V(t)| dt` is the fault slip length.
-
-References: TPV3 - TPV35,
-SeisSol Implementation: :code:`2`
+where :math:`S = \int_0^t |V(t)| dt` is the accumulated fault slip, and the other variables are parameters of the friction, detailed below.
 
 Friction parameters:
 
 +------------------+----------------------------------------+-------------------------------+
-| Symbol           | Quantity                               | SeisSol name                  |
+| symbol           | quantity                               | seisSol name                  |
 +==================+========================================+===============================+
 | :math:`\mu_s(x)` | static friction coefficient            | :code:`mu_s`                  |
 +------------------+----------------------------------------+-------------------------------+
@@ -175,34 +172,32 @@ Friction parameters:
 | :math:`C(x)`     | cohesion                               | :code:`cohesion`              |
 +------------------+----------------------------------------+-------------------------------+
 
-Friction law :code:`16` combines linear slip-weakening with a forced rupture time.
+Friction law :code:`2` implements such classical linear slip-weakening, 
+while friction law :code:`16` combines linear slip-weakening with a forced rupture time.
+Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
+
+Examples of input files for the friction laws :code:`2` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.
 
 Linear slip weakening can be seen as a special case of rate-and-state friction with
 
 .. math::
   \begin{aligned}
-    f(V, \psi) &= C - \left( \mu_s - \frac{\mu_s - \mu_d}{d_c}\right) \min\left(\psi, d_c\right),
+    f(V, \psi) &= C - \left( \mu_s - \frac{\mu_s - \mu_d}{d_c}\right) \min\left(\psi, d_c\right), \\
     g(V, \psi) &= V.
   \end{aligned}
 
 Now the state variable stores the accumulated slip.
 
 
-Rate-and-state Friction
+Rate-and-state friction
 ^^^^^^^^^^^^^^^^^^^^^^^
 Rate-and-state friction laws allow modeling the frictional shear strength variations as a function of slip rate and of the evolving properties of the contact population (Dieterich, 1979, 1981; Ruina, 1983).
-In SeisSol, we currently support 3 types of rate-and-state friction laws, which differ by the set of ordinary differential equations describing the evolution of the state variable:
-
+In SeisSol, we currently support 3 types of rate-and-state friction laws, which differ by the set of ordinary differential equations describing the evolution of the state variable.
+Friction law :code:`3` implements the ageing law, friction law :code:`4` implements the slip law, and friction law :code:`103` implements a slip law with strong rate-weakening".
 The type of rate-and-state friction law used is set by the FL variable in the DynamicRupture namelist (parameters.par):  
 
  
-.. code-block:: Fortran
-
-    3: ageing Law, 
-    4: slip law, 
-    103: rate-and-state with strong velocity weakening
-
-More details about these friction law can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_
+More details about these friction laws can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_
 (tpv101 to 105) or in Pelties et al. (2013, `GMD <https://gmd.copernicus.org/articles/7/847/2014/>`_).
 Some parameters are considered homogeneous across the fault and defined in the main parameter file.
 Others can spatially vary (:code:`rs_a`, :code:`RS_sl0` for FL=3,4 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
@@ -210,7 +205,7 @@ Examples of input files for the `ageing law <https://github.com/SeisSol/Examples
 and for the `rate and state friction with strong velocity weakening <https://github.com/SeisSol/Examples/tree/master/tpv104>`_
 are available at the given links.
 
-All rate-and-state friction laws are described by this system of differential algebraic equations, which depend on the state variable :math:`\psi` and the slip velocity :math:`V`.
+All rate-and-state friction laws are described by the following system of differential algebraic equations, which depend on the state variable :math:`\psi` and the slip velocity :math:`V`.
 
 .. math::
 
@@ -219,25 +214,24 @@ All rate-and-state friction laws are described by this system of differential al
     \frac{\partial\psi}{\partial t} &= g(V,\psi)
   \end{aligned}
 
-Ageing Law
-----------
-Reference: TVP101 and TPV102, 
-SeisSol Implementation: :code:`3`
+Ageing law (:code:`FL=3`)
+-------------------------
+Reference benchmarks: TVP101 and TPV102
 
 Friction parameters:
 
 +------------------+----------------------------------------+-------------------------------+
-| Symbol           | Quantity                               | SeisSol name                  |
+| symbol           | quantity                               | seisSol name                  |
 +==================+========================================+===============================+
-| :math:`a(x)`     | Frictional evolution coefficient       | :code:`rs_a`                  |
+| :math:`a(x)`     | frictional evolution coefficient       | :code:`rs_a`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`b`        | Frictional state coefficient           | :code:`RS_b`                  |
+| :math:`b`        | frictional state coefficient           | :code:`RS_b`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`L(x)`     | Characteristic slip scale              | :code:`RS_sl0`                |
+| :math:`L(x)`     | characteristic slip scale              | :code:`RS_sl0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`V_0`      | Reference slip velocity                | :code:`RS_sr0`                |
+| :math:`V_0`      | reference slip velocity                | :code:`RS_sr0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`f_0`      | Reference friction coefficient         | :code:`RS_f0`                 |
+| :math:`f_0`      | reference friction coefficient         | :code:`RS_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math:: 
@@ -246,11 +240,8 @@ Friction parameters:
     g(V, \psi) &= 1 - \frac{V \psi}{L}
   \end{aligned}
 
-Slip Law
---------
-Reference: ???,
-SeisSol Implementation: :code:`4`
-
+Slip law (:code:`FL=4`)
+-----------------------
 The slip law has the same parameters as the Ageing Law.
 
 .. math::
@@ -259,19 +250,18 @@ The slip law has the same parameters as the Ageing Law.
     g(V, \psi) &= -V\frac{\psi}{L}\ln \left(V \frac{\psi}{L} \right)
   \end{aligned}
 
-Strong Velocity Weakening
--------------------------
-Reference TPV103 and TPV104,
-SeisSol Implementation: :code:`103`
+Strong velocity weakening (:code:`FL=103`)
+------------------------------------------
+Reference TPV103 and TPV104
 
-In additon to the Ageing and the Slip Law, strong velocity weakening requires two more parameters:
+In addition to the ageing and the slip Law, strong velocity weakening requires two more parameters:
 
 +------------------+----------------------------------------+-------------------------------+
-| Symbol           | Quantity                               | SeisSol name                  |
+| symbol           | quantity                               | seisSol name                  |
 +==================+========================================+===============================+
-| :math:`V_w(x)`   | Weakening slip velocity                | :code:`RS_srW`                |
+| :math:`V_w(x)`   | weakening slip velocity                | :code:`RS_srW`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`\mu_w`    | Weakening friction coefficient         | :code:`Mu_W`                  |
+| :math:`\mu_w`    | weakening friction coefficient         | :code:`Mu_W`                  |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math::
