@@ -3,7 +3,8 @@ stages:
     - build 
     - test
     - performance_eval
-        
+
+
 ci_builder_pre:
     stage: pre_build
     tags:
@@ -28,6 +29,7 @@ ci_builder_pre:
         - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
         - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
+        - git submodule set-url submodules/fty https://github.com/ravil-mobile/fty.git
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
@@ -47,7 +49,8 @@ ci_builder_pre:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
-        
+
+
 ci_builder_build:
     stage: build
     tags:
@@ -87,7 +90,8 @@ ci_builder_build:
     artifacts:
         paths:
             - build_*
-            
+
+
 ci_builder_test:
         stage: test
         tags:
@@ -105,7 +109,31 @@ ci_builder_test:
             - ls
             - cd $DIR
             - make test
-            
+
+
+pages:
+    stage: pre_build
+    tags:
+        -  atsccs68-docker-executor
+    allow_failure: false
+    image:
+        name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
+        entrypoint: [""]
+    before_script:
+        - mkdir -p ./public
+    script:
+        - apt update
+        - apt install -y doxygen graphviz fonts-freefont-ttf
+        - cd Documentation/doxygen
+        - doxygen ./Doxyfile
+        - mv html/* ../../public/
+    artifacts:
+        paths:
+            - public
+    only:
+        - dr/cpp
+
+
 gpu_pre_build:
     stage: pre_build
     tags:
@@ -123,7 +151,8 @@ gpu_pre_build:
         - echo "HOST arch.:" $HOST
         - echo "GPU vendor:" $GPU_VENDOR ", GPU model:" $GPU_MODEL
         - nvidia-smi
-            
+
+
 gpu_build:
     stage: build
     tags:
@@ -153,13 +182,14 @@ gpu_build:
             -DDEVICE_SUB_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision} ;
-            make -j ;
+            make -j 4 ;
             cd .. ;
           done;
         - set +u
     artifacts:
         paths:
             - build_*
+
 
 gpu_convergence_test:
     stage: test
@@ -196,6 +226,7 @@ gpu_convergence_test:
     artifacts:
         paths:
             - build_*
+
 
 gpu_performance_test:
     stage: performance_eval

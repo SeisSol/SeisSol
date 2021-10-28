@@ -5,6 +5,7 @@
 #define DR_AS_CELLAVERAGE 1
 
 #include <stdexcept>
+#include <cmath>
 
 namespace seissol::dr::aux {
 template <int DrMethod>
