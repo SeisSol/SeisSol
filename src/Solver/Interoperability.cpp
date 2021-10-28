@@ -366,7 +366,7 @@ void c_interoperability_report_device_memory_status() {
   extern void f_interoperability_getDynRupNucStress(void*  i_domain, int iFace,  real *nucleationStressInFaultCS) ;
 
 
-  extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_f0, real* i_RS_a, real* i_RS_b, real* i_RS_sl0, real* i_RS_sr0) ;
+  extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_a, real* i_RS_sl0, real* i_RS_sr0) ;
 
   extern void f_interoperability_getDynRupTP(void*  i_domain, real* i_TP_grid, real* i_TP_DFinv);
 
@@ -1200,17 +1200,15 @@ void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int mes
 }
 
 void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
-                                              real *i_RS_f0,
                                               real *i_RS_a,
-                                              real *i_RS_b,
                                               real *i_RS_sl0,
                                               real *i_RS_sr0) {
   int fFace = meshFace + 1;
-  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_f0[ltsFace], &i_RS_a[ltsFace], &i_RS_b[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
+  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_a[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
 }
 
-void seissol::Interoperability::getDynRupTP(real TP_grid[TP_grid_nz],
-                                            real TP_DFinv[TP_grid_nz]) {
+void seissol::Interoperability::getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],
+                                            real TP_DFinv[seissol::dr::TP_grid_nz]) {
   f_interoperability_getDynRupTP(m_domain,  &TP_grid[0], &TP_DFinv[0]);
 }
 

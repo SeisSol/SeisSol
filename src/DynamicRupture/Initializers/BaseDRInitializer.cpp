@@ -36,9 +36,9 @@ void BaseDRInitializer::initializeFrictionMatrices(
         it->var(dynRup->slipRateStrike); // get from fortran  EQN%IniSlipRate1
     real(*slipRateDip)[numPaddedPoints] =
         it->var(dynRup->slipRateDip); // get from fortran  EQN%IniSlipRate2
-    real(*rupture_time)[numPaddedPoints] = it->var(dynRup->rupture_time); // = 0
-    bool(*RF)[numPaddedPoints] = it->var(dynRup->RF);                     // get from fortran
-    real(*peakSR)[numPaddedPoints] = it->var(dynRup->peakSR);             // = 0
+    real(*ruptureTime)[numPaddedPoints] = it->var(dynRup->ruptureTime);   // = 0
+    bool(*ruptureFront)[numPaddedPoints] = it->var(dynRup->ruptureFront); // get from fortran
+    real(*peakSlipRate)[numPaddedPoints] = it->var(dynRup->peakSlipRate); // = 0
     real(*tractionXY)[numPaddedPoints] = it->var(dynRup->tractionXY);     // = 0
     real(*tractionXZ)[numPaddedPoints] = it->var(dynRup->tractionXZ);     // = 0
 
@@ -52,8 +52,8 @@ void BaseDRInitializer::initializeFrictionMatrices(
         slipStrike[ltsFace][pointIndex] = 0.0;
         slipDip[ltsFace][pointIndex] = 0.0;
         slipRateMagnitude[ltsFace][pointIndex] = 0.0;
-        rupture_time[ltsFace][pointIndex] = 0.0;
-        peakSR[ltsFace][pointIndex] = 0.0;
+        ruptureTime[ltsFace][pointIndex] = 0.0;
+        peakSlipRate[ltsFace][pointIndex] = 0.0;
         tractionXY[ltsFace][pointIndex] = 0.0;
         tractionXZ[ltsFace][pointIndex] = 0.0;
       }
@@ -117,7 +117,7 @@ void BaseDRInitializer::initializeFrictionMatrices(
         cohesion[ltsFace][pointIndex] = 0.0;
       }
       e_interoperability.getDynRupParameters(
-          ltsFace, meshFace, initialStressInFaultCS, mu, slipRateStrike, slipRateDip, RF);
+          ltsFace, meshFace, initialStressInFaultCS, mu, slipRateStrike, slipRateDip, ruptureFront);
 
     } // lts-face loop
     layerLtsFaceToMeshFace += it->getNumberOfCells();

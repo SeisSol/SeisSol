@@ -12,29 +12,28 @@ void AgingLaw::evaluate(
     real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     real fullUpdateTime,
     double timeWeights[CONVERGENCE_ORDER]) {
-  initializers::LTS_RateAndStateFL3* ConcreteLts =
-      dynamic_cast<initializers::LTS_RateAndStateFL3*>(dynRup);
+  auto concreteLts = dynamic_cast<initializers::LTS_RateAndState*>(dynRup);
 
-  model::IsotropicWaveSpeeds* waveSpeedsPlus = layerData.var(ConcreteLts->waveSpeedsPlus);
-  model::IsotropicWaveSpeeds* waveSpeedsMinus = layerData.var(ConcreteLts->waveSpeedsMinus);
+  model::IsotropicWaveSpeeds* waveSpeedsPlus = layerData.var(concreteLts->waveSpeedsPlus);
+  model::IsotropicWaveSpeeds* waveSpeedsMinus = layerData.var(concreteLts->waveSpeedsMinus);
   real(*initialStressInFaultCS)[numPaddedPoints][6] =
-      layerData.var(ConcreteLts->initialStressInFaultCS);
-  real(*cohesion)[numPaddedPoints] = layerData.var(ConcreteLts->cohesion);
+      layerData.var(concreteLts->initialStressInFaultCS);
+  real(*cohesion)[numPaddedPoints] = layerData.var(concreteLts->cohesion);
 
-  real* RS_a = layerData.var(ConcreteLts->RS_a);
-  real* RS_sl0 = layerData.var(ConcreteLts->RS_sl0);
-  real* RS_sr0 = layerData.var(ConcreteLts->RS_sr0);
+  real(*RS_a)[numPaddedPoints] = layerData.var(concreteLts->RS_a);
+  real(*RS_sl0)[numPaddedPoints] = layerData.var(concreteLts->RS_sl0);
+  real(*RS_sr0)[numPaddedPoints] = layerData.var(concreteLts->RS_sr0);
 
-  real(*mu)[numPaddedPoints] = layerData.var(ConcreteLts->mu);
-  real(*slip)[numPaddedPoints] = layerData.var(ConcreteLts->slip);
-  real(*slip1)[numPaddedPoints] = layerData.var(ConcreteLts->slipStrike);
-  real(*slip2)[numPaddedPoints] = layerData.var(ConcreteLts->slipDip);
-  real(*slipRate1)[numPaddedPoints] = layerData.var(ConcreteLts->slipRateStrike);
-  real(*slipRate2)[numPaddedPoints] = layerData.var(ConcreteLts->slipRateDip);
-  real(*StateVar)[numPaddedPoints] = layerData.var(ConcreteLts->stateVar);
+  real(*mu)[numPaddedPoints] = layerData.var(concreteLts->mu);
+  real(*slip)[numPaddedPoints] = layerData.var(concreteLts->slip);
+  real(*slipStrike)[numPaddedPoints] = layerData.var(concreteLts->slipStrike);
+  real(*slipDip)[numPaddedPoints] = layerData.var(concreteLts->slipDip);
+  real(*slipRateStrike)[numPaddedPoints] = layerData.var(concreteLts->slipRateStrike);
+  real(*slipRateDip)[numPaddedPoints] = layerData.var(concreteLts->slipRateDip);
+  real(*StateVariable)[numPaddedPoints] = layerData.var(concreteLts->stateVariable);
 
-  real(*tracXY)[numPaddedPoints] = layerData.var(ConcreteLts->tractionXY);
-  real(*tracXZ)[numPaddedPoints] = layerData.var(ConcreteLts->tractionXZ);
+  real(*tracXY)[numPaddedPoints] = layerData.var(concreteLts->tractionXY);
+  real(*tracXZ)[numPaddedPoints] = layerData.var(concreteLts->tractionXZ);
 
   // loop parameter are fixed, not variable??
   constexpr unsigned int nSRupdates{5}, nSVupdates{2};
@@ -52,13 +51,13 @@ void AgingLaw::evaluate(
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
       // Find variables at given fault node
-      real localSlip = slip[ltsFace][pointIndex];              // Slip path
-      real localSlip1 = slip1[ltsFace][pointIndex];            // Slip along direction 1
-      real localSlip2 = slip2[ltsFace][pointIndex];            // Slip along direction 2
-      real localSR1 = slipRate1[ltsFace][pointIndex];          // Slip rate along direction 1
-      real localSR2 = slipRate2[ltsFace][pointIndex];          // Slip rate along direction 2
-      real localStateVariable = StateVar[ltsFace][pointIndex]; // State Variable
-      real localCohesion = cohesion[ltsFace][pointIndex];      // cohesion: should be negative since
+      real localSlip = slip[ltsFace][pointIndex];                     // Slip path
+      real localSlipStrike = slipStrike[ltsFace][pointIndex];         // Slip along direction 1
+      real localSlipDip = slipDip[ltsFace][pointIndex];               // Slip along direction 2
+      real localSlipRateStrike = slipRateStrike[ltsFace][pointIndex]; // Slip rate along direction 1
+      real localSlipRateDip = slipRateDip[ltsFace][pointIndex];       // Slip rate along direction 2
+      real localStateVariable = StateVariable[ltsFace][pointIndex];   // State Variable
+      real localCohesion = cohesion[ltsFace][pointIndex]; // cohesion: should be negative since
                                                           // negative normal stress is compression
       real initialPressure = initialStressInFaultCS[ltsFace][pointIndex][0]; // initial pressure
 
@@ -88,7 +87,7 @@ void AgingLaw::evaluate(
 
         // The following process is adapted from that described by Kaneko et al. (2008)
         slipRateMagnitude[ltsFace][pointIndex] =
-            std::sqrt(std::pow(localSR1, 2) + std::pow(localSR2, 2));
+            std::sqrt(std::pow(localSlipRateStrike, 2) + std::pow(localSlipRateDip, 2));
         real tmp = std::fabs(slipRateMagnitude[ltsFace][pointIndex]);
 
         // This loop corrects StateVariable values
@@ -98,7 +97,7 @@ void AgingLaw::evaluate(
 
           // FL= 3 aging law and FL=4 slip law
           localStateVariable =
-              calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace]);
+              calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace][pointIndex]);
 
           // Newton-Raphson algorithm to determine the value of the slip rate.
           // We wish to find SR that fulfills g(SR)=f(SR), by building up the function NR=f-g ,
@@ -115,25 +114,26 @@ void AgingLaw::evaluate(
           real slipRateGuess = slipRateMagnitude[ltsFace][pointIndex];
 
           for (unsigned int i = 0; i < nSRupdates; i++) { // This loop corrects SR values
-            tmp = 0.5 / RS_sr0[ltsFace] *
-                  std::exp((m_Params->rs_f0 +
-                            m_Params->rs_b *
-                                std::log(RS_sr0[ltsFace] * localStateVariable / RS_sl0[ltsFace])) /
-                           RS_a[ltsFace]);
+            tmp = 0.5 / RS_sr0[ltsFace][pointIndex] *
+                  std::exp(
+                      (m_Params->rs_f0 +
+                       m_Params->rs_b * std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
+                                                 RS_sl0[ltsFace][pointIndex])) /
+                      RS_a[ltsFace][pointIndex]);
             real tmp2 = tmp * slipRateGuess;
             // TODO: author before me: not sure if ShTest=TotalShearStressYZ should be + or -...
             real NR = -(1.0 / waveSpeedsPlus->sWaveVelocity / waveSpeedsPlus->density +
                         1.0 / waveSpeedsMinus->sWaveVelocity / waveSpeedsMinus->density) *
-                          (std::fabs(pressure) * RS_a[ltsFace] *
+                          (std::fabs(pressure) * RS_a[ltsFace][pointIndex] *
                                std::log(tmp2 + std::sqrt(std::pow(tmp2, 2) + 1.0)) -
                            totalShearStressYZ) -
                       slipRateGuess;
 
-            real dNR =
-                -(1.0 / waveSpeedsPlus->sWaveVelocity / waveSpeedsPlus->density +
-                  1.0 / waveSpeedsMinus->sWaveVelocity / waveSpeedsMinus->density) *
-                    (std::fabs(pressure) * RS_a[ltsFace] / std::sqrt(1 + std::pow(tmp2, 2)) * tmp) -
-                1.0;
+            real dNR = -(1.0 / waveSpeedsPlus->sWaveVelocity / waveSpeedsPlus->density +
+                         1.0 / waveSpeedsMinus->sWaveVelocity / waveSpeedsMinus->density) *
+                           (std::fabs(pressure) * RS_a[ltsFace][pointIndex] /
+                            std::sqrt(1 + std::pow(tmp2, 2)) * tmp) -
+                       1.0;
             // no ABS needed around NR/dNR at least for aging law
             real slipRateGuess = std::fabs(slipRateGuess - NR / dNR);
           }
@@ -147,16 +147,16 @@ void AgingLaw::evaluate(
 
         // FL= 3 aging law and FL=4 slip law
         localStateVariable =
-            calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace]);
+            calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace][pointIndex]);
 
         // TODO: reused calc from above -> simplify
-        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / RS_sr0[ltsFace] *
+        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / RS_sr0[ltsFace][pointIndex] *
               std::exp((m_Params->rs_f0 +
-                        m_Params->rs_b *
-                            std::log(RS_sr0[ltsFace] * localStateVariable / RS_sl0[ltsFace])) /
-                       RS_a[ltsFace]);
+                        m_Params->rs_b * std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
+                                                  RS_sl0[ltsFace][pointIndex])) /
+                       RS_a[ltsFace][pointIndex]);
 
-        localMu = RS_a[ltsFace] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
+        localMu = RS_a[ltsFace][pointIndex] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
 
         // 2D:
         // LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))
@@ -180,15 +180,15 @@ void AgingLaw::evaluate(
 
         // Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused
         // by a free surface!)
-        localSR1 = -(1.0 / (waveSpeedsPlus->sWaveVelocity * waveSpeedsPlus->density) +
-                     1.0 / (waveSpeedsMinus->sWaveVelocity * waveSpeedsMinus->density)) *
-                   (localTractionXY - faultStresses.XYStressGP[timeIndex][pointIndex]);
-        localSR2 = -(1.0 / (waveSpeedsPlus->sWaveVelocity * waveSpeedsPlus->density) +
-                     1.0 / (waveSpeedsMinus->sWaveVelocity * waveSpeedsMinus->density)) *
-                   (localTractionXZ - faultStresses.XZStressGP[timeIndex][pointIndex]);
+        localSlipRateStrike = -(1.0 / (waveSpeedsPlus->sWaveVelocity * waveSpeedsPlus->density) +
+                                1.0 / (waveSpeedsMinus->sWaveVelocity * waveSpeedsMinus->density)) *
+                              (localTractionXY - faultStresses.XYStressGP[timeIndex][pointIndex]);
+        localSlipRateDip = -(1.0 / (waveSpeedsPlus->sWaveVelocity * waveSpeedsPlus->density) +
+                             1.0 / (waveSpeedsMinus->sWaveVelocity * waveSpeedsMinus->density)) *
+                           (localTractionXZ - faultStresses.XZStressGP[timeIndex][pointIndex]);
 
-        localSlip1 = localSlip1 + localSR1 * timeIncrement;
-        localSlip2 = localSlip2 + localSR2 * timeIncrement;
+        localSlipStrike = localSlipStrike + localSlipRateStrike * timeIncrement;
+        localSlipDip = localSlipDip + localSlipRateDip * timeIncrement;
 
         // Save traction for flux computation
         faultStresses.XYTractionResultGP[timeIndex][pointIndex] = localTractionXY;
@@ -196,12 +196,12 @@ void AgingLaw::evaluate(
       } // End of timeIndex- loop
 
       mu[ltsFace][pointIndex] = localMu;
-      slipRate1[ltsFace][pointIndex] = localSR1;
-      slipRate2[ltsFace][pointIndex] = localSR2;
+      slipRateStrike[ltsFace][pointIndex] = localSlipRateStrike;
+      slipRateDip[ltsFace][pointIndex] = localSlipRateDip;
       slip[ltsFace][pointIndex] = localSlip;
-      slip1[ltsFace][pointIndex] = localSlip1;
-      slip2[ltsFace][pointIndex] = localSlip2;
-      StateVar[ltsFace][pointIndex] = localStateVariable;
+      slipStrike[ltsFace][pointIndex] = localSlipStrike;
+      slipDip[ltsFace][pointIndex] = localSlipDip;
+      StateVariable[ltsFace][pointIndex] = localStateVariable;
       tracXY[ltsFace][pointIndex] = localTractionXY;
       tracXZ[ltsFace][pointIndex] = localTractionXZ;
 

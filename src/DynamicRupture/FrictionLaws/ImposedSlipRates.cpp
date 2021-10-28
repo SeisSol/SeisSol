@@ -7,10 +7,9 @@ void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerDat
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-  seissol::initializers::LTS_ImposedSlipRatesFL33* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesFL33*>(dynRup);
-  nucleationStressInFaultCS = layerData.var(ConcreteLts->nucleationStressInFaultCS);
-  averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
+  auto concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
+  nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
+  averagedSlip = layerData.var(concreteLts->averagedSlip);
 }
 
 void ImposedSlipRates::evaluate(

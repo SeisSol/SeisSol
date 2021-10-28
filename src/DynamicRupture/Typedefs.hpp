@@ -1,0 +1,25 @@
+#ifndef DR_TYPEDEFS
+#define DR_TYPEDEFS
+
+namespace seissol::dr {
+enum class FrictionLawType {
+  no_fault = 0,
+  linear_slip_weakening = 2,
+  linear_slip_weakening_bimaterial = 6,
+  linear_slip_weakening_forced_rupture_time = 16,
+  rate_and_state_aging_law = 3,
+  rate_and_state_slip_law = 4,
+  rate_and_state_fast_velocity_weakening = 103,
+  imposed_slip_rates = 33,
+  rate_and_state_velocity_weakening = 7,
+  rate_and_state_aging_nucleation = 101,
+};
+
+struct ImpedancesAndEta {
+  real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, inv_eta_s, inv_Zp, inv_Zs, inv_Zp_neig, inv_Zs_neig;
+};
+
+constexpr unsigned int TP_grid_nz = 60;
+}; // namespace seissol::dr
+
+#endif

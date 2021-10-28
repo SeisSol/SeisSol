@@ -392,7 +392,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
-    ImpedancesAndEta*                     impAndEta                                                 = it->var(dynRup->impAndEta);
+    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
 
 
 #ifdef _OPENMP

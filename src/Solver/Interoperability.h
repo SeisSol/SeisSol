@@ -441,16 +441,12 @@ class seissol::Interoperability {
  *
  * @param ltsFace current ltsFace to get Parameters
  * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
- * @param i_RS_f0     Reference friction coefficient
  * @param i_RS_a      RS constitutive parameter "a"
- * @param i_RS_b      RS constitutive parameter "b"
  * @param i_RS_sl0    Reference slip
  * @param i_RS_sr0    Reference slip rate
  **/
   void getDynRupFL_3(int ltsFace,  unsigned meshFace,
-                                              real *i_RS_f0,
                                               real *i_RS_a,
-                                              real *i_RS_b,
                                               real *i_RS_sl0,
                                               real *i_RS_sr0);
 
@@ -462,7 +458,7 @@ class seissol::Interoperability {
    * @param TP_grid     grid for TP
    * @param TP_DFinv    inverse Fourier coefficients
    **/
-  void getDynRupTP(real TP_grid[TP_grid_nz],real TP_DFinv[TP_grid_nz]);
+  void getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],real TP_DFinv[seissol::dr::TP_grid_nz]);
 
 
   /**

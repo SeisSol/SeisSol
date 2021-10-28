@@ -325,7 +325,7 @@ module f_ctof_bind_interoperability
       l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%NucleationStressInFaultCS(:,:,iFace)
     end subroutine
 
-    subroutine f_interoperability_getDynRupFL_3(i_domain, iFace ,i_RS_f0, i_RS_a,i_RS_b, i_RS_sl0, i_RS_sr0) bind (c, name='f_interoperability_getDynRupFL_3')
+    subroutine f_interoperability_getDynRupFL_3(i_domain, iFace ,i_RS_a, i_RS_sl0, i_RS_sr0) bind (c, name='f_interoperability_getDynRupFL_3')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -335,12 +335,8 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
-      type(c_ptr), value                     :: i_RS_f0
-      real*8, pointer                        :: l_RS_f0
       type(c_ptr), value                     :: i_RS_a
       real*8, pointer                        :: l_RS_a
-      type(c_ptr), value                     :: i_RS_b
-      real*8, pointer                        :: l_RS_b
       type(c_ptr), value                     :: i_RS_sl0
       real*8, pointer                        :: l_RS_sl0
       type(c_ptr), value                     :: i_RS_sr0
@@ -349,15 +345,11 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
-      call c_f_pointer( i_RS_f0,                l_RS_f0  )
       call c_f_pointer( i_RS_a,      l_RS_a)
-      call c_f_pointer( i_RS_b,      l_RS_b)
-      call c_f_pointer( i_RS_sl0,      l_RS_sl0)
-      call c_f_pointer( i_RS_sr0,      l_RS_sr0)
+      call c_f_pointer( i_RS_sl0,    l_RS_sl0)
+      call c_f_pointer( i_RS_sr0,    l_RS_sr0)
 
-      l_RS_f0                   = l_domain%DISC%DynRup%RS_f0
       l_RS_a                    = l_domain%DISC%DynRup%RS_a
-      l_RS_b                    = l_domain%DISC%DynRup%RS_b
       l_RS_sl0                  = l_domain%DISC%DynRup%RS_sl0
       l_RS_sr0                  = l_domain%DISC%DynRup%RS_sr0
 

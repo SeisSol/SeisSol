@@ -14,9 +14,9 @@ void BaseFrictionLaw::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   slipRateMagnitude = layerData.var(dynRup->slipRateMagnitude);
   slipRateStrike = layerData.var(dynRup->slipRateStrike);
   slipRateDip = layerData.var(dynRup->slipRateDip);
-  ruptureTime = layerData.var(dynRup->rupture_time);
-  ruptureFront = layerData.var(dynRup->RF);
-  peakSR = layerData.var(dynRup->peakSR);
+  ruptureTime = layerData.var(dynRup->ruptureTime);
+  ruptureFront = layerData.var(dynRup->ruptureFront);
+  peakSlipRate = layerData.var(dynRup->peakSlipRate);
   tractionXY = layerData.var(dynRup->tractionXY);
   tractionXZ = layerData.var(dynRup->tractionXZ);
   imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
@@ -153,8 +153,8 @@ void BaseFrictionLaw::saveRuptureFrontOutput(unsigned int ltsFace) {
 
 void BaseFrictionLaw::savePeakSlipRateOutput(unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-    if (slipRateMagnitude[ltsFace][pointIndex] > peakSR[ltsFace][pointIndex]) {
-      peakSR[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
+    if (slipRateMagnitude[ltsFace][pointIndex] > peakSlipRate[ltsFace][pointIndex]) {
+      peakSlipRate[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
     }
   }
 }
@@ -162,10 +162,10 @@ void BaseFrictionLaw::savePeakSlipRateOutput(unsigned int ltsFace) {
 void BaseFrictionLaw::saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip,
                                             unsigned int ltsFace) {
   real sum_tmpSlip = 0;
-  if (m_Params->IsMagnitudeOutputOn) {
+  if (m_Params->isMagnitudeOutputOn) {
     for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++)
       sum_tmpSlip += tmpSlip[pointIndex];
-    averaged_Slip[ltsFace] = averaged_Slip[ltsFace] + sum_tmpSlip / numberOfPoints;
+    averagedSlip[ltsFace] = averagedSlip[ltsFace] + sum_tmpSlip / numberOfPoints;
   }
 }
 

@@ -11,8 +11,7 @@ void seissol::dr::initializers::LinearSlipWeakeningFL2Initializer::initializeFri
     seissol::Interoperability& e_interoperability) {
   BaseDRInitializer::initializeFrictionMatrices(
       dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
-  seissol::initializers::LTS_LinearSlipWeakeningFL2* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL2*>(dynRup);
+  auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -20,12 +19,12 @@ void seissol::dr::initializers::LinearSlipWeakeningFL2Initializer::initializeFri
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*d_c)[numPaddedPoints] = it->var(ConcreteLts->d_c);   // from faultParameters
-    real(*mu_S)[numPaddedPoints] = it->var(ConcreteLts->mu_S); // from faultParameters
-    real(*mu_D)[numPaddedPoints] = it->var(ConcreteLts->mu_D); // from faultParameters
-    bool(*DS)[numPaddedPoints] = it->var(ConcreteLts->DS);     // from parameter file
-    real* averaged_Slip = it->var(ConcreteLts->averaged_Slip); // = 0
-    real(*dynStress_time)[numPaddedPoints] = it->var(ConcreteLts->dynStress_time); // = 0
+    real(*d_c)[numPaddedPoints] = it->var(concreteLts->d_c);   // from faultParameters
+    real(*mu_S)[numPaddedPoints] = it->var(concreteLts->mu_S); // from faultParameters
+    real(*mu_D)[numPaddedPoints] = it->var(concreteLts->mu_D); // from faultParameters
+    bool(*DS)[numPaddedPoints] = it->var(concreteLts->DS);     // from parameter file
+    real* averaged_Slip = it->var(concreteLts->averagedSlip);  // = 0
+    real(*dynStress_time)[numPaddedPoints] = it->var(concreteLts->dynStressTime); // = 0
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
@@ -47,7 +46,7 @@ void seissol::dr::initializers::LinearSlipWeakeningFL2Initializer::initializeFri
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints;
            ++pointIndex) { // loop includes padded elements
         dynStress_time[ltsFace][pointIndex] = 0.0;
-        DS[ltsFace][pointIndex] = m_Params->IsDsOutputOn;
+        DS[ltsFace][pointIndex] = m_Params->isDsOutputOn;
       }
     } // lts-face loop
     layerLtsFaceToMeshFace += it->getNumberOfCells();
@@ -63,8 +62,8 @@ void LinearSlipWeakeningFL16Initializer::initializeFrictionMatrices(
     seissol::Interoperability& e_interoperability) {
   LinearSlipWeakeningFL2Initializer::initializeFrictionMatrices(
       dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
-  seissol::initializers::LTS_LinearSlipWeakeningFL16* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL16*>(dynRup);
+  auto concreteLts =
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -73,20 +72,20 @@ void LinearSlipWeakeningFL16Initializer::initializeFrictionMatrices(
        it != dynRupTree->endLeaf();
        ++it) {
 
-    real(*forced_rupture_time)[numPaddedPoints] =
-        it->var(ConcreteLts->forced_rupture_time); // from faultParameters
-    real* tn = it->var(ConcreteLts->tn);           // = 0
+    real(*forcedRuptureTime)[numPaddedPoints] =
+        it->var(concreteLts->forcedRuptureTime); // from faultParameters
+    real* tn = it->var(concreteLts->tn);         // = 0
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        forced_rupture_time[ltsFace][pointIndex] = 0.0;
+        forcedRuptureTime[ltsFace][pointIndex] = 0.0;
       }
       for (unsigned pointIndex = 0; pointIndex < numberOfPoints; ++pointIndex) {
         if (faultParameters["forced_rupture_time"] != NULL) {
-          forced_rupture_time[ltsFace][pointIndex] = static_cast<real>(
+          forcedRuptureTime[ltsFace][pointIndex] = static_cast<real>(
               faultParameters["forced_rupture_time"][(meshFace)*numberOfPoints + pointIndex]);
         }
       }
@@ -105,8 +104,8 @@ void LinearBimaterialFL6Initializer::initializeFrictionMatrices(
     seissol::Interoperability& e_interoperability) {
   LinearSlipWeakeningFL2Initializer::initializeFrictionMatrices(
       dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
-  seissol::initializers::LTS_LinearBimaterialFL6* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearBimaterialFL6*>(dynRup);
+  auto concreteLts =
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -114,14 +113,14 @@ void LinearBimaterialFL6Initializer::initializeFrictionMatrices(
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*strengthData)[numPaddedPoints] = it->var(ConcreteLts->strengthData);
-    real(*mu)[numPaddedPoints] = it->var(ConcreteLts->mu);
+    real(*regularisedStrength)[numPaddedPoints] = it->var(concreteLts->regularisedStrength);
+    real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
     real(*initialStressInFaultCS)[numPaddedPoints][6] = it->var(dynRup->initialStressInFaultCS);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       // unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        strengthData[ltsFace][pointIndex] =
+        regularisedStrength[ltsFace][pointIndex] =
             mu[ltsFace][pointIndex] * initialStressInFaultCS[ltsFace][pointIndex][0];
       }
     } // lts-face loop

@@ -13,8 +13,7 @@ void ImposedSlipRatesFL33Initializer::initializeFrictionMatrices(
     seissol::Interoperability& e_interoperability) {
   BaseDRInitializer::initializeFrictionMatrices(
       dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
-  seissol::initializers::LTS_ImposedSlipRatesFL33* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesFL33*>(dynRup);
+  auto concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
@@ -24,8 +23,8 @@ void ImposedSlipRatesFL33Initializer::initializeFrictionMatrices(
        ++it) {
 
     real(*nucleationStressInFaultCS)[numPaddedPoints][6] =
-        it->var(ConcreteLts->nucleationStressInFaultCS);       // get from fortran
-    real* averaged_Slip = it->var(ConcreteLts->averaged_Slip); // = 0
+        it->var(concreteLts->nucleationStressInFaultCS);      // get from fortran
+    real* averaged_Slip = it->var(concreteLts->averagedSlip); // = 0
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];

@@ -48,14 +48,14 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   real (*slipRateDip)[numPaddedPoints];
   real (*ruptureTime)[numPaddedPoints];
   bool (*ruptureFront)[numPaddedPoints];
-  real (*peakSR)[numPaddedPoints];
+  real (*peakSlipRate)[numPaddedPoints];
   real (*tractionXY)[numPaddedPoints];
   real (*tractionXZ)[numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 
   // be careful only for some FLs initialized:
-  real* averaged_Slip;
+  real* averagedSlip;
 
   /*
    * Struct that contains all input stresses and output stresses
@@ -127,7 +127,7 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   void saveRuptureFrontOutput(unsigned int ltsFace);
 
   /*
-   * save the maximal computed slip rate magnitude in peakSR
+   * save the maximal computed slip rate magnitude in RpeakSlipRate
    */
   void savePeakSlipRateOutput(unsigned int ltsFace);
 

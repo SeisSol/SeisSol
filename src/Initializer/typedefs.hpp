@@ -52,7 +52,7 @@
 #include <Kernels/equations.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
-#include <DynamicRupture/Constant.hpp>
+#include <DynamicRupture/Typedefs.hpp>
 
 #include <cstddef>
 
@@ -449,25 +449,6 @@ struct BoundaryFaceInformation {
   real TinvData[seissol::tensor::Tinv::size()];
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
-};
-
-enum Friction_law_type{
-    no_fault = 0,
-    linear_slip_weakening = 2,
-    linear_slip_weakening_forced_time_rupture = 16,
-
-    rate_and_state_aging_law = 3,
-    rate_and_state_slip_law = 4,
-    linear_slip_weakening_bimaterial = 6,
-    rate_and_state_velocity_weakening = 7,
-
-    imposed_slip_rate_on_DR_boundary = 33,
-    rate_and_state_aging_nucleation = 101, //Currently_disabled
-    rate_and_state_slip_nucleation = 103
-};
-
-struct ImpedancesAndEta{
-  real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, inv_eta_s, inv_Zp, inv_Zs, inv_Zp_neig, inv_Zs_neig;
 };
 
 
