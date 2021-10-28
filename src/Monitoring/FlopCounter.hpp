@@ -58,7 +58,7 @@ extern long long g_SeisSolHardwareFlopsDynamicRupture;
 extern long long g_SeisSolNonZeroFlopsPlasticity;
 extern long long g_SeisSolHardwareFlopsPlasticity;
 
-void printNodePerformance(double wallTime);
+void printPerformance(double wallTime);
 void printFlops();
 
 #endif

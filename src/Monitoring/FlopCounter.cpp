@@ -61,15 +61,33 @@ long long g_SeisSolHardwareFlopsDynamicRupture = 0;
 long long g_SeisSolNonZeroFlopsPlasticity = 0;
 long long g_SeisSolHardwareFlopsPlasticity = 0;
 
-// prevent name mangling
-void printNodePerformance(double wallTime) {
+void printPerformance(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
-  long long flops = g_SeisSolHardwareFlopsLocal
+  const long long flops = g_SeisSolHardwareFlopsLocal
                     + g_SeisSolHardwareFlopsNeighbor
                     + g_SeisSolHardwareFlopsOther
                     + g_SeisSolHardwareFlopsDynamicRupture
                     + g_SeisSolHardwareFlopsPlasticity;
-  logInfo(rank) << flops * 1.e-9 / wallTime << "GFLOPS on rank" << rank;
+  const double gflopsPerSecond = flops * 1.e-9 / wallTime;
+
+  logInfo(rank) << gflopsPerSecond << "GFLOPS on rank" << rank << ".";
+
+  double flopsSum = 0;
+  MPI_Reduce(
+      &gflopsPerSecond,
+      &flopsSum,
+      1,
+      MPI_DOUBLE,
+      MPI_SUM,
+      0,
+      seissol::MPI::mpi.comm()
+  );
+  if (rank == 0) {
+    const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
+    logInfo(rank) << flopsPerRank << "GFLOPS per rank on average.";
+    logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS in total.";
+
+  }
 }
   
 /**
