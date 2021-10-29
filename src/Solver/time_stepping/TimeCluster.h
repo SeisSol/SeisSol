@@ -90,6 +90,7 @@
 #include <Kernels/TimeCommon.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
+#include <Monitoring/ActorStateStatistics.h>
 
 #include "AbstractTimeCluster.h"
 
@@ -191,10 +192,10 @@ private:
     
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
+    ActorStateStatistics* actorStateStatistics;
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
-    std::unordered_map<ActorState, unsigned> regionsActorState;
 
     kernels::ReceiverCluster* m_receiverCluster;
 
@@ -399,7 +400,8 @@ public:
                 DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
                 seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
                 seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
-                seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics);
+                seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics,
+                ActorStateStatistics* actorStateStatistics);
 
     /**
      * Destructor of a LTS cluster.

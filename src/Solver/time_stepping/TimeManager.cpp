@@ -57,6 +57,7 @@ seissol::time_stepping::TimeManager::TimeManager():
   m_loopStatistics.addRegion("statePredicted");
   m_loopStatistics.addRegion("stateSynced");
 
+  actorStateStatisticsManager = ActorStateStatisticsManager();
 }
 
 seissol::time_stepping::TimeManager::~TimeManager() {
@@ -99,12 +100,13 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells));
 
     for (auto type : layerTypes) {
+      const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
       const bool printProgress = (localClusterId == 0) && (type == Interior);
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
-          m_timeStepping.clusterIds[localClusterId],
+          l_globalClusterId,
           usePlasticity,
           type,
           timeStepSize,
@@ -118,7 +120,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           &dynRupTree.child(Copy),
           i_memoryManager.getLts(),
           i_memoryManager.getDynamicRupture(),
-          &m_loopStatistics)
+          &m_loopStatistics,
+          &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
       );
     }
     auto& interior = clusters[clusters.size() - 1];
@@ -296,6 +299,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
 void seissol::time_stepping::TimeManager::printComputationTime()
 {
+  actorStateStatisticsManager.addToLoopStatistics(m_loopStatistics);
 #ifdef USE_MPI
   m_loopStatistics.printSummary(MPI::mpi.comm());
 #endif
@@ -342,4 +346,3 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
     cluster->setTv(tv);
   }
 }
-

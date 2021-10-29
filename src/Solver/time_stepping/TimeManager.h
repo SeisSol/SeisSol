@@ -128,6 +128,7 @@ class seissol::time_stepping::TimeManager {
     
     //! Stopwatch
     LoopStatistics m_loopStatistics;
+    ActorStateStatisticsManager actorStateStatisticsManager;
     
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.

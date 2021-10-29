@@ -100,7 +100,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  seissol::initializers::Layer *dynRupCopyData,
                                                  seissol::initializers::LTS *i_lts,
                                                  seissol::initializers::DynamicRupture *i_dynRup,
-                                                 LoopStatistics *i_loopStatistics) :
+                                                 LoopStatistics *i_loopStatistics,
+                                                 ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate),
     // cluster ids
     m_clusterId(i_clusterId),
@@ -122,7 +123,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_loopStatistics(i_loopStatistics),
     m_receiverCluster(nullptr),
     printProgress(printProgress),
-    dynamicRuptureScheduler(dynamicRuptureScheduler)
+    dynamicRuptureScheduler(dynamicRuptureScheduler),
+    actorStateStatistics(actorStateStatistics)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != NULL );
@@ -149,12 +151,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
-
-  regionsActorState = {
-      {ActorState::Corrected, m_loopStatistics->getRegion("stateCorrected")},
-      {ActorState::Predicted, m_loopStatistics->getRegion("statePredicted")},
-      {ActorState::Synced, m_loopStatistics->getRegion("stateSynced")}
-  };
 };
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
@@ -789,11 +785,9 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
 
 namespace seissol::time_stepping {
 ActResult TimeCluster::act() {
-  const auto regionId = regionsActorState[state];
-  m_loopStatistics->begin(regionId);
+  actorStateStatistics->enter(state);
   const auto result = AbstractTimeCluster::act();
-  m_loopStatistics->end(regionId, 0, m_globalClusterId);
-
+  actorStateStatistics->enter(state);
   return result;
 }
 

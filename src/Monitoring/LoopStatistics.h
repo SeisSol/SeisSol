@@ -69,14 +69,24 @@ public:
   }
   
   void begin(unsigned region) {
-    clock_gettime(CLOCK_REALTIME, &m_begin[region]);
+    clock_gettime(CLOCK_MONOTONIC, &m_begin[region]);
   }
   
   void end(unsigned region, unsigned numIterations, unsigned subRegion) {
     Sample sample;
-    clock_gettime(CLOCK_REALTIME, &sample.end);
+    clock_gettime(CLOCK_MONOTONIC, &sample.end);
     sample.begin = m_begin[region];
     sample.numIters = numIterations;
+    sample.subRegion = subRegion;
+    m_times[region].push_back(sample);
+  }
+
+  void addSample(unsigned region, unsigned numIters, unsigned subRegion,
+                 timespec begin, timespec end) {
+    Sample sample;
+    sample.begin = std::move(begin);
+    sample.end = std::move(end);
+    sample.numIters = numIters;
     sample.subRegion = subRegion;
     m_times[region].push_back(sample);
   }
