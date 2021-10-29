@@ -71,6 +71,16 @@ endif()
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
 
+set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
+                                src/generated_code/tensor.cpp
+                                src/generated_code/subroutine.cpp
+                                src/generated_code/gpulike_subroutine.cpp
+                                src/generated_code/tensor.h
+                                src/generated_code/init.cpp
+                                src/generated_code/init.h
+                                src/generated_code/kernel.h
+                                src/generated_code/kernel.cpp)
+
 add_custom_command(
   COMMAND
   "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
@@ -79,7 +89,7 @@ add_custom_command(
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
      "--device_arch" ${DEVICE_ARCH_STR}
-     "--device_sub_arch" ${DEVICE_SUB_ARCH}
+     "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
@@ -106,17 +116,15 @@ add_custom_command(
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
        generated_code/matrices/matrices_poroelastic.xml
-    OUTPUT src/generated_code/subroutine.h
-       src/generated_code/tensor.cpp
-       src/generated_code/subroutine.cpp
-       src/generated_code/gpulike_subroutine.cpp
-       src/generated_code/tensor.h
-       src/generated_code/init.cpp
-       src/generated_code/init.h
-       src/generated_code/kernel.h
-       src/generated_code/kernel.cpp
-       COMMENT "Codegen for tensor stuff."
+    OUTPUT
+       ${GENERATED_FILES_FOR_SEISSOL}
+    COMMENT "Codegen for tensor stuff."
        )
+
+add_custom_target(SeisSol-codegen ALL
+  DEPENDS
+    ${GENERATED_FILES_FOR_SEISSOL}
+)
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
@@ -362,7 +370,7 @@ endif()
 if ("${DEVICE_ARCH_STR}" STREQUAL "none")
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
 else()
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${ORDER}_${EQUATIONS}")
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
 endif()
 
 

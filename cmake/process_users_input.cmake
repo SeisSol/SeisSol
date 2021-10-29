@@ -29,24 +29,23 @@ set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
-set(HOST_ARCH "hsw" CACHE STRING "Type of the target host architecture")
+set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
 set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx rome thunderx2t99 power9)
 # size of a vector registers in bytes for a given architecture
 set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64   32       16     16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
-set(DEVICE_ARCH "none" CACHE STRING "Type of the target compute architecture")
-set(DEVICE_ARCH_OPTIONS    none nvidia amd_gpu hipsycl oneapi)
-set(DEVICE_ARCH_ALIGNMENT  none     64     128)
+set(DEVICE_BACKEND "none" CACHE STRING "Type of GPU backend")
+set(DEVICE_BACKEND_OPTIONS none cuda hip hipsycl oneapi)
+set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
+
+
+set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
+set(DEVICE_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86
+        gfx906 gfx908
+        dg1 bdw skl Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
-
-
-set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
-set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 bdw
-        skl kbl cfl bxt glk icllp lkf ehl tgllp
-        rkl adls dg1 Gen8 Gen9 Gen11 Gen12LP)
-set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
 set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/single")
@@ -105,8 +104,8 @@ endfunction()
 
 check_parameter("ORDER" ${ORDER} "${ORDER_OPTIONS}")
 check_parameter("HOST_ARCH" ${HOST_ARCH} "${HOST_ARCH_OPTIONS}")
+check_parameter("DEVICE_BACKEND" ${DEVICE_BACKEND} "${DEVICE_BACKEND_OPTIONS}")
 check_parameter("DEVICE_ARCH" ${DEVICE_ARCH} "${DEVICE_ARCH_OPTIONS}")
-check_parameter("DEVICE_SUB_ARCH" ${DEVICE_SUB_ARCH} "${DEVICE_SUB_ARCH_OPTIONS}")
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("DYNAMIC_RUPTURE_METHOD" ${DYNAMIC_RUPTURE_METHOD} "${RUPTURE_OPTIONS}")
@@ -130,7 +129,7 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
     endif()
 endif()
 
-if (NOT ${DEVICE_ARCH} STREQUAL "none")
+if (NOT ${DEVICE_BACKEND} STREQUAL "none")
     set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
     set(WITH_GPU on)
 endif()
@@ -138,35 +137,22 @@ message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 
 # check compute sub architecture (relevant only for GPU)
 if (NOT ${DEVICE_ARCH} STREQUAL "none")
-    if (${DEVICE_SUB_ARCH} STREQUAL "none")
-        message(FATAL_ERROR "DEVICE_SUB_ARCH is not provided for ${DEVICE_ARCH}")
+    if (${DEVICE_BACKEND} STREQUAL "none")
+        message(FATAL_ERROR "DEVICE_BACKEND is not provided for ${DEVICE_ARCH}")
     endif()
 
-    if (${DEVICE_ARCH} STREQUAL "nvidia")
-        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
-        list(GET DEVICE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
-        set(DEVICE_BACKEND "CUDA")
-    elseif(${DEVICE_ARCH} STREQUAL "amd_gpu")
-        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
-        list(GET DEVICE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
-        set(DEVICE_BACKEND "HIP")
-        # amd_gpu will be supported in some near future
-        message(FATAL_ERROR "amd_gpu currently is not supported")
-    elseif(${DEVICE_ARCH} STREQUAL "hipsycl")
-        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
-        list(GET DEVICE_ARCH_ALIGNMENT 1 ALIGNMENT)
-        set(DEVICE_BACKEND "HIPSYCL")
-    elseif(${DEVICE_ARCH} STREQUAL "oneapi")
-        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
-        list(GET DEVICE_ARCH_ALIGNMENT 1 ALIGNMENT)
-        set(DEVICE_BACKEND "ONEAPI")
+    if (${DEVICE_ARCH} MATCHES "sm_*")
+        set(ALIGNMENT  64)
+    elseif(${DEVICE_ARCH} MATCHES "gfx*")
+        set(ALIGNMENT  128)
     else()
-        message(FATAL_ERROR "Unknown device arch. provided: ${DEVICE_ARCH}. nvidia and amd_gpu are currently supported")
+        set(ALIGNMENT 128)
+        message(STATUS "Assume ALIGNMENT = 32, for DEVICE_ARCH=${DEVICE_ARCH}")
     endif()
 else()
     list(FIND HOST_ARCH_OPTIONS ${HOST_ARCH} INDEX)
     list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
-    set(DEVICE_BACKEND "NONE")
+    set(DEVICE_BACKEND "none")
 endif()
 
 # check NUMBER_OF_MECHANISMS
