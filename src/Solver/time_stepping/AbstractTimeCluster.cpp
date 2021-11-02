@@ -15,7 +15,7 @@ AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTole
 }
 
 ActResult AbstractTimeCluster::act() {
-  ActResult result{false, false};
+  ActResult result;
   auto stateBefore = state;
   switch (state) {
   case ActorState::Corrected: {

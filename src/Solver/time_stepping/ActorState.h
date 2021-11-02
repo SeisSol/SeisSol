@@ -160,8 +160,8 @@ public:
 };
 
 struct ActResult {
-  bool yield;
-  bool isStateChanged;
+  bool yield = false;
+  bool isStateChanged = false;
 };
 
 }

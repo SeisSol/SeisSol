@@ -16,9 +16,6 @@ public:
     if (actorState == currentSample.state) {
       ++currentSample.numEnteredRegion;
     } else {
-      std::cout << "Switching from " << time_stepping::actorStateToString(currentSample.state);
-      std::cout << " to " << time_stepping::actorStateToString(actorState);
-      std::cout << " after " << currentSample.numEnteredRegion << " checks." << std::endl;
       currentSample.finish();
       samples.push_back(currentSample);
       currentSample = Sample(actorState);

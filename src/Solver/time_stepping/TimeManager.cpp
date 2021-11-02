@@ -265,19 +265,20 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     // Iterate over all clusters
     // break loop if updated, and begin again.
     // Assume that stuff is sorted by a useful metric
-    // TODO(Lukas) Maybe change sorting.
+
+
+    // Update all high priority clusters
     for (auto& highPrioCluster : highPrioClusters) {
       bool yield = false;
       while (!yield) {
         const auto result = highPrioCluster->act();
         communicationManager->progression();
         yield = result.yield;
-        if (result.isStateChanged) {
-          goto beginAgain;
-        }
       }
       finished &= highPrioCluster->synced();
     }
+
+    // Update one low priority cluster
     for (auto& lowPrioCluster : lowPrioClusters) {
       bool yield = false;
       while (!yield) {
