@@ -6,6 +6,7 @@ import argparse
 import os
 import seissolxdmf as sx
 import seissolxdmfwriter as sw
+
 # These 2 latter modules are on pypi (e.g. pip install seissolxdmf)
 
 
@@ -23,6 +24,7 @@ def fuzzysort(arr, idx, dim=0, tol=1e-6):
     """
     return indexes of sorted points robust to small perturbations of individual components.
     https://stackoverflow.com/questions/19072110/numpy-np-lexsort-with-fuzzy-tolerant-comparisons
+    note that I added dim<arr.shape[0]-1 in some if statement (else it will crash sometimes)
     """
     arrd = arr[dim]
     srtdidx = sorted(idx, key=arrd.__getitem__)
@@ -30,11 +32,11 @@ def fuzzysort(arr, idx, dim=0, tol=1e-6):
     i, ix = 0, srtdidx[0]
     for j, jx in enumerate(srtdidx[1:], start=1):
         if arrd[jx] - arrd[ix] >= tol:
-            if j - i > 1:
+            if j - i > 1 and dim < arr.shape[0] - 1:
                 srtdidx[i:j] = fuzzysort(arr, srtdidx[i:j], dim + 1, tol)
             i, ix = j, jx
 
-    if i != j:
+    if i != j and dim < arr.shape[0] - 1:
         srtdidx[i:] = fuzzysort(arr, srtdidx[i:], dim + 1, tol)
 
     return srtdidx
