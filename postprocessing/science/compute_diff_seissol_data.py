@@ -179,7 +179,12 @@ for dataname in args.Data:
             myData = myData / myData1[0:ndt, ind1]
 
     for idt in args.idt:
-        print(idt, np.amin(myData[idt, :]), np.amax(myData[idt, :]))
+        if idt < ndt:
+            print(idt, np.amin(myData[idt, :]), np.amax(myData[idt, :]))
+        else:
+            print(f"removing idt={idt}>{ndt} from args.idt")
+            args.idt.pop(idt)
+
     aData.append(myData)
 prefix, ext = os.path.splitext(args.xdmf_filename1)
 add2prefix = "ratio" if args.ratio else "diff"
