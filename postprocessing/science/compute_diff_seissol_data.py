@@ -110,7 +110,10 @@ def multidim_intersect(arr1, arr2):
 def same_geometry(sx1, sx2):
     geom1 = sx1.ReadGeometry()
     geom2 = sx2.ReadGeometry()
-    return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4))
+    if geom1.shape[0] != geom2.shape[0]:
+        return False
+    else:
+        return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4))
 
 
 parser = argparse.ArgumentParser(
