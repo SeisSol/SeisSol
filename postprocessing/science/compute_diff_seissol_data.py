@@ -166,7 +166,7 @@ for dataname in args.Data:
     print(dataname)
     myData1 = read_reshape2d(sx1, dataname)
     myData2 = read_reshape2d(sx2, dataname)
-    ndt = min(myData1.shape[0], myData1.shape[1])
+    ndt = min(myData1.shape[0], myData2.shape[0])
     if same_geom:
         myData = myData1[0:ndt, :] - myData2[0:ndt, :]
         if args.ratio:
