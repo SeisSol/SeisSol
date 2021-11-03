@@ -155,7 +155,7 @@ gpu_build:
         entrypoint: [""]
     parallel:
         matrix:
-        - BACKEND: [nvidia, hipsycl]
+        - BACKEND: [cuda, hipsycl, hip]
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
@@ -163,17 +163,17 @@ gpu_build:
         - git submodule --quiet update --init --recursive 
     script:
         - *common_gpu_steps
-        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git@v0.0.205
         - set -euo pipefail
         - for precision in double single; do
             mkdir -p ./build_${BACKEND}_${precision} && cd ./build_${BACKEND}_${precision} ;
             cmake ..
             -DCMAKE_BUILD_TYPE=Release
-            -DDEVICE_ARCH=${BACKEND}
-            -DDEVICE_SUB_ARCH=${GPU_MODEL}
+            -DDEVICE_BACKEND=${BACKEND}
+            -DDEVICE_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision} ;
-            make -j2 ;
+            make -j 2 ;
             cd .. ;
           done;
         - set +u
@@ -194,7 +194,7 @@ gpu_convergence_test:
         entrypoint: [""]
     parallel:
         matrix:
-        - BACKEND: [nvidia, hipsycl]
+        - BACKEND: [cuda, hipsycl, hip]
     script:
         - *common_gpu_steps
         - git clone https://github.com/SeisSol/Examples.git tests
@@ -232,7 +232,7 @@ gpu_performance_test:
         entrypoint: [""]
     parallel:
         matrix:
-        - BACKEND: [nvidia, hipsycl]
+        - BACKEND: [cuda, hipsycl, hip]
     script:
         - *common_gpu_steps
         - set -euo pipefail
