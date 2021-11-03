@@ -15,15 +15,24 @@ find_package(HIP REQUIRED)
 
 set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++11; -O3)
 set(SEISSOL_HCC)
+
+set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})
     if ($ENV{HIP_PLATFORM} STREQUAL "nvidia")
-        set(SEISSOL_NVCC -arch=${DEVICE_ARCH};
-                         -dc;
-                         --expt-relaxed-constexpr;
-                         --compiler-options -fPIC;
-                         -DCUDA_UNDERHOOD)
+        set(IS_NVCC_PLATFORM ON)
     endif()
 endif()
+
+if (IS_NVCC_PLATFORM)
+   set(SEISSOL_NVCC -arch=${DEVICE_ARCH};
+                    -dc;
+                    --expt-relaxed-constexpr;
+                    --compiler-options -fPIC;
+                    -DCUDA_UNDERHOOD)
+else()
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --amdgpu-target=${DEVICE_ARCH})
+endif()
+
 
 set(CMAKE_HIP_CREATE_SHARED_LIBRARY
 "${HIP_HIPCC_CMAKE_LINKER_HELPER} \
@@ -52,13 +61,9 @@ target_include_directories(Seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 set_property(TARGET Seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
 
 
-if (DEFINED ENV{HIP_PLATFORM})
-    if ($ENV{HIP_PLATFORM} STREQUAL "nvidia")
-        set_target_properties(Seissol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
-        target_link_options(Seissol-device-lib PRIVATE -arch=${DEVICE_ARCH})
-    else()
-        target_link_libraries(Seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
-    endif()
+if (IS_NVCC_PLATFORM)
+    set_target_properties(Seissol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
+    target_link_options(Seissol-device-lib PRIVATE -arch=${DEVICE_ARCH})
 else()
     target_link_libraries(Seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
