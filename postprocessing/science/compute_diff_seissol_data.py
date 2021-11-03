@@ -197,5 +197,5 @@ try:
     dt = sx1.ReadTimeStep()
 except NameError:
     dt = 0.0
-
-sw.write_seissol_output(fname, geom1, connect1, args.Data, aData, dt, args.idt)
+out_names = ["diff_" + name for name in args.Data]
+sw.write_seissol_output(fname, geom1, connect1, out_names, aData, dt, args.idt)
