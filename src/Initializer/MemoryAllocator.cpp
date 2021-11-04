@@ -136,11 +136,6 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
 }
 
 void seissol::memory::free(void* i_pointer, enum Memkind i_memkind) {
-  if(i_pointer == nullptr) {
-      logWarning() << "pointer to free is nullptr!";
-      return;
-  }
-
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (i_memkind == Standard) {
 #endif
