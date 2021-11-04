@@ -583,124 +583,40 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol:
   }
 }
 #else // ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol::initializers::Layer& i_layerData,
-                                                                        double subTimeStart) {
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData,
+                                                                         double subTimeStart) {
   device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
-  CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
-  CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-#ifdef USE_PLASTICITY
-  updateRelaxTime();
-  PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-  real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
-  unsigned numberOTetsWithPlasticYielding = 0;
-#endif
+  SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+  m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
-  kernels::NeighborData::Loader loader;
-  loader.load(*m_lts, i_layerData);
   ConditionalBatchTableT &table = i_layerData.getCondBatchTable();
 
-  real *l_timeIntegrated[4];
-  real *l_faceNeighbors_prefetch[4];
-
-  //std::cout << "dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize() << " t_sub=" << subTimeStart << std::endl;
-
-#ifdef _OPENMP
-#ifdef USE_PLASTICITY
-  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch) reduction(+:numberOTetsWithPlasticYielding)
-#else
-  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
-#endif
-#endif
-  for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
-    auto data = loader.entry(l_cell);
-    seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                   data.cellInformation.ltsSetup,
-                                                   data.cellInformation.faceTypes,
-                                                   subTimeStart,
-                                                   timeStepSize(),
-                                                   faceNeighbors[l_cell],
-#ifdef _OPENMP
-                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
-#else
-                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
-#endif
-                                                   l_timeIntegrated);
-
-#ifdef ENABLE_MATRIX_PREFETCH
-#pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
-      faceNeighbors[l_cell][1] :
-      drMapping[l_cell][1].godunov;
-    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
-      faceNeighbors[l_cell][2] :
-      drMapping[l_cell][2].godunov;
-    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
-      faceNeighbors[l_cell][3] :
-      drMapping[l_cell][3].godunov;
   seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
-                                                        m_subTimeStart,
-                                                        m_timeStepWidth,
+                                                        subTimeStart,
+                                                        timeStepSize(),
                                                         table);
   m_neighborKernel.computeBatchedNeighborsIntegral(table);
 
-    // fourth face's prefetches
-    if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-	faceNeighbors[l_cell+1][0] :
-	drMapping[l_cell+1][0].godunov;
-    } else {
-      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
-    }
-#endif
-
-    m_neighborKernel.computeNeighborsIntegral( data,
-                                               drMapping[l_cell],
-#ifdef ENABLE_MATRIX_PREFETCH
-                                               l_timeIntegrated, l_faceNeighbors_prefetch
-#else
-                                               l_timeIntegrated
-#endif
-                                               );
-
-#ifdef USE_PLASTICITY
-  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
-                                                                                     timeStepSize(),
-                                                                                     m_globalData,
-                                                                                     &plasticity[l_cell],
-                                                                                     data.dofs,
-                                                                                     pstrain[l_cell] );
-#endif
-#ifdef INTEGRATE_QUANTITIES
-  seissol::SeisSol::main.postProcessor().integrateQuantities( timeStepSize(),
-                                                              i_layerData,
-                                                              l_cell,
-                                                              dofs[l_cell] );
-#endif // INTEGRATE_QUANTITIES
-  }
   if (usePlasticity) {
     PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
     unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
-                                                                                      m_timeStepWidth,
+                                                                                      timeStepSize(),
                                                                                       m_tv,
                                                                                       m_globalDataOnDevice,
                                                                                       table,
                                                                                       plasticity);
 
-  #ifdef USE_PLASTICITY
-  g_SeisSolNonZeroFlopsPlasticity +=
-    i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]
-    + numberOTetsWithPlasticYielding * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
-  g_SeisSolHardwareFlopsPlasticity +=
-    i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]
-    + numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
-  #endif
-    g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numAdjustedDofs * m_flops_nonZero[PlasticityYield];
-    g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numAdjustedDofs * m_flops_hardware[PlasticityYield];
+    g_SeisSolNonZeroFlopsPlasticity +=
+        i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]
+        + numAdjustedDofs * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
+    g_SeisSolHardwareFlopsPlasticity +=
+        i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]
+        + numAdjustedDofs * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
   }
 
   device.api->synchDevice();
   device.api->popLastProfilingMark();
-  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells());
+  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
 }
 #endif // ACL_DEVICE
 
