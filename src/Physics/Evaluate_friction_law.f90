@@ -134,7 +134,7 @@ MODULE Eval_friction_law_mod
                                 resampleMatrix,                            &
                                 DISC,EQN,MESH,MPI,IO)                          
                                 
-        CASE(33)
+        CASE(33, 34)
            CALL ImposedSlipRateOnDRBoundary(                               & !
                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
@@ -546,7 +546,7 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    REAL        :: Tnuc, Gnuc, Gnucprev, dt, prevtime
+    REAL        :: Gnuc(nBndGP), dt
     real        :: tn, eta
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
@@ -554,7 +554,6 @@ MODULE Eval_friction_law_mod
     INTENT(IN)    :: MESH,MPI,IO
     INTENT(INOUT) :: EQN, DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
-    Tnuc = DISC%DynRup%t_0
     tmpSlip = 0.0D0
     
     eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
@@ -565,13 +564,22 @@ MODULE Eval_friction_law_mod
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
       tn=tn + time_inc
-      Gnuc = Calc_SmoothStepIncrement(tn, Tnuc, time_inc)/time_inc
+
+      IF (EQN%FL.EQ.33) THEN
+        DO iBndGP=1,nBndGP
+          Gnuc(iBndGP) = regularizedYoffe(tn-DISC%DynRup%RuptureOnset(iBndGP, iFace), DISC%DynRup%YoffeTS(iBndGP, iFace), DISC%DynRup%YoffeTR(iBndGP, iFace))
+        ENDDO
+      ELSE ! FL.EQ.34
+        DO iBndGP=1,nBndGP
+          Gnuc(iBndGP) = Calc_SmoothStepIncrement(tn-DISC%DynRup%RuptureOnset(iBndGP, iFace), DISC%DynRup%RuptureRiseTime(iBndGP, iFace),  time_inc)/time_inc
+        ENDDO
+      ENDIF
 
       !EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
-      LocTracXY(:)  = XYStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
-      LocTracXZ(:) =  XZStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
-      DISC%DynRup%SlipRate1(:,iFace)     = EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
-      DISC%DynRup%SlipRate2(:,iFace)     = EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
+      LocTracXY(:)  = XYStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc(:)
+      LocTracXZ(:) =  XZStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc(:)
+      DISC%DynRup%SlipRate1(:,iFace)     = EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc(:)
+      DISC%DynRup%SlipRate2(:,iFace)     = EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc(:)
       LocSR                              = SQRT(DISC%DynRup%SlipRate1(:,iFace)**2 + DISC%DynRup%SlipRate2(:,iFace)**2)
       
       ! Update slip

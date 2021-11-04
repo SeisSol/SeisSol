@@ -1023,10 +1023,14 @@ CONTAINS
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
              CONTINUE
-           CASE(33) !ImposedSlipRateOnDRBoundary
-             DISC%DynRup%t_0 = t_0
+           CASE(33, 34) !ImposedSlipRateOnDRBoundary
+             IF (EQN%FL.EQ.33) THEN
+                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
+             ELSE
+                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
+             ENDIF
              IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
-               logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+               logWarning(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
                DISC%DynRup%SlipRateOutputType = 0
              ENDIF
            CASE(3,4,7,103)
@@ -2581,6 +2585,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                       :: i,n, NPTS
       INTEGER                       :: allocstat
       INTEGER                       :: iOutputMask(29)
+      INTEGER                       :: iPlasticityMask(7)
       INTEGER                       :: idimensionMask(3)
       INTEGER                       :: readStat
       CHARACTER(LEN=620)            :: Name
@@ -2607,7 +2612,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !!
       character(LEN=64)                :: checkPointBackend
       character(LEN=64)                :: xdmfWriterBackend
-      NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
+      NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
@@ -2648,6 +2653,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       ReceiverOutputInterval = 1.0e99
+      iPlasticityMask(1:6) = 0
+      iPlasticityMask(7) = 1
       !
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
     IF (readStat.NE.0) THEN
@@ -2702,8 +2709,8 @@ ALLOCATE( SpacePositionx(nDirac), &
             IO%OutputMask(24:34)  = iOutputMask(1:11)                                       ! Constants for Jacobians
          ENDIF
 
-         IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties
-            IO%OutputMask(13:19)  = iOutputMask(10:16)                                      ! plastic strain output
+         IF(EQN%Plasticity.EQ.1) THEN
+            IO%PlasticityMask(1:7)  = iPlasticityMask(1:7)                                  ! plastic strain output
          ENDIF
 
          IF(IO%Rotation.EQ.1) THEN

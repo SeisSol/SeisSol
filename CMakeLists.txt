@@ -293,6 +293,10 @@ if (WITH_GPU)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
+if (INTEGRATE_QUANTITIES)
+  target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
+endif()
+
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-lib PUBLIC debug
           -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
