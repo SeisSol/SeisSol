@@ -2,8 +2,8 @@ stages:
     - pre_build
     - build 
     - test
+    - check
     - performance_eval
-
 
 ci_builder_pre:
     stage: pre_build
@@ -30,13 +30,13 @@ ci_builder_pre:
         - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule set-url submodules/fty https://github.com/ravil-mobile/fty.git
-        - git submodule update --init --recursive 
+        - git submodule update --init --recursive
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
-        - sudo apt-get install -qq --yes gcc-9 g++-9 gfortran-9 pkg-config cmake cmake-data
-        - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100
-        - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100
-        - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-9 100
+        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
+        - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
+        - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
+        - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
         - sudo apt-get install -qq --yes unzip openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev
         - gfortran --version
         - pip3 install --upgrade pip
@@ -69,6 +69,7 @@ ci_builder_build:
     script:
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
         - cmake --version
+        - gcc --version
         - set -euo pipefail
         - export IFS=$'\n\t'
         - export CTEST_OUTPUT_ON_FAILURE=1
@@ -93,42 +94,6 @@ ci_builder_build:
             - build_*
 
 
-cpu_tpv5_test:
-    stage: test
-    tags:
-        - ci_testing_cc
-    allow_failure: false
-    needs:
-        - job: ci_builder_build
-    variables:
-        elastic_domain_file: "tpv5_cell.h5"
-        fault_file: "tpv5-fault_cell.h5"
-        eps: "5e-6"
-    parallel:
-        matrix:
-            - precision: double
-            - precision: single
-    script: 
-        - echo "testing TPV5"
-        - git clone https://github.com/7bits-register/precomputed-seissol.git
-        - cd build_elastic_${precision}_Release
-        - cp -r ../precomputed-seissol/tpv5/* .
-        - mkdir ./output
-        - set -euo pipefail
-        - export NUM_COMP_CORES=$(expr $(nproc) - 1)
-        - export OMP_NUM_THREADS=$NUM_COMP_CORES
-        - export OMP_PLACES="cores($NUM_COMP_CORES)"
-        - ulimit -Ss unlimited
-        - ./SeisSol_Release_*_elastic ./parameters.par
-        - h5diff -v1 -d ${eps} --exclude-path /mesh0/clustering --exclude-path /mesh0/connect ./output/${elastic_domain_file} ./precomputed/${precision}/${elastic_domain_file}
-        - h5diff -v1 -d ${eps} ./output/${fault_file} ./precomputed/${precision}/${fault_file}
-        - set +u
-    artifacts:
-        paths:
-            - build_elastic_double_Release/output
-            - build_elastic_single_Release/output
-
-
 ci_builder_test:
     stage: test
     tags:
@@ -136,20 +101,65 @@ ci_builder_test:
     allow_failure: true
     needs:
         - job: ci_builder_build
+    script:
+        - ulimit -Ss unlimited
+        - for precision in double single; do
+            cd ./build_elastic_${precision}_Release ;
+            ls -l ;
+            make test ;
+            cd .. ;
+          done;
+
+
+cpu_tpv5_run:
+    stage: test
+    tags:
+        - ci_testing_cc
+    allow_failure: false
+    needs:
+        - job: ci_builder_build
     parallel:
         matrix:
-            - precision: build_elastic_double_Release
-            - precision: build_elastic_single_Release
+            - precision: double
+            - precision: single
     script: 
-        - pwd
-        - cd $DIR
-        - ls -l
-        - echo "***********"
-        - ls -l ./builds
-        - echo "***********"
-        - ls -l ..
-        - test_serial_test_suite
-        - make test
+        - echo "run TPV5"
+        - git clone https://github.com/7bits-register/precomputed-seissol.git
+        - cd build_elastic_${precision}_Release
+        - cp -r ../precomputed-seissol/tpv5/* .
+        - mkdir ./output
+        - export NUM_COMP_CORES=$(expr $(nproc) - 1)
+        - export OMP_NUM_THREADS=$NUM_COMP_CORES
+        - export OMP_PLACES="cores($NUM_COMP_CORES)"
+        - ulimit -Ss unlimited
+        - ./SeisSol_Release_*_elastic ./parameters.par
+        - mv ./precomputed/${precision} ./output/precomputed
+        - mv ./output ../output-tpv5-${precision}
+    artifacts:
+        paths:
+            - output-*
+
+
+cpu_tpv5_check:
+    stage: check
+    tags:
+        - ci_testing_cc
+    allow_failure: false
+    needs:
+        - job: cpu_tpv5_run
+    variables:
+        elastic_domain_file: "tpv5_cell.h5"
+        fault_file: "tpv5-fault_cell.h5"
+        eps: "0.1"
+    parallel:
+        matrix:
+            - precision: double
+            - precision: single
+    script: 
+        - echo "check TPV5"
+        - cd output-tpv5-${precision}
+        - h5diff -v --relative=${eps} --exclude-path /mesh0/clustering --exclude-path /mesh0/connect ./${elastic_domain_file} ./precomputed/${elastic_domain_file}
+        - h5diff -v --relative=${eps} ./${fault_file} ./precomputed/${fault_file}
 
 
 pages:
@@ -249,6 +259,7 @@ gpu_convergence_test:
         - git clone https://github.com/SeisSol/Examples.git tests
         - pip3 install -r ./tests/convergence_elastic/requirements.txt
         - set -euo pipefail
+        - ulimit -Ss unlimited
         - for precision in double single; do
             cd ./build_${precision} ;
             echo "Elastic Convergence test with precision - " ${precision} ;
@@ -284,6 +295,7 @@ gpu_performance_test:
         - . /opt/spack-environment/seissol_env.sh
         - . /opt/spack-environment/cuda_env.sh
         - set -euo pipefail
+        - ulimit -Ss unlimited
         - for precision in double single; do
             echo "Running SeiSol proxy with precision - " ${precision} ;
             cd ./build_${precision} ;

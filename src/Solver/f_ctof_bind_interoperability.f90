@@ -484,7 +484,7 @@ module f_ctof_bind_interoperability
       nSide = l_domain%MESH%Fault%nSide
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
-      !call c_f_pointer( i_averaged_Slip,   l_averaged_Slip)
+      call c_f_pointer( i_averaged_Slip,   l_averaged_Slip)
       call c_f_pointer( i_dynStress_time, l_dynStress_time, [nBndGP])
 
       !copy to output
