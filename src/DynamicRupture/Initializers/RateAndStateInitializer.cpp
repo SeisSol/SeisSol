@@ -40,7 +40,7 @@ void RateAndStateFL103Initializer::initializeFrictionMatrices(
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints;
            ++pointIndex) { // loop includes padded elements
         dynStressTime[ltsFace][pointIndex] = 0.0;
-        DS[ltsFace][pointIndex] = m_Params->isDsOutputOn;
+        DS[ltsFace][pointIndex] = drParameters.isDsOutputOn;
       }
       averaged_Slip[ltsFace] = 0.0;
 
@@ -103,8 +103,8 @@ void RateAndStateFL103TPInitializer::initializeFrictionMatrices(
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        temperature[ltsFace][pointIndex] = m_Params->iniTemp;
-        pressure[ltsFace][pointIndex] = m_Params->iniPressure;
+        temperature[ltsFace][pointIndex] = drParameters.iniTemp;
+        pressure[ltsFace][pointIndex] = drParameters.iniPressure;
         TP_half_width_shear_zone[ltsFace][pointIndex] = static_cast<real>(
             faultParameters["TP_half_width_shear_zone"][(meshFace)*numberOfPoints + pointIndex]);
         alpha_hy[ltsFace][pointIndex] =

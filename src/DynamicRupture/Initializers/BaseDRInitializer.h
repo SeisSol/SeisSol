@@ -6,6 +6,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionLaws.h"
 #include "Initializer/InputAux.hpp"
+#include "Initializer/ParameterDB.h"
 #include "DynamicRupture/Parameters.h"
 
 namespace seissol::dr::initializers {
@@ -24,13 +25,42 @@ class seissol::dr::initializers::BaseDRInitializer {
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
   static constexpr int numPaddedPoints = init::QInterpolated::Stop[0];
   // YAML::Node m_InputParam;
-  dr::DRParameters* m_Params;
+
+  DRParameters& drParameters;
 
   public:
+  BaseDRInitializer(DRParameters& drParameters) : drParameters(drParameters){};
   virtual ~BaseDRInitializer() {}
 
-  // set the parameters from .par file with yaml to this class attributes.
-  void setInputParam(dr::DRParameters* DynRupParameter);
+  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSTree* dynRupTree,
+                               seissol::Interoperability* e_interoperability);
+
+  std::vector<unsigned>
+      getFaceIDsInIterator(seissol::initializers::LTSInternalNode::leaf_iterator& it,
+                           seissol::initializers::DynamicRupture* dynRup);
+
+  virtual void addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+                                       seissol::initializers::DynamicRupture* dynRup,
+                                       seissol::initializers::LTSInternalNode::leaf_iterator& it);
+
+  void queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
+                  std::vector<unsigned> faceIDs);
+
+  void rotateStressToFaultCS(seissol::initializers::LTSTree::leaf_iterator& it,
+                             seissol::initializers::DynamicRupture* dynRup,
+                             real (*initialStressInFaultCS)[numPaddedPoints][6],
+                             real (*iniBulkXX)[numPaddedPoints],
+                             real (*iniBulkYY)[numPaddedPoints],
+                             real (*iniBulkZZ)[numPaddedPoints],
+                             real (*iniShearXY)[numPaddedPoints],
+                             real (*iniShearYZ)[numPaddedPoints],
+                             real (*iniShearXZ)[numPaddedPoints]);
+
+  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
+                                          seissol::initializers::LTSTree* dynRupTree,
+                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
+                                          unsigned* ltsFaceToMeshFace);
 
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,

@@ -13,6 +13,7 @@ class ImposedSlipRatesFL33Initializer; // imposed slip rates on boundary
 class seissol::dr::initializers::ImposedSlipRatesFL33Initializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
+  using BaseDRInitializer::BaseDRInitializer;
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,

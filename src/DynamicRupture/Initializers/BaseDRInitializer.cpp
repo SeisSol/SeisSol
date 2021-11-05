@@ -1,126 +1,218 @@
 #include "BaseDRInitializer.h"
 
+#include <Eigen/Dense>
+#include "Initializer/ParameterDB.h"
+#include "SeisSol.h"
+#include "Numerical_aux/Quadrature.h"
+#include "Model/common.hpp"
+
 namespace seissol::dr::initializers {
-void BaseDRInitializer::setInputParam(dr::DRParameters* DynRupParameter) {
-  m_Params = DynRupParameter;
+void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                                        seissol::initializers::LTSTree* dynRupTree,
+                                        seissol::Interoperability* e_interoperability) {
+  if (!drParameters.isGpWiseInitialization) {
+    logError() << "Dynamic Rupture with cell average not supported any more";
+  }
+
+  seissol::initializers::FaultParameterDB faultParameterDB;
+  dynRup->isFaultParameterizedByTraction =
+      faultParameterDB.faultParameterizedByTraction(drParameters.faultFileName);
+  for (seissol::initializers::LTSTree::leaf_iterator it =
+           dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
+       it != dynRupTree->endLeaf();
+       ++it) {
+
+    // parameters to be read from fault parameters yaml file
+    std::map<std::string, double*> parameterToStorageMap;
+
+    real(*cohesion)[numPaddedPoints] = it->var(dynRup->cohesion);
+    parameterToStorageMap.insert({"cohesion", (double*)cohesion});
+
+    real(*iniBulkXX)[numPaddedPoints] = it->var(dynRup->iniBulkXX);
+    real(*iniBulkYY)[numPaddedPoints] = it->var(dynRup->iniBulkYY);
+    real(*iniBulkZZ)[numPaddedPoints] = it->var(dynRup->iniBulkZZ);
+    real(*iniShearXY)[numPaddedPoints] = it->var(dynRup->iniShearXY);
+    real(*iniShearXZ)[numPaddedPoints] = it->var(dynRup->iniShearXZ);
+    real(*iniShearYZ)[numPaddedPoints] = it->var(dynRup->iniShearYZ);
+    if (dynRup->isFaultParameterizedByTraction) {
+      parameterToStorageMap.insert({"T_n", (double*)iniBulkXX});
+      parameterToStorageMap.insert({"T_s", (double*)iniShearXY});
+      parameterToStorageMap.insert({"T_d", (double*)iniShearXZ});
+      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
+          iniBulkYY[ltsFace][pointIndex] = 0.0;
+          iniBulkZZ[ltsFace][pointIndex] = 0.0;
+          iniShearYZ[ltsFace][pointIndex] = 0.0;
+        }
+      }
+    } else {
+      parameterToStorageMap.insert({"s_xx", (double*)iniBulkXX});
+      parameterToStorageMap.insert({"s_yy", (double*)iniBulkYY});
+      parameterToStorageMap.insert({"s_zz", (double*)iniBulkZZ});
+      parameterToStorageMap.insert({"s_xy", (double*)iniShearXY});
+      parameterToStorageMap.insert({"s_yz", (double*)iniShearYZ});
+      parameterToStorageMap.insert({"s_xz", (double*)iniShearXZ});
+    }
+
+    // get additional parameters (for derived friction laws)
+    addAdditionalParameters(parameterToStorageMap, dynRup, it);
+
+    // read parameters from yaml file
+    for (const auto& parameterStoragePair : parameterToStorageMap) {
+      faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+    }
+    const auto faceIDs = getFaceIDsInIterator(it, dynRup);
+    queryModel(faultParameterDB, faceIDs);
+
+    // rotate initial stress to fault coordinate system
+    real(*initialStressInFaultCS)[numPaddedPoints][6] = it->var(dynRup->initialStressInFaultCS);
+    rotateStressToFaultCS(it,
+                          dynRup,
+                          initialStressInFaultCS,
+                          iniBulkXX,
+                          iniBulkYY,
+                          iniBulkZZ,
+                          iniShearXY,
+                          iniShearYZ,
+                          iniShearXZ);
+
+    // can be removed once output is in c++
+    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      const auto& drFaceInformation = it->var(dynRup->faceInformation);
+      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+      e_interoperability->copyFrictionOutputToFortranInitialStressInFaultCS(ltsFace,
+                                                                            meshFace,
+                                                                            initialStressInFaultCS,
+                                                                            iniBulkXX,
+                                                                            iniBulkYY,
+                                                                            iniBulkZZ,
+                                                                            iniShearXY,
+                                                                            iniShearYZ,
+                                                                            iniShearXZ);
+    }
+
+    // initialize rupture front flag
+    bool(*ruptureFront)[numPaddedPoints] = it->var(dynRup->ruptureFront);
+    for (int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      for (unsigned int j = 0; j < numPaddedPoints; ++j) {
+        ruptureFront[ltsFace][j] = drParameters.isRfOutputOn;
+      }
+    }
+
+    // initialize all other variables to zero
+    real(*peakSlipRate)[numPaddedPoints] = it->var(dynRup->peakSlipRate);
+    real(*ruptureTime)[numPaddedPoints] = it->var(dynRup->ruptureTime);
+    real(*slip)[numPaddedPoints] = it->var(dynRup->slip);
+    real(*slipDip)[numPaddedPoints] = it->var(dynRup->slipDip);
+    real(*slipStrike)[numPaddedPoints] = it->var(dynRup->slipStrike);
+    real(*slipRateMagnitude)[numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
+    real(*tractionXY)[numPaddedPoints] = it->var(dynRup->tractionXY);
+    real(*tractionXZ)[numPaddedPoints] = it->var(dynRup->tractionXZ);
+
+    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      for (unsigned int j = 0; j < numPaddedPoints; ++j) {
+        peakSlipRate[ltsFace][j] = 0;
+        ruptureTime[ltsFace][j] = 0;
+        slip[ltsFace][j] = 0;
+        slipDip[ltsFace][j] = 0;
+        slipStrike[ltsFace][j] = 0;
+        slipRateMagnitude[ltsFace][j] = 0;
+        tractionXY[ltsFace][j] = 0;
+        tractionXZ[ltsFace][j] = 0;
+      }
+    }
+    // can be removed once output is in c++
+    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      const auto& drFaceInformation = it->var(dynRup->faceInformation);
+      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+      e_interoperability->copyFrictionOutputToFortran(ltsFace,
+                                                      meshFace,
+                                                      slip,
+                                                      slipStrike,
+                                                      slipDip,
+                                                      ruptureTime,
+                                                      peakSlipRate,
+                                                      tractionXY,
+                                                      tractionXZ);
+    }
+  }
+}
+
+std::vector<unsigned>
+    BaseDRInitializer::getFaceIDsInIterator(seissol::initializers::LTSTree::leaf_iterator& it,
+                                            seissol::initializers::DynamicRupture* dynRup) {
+  const auto& meshReader = seissol::SeisSol::main.meshReader();
+  const auto& drFaceInformation = it->var(dynRup->faceInformation);
+  std::vector<unsigned> faceIDs;
+  // collect all face IDs within this lts leaf
+  for (int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
+  }
+  return faceIDs;
+}
+
+void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
+                                   std::vector<unsigned> faceIDs) {
+  // create a query and evaluate the model
+  double boundaryGaussPoints[numPaddedPoints][2] = {0};
+  double weights[numPaddedPoints] = {0};
+  quadrature::TriangleQuadrature(boundaryGaussPoints, weights, CONVERGENCE_ORDER + 1);
+  seissol::initializers::FaultGPGenerator queryGen(
+      seissol::SeisSol::main.meshReader(),
+      reinterpret_cast<double(*)[2]>(boundaryGaussPoints),
+      numPaddedPoints,
+      faceIDs);
+  faultParameterDB.evaluateModel(drParameters.faultFileName, queryGen);
+}
+
+void BaseDRInitializer::rotateStressToFaultCS(seissol::initializers::LTSTree::leaf_iterator& it,
+                                              seissol::initializers::DynamicRupture* dynRup,
+                                              real (*initialStressInFaultCS)[52][6],
+                                              real (*iniBulkXX)[52],
+                                              real (*iniBulkYY)[52],
+                                              real (*iniBulkZZ)[52],
+                                              real (*iniShearXY)[52],
+                                              real (*iniShearYZ)[52],
+                                              real (*iniShearXZ)[52]) {
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    const auto& drFaceInformation = it->var(dynRup->faceInformation);
+    unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
+    Eigen::Matrix<double, 6, 6> rotationMatrix;
+    seissol::transformations::inverseSymmetricTensor2RotationMatrix(
+        fault.normal, fault.tangent1, fault.tangent2, rotationMatrix, 0, 0);
+
+    for (unsigned int j = 0; j < numPaddedPoints; ++j) {
+      Eigen::Vector<double, 6> stress;
+      stress << iniBulkXX[ltsFace][j], iniBulkYY[ltsFace][j], iniBulkZZ[ltsFace][j],
+          iniShearXY[ltsFace][j], iniShearYZ[ltsFace][j], iniShearXZ[ltsFace][j];
+      Eigen::Vector<double, 6> rotatedStress = rotationMatrix * stress;
+      for (int k = 0; k < 6; ++k) {
+        initialStressInFaultCS[ltsFace][j][k] = rotatedStress(k);
+      }
+    }
+  }
 }
 
 void BaseDRInitializer::initializeFrictionMatrices(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
+    unsigned* ltsFaceToMeshFace) {}
+
+void BaseDRInitializer::initializeFrictionMatrices(
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSTree* dynRupTree,
+    seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
     std::unordered_map<std::string, double*> faultParameters,
-    unsigned* ltsFaceToMeshFace,
-    seissol::Interoperability& e_interoperability) {
-  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+    unsigned int* ltsFaceToMeshFace,
+    Interoperability& e_interoperability) {}
 
-  for (seissol::initializers::LTSTree::leaf_iterator it =
-           dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-       it != dynRupTree->endLeaf();
-       ++it) {
-    real(*iniBulkXX)[numPaddedPoints] = it->var(dynRup->iniBulkXX);   // get from faultParameters
-    real(*iniBulkYY)[numPaddedPoints] = it->var(dynRup->iniBulkYY);   // get from faultParameters
-    real(*iniBulkZZ)[numPaddedPoints] = it->var(dynRup->iniBulkZZ);   // get from faultParameters
-    real(*iniShearXY)[numPaddedPoints] = it->var(dynRup->iniShearXY); // get from faultParameters
-    real(*iniShearXZ)[numPaddedPoints] = it->var(dynRup->iniShearXZ); // get from faultParameters
-    real(*iniShearYZ)[numPaddedPoints] = it->var(dynRup->iniShearYZ); // get from faultParameters
-    real(*initialStressInFaultCS)[numPaddedPoints][6] =
-        it->var(dynRup->initialStressInFaultCS); // get from fortran  EQN%InitialStressInFaultCS
-    real(*cohesion)[numPaddedPoints] = it->var(dynRup->cohesion); // get from faultParameters
-    real(*mu)[numPaddedPoints] = it->var(dynRup->mu);     // get from fortran  EQN%IniMu(:,:)
-    real(*slip)[numPaddedPoints] = it->var(dynRup->slip); // = 0
-    real(*slipStrike)[numPaddedPoints] = it->var(dynRup->slipStrike);               // = 0
-    real(*slipDip)[numPaddedPoints] = it->var(dynRup->slipDip);                     // = 0
-    real(*slipRateMagnitude)[numPaddedPoints] = it->var(dynRup->slipRateMagnitude); // = 0
-    real(*slipRateStrike)[numPaddedPoints] =
-        it->var(dynRup->slipRateStrike); // get from fortran  EQN%IniSlipRate1
-    real(*slipRateDip)[numPaddedPoints] =
-        it->var(dynRup->slipRateDip); // get from fortran  EQN%IniSlipRate2
-    real(*ruptureTime)[numPaddedPoints] = it->var(dynRup->ruptureTime);   // = 0
-    bool(*ruptureFront)[numPaddedPoints] = it->var(dynRup->ruptureFront); // get from fortran
-    real(*peakSlipRate)[numPaddedPoints] = it->var(dynRup->peakSlipRate); // = 0
-    real(*tractionXY)[numPaddedPoints] = it->var(dynRup->tractionXY);     // = 0
-    real(*tractionXZ)[numPaddedPoints] = it->var(dynRup->tractionXZ);     // = 0
-
-    dynRup->IsFaultParameterizedByTraction = false;
-
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
-      for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0];
-           ++pointIndex) { // loop includes padded elements
-        slip[ltsFace][pointIndex] = 0.0;
-        slipStrike[ltsFace][pointIndex] = 0.0;
-        slipDip[ltsFace][pointIndex] = 0.0;
-        slipRateMagnitude[ltsFace][pointIndex] = 0.0;
-        ruptureTime[ltsFace][pointIndex] = 0.0;
-        peakSlipRate[ltsFace][pointIndex] = 0.0;
-        tractionXY[ltsFace][pointIndex] = 0.0;
-        tractionXZ[ltsFace][pointIndex] = 0.0;
-      }
-      // get initial values from fortran
-      for (unsigned pointIndex = 0; pointIndex < numberOfPoints; ++pointIndex) {
-        if (faultParameters["T_n"] != NULL) {
-          iniBulkXX[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["T_n"][(meshFace)*numberOfPoints + pointIndex]);
-          dynRup->IsFaultParameterizedByTraction = true;
-        } else if (faultParameters["s_xx"] != NULL)
-          iniBulkXX[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["s_xx"][(meshFace)*numberOfPoints + pointIndex]);
-        else
-          iniBulkXX[ltsFace][pointIndex] = 0.0;
-
-        if (faultParameters["s_yy"] != NULL)
-          iniBulkYY[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["s_yy"][(meshFace)*numberOfPoints + pointIndex]);
-        else
-          iniBulkYY[ltsFace][pointIndex] = 0.0;
-
-        if (faultParameters["s_zz"] != NULL)
-          iniBulkZZ[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["s_zz"][(meshFace)*numberOfPoints + pointIndex]);
-        else
-          iniBulkZZ[ltsFace][pointIndex] = 0.0;
-
-        if (faultParameters["T_s"] != NULL)
-          iniShearXY[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["T_s"][(meshFace)*numberOfPoints + pointIndex]);
-        else if (faultParameters["s_xy"] != NULL)
-          iniShearXY[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["s_xy"][(meshFace)*numberOfPoints + pointIndex]);
-        else
-          iniShearXY[ltsFace][pointIndex] = 0.0;
-
-        if (faultParameters["T_d"] != NULL)
-          iniShearXZ[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["T_d"][(meshFace)*numberOfPoints + pointIndex]);
-        else if (faultParameters["s_xz"] != NULL)
-          iniShearXZ[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["s_xz"][(meshFace)*numberOfPoints + pointIndex]);
-        else
-          iniShearXZ[ltsFace][pointIndex] = 0.0;
-
-        if (faultParameters["s_yz"] != NULL)
-          iniShearYZ[ltsFace][pointIndex] =
-              static_cast<real>(faultParameters["s_yz"][(meshFace)*numberOfPoints + pointIndex]);
-        else
-          iniShearYZ[ltsFace][pointIndex] = 0.0;
-
-        if (faultParameters["cohesion"] != NULL) {
-          cohesion[ltsFace][pointIndex] = static_cast<real>(
-              faultParameters["cohesion"][(meshFace)*numberOfPoints + pointIndex]);
-        } else {
-          cohesion[ltsFace][pointIndex] = 0.0;
-        }
-      }
-      // initialize padded elements for vectorization
-      for (unsigned pointIndex = numberOfPoints; pointIndex < numPaddedPoints; ++pointIndex) {
-        cohesion[ltsFace][pointIndex] = 0.0;
-      }
-      e_interoperability.getDynRupParameters(
-          ltsFace, meshFace, initialStressInFaultCS, mu, slipRateStrike, slipRateDip, ruptureFront);
-
-    } // lts-face loop
-    layerLtsFaceToMeshFace += it->getNumberOfCells();
-  } // leaf_iterator loop
+void BaseDRInitializer::addAdditionalParameters(
+    std::map<std::string, double*>& parameterToStorageMap,
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+  // do nothing for base friction law
 }
+
 } // namespace seissol::dr::initializers

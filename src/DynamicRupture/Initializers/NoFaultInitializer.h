@@ -10,6 +10,8 @@ class NoFaultInitializer; // NoFaultFL0
 class seissol::dr::initializers::NoFaultInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
+  using BaseDRInitializer::BaseDRInitializer;
+
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,

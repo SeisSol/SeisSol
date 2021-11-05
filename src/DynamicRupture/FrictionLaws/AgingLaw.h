@@ -12,7 +12,10 @@ class AgingLaw;
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class seissol::dr::friction_law::AgingLaw : public seissol::dr::friction_law::BaseFrictionLaw {
+class seissol::dr::friction_law::AgingLaw : public BaseFrictionLaw {
+  public:
+  using BaseFrictionLaw::BaseFrictionLaw;
+
   protected:
   virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0);
 

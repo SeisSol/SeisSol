@@ -116,10 +116,11 @@ private:
 
 class seissol::initializers::FaultGPGenerator : public seissol::initializers::QueryGenerator {
 public:
-  FaultGPGenerator(MeshReader const& meshReader, double (*points)[2], unsigned numberOfPoints) : m_meshReader(meshReader), m_points(points), m_numberOfPoints(numberOfPoints) {}
+  FaultGPGenerator(MeshReader const& meshReader, double (*points)[2], unsigned numberOfPoints, std::vector<unsigned> const& faceIDs) : m_meshReader(meshReader), m_points(points), m_numberOfPoints(numberOfPoints), m_faceIDs(faceIDs) {}
   virtual easi::Query generate() const;
 private:
   MeshReader const& m_meshReader;
+  std::vector<unsigned> const& m_faceIDs;
   double (*m_points)[2];
   unsigned m_numberOfPoints;
 };

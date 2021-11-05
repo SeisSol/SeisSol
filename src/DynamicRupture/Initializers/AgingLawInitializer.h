@@ -15,6 +15,7 @@ class AgingLawInitializer; // aging law (need revisit)
 class seissol::dr::initializers::AgingLawInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
+  using BaseDRInitializer::BaseDRInitializer;
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,

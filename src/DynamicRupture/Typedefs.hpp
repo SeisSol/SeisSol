@@ -1,8 +1,13 @@
 #ifndef DR_TYPEDEFS
 #define DR_TYPEDEFS
 
+#include "Kernels/precision.hpp"
+
 namespace seissol::dr {
-enum class FrictionLawType {
+constexpr unsigned int numberOfBoundaryGaussPoints =
+    (CONVERGENCE_ORDER + 1) * (CONVERGENCE_ORDER + 1);
+
+enum class FrictionLawType : unsigned int {
   no_fault = 0,
   linear_slip_weakening = 2,
   linear_slip_weakening_bimaterial = 6,

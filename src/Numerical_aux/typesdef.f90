@@ -578,8 +578,8 @@ MODULE TypesDef
                                                  ! normal_stress
                                                  ! traction_strike
                                                  ! traction_dip
-                                                 ! mu_S
-                                                 ! mu_D
+                                                 ! mu_s
+                                                 ! mu_d
                                                  ! D_C
                                                  ! cohesion (should be negative since negative normal stress is compression)
                                                  ! forced_rupture_time

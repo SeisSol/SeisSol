@@ -10,6 +10,9 @@ class ImposedSlipRates;
  * Slip rates are set fixed values (defined by nucleationStressInFaultCS)
  */
 class seissol::dr::friction_law::ImposedSlipRates : public BaseFrictionLaw {
+  public:
+  using BaseFrictionLaw::BaseFrictionLaw;
+
   protected:
   // Attributes
   real (*nucleationStressInFaultCS)[numPaddedPoints][6];

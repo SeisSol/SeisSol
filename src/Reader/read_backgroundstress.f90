@@ -143,8 +143,8 @@ CONTAINS
     ! normal_stress
     ! traction_strike
     ! traction_dip
-    ! mu_S
-    ! mu_D
+    ! mu_s
+    ! mu_d
     ! D_C
     ! cohesion
     ! forced_rupture_time
@@ -290,12 +290,12 @@ CONTAINS
     ! OUTPUT
     IF (GPwise == 0) THEN
         DO i = 1,MESH%Fault%nSide 
-            EQN%IniBulk_xx(i,:) = 0.0D0
-            EQN%IniBulk_yy(i,:) = -P(1,i) ! ATTENTION: Sign change as compression is negative in SeisSol3D
-            EQN%IniBulk_zz(i,:) = 0.0D0
-            EQN%IniShearXY(i,:) = P(2,i) ! ATTENTION XY is strike direction for SCEC
-            EQN%IniShearYZ(i,:) = P(3,i) ! ATTENTION YZ is dip direction for SCEC
-            EQN%IniShearXZ(i,:) = 0.0D0
+!            EQN%IniBulk_xx(i,:) = 0.0D0
+!            EQN%IniBulk_yy(i,:) = -P(1,i) ! ATTENTION: Sign change as compression is negative in SeisSol3D
+!            EQN%IniBulk_zz(i,:) = 0.0D0
+!            EQN%IniShearXY(i,:) = P(2,i) ! ATTENTION XY is strike direction for SCEC
+!            EQN%IniShearYZ(i,:) = P(3,i) ! ATTENTION YZ is dip direction for SCEC
+!            EQN%IniShearXZ(i,:) = 0.0D0
             EQN%IniStateVar(i,:) = 0.0D0
 
             DISC%DynRup%Mu_S(:,i) = P(4,i)
@@ -421,8 +421,8 @@ CONTAINS
     ! normal_stress (is read in as positiv from file)
     ! traction_strike
     ! traction_dip
-    ! mu_S
-    ! mu_D
+    ! mu_s
+    ! mu_d
     ! D_C
     ! cohesion (is read in as positiv from file)
     ! forced_rupture_time

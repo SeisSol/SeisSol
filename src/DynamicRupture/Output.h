@@ -28,13 +28,12 @@ class OutputImposedSlipRates;                  // SolverImposedSlipRatesFL33
  */
 class seissol::dr::output::OutputBase {
   protected:
-  seissol::dr::DRParameters*
-      m_Params; // currently, not required, but later for fully C++ implementation important
-  public:
-  virtual ~OutputBase() {}
+  // currently, not required, but later for fully C++ implementation important
+  dr::DRParameters& drParameters;
 
-  // set the parameters from .par file with yaml to this class attributes.
-  void setInputParam(dr::DRParameters* DynRupParameter) { m_Params = DynRupParameter; }
+  public:
+  OutputBase(dr::DRParameters& drParameters) : drParameters(drParameters){};
+  virtual ~OutputBase() {}
 
   /*
    * Copies values from LTS tree back to Fortran data structure
@@ -44,16 +43,20 @@ class seissol::dr::output::OutputBase {
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) {
     constexpr auto size = init::QInterpolated::Stop[0];
-    real(*mu)[size] = layerData.var(dynRup->mu);
     real(*slip)[size] = layerData.var(dynRup->slip);
     real(*slipStrike)[size] = layerData.var(dynRup->slipStrike);
     real(*slipDip)[size] = layerData.var(dynRup->slipDip);
-    real(*slipRateStrike)[size] = layerData.var(dynRup->slipRateStrike);
-    real(*slipRateDip)[size] = layerData.var(dynRup->slipRateDip);
     real(*rupture_time)[size] = layerData.var(dynRup->ruptureTime);
     real(*peakSR)[size] = layerData.var(dynRup->peakSlipRate);
     real(*tractionXY)[size] = layerData.var(dynRup->tractionXY);
     real(*tractionXZ)[size] = layerData.var(dynRup->tractionXZ);
+
+    real(*iniBulkXX)[size] = layerData.var(dynRup->iniBulkXX);
+    real(*iniBulkYY)[size] = layerData.var(dynRup->iniBulkYY);
+    real(*iniBulkZZ)[size] = layerData.var(dynRup->iniBulkZZ);
+    real(*iniShearXY)[size] = layerData.var(dynRup->iniShearXY);
+    real(*iniShearYZ)[size] = layerData.var(dynRup->iniShearYZ);
+    real(*iniShearXZ)[size] = layerData.var(dynRup->iniShearXZ);
 
     DRFaceInformation* faceInformation = layerData.var(dynRup->faceInformation);
 
@@ -64,12 +67,9 @@ class seissol::dr::output::OutputBase {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortran(ltsFace,
                                                      meshFace,
-                                                     mu,
                                                      slip,
                                                      slipStrike,
                                                      slipDip,
-                                                     slipRateStrike,
-                                                     slipRateDip,
                                                      rupture_time,
                                                      peakSR,
                                                      tractionXY,
@@ -84,6 +84,8 @@ class seissol::dr::output::OutputBase {
 };
 
 class seissol::dr::output::OutputNoFault : public seissol::dr::output::OutputBase {
+  public:
+  using OutputBase::OutputBase;
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -96,6 +98,9 @@ class seissol::dr::output::OutputNoFault : public seissol::dr::output::OutputBas
 
 class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::output::OutputBase {
   public:
+  using OutputBase::OutputBase;
+
+  public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -105,9 +110,12 @@ class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::outpu
     auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
-    real* averaged_Slip = layerData.var(concreteLts->averagedSlip);
+    real* averagedSlip = layerData.var(concreteLts->averagedSlip);
     constexpr auto size = init::QInterpolated::Stop[0];
-    real(*dynStress_time)[size] = layerData.var(concreteLts->dynStressTime);
+    real(*dynStressTime)[size] = layerData.var(concreteLts->dynStressTime);
+    real(*slipRateStrike)[size] = layerData.var(concreteLts->slipRateStrike);
+    real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
+    real(*mu)[size] = layerData.var(concreteLts->mu);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -115,7 +123,7 @@ class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::outpu
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averaged_Slip, dynStress_time);
+          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
     }
   }
 
@@ -126,6 +134,7 @@ class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::outpu
 
 class seissol::dr::output::OutputImposedSlipRates : public seissol::dr::output::OutputBase {
   public:
+  using OutputBase::OutputBase;
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -142,6 +151,7 @@ class seissol::dr::output::OutputImposedSlipRates : public seissol::dr::output::
 class seissol::dr::output::OutputRateAndStateFastVelocityWeakening
     : public seissol::dr::output::OutputBase {
   public:
+  using OutputBase::OutputBase;
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -151,9 +161,12 @@ class seissol::dr::output::OutputRateAndStateFastVelocityWeakening
     // std::cout << "tie ptr for Init_FL_103\n";
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
-    real* averaged_Slip = layerData.var(concreteLts->averagedSlip);
+    real* averagedSlip = layerData.var(concreteLts->averagedSlip);
     constexpr auto size = init::QInterpolated::Stop[0];
-    real(*dynStress_time)[size] = layerData.var(concreteLts->dynStressTime);
+    real(*dynStressTime)[size] = layerData.var(concreteLts->dynStressTime);
+    real(*slipRateStrike)[size] = layerData.var(concreteLts->slipRateStrike);
+    real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
+    real(*mu)[size] = layerData.var(concreteLts->mu);
     real(*stateVar)[size] = layerData.var(concreteLts->stateVariable);
     real(*initialStressInFaultCS)[size][6] = layerData.var(dynRup->initialStressInFaultCS);
 
@@ -163,10 +176,8 @@ class seissol::dr::output::OutputRateAndStateFastVelocityWeakening
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averaged_Slip, dynStress_time);
+          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
       e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
-      e_interoperability.copyFrictionOutputToFortranInitialStressInFaultCS(
-          ltsFace, meshFace, initialStressInFaultCS);
     }
   }
 
@@ -182,6 +193,7 @@ class seissol::dr::output::OutputRateAndStateFastVelocityWeakening
 class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
     : public seissol::dr::output::OutputBase {
   public:
+  using OutputBase::OutputBase;
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -190,9 +202,12 @@ class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
         dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
-    real* averaged_Slip = layerData.var(concreteLts->averagedSlip);
+    real* averagedSlip = layerData.var(concreteLts->averagedSlip);
     constexpr auto size = init::QInterpolated::Stop[0];
-    real(*dynStress_time)[size] = layerData.var(concreteLts->dynStressTime);
+    real(*dynStressTime)[size] = layerData.var(concreteLts->dynStressTime);
+    real(*slipRateStrike)[size] = layerData.var(concreteLts->slipRateStrike);
+    real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
+    real(*mu)[size] = layerData.var(concreteLts->mu);
     real(*regularisedStrength)[size] = layerData.var(concreteLts->regularisedStrength);
 
 #ifdef _OPENMP
@@ -201,7 +216,7 @@ class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averaged_Slip, dynStress_time);
+          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
       e_interoperability.copyFrictionOutputToFortranStrength(
           ltsFace, meshFace, regularisedStrength);
     }
@@ -217,8 +232,9 @@ class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
 /*
  * Not implemented
  */
-class seissol::dr::output::OutputRateAndState : public seissol::dr::output::OutputBase {
+class seissol::dr::output::OutputRateAndState : public OutputBase {
   public:
+  using OutputBase::OutputBase;
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {

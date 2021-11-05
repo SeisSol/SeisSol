@@ -16,6 +16,7 @@ class RateAndStateFL103TPInitializer; // Fl103 extended with thermal pressurizat
 class seissol::dr::initializers::RateAndStateFL103Initializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
+  using BaseDRInitializer::BaseDRInitializer;
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -30,6 +31,7 @@ class seissol::dr::initializers::RateAndStateFL103Initializer
 class seissol::dr::initializers::RateAndStateFL103TPInitializer
     : public seissol::dr::initializers::RateAndStateFL103Initializer {
   public:
+  using RateAndStateFL103Initializer::RateAndStateFL103Initializer;
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,

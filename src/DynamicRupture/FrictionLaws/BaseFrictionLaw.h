@@ -14,26 +14,15 @@ class BaseFrictionLaw;
 
 // Base class, has implementations of methods that are used by each friction law
 class seissol::dr::friction_law::BaseFrictionLaw {
-
   public:
-  /*
-   * Destructor, if memory is allocated in this class, deallocate it here.
-   */
-  virtual ~BaseFrictionLaw() {}
-
-  /*
-   * Set the parameters from .par file with yaml to this class attributes.
-   * This function is called at initialisation time. Could be extended to initialize more parameters
-   * if needed.
-   */
-  void setInputParam(dr::DRParameters* DynRupParameter) { m_Params = DynRupParameter; }
+  BaseFrictionLaw(dr::DRParameters& drParameters) : drParameters(drParameters){};
 
   protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0]; // DISC%Galerkin%nBndGP
   static constexpr int numPaddedPoints =
       init::QInterpolated::Stop[0]; // number of points padded to next dividable number by four
   // YAML::Node m_InputParam;
-  dr::DRParameters* m_Params;
+  dr::DRParameters& drParameters;
   ImpedancesAndEta* impAndEta;
   real m_fullUpdateTime;
   real deltaT[CONVERGENCE_ORDER] = {};

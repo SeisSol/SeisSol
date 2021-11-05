@@ -98,7 +98,6 @@ class seissol::Interoperability {
     unsigned*                         m_ltsFaceToMeshFace;
     
     //! Set of parameters that have to be initialized for dynamic rupture
-    std::unordered_map<std::string, double*> m_faultParameters;
 
     std::vector<Eigen::Vector3d>           m_recPoints;
 
@@ -196,17 +195,6 @@ class seissol::Interoperability {
                           double Qp,
                           double Qs,
                           seissol::model::ViscoElasticMaterial& material );
-
-    void addFaultParameter( std::string const& name,
-                           double* memory) {
-      m_faultParameters[name] = memory;
-    }
-    
-    //! \todo Documentation
-    void initializeFault( char*   modelFileName,
-                          int     gpwise,
-                          double* bndPoints,
-                          int     numberOfBndPoints );
 
    /**
     * Adds a receiver at the specified location.
@@ -460,27 +448,30 @@ class seissol::Interoperability {
    **/
   void getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],real TP_DFinv[seissol::dr::TP_grid_nz]);
 
+  void copyFrictionOutputInitialStressInFaultCS(unsigned numberOfCells, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
 
   /**
    * Temporary Interoperability function for Dynamic rupture outputs
    * copy values from C++ computation back to Fortran output writer.
    **/
-  void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
-                                                              real (*mu)[seissol::init::QInterpolated::Stop[0]],
-                                                              real  (*slip)[init::QInterpolated::Stop[0]],
-                                                              real  (*slip1)[init::QInterpolated::Stop[0]],
-                                                              real  (*slip2)[init::QInterpolated::Stop[0]],
-                                                              real  (*slipRate1)[init::QInterpolated::Stop[0]],
-                                                              real  (*slipRate2)[init::QInterpolated::Stop[0]],
-                                                              real  (*rupture_time)[init::QInterpolated::Stop[0]],
-                                                              real  (*peakSR)[init::QInterpolated::Stop[0]],
-                                                              real  (*tracXY)[init::QInterpolated::Stop[0]],
-                                                              real  (*tracXZ)[init::QInterpolated::Stop[0]]
+  void copyFrictionOutputToFortran(unsigned ltsFace,
+                                   unsigned meshFace,
+                                   real  (*slip)[init::QInterpolated::Stop[0]],
+                                   real  (*slipStrike)[init::QInterpolated::Stop[0]],
+                                   real  (*slipDip)[init::QInterpolated::Stop[0]],
+                                   real  (*ruptureTime)[init::QInterpolated::Stop[0]],
+                                   real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
+                                   real  (*tractionXY)[init::QInterpolated::Stop[0]],
+                                   real  (*tractionXZ)[init::QInterpolated::Stop[0]]
   );
 
-  void copyFrictionOutputToFortranFL2(unsigned ltsFace, unsigned meshFace,
-          real  *averaged_Slip,
-          real  (*dynStress_time)[init::QInterpolated::Stop[0]]
+  void copyFrictionOutputToFortranFL2(unsigned ltsFace,
+                                      unsigned meshFace,
+                                      real *averagedSlip,
+                                      real (*dynStressTime)[init::QInterpolated::Stop[0]],
+                                      real (*slipRateStrike)[init::QInterpolated::Stop[0]],
+                                      real (*slipRateDip)[init::QInterpolated::Stop[0]],
+                                      real (*mu)[seissol::init::QInterpolated::Stop[0]]
   );
 
   void copyFrictionOutputToFortranStateVar(unsigned ltsFace, unsigned meshFace,
@@ -492,8 +483,15 @@ class seissol::Interoperability {
   );
 
   void copyFrictionOutputToFortranInitialStressInFaultCS(unsigned ltsFace, unsigned meshFace,
-                                                         real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]
-  );
+                                                         real  (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
+                                                         real  (*iniBulkXX)[init::QInterpolated::Stop[0]],
+                                                         real  (*iniBulkYY)[init::QInterpolated::Stop[0]],
+                                                         real  (*iniBulkZZ)[init::QInterpolated::Stop[0]],
+                                                         real  (*iniShearXY)[init::QInterpolated::Stop[0]],
+                                                         real  (*iniShearYZ)[init::QInterpolated::Stop[0]],
+                                                         real  (*iniShearXZ)[init::QInterpolated::Stop[0]]);
+
+  void initializeFaultOutput();
 
 
    /**

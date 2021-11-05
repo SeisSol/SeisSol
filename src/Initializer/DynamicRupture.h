@@ -67,13 +67,14 @@ namespace seissol {
 #	define MEMKIND_IMPOSED_STATE seissol::memory::DeviceGlobalMemory
 #endif
 
+
 struct seissol::initializers::DynamicRupture {
   //assert(init::QInterpolated::Start[0] == 0); ?
 protected:
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
 public:
   virtual ~DynamicRupture() {}
-  bool IsFaultParameterizedByTraction;        //true if Traction T_n , T_s, T_d is stored in iniBulk_XX, iniShearXY, iniShearXZ
+  bool isFaultParameterizedByTraction;        //true if Traction T_n , T_s, T_d is stored in iniBulk_XX, iniShearXY, iniShearXZ
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
@@ -85,7 +86,7 @@ public:
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
 
-  Variable<seissol::dr::ImpedancesAndEta>                            impAndEta;
+  Variable<seissol::dr::ImpedancesAndEta>                           impAndEta;
   //size padded for vectorization
 
   Variable<real[ numOfPointsPadded ]>                   iniBulkXX;
@@ -174,8 +175,8 @@ public:
 
 struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initializers::DynamicRupture {
     Variable<real[ numOfPointsPadded ]>                   d_c;
-    Variable<real[ numOfPointsPadded ]>                   mu_S;
-    Variable<real[ numOfPointsPadded ]>                   mu_D;
+    Variable<real[ numOfPointsPadded ]>                   mu_s;
+    Variable<real[ numOfPointsPadded ]>                   mu_d;
     Variable<bool[ numOfPointsPadded ]>                   DS;
     Variable<real>                                        averagedSlip;
     Variable<real[ numOfPointsPadded ]>                   dynStressTime;
@@ -185,8 +186,8 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
         seissol::initializers::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
         tree.addVar(      d_c,                              mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      mu_S,                             mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      mu_D,                             mask,                 1,      seissol::memory::Standard );
+        tree.addVar(mu_s, mask, 1, seissol::memory::Standard );
+        tree.addVar(mu_d, mask, 1, seissol::memory::Standard );
         tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
         tree.addVar(      averagedSlip,                     mask,                 1,      seissol::memory::Standard );
         tree.addVar(      dynStressTime,                    mask,                 1,      seissol::memory::Standard );

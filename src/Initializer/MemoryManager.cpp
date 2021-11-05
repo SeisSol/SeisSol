@@ -821,36 +821,21 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
           || f == FaceType::analytical);
 }
 
-//added by adrian
-void seissol::initializers::MemoryManager::initializeFrictionFactory() {
-  /*
-  dr::factory::AbstractFactory *Factory = seissol::dr::factory::getFactory(FrictionLaw);
-  std::tie(m_dynRup, m_DRInitializer, m_FrictonLaw, m_DROutput) = Factory->produce();
-  delete Factory;    // prepare the data
-*/
-  dr::factory::AbstractFactory *Factory = nullptr;
-  try {
-    // reading input provided by parameters.par
-    m_dynRupParameter = new dr::DRParameters;
-    m_dynRupParameter->setAllInputParam(m_inputParams);
+void seissol::initializers::MemoryManager::initializeFrictionLaw() {
+  logInfo(0) << "Initialize Friction Model";
+  // reading input provided by parameters.par
+  m_dynRupParameter = dr::readParametersFromYaml(*m_inputParams);
 
-    Factory = seissol::dr::factory::getFactory(m_dynRupParameter);
-    auto product = Factory->produce();
-    m_dynRup = product.ltsTree;
-    m_DRInitializer = product.initializer;
-    m_FrictonLaw = product.fl;
-    m_DROutput = product.output;
+  auto factory = seissol::dr::factory::getFactory(m_dynRupParameter);
+  auto product = factory->produce();
+  m_dynRup = product.ltsTree;
+  m_DRInitializer = product.initializer;
+  m_FrictionLaw = product.frictionLaw;
+  m_DROutput = product.output;
+}
 
-    m_DRInitializer->setInputParam(m_dynRupParameter);
-    m_FrictonLaw->setInputParam(m_dynRupParameter);
-    m_DROutput->setInputParam(m_dynRupParameter);
-
-    delete Factory;    // prepare the data
-  }
-  catch (const std::exception& Error) {
-    std::cerr << Error.what() << std::endl;
-    delete Factory;
-    throw Error;
-  }
+void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {
+  m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
+  interoperability->initializeFaultOutput();
 }
 

@@ -4,11 +4,15 @@
 #include <yaml-cpp/yaml.h>
 
 #include "Initializer/InputAux.hpp"
+#include "DynamicRupture/Typedefs.hpp"
 #include "Kernels/precision.hpp"
 #include "Typedefs.hpp"
 
+#include <Eigen/Dense>
+
 namespace seissol::dr {
 struct DRParameters;
+inline DRParameters readParametersFromYaml(YAML::Node& params);
 } // namespace seissol::dr
 
 /*
@@ -18,6 +22,7 @@ struct DRParameters;
 struct seissol::dr::DRParameters {
   static constexpr unsigned int TP_grid_nz = 60;
   int outputPointType{3};
+  Eigen::Vector3d referencePoint;
   int slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
   int backgroundType{0};
@@ -25,7 +30,7 @@ struct seissol::dr::DRParameters {
   bool isDsOutputOn{false};
   bool isMagnitudeOutputOn{false};
   bool isEnergyRateOutputOn{false};
-  bool isGpWiseOutput{false};
+  bool isGpWiseInitialization{true};
   bool isThermalPressureOn{false};
   int energyRatePrintTimeInterval{1};
   bool isInstaHealingOn{false};
@@ -42,41 +47,57 @@ struct seissol::dr::DRParameters {
   real iniPressure{0.0};
   real v_star{0.0}; // Prakash-Clifton regularization parameter
   real prakash_length{0.0};
-
-  void setAllInputParam(const YAML::Node& Params) {
-    using namespace initializers;
-
-    const YAML::Node& DrParams = Params["dynamicrupture"];
-    outputPointType = getParamIfExists(DrParams, "outputpointtype", 3);
-    slipRateOutputType = getParamIfExists(DrParams, "sliprateoutputtype", 1);
-    frictionLawType = static_cast<FrictionLawType>(getParamIfExists(DrParams, "fl", 0));
-    backgroundType = getParamIfExists(DrParams, "backgroundtype", 0);
-    isRfOutputOn = getParamIfExists(DrParams, "rf_output_on", false);
-    isDsOutputOn = getParamIfExists(DrParams, "ds_output_on", false);
-    isMagnitudeOutputOn = getParamIfExists(DrParams, "magnitude_output_on", false);
-    isEnergyRateOutputOn = getParamIfExists(DrParams, "energy_rate_output_on", false);
-    isGpWiseOutput = getParamIfExists(DrParams, "gpwise", false);
-    isThermalPressureOn = getParamIfExists(DrParams, "thermalpress", false);
-    backgroundType = getParamIfExists(DrParams, "energy_rate_printtimeinterval", 1);
-    isInstaHealingOn = getParamIfExists(DrParams, "inst_healing", false);
-    t_0 = getParamIfExists(DrParams, "t_0", 0.0);
-    rs_f0 = getParamIfExists(DrParams, "rs_f0", 0.0);
-    rs_a = getParamIfExists(DrParams, "rs_a", 0.0);
-    rs_b = getParamIfExists(DrParams, "rs_b", 0.0);
-    rs_sr0 = getParamIfExists(DrParams, "rs_sr0", 0.0);
-    mu_w = getParamIfExists(DrParams, "mu_w", 0.0);
-
-    // if ThermalPress == true
-    alpha_th = getParamIfExists(DrParams, "alpha_th", 0.0);
-    rho_c = getParamIfExists(DrParams, "rho_c", 0.0);
-    tP_lambda = getParamIfExists(DrParams, "tp_lambda", 0.0);
-    iniTemp = getParamIfExists(DrParams, "initemp", 0.0);
-    iniPressure = getParamIfExists(DrParams, "inipressure", 0.0);
-
-    // Prakash-Clifton regularization parameter
-    v_star = getParamIfExists(DrParams, "v_star", 0.0);
-    prakash_length = getParamIfExists(DrParams, "L", 0.0);
-  }
+  std::string faultFileName{""};
 };
+
+inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node& params) {
+  DRParameters drParameters;
+  const YAML::Node& yamlParams = params["dynamicrupture"];
+
+  double xref = 0.0;
+  initializers::updateIfExists(yamlParams, "xref", xref);
+  double yref = 0.0;
+  initializers::updateIfExists(yamlParams, "yref", yref);
+  double zref = 0.0;
+  initializers::updateIfExists(yamlParams, "zref", zref);
+  drParameters.referencePoint = {xref, yref, zref};
+
+  initializers::updateIfExists(yamlParams, "outputpointtype", drParameters.outputPointType);
+  initializers::updateIfExists(yamlParams, "sliprateoutputtype", drParameters.slipRateOutputType);
+  initializers::updateIfExists(yamlParams, "fl", drParameters.frictionLawType);
+  initializers::updateIfExists(yamlParams, "backgroundtype", drParameters.backgroundType);
+  initializers::updateIfExists(yamlParams, "rf_output_on", drParameters.isRfOutputOn);
+  initializers::updateIfExists(yamlParams, "ds_output_on", drParameters.isDsOutputOn);
+  initializers::updateIfExists(yamlParams, "magnitude_output_on", drParameters.isMagnitudeOutputOn);
+  initializers::updateIfExists(
+      yamlParams, "energy_rate_output_on", drParameters.isEnergyRateOutputOn);
+  initializers::updateIfExists(yamlParams, "gpwise", drParameters.isGpWiseInitialization);
+  initializers::updateIfExists(yamlParams, "thermalpress", drParameters.isThermalPressureOn);
+  initializers::updateIfExists(
+      yamlParams, "energy_rate_printtimeinterval", drParameters.backgroundType);
+  initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
+  initializers::updateIfExists(yamlParams, "t_0", drParameters.t_0);
+  initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rs_f0);
+  initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
+  initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
+  initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rs_sr0);
+  initializers::updateIfExists(yamlParams, "mu_w", drParameters.mu_w);
+
+  // Thermal Pressurisation parameters
+  initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alpha_th);
+  initializers::updateIfExists(yamlParams, "rho_c", drParameters.rho_c);
+  initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tP_lambda);
+  initializers::updateIfExists(yamlParams, "initemp", drParameters.iniTemp);
+  initializers::updateIfExists(yamlParams, "inipressure", drParameters.iniPressure);
+
+  // Prakash-Clifton regularization parameters
+  initializers::updateIfExists(yamlParams, "v_star", drParameters.v_star);
+  initializers::updateIfExists(yamlParams, "L", drParameters.prakash_length);
+
+  // filename of the yaml file describing the fault parameters
+  initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);
+
+  return drParameters;
+}
 
 #endif // SEISSOL_PARAMETERS_H

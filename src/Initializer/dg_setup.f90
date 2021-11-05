@@ -498,8 +498,6 @@ CONTAINS
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
   call c_interoperability_initializeGravitationalAcceleration(EQN%GravitationalAcceleration)
 
-  logInfo0(*) 'Initializing element local matrices.'
-  call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
 
   IF(DISC%Galerkin%DGMethod.EQ.3) THEN
         ALLOCATE( DISC%LocalIteration(MESH%nElem) )
@@ -522,7 +520,7 @@ CONTAINS
       ALLOCATE(DISC%DynRup%PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       ALLOCATE(DISC%DynRup%rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      
+
       ! TODO: Transpose StateVar
       ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       !
@@ -551,7 +549,7 @@ CONTAINS
       allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
+      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
       ! Initialize w/ first-touch
@@ -598,6 +596,8 @@ CONTAINS
         call MPI_ABORT(MPI%commWorld, 134)
         !
     ENDIF
+    logInfo0(*) 'Initializing element local matrices.'
+    call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
   END SUBROUTINE iniGalerkin3D_us_level2_new
 
 

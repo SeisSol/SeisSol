@@ -110,7 +110,7 @@ void BaseFrictionLaw::postcomputeImposedStateFromNewStress(
 real BaseFrictionLaw::calcSmoothStepIncrement(real currentTime, real dt) {
   real gNuc;
   real prevTime;
-  if (currentTime > 0.0 && currentTime <= m_Params->t_0) {
+  if (currentTime > 0.0 && currentTime <= drParameters.t_0) {
     gNuc = calcSmoothStep(currentTime);
     prevTime = currentTime - dt;
     if (prevTime > 0.0) {
@@ -130,9 +130,9 @@ real BaseFrictionLaw::calcSmoothStep(real currentTime) {
   if (currentTime <= 0) {
     gNuc = 0.0;
   } else {
-    if (currentTime < m_Params->t_0) {
-      gNuc = std::exp(std::pow(currentTime - m_Params->t_0, 2) /
-                      (currentTime * (currentTime - 2.0 * m_Params->t_0)));
+    if (currentTime < drParameters.t_0) {
+      gNuc = std::exp(std::pow(currentTime - drParameters.t_0, 2) /
+                      (currentTime * (currentTime - 2.0 * drParameters.t_0)));
     } else {
       gNuc = 1.0;
     }
@@ -162,7 +162,7 @@ void BaseFrictionLaw::savePeakSlipRateOutput(unsigned int ltsFace) {
 void BaseFrictionLaw::saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip,
                                             unsigned int ltsFace) {
   real sum_tmpSlip = 0;
-  if (m_Params->isMagnitudeOutputOn) {
+  if (drParameters.isMagnitudeOutputOn) {
     for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++)
       sum_tmpSlip += tmpSlip[pointIndex];
     averagedSlip[ltsFace] = averagedSlip[ltsFace] + sum_tmpSlip / numberOfPoints;

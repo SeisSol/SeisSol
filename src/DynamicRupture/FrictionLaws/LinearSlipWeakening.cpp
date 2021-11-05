@@ -77,7 +77,7 @@ void LinearSlipWeakeningLawFL16::calcStateVariableHook(
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     real f2 = 0.0;
-    if (m_Params->t_0 == 0) {
+    if (drParameters.t_0 == 0) {
       if (tn[ltsFace] >= forcedRuptureTime[ltsFace][pointIndex]) {
         f2 = 1.0;
       } else {
@@ -87,7 +87,7 @@ void LinearSlipWeakeningLawFL16::calcStateVariableHook(
       f2 = std::max(
           static_cast<real>(0.0),
           std::min(static_cast<real>(1.0),
-                   (m_fullUpdateTime - forcedRuptureTime[ltsFace][pointIndex]) / m_Params->t_0));
+                   (m_fullUpdateTime - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t_0));
     }
     stateVariablePsi[pointIndex] = std::max(stateVariablePsi[pointIndex], f2);
   }
@@ -159,7 +159,8 @@ void LinearSlipWeakeningLawBimaterialFL6::copyLtsTreeToLocal(
 void LinearSlipWeakeningLawBimaterialFL6::prak_clif_mod(
     real& strength, real& sigma, real& LocSlipRate, real& mu, real& dt) {
   real expterm;
-  expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star) * dt / m_Params->prakash_length);
+  expterm =
+      std::exp(-(std::abs(LocSlipRate) + drParameters.v_star) * dt / drParameters.prakash_length);
   strength = strength * expterm - std::max(static_cast<real>(0.0), -mu * sigma) * (expterm - 1.0);
 }
 } // namespace seissol::dr::friction_law

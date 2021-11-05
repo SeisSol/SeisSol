@@ -3,6 +3,8 @@
 
 #include "BaseFrictionLaw.h"
 
+#include "utils/logger.h"
+
 namespace seissol::dr::friction_law {
 template <class Derived>
 class LinearSlipWeakeningLaw;              // generalization of Linear slip weakening laws
@@ -19,6 +21,9 @@ class LinearSlipWeakeningLawBimaterialFL6; // solver for bimaterial faults, curr
 template <class Derived>
 class seissol::dr::friction_law::LinearSlipWeakeningLaw
     : public seissol::dr::friction_law::BaseFrictionLaw {
+  public:
+  using BaseFrictionLaw::BaseFrictionLaw;
+
   protected:
   static constexpr real u_0 = 10e-14; // critical velocity at which slip rate is considered as being
                                       // zero for instaneous healing
@@ -74,7 +79,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
         frictionFunctionHook(stateVariablePsi, ltsFace);
 
         // instantaneous healing option Reset Mu and Slip
-        if (m_Params->isInstaHealingOn == true) {
+        if (drParameters.isInstaHealingOn == true) {
           instantaneousHealing(ltsFace);
         }
       } // End of timeIndex-Loop
@@ -115,8 +120,8 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
 
     auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
     d_c = layerData.var(concreteLts->d_c);
-    mu_S = layerData.var(concreteLts->mu_S);
-    mu_D = layerData.var(concreteLts->mu_D);
+    mu_S = layerData.var(concreteLts->mu_s);
+    mu_D = layerData.var(concreteLts->mu_d);
     DS = layerData.var(concreteLts->DS);
     averagedSlip = layerData.var(concreteLts->averagedSlip);
     dynStressTime = layerData.var(concreteLts->dynStressTime);
@@ -226,6 +231,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
     : public seissol::dr::friction_law::LinearSlipWeakeningLaw<
           seissol::dr::friction_law::LinearSlipWeakeningLawFL2> {
   public:
+  using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
   /*
    * compute fault strength
    */
@@ -246,6 +252,9 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
 
 class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
     : public seissol::dr::friction_law::LinearSlipWeakeningLawFL2 {
+  public:
+  using LinearSlipWeakeningLawFL2::LinearSlipWeakeningLawFL2;
+
   protected:
   real (*forcedRuptureTime)[numPaddedPoints];
   real* tn;
@@ -275,6 +284,7 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6
     : public seissol::dr::friction_law::LinearSlipWeakeningLaw<
           seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6> {
   public:
+  using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
   virtual void calcStrengthHook(std::array<real, numPaddedPoints>& strength,
                                 FaultStresses& faultStresses,
                                 unsigned int timeIndex,

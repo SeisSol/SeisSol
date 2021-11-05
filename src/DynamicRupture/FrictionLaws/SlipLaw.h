@@ -14,6 +14,7 @@ class SlipLaw;
  */
 class seissol::dr::friction_law::SlipLaw : public seissol::dr::friction_law::AgingLaw {
   public:
+  using AgingLaw::AgingLaw;
   virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) override;
 };
 

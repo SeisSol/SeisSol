@@ -13,6 +13,7 @@ class NoFault;
  */
 class seissol::dr::friction_law::NoFault : public BaseFrictionLaw {
   public:
+  using BaseFrictionLaw::BaseFrictionLaw;
   virtual void
       evaluate(seissol::initializers::Layer& layerData,
                seissol::initializers::DynamicRupture* dynRup,

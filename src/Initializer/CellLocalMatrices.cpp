@@ -601,17 +601,9 @@ void seissol::initializers::initializeFrictionMatrices(
     seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
     seissol::initializers::DynamicRupture *dynRup,
     seissol::initializers::LTSTree* dynRupTree,
-    std::unordered_map<std::string, double*> faultParameters,
     unsigned*              ltsFaceToMeshFace,
     seissol::Interoperability &e_interoperability
     ){
-  FrictionInitializer->initializeFrictionMatrices(
-      dynRup,
-      dynRupTree,
-      FrictionLaw,
-      faultParameters,
-      ltsFaceToMeshFace,
-      e_interoperability);
 }
 
 void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,

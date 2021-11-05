@@ -5,7 +5,7 @@
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
- * @section LICENSE
+ * @section LICENSMESH%Fault%geoNormals(1:3,iFace)E
  * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 

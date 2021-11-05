@@ -18,6 +18,8 @@ class RateAndStateThermalFL103; // specialization of FL103, extended with
 template <class Derived>
 class seissol::dr::friction_law::RateAndStateSolver
     : public seissol::dr::friction_law::BaseFrictionLaw {
+  public:
+  using BaseFrictionLaw::BaseFrictionLaw;
 
   protected:
   //! PARAMETERS of THE optimisation loops
@@ -153,6 +155,9 @@ class seissol::dr::friction_law::RateAndStateSolver
 class seissol::dr::friction_law::RateAndStateNucFL103
     : public seissol::dr::friction_law::RateAndStateSolver<
           seissol::dr::friction_law::RateAndStateNucFL103> {
+  public:
+  using RateAndStateSolver::RateAndStateSolver;
+
   protected:
   // Attributes
   real (*nucleationStressInFaultCS)[numPaddedPoints][6];
@@ -310,6 +315,9 @@ class seissol::dr::friction_law::RateAndStateNucFL103
 
 class seissol::dr::friction_law::RateAndStateThermalFL103
     : public seissol::dr::friction_law::RateAndStateNucFL103 {
+  public:
+  using RateAndStateNucFL103::RateAndStateNucFL103;
+
   protected:
   real (*temperature)[numPaddedPoints];
   real (*pressure)[numPaddedPoints];

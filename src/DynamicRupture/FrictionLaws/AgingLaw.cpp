@@ -115,11 +115,11 @@ void AgingLaw::evaluate(
 
           for (unsigned int i = 0; i < nSRupdates; i++) { // This loop corrects SR values
             tmp = 0.5 / RS_sr0[ltsFace][pointIndex] *
-                  std::exp(
-                      (m_Params->rs_f0 +
-                       m_Params->rs_b * std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
-                                                 RS_sl0[ltsFace][pointIndex])) /
-                      RS_a[ltsFace][pointIndex]);
+                  std::exp((drParameters.rs_f0 +
+                            drParameters.rs_b *
+                                std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
+                                         RS_sl0[ltsFace][pointIndex])) /
+                           RS_a[ltsFace][pointIndex]);
             real tmp2 = tmp * slipRateGuess;
             // TODO: author before me: not sure if ShTest=TotalShearStressYZ should be + or -...
             real NR = -(1.0 / waveSpeedsPlus->sWaveVelocity / waveSpeedsPlus->density +
@@ -151,10 +151,11 @@ void AgingLaw::evaluate(
 
         // TODO: reused calc from above -> simplify
         tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / RS_sr0[ltsFace][pointIndex] *
-              std::exp((m_Params->rs_f0 +
-                        m_Params->rs_b * std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
-                                                  RS_sl0[ltsFace][pointIndex])) /
-                       RS_a[ltsFace][pointIndex]);
+              std::exp(
+                  (drParameters.rs_f0 +
+                   drParameters.rs_b * std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
+                                                RS_sl0[ltsFace][pointIndex])) /
+                  RS_a[ltsFace][pointIndex]);
 
         localMu = RS_a[ltsFace][pointIndex] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
 

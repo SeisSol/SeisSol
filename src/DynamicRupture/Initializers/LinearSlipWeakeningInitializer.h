@@ -4,14 +4,24 @@
 #include "BaseDRInitializer.h"
 
 namespace seissol::dr::initializers {
-class LinearSlipWeakeningFL2Initializer;  // general initialization for linear slip laws
-class LinearBimaterialFL6Initializer;     // for bimaterial faults
-class LinearSlipWeakeningFL16Initializer; // FL2 extended by forced rupture time
+class LinearSlipWeakeningInitializer; // general initialization for linear slip weakening laws
+class LinearSlipWeakeningBimaterialInitializer;        // bimaterial faults
+class LinearSlipWeakeningForcedRuptureTimeInitializer; // forced rupture time
 } // namespace seissol::dr::initializers
 
-class seissol::dr::initializers::LinearSlipWeakeningFL2Initializer
+class seissol::dr::initializers::LinearSlipWeakeningInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
+  using BaseDRInitializer::BaseDRInitializer;
+  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSTree* dynRupTree,
+                               seissol::Interoperability* e_interoperability) override;
+
+  virtual void
+      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -20,9 +30,10 @@ class seissol::dr::initializers::LinearSlipWeakeningFL2Initializer
                                           seissol::Interoperability& e_interoperability) override;
 };
 
-class seissol::dr::initializers::LinearSlipWeakeningFL16Initializer
-    : public seissol::dr::initializers::LinearSlipWeakeningFL2Initializer {
+class seissol::dr::initializers::LinearSlipWeakeningForcedRuptureTimeInitializer
+    : public seissol::dr::initializers::LinearSlipWeakeningInitializer {
   public:
+  using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
@@ -34,9 +45,10 @@ class seissol::dr::initializers::LinearSlipWeakeningFL16Initializer
 /*
  * strength data is additionally initialized by computing it from friction and initial normal stress
  */
-class seissol::dr::initializers::LinearBimaterialFL6Initializer
-    : public seissol::dr::initializers::LinearSlipWeakeningFL2Initializer {
+class seissol::dr::initializers::LinearSlipWeakeningBimaterialInitializer
+    : public seissol::dr::initializers::LinearSlipWeakeningInitializer {
   public:
+  using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
                                           seissol::initializers::LTSTree* dynRupTree,
                                           seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,

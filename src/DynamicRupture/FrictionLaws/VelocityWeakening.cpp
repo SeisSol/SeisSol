@@ -77,7 +77,7 @@ void VelocityWeakening::evaluate(
         slipRateMagnitude[ltsFace][pointIndex] =
             std::sqrt(std::pow(localSlipRate1, 2) + std::pow(localSlipRate2, 2));
 
-        real characteristicTime = RS_sl0[ltsFace][pointIndex] / m_Params->rs_sr0;
+        real characteristicTime = RS_sl0[ltsFace][pointIndex] / drParameters.rs_sr0;
         real coeft = exp(-timeIncrement / characteristicTime);
 
         real tmp = 0;
@@ -103,18 +103,18 @@ void VelocityWeakening::evaluate(
 
           for (unsigned int i = 0; i < nSRupdates; i++) { //! This loop corrects SR values
             real tmp =
-                m_Params->rs_f0 +
-                RS_a[ltsFace][pointIndex] * slipRateGuess / (slipRateGuess + m_Params->rs_sr0) -
-                m_Params->rs_b * localStateVariable /
+                drParameters.rs_f0 +
+                RS_a[ltsFace][pointIndex] * slipRateGuess / (slipRateGuess + drParameters.rs_sr0) -
+                drParameters.rs_b * localStateVariable /
                     (localStateVariable + RS_sl0[ltsFace][pointIndex]); //=mu
             real NR =
                 -impAndEta[ltsFace].inv_eta_s * (std::abs(pressure) * tmp - totalShearStressYZ) -
                 slipRateGuess;
             real dNR = -impAndEta[ltsFace].inv_eta_s *
                            (abs(pressure) *
-                            (RS_a[ltsFace][pointIndex] / (slipRateGuess + m_Params->rs_sr0) -
+                            (RS_a[ltsFace][pointIndex] / (slipRateGuess + drParameters.rs_sr0) -
                              RS_a[ltsFace][pointIndex] * slipRateGuess /
-                                 std::pow(slipRateGuess + m_Params->rs_sr0, 2))) -
+                                 std::pow(slipRateGuess + drParameters.rs_sr0, 2))) -
                        1.0;
             slipRateGuess = slipRateGuess - NR / dNR;
           } // End nSRupdates-Loop
@@ -125,9 +125,10 @@ void VelocityWeakening::evaluate(
         } // End nSVupdates-Loop -  This loop corrects SV values
 
         localStateVariable = characteristicTime * tmp * (1 - coeft) + coeft * stateVariable;
-        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / m_Params->rs_sr0 *
-              exp((m_Params->rs_f0 + m_Params->rs_b * log(m_Params->rs_sr0 * localStateVariable /
-                                                          RS_sl0[ltsFace][pointIndex])) /
+        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / drParameters.rs_sr0 *
+              exp((drParameters.rs_f0 +
+                   drParameters.rs_b * log(drParameters.rs_sr0 * localStateVariable /
+                                           RS_sl0[ltsFace][pointIndex])) /
                   RS_a[ltsFace][pointIndex]);
 
         //! Ampuero and Ben-Zion 2008 (eq. 1):
@@ -138,10 +139,10 @@ void VelocityWeakening::evaluate(
         // RS_sr0 = characteristic velocity scale (V_c)
         // RS_b = positive coefficient, quantifying  the evolution effect (beta)
         // RS_sl0 = characteristic velocity scale (V_c)
-        localMu = m_Params->rs_f0 +
+        localMu = drParameters.rs_f0 +
                   RS_a[ltsFace][pointIndex] * slipRateMagnitude[ltsFace][pointIndex] /
-                      (slipRateMagnitude[ltsFace][pointIndex] + m_Params->rs_sr0) -
-                  m_Params->rs_b * localStateVariable /
+                      (slipRateMagnitude[ltsFace][pointIndex] + drParameters.rs_sr0) -
+                  drParameters.rs_b * localStateVariable /
                       (localStateVariable + RS_sl0[ltsFace][pointIndex]);
 
         // update stress change
