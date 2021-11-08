@@ -44,8 +44,6 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
-# check linker flags for std::filesystem
-include(filesystem)
 
 # Generate version.h
 
@@ -355,7 +353,9 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
 endif()
-target_link_libraries(SeisSol-lib PUBLIC ${FILESYSTEM_LIBRARIES})
+
+find_package(FILESYSTEM REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC std::filesystem)
 
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
