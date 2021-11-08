@@ -323,8 +323,8 @@ class seissol::dr::friction_law::RateAndStateThermalFL103
   real (*pressure)[numPaddedPoints];
   real (*TP_Theta)[numPaddedPoints][TP_grid_nz];
   real (*TP_sigma)[numPaddedPoints][TP_grid_nz];
-  real (*TP_half_width_shear_zone)[numPaddedPoints];
-  real (*alpha_hy)[numPaddedPoints];
+  real (*TP_halfWidthShearZone)[numPaddedPoints];
+  real (*alphaHy)[numPaddedPoints];
 
   real TP_grid[TP_grid_nz];
   real TP_DFinv[TP_grid_nz];

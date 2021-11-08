@@ -4,22 +4,17 @@
 #include "BaseDRInitializer.h"
 
 namespace seissol::dr::initializers {
-class ImposedSlipRatesFL33Initializer; // imposed slip rates on boundary
+class ImposedSlipRatesInitializer; // imposed slip rates on boundary
 }
 
 /*
  * nucleationStressInFaultCS initialized which is used to impose slip rates on the fault surface
  */
-class seissol::dr::initializers::ImposedSlipRatesFL33Initializer
+// currently disabled, as Thomas is doing a lot of work on this FL on the master branch
+class seissol::dr::initializers::ImposedSlipRatesInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
 };
 
 #endif // SEISSOL_IMPOSEDSLIPINITIALIZER_H

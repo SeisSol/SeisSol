@@ -1,3 +1,4 @@
+/*
 #include "AgingLawInitializer.h"
 
 namespace seissol::dr::initializers {
@@ -35,3 +36,4 @@ void AgingLawInitializer::initializeFrictionMatrices(
   } // leaf_iterator loop
 }
 } // namespace seissol::dr::initializers
+ */

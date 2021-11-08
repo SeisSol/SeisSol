@@ -11,9 +11,9 @@ void RateAndStateNucFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& la
       dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
   nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
 
-  RS_sl0 = layerData.var(concreteLts->RS_sl0);
-  RS_a = layerData.var(concreteLts->RS_a);
-  RS_srW = layerData.var(concreteLts->RS_srW);
+  RS_sl0 = layerData.var(concreteLts->rs_sl0);
+  RS_a = layerData.var(concreteLts->rs_a);
+  RS_srW = layerData.var(concreteLts->rs_srW);
   DS = layerData.var(concreteLts->DS);
   averagedSlip = layerData.var(concreteLts->averagedSlip);
   stateVariable = layerData.var(concreteLts->stateVariable);
@@ -488,8 +488,8 @@ void RateAndStateThermalFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer
   pressure = layerData.var(concreteLts->pressure);
   TP_Theta = layerData.var(concreteLts->TP_theta);
   TP_sigma = layerData.var(concreteLts->TP_sigma);
-  TP_half_width_shear_zone = layerData.var(concreteLts->TP_half_width_shear_zone);
-  alpha_hy = layerData.var(concreteLts->alpha_hy);
+  TP_halfWidthShearZone = layerData.var(concreteLts->TP_halfWidthShearZone);
+  alphaHy = layerData.var(concreteLts->alphaHy);
 }
 
 void RateAndStateThermalFL103::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
@@ -538,7 +538,7 @@ void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
   real tauV = faultStrength[pointIndex] *
               slipRateMagnitude[ltsFace][pointIndex]; //! fault strenght*slip rate
   real lambdaPrime = drParameters.tP_lambda * drParameters.alpha_th /
-                     (alpha_hy[ltsFace][pointIndex] - drParameters.alpha_th);
+                     (alphaHy[ltsFace][pointIndex] - drParameters.alpha_th);
 
   real tmp[TP_grid_nz];
   real omegaTheta[TP_grid_nz]{};
@@ -548,14 +548,14 @@ void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
   for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
     //! Gaussian shear zone in spectral domain, normalized by w
     tmp[iTP_grid_nz] =
-        std::pow(TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][pointIndex], 2);
+        std::pow(TP_grid[iTP_grid_nz] / TP_halfWidthShearZone[ltsFace][pointIndex], 2);
     //! 1. Calculate diffusion of the field at previous timestep
 
     //! temperature
     thetaCurrent[iTP_grid_nz] =
         Theta_tmp[iTP_grid_nz] * exp(-drParameters.alpha_th * deltaT[timeIndex] * tmp[iTP_grid_nz]);
     //! pore pressure + lambda'*temp
-    sigmaCurrent[iTP_grid_nz] = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][pointIndex] *
+    sigmaCurrent[iTP_grid_nz] = Sigma_tmp[iTP_grid_nz] * exp(-alphaHy[ltsFace][pointIndex] *
                                                              deltaT[timeIndex] * tmp[iTP_grid_nz]);
 
     //! 2. Add current contribution and get new temperature
@@ -564,7 +564,7 @@ void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
     Theta_tmp[iTP_grid_nz] =
         thetaCurrent[iTP_grid_nz] + (tauV / drParameters.rho_c) * omegaTheta[iTP_grid_nz];
     omegaSigma[iTP_grid_nz] =
-        heat_source(tmp[iTP_grid_nz], alpha_hy[ltsFace][pointIndex], iTP_grid_nz, timeIndex);
+        heat_source(tmp[iTP_grid_nz], alphaHy[ltsFace][pointIndex], iTP_grid_nz, timeIndex);
     Sigma_tmp[iTP_grid_nz] =
         sigmaCurrent[iTP_grid_nz] + ((drParameters.tP_lambda + lambdaPrime) * tauV) /
                                         (drParameters.rho_c) * omegaSigma[iTP_grid_nz];
@@ -573,9 +573,9 @@ void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
     //! transformation with the calculated fourier coefficients
 
     //! new contribution
-    localTemperature += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][pointIndex]) *
+    localTemperature += (TP_DFinv[iTP_grid_nz] / TP_halfWidthShearZone[ltsFace][pointIndex]) *
                         Theta_tmp[iTP_grid_nz];
-    localPressure += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][pointIndex]) *
+    localPressure += (TP_DFinv[iTP_grid_nz] / TP_halfWidthShearZone[ltsFace][pointIndex]) *
                      Sigma_tmp[iTP_grid_nz];
   }
   // Update pore pressure change (sigma = pore pressure + lambda'*temp)
@@ -592,11 +592,11 @@ real RateAndStateThermalFL103::heat_source(real tmp,
                                            unsigned int iTP_grid_nz,
                                            unsigned int timeIndex) {
   //! original function in spatial domain
-  //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
+  //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_halfWidthShearZone).^2);
   //! function in the wavenumber domain *including additional factors in front of the heat source
   //! function* omega =
-  //! 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**tmp))
-  //! inserting Dwn/TP_half_width_shear_zone (scaled) for Dwn cancels out TP_half_width_shear_zone
+  //! 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_halfWidthShearZone)**2)*(1-exp(-alpha**dt**tmp))
+  //! inserting Dwn/TP_halfWidthShearZone (scaled) for Dwn cancels out TP_halfWidthShearZone
   return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) * exp(-0.5 * std::pow(TP_grid[iTP_grid_nz], 2)) *
          (1.0 - exp(-alpha * deltaT[timeIndex] * tmp));
 }

@@ -17,8 +17,8 @@ class seissol::dr::friction_law::VelocityWeakening
   protected:
   // Attributes
   real (*stateVar)[numPaddedPoints];
-  real (*RS_sl0)[numPaddedPoints];
-  real (*RS_a)[numPaddedPoints];
+  real (*rs_sl0)[numPaddedPoints];
+  real (*rs_a)[numPaddedPoints];
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */

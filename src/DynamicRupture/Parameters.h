@@ -39,6 +39,8 @@ struct seissol::dr::DRParameters {
   real rs_a{0.0};
   real rs_b{0.0};
   real rs_sr0{0.0};
+  real rs_initialSlipRate1{0.0};
+  real rs_initialSlipRate2{0.0};
   real mu_w{0.0};
   real alpha_th{0.0};
   real rho_c{0.0};
@@ -81,6 +83,8 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
   initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
   initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
   initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rs_sr0);
+  initializers::updateIfExists(yamlParams, "rs_iniSlipRate1", drParameters.rs_initialSlipRate1);
+  initializers::updateIfExists(yamlParams, "rs_iniSlipRate2", drParameters.rs_initialSlipRate2);
   initializers::updateIfExists(yamlParams, "mu_w", drParameters.mu_w);
 
   // Thermal Pressurisation parameters

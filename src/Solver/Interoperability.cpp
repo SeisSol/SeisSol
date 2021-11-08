@@ -359,14 +359,20 @@ void c_interoperability_report_device_memory_status() {
   extern void f_interoperability_getDynRupTP(void*  i_domain, real* i_TP_grid, real* i_TP_DFinv);
 
   extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face,
-        real* i_slip, real* i_slipStrike, real* i_slipDip, real* i_ruptureTime, real* i_peakSlipRate, real* i_tractionXY, real* i_tractionXZ);
+                                                    real* i_slip,
+                                                    real* i_slipStrike,
+                                                    real* i_slipDip,
+                                                    real* i_ruptureTime,
+                                                    real* i_peakSlipRate,
+                                                    real* i_tractionXY,
+                                                    real* i_tractionXZ);
 
   extern void f_interoperability_setFrictionOutputFL2( void*  i_domain, int i_face,
-                                                  real* i_averagedSlip,
-                                                  real* i_dynStressTime,
-                                                  real* slipRateStrike,
-                                                  real* slipRateDip,
-                                                  real* mu);
+                                                       real* i_averagedSlip,
+                                                       real* i_dynStressTime,
+                                                       real* slipRateStrike,
+                                                       real* slipRateDip,
+                                                       real* mu);
 
   extern void f_interoperability_setFrictionOutputStateVar( void*  i_domain, int i_face, real* stateVar);
 
@@ -788,11 +794,11 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
 
   memoryManager.readFrictionData(this);
 
-  memoryManager.getDRInitializer()->initializeFrictionMatrices(
-      seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
-      seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-      seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
-      m_ltsFaceToMeshFace);
+  //memoryManager.getDRInitializer()->initializeFrictionMatrices(
+  //    seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+  //    seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
+  //    seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
+  //    m_ltsFaceToMeshFace);
 
   seissol::initializers::initializeBoundaryMappings(meshReader,
                                                     memoryManager.getEasiBoundaryReader(),

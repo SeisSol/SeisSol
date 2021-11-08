@@ -20,9 +20,8 @@ void AgingLaw::evaluate(
       layerData.var(concreteLts->initialStressInFaultCS);
   real(*cohesion)[numPaddedPoints] = layerData.var(concreteLts->cohesion);
 
-  real(*RS_a)[numPaddedPoints] = layerData.var(concreteLts->RS_a);
-  real(*RS_sl0)[numPaddedPoints] = layerData.var(concreteLts->RS_sl0);
-  real(*RS_sr0)[numPaddedPoints] = layerData.var(concreteLts->RS_sr0);
+  real(*RS_a)[numPaddedPoints] = layerData.var(concreteLts->rs_a);
+  real(*RS_sl0)[numPaddedPoints] = layerData.var(concreteLts->rs_sl0);
 
   real(*mu)[numPaddedPoints] = layerData.var(concreteLts->mu);
   real(*slip)[numPaddedPoints] = layerData.var(concreteLts->slip);
@@ -114,11 +113,10 @@ void AgingLaw::evaluate(
           real slipRateGuess = slipRateMagnitude[ltsFace][pointIndex];
 
           for (unsigned int i = 0; i < nSRupdates; i++) { // This loop corrects SR values
-            tmp = 0.5 / RS_sr0[ltsFace][pointIndex] *
+            tmp = 0.5 / drParameters.rs_sr0 *
                   std::exp((drParameters.rs_f0 +
-                            drParameters.rs_b *
-                                std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
-                                         RS_sl0[ltsFace][pointIndex])) /
+                            drParameters.rs_b * std::log(drParameters.rs_sr0 * localStateVariable /
+                                                         RS_sl0[ltsFace][pointIndex])) /
                            RS_a[ltsFace][pointIndex]);
             real tmp2 = tmp * slipRateGuess;
             // TODO: author before me: not sure if ShTest=TotalShearStressYZ should be + or -...
@@ -150,12 +148,11 @@ void AgingLaw::evaluate(
             calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace][pointIndex]);
 
         // TODO: reused calc from above -> simplify
-        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / RS_sr0[ltsFace][pointIndex] *
-              std::exp(
-                  (drParameters.rs_f0 +
-                   drParameters.rs_b * std::log(RS_sr0[ltsFace][pointIndex] * localStateVariable /
-                                                RS_sl0[ltsFace][pointIndex])) /
-                  RS_a[ltsFace][pointIndex]);
+        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / drParameters.rs_sr0 *
+              std::exp((drParameters.rs_f0 +
+                        drParameters.rs_b * std::log(drParameters.rs_sr0 * localStateVariable /
+                                                     RS_sl0[ltsFace][pointIndex])) /
+                       RS_a[ltsFace][pointIndex]);
 
         localMu = RS_a[ltsFace][pointIndex] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
 

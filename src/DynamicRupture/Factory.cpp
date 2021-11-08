@@ -67,14 +67,14 @@ products LinearSlipWeakeningFactory::produce() {
 
 products RateAndStateAgingFactory::produce() {
   return {std::make_shared<seissol::initializers::LTS_RateAndState>(),
-          std::make_shared<initializers::AgingLawInitializer>(drParameters),
+          std::make_shared<initializers::RateAndStateInitializer>(drParameters),
           std::make_shared<friction_law::AgingLaw>(drParameters),
           std::make_shared<output::OutputRateAndState>(drParameters)};
 }
 
 products RateAndStateSlipFactory::produce() {
   return {std::make_shared<seissol::initializers::LTS_RateAndState>(),
-          std::make_shared<initializers::AgingLawInitializer>(drParameters),
+          std::make_shared<initializers::RateAndStateInitializer>(drParameters),
           std::make_shared<friction_law::SlipLaw>(drParameters),
           std::make_shared<output::OutputRateAndState>(drParameters)};
 }
@@ -103,22 +103,23 @@ products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
 
 products ImposedSlipRatesFactory::produce() {
   return {std::make_shared<seissol::initializers::LTS_ImposedSlipRates>(),
-          std::make_shared<initializers::ImposedSlipRatesFL33Initializer>(drParameters),
+          std::make_shared<initializers::ImposedSlipRatesInitializer>(drParameters),
           std::make_shared<friction_law::ImposedSlipRates>(drParameters),
           std::make_shared<output::OutputImposedSlipRates>(drParameters)};
 }
 
 products RateAndStateFastVelocityWeakeningFactory::produce() {
   return {std::make_shared<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
-          std::make_shared<initializers::RateAndStateFL103Initializer>(drParameters),
+          std::make_shared<initializers::RateAndStateFastVelocityInitializer>(drParameters),
           std::make_shared<friction_law::RateAndStateNucFL103>(drParameters),
           std::make_shared<output::OutputRateAndStateFastVelocityWeakening>(drParameters)};
 }
 
 products RateAndStateThermalPressurisationFactory::produce() {
-  return {std::make_shared<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
-          std::make_shared<initializers::RateAndStateFL103TPInitializer>(drParameters),
-          std::make_shared<friction_law::RateAndStateThermalFL103>(drParameters),
-          std::make_shared<output::OutputRateAndStateFastVelocityWeakening>(drParameters)};
+  return {
+      std::make_shared<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
+      std::make_shared<initializers::RateAndStateThermalPressurisationInitializer>(drParameters),
+      std::make_shared<friction_law::RateAndStateThermalFL103>(drParameters),
+      std::make_shared<output::OutputRateAndStateFastVelocityWeakening>(drParameters)};
 }
 } // namespace seissol::dr::factory

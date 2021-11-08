@@ -4,40 +4,74 @@
 #include "BaseDRInitializer.h"
 
 namespace seissol::dr::initializers {
-class RateAndStateFL103Initializer;   // rate and state with time and space dependent nucleation
-                                      // parameter
-class RateAndStateFL103TPInitializer; // Fl103 extended with thermal pressurization
+class RateAndStateInitializer;
+class RateAndStateFastVelocityInitializer;
+class RateAndStateThermalPressurisationInitializer;
 } // namespace seissol::dr::initializers
 
-/*
- * time and space dependent nucleation parameter for FL103
- * plus state Variable and dynamic stress required for rate and state friction laws
- */
-class seissol::dr::initializers::RateAndStateFL103Initializer
+// Aging and Slip Law share the same parameters
+class seissol::dr::initializers::RateAndStateInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
+  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSTree* dynRupTree,
+                               seissol::Interoperability* e_interoperability) override;
+
+  protected:
+  virtual void
+      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+
+  virtual std::pair<real, real> computeInitialStateAndFriction(real tractionXY,
+                                                               real tractionXZ,
+                                                               real pressure,
+                                                               real rs_a,
+                                                               real rs_b,
+                                                               real rs_sl0,
+                                                               real rs_sr0,
+                                                               real rs_f0,
+                                                               real initialSlipRate);
+};
+
+class seissol::dr::initializers::RateAndStateFastVelocityInitializer
+    : public seissol::dr::initializers::RateAndStateInitializer {
+  public:
+  using RateAndStateInitializer::RateAndStateInitializer;
+
+  protected:
+  virtual void
+      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+  virtual std::pair<real, real> computeInitialStateAndFriction(real tractionXY,
+                                                               real tractionXZ,
+                                                               real pressure,
+                                                               real rs_a,
+                                                               real rs_b,
+                                                               real rs_sl0,
+                                                               real rs_sr0,
+                                                               real rs_f0,
+                                                               real initialSlipRate) override;
 };
 
 /*
  * initialize all thermal pressure parameters
  */
-class seissol::dr::initializers::RateAndStateFL103TPInitializer
-    : public seissol::dr::initializers::RateAndStateFL103Initializer {
+class seissol::dr::initializers::RateAndStateThermalPressurisationInitializer
+    : public seissol::dr::initializers::RateAndStateFastVelocityInitializer {
   public:
-  using RateAndStateFL103Initializer::RateAndStateFL103Initializer;
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
+  using RateAndStateFastVelocityInitializer::RateAndStateFastVelocityInitializer;
+  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSTree* dynRupTree,
+                               seissol::Interoperability* e_interoperability) override;
+
+  protected:
+  virtual void
+      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
 #endif // SEISSOL_RATEANDSTATEINITIALIZER_H

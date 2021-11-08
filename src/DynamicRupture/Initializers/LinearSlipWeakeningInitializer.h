@@ -17,29 +17,26 @@ class seissol::dr::initializers::LinearSlipWeakeningInitializer
                                seissol::initializers::LTSTree* dynRupTree,
                                seissol::Interoperability* e_interoperability) override;
 
+  protected:
   virtual void
       addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
-
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
 };
 
 class seissol::dr::initializers::LinearSlipWeakeningForcedRuptureTimeInitializer
     : public seissol::dr::initializers::LinearSlipWeakeningInitializer {
   public:
   using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
+  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSTree* dynRupTree,
+                               seissol::Interoperability* e_interoperability) override;
+
+  protected:
+  virtual void
+      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
 /*
@@ -49,12 +46,9 @@ class seissol::dr::initializers::LinearSlipWeakeningBimaterialInitializer
     : public seissol::dr::initializers::LinearSlipWeakeningInitializer {
   public:
   using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability);
+  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSTree* dynRupTree,
+                               seissol::Interoperability* e_interoperability) override;
 };
 
 #endif // SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H

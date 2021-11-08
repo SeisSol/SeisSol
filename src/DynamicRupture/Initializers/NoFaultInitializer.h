@@ -7,17 +7,11 @@ namespace seissol::dr::initializers {
 class NoFaultInitializer; // NoFaultFL0
 }
 
+// does not need implementation, inherits everything from BaseDR
 class seissol::dr::initializers::NoFaultInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
-
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
 };
 
 #endif // SEISSOL_NOFAULTINITIALIZER_H
