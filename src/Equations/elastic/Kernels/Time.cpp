@@ -159,12 +159,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  const bool hasGravitationalFreeSurfaceBc = updateDisplacement
-                                             && std::any_of(std::begin(data.cellInformation.faceTypes),
-                                                            std::end(data.cellInformation.faceTypes),
-                                                            [](const FaceType f) {
-                                                              return f == FaceType::freeSurfaceGravity;
-                                             });
+  updateDisplacement &= std::any_of(std::begin(data.cellInformation.faceTypes),
+                                    std::end(data.cellInformation.faceTypes),
+                                    [](const FaceType f) {
+                                      return f == FaceType::freeSurfaceGravity;
+                                    });
 
 #ifdef USE_STP
   //Note: We could use the space time predictor for elasticity.
@@ -208,7 +207,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   intKrnl.power = i_timeStepWidth;
   intKrnl.execute0();
 
-  if (hasGravitationalFreeSurfaceBc) {
+  if (updateDisplacement) {
     // First derivative if needed later in kernel
     std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
   } else if (o_timeDerivatives != nullptr) {
@@ -227,24 +226,26 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
-  auto& bc = tmp.gravitationalFreeSurfaceBc;
-  for (unsigned face = 0; face < 4; ++face) {
-    if (data.faceDisplacements[face] == nullptr) continue;
-    if (data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-      std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
-      bc.evaluate(
-          face,
-          projectRotatedKrnlPrototype,
-          data.boundaryMapping[face],
-          data.faceDisplacements[face],
-          tmp.nodalAvgDisplacements[face].data(),
-          *this,
-          derivativesBuffer,
-          startTime,
-          i_timeStepWidth,
-          data.material,
-          data.cellInformation.faceTypes[face]
-          );
+  if (updateDisplacement) {
+    auto& bc = tmp.gravitationalFreeSurfaceBc;
+    for (unsigned face = 0; face < 4; ++face) {
+      if (data.faceDisplacements[face] != nullptr
+          && data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
+        std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
+        bc.evaluate(
+            face,
+            projectRotatedKrnlPrototype,
+            data.boundaryMapping[face],
+            data.faceDisplacements[face],
+            tmp.nodalAvgDisplacements[face].data(),
+            *this,
+            derivativesBuffer,
+            startTime,
+            i_timeStepWidth,
+            data.material,
+            data.cellInformation.faceTypes[face]
+        );
+      }
     }
   }
 #endif //USE_STP
