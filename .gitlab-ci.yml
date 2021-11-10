@@ -150,7 +150,6 @@ cpu_tpv5_check:
     variables:
         elastic_domain_file: "tpv5_cell.h5"
         fault_file: "tpv5-fault_cell.h5"
-        eps: "0.1"
     parallel:
         matrix:
             - precision: double
@@ -158,8 +157,9 @@ cpu_tpv5_check:
     script: 
         - echo "check TPV5"
         - cd output-tpv5-${precision}
-        - h5diff -v --relative=${eps} --exclude-path /mesh0/clustering --exclude-path /mesh0/connect ./${elastic_domain_file} ./precomputed/${elastic_domain_file}
-        - h5diff -v --relative=${eps} ./${fault_file} ./precomputed/${fault_file}
+          #- h5diff -v --relative=${eps} --exclude-path /mesh0/clustering --exclude-path /mesh0/connect ./${elastic_domain_file} ./precomputed/${elastic_domain_file}
+          #- h5diff -v --relative=${eps} ./${fault_file} ./precomputed/${fault_file}
+        - pwd
 
 
 pages:
