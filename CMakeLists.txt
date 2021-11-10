@@ -44,8 +44,6 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
-# check linker flags for std::filesystem
-include(filesystem)
 
 # Generate version.h
 
@@ -293,6 +291,10 @@ if (WITH_GPU)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
+if (INTEGRATE_QUANTITIES)
+  target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
+endif()
+
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-lib PUBLIC debug
           -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
@@ -352,7 +354,9 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
 endif()
-target_link_libraries(SeisSol-lib PUBLIC ${FILESYSTEM_LIBRARIES})
+
+find_package(FILESYSTEM REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC std::filesystem)
 
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
