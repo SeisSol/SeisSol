@@ -148,8 +148,9 @@ cpu_tpv5_check:
     needs:
         - job: cpu_tpv5_run
     variables:
-        elastic_domain_file: "tpv5_cell.h5"
-        fault_file: "tpv5-fault_cell.h5"
+        elastic_domain_file: "tpv.xdmf"
+        fault_file: "tpv-fault.xdmf"
+        epsilon: "0.05"
     parallel:
         matrix:
             - precision: double
@@ -157,9 +158,9 @@ cpu_tpv5_check:
     script: 
         - echo "check TPV5"
         - cd output-tpv5-${precision}
-          #- h5diff -v --relative=${eps} --exclude-path /mesh0/clustering --exclude-path /mesh0/connect ./${elastic_domain_file} ./precomputed/${elastic_domain_file}
-          #- h5diff -v --relative=${eps} ./${fault_file} ./precomputed/${fault_file}
-        - pwd
+        - pip3 install seissolxdmf
+        - pip3 install h5py
+        - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
 
 pages:

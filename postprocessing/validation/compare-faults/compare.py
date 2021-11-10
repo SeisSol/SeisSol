@@ -6,6 +6,7 @@ import sys
 parser = argparse.ArgumentParser(description='Compare two faults.')
 parser.add_argument('fault', type=str)
 parser.add_argument('fault_ref', type=str)
+parser.add_argument('--epsilon', type=float, default=0.01, required=False)
 
 args = parser.parse_args()
 fault = sx.seissolxdmf(args.fault)
@@ -49,7 +50,10 @@ for i, q in enumerate(quantity_names):
     relative_error = l2_difference(quantity, quantity_ref) / l2_norm(quantity_ref)
     print(f"{q:3}: {relative_error}")
     errors[i] = relative_error
-if np.any(errors > 1e-2):
+
+if np.any(errors > args.epsilon):
+    print(f"Relative error {args.epsilon} exceeded for quantities")
+    print([quantity_names[i] for i in np.where(errors > args.epsilon)[0]])
     sys.exit(1)
 
     
