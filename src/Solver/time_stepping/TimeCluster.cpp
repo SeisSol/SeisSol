@@ -104,30 +104,30 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate),
     // cluster ids
-    m_clusterId(i_clusterId),
-    m_globalClusterId(i_globalClusterId),
     usePlasticity(usePlasticity),
-    layerType(layerType),
-    // global data
     m_globalDataOnHost( i_globalData.onHost ),
     m_globalDataOnDevice(i_globalData.onDevice ),
     m_clusterData(i_clusterData),
+    // global data
     dynRupInteriorData(dynRupInteriorData),
     dynRupCopyData(dynRupCopyData),
     m_lts(i_lts),
     m_dynRup(i_dynRup),
-    // cells
     m_cellToPointSources(nullptr),
     m_numberOfCellToPointSourcesMappings(0),
     m_pointSources(nullptr),
+    // cells
     m_loopStatistics(i_loopStatistics),
+    actorStateStatistics(actorStateStatistics),
     m_receiverCluster(nullptr),
+    layerType(layerType),
     printProgress(printProgress),
-    dynamicRuptureScheduler(dynamicRuptureScheduler),
-    actorStateStatistics(actorStateStatistics)
+    m_clusterId(i_clusterId),
+    m_globalClusterId(i_globalClusterId),
+    dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     // assert all pointers are valid
-    assert( m_clusterData                              != NULL );
+    assert( m_clusterData                              != nullptr );
     assert( m_globalDataOnHost                         != nullptr );
     if constexpr (seissol::isDeviceOn()) {
         assert( m_globalDataOnDevice                   != nullptr );
@@ -744,9 +744,9 @@ void TimeCluster::correct() {
 
   double subTimeStart = ct.correctionTime - lastSubTime;
 
-  // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int
-  // Otherwise, this is an interior layer actor and we need only the FL_Int
-  // We need to avoid to compute it twice.
+  // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
+  // Otherwise, this is an interior layer actor, and we need only the FL_Int.
+  // We need to avoid computing it twice.
   if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
       computeDynamicRupture(*dynRupInteriorData);
@@ -771,12 +771,12 @@ void TimeCluster::correct() {
   // First cluster calls fault receiver output
   // TODO: Change from iteration based to time based
   // TODO(Lukas): Watch out that we use correct timestepSize here
-  // TODO(Lukas) Are we onlyx calling this once?!
+  // TODO(Lukas) Are we only calling this once?!
   if (m_clusterId == 0) {
     e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
   }
 
-  // TODO Use next correction time
+  // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
   if constexpr (USE_MPI) {
     if (printProgress && ((nextCorrectionSteps % 100) == 0)) {
@@ -791,18 +791,6 @@ void TimeCluster::correct() {
 
 void TimeCluster::reset() {
     AbstractTimeCluster::reset();
-    /*
-    // TODO(Lukas) Do we need to do this in this way?
-    for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
-        unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
-        unsigned endSource =
-                m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
-        for (unsigned source = startSource; source < endSource; ++source) {
-            logInfo(MPI::mpi.rank()) << "Resetting " << source;
-            m_pointSources->lastPredictionSteps[source] = -1;
-        }
-    }
-     */
 }
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {

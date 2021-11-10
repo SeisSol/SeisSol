@@ -63,13 +63,9 @@ private:
 
 class ActorStateStatisticsManager {
 public:
-  ActorStateStatisticsManager() = default;;
+  ActorStateStatisticsManager() = default;
   ActorStateStatistics& addCluster(unsigned globalClusterId) {
-    auto& val =  stateStatisticsMap[globalClusterId];
-    std::cout << "Adding cluster " << globalClusterId
-    << " new map length = " << stateStatisticsMap.size()
-    << std::endl;
-    return val;
+    return stateStatisticsMap[globalClusterId];
   }
 
   void addToLoopStatistics(LoopStatistics& loopStatistics) {
