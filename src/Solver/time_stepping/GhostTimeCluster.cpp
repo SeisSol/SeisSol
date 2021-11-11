@@ -40,32 +40,28 @@ void GhostTimeCluster::sendCopyLayer(){
   }
 }
 
-bool GhostTimeCluster::testForGhostLayerReceives(){
-  SCOREP_USER_REGION( "testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION )
-  for (auto receive = receiveQueue.begin(); receive != receiveQueue.end(); ) {
+
+bool GhostTimeCluster::testQueue(std::list<MPI_Request*>& queue) {
+  for (auto request = queue.begin(); request != queue.end(); ) {
     int testSuccess = 0;
-    MPI_Test(*receive, &testSuccess, MPI_STATUS_IGNORE);
+    MPI_Test(*request, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
-      receive = receiveQueue.erase(receive);
+      request = queue.erase(request);
     } else {
-      ++receive;
+      ++request;
     }
   }
-  return receiveQueue.empty();
+  return queue.empty();
 }
+bool GhostTimeCluster::testForGhostLayerReceives(){
+  SCOREP_USER_REGION( "testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION )
+  return testQueue(receiveQueue);
+}
+
 
 bool GhostTimeCluster::testForCopyLayerSends(){
   SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
-  for (auto send = sendQueue.begin(); send != sendQueue.end(); ) {
-    int testSuccess = 0;
-    MPI_Test(*send, &testSuccess, MPI_STATUS_IGNORE);
-    if (testSuccess) {
-        send = sendQueue.erase(send);
-    } else {
-      ++send;
-    }
-  }
-  return sendQueue.empty();
+  return testQueue(sendQueue);
 }
 
 ActResult GhostTimeCluster::act() {

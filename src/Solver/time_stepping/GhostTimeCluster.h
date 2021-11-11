@@ -17,6 +17,8 @@ class GhostTimeCluster : public AbstractTimeCluster {
 
   void sendCopyLayer();
   void receiveGhostLayer();
+
+  bool testQueue(std::list<MPI_Request*>& queue);
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
 
