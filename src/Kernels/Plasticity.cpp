@@ -47,6 +47,7 @@
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
 #include "common.hpp"
+#include "utils/logger.h"
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -62,6 +63,10 @@ namespace seissol::kernels {
                                          PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
+#ifdef MULTIPLE_SIMULATIONS
+    // Todo(SW) find a better solution here
+    logError() << "Multiple simulations do not work with plasticity";
+#else
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0);
@@ -242,6 +247,7 @@ namespace seissol::kernels {
     }
 
     return 0;
+#endif
   }
 
   unsigned Plasticity::computePlasticityBatched(double oneMinusIntegratingFactor,
