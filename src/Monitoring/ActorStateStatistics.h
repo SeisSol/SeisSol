@@ -69,9 +69,9 @@ public:
   }
 
   void addToLoopStatistics(LoopStatistics& loopStatistics) {
-    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Synced));
-    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Corrected));
-    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Predicted));
+    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Synced), false);
+    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Corrected), false);
+    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Predicted), false);
 
     for (auto& [globalClusterId, stateStatistics] : stateStatisticsMap) {
       stateStatistics.addToLoopStatistics(globalClusterId, loopStatistics);

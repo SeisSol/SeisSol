@@ -55,10 +55,11 @@
 namespace seissol {
 class LoopStatistics {
 public:
-  void addRegion(std::string const& name) {
+  void addRegion(std::string const& name, bool includeInSummary = true) {
     m_regions.push_back(name);
     m_begin.push_back(timespec{});
-    m_times.push_back(std::vector<Sample>{});
+    m_times.emplace_back();
+    m_includeInSummary.push_back(includeInSummary);
   }
   
   unsigned getRegion(std::string const& name) {
@@ -108,6 +109,7 @@ private:
   std::vector<timespec> m_begin;
   std::vector<std::string> m_regions;
   std::vector<std::vector<Sample>> m_times;
+  std::vector<bool> m_includeInSummary;
 };
 }
 

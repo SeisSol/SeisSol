@@ -76,7 +76,10 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     sums[5*region + 2] = xy;
     sums[5*region + 3] = y;
     sums[5*region + 4] = N;
-    totalTimePerRank += y;
+    // Make sure that events that lead to duplicate accounting are ignored
+    if (m_includeInSummary[region]) {
+      totalTimePerRank += y;
+    }
   }
 
   int rank;
