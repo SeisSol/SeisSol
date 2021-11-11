@@ -29,9 +29,9 @@ The most important scripts are:
    The fault trace is resampled, smoothed, and extended using either a constant, a depth-varying, or an along-strike varying dip. 
 - ``create_surface_from_rectilinear_grid.py`` allows creating a meshed surface from a (possibly sparse, e.g. Slab2.0 dataset) structured dataset (e.g. netcdf).
 -  ``create_surface_from_structured_grid.py`` allows creating a meshed surface from structured grid of nodes.
-Vertices in a row or a column do not necessary share the same x and y values (non rectilinear grid).
+   Vertices in a row or a column do not necessary share the same x and y values (non rectilinear grid).
 -  ``surface_from_one_dim_structured_grid.py`` allows creating a meshed surface from a partially structured grid of nodes.
-The point set should consist of serveral lines of nodes of same y (or x, depending on args.axis) coordinates.
+   The point set should consist of serveral lines of nodes of same y (or x, depending on args.axis) coordinates.
    Contrary to ``create_surface_from_structured_grid.py``, the number of nodes on a line (resp. on a column) is not necessarily constant.
    On the other hand, the lines (resp. the columns) of the point cloud should share constant ordinates (resp. abscissa).
 -  ``convertTs.py`` allows converting the geometric model from Gocad into another supported format (e.g. stl, bstl).

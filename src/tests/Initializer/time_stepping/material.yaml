@@ -1,4 +1,14 @@
-!Any
+!Switch
+[rho_fluid,bulk_fluid,bulk_solid,porosity,tortuosity,permeability,viscosity]: !ConstantMap
+  map:
+    rho_fluid:       1.0
+    bulk_fluid:      1.0
+    bulk_solid:      2.0
+    porosity:        0.2
+    tortuosity:      6
+    permeability:    6.0e-13
+    viscosity:       0.0
+[rho, mu, lambda]: !Any
   components:
     - !AxisAlignedCuboidalDomainFilter
       limits: 
@@ -10,9 +20,22 @@
           lambda: 1.e10
           mu:     1.e10
           rho:    2500
+          
     - !ConstantMap
       map:
         lambda: 3.e10
         mu:     3.e10
         rho:    1000
+
+  rho_fluid:       1.0
+  bulk_fluid:      1.0
+  rho:             2.0
+  bulk_solid:      2.0
+  lambda:          1.0
+  mu:              1.0
+  porosity:        0.2
+  tortuosity:      6
+  permeability:    6.0e-13
+  viscosity:       0.0
+
 

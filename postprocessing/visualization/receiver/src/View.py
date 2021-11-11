@@ -233,7 +233,7 @@ class View(QWidget):
       if defaultFiletype in extensions:
         selectedFilter = filtr
       filters.append(filtr)
-    fileName, filtr = QFileDialog.getSaveFileNameAndFilter(self, 'Choose a save location.', '', ';;'.join(filters), selectedFilter)
+    fileName, filtr = QFileDialog.getSaveFileName(self, 'Choose a save location.', '', ';;'.join(filters), selectedFilter)
     fileName = os.path.splitext(str(fileName))[0]
     extension = re.search(r'\*(\.[a-zA-Z]+)', str(filtr)).group(1)
     

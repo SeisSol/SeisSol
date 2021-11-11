@@ -61,60 +61,74 @@ long long g_SeisSolHardwareFlopsDynamicRupture = 0;
 long long g_SeisSolNonZeroFlopsPlasticity = 0;
 long long g_SeisSolHardwareFlopsPlasticity = 0;
 
-// prevent name mangling
-extern "C" {
-  void printNodePerformance(double wallTime) {
-    const int rank = seissol::MPI::mpi.rank();
-    long long flops = g_SeisSolHardwareFlopsLocal
-                    + g_SeisSolHardwareFlopsNeighbor 
+void printPerformance(double wallTime) {
+  const int rank = seissol::MPI::mpi.rank();
+  const long long flops = g_SeisSolHardwareFlopsLocal
+                    + g_SeisSolHardwareFlopsNeighbor
                     + g_SeisSolHardwareFlopsOther
                     + g_SeisSolHardwareFlopsDynamicRupture
                     + g_SeisSolHardwareFlopsPlasticity;
-    logInfo(rank) << flops * 1.e-9 / wallTime << "GFLOPS on rank" << rank;
+  const double gflopsPerSecond = flops * 1.e-9 / wallTime;
+
+
+  double flopsSum = 0;
+  MPI_Reduce(
+      &gflopsPerSecond,
+      &flopsSum,
+      1,
+      MPI_DOUBLE,
+      MPI_SUM,
+      0,
+      seissol::MPI::mpi.comm()
+  );
+  if (rank == 0) {
+    const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
+    logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS"
+    << "(rank 0:" << gflopsPerSecond << "GFLOPS, average over ranks:" << flopsPerRank << "GFLOPS)";
   }
+}
   
-  /**
-   * Prints the measured FLOPS.
-   */
-  void printFlops() {
-    const int rank = seissol::MPI::mpi.rank();
-    
-    enum Counter {
-      Libxsmm = 0,
-      WPNonZeroFlops,
-      WPHardwareFlops,
-      DRNonZeroFlops,
-      DRHardwareFlops,
-      PLNonZeroFlops,
-      PLHardwareFlops,
-      NUM_COUNTERS
-    };
-    
-    double flops[NUM_COUNTERS];
-    
-    flops[Libxsmm]          = libxsmm_num_total_flops;
-    flops[WPNonZeroFlops]   = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
-    flops[WPHardwareFlops]  = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
-    flops[DRNonZeroFlops]   = g_SeisSolNonZeroFlopsDynamicRupture;
-    flops[DRHardwareFlops]  = g_SeisSolHardwareFlopsDynamicRupture;
-    flops[PLNonZeroFlops]   = g_SeisSolNonZeroFlopsPlasticity;
-    flops[PLHardwareFlops]  = g_SeisSolHardwareFlopsPlasticity;
+/**
+ * Prints the measured FLOPS.
+ */
+void printFlops() {
+  const int rank = seissol::MPI::mpi.rank();
+
+  enum Counter {
+    Libxsmm = 0,
+    WPNonZeroFlops,
+    WPHardwareFlops,
+    DRNonZeroFlops,
+    DRHardwareFlops,
+    PLNonZeroFlops,
+    PLHardwareFlops,
+    NUM_COUNTERS
+  };
+
+  double flops[NUM_COUNTERS];
+
+  flops[Libxsmm]          = libxsmm_num_total_flops;
+  flops[WPNonZeroFlops]   = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
+  flops[WPHardwareFlops]  = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
+  flops[DRNonZeroFlops]   = g_SeisSolNonZeroFlopsDynamicRupture;
+  flops[DRHardwareFlops]  = g_SeisSolHardwareFlopsDynamicRupture;
+  flops[PLNonZeroFlops]   = g_SeisSolNonZeroFlopsPlasticity;
+  flops[PLHardwareFlops]  = g_SeisSolHardwareFlopsPlasticity;
 
 #ifdef USE_MPI
-    double totalFlops[NUM_COUNTERS];
-    MPI_Reduce(&flops, &totalFlops, NUM_COUNTERS, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  double totalFlops[NUM_COUNTERS];
+  MPI_Reduce(&flops, &totalFlops, NUM_COUNTERS, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #else
-    double* totalFlops = &flops[0];
+  double* totalFlops = &flops[0];
 #endif
 
-    logInfo(rank) << "Total   measured HW-GFLOP: " << totalFlops[Libxsmm] * 1.e-9;
-    logInfo(rank) << "Total calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops]) * 1.e-9;
-    logInfo(rank) << "Total calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops]  + totalFlops[DRNonZeroFlops]  + totalFlops[PLNonZeroFlops] ) * 1.e-9;
-    logInfo(rank) << "WP calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops]) * 1.e-9;
-    logInfo(rank) << "WP calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops])  * 1.e-9;
-    logInfo(rank) << "DR calculated HW-GFLOP: " << (totalFlops[DRHardwareFlops]) * 1.e-9;
-    logInfo(rank) << "DR calculated NZ-GFLOP: " << (totalFlops[DRNonZeroFlops])  * 1.e-9;
-    logInfo(rank) << "PL calculated HW-GFLOP: " << (totalFlops[PLHardwareFlops]) * 1.e-9;
-    logInfo(rank) << "PL calculated NZ-GFLOP: " << (totalFlops[PLNonZeroFlops])  * 1.e-9;
-  }
+  logInfo(rank) << "Total   measured HW-GFLOP: " << totalFlops[Libxsmm] * 1.e-9;
+  logInfo(rank) << "Total calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops]) * 1.e-9;
+  logInfo(rank) << "Total calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops]  + totalFlops[DRNonZeroFlops]  + totalFlops[PLNonZeroFlops] ) * 1.e-9;
+  logInfo(rank) << "WP calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops]) * 1.e-9;
+  logInfo(rank) << "WP calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops])  * 1.e-9;
+  logInfo(rank) << "DR calculated HW-GFLOP: " << (totalFlops[DRHardwareFlops]) * 1.e-9;
+  logInfo(rank) << "DR calculated NZ-GFLOP: " << (totalFlops[DRNonZeroFlops])  * 1.e-9;
+  logInfo(rank) << "PL calculated HW-GFLOP: " << (totalFlops[PLHardwareFlops]) * 1.e-9;
+  logInfo(rank) << "PL calculated NZ-GFLOP: " << (totalFlops[PLNonZeroFlops])  * 1.e-9;
 }

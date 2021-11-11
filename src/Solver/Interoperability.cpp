@@ -107,7 +107,9 @@ extern "C" {
   }
 
   void c_interoperability_setupFSRMPointSources( double*  momentTensor,
-                                                 double*  velocityComponent,
+                                                 double*  solidVelocityComponent,
+                                                 double*  pressureComponent,
+                                                 double*  fluidVelocityComponent,
                                                  int      numberOfSources,
                                                  double*  centres,
                                                  double*  strikes,
@@ -120,7 +122,9 @@ extern "C" {
                                                  double*  timeHistories )
   {
     e_interoperability.setupFSRMPointSources( momentTensor,
-                                              velocityComponent,
+                                              solidVelocityComponent,
+                                              pressureComponent,
+                                              fluidVelocityComponent,
                                               numberOfSources,
                                               centres,
                                               strikes,
@@ -137,6 +141,7 @@ extern "C" {
                                             int     anelasticity,
                                             int     plasticity,
                                             int     anisotropy,
+                                            int     poroelasticity,
                                             double* materialVal,
                                             double* bulkFriction,
                                             double* plastCo,
@@ -147,6 +152,7 @@ extern "C" {
                                         anelasticity,
                                         plasticity,
                                         anisotropy,
+                                        poroelasticity,
                                         materialVal,
                                         bulkFriction,
                                         plastCo,
@@ -235,11 +241,11 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
+		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
       double receiverSamplingInterval, double receiverSyncInterval) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
+			numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
       receiverSamplingInterval, receiverSyncInterval);
   }
@@ -505,7 +511,9 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 #endif
 
 void seissol::Interoperability::setupFSRMPointSources( double const* momentTensor,
-                                                       double const* velocityComponent,
+                                                       double const* solidVelocityComponent,
+                                                       double const* pressureComponent,
+                                                       double const* fluidVelocityComponent,
                                                        int           numberOfSources,
                                                        double const* centres,
                                                        double const* strikes,
@@ -519,7 +527,9 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
 {
   SeisSol::main.sourceTermManager().loadSourcesFromFSRM(
     momentTensor,
-    velocityComponent,
+    solidVelocityComponent,
+    pressureComponent,
+    fluidVelocityComponent,
     numberOfSources,
     centres,
     strikes,
@@ -542,6 +552,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   bool    anelasticity,
                                                   bool    plasticity,
                                                   bool    anisotropy,
+                                                  bool    poroelasticity,
                                                   double* materialVal,
                                                   double* bulkFriction,
                                                   double* plastCo,
@@ -554,8 +565,8 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   // elastoplastic materials
   // viscoplastic materials
   // anisotropic elastic materials
+  // poroelastic material
   
-
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
@@ -573,16 +584,16 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     parameterDB.setMaterialVector(&materials);
     parameterDB.evaluateModel(std::string(materialFileName), queryGen);
     for (unsigned int i = 0; i < nElements; i++) {
-      materialVal[i] = materials[i].rho;
-      materialVal[nElements + i] = materials[i].c11;
-      materialVal[2*nElements + i] = materials[i].c12;
-      materialVal[3*nElements + i] = materials[i].c13;
-      materialVal[4*nElements + i] = materials[i].c14;
-      materialVal[5*nElements + i] = materials[i].c15;
-      materialVal[6*nElements + i] = materials[i].c16;
-      materialVal[7*nElements + i] = materials[i].c22;
-      materialVal[8*nElements + i] = materials[i].c23;
-      materialVal[9*nElements + i] = materials[i].c24;
+      materialVal[i] =                materials[i].rho;
+      materialVal[nElements + i] =    materials[i].c11;
+      materialVal[2*nElements + i] =  materials[i].c12;
+      materialVal[3*nElements + i] =  materials[i].c13;
+      materialVal[4*nElements + i] =  materials[i].c14;
+      materialVal[5*nElements + i] =  materials[i].c15;
+      materialVal[6*nElements + i] =  materials[i].c16;
+      materialVal[7*nElements + i] =  materials[i].c22;
+      materialVal[8*nElements + i] =  materials[i].c23;
+      materialVal[9*nElements + i] =  materials[i].c24;
       materialVal[10*nElements + i] = materials[i].c25;
       materialVal[11*nElements + i] = materials[i].c26;
       materialVal[12*nElements + i] = materials[i].c33;
@@ -595,6 +606,27 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       materialVal[19*nElements + i] = materials[i].c55;
       materialVal[20*nElements + i] = materials[i].c56;
       materialVal[21*nElements + i] = materials[i].c66;
+      calcWaveSpeeds(&materials[i], i);
+    }
+  } else if (poroelasticity) {
+    if(anelasticity || plasticity) {
+      logError() << "Poroelasticity can not be combined with anelasticity or plasticity";
+    }
+    auto materials = std::vector<seissol::model::PoroElasticMaterial>(nElements);
+    seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial> parameterDB;
+    parameterDB.setMaterialVector(&materials);
+    parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+    for (unsigned int i = 0; i < nElements; i++) {
+      materialVal[i] =                materials[i].bulkSolid;
+      materialVal[nElements + i] =    materials[i].rho;
+      materialVal[2*nElements + i] =  materials[i].lambda;   
+      materialVal[3*nElements + i] =  materials[i].mu;       
+      materialVal[4*nElements + i] =  materials[i].porosity; 
+      materialVal[5*nElements + i] =  materials[i].permeability;
+      materialVal[6*nElements + i] =  materials[i].tortuosity;
+      materialVal[7*nElements + i] =  materials[i].bulkFluid;
+      materialVal[8*nElements + i] =  materials[i].rhoFluid;
+      materialVal[9*nElements + i] =  materials[i].viscosity; 
       calcWaveSpeeds(&materials[i], i);
     }
   } else {
@@ -703,6 +735,8 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
   new(material) seissol::model::AnisotropicMaterial(i_materialVal, i_numMaterialVals);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
   new(material) seissol::model::ViscoElasticMaterial(i_materialVal, i_numMaterialVals);
+#elif defined USE_POROELASTIC
+  new(material) seissol::model::PoroElasticMaterial(i_materialVal, i_numMaterialVals);
 #else 
   new(material) seissol::model::ElasticMaterial(i_materialVal, i_numMaterialVals);
 #endif
@@ -744,7 +778,8 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
   seissol::initializers::initializeCellLocalMatrices( meshReader,
                                                       m_ltsTree,
                                                       m_lts,
-                                                      &m_ltsLut );
+                                                      &m_ltsLut,
+                                                      m_timeStepping);
 
   initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
   seissol::initializers::initializeDynamicRuptureMatrices( meshReader,
@@ -851,7 +886,7 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
 void seissol::Interoperability::initializeIO(
 		double* mu, double* slipRate1, double* slipRate2,
 		double* slip, double* slip1, double* slip2, double* state, double* strength,
-		int numSides, int numBndGP, int refinement, int* outputMask,
+		int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
 		double* outputRegionBounds,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
     char const* xdmfWriterBackend,
@@ -891,7 +926,7 @@ void seissol::Interoperability::initializeIO(
       reinterpret_cast<const real*>(m_ltsTree->var(m_lts->pstrain)),
       seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
       m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-      refinement, outputMask, outputRegionBounds,
+      refinement, outputMask, plasticityMask, outputRegionBounds,
       type);
 
 	// Initialize free surface output

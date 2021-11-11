@@ -471,8 +471,10 @@ CONTAINS
     case(42)
       call c_interoperability_setupNRFPointSources(trim(SOURCE%NRFFileName) // c_null_char)
     case(50)
-      call c_interoperability_setupFSRMPointSources( momentTensor      = SOURCE%RP%MomentTensor,      &
-                                                     velocityComponent = SOURCE%RP%VelocityComponent, &
+      call c_interoperability_setupFSRMPointSources( momentTensor           = SOURCE%RP%MomentTensor,      &
+                                                     solidVelocityComponent = SOURCE%RP%SolidVelocityComponent, &
+                                                     pressureComponent      = SOURCE%RP%PressureComponent, &
+                                                     fluidVelocityComponent = SOURCE%RP%FluidVelocityComponent, &
                                                      numberOfSources   = SOURCE%RP%nSbfs(1),          &
                                                      centres           = SOURCE%RP%SpacePosition,     &
                                                      strikes           = SOURCE%RP%Strks,             &
@@ -854,11 +856,10 @@ CONTAINS
 
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem),&
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem),&
                DISC%Galerkin%PlasticParameters(4,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
         !Initialization
         DISC%Galerkin%DOFStress = 0.
-        DISC%Galerkin%pstrain = 0.
         DISC%Galerkin%PlasticParameters = 0.
         DISC%Galerkin%Strain_Matrix = 0.
 

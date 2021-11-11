@@ -14,6 +14,8 @@ Planar wave
 
 A planar wave for convergence tests.
 The inital values are computed such that a planar wave in a unit cube is imposed.
+For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave travelling in opposite directions.
+For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
 This scenario needs periodic boundary conditions to make sense.
 This is the only case where the old netcdf mesh format is prefered.
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.

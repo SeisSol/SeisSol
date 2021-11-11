@@ -4,4 +4,4 @@ jobs:
       parameters:
           build_types: ['Release', 'Debug']
           precisions: ['single', 'double']
-          equations: ['elastic', 'anisotropic', 'viscoelastic2']
+          equations: ['elastic', 'anisotropic', 'viscoelastic2', 'poroelastic']

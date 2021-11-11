@@ -347,7 +347,8 @@ MODULE TypesDef
                                                      !< 4 = rec RK DG
                                                      !< 5 = Nonlinear ADER DG
                                                      !< 6 = local RK-DG, ADD eqn.
-    integer           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
+    INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
+    INTEGER           :: ltsWeightTypeId             !< 0 = exponential, 1 = balanced exponential, 2 = encoded
     INTEGER           :: CKMethod                    !< 0 = regular CK
                                                      !< 1 = local space-time DG
                                                      !<
@@ -648,6 +649,10 @@ MODULE TypesDef
      REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
      REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
      REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
+     REAL, allocatable                      :: RuptureOnset(:,:)                !< FL33,34 input parameter (rupture onset time of the source time function)
+     REAL, allocatable                      :: YoffeTS(:,:)                     !< FL33 input parameter (ts, related with the acceleration time of the Yoffe function)
+     REAL, allocatable                      :: YoffeTR(:,:)                     !< FL33 input parameter (tr, related with the effective rise time of the Yoffe function)
+     REAL, allocatable                      :: RuptureRiseTime(:,:)             !< FL34 input parameter (rupture effective rise time)
      REAL                                   :: t_0                              !< forced rupture decay time
      REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
@@ -1088,6 +1093,9 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
+     INTEGER                                :: PlasticityMask(7)                !< Mask for variable output
+                                                                                !< .TRUE.  = do output for this variable
+                                                                                !< .FALSE. = do no output for this variable
      LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
                                                                                 !< .TRUE.  = integrate and output for this variable
                                                                                 !< .FALSE. = do not integrate and output for this variable
@@ -1328,7 +1336,9 @@ MODULE TypesDef
      REAL, POINTER                   :: n_dip(:)                                !< Normal vector along dip
      REAL, POINTER                   :: corner(:)                               !< Position of the top left corner of the rupture plane
      REAL                            :: MomentTensor(3,3)                       !< The seismic moment tensor
-     REAL                            :: VelocityComponent(3)                    !< The source velocity component
+     REAL                            :: SolidVelocityComponent(3)               !< The source solid velocity component
+     REAL                            :: PressureComponent(1)                    !< The source pressure component
+     REAL                            :: FluidVelocityComponent(3)               !< The source fluid velocity component
      REAL                            :: TensorRotation(3,3)                     !< The rotation matrix of the moment tensor
      REAL                            :: TensorRotationT(3,3)                    !< The transpose rotation matrix of the moment tensor
      REAL, POINTER                   :: TWindowStart(:)                         !< Point in Time when a Time Window starts
