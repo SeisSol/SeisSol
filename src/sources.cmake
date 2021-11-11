@@ -76,7 +76,6 @@ src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 
 # Fortran:
-src/Monitoring/bindMonitoring.f90
 src/Geometry/allocate_mesh.f90
 src/Geometry/MeshReaderCBinding.f90
 src/Solver/close_seissol.f90
@@ -160,7 +159,8 @@ endif()
 if (HDF5 AND METIS AND MPI)
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/LtsWeights.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/WeightsModels.cpp
     )
 endif()
 

@@ -228,11 +228,11 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
+		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
       double receiverSamplingInterval, double receiverSyncInterval) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
+			numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
       receiverSamplingInterval, receiverSyncInterval);
   }
@@ -894,7 +894,7 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
 void seissol::Interoperability::initializeIO(
 		double* mu, double* slipRate1, double* slipRate2,
 		double* slip, double* slip1, double* slip2, double* state, double* strength,
-		int numSides, int numBndGP, int refinement, int* outputMask,
+		int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
 		double* outputRegionBounds,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
     char const* xdmfWriterBackend,
@@ -934,7 +934,7 @@ void seissol::Interoperability::initializeIO(
       reinterpret_cast<const real*>(m_ltsTree->var(m_lts->pstrain)),
       seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
       m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-      refinement, outputMask, outputRegionBounds,
+      refinement, outputMask, plasticityMask, outputRegionBounds,
       type);
 
 	// Initialize free surface output
