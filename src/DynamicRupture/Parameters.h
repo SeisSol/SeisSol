@@ -55,53 +55,54 @@ struct seissol::dr::DRParameters {
 inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node& params) {
   DRParameters drParameters;
   const YAML::Node& yamlParams = params["dynamicrupture"];
+  
+  if (Params["dynamicrupture"]) {
+    double xref = 0.0;
+    initializers::updateIfExists(yamlParams, "xref", xref);
+    double yref = 0.0;
+    initializers::updateIfExists(yamlParams, "yref", yref);
+    double zref = 0.0;
+    initializers::updateIfExists(yamlParams, "zref", zref);
+    drParameters.referencePoint = {xref, yref, zref};
 
-  double xref = 0.0;
-  initializers::updateIfExists(yamlParams, "xref", xref);
-  double yref = 0.0;
-  initializers::updateIfExists(yamlParams, "yref", yref);
-  double zref = 0.0;
-  initializers::updateIfExists(yamlParams, "zref", zref);
-  drParameters.referencePoint = {xref, yref, zref};
+    initializers::updateIfExists(yamlParams, "outputpointtype", drParameters.outputPointType);
+    initializers::updateIfExists(yamlParams, "sliprateoutputtype", drParameters.slipRateOutputType);
+    initializers::updateIfExists(yamlParams, "fl", drParameters.frictionLawType);
+    initializers::updateIfExists(yamlParams, "backgroundtype", drParameters.backgroundType);
+    initializers::updateIfExists(yamlParams, "rf_output_on", drParameters.isRfOutputOn);
+    initializers::updateIfExists(yamlParams, "ds_output_on", drParameters.isDsOutputOn);
+    initializers::updateIfExists(yamlParams, "magnitude_output_on", drParameters.isMagnitudeOutputOn);
+    initializers::updateIfExists(
+        yamlParams, "energy_rate_output_on", drParameters.isEnergyRateOutputOn);
+    initializers::updateIfExists(yamlParams, "gpwise", drParameters.isGpWiseInitialization);
+    initializers::updateIfExists(yamlParams, "thermalpress", drParameters.isThermalPressureOn);
+    initializers::updateIfExists(
+        yamlParams, "energy_rate_printtimeinterval", drParameters.backgroundType);
+    initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
+    initializers::updateIfExists(yamlParams, "t_0", drParameters.t_0);
+    initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rs_f0);
+    initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
+    initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
+    initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rs_sr0);
+    initializers::updateIfExists(yamlParams, "rs_inisliprate1", drParameters.rs_initialSlipRate1);
+    initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rs_initialSlipRate2);
+    initializers::updateIfExists(yamlParams, "mu_w", drParameters.mu_w);
 
-  initializers::updateIfExists(yamlParams, "outputpointtype", drParameters.outputPointType);
-  initializers::updateIfExists(yamlParams, "sliprateoutputtype", drParameters.slipRateOutputType);
-  initializers::updateIfExists(yamlParams, "fl", drParameters.frictionLawType);
-  initializers::updateIfExists(yamlParams, "backgroundtype", drParameters.backgroundType);
-  initializers::updateIfExists(yamlParams, "rf_output_on", drParameters.isRfOutputOn);
-  initializers::updateIfExists(yamlParams, "ds_output_on", drParameters.isDsOutputOn);
-  initializers::updateIfExists(yamlParams, "magnitude_output_on", drParameters.isMagnitudeOutputOn);
-  initializers::updateIfExists(
-      yamlParams, "energy_rate_output_on", drParameters.isEnergyRateOutputOn);
-  initializers::updateIfExists(yamlParams, "gpwise", drParameters.isGpWiseInitialization);
-  initializers::updateIfExists(yamlParams, "thermalpress", drParameters.isThermalPressureOn);
-  initializers::updateIfExists(
-      yamlParams, "energy_rate_printtimeinterval", drParameters.backgroundType);
-  initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
-  initializers::updateIfExists(yamlParams, "t_0", drParameters.t_0);
-  initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rs_f0);
-  initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
-  initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
-  initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rs_sr0);
-  initializers::updateIfExists(yamlParams, "rs_inisliprate1", drParameters.rs_initialSlipRate1);
-  initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rs_initialSlipRate2);
-  initializers::updateIfExists(yamlParams, "mu_w", drParameters.mu_w);
+    // Thermal Pressurisation parameters
+    initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alpha_th);
+    initializers::updateIfExists(yamlParams, "rho_c", drParameters.rho_c);
+    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tP_lambda);
+    initializers::updateIfExists(yamlParams, "initemp", drParameters.iniTemp);
+    initializers::updateIfExists(yamlParams, "inipressure", drParameters.iniPressure);
 
-  // Thermal Pressurisation parameters
-  initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alpha_th);
-  initializers::updateIfExists(yamlParams, "rho_c", drParameters.rho_c);
-  initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tP_lambda);
-  initializers::updateIfExists(yamlParams, "initemp", drParameters.iniTemp);
-  initializers::updateIfExists(yamlParams, "inipressure", drParameters.iniPressure);
+    // Prakash-Clifton regularization parameters
+    initializers::updateIfExists(yamlParams, "v_star", drParameters.v_star);
+    initializers::updateIfExists(yamlParams, "L", drParameters.prakash_length);
 
-  // Prakash-Clifton regularization parameters
-  initializers::updateIfExists(yamlParams, "v_star", drParameters.v_star);
-  initializers::updateIfExists(yamlParams, "L", drParameters.prakash_length);
-
-  // filename of the yaml file describing the fault parameters
-  initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);
+    // filename of the yaml file describing the fault parameters
+    initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);
+  }
 
   return drParameters;
 }
-
 #endif // SEISSOL_PARAMETERS_H
