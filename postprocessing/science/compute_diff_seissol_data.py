@@ -134,7 +134,7 @@ parser.add_argument(
     nargs="+",
     required=True,
     metavar=("variable"),
-    help="Data to differenciate (example SRs)",
+    help="Data to differenciate (example SRs); all for all stored quantities",
 )
 parser.add_argument(
     "--ratio",
@@ -167,7 +167,19 @@ if args.idt[0] == -1:
     args.idt = list(range(0, sx1.ndt))
 
 aData = []
-for dataname in args.Data:
+if args.Data == ["all"]:
+    variable_names = set()
+    for elem in sx1.tree.iter():
+        if elem.tag == "Attribute":
+            variable_names.add(elem.get("Name"))
+    for elem in sx2.tree.iter():
+        if elem.tag == "Attribute":
+            variable_names.add(elem.get("Name"))
+    variable_names.remove("partition")
+else:
+    variable_names = args.Data
+
+for dataname in variable_names:
     print(dataname)
     myData1 = read_reshape2d(sx1, dataname)
     myData2 = read_reshape2d(sx2, dataname)
@@ -197,5 +209,5 @@ try:
     dt = sx1.ReadTimeStep()
 except NameError:
     dt = 0.0
-out_names = ["diff_" + name for name in args.Data]
+out_names = ["diff_" + name for name in variable_names]
 sw.write_seissol_output(fname, geom1, connect1, out_names, aData, dt, args.idt)
