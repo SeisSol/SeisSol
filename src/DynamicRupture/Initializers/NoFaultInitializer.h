@@ -7,11 +7,15 @@ namespace seissol::dr::initializers {
 class NoFaultInitializer; // NoFaultFL0
 }
 
-// does not need implementation, inherits everything from BaseDR
+/**
+ * Derived initializer class for the NoFault friction law
+ * does nothing in particular
+ */
 class seissol::dr::initializers::NoFaultInitializer
     : public seissol::dr::initializers::BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
+  using BaseDRInitializer::initializeFault;
 };
 
 #endif // SEISSOL_NOFAULTINITIALIZER_H

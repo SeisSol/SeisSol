@@ -89,13 +89,13 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     for (const auto& parameterStoragePair : parameterToStorageMap) {
       faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
     }
-    const auto faceIDs = getFaceIDsInIterator(it, dynRup);
+    const auto faceIDs = getFaceIDsInIterator(dynRup, it);
     queryModel(faultParameterDB, faceIDs);
 
     // rotate initial stress to fault coordinate system
     real(*initialStressInFaultCS)[numPaddedPoints][6] = it->var(dynRup->initialStressInFaultCS);
-    rotateStressToFaultCS(it,
-                          dynRup,
+    rotateStressToFaultCS(dynRup,
+                          it,
                           initialStressInFaultCS,
                           iniBulkXX,
                           iniBulkYY,
@@ -107,7 +107,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*nucleationStressInFaultCS)[numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(
-        it, dynRup, nucleationStressInFaultCS, nucXX, nucYY, nucZZ, nucXY, nucYZ, nucXZ);
+        dynRup, it, nucleationStressInFaultCS, nucXX, nucYY, nucZZ, nucXY, nucYZ, nucXZ);
     delete[] nucXX;
     delete[] nucYY;
     delete[] nucZZ;
@@ -178,8 +178,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
 }
 
 std::vector<unsigned>
-    BaseDRInitializer::getFaceIDsInIterator(seissol::initializers::LTSTree::leaf_iterator& it,
-                                            seissol::initializers::DynamicRupture* dynRup) {
+    BaseDRInitializer::getFaceIDsInIterator(seissol::initializers::DynamicRupture* dynRup,
+                                            seissol::initializers::LTSTree::leaf_iterator& it) {
   const auto& drFaceInformation = it->var(dynRup->faceInformation);
   std::vector<unsigned> faceIDs;
   // collect all face IDs within this lts leaf
@@ -203,15 +203,15 @@ void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faul
   faultParameterDB.evaluateModel(drParameters.faultFileName, queryGen);
 }
 
-void BaseDRInitializer::rotateStressToFaultCS(seissol::initializers::LTSTree::leaf_iterator& it,
-                                              seissol::initializers::DynamicRupture* dynRup,
-                                              real (*initialStressInFaultCS)[52][6],
-                                              real (*stressXX)[52],
-                                              real (*stressYY)[52],
-                                              real (*stressZZ)[52],
-                                              real (*stressXY)[52],
-                                              real (*stressYZ)[52],
-                                              real (*stressXZ)[52]) {
+void BaseDRInitializer::rotateStressToFaultCS(seissol::initializers::DynamicRupture* dynRup,
+                                              seissol::initializers::LTSTree::leaf_iterator& it,
+                                              real (*stressInFaultCS)[numPaddedPoints][6],
+                                              real (*stressXX)[numPaddedPoints],
+                                              real (*stressYY)[numPaddedPoints],
+                                              real (*stressZZ)[numPaddedPoints],
+                                              real (*stressXY)[numPaddedPoints],
+                                              real (*stressYZ)[numPaddedPoints],
+                                              real (*stressXZ)[numPaddedPoints]) {
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
@@ -226,7 +226,7 @@ void BaseDRInitializer::rotateStressToFaultCS(seissol::initializers::LTSTree::le
           stressXY[ltsFace][j], stressYZ[ltsFace][j], stressXZ[ltsFace][j];
       Eigen::Vector<double, 6> rotatedStress = rotationMatrix * stress;
       for (int k = 0; k < 6; ++k) {
-        initialStressInFaultCS[ltsFace][j][k] = rotatedStress(k);
+        stressInFaultCS[ltsFace][j][k] = rotatedStress(k);
       }
     }
   }

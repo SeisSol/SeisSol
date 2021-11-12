@@ -12,9 +12,9 @@
  * should be replaced fully implemented C++ output writer
  */
 namespace seissol::dr::output {
-class OutputBase;                // abstract class, implements output that all FLs have in common
+class OutputBase; // abstract class, implements output that all FLs have in common
 class OutputNoFault;
-class OutputLinearSlipWeakening; // for linear slip laws FL2, FL16
+class OutputLinearSlipWeakening;               // for linear slip laws FL2, FL16
 class OutputLinearSlipWeakeningBimaterial;     // extends output for strength output
 class OutputRateAndState;                      // output for rate and state friction laws
 class OutputRateAndStateThermalPressurisation; // output for rate and state Friction laws with
@@ -121,7 +121,7 @@ class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::outpu
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
-    //do nothing
+    // do nothing
   }
 };
 
@@ -135,7 +135,7 @@ class seissol::dr::output::OutputImposedSlipRates : public seissol::dr::output::
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
-    //do nothing
+    // do nothing
   }
 };
 
@@ -170,7 +170,7 @@ class seissol::dr::output::OutputRateAndState : public OutputBase {
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
-    //do nothing
+    // do nothing
   }
 };
 
@@ -206,10 +206,10 @@ class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
 };
 
 class seissol::dr::output::OutputRateAndStateThermalPressurisation : public OutputRateAndState {
-public:
+  public:
   using OutputRateAndState::OutputRateAndState;
-  using OutputRateAndState::tiePointers;
   using OutputRateAndState::postCompute;
+  using OutputRateAndState::tiePointers;
 };
 
 #endif // SEISSOL_OUTPUT_H
