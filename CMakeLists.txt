@@ -44,6 +44,8 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
+# check linker flags for std::filesystem
+include(filesystem)
 
 # Generate version.h
 
@@ -292,6 +294,10 @@ if (WITH_GPU)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 endif()
 
+if (INTEGRATE_QUANTITIES)
+  target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
+endif()
+
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-lib PUBLIC debug
           -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
@@ -484,7 +490,7 @@ if (TESTING)
 endif()
 
 
-#adrian
+#TODO: Remove cellaverage
 if (DYNAMIC_RUPTURE_METHOD STREQUAL "quadrature")
   target_compile_definitions(SeisSol-lib PUBLIC DR_METHOD=0)
 elseif (DYNAMIC_RUPTURE_METHOD STREQUAL "cellaverage")

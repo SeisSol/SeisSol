@@ -74,7 +74,6 @@ CONTAINS
     USE MPIExchangeValues_mod
 #endif
     use iso_c_binding, only: c_loc
-    use monitoring
     use f_ftoc_bind_interoperability
 
     !--------------------------------------------------------------------------
