@@ -2,6 +2,7 @@
 #
 #  FILESYSTEM_FOUND       - system has std::filesystem
 #  FILESYSTEM_LIBRARIES   - libraries for std::filesystem
+#  std::filesystem        - imported target
 #
 #  NOTE: it is not an official cmake search file
 #  authors: Carsten Uphoff, Ravil Dorozhinskii
@@ -11,6 +12,13 @@
 
 include(FindPackageHandleStandardArgs)
 include(CheckCXXSourceRuns)
+include(CMakePushCheckState)
+
+cmake_push_check_state()
+
+set(_PARENT_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+set(CMAKE_CXX_STANDARD 17)
+
 
 set(_FILESYSTEM_TEST_RPOGRAM "
 #include <filesystem>
@@ -24,7 +32,7 @@ int main(int argc, char* argv[]) {
     return 0;
 }")
 
-set(CMAKE_REQUIRED_DEFINITIONS -std=c++17)
+
 check_cxx_source_runs("${_FILESYSTEM_TEST_RPOGRAM}" _FILESYSTEM_NATIVE)
 
 if (NOT _FILESYSTEM_NATIVE)
@@ -49,7 +57,17 @@ else()
     set(FILESYSTEM_LIBRARIES "")
 endif()
 
+if (DEFINED FILESYSTEM_LIBRARIES)
+    add_library(std::filesystem INTERFACE IMPORTED)
+    set_property(TARGET std::filesystem APPEND PROPERTY INTERFACE_COMPILE_FEATURES cxx_std_17)
+
+    if (FILESYSTEM_LIBRARIES)
+        set_property(TARGET std::filesystem APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${FILESYSTEM_LIBRARIES})
+    endif()
+endif()
 
 find_package_handle_standard_args(FILESYSTEM FILESYSTEM_LIBRARIES)
 
-mark_as_advanced(FILESYSTEM_LIBRARIES)
+mark_as_advanced(FILESYSTEM_LIBRARIES _PARENT_CMAKE_CXX_STANDARD)
+set(CMAKE_CXX_STANDARD ${_PARENT_CMAKE_CXX_STANDARD})
+cmake_pop_check_state()

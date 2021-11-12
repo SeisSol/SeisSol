@@ -121,12 +121,31 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
   return const_cells;
 }
 
+
+std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClusteringData(
+	refinement::MeshRefiner<double>* meshRefiner, const std::vector<unsigned> &LtsClusteringData, std::map<int, int> &newToOldCellMap) {
+	//subsampling preserves the order of the cells, so we just need to repeat the LtsClusteringData kSubCellsPerCell times.
+	//we also need to account for the extractRegion filter via the newToOldCellMap hash map
+	std::vector<unsigned int> refinedClusteringData(meshRefiner->getNumCells());
+
+	size_t kSubCellsPerCell = static_cast<size_t> (meshRefiner->getkSubCellsPerCell());
+	for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
+		if (m_extractRegion) {
+			refinedClusteringData[j] = LtsClusteringData.data()[newToOldCellMap[static_cast<size_t> (j/kSubCellsPerCell)]];
+		} else {
+			refinedClusteringData[j] = LtsClusteringData.data()[static_cast<size_t> (j/kSubCellsPerCell)];
+		}
+	}
+	return refinedClusteringData;
+}
+
+
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
     int order, int numAlignedDOF,
     const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
     const real* dofs,  const real* pstrain, const real* integrals,
     unsigned int* map,
-    int refinement, int* outputMask, double* outputRegionBounds,
+    int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
     xdmfwriter::BackendType backend)
 {
 	if (!m_enabled)
@@ -155,13 +174,16 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	//
 	// High order I/O
 	//
-	m_numVariables = numVars;
-	m_outputFlags = new bool[numVars];
+	m_numVariables = numVars + WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
+	m_outputFlags = new bool[m_numVariables];
 	for (size_t i = 0; i < numVars; i++)
 		m_outputFlags[i] = (outputMask[i] != 0);
+	for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) 
+		m_outputFlags[numVars + i] = (pstrain != 0L) && (plasticityMask[i] != 0L);
+
 	// WARNING: The m_outputFlags memory might be directly used by the executor.
 	// Do not modify this array after the following line
-	param.bufferIds[OUTPUT_FLAGS] = addSyncBuffer(m_outputFlags, numVars*sizeof(bool), true);
+	param.bufferIds[OUTPUT_FLAGS] = addSyncBuffer(m_outputFlags, m_numVariables*sizeof(bool), true);
 
 	// Setup the tetrahedron refinement strategy
 	refinement::TetrahedronRefiner<double>* tetRefiner = createRefiner(refinement);
@@ -176,6 +198,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// new vertex index. This is used to assign the vertex subset as well as
 	// used in MeshRefiner since the elements would hold old index of vertices
 	std::map<int, int> oldToNewVertexMap;
+	std::map<int, int> newToOldCellMap;
 	// Vertices of the extracted region
 	std::vector<const Vertex*> subVertices;
 	// Mesh refiner
@@ -212,10 +235,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
 				// Assign the new map
-				m_map[subElements.size()] = map[i];
+				size_t iNew = subElements.size();
+				m_map[iNew] = map[i];
 
 				// Push the address of the element into the vector
 				subElements.push_back(&(allElements[i]));
+				newToOldCellMap.insert(std::pair<size_t,size_t>(iNew, i));
 
 				// Push the vertices into the map which makes sure that the entries are unique
 				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
@@ -238,6 +263,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			oldToNewVertexMap, *tetRefiner);
 	} else {
 		meshRefiner = new refinement::MeshRefiner<double>(meshReader, *tetRefiner);
+		m_map = map;
 	}
 
 	logInfo(rank) << "Refinement class initialized";
@@ -247,10 +273,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	logDebug() << "Vertices : "
 			<< numVerts << "refined-to ->"
 			<< meshRefiner->getNumVertices();
-
 	// Initialize the variable subsampler
-	m_variableSubsampler = new refinement::VariableSubsampler<double>(
+	m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
 			numElems, *tetRefiner, order, numVars, numAlignedDOF);
+	m_variableSubsamplerPStrain = std::make_unique<refinement::VariableSubsampler<double>>(
+			numElems, *tetRefiner, order, static_cast<unsigned int>(WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES) , numAlignedDOF);
 
 	logInfo(rank) << "VariableSubsampler initialized";
 
@@ -262,10 +289,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Create mesh buffers
 	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
 	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner->getVertexData(), meshRefiner->getNumVertices() * 3 * sizeof(double));
+	std::vector<unsigned int> refinedClusteringData = generateRefinedClusteringData(meshRefiner, LtsClusteringData, newToOldCellMap);
+	param.bufferIds[CLUSTERING] = addSyncBuffer(refinedClusteringData.data(), meshRefiner->getNumCells() * sizeof(unsigned int));
 
 	// Create data buffers
 	bool first = false;
-	for (unsigned int i = 0; i < numVars; i++) {
+	for (unsigned int i = 0; i < m_numVariables; i++) {
 		if (m_outputFlags[i]) {
 			unsigned int id = addBuffer(0L, meshRefiner->getNumCells() * sizeof(real));
 			if (!first) {
@@ -280,17 +309,15 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Set up for low order output flags
 	m_lowOutputFlags = new bool[WaveFieldWriterExecutor::NUM_LOWVARIABLES];
 	m_numIntegratedVariables = seissol::SeisSol::main.postProcessor().getNumberOfVariables();
-	for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) {
-		m_lowOutputFlags[i] = (pstrain != 0L);
-	}
-	seissol::SeisSol::main.postProcessor().getIntegrationMask(&m_lowOutputFlags[WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES]);
+
+	seissol::SeisSol::main.postProcessor().getIntegrationMask(&m_lowOutputFlags[0]);
 	param.bufferIds[LOW_OUTPUT_FLAGS] = addSyncBuffer(m_lowOutputFlags, WaveFieldWriterExecutor::NUM_LOWVARIABLES*sizeof(bool), true);
 	//
 	//  Low order I/O
 	//
 	refinement::MeshRefiner<double>* pLowMeshRefiner = 0L;
 	const unsigned int* const_lowCells = 0L;
-	if (pstrain || integrals) {
+	if (integrals) {
 		logInfo(rank) << "Initialize low order output";
 
 		// Refinement strategy (no refinement)
@@ -304,7 +331,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			pLowMeshRefiner = new refinement::MeshRefiner<double>(meshReader, lowTetRefiner);
 		}
 
-    const_lowCells = adjustOffsets(pLowMeshRefiner);
+		const_lowCells = adjustOffsets(pLowMeshRefiner);
 
 		// Create mesh buffers
 		param.bufferIds[LOWCELLS] = addSyncBuffer(const_lowCells,
@@ -314,11 +341,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 		// Create data buffers
 		param.bufferIds[LOWVARIABLE0] = addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
-		int numLowVars = 0;
 
-		if (pstrain) numLowVars += WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
-
-		if (integrals) numLowVars += m_numIntegratedVariables;
+		int numLowVars = m_numIntegratedVariables;
 
 		for (int i = 1; i < numLowVars; i++)
 			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
@@ -337,12 +361,13 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	//
 	sendBuffer(param.bufferIds[OUTPUT_PREFIX], m_outputPrefix.size()+1);
 
-	sendBuffer(param.bufferIds[OUTPUT_FLAGS], numVars*sizeof(bool));
+	sendBuffer(param.bufferIds[OUTPUT_FLAGS], m_numVariables*sizeof(bool));
 
 	sendBuffer(param.bufferIds[CELLS], meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
 	sendBuffer(param.bufferIds[VERTICES], meshRefiner->getNumVertices() * 3 * sizeof(double));
+	sendBuffer(param.bufferIds[CLUSTERING], meshRefiner->getNumCells() * sizeof(unsigned int));
 
-	if (pstrain || integrals) {
+	if (integrals) {
 		sendBuffer(param.bufferIds[LOWCELLS], pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
 		sendBuffer(param.bufferIds[LOWVERTICES], pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
 		sendBuffer(param.bufferIds[LOW_OUTPUT_FLAGS], WaveFieldWriterExecutor::NUM_LOWVARIABLES*sizeof(bool));
@@ -350,13 +375,13 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Initialize the executor
 	callInit(param);
-  m_executor.setClusteringData(LtsClusteringData.data());
 
 	// Remove buffers
 	removeBuffer(param.bufferIds[OUTPUT_PREFIX]);
 	removeBuffer(param.bufferIds[CELLS]);
 	removeBuffer(param.bufferIds[VERTICES]);
-	if (pstrain || integrals) {
+	removeBuffer(param.bufferIds[CLUSTERING]);
+	if (integrals) {
 		removeBuffer(param.bufferIds[LOWCELLS]);
 		removeBuffer(param.bufferIds[LOWVERTICES]);
 	}
@@ -374,9 +399,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	m_dofs = dofs;
 	m_pstrain = pstrain;
 	m_integrals = integrals;
-	if (!m_extractRegion) {
-		m_map = map;
-	}
 
 	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
 	m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
@@ -410,7 +432,12 @@ void seissol::writer::WaveFieldWriter::write(double time)
 
 		real* managedBuffer = async::Module<WaveFieldWriterExecutor,
 				WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(nextId);
-		m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
+		if (i < m_numVariables - WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES) {
+			m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
+		} else {
+			m_variableSubsamplerPStrain->get(m_pstrain, m_map, 
+			i - (m_numVariables - WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES), managedBuffer);
+		}
 		for (unsigned int j = 0; j < m_numCells; j++) {
 			if (!std::isfinite(managedBuffer[j])) {
  				logError() << "Detected Inf/NaN in volume output. Aborting.";
@@ -423,30 +450,10 @@ void seissol::writer::WaveFieldWriter::write(double time)
 
 	// nextId is required in a manner similar to above for writing integrated variables
 	nextId = 0;
-	if (m_pstrain) {
-		for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) {
-			real* managedBuffer = async::Module<WaveFieldWriterExecutor,
-					WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(m_variableBufferIds[1]+i);
-
-#ifdef _OPENMP
-			#pragma omp parallel for schedule(static)
-#endif // _OPENMP
-			for (unsigned int j = 0; j < m_numLowCells; j++)
-				managedBuffer[j] = m_pstrain[m_map[j]
-						* WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES + i];
-
-			sendBuffer(m_variableBufferIds[1]+i, m_numLowCells*sizeof(real));
-		}
-		nextId = WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
-	}
-
-	// This offset is used to access the correct variable in m_integrals
-	// If pstrain is enabled then the offset is set to NUM_PLASTICITY_VARIABLES otherwise it is set to 0
-	unsigned int offset = nextId;
 
 	if (m_integrals) {
 		for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
-			if (!m_lowOutputFlags[i+WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES])
+			if (!m_lowOutputFlags[i])
 				continue;
 			real* managedBuffer = async::Module<WaveFieldWriterExecutor,
 			WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(m_variableBufferIds[1]+nextId);
@@ -456,7 +463,7 @@ void seissol::writer::WaveFieldWriter::write(double time)
 #endif // _OPENMP
 			for (unsigned int j = 0; j < m_numLowCells; j++)
 				managedBuffer[j] = m_integrals[m_map[j]
-						* m_numIntegratedVariables + nextId - offset];
+						* m_numIntegratedVariables + nextId];
 
 			sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(real));
 			nextId++;
