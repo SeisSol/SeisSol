@@ -2,8 +2,8 @@ stages:
     - pre_build
     - build 
     - test
+    - check
     - performance_eval
-
 
 ci_builder_pre:
     stage: pre_build
@@ -30,7 +30,7 @@ ci_builder_pre:
         - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule set-url submodules/fty https://github.com/ravil-mobile/fty.git
-        - git submodule --quiet update --init --recursive 
+        - git submodule update --init --recursive
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q https://github.com/hfp/libxsmm/archive/master.zip
         - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
@@ -49,6 +49,9 @@ ci_builder_pre:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+    artifacts:
+        paths:
+            - submodules
 
 
 ci_builder_build:
@@ -64,10 +67,9 @@ ci_builder_build:
              - precision: double
              - precision: single
     script:
-        - echo "now building"
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
-        - git submodule update --init --recursive
         - cmake --version
+        - gcc --version
         - set -euo pipefail
         - export IFS=$'\n\t'
         - export CTEST_OUTPUT_ON_FAILURE=1
@@ -81,7 +83,7 @@ ci_builder_build:
                  mkdir -p $dirname && cd $dirname ;
                  pwd; 
                  CMAKE_PREFIX_PATH=~ ;
-                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
                  make -j $(nproc);
                  cd .. ; 
              done; 
@@ -93,22 +95,72 @@ ci_builder_build:
 
 
 ci_builder_test:
-        stage: test
-        tags:
-            - ci_testing_cc
-        allow_failure: true
-        needs:
-            - job: ci_builder_build
-        parallel:
-            matrix:
-                - DIR: build_elastic_double_Release
-                - DIR: build_elastic_single_Release
-        script: 
-            - echo "testing"
-            - pwd
-            - ls
-            - cd $DIR
-            - make test
+    stage: test
+    tags:
+        - ci_testing_cc
+    allow_failure: true
+    needs:
+        - job: ci_builder_build
+    script:
+        - ulimit -Ss unlimited
+        - for precision in double single; do
+            cd ./build_elastic_${precision}_Release ;
+            ls -l ;
+            make test ;
+            cd .. ;
+          done;
+
+
+cpu_tpv5_run:
+    stage: test
+    tags:
+        - ci_testing_cc
+    allow_failure: false
+    needs:
+        - job: ci_builder_build
+    parallel:
+        matrix:
+            - precision: double
+            - precision: single
+    script: 
+        - echo "run TPV5"
+        - git clone https://github.com/7bits-register/precomputed-seissol.git
+        - cd build_elastic_${precision}_Release
+        - cp -r ../precomputed-seissol/tpv5/* .
+        - mkdir ./output
+        - export NUM_COMP_CORES=$(expr $(nproc) - 1)
+        - export OMP_NUM_THREADS=$NUM_COMP_CORES
+        - export OMP_PLACES="cores($NUM_COMP_CORES)"
+        - ulimit -Ss unlimited
+        - ./SeisSol_Release_*_elastic ./parameters.par
+        - mv ./precomputed/${precision} ./output/precomputed
+        - mv ./output ../output-tpv5-${precision}
+    artifacts:
+        paths:
+            - output-*
+
+
+cpu_tpv5_check:
+    stage: check
+    tags:
+        - ci_testing_cc
+    allow_failure: false
+    needs:
+        - job: cpu_tpv5_run
+    variables:
+        elastic_domain_file: "tpv.xdmf"
+        fault_file: "tpv-fault.xdmf"
+        epsilon: "0.05"
+    parallel:
+        matrix:
+            - precision: double
+            - precision: single
+    script: 
+        - echo "check TPV5"
+        - cd output-tpv5-${precision}
+        - pip3 install seissolxdmf
+        - pip3 install h5py
+        - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
 
 pages:
@@ -182,7 +234,7 @@ gpu_build:
             -DDEVICE_SUB_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision} ;
-            make -j 4 ;
+            make -j 3 ;
             cd .. ;
           done;
         - set +u
@@ -208,6 +260,7 @@ gpu_convergence_test:
         - git clone https://github.com/SeisSol/Examples.git tests
         - pip3 install -r ./tests/convergence_elastic/requirements.txt
         - set -euo pipefail
+        - ulimit -Ss unlimited
         - for precision in double single; do
             cd ./build_${precision} ;
             echo "Elastic Convergence test with precision - " ${precision} ;
@@ -243,6 +296,7 @@ gpu_performance_test:
         - . /opt/spack-environment/seissol_env.sh
         - . /opt/spack-environment/cuda_env.sh
         - set -euo pipefail
+        - ulimit -Ss unlimited
         - for precision in double single; do
             echo "Running SeiSol proxy with precision - " ${precision} ;
             cd ./build_${precision} ;
