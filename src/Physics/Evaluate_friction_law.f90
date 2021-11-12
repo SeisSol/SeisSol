@@ -59,14 +59,14 @@ MODULE Eval_friction_law_mod
   END INTERFACE
   !---------------------------------------------------------------------------!
   PUBLIC  :: Eval_friction_law
-  PRIVATE :: updateStateVariable
-  PRIVATE :: IterativelyInvertSR
-  PRIVATE :: no_fault
-  PRIVATE :: Linear_slip_weakening_bimaterial
-  PRIVATE :: Linear_slip_weakening_TPV1617
-  PRIVATE :: ImposedSlipRateOnDRBoundary
-  PRIVATE :: rate_and_state
-  PRIVATE :: rate_and_state_vw
+!  PRIVATE :: updateStateVariable
+!  PRIVATE :: IterativelyInvertSR
+!  PRIVATE :: no_fault
+!  PRIVATE :: Linear_slip_weakening_bimaterial
+!  PRIVATE :: Linear_slip_weakening_TPV1617
+!  PRIVATE :: ImposedSlipRateOnDRBoundary
+!  PRIVATE :: rate_and_state
+!  PRIVATE :: rate_and_state_vw
   !---------------------------------------------------------------------------!
   CONTAINS
   
