@@ -145,12 +145,12 @@ private:
 
 class seissol::initializers::FaultParameterDB : seissol::initializers::ParameterDB {
 public:
-  void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
+  void addParameter(std::string const& parameter, real* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
   virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   static bool faultParameterizedByTraction(std::string const& fileName);
   static bool nucleationParameterizedByTraction(std::string const& fileName);
 private:
-  std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
+  std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
 };
 
 

@@ -293,7 +293,7 @@ namespace seissol {
       easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
 
-      easi::ArraysAdapter<double> adapter;
+      easi::ArraysAdapter<real> adapter;
       for (auto& kv : m_parameters) {
         adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
       }

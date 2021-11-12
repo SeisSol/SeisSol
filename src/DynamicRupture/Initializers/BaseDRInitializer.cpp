@@ -23,7 +23,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
        ++it) {
 
     // parameters to be read from fault parameters yaml file
-    std::map<std::string, double*> parameterToStorageMap;
+    std::map<std::string, real*> parameterToStorageMap;
 
     // read initial stress
     real(*iniBulkXX)[numPaddedPoints] = it->var(dynRup->iniBulkXX);
@@ -34,9 +34,9 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*iniShearYZ)[numPaddedPoints] = it->var(dynRup->iniShearYZ);
     if (dynRup->isFaultParameterizedByTraction) {
       // only read traction in normal strike and slip direction
-      parameterToStorageMap.insert({"T_n", (double*)iniBulkXX});
-      parameterToStorageMap.insert({"T_s", (double*)iniShearXY});
-      parameterToStorageMap.insert({"T_d", (double*)iniShearXZ});
+      parameterToStorageMap.insert({"T_n", (real*)iniBulkXX});
+      parameterToStorageMap.insert({"T_s", (real*)iniShearXY});
+      parameterToStorageMap.insert({"T_d", (real*)iniShearXZ});
       // set the rest to zero
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
@@ -47,25 +47,25 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
       }
     } else {
       // read all stress components from the parameter file
-      parameterToStorageMap.insert({"s_xx", (double*)iniBulkXX});
-      parameterToStorageMap.insert({"s_yy", (double*)iniBulkYY});
-      parameterToStorageMap.insert({"s_zz", (double*)iniBulkZZ});
-      parameterToStorageMap.insert({"s_xy", (double*)iniShearXY});
-      parameterToStorageMap.insert({"s_yz", (double*)iniShearYZ});
-      parameterToStorageMap.insert({"s_xz", (double*)iniShearXZ});
+      parameterToStorageMap.insert({"s_xx", (real*)iniBulkXX});
+      parameterToStorageMap.insert({"s_yy", (real*)iniBulkYY});
+      parameterToStorageMap.insert({"s_zz", (real*)iniBulkZZ});
+      parameterToStorageMap.insert({"s_xy", (real*)iniShearXY});
+      parameterToStorageMap.insert({"s_yz", (real*)iniShearYZ});
+      parameterToStorageMap.insert({"s_xz", (real*)iniShearXZ});
     }
 
     // do the same for nucleation stress
-    real(*nucXX)[numPaddedPoints] = new double[it->getNumberOfCells()][numPaddedPoints];
-    real(*nucYY)[numPaddedPoints] = new double[it->getNumberOfCells()][numPaddedPoints];
-    real(*nucZZ)[numPaddedPoints] = new double[it->getNumberOfCells()][numPaddedPoints];
-    real(*nucXY)[numPaddedPoints] = new double[it->getNumberOfCells()][numPaddedPoints];
-    real(*nucXZ)[numPaddedPoints] = new double[it->getNumberOfCells()][numPaddedPoints];
-    real(*nucYZ)[numPaddedPoints] = new double[it->getNumberOfCells()][numPaddedPoints];
+    real(*nucXX)[numPaddedPoints] = new real[it->getNumberOfCells()][numPaddedPoints];
+    real(*nucYY)[numPaddedPoints] = new real[it->getNumberOfCells()][numPaddedPoints];
+    real(*nucZZ)[numPaddedPoints] = new real[it->getNumberOfCells()][numPaddedPoints];
+    real(*nucXY)[numPaddedPoints] = new real[it->getNumberOfCells()][numPaddedPoints];
+    real(*nucXZ)[numPaddedPoints] = new real[it->getNumberOfCells()][numPaddedPoints];
+    real(*nucYZ)[numPaddedPoints] = new real[it->getNumberOfCells()][numPaddedPoints];
     if (dynRup->isFaultParameterizedByTraction) {
-      parameterToStorageMap.insert({"Tnuc_n", (double*)nucXX});
-      parameterToStorageMap.insert({"Tnuc_s", (double*)nucXY});
-      parameterToStorageMap.insert({"Tnuc_d", (double*)nucXZ});
+      parameterToStorageMap.insert({"Tnuc_n", (real*)nucXX});
+      parameterToStorageMap.insert({"Tnuc_s", (real*)nucXY});
+      parameterToStorageMap.insert({"Tnuc_d", (real*)nucXZ});
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
           nucYY[ltsFace][pointIndex] = 0.0;
@@ -74,12 +74,12 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
         }
       }
     } else {
-      parameterToStorageMap.insert({"nuc_xx", (double*)nucXX});
-      parameterToStorageMap.insert({"nuc_yy", (double*)nucYY});
-      parameterToStorageMap.insert({"nuc_zz", (double*)nucZZ});
-      parameterToStorageMap.insert({"nuc_xy", (double*)nucXY});
-      parameterToStorageMap.insert({"nuc_yz", (double*)nucYZ});
-      parameterToStorageMap.insert({"nuc_xz", (double*)nucXZ});
+      parameterToStorageMap.insert({"nuc_xx", (real*)nucXX});
+      parameterToStorageMap.insert({"nuc_yy", (real*)nucYY});
+      parameterToStorageMap.insert({"nuc_zz", (real*)nucZZ});
+      parameterToStorageMap.insert({"nuc_xy", (real*)nucXY});
+      parameterToStorageMap.insert({"nuc_yz", (real*)nucYZ});
+      parameterToStorageMap.insert({"nuc_xz", (real*)nucXZ});
     }
 
     // get additional parameters (for derived friction laws)
@@ -233,7 +233,7 @@ void BaseDRInitializer::rotateStressToFaultCS(seissol::initializers::DynamicRupt
 }
 
 void BaseDRInitializer::addAdditionalParameters(
-    std::map<std::string, double*>& parameterToStorageMap,
+    std::map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // do nothing for base friction law

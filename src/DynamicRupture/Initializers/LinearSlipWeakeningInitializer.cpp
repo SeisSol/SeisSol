@@ -44,7 +44,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
 }
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
-    std::map<std::string, double*>& parameterToStorageMap,
+    std::map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
@@ -52,10 +52,10 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   real(*mu_s)[numPaddedPoints] = it->var(concreteLts->mu_s);
   real(*mu_d)[numPaddedPoints] = it->var(concreteLts->mu_d);
   real(*cohesion)[numPaddedPoints] = it->var(concreteLts->cohesion);
-  parameterToStorageMap.insert({"d_c", (double*)d_c});
-  parameterToStorageMap.insert({"mu_s", (double*)mu_s});
-  parameterToStorageMap.insert({"mu_d", (double*)mu_d});
-  parameterToStorageMap.insert({"cohesion", (double*)cohesion});
+  parameterToStorageMap.insert({"d_c", (real*)d_c});
+  parameterToStorageMap.insert({"mu_s", (real*)mu_s});
+  parameterToStorageMap.insert({"mu_d", (real*)mu_d});
+  parameterToStorageMap.insert({"cohesion", (real*)cohesion});
 }
 
 void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
@@ -77,13 +77,13 @@ void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
 }
 
 void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
-    std::map<std::string, double*>& parameterToStorageMap,
+    std::map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
   real(*forcedRuptureTime)[numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
-  parameterToStorageMap.insert({"forced_rupture_time", (double*)forcedRuptureTime});
+  parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(

@@ -65,7 +65,7 @@ class seissol::dr::initializers::BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  virtual void addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+  virtual void addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
                                        seissol::initializers::DynamicRupture* dynRup,
                                        seissol::initializers::LTSInternalNode::leaf_iterator& it);
 

@@ -28,7 +28,7 @@ class seissol::dr::initializers::RateAndStateInitializer
               * Adds the additional parameters rs_sl0, rs_a
               */
   virtual void
-      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
@@ -75,7 +75,7 @@ class seissol::dr::initializers::RateAndStateFastVelocityInitializer
    * Adds the additional parameters rs_srW
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
   /**
@@ -127,7 +127,7 @@ class seissol::dr::initializers::RateAndStateThermalPressurisationInitializer
    * Adds the additional parameters TP_halfWidthShearZone and alphaHy
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };

@@ -83,14 +83,14 @@ std::pair<real, real>
 }
 
 void RateAndStateInitializer::addAdditionalParameters(
-    std::map<std::string, double*>& parameterToStorageMap,
+    std::map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
   real(*rs_sl0)[numPaddedPoints] = it->var(concreteLts->rs_sl0);
   real(*rs_a)[numPaddedPoints] = it->var(concreteLts->rs_a);
-  parameterToStorageMap.insert({"rs_sl0", (double*)rs_sl0});
-  parameterToStorageMap.insert({"rs_a", (double*)rs_a});
+  parameterToStorageMap.insert({"rs_sl0", (real*)rs_sl0});
+  parameterToStorageMap.insert({"rs_a", (real*)rs_a});
 }
 
 std::pair<real, real>
@@ -114,14 +114,14 @@ std::pair<real, real>
 }
 
 void RateAndStateFastVelocityInitializer::addAdditionalParameters(
-    std::map<std::string, double*>& parameterToStorageMap,
+    std::map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
   auto concreteLts =
       dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
   real(*rs_srW)[numPaddedPoints] = it->var(concreteLts->rs_srW);
-  parameterToStorageMap.insert({"rs_srW", (double*)rs_srW});
+  parameterToStorageMap.insert({"rs_srW", (real*)rs_srW});
 }
 
 void RateAndStateThermalPressurisationInitializer::initializeFault(
@@ -156,7 +156,7 @@ void RateAndStateThermalPressurisationInitializer::initializeFault(
 }
 
 void RateAndStateThermalPressurisationInitializer::addAdditionalParameters(
-    std::map<std::string, double*>& parameterToStorageMap,
+    std::map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   RateAndStateFastVelocityInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
@@ -166,7 +166,7 @@ void RateAndStateThermalPressurisationInitializer::addAdditionalParameters(
 
   real(*TP_halfWidthShearZone)[numPaddedPoints] = it->var(concreteLts->TP_halfWidthShearZone);
   real(*alphaHy)[numPaddedPoints] = it->var(concreteLts->alphaHy);
-  parameterToStorageMap.insert({"TP_halfWidthShearZone", (double*)TP_halfWidthShearZone});
-  parameterToStorageMap.insert({"alphaHy", (double*)alphaHy});
+  parameterToStorageMap.insert({"TP_halfWidthShearZone", (real*)TP_halfWidthShearZone});
+  parameterToStorageMap.insert({"alphaHy", (real*)alphaHy});
 }
 } // namespace seissol::dr::initializers

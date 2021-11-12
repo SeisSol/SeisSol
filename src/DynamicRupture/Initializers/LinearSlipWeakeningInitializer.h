@@ -28,7 +28,7 @@ class seissol::dr::initializers::LinearSlipWeakeningInitializer
    * Adds the additional parameters mu_s, mu_d, d_c, cohesion.
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
@@ -52,7 +52,7 @@ class seissol::dr::initializers::LinearSlipWeakeningForcedRuptureTimeInitializer
    * Reads the additional parameter forced_ruptre_time
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, double*>& parameterToStorageMap,
+      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
