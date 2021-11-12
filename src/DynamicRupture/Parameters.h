@@ -55,7 +55,7 @@ struct seissol::dr::DRParameters {
 inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node& params) {
   DRParameters drParameters;
   const YAML::Node& yamlParams = params["dynamicrupture"];
-  
+
   if (params["dynamicrupture"]) {
     double xref = 0.0;
     initializers::updateIfExists(yamlParams, "xref", xref);
@@ -71,7 +71,8 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
     initializers::updateIfExists(yamlParams, "backgroundtype", drParameters.backgroundType);
     initializers::updateIfExists(yamlParams, "rf_output_on", drParameters.isRfOutputOn);
     initializers::updateIfExists(yamlParams, "ds_output_on", drParameters.isDsOutputOn);
-    initializers::updateIfExists(yamlParams, "magnitude_output_on", drParameters.isMagnitudeOutputOn);
+    initializers::updateIfExists(
+        yamlParams, "magnitude_output_on", drParameters.isMagnitudeOutputOn);
     initializers::updateIfExists(
         yamlParams, "energy_rate_output_on", drParameters.isEnergyRateOutputOn);
     initializers::updateIfExists(yamlParams, "gpwise", drParameters.isGpWiseInitialization);
