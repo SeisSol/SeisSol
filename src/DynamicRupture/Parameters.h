@@ -56,7 +56,7 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
   DRParameters drParameters;
   const YAML::Node& yamlParams = params["dynamicrupture"];
   
-  if (Params["dynamicrupture"]) {
+  if (params["dynamicrupture"]) {
     double xref = 0.0;
     initializers::updateIfExists(yamlParams, "xref", xref);
     double yref = 0.0;
