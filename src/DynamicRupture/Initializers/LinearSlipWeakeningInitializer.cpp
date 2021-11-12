@@ -51,9 +51,11 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   real(*d_c)[numPaddedPoints] = it->var(concreteLts->d_c);
   real(*mu_s)[numPaddedPoints] = it->var(concreteLts->mu_s);
   real(*mu_d)[numPaddedPoints] = it->var(concreteLts->mu_d);
+  real(*cohesion)[numPaddedPoints] = it->var(concreteLts->cohesion);
   parameterToStorageMap.insert({"d_c", (double*)d_c});
   parameterToStorageMap.insert({"mu_s", (double*)mu_s});
   parameterToStorageMap.insert({"mu_d", (double*)mu_d});
+  parameterToStorageMap.insert({"cohesion", (double*)cohesion});
 }
 
 void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(

@@ -83,8 +83,8 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
   initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
   initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
   initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rs_sr0);
-  initializers::updateIfExists(yamlParams, "rs_iniSlipRate1", drParameters.rs_initialSlipRate1);
-  initializers::updateIfExists(yamlParams, "rs_iniSlipRate2", drParameters.rs_initialSlipRate2);
+  initializers::updateIfExists(yamlParams, "rs_inisliprate1", drParameters.rs_initialSlipRate1);
+  initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rs_initialSlipRate2);
   initializers::updateIfExists(yamlParams, "mu_w", drParameters.mu_w);
 
   // Thermal Pressurisation parameters

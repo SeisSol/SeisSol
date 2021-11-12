@@ -25,9 +25,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     // parameters to be read from fault parameters yaml file
     std::map<std::string, double*> parameterToStorageMap;
 
-    real(*cohesion)[numPaddedPoints] = it->var(dynRup->cohesion);
-    parameterToStorageMap.insert({"cohesion", (double*)cohesion});
-
+    // read initial stress
     real(*iniBulkXX)[numPaddedPoints] = it->var(dynRup->iniBulkXX);
     real(*iniBulkYY)[numPaddedPoints] = it->var(dynRup->iniBulkYY);
     real(*iniBulkZZ)[numPaddedPoints] = it->var(dynRup->iniBulkZZ);
@@ -35,9 +33,11 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*iniShearXZ)[numPaddedPoints] = it->var(dynRup->iniShearXZ);
     real(*iniShearYZ)[numPaddedPoints] = it->var(dynRup->iniShearYZ);
     if (dynRup->isFaultParameterizedByTraction) {
+      // only read traction in normal strike and slip direction
       parameterToStorageMap.insert({"T_n", (double*)iniBulkXX});
       parameterToStorageMap.insert({"T_s", (double*)iniShearXY});
       parameterToStorageMap.insert({"T_d", (double*)iniShearXZ});
+      // set the rest to zero
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
           iniBulkYY[ltsFace][pointIndex] = 0.0;
@@ -46,6 +46,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
         }
       }
     } else {
+      // read all stress components from the parameter file
       parameterToStorageMap.insert({"s_xx", (double*)iniBulkXX});
       parameterToStorageMap.insert({"s_yy", (double*)iniBulkYY});
       parameterToStorageMap.insert({"s_zz", (double*)iniBulkZZ});
@@ -102,11 +103,17 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                           iniShearXY,
                           iniShearYZ,
                           iniShearXZ);
-    // rotate initial stress to fault coordinate system
+    // rotate nucleation stress to fault coordinate system
     real(*nucleationStressInFaultCS)[numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(
-        it, dynRup, initialStressInFaultCS, nucXX, nucYY, nucZZ, nucXY, nucYZ, nucXZ);
+        it, dynRup, nucleationStressInFaultCS, nucXX, nucYY, nucZZ, nucXY, nucYZ, nucXZ);
+    delete[] nucXX;
+    delete[] nucYY;
+    delete[] nucZZ;
+    delete[] nucXY;
+    delete[] nucYZ;
+    delete[] nucXZ;
 
     // can be removed once output is in c++
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
@@ -125,7 +132,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
 
     // initialize rupture front flag
     bool(*ruptureFront)[numPaddedPoints] = it->var(dynRup->ruptureFront);
-    for (int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned int j = 0; j < numPaddedPoints; ++j) {
         ruptureFront[ltsFace][j] = drParameters.isRfOutputOn;
       }
@@ -173,11 +180,10 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
 std::vector<unsigned>
     BaseDRInitializer::getFaceIDsInIterator(seissol::initializers::LTSTree::leaf_iterator& it,
                                             seissol::initializers::DynamicRupture* dynRup) {
-  const auto& meshReader = seissol::SeisSol::main.meshReader();
   const auto& drFaceInformation = it->var(dynRup->faceInformation);
   std::vector<unsigned> faceIDs;
   // collect all face IDs within this lts leaf
-  for (int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
   }
   return faceIDs;

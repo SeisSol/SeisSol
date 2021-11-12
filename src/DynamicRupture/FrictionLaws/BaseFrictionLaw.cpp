@@ -6,7 +6,6 @@ void BaseFrictionLaw::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
                                          real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
-  cohesion = layerData.var(dynRup->cohesion);
   mu = layerData.var(dynRup->mu);
   slip = layerData.var(dynRup->slip);
   slipStrike = layerData.var(dynRup->slipStrike);

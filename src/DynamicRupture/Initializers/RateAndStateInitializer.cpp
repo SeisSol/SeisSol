@@ -1,129 +1,11 @@
 #include "RateAndStateInitializer.h"
 
 namespace seissol::dr::initializers {
-// void RateAndStateFastVelocityInitializer::initializeFrictionMatrices(
-//    seissol::initializers::DynamicRupture* dynRup,
-//    seissol::initializers::LTSTree* dynRupTree,
-//    seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-//    std::unordered_map<std::string, double*> faultParameters,
-//    unsigned* ltsFaceToMeshFace,
-//    seissol::Interoperability& e_interoperability) {
-//  BaseDRInitializer::initializeFrictionMatrices(
-//      dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
-//  auto concreteLts =
-//      dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
-//
-//  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
-//
-//  for (seissol::initializers::LTSTree::leaf_iterator it =
-//           dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-//       it != dynRupTree->endLeaf();
-//       ++it) {
-//
-//    real(*nucleationStressInFaultCS)[numPaddedPoints][6] =
-//        it->var(concreteLts->nucleationStressInFaultCS);           // get from fortran
-//    real(*RS_sl0)[numPaddedPoints] = it->var(concreteLts->RS_sl0); // get from faultParameters
-//    real(*RS_a)[numPaddedPoints] = it->var(concreteLts->RS_a);     // get from faultParameters
-//    real(*rs_srW)[numPaddedPoints] = it->var(concreteLts->rs_srW); // get from faultParameters
-//    bool(*DS)[numPaddedPoints] = it->var(concreteLts->DS);         // par file
-//    real* averaged_Slip = it->var(concreteLts->averagedSlip);      // = 0
-//    real(*stateVar)[numPaddedPoints] =
-//        it->var(concreteLts->stateVariable); // get from Fortran = EQN%IniStateVar
-//    real(*dynStressTime)[numPaddedPoints] = it->var(concreteLts->dynStressTime); // = 0
-//
-//    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-//      unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
-//
-//      e_interoperability.getDynRupStateVar(ltsFace, meshFace, stateVar);
-//      e_interoperability.getDynRupNucStress(ltsFace, meshFace, nucleationStressInFaultCS);
-//
-//      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints;
-//           ++pointIndex) { // loop includes padded elements
-//        dynStressTime[ltsFace][pointIndex] = 0.0;
-//        DS[ltsFace][pointIndex] = drParameters.isDsOutputOn;
-//      }
-//      averaged_Slip[ltsFace] = 0.0;
-//
-//      for (unsigned pointIndex = 0; pointIndex < numberOfPoints; ++pointIndex) {
-//        RS_a[ltsFace][pointIndex] =
-//            static_cast<real>(faultParameters["rs_a"][(meshFace)*numberOfPoints + pointIndex]);
-//        rs_srW[ltsFace][pointIndex] =
-//            static_cast<real>(faultParameters["rs_srW"][(meshFace)*numberOfPoints + pointIndex]);
-//        RS_sl0[ltsFace][pointIndex] =
-//            static_cast<real>(faultParameters["RS_sl0"][(meshFace)*numberOfPoints + pointIndex]);
-//      }
-//      // initialize padded elements for vectorization
-//      for (unsigned pointIndex = numberOfPoints; pointIndex < numPaddedPoints; ++pointIndex) {
-//        RS_a[ltsFace][pointIndex] = 0.0;
-//        rs_srW[ltsFace][pointIndex] = 0.0;
-//        RS_sl0[ltsFace][pointIndex] = 0.0;
-//      }
-//
-//    } // lts-face loop
-//    layerLtsFaceToMeshFace += it->getNumberOfCells();
-//  } // leaf_iterator loop
-//}
-//
-// void RateAndStateFL103TPInitializer::initializeFrictionMatrices(
-//    seissol::initializers::DynamicRupture* dynRup,
-//    seissol::initializers::LTSTree* dynRupTree,
-//    seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-//    std::unordered_map<std::string, double*> faultParameters,
-//    unsigned* ltsFaceToMeshFace,
-//    seissol::Interoperability& e_interoperability) {
-//  // BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters,
-//  // ltsFaceToMeshFace, e_interoperability);
-//  RateAndStateFL103Initializer::initializeFrictionMatrices(
-//      dynRup, dynRupTree, FrictionLaw, faultParameters, ltsFaceToMeshFace, e_interoperability);
-//
-//  auto concreteLts =
-//      dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurisation*>(dynRup);
-//  seissol::dr::friction_law::RateAndStateThermalFL103* SolverFL103 =
-//      dynamic_cast<seissol::dr::friction_law::RateAndStateThermalFL103*>(FrictionLaw);
-//  SolverFL103->initializeTP(e_interoperability); //
-//  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
-//
-//  for (seissol::initializers::LTSTree::leaf_iterator it =
-//           dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-//       it != dynRupTree->endLeaf();
-//       ++it) {
-//
-//    real(*temperature)[numPaddedPoints] = it->var(concreteLts->temperature);
-//    real(*pressure)[numPaddedPoints] = it->var(concreteLts->pressure);
-//
-//    real(*TP_Theta)[numPaddedPoints][TP_grid_nz] = it->var(concreteLts->TP_theta);
-//    real(*TP_sigma)[numPaddedPoints][TP_grid_nz] = it->var(concreteLts->TP_sigma);
-//
-//    real(*TP_halfWidthShearZone)[numPaddedPoints] =
-//        it->var(concreteLts->TP_halfWidthShearZone);
-//    real(*alphaHy)[numPaddedPoints] = it->var(concreteLts->alphaHy);
-//
-//    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-//      unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
-//
-//      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-//        temperature[ltsFace][pointIndex] = drParameters.iniTemp;
-//        pressure[ltsFace][pointIndex] = drParameters.iniPressure;
-//        TP_halfWidthShearZone[ltsFace][pointIndex] = static_cast<real>(
-//            faultParameters["TP_halfWidthShearZone"][(meshFace)*numberOfPoints + pointIndex]);
-//        alphaHy[ltsFace][pointIndex] =
-//            static_cast<real>(faultParameters["alphaHy"][(meshFace)*numberOfPoints +
-//            pointIndex]);
-//        for (unsigned iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
-//          TP_Theta[ltsFace][pointIndex][iTP_grid_nz] = 0.0;
-//          TP_sigma[ltsFace][pointIndex][iTP_grid_nz] = 0.0;
-//        }
-//      }
-//    } // lts-face loop
-//    layerLtsFaceToMeshFace += it->getNumberOfCells();
-//  } // leaf_iterator loop
-//}
 void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                               seissol::initializers::LTSTree* dynRupTree,
                                               seissol::Interoperability* e_interoperability) {
   BaseDRInitializer::initializeFault(dynRup, dynRupTree, e_interoperability);
-  auto concreteLts =
-      dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
+  auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
 
   for (seissol::initializers::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
@@ -144,7 +26,7 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
         it->var(concreteLts->initialStressInFaultCS);
 
     real initialSlipRate = std::sqrt(std::pow(drParameters.rs_initialSlipRate1, 2) +
-                                     std::pow(drParameters.rs_initialSlipRate1, 2));
+                                     std::pow(drParameters.rs_initialSlipRate2, 2));
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
@@ -189,16 +71,14 @@ std::pair<real, real>
                                                             real initialSlipRate) {
   real absoluteTraction = std::sqrt(std::pow(tractionXY, 2) + std::pow(tractionXZ, 2));
   real tmp = std::abs(absoluteTraction / (rs_a * pressure));
-  real stateVariable = rs_a / rs_sr0 *
+  real stateVariable = rs_sl0 / rs_sr0 *
                        std::exp((rs_a * std::log(std::exp(tmp) - std::exp(-tmp)) - rs_f0 -
                                  rs_a * std::log(initialSlipRate / rs_sr0)) /
-                                drParameters.rs_b);
+                                rs_b);
   real tmp2 = initialSlipRate * 0.5 / rs_sr0 *
-              std::exp((drParameters.rs_f0 +
-                        drParameters.rs_b * std::log(drParameters.rs_f0 * stateVariable / rs_sl0)) /
-                       rs_a);
+              std::exp((rs_f0 + rs_b * std::log(rs_sr0 * stateVariable / rs_sl0)) / rs_a);
   // asinh(x)=log(x+sqrt(x^2+1))
-  real mu = rs_a * std::log(tmp2 + std::exp(tmp2 * tmp2 + 1.0));
+  real mu = rs_a * std::asinh(tmp2);
   return {stateVariable, mu};
 }
 
@@ -209,8 +89,8 @@ void RateAndStateInitializer::addAdditionalParameters(
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
   real(*rs_sl0)[numPaddedPoints] = it->var(concreteLts->rs_sl0);
   real(*rs_a)[numPaddedPoints] = it->var(concreteLts->rs_a);
-  parameterToStorageMap.insert({"RS_sl0", (double*)rs_sl0});
-  parameterToStorageMap.insert({"RS_a", (double*)rs_a});
+  parameterToStorageMap.insert({"rs_sl0", (double*)rs_sl0});
+  parameterToStorageMap.insert({"rs_a", (double*)rs_a});
 }
 
 std::pair<real, real>
@@ -241,9 +121,7 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
   auto concreteLts =
       dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
   real(*rs_srW)[numPaddedPoints] = it->var(concreteLts->rs_srW);
-  real(*rs_fW)[numPaddedPoints] = it->var(concreteLts->rs_fW);
-  parameterToStorageMap.insert({"RS_srW", (double*)rs_srW});
-  parameterToStorageMap.insert({"rs_fW", (double*)rs_fW});
+  parameterToStorageMap.insert({"rs_srW", (double*)rs_srW});
 }
 
 void RateAndStateThermalPressurisationInitializer::initializeFault(

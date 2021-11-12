@@ -120,9 +120,9 @@ public:
   virtual easi::Query generate() const;
 private:
   MeshReader const& m_meshReader;
-  std::vector<unsigned> const& m_faceIDs;
   double (*m_points)[2];
   unsigned m_numberOfPoints;
+  std::vector<unsigned> const& m_faceIDs;
 };
 
 class seissol::initializers::ParameterDB {

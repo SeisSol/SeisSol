@@ -15,6 +15,7 @@ class AgingLaw;
 class seissol::dr::friction_law::AgingLaw : public BaseFrictionLaw {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
+  using BaseFrictionLaw::copyLtsTreeToLocal;
 
   protected:
   virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0);

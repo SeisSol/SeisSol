@@ -13,12 +13,12 @@ void AgingLaw::evaluate(
     real fullUpdateTime,
     double timeWeights[CONVERGENCE_ORDER]) {
   auto concreteLts = dynamic_cast<initializers::LTS_RateAndState*>(dynRup);
+  copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
   model::IsotropicWaveSpeeds* waveSpeedsPlus = layerData.var(concreteLts->waveSpeedsPlus);
   model::IsotropicWaveSpeeds* waveSpeedsMinus = layerData.var(concreteLts->waveSpeedsMinus);
   real(*initialStressInFaultCS)[numPaddedPoints][6] =
       layerData.var(concreteLts->initialStressInFaultCS);
-  real(*cohesion)[numPaddedPoints] = layerData.var(concreteLts->cohesion);
 
   real(*RS_a)[numPaddedPoints] = layerData.var(concreteLts->rs_a);
   real(*RS_sl0)[numPaddedPoints] = layerData.var(concreteLts->rs_sl0);
@@ -56,8 +56,6 @@ void AgingLaw::evaluate(
       real localSlipRateStrike = slipRateStrike[ltsFace][pointIndex]; // Slip rate along direction 1
       real localSlipRateDip = slipRateDip[ltsFace][pointIndex];       // Slip rate along direction 2
       real localStateVariable = StateVariable[ltsFace][pointIndex];   // State Variable
-      real localCohesion = cohesion[ltsFace][pointIndex]; // cohesion: should be negative since
-                                                          // negative normal stress is compression
       real initialPressure = initialStressInFaultCS[ltsFace][pointIndex][0]; // initial pressure
 
       real localMu = 0;
@@ -163,11 +161,11 @@ void AgingLaw::evaluate(
         localTractionXY = -((initialStressInFaultCS[ltsFace][pointIndex][3] +
                              faultStresses.XYStressGP[pointIndex][timeIndex]) /
                             totalShearStressYZ) *
-                          (localMu * pressure + std::fabs(localCohesion));
+                          (localMu * pressure);
         localTractionXZ = -((initialStressInFaultCS[ltsFace][pointIndex][5] +
                              faultStresses.XZStressGP[pointIndex][timeIndex]) /
                             totalShearStressYZ) *
-                          (localMu * pressure + std::fabs(localCohesion));
+                          (localMu * pressure);
         localTractionXY = localTractionXY - initialStressInFaultCS[ltsFace][pointIndex][3];
         localTractionXZ = localTractionXZ - initialStressInFaultCS[ltsFace][pointIndex][5];
 

@@ -132,7 +132,6 @@ src/DynamicRupture/FrictionLaws/NoFault.cpp
 src/DynamicRupture/FrictionLaws/RateAndState.cpp
 src/DynamicRupture/FrictionLaws/SlipLaw.cpp
 src/DynamicRupture/FrictionLaws/VelocityWeakening.cpp
-src/DynamicRupture/Initializers/AgingLawInitializer.cpp
 src/DynamicRupture/Initializers/BaseDRInitializer.cpp
 src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp

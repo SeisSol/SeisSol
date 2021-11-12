@@ -112,7 +112,7 @@ products RateAndStateFastVelocityWeakeningFactory::produce() {
   return {std::make_shared<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
           std::make_shared<initializers::RateAndStateFastVelocityInitializer>(drParameters),
           std::make_shared<friction_law::RateAndStateNucFL103>(drParameters),
-          std::make_shared<output::OutputRateAndStateFastVelocityWeakening>(drParameters)};
+          std::make_shared<output::OutputRateAndState>(drParameters)};
 }
 
 products RateAndStateThermalPressurisationFactory::produce() {
@@ -120,6 +120,6 @@ products RateAndStateThermalPressurisationFactory::produce() {
       std::make_shared<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
       std::make_shared<initializers::RateAndStateThermalPressurisationInitializer>(drParameters),
       std::make_shared<friction_law::RateAndStateThermalFL103>(drParameters),
-      std::make_shared<output::OutputRateAndStateFastVelocityWeakening>(drParameters)};
+      std::make_shared<output::OutputRateAndStateThermalPressurisation>(drParameters)};
 }
 } // namespace seissol::dr::factory
