@@ -410,28 +410,28 @@ if (likwid_FOUND)
 endif()
 
 if (TESTING)
-  include(cmake/testing.cmake)
-
-  # Testing
-  set(CXXTEST_TESTGEN_ARGS "--template=${CMAKE_CURRENT_SOURCE_DIR}/src/tests/mpirunner.tpl")
-  find_package(CxxTest REQUIRED)
-
-  # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
   enable_testing()
+  include(cmake/doctest.cmake)
 
-  # what about the unit tests for the lts layout?
+  add_library(seissol-test-runner src/tests/test_main.cpp)
+  target_link_libraries(seissol-test-runner PRIVATE SeisSol-lib)
+  target_include_directories(seissol-test-runner PUBLIC external/)
 
-  if (TESTING_GENERATED)
-    CXXTEST_ADD_TEST_MPI(
-            test_kernel_test_suite
-            1
-            test_kernel.cpp
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
-    )
+  add_executable(seissol-serial-test src/tests/test_serial.cpp)
+  target_link_libraries(seissol-serial-test seissol-test-runner)
+  doctest_discover_tests(seissol-serial-test)
 
-    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
-    target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
-  endif()
+  #if (TESTING_GENERATED)
+    #CXXTEST_ADD_TEST_MPI(
+            #test_kernel_test_suite
+            #1
+            #test_kernel.cpp
+            #${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
+    #)
+
+    #target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
+    #target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  #endif()
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
@@ -444,54 +444,54 @@ if (TESTING)
     )
 
   if (NETCDF)
-  configure_file(
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
-          ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
-          COPYONLY
-  )
-  set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
+  #configure_file(
+          #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
+          #${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
+          #COPYONLY
+  #)
+  #set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
   endif()
 
   set(test_sources ${test_sources} 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Eigenvalues.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/ODEInt.t.h      
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-    ${SeisSol_NETCDF_TEST_FILES}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Eigenvalues.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/ODEInt.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+    #${SeisSol_NETCDF_TEST_FILES}
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
     )
   if(${EQUATIONS} STREQUAL "poroelastic")
-    set(test_sources ${test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h)
+    #set(test_sources ${test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h)
   endif()
-  CXXTEST_ADD_TEST_MPI(
-    test_serial_test_suite
-    1
-    test_serial.cpp
-    ${test_sources}
-    )
-  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
-  target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  #CXXTEST_ADD_TEST_MPI(
+    #test_serial_test_suite
+    #1
+    #test_serial.cpp
+    #${test_sources}
+    #)
+  #target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
+  #target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
-  CXXTEST_ADD_TEST_MPI(
-          test_parallel_test_suite
-          4
-          test_parallel.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-  )
-  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
-  target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
-  target_compile_definitions(test_parallel_test_suite PRIVATE
-    SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
-    )
+  #CXXTEST_ADD_TEST_MPI(
+          #test_parallel_test_suite
+          #4
+          #test_parallel.cpp
+          #${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
+  #)
+  #target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
+  #target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  #target_compile_definitions(test_parallel_test_suite PRIVATE
+    #SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
+    #)
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
