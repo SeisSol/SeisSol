@@ -552,7 +552,7 @@ module f_ctof_bind_interoperability
       use f_ftoc_bind_interoperability
       implicit none
 
-      integer                                :: i, nBndGP, nPaddedBndGP
+      integer                                :: i, nBndGP
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
@@ -568,20 +568,17 @@ module f_ctof_bind_interoperability
       REAL_TYPE, pointer                     :: l_shearXY(:)
       type(c_ptr), value                     :: i_shearYZ
       REAL_TYPE, pointer                     :: l_shearYZ(:)
-      REAL_TYPE, pointer                     :: l_shearPaddedXY(:)
       type(c_ptr), value                     :: i_shearXZ
       REAL_TYPE, pointer                     :: l_shearXZ(:)
 
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
-      nPaddedBndGP = 56
 
       call c_f_pointer( i_InitialStressInFaultCS, l_InitialStressInFaultCS, [6,nBndGP])
       call c_f_pointer( i_bulkXX, l_bulkXX, [nBndGP])
       call c_f_pointer( i_bulkYY, l_bulkYY, [nBndGP])
       call c_f_pointer( i_bulkZZ, l_bulkZZ, [nBndGP])
       call c_f_pointer( i_shearXY, l_shearXY, [nBndGP])
-      call c_f_pointer( i_shearXY, l_shearPaddedXY, [nPaddedBndGP])
       call c_f_pointer( i_shearYZ, l_shearYZ, [nBndGP])
       call c_f_pointer( i_shearXZ, l_shearXZ, [nBndGP])
       DO i = 1, 6
