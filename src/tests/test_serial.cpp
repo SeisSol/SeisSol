@@ -1,14 +1,7 @@
 #include "doctest.h"
 
-TEST_CASE("Testing works") {
-  const auto x = 10;
-  REQUIRE(x == 10);
-  REQUIRE(x == 9);
-}
-
-TEST_CASE("Testing works 2") {
-  const auto x = 10;
-  REQUIRE(x == 10);
-  REQUIRE(x == 9);
-}
-
+#include "Numerical_aux/Eigenvalues.t.h"
+#include "Numerical_aux/Functions.t.h"
+#include "Numerical_aux/ODEInt.t.h"
+#include "Numerical_aux/Quadrature.t.h"
+#include "Numerical_aux/Transformations.t.h"

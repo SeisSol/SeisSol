@@ -414,7 +414,7 @@ if (TESTING)
   include(cmake/doctest.cmake)
 
   add_library(seissol-test-runner src/tests/test_main.cpp)
-  target_link_libraries(seissol-test-runner PRIVATE SeisSol-lib)
+  target_link_libraries(seissol-test-runner PUBLIC SeisSol-lib)
   target_include_directories(seissol-test-runner PUBLIC external/)
 
   add_executable(seissol-serial-test src/tests/test_serial.cpp)
