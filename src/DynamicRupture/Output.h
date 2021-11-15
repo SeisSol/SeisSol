@@ -12,30 +12,23 @@
  * should be replaced fully implemented C++ output writer
  */
 namespace seissol::dr::output {
-class OutputBase; // abstract class, implements output that all FLs have in common
-class OutputNoFault;
-class OutputLinearSlipWeakening;               // for linear slip laws FL2, FL16
-class OutputLinearSlipWeakeningBimaterial;     // extends output for strength output
-class OutputRateAndState;                      // output for rate and state friction laws
-class OutputRateAndStateThermalPressurisation; // output for rate and state Friction laws with
-                                               // thermal pressurisation
-class OutputImposedSlipRates;                  // SolverImposedSlipRatesFL33
-} // namespace seissol::dr::output
 
-/*
+/**
+ * abstract class, implements output that all FLs have in common
  * Currently this class only copies values computed in C++ dynamic rupture back to Fortran to have
  * it available for the output writer
  */
-class seissol::dr::output::OutputBase {
+class OutputBase {
   protected:
   // currently, not required, but later for fully C++ implementation important
   dr::DRParameters& drParameters;
 
   public:
   OutputBase(dr::DRParameters& drParameters) : drParameters(drParameters){};
+
   virtual ~OutputBase() {}
 
-  /*
+  /**
    * Copies values from LTS tree back to Fortran data structure
    * unnecessary performance loss due to this copy back
    */
@@ -70,15 +63,19 @@ class seissol::dr::output::OutputBase {
     }
   }
 
-  /*
+  /**
    * this function has no use yet.
    */
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) = 0;
 };
 
-class seissol::dr::output::OutputNoFault : public seissol::dr::output::OutputBase {
+/**
+ * output for the no fault friction law
+ */
+class OutputNoFault : public OutputBase {
   public:
   using OutputBase::OutputBase;
+
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -90,7 +87,11 @@ class seissol::dr::output::OutputNoFault : public seissol::dr::output::OutputBas
   }
 };
 
-class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::output::OutputBase {
+/**
+ * Derived class for the linear slip weakening friction law (also for the one with forced rupture
+ * time)
+ */
+class OutputLinearSlipWeakening : public OutputBase {
   public:
   using OutputBase::OutputBase;
 
@@ -125,9 +126,10 @@ class seissol::dr::output::OutputLinearSlipWeakening : public seissol::dr::outpu
   }
 };
 
-class seissol::dr::output::OutputImposedSlipRates : public seissol::dr::output::OutputBase {
+class OutputImposedSlipRates : public OutputBase {
   public:
   using OutputBase::OutputBase;
+
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -139,9 +141,13 @@ class seissol::dr::output::OutputImposedSlipRates : public seissol::dr::output::
   }
 };
 
-class seissol::dr::output::OutputRateAndState : public OutputBase {
+/**
+ *  output for rate and state friction laws
+ */
+class OutputRateAndState : public OutputBase {
   public:
   using OutputBase::OutputBase;
+
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -174,10 +180,13 @@ class seissol::dr::output::OutputRateAndState : public OutputBase {
   }
 };
 
-class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
-    : public seissol::dr::output::OutputLinearSlipWeakening {
+/**
+ * extends output for regularized strength
+ */
+class OutputLinearSlipWeakeningBimaterial : public OutputLinearSlipWeakening {
   public:
   using OutputLinearSlipWeakening::OutputLinearSlipWeakening;
+
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
@@ -205,11 +214,15 @@ class seissol::dr::output::OutputLinearSlipWeakeningBimaterial
   }
 };
 
-class seissol::dr::output::OutputRateAndStateThermalPressurisation : public OutputRateAndState {
+/**
+ * output for rate and state Friction laws with additional thermal pressurisation
+ */
+class OutputRateAndStateThermalPressurisation : public OutputRateAndState {
   public:
   using OutputRateAndState::OutputRateAndState;
   using OutputRateAndState::postCompute;
   using OutputRateAndState::tiePointers;
 };
+} // namespace seissol::dr::output
 
 #endif // SEISSOL_OUTPUT_H

@@ -484,12 +484,12 @@ class seissol::Interoperability {
 
   void copyFrictionOutputToFortranInitialStressInFaultCS(unsigned ltsFace, unsigned meshFace,
                                                          real  (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-                                                         real  (*iniBulkXX)[init::QInterpolated::Stop[0]],
-                                                         real  (*iniBulkYY)[init::QInterpolated::Stop[0]],
-                                                         real  (*iniBulkZZ)[init::QInterpolated::Stop[0]],
-                                                         real  (*iniShearXY)[init::QInterpolated::Stop[0]],
-                                                         real  (*iniShearYZ)[init::QInterpolated::Stop[0]],
-                                                         real  (*iniShearXZ)[init::QInterpolated::Stop[0]]);
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkXX,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkYY,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkZZ,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXY,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearYZ,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXZ);
 
   void initializeFaultOutput();
 

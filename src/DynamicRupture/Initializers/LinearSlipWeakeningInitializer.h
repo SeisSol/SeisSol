@@ -4,16 +4,11 @@
 #include "BaseDRInitializer.h"
 
 namespace seissol::dr::initializers {
-class LinearSlipWeakeningInitializer;
-class LinearSlipWeakeningBimaterialInitializer;
-class LinearSlipWeakeningForcedRuptureTimeInitializer;
-} // namespace seissol::dr::initializers
 
 /**
  * Derived initializer class for the LinearSlipWeakening friction law
  */
-class seissol::dr::initializers::LinearSlipWeakeningInitializer
-    : public seissol::dr::initializers::BaseDRInitializer {
+class LinearSlipWeakeningInitializer : public BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
   /**
@@ -28,7 +23,7 @@ class seissol::dr::initializers::LinearSlipWeakeningInitializer
    * Adds the additional parameters mu_s, mu_d, d_c, cohesion.
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
@@ -36,8 +31,7 @@ class seissol::dr::initializers::LinearSlipWeakeningInitializer
 /**
  * Derived initializer class for the LinearSlipWeakening friction law with a forced rupture time
  */
-class seissol::dr::initializers::LinearSlipWeakeningForcedRuptureTimeInitializer
-    : public seissol::dr::initializers::LinearSlipWeakeningInitializer {
+class LinearSlipWeakeningForcedRuptureTimeInitializer : public LinearSlipWeakeningInitializer {
   public:
   using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
   /**
@@ -52,7 +46,7 @@ class seissol::dr::initializers::LinearSlipWeakeningForcedRuptureTimeInitializer
    * Reads the additional parameter forced_ruptre_time
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
@@ -60,8 +54,7 @@ class seissol::dr::initializers::LinearSlipWeakeningForcedRuptureTimeInitializer
 /**
  * Derived initializer class for the LinearSlipWeakening friction law with bimaterial regularization
  */
-class seissol::dr::initializers::LinearSlipWeakeningBimaterialInitializer
-    : public seissol::dr::initializers::LinearSlipWeakeningInitializer {
+class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningInitializer {
   public:
   using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
   /**
@@ -72,4 +65,5 @@ class seissol::dr::initializers::LinearSlipWeakeningBimaterialInitializer
                                seissol::Interoperability* e_interoperability) override;
 };
 
+} // namespace seissol::dr::initializers
 #endif // SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H

@@ -89,13 +89,14 @@ public:
   Variable<seissol::dr::ImpedancesAndEta>                           impAndEta;
   //size padded for vectorization
 
-  Variable<real[ numOfPointsPadded ]> iniBulkXX;
-  Variable<real[ numOfPointsPadded ]> iniBulkYY;
-  Variable<real[ numOfPointsPadded ]> iniBulkZZ;
-  Variable<real[ numOfPointsPadded ]> iniShearXY;
-  Variable<real[ numOfPointsPadded ]> iniShearYZ;
-  Variable<real[ numOfPointsPadded ]> iniShearXZ;
+  //Variable<real[ numOfPointsPadded ]> iniBulkXX;
+  //Variable<real[ numOfPointsPadded ]> iniBulkYY;
+  //Variable<real[ numOfPointsPadded ]> iniBulkZZ;
+  //Variable<real[ numOfPointsPadded ]> iniShearXY;
+  //Variable<real[ numOfPointsPadded ]> iniShearYZ;
+  //Variable<real[ numOfPointsPadded ]> iniShearXZ;
 
+  //CS = coordinate system
   Variable<real[numOfPointsPadded][6]> initialStressInFaultCS;
   Variable<real[numOfPointsPadded][6]> nucleationStressInFaultCS;
   Variable<real[ numOfPointsPadded ]> mu;
@@ -110,6 +111,7 @@ public:
   Variable<real[ numOfPointsPadded ]> peakSlipRate;
   Variable<real[ numOfPointsPadded ]> tractionXY;
   Variable<real[ numOfPointsPadded ]> tractionXZ;
+  Variable<bool[ numOfPointsPadded ]> ds;
 
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;
@@ -150,14 +152,15 @@ public:
     tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard );
     tree.addVar(tractionXY, mask, 1, seissol::memory::Standard );
     tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard );
+    tree.addVar(ds, mask, 1, seissol::memory::Standard );
 
     //only for output:
-    tree.addVar(      iniBulkXX,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniBulkYY,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniBulkZZ,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniShearXY,                     mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniShearYZ,                     mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniShearXZ,                     mask,                 1,      seissol::memory::Standard );
+  //  tree.addVar(      iniBulkXX,                      mask,                 1,      seissol::memory::Standard );
+  //  tree.addVar(      iniBulkYY,                      mask,                 1,      seissol::memory::Standard );
+  //  tree.addVar(      iniBulkZZ,                      mask,                 1,      seissol::memory::Standard );
+  //  tree.addVar(      iniShearXY,                     mask,                 1,      seissol::memory::Standard );
+  //  tree.addVar(      iniShearYZ,                     mask,                 1,      seissol::memory::Standard );
+  //  tree.addVar(      iniShearXZ,                     mask,                 1,      seissol::memory::Standard );
 
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
@@ -178,7 +181,6 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
     Variable<real[ numOfPointsPadded ]> mu_s;
     Variable<real[ numOfPointsPadded ]> mu_d;
     Variable<real[ numOfPointsPadded ]> cohesion;
-    Variable<bool[ numOfPointsPadded ]> DS;
     Variable<real> averagedSlip;
     Variable<real[ numOfPointsPadded ]> dynStressTime;
 
@@ -190,7 +192,6 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
         tree.addVar(mu_s, mask, 1, seissol::memory::Standard );
         tree.addVar(mu_d, mask, 1, seissol::memory::Standard );
         tree.addVar(cohesion, mask,1, seissol::memory::Standard );
-        tree.addVar(DS, mask, 1, seissol::memory::Standard );
         tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard );
         tree.addVar(dynStressTime, mask, 1, seissol::memory::Standard );
     }
@@ -222,7 +223,6 @@ struct seissol::initializers::LTS_RateAndState : public seissol::initializers::D
   Variable<real[ numOfPointsPadded ]> rs_a;
   Variable<real[ numOfPointsPadded ]> rs_sl0;
   Variable<real[ numOfPointsPadded ]> stateVariable;
-  Variable<bool[ numOfPointsPadded ]> DS;
   Variable<real> averagedSlip;
   Variable<real[ numOfPointsPadded ]> dynStressTime;
 
@@ -232,7 +232,6 @@ struct seissol::initializers::LTS_RateAndState : public seissol::initializers::D
     tree.addVar(rs_a, mask, 1, seissol::memory::Standard );
     tree.addVar(rs_sl0, mask, 1, seissol::memory::Standard );
     tree.addVar(stateVariable, mask, 1, seissol::memory::Standard );
-    tree.addVar(DS, mask, 1,seissol::memory::Standard );
     tree.addVar(averagedSlip, mask,1,seissol::memory::Standard );
     tree.addVar(dynStressTime,mask,1,seissol::memory::Standard );
   }

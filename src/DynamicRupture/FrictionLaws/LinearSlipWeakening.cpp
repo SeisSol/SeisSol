@@ -77,7 +77,7 @@ void LinearSlipWeakeningLawFL16::calcStateVariableHook(
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     real f2 = 0.0;
-    if (drParameters.t_0 == 0) {
+    if (drParameters.t0 == 0) {
       if (tn[ltsFace] >= forcedRuptureTime[ltsFace][pointIndex]) {
         f2 = 1.0;
       } else {
@@ -87,7 +87,7 @@ void LinearSlipWeakeningLawFL16::calcStateVariableHook(
       f2 = std::max(
           static_cast<real>(0.0),
           std::min(static_cast<real>(1.0),
-                   (m_fullUpdateTime - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t_0));
+                   (m_fullUpdateTime - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t0));
     }
     stateVariablePsi[pointIndex] = std::max(stateVariablePsi[pointIndex], f2);
   }

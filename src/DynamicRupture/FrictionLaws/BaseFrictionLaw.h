@@ -26,6 +26,7 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   ImpedancesAndEta* impAndEta;
   real m_fullUpdateTime;
   real deltaT[CONVERGENCE_ORDER] = {};
+  // CS = coordinate system
   real (*initialStressInFaultCS)[numPaddedPoints][6];
   real (*cohesion)[numPaddedPoints];
   real (*mu)[numPaddedPoints];

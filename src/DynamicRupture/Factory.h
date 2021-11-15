@@ -12,26 +12,13 @@
 
 namespace seissol::dr::factory {
 struct products {
-  std::shared_ptr<seissol::initializers::DynamicRupture> ltsTree;
-  std::shared_ptr<seissol::dr::initializers::BaseDRInitializer> initializer;
-  std::shared_ptr<seissol::dr::friction_law::BaseFrictionLaw> frictionLaw;
-  std::shared_ptr<seissol::dr::output::OutputBase> output;
+  std::unique_ptr<seissol::initializers::DynamicRupture> ltsTree;
+  std::unique_ptr<seissol::dr::initializers::BaseDRInitializer> initializer;
+  std::unique_ptr<seissol::dr::friction_law::BaseFrictionLaw> frictionLaw;
+  std::unique_ptr<seissol::dr::output::OutputBase> output;
 };
-class AbstractFactory;
-struct NoFaultFactory;
-struct LinearSlipWeakeningFactory;
-struct RateAndStateAgingFactory;
-struct RateAndStateSlipFactory;
-struct LinearSlipWeakeningBimaterialFactory;
-struct LinearSlipWeakeningForcedRuptureTimeFactory;
-struct ImposedSlipRatesFactory;
-struct RateAndStateFastVelocityWeakeningFactory;
-struct RateAndStateThermalPressurisationFactory;
 
-std::shared_ptr<AbstractFactory> getFactory(dr::DRParameters& dynRupParameter);
-} // namespace seissol::dr::factory
-
-class seissol::dr::factory::AbstractFactory {
+class AbstractFactory {
   protected:
   dr::DRParameters& drParameters;
 
@@ -41,66 +28,61 @@ class seissol::dr::factory::AbstractFactory {
   virtual products produce() = 0;
 };
 
-class seissol::dr::factory::NoFaultFactory : public seissol::dr::factory::AbstractFactory {
+class NoFaultFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::LinearSlipWeakeningFactory
-    : public seissol::dr::factory::AbstractFactory {
+class LinearSlipWeakeningFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::RateAndStateAgingFactory
-    : public seissol::dr::factory::AbstractFactory {
+class RateAndStateAgingFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce();
 };
 
-class seissol::dr::factory::RateAndStateSlipFactory : public seissol::dr::factory::AbstractFactory {
+class RateAndStateSlipFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::LinearSlipWeakeningBimaterialFactory
-    : public seissol::dr::factory::AbstractFactory {
+class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::LinearSlipWeakeningForcedRuptureTimeFactory
-    : public seissol::dr::factory::AbstractFactory {
+class LinearSlipWeakeningForcedRuptureTimeFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::ImposedSlipRatesFactory : public seissol::dr::factory::AbstractFactory {
+class ImposedSlipRatesFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::RateAndStateFastVelocityWeakeningFactory
-    : public seissol::dr::factory::AbstractFactory {
+class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-class seissol::dr::factory::RateAndStateThermalPressurisationFactory
-    : public seissol::dr::factory::AbstractFactory {
+class RateAndStateThermalPressurisationFactory : public AbstractFactory {
   using AbstractFactory::AbstractFactory;
   virtual products produce() override;
 };
 
-std::shared_ptr<seissol::dr::factory::AbstractFactory>
-    seissol::dr::factory::getFactory(dr::DRParameters& dynRupParameter);
+std::unique_ptr<seissol::dr::factory::AbstractFactory>
+    getFactory(dr::DRParameters& dynRupParameter);
 
+} // namespace seissol::dr::factory
 #endif // SEISSOL_FACTORY_H

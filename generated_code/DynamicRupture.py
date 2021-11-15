@@ -71,9 +71,13 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
-  #Adrian Test Code:
+  stressRotationMatrix = Tensor("stressRotationMatrix", (6, 6))
+  initialStress = Tensor("initialStress", (6, ))
+  rotatedStress = Tensor("rotatedStress", (6, ))
+  rotationKernel = rotatedStress['i'] <= stressRotationMatrix['ij'] * initialStress['j']
+  generator.add('rotateStressToFaultCS', rotationKernel )
 
-  #--- resample Parameter ---
+
   resamplePar = Tensor('resamplePar', (numberOfPoints,))
   resampledPar = Tensor('resampledPar', (numberOfPoints,))
   resampleM = Tensor('resampleM', (numberOfPoints, numberOfPoints) )
@@ -81,7 +85,6 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   generator.add('resampleParameter', resampleKernel )
 
 
-  #--- Precompute StressFromQInterpolatedKernel ----
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   NorStressGP = Tensor('NorStressGP', (numberOfPoints,))
@@ -138,7 +141,6 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
 
   generator.add('StressFromQInterpolated', [NorStressFromQInterpolatedKernel, XYStressFromQInterpolatedKernel, XZStressFromQInterpolatedKernel] )
 
-  #--- Postcompute ImposedStateFromNewStress  ----
   timeWeights = Scalar('timeWeights')
   TractionGP_XY = Tensor('TractionGP_XY', (numberOfPoints,))
   TractionGP_XZ = Tensor('TractionGP_XZ', (numberOfPoints,))
@@ -175,8 +177,6 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   generator.add('ImposedStateFromNewStress', \
                 [imposedStatePlus0, imposedStatePlus3, imposedStatePlus5, imposedStatePlus6, imposedStatePlus7, imposedStatePlus8, \
                  imposedStateMinus0, imposedStateMinus3, imposedStateMinus5, imposedStateMinus6, imposedStateMinus7, imposedStateMinus8] )
-
-  #--------------------------------------------------
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 

@@ -5,27 +5,22 @@
 #include "Solver/Interoperability.h"
 
 namespace seissol::dr::friction_law {
-template <class Derived>
-class RateAndStateSolver;       // general concept of rate and state solver
-class RateAndStateNucFL103;     // rate and state slip law with time and space dependent nucleation
-class RateAndStateThermalFL103; // specialization of FL103, extended with
-} // namespace seissol::dr::friction_law
-
-/*
+/**
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
 template <class Derived>
-class seissol::dr::friction_law::RateAndStateSolver
-    : public seissol::dr::friction_law::BaseFrictionLaw {
+class RateAndStateSolver : public BaseFrictionLaw {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
   protected:
-  //! PARAMETERS of THE optimisation loops
-  //! absolute tolerance on the function to be optimzed
-  //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-  //! the most adapted Number of iteration in the loops
+  /**
+   * PARAMETERS of THE optimisation loops
+   * absolute tolerance on the function to be optimzed
+   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
+   * the most adapted Number of iteration in the loops
+   */
   const unsigned int nSRupdates = 60;
   const unsigned int nSVupdates = 2;
 
@@ -152,35 +147,34 @@ class seissol::dr::friction_law::RateAndStateSolver
  * Rate and state solver FL103, time and space dependent nucleation parameters: RS_a_array,
  * RS_srW_array, RS_sl0_array
  */
-class seissol::dr::friction_law::RateAndStateNucFL103
-    : public seissol::dr::friction_law::RateAndStateSolver<
-          seissol::dr::friction_law::RateAndStateNucFL103> {
+class RateAndStateNucFL103 : public RateAndStateSolver<RateAndStateNucFL103> {
   public:
   using RateAndStateSolver::RateAndStateSolver;
 
   protected:
   // Attributes
+  // CS = coordinate system
   real (*nucleationStressInFaultCS)[numPaddedPoints][6];
   real dt = 0;
   real gNuc = 0;
 
-  real (*RS_a)[numPaddedPoints];
-  real (*RS_srW)[numPaddedPoints];
-  real (*RS_sl0)[numPaddedPoints];
+  real (*a)[numPaddedPoints];
+  real (*srW)[numPaddedPoints];
+  real (*sl0)[numPaddedPoints];
 
-  bool (*DS)[numPaddedPoints];
+  bool (*ds)[numPaddedPoints];
   real (*stateVariable)[numPaddedPoints];
   real (*dynStressTime)[numPaddedPoints];
 
   //! TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   //! as a consequence, the SR is affected the AlmostZero value when too small
-  const real AlmostZero = 1e-45;
+  const real almostZero = 1e-45;
 
   //! PARAMETERS of THE optimisation loops
   //! absolute tolerance on the function to be optimzed
   //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
   //! the most adapted Number of iteration in the loops
-  const unsigned int nSRupdates = 60;
+  const unsigned int numberSlipRateUpdates = 60;
   const unsigned int nSVupdates = 2;
 
   const double aTolF = 1e-8;
@@ -284,14 +278,14 @@ class seissol::dr::friction_law::RateAndStateNucFL103
   /*
    * If the function did not converge it returns false
    * Newton method to solve non-linear equation of slip rate
-   * solution returned in SRtest
+   * solution returned in slipRateTest
    */
   bool IterativelyInvertSR(unsigned int ltsFace,
                            int nSRupdates,
                            std::array<real, numPaddedPoints>& localStateVariable,
-                           std::array<real, numPaddedPoints>& n_stress,
-                           std::array<real, numPaddedPoints>& sh_stress,
-                           std::array<real, numPaddedPoints>& SRtest);
+                           std::array<real, numPaddedPoints>& normalStress,
+                           std::array<real, numPaddedPoints>& shearStress,
+                           std::array<real, numPaddedPoints>& slipRateTest);
 
   /*
    * Alternative to IterativelyInvertSR: Instead of newton, brents method is used:
@@ -313,8 +307,7 @@ class seissol::dr::friction_law::RateAndStateNucFL103
   void updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
 }; // end class FL_103
 
-class seissol::dr::friction_law::RateAndStateThermalFL103
-    : public seissol::dr::friction_law::RateAndStateNucFL103 {
+class RateAndStateThermalFL103 : public RateAndStateNucFL103 {
   public:
   using RateAndStateNucFL103::RateAndStateNucFL103;
 
@@ -370,4 +363,5 @@ class seissol::dr::friction_law::RateAndStateThermalFL103
   real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
 };
 
+} // namespace seissol::dr::friction_law
 #endif // SEISSOL_RATEANDSTATE_H

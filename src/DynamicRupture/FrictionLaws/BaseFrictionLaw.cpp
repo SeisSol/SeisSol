@@ -109,7 +109,7 @@ void BaseFrictionLaw::postcomputeImposedStateFromNewStress(
 real BaseFrictionLaw::calcSmoothStepIncrement(real currentTime, real dt) {
   real gNuc;
   real prevTime;
-  if (currentTime > 0.0 && currentTime <= drParameters.t_0) {
+  if (currentTime > 0.0 && currentTime <= drParameters.t0) {
     gNuc = calcSmoothStep(currentTime);
     prevTime = currentTime - dt;
     if (prevTime > 0.0) {
@@ -129,9 +129,9 @@ real BaseFrictionLaw::calcSmoothStep(real currentTime) {
   if (currentTime <= 0) {
     gNuc = 0.0;
   } else {
-    if (currentTime < drParameters.t_0) {
-      gNuc = std::exp(std::pow(currentTime - drParameters.t_0, 2) /
-                      (currentTime * (currentTime - 2.0 * drParameters.t_0)));
+    if (currentTime < drParameters.t0) {
+      gNuc = std::exp(std::pow(currentTime - drParameters.t0, 2) /
+                      (currentTime * (currentTime - 2.0 * drParameters.t0)));
     } else {
       gNuc = 1.0;
     }

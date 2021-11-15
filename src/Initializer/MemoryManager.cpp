@@ -828,10 +828,10 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
 
   auto factory = seissol::dr::factory::getFactory(m_dynRupParameter);
   auto product = factory->produce();
-  m_dynRup = product.ltsTree;
-  m_DRInitializer = product.initializer;
-  m_FrictionLaw = product.frictionLaw;
-  m_DROutput = product.output;
+  m_dynRup = std::move(product.ltsTree);
+  m_DRInitializer = std::move(product.initializer);
+  m_FrictionLaw = std::move(product.frictionLaw);
+  m_DROutput = std::move(product.output);
 }
 
 void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {

@@ -7,6 +7,10 @@ namespace seissol::dr {
 constexpr unsigned int numberOfBoundaryGaussPoints =
     (CONVERGENCE_ORDER + 1) * (CONVERGENCE_ORDER + 1);
 
+/**
+ * Stores the different types of friction laws
+ * The values resemble the identifiers used in the old fortran implementation
+ */
 enum class FrictionLawType : unsigned int {
   no_fault = 0,
   linear_slip_weakening = 2,

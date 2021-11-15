@@ -15,7 +15,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    bool(*DS)[numPaddedPoints] = it->var(concreteLts->DS);
+    bool(*DS)[numPaddedPoints] = it->var(concreteLts->ds);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
     real(*dynStressTime)[numPaddedPoints] = it->var(concreteLts->dynStressTime);
     real(*slipRateStrike)[numPaddedPoints] = it->var(concreteLts->slipRateStrike);
@@ -44,7 +44,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
 }
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
-    std::map<std::string, real*>& parameterToStorageMap,
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
@@ -77,7 +77,7 @@ void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
 }
 
 void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
-    std::map<std::string, real*>& parameterToStorageMap,
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto concreteLts =

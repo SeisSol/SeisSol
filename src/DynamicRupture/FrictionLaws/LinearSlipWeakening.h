@@ -6,27 +6,22 @@
 #include "utils/logger.h"
 
 namespace seissol::dr::friction_law {
-template <class Derived>
-class LinearSlipWeakeningLaw;              // generalization of Linear slip weakening laws
-class LinearSlipWeakeningLawFL2;           // linear slip weakening
-class LinearSlipWeakeningLawFL16;          // Linear slip weakening forced time rapture
-class LinearSlipWeakeningLawBimaterialFL6; // solver for bimaterial faults, currently has a bug,
-                                           // solution to the bug inside the function
-} // namespace seissol::dr::friction_law
 
-/*
+/**
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
 template <class Derived>
-class seissol::dr::friction_law::LinearSlipWeakeningLaw
-    : public seissol::dr::friction_law::BaseFrictionLaw {
+class LinearSlipWeakeningLaw : public BaseFrictionLaw {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
   protected:
-  static constexpr real u_0 = 10e-14; // critical velocity at which slip rate is considered as being
-                                      // zero for instaneous healing
+  /**
+   * critical velocity at which slip rate is considered as being zero for instaneous healing
+   */
+  static constexpr real u_0 = 10e-14;
+
   real (*d_c)[numPaddedPoints];
   real (*mu_S)[numPaddedPoints];
   real (*mu_D)[numPaddedPoints];
@@ -110,9 +105,6 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
   }   // End of Function evaluate
 
   protected:
-  /*
-   * copies all parameters from the DynamicRupture LTS to the local attributes
-   */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) override {
@@ -124,17 +116,17 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
     mu_S = layerData.var(concreteLts->mu_s);
     mu_D = layerData.var(concreteLts->mu_d);
     cohesion = layerData.var(concreteLts->cohesion);
-    DS = layerData.var(concreteLts->DS);
+    DS = layerData.var(concreteLts->ds);
     averagedSlip = layerData.var(concreteLts->averagedSlip);
     dynStressTime = layerData.var(concreteLts->dynStressTime);
   }
 
-  /*
+  /**
    * Hook for FL16 to set tn equal to m_fullUpdateTime outside the calculation loop
    */
   virtual void setTimeHook(unsigned int ltsFace) {}
 
-  /*
+  /**
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slipStrike and slipDip
    */
@@ -226,34 +218,24 @@ class seissol::dr::friction_law::LinearSlipWeakeningLaw
       }
     }
   }
+};
 
-}; // End of Class LinearSlipWeakeningLaw
-
-class seissol::dr::friction_law::LinearSlipWeakeningLawFL2
-    : public seissol::dr::friction_law::LinearSlipWeakeningLaw<
-          seissol::dr::friction_law::LinearSlipWeakeningLawFL2> {
+class LinearSlipWeakeningLawFL2 : public LinearSlipWeakeningLaw<LinearSlipWeakeningLawFL2> {
   public:
   using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
-  /*
-   * compute fault strength
-   */
   virtual void calcStrengthHook(std::array<real, numPaddedPoints>& strength,
                                 FaultStresses& faultStresses,
                                 unsigned int timeIndex,
                                 unsigned int ltsFace);
 
-  /*
-   * compute state variable
-   */
   virtual void calcStateVariableHook(std::array<real, numPaddedPoints>& stateVariablePsi,
                                      std::array<real, numPaddedPoints>& outputSlip,
                                      dynamicRupture::kernel::resampleParameter& resampleKrnl,
                                      unsigned int timeIndex,
                                      unsigned int ltsFace);
-}; // End of Class LinearSlipWeakeningLawFL2
+};
 
-class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
-    : public seissol::dr::friction_law::LinearSlipWeakeningLawFL2 {
+class LinearSlipWeakeningLawFL16 : public LinearSlipWeakeningLawFL2 {
   public:
   using LinearSlipWeakeningLawFL2::LinearSlipWeakeningLawFL2;
 
@@ -261,9 +243,6 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
   real (*forcedRuptureTime)[numPaddedPoints];
   real* tn;
 
-  /*
-   * copies all parameters from the DynamicRupture LTS to the local attributes
-   */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) override;
@@ -275,16 +254,15 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawFL16
                                      dynamicRupture::kernel::resampleParameter& resampleKrnl,
                                      unsigned int timeIndex,
                                      unsigned int ltsFace) override;
-}; // End of Class LinearSlipWeakeningLawFL16
+};
 
-/*
+/**
  * Law for Bimaterial faults, implements strength regularization (according to prakash clifton)
  * currently regularized strength is not used (bug)
  * State variable (slip) is not resampled in this friction law!
  */
-class seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6
-    : public seissol::dr::friction_law::LinearSlipWeakeningLaw<
-          seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6> {
+class LinearSlipWeakeningLawBimaterialFL6
+    : public LinearSlipWeakeningLaw<LinearSlipWeakeningLawBimaterialFL6> {
   public:
   using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
   virtual void calcStrengthHook(std::array<real, numPaddedPoints>& strength,
@@ -299,20 +277,14 @@ class seissol::dr::friction_law::LinearSlipWeakeningLawBimaterialFL6
                                      unsigned int ltsFace);
 
   protected:
-  // Attributes
   real (*regularisedStrength)[numPaddedPoints];
 
-  /*
-   * copies all parameters from the DynamicRupture LTS to the local attributes
-   */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) override;
 
-  /*
-   * calculates strength
-   */
   void prak_clif_mod(real& strength, real& sigma, real& LocSlipRate, real& mu, real& dt);
 };
 
+} // namespace seissol::dr::friction_law
 #endif // SEISSOL_LINEARSLIPWEAKENING_H

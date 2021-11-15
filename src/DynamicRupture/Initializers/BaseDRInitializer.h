@@ -10,16 +10,13 @@
 #include "DynamicRupture/Parameters.h"
 
 namespace seissol::dr::initializers {
-class BaseDRInitializer;
-}
-
 /**
  * Base class for dynamic rupture initializers
  * This class reads space dependent parameters from an easi file through a FaultParameterDB and
  * global parameters from the parameters.par file Furthermore derived quantities (such as e.g.
  * intial friction) are computed.
  */
-class seissol::dr::initializers::BaseDRInitializer {
+class BaseDRInitializer {
   protected:
   /**
    * Number of quadrature points on an surface element
@@ -41,6 +38,7 @@ class seissol::dr::initializers::BaseDRInitializer {
    * DynamicRupture namelist in the parameters.par file
    */
   BaseDRInitializer(DRParameters& drParameters) : drParameters(drParameters){};
+
   virtual ~BaseDRInitializer() {}
 
   /**
@@ -60,14 +58,15 @@ class seissol::dr::initializers::BaseDRInitializer {
   /**
    * Add additional parameters to be read from the easi file
    * This will be specialized in the derived friction law initializers
-   * @param parameterToStorageMap reference to a std::map<std::string, double*>, which maps the
-   * parameter name, to the address in memory, where the parameter shall be stored
+   * @param parameterToStorageMap reference to a std::unordered_map<std::string, double*>, which
+   * maps the parameter name, to the address in memory, where the parameter shall be stored
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  virtual void addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
-                                       seissol::initializers::DynamicRupture* dynRup,
-                                       seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  virtual void
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   private:
   /**
@@ -94,28 +93,29 @@ class seissol::dr::initializers::BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    * @param stressInFaultCS pointer to array of size [numCells][numPaddedPoints][6], stores rotated
    * stress
-   * @param stressXX pointer to array of size[numCells][numPaddedPoints], stores the XX component of
-   * the stress in cartesian coordinates
-   * @param stressYY pointer to array of size[numCells][numPaddedPoints], stores the YY component of
-   * the stress in cartesian coordinates
-   * @param stressZZ pointer to array of size[numCells][numPaddedPoints], stores the ZZ component of
-   * the stress in cartesian coordinates
-   * @param stressXX pointer to array of size[numCells][numPaddedPoints], stores the XY component of
-   * the stress in cartesian coordinates
-   * @param stressYZ pointer to array of size[numCells][numPaddedPoints], stores the YZ component of
-   * the stress in cartesian coordinates
-   * @param stressXZ pointer to array of size[numCells][numPaddedPoints], stores the XZ component of
-   * the stress in cartesian coordinates
+   * @param stressXX reference to std::vector of std::array<real, numPaddedPoints>, stores the XX
+   * component of the stress in cartesian coordinates
+   * @param stressYY reference to std::vector of std::array<real, numPaddedPoints>, stores the YY
+   * component of the stress in cartesian coordinates
+   * @param stressZZ reference to std::vector of std::array<real, numPaddedPoints>, stores the ZZ
+   * component of the stress in cartesian coordinates
+   * @param stressXX reference to std::vector of std::array<real, numPaddedPoints>, stores the XY
+   * component of the stress in cartesian coordinates
+   * @param stressYZ reference to std::vector of std::array<real, numPaddedPoints>, stores the YZ
+   * component of the stress in cartesian coordinates
+   * @param stressXZ reference to std::vector of std::array<real, numPaddedPoints>, stores the XZ
+   * component of the stress in cartesian coordinates
    */
   void rotateStressToFaultCS(seissol::initializers::DynamicRupture* dynRup,
                              seissol::initializers::LTSTree::leaf_iterator& it,
                              real (*stressInFaultCS)[numPaddedPoints][6],
-                             real (*stressXX)[numPaddedPoints],
-                             real (*stressYY)[numPaddedPoints],
-                             real (*stressZZ)[numPaddedPoints],
-                             real (*stressXY)[numPaddedPoints],
-                             real (*stressYZ)[numPaddedPoints],
-                             real (*stressXZ)[numPaddedPoints]);
+                             std::vector<std::array<real, numPaddedPoints>>& stressXX,
+                             std::vector<std::array<real, numPaddedPoints>>& stressYY,
+                             std::vector<std::array<real, numPaddedPoints>>& stressZZ,
+                             std::vector<std::array<real, numPaddedPoints>>& stressXY,
+                             std::vector<std::array<real, numPaddedPoints>>& stressYZ,
+                             std::vector<std::array<real, numPaddedPoints>>& stressXZ);
 };
 
+};     // namespace seissol::dr::initializers
 #endif // SEISSOL_BASEDRINITIALIZER_H

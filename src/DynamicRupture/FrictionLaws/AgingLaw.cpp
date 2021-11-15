@@ -1,8 +1,8 @@
 #include "AgingLaw.h"
 namespace seissol::dr::friction_law {
-real AgingLaw::calcStateVariableHook(real stateVariable, real tmp, real time_inc, real RS_sl0) {
-  return stateVariable * std::exp(-tmp * time_inc / RS_sl0) +
-         RS_sl0 / tmp * (1.0 - std::exp(-tmp * time_inc / RS_sl0));
+real AgingLaw::calcStateVariableHook(real stateVariable, real tmp, real time_inc, real rs_sl0) {
+  return stateVariable * std::exp(-tmp * time_inc / rs_sl0) +
+         rs_sl0 / tmp * (1.0 - std::exp(-tmp * time_inc / rs_sl0));
 }
 
 void AgingLaw::evaluate(
@@ -20,8 +20,8 @@ void AgingLaw::evaluate(
   real(*initialStressInFaultCS)[numPaddedPoints][6] =
       layerData.var(concreteLts->initialStressInFaultCS);
 
-  real(*RS_a)[numPaddedPoints] = layerData.var(concreteLts->rs_a);
-  real(*RS_sl0)[numPaddedPoints] = layerData.var(concreteLts->rs_sl0);
+  real(*rs_a)[numPaddedPoints] = layerData.var(concreteLts->rs_a);
+  real(*rs_sl0)[numPaddedPoints] = layerData.var(concreteLts->rs_sl0);
 
   real(*mu)[numPaddedPoints] = layerData.var(concreteLts->mu);
   real(*slip)[numPaddedPoints] = layerData.var(concreteLts->slip);
@@ -94,7 +94,7 @@ void AgingLaw::evaluate(
 
           // FL= 3 aging law and FL=4 slip law
           localStateVariable =
-              calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace][pointIndex]);
+              calcStateVariableHook(stateVariable, tmp, timeIncrement, rs_sl0[ltsFace][pointIndex]);
 
           // Newton-Raphson algorithm to determine the value of the slip rate.
           // We wish to find SR that fulfills g(SR)=f(SR), by building up the function NR=f-g ,
@@ -114,20 +114,20 @@ void AgingLaw::evaluate(
             tmp = 0.5 / drParameters.rs_sr0 *
                   std::exp((drParameters.rs_f0 +
                             drParameters.rs_b * std::log(drParameters.rs_sr0 * localStateVariable /
-                                                         RS_sl0[ltsFace][pointIndex])) /
-                           RS_a[ltsFace][pointIndex]);
+                                                         rs_sl0[ltsFace][pointIndex])) /
+                           rs_a[ltsFace][pointIndex]);
             real tmp2 = tmp * slipRateGuess;
             // TODO: author before me: not sure if ShTest=TotalShearStressYZ should be + or -...
             real NR = -(1.0 / waveSpeedsPlus->sWaveVelocity / waveSpeedsPlus->density +
                         1.0 / waveSpeedsMinus->sWaveVelocity / waveSpeedsMinus->density) *
-                          (std::fabs(pressure) * RS_a[ltsFace][pointIndex] *
+                          (std::fabs(pressure) * rs_a[ltsFace][pointIndex] *
                                std::log(tmp2 + std::sqrt(std::pow(tmp2, 2) + 1.0)) -
                            totalShearStressYZ) -
                       slipRateGuess;
 
             real dNR = -(1.0 / waveSpeedsPlus->sWaveVelocity / waveSpeedsPlus->density +
                          1.0 / waveSpeedsMinus->sWaveVelocity / waveSpeedsMinus->density) *
-                           (std::fabs(pressure) * RS_a[ltsFace][pointIndex] /
+                           (std::fabs(pressure) * rs_a[ltsFace][pointIndex] /
                             std::sqrt(1 + std::pow(tmp2, 2)) * tmp) -
                        1.0;
             // no ABS needed around NR/dNR at least for aging law
@@ -143,16 +143,16 @@ void AgingLaw::evaluate(
 
         // FL= 3 aging law and FL=4 slip law
         localStateVariable =
-            calcStateVariableHook(stateVariable, tmp, timeIncrement, RS_sl0[ltsFace][pointIndex]);
+            calcStateVariableHook(stateVariable, tmp, timeIncrement, rs_sl0[ltsFace][pointIndex]);
 
         // TODO: reused calc from above -> simplify
         tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / drParameters.rs_sr0 *
               std::exp((drParameters.rs_f0 +
                         drParameters.rs_b * std::log(drParameters.rs_sr0 * localStateVariable /
-                                                     RS_sl0[ltsFace][pointIndex])) /
-                       RS_a[ltsFace][pointIndex]);
+                                                     rs_sl0[ltsFace][pointIndex])) /
+                       rs_a[ltsFace][pointIndex]);
 
-        localMu = RS_a[ltsFace][pointIndex] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
+        localMu = rs_a[ltsFace][pointIndex] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
 
         // 2D:
         // LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))

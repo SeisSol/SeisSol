@@ -4,19 +4,15 @@
 #include "BaseDRInitializer.h"
 
 namespace seissol::dr::initializers {
-class RateAndStateInitializer;
-class RateAndStateFastVelocityInitializer;
-class RateAndStateThermalPressurisationInitializer;
-} // namespace seissol::dr::initializers
 
 /**
  * Derived initializer class for the common part of RateAndState friction laws
  * For the slip and aging law, this initializer is sufficient
  */
-class seissol::dr::initializers::RateAndStateInitializer
-    : public seissol::dr::initializers::BaseDRInitializer {
+class RateAndStateInitializer : public BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
+
   /**
    * Computes initial friction and slip rates
    */
@@ -25,10 +21,10 @@ class seissol::dr::initializers::RateAndStateInitializer
                                seissol::Interoperability* e_interoperability) override;
 
   protected: /**
-              * Adds the additional parameters rs_sl0, rs_a
+              * Adds the additional parameters sl0, rs_a
               */
   virtual void
-      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
@@ -65,8 +61,7 @@ class seissol::dr::initializers::RateAndStateInitializer
 /**
  * Derived initializer class for FastVelocityWeakening friction laws
  */
-class seissol::dr::initializers::RateAndStateFastVelocityInitializer
-    : public seissol::dr::initializers::RateAndStateInitializer {
+class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
   public:
   using RateAndStateInitializer::RateAndStateInitializer;
 
@@ -75,9 +70,10 @@ class seissol::dr::initializers::RateAndStateFastVelocityInitializer
    * Adds the additional parameters rs_srW
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
   \f[ \psi = a \cdot \log\left(\frac{2 \cdot sr_0}{rs_{ini}} \cdot
@@ -110,8 +106,7 @@ class seissol::dr::initializers::RateAndStateFastVelocityInitializer
  * Derived initializer class for FastVelocityWeakening friction law with additional thermal
  * pressurisation
  */
-class seissol::dr::initializers::RateAndStateThermalPressurisationInitializer
-    : public seissol::dr::initializers::RateAndStateFastVelocityInitializer {
+class RateAndStateThermalPressurisationInitializer : public RateAndStateFastVelocityInitializer {
   public:
   using RateAndStateFastVelocityInitializer::RateAndStateFastVelocityInitializer;
 
@@ -127,9 +122,10 @@ class seissol::dr::initializers::RateAndStateThermalPressurisationInitializer
    * Adds the additional parameters TP_halfWidthShearZone and alphaHy
    */
   virtual void
-      addAdditionalParameters(std::map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
+} // namespace seissol::dr::initializers
 #endif // SEISSOL_RATEANDSTATEINITIALIZER_H

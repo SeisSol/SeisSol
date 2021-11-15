@@ -4,21 +4,18 @@
 #include "BaseFrictionLaw.h"
 
 namespace seissol::dr::friction_law {
-class VelocityWeakening;
-}
-
-/*
+/**
  * This class was not tested and compared to the Fortran FL4. Since FL4 initialization did not work
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class seissol::dr::friction_law::VelocityWeakening
-    : public seissol::dr::friction_law::BaseFrictionLaw {
+class VelocityWeakening : public BaseFrictionLaw {
   protected:
   // Attributes
-  real (*stateVar)[numPaddedPoints];
-  real (*rs_sl0)[numPaddedPoints];
-  real (*rs_a)[numPaddedPoints];
+  real (*stateVar)[numPaddedPoints]{};
+  real (*sl0)[numPaddedPoints]{};
+  real (*a)[numPaddedPoints]{};
+
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
@@ -35,5 +32,6 @@ class seissol::dr::friction_law::VelocityWeakening
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) override;
 };
+} // namespace seissol::dr::friction_law
 
 #endif // SEISSOL_VELOCITYWEAKENING_H

@@ -11,15 +11,11 @@
 #include <Eigen/Dense>
 
 namespace seissol::dr {
-struct DRParameters;
-inline DRParameters readParametersFromYaml(YAML::Node& params);
-} // namespace seissol::dr
-
-/*
+/**
  * Saves all dynamic rupture parameter read from parameter.par file
  * if values are not defined they are set to an initial value (mostly 0)
  */
-struct seissol::dr::DRParameters {
+struct DRParameters {
   static constexpr unsigned int TP_grid_nz = 60;
   int outputPointType{3};
   Eigen::Vector3d referencePoint;
@@ -34,7 +30,7 @@ struct seissol::dr::DRParameters {
   bool isThermalPressureOn{false};
   int energyRatePrintTimeInterval{1};
   bool isInstaHealingOn{false};
-  real t_0{0.0};
+  real t0{0.0};
   real rs_f0{0.0};
   real rs_a{0.0};
   real rs_b{0.0};
@@ -45,14 +41,14 @@ struct seissol::dr::DRParameters {
   real alpha_th{0.0};
   real rho_c{0.0};
   real tP_lambda{0.0};
-  real iniTemp{0.0};
+  real initialTemperature{0.0};
   real iniPressure{0.0};
   real v_star{0.0}; // Prakash-Clifton regularization parameter
   real prakash_length{0.0};
   std::string faultFileName{""};
 };
 
-inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node& params) {
+inline DRParameters readParametersFromYaml(YAML::Node& params) {
   DRParameters drParameters;
   const YAML::Node& yamlParams = params["dynamicrupture"];
 
@@ -80,7 +76,7 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
     initializers::updateIfExists(
         yamlParams, "energy_rate_printtimeinterval", drParameters.backgroundType);
     initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
-    initializers::updateIfExists(yamlParams, "t_0", drParameters.t_0);
+    initializers::updateIfExists(yamlParams, "t_0", drParameters.t0);
     initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rs_f0);
     initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
     initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
@@ -93,7 +89,7 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
     initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alpha_th);
     initializers::updateIfExists(yamlParams, "rho_c", drParameters.rho_c);
     initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tP_lambda);
-    initializers::updateIfExists(yamlParams, "initemp", drParameters.iniTemp);
+    initializers::updateIfExists(yamlParams, "initemp", drParameters.initialTemperature);
     initializers::updateIfExists(yamlParams, "inipressure", drParameters.iniPressure);
 
     // Prakash-Clifton regularization parameters
@@ -106,4 +102,5 @@ inline seissol::dr::DRParameters seissol::dr::readParametersFromYaml(YAML::Node&
 
   return drParameters;
 }
+} // namespace seissol::dr
 #endif // SEISSOL_PARAMETERS_H

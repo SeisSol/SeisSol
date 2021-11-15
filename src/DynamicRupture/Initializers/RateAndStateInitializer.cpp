@@ -12,7 +12,7 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
        it != dynRupTree->endLeaf();
        ++it) {
 
-    bool(*DS)[numPaddedPoints] = it->var(concreteLts->DS);
+    bool(*ds)[numPaddedPoints] = it->var(concreteLts->ds);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
     real(*dynStressTime)[numPaddedPoints] = it->var(concreteLts->dynStressTime);
     real(*slipRateStrike)[numPaddedPoints] = it->var(concreteLts->slipRateStrike);
@@ -30,7 +30,7 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        DS[ltsFace][pointIndex] = drParameters.isDsOutputOn;
+        ds[ltsFace][pointIndex] = drParameters.isDsOutputOn;
         dynStressTime[ltsFace][pointIndex] = 0.0;
         slipRateStrike[ltsFace][pointIndex] = drParameters.rs_initialSlipRate1;
         slipRateDip[ltsFace][pointIndex] = drParameters.rs_initialSlipRate2;
@@ -83,13 +83,13 @@ std::pair<real, real>
 }
 
 void RateAndStateInitializer::addAdditionalParameters(
-    std::map<std::string, real*>& parameterToStorageMap,
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
   real(*rs_sl0)[numPaddedPoints] = it->var(concreteLts->rs_sl0);
   real(*rs_a)[numPaddedPoints] = it->var(concreteLts->rs_a);
-  parameterToStorageMap.insert({"rs_sl0", (real*)rs_sl0});
+  parameterToStorageMap.insert({"sl0", (real*)rs_sl0});
   parameterToStorageMap.insert({"rs_a", (real*)rs_a});
 }
 
@@ -114,7 +114,7 @@ std::pair<real, real>
 }
 
 void RateAndStateFastVelocityInitializer::addAdditionalParameters(
-    std::map<std::string, real*>& parameterToStorageMap,
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
@@ -144,7 +144,7 @@ void RateAndStateThermalPressurisationInitializer::initializeFault(
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        temperature[ltsFace][pointIndex] = drParameters.iniTemp;
+        temperature[ltsFace][pointIndex] = drParameters.initialTemperature;
         pressure[ltsFace][pointIndex] = drParameters.iniPressure;
         for (unsigned iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
           TP_Theta[ltsFace][pointIndex][iTP_grid_nz] = 0.0;
@@ -156,7 +156,7 @@ void RateAndStateThermalPressurisationInitializer::initializeFault(
 }
 
 void RateAndStateThermalPressurisationInitializer::addAdditionalParameters(
-    std::map<std::string, real*>& parameterToStorageMap,
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   RateAndStateFastVelocityInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);

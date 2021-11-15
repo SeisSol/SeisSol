@@ -4,21 +4,19 @@
 #include "BaseFrictionLaw.h"
 
 namespace seissol::dr::friction_law {
-class AgingLaw;
-}
 
-/*
+/**
  * This class was not tested and compared to the Fortran FL3. Since FL3 initialization did not work
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class seissol::dr::friction_law::AgingLaw : public BaseFrictionLaw {
+class AgingLaw : public BaseFrictionLaw {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
   using BaseFrictionLaw::copyLtsTreeToLocal;
 
   protected:
-  virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0);
+  virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real rs_sl0);
 
   public:
   virtual void
@@ -30,4 +28,5 @@ class seissol::dr::friction_law::AgingLaw : public BaseFrictionLaw {
                double timeWeights[CONVERGENCE_ORDER]) override;
 };
 
+} // namespace seissol::dr::friction_law
 #endif // SEISSOL_AGINGLAW_H

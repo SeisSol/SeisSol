@@ -1236,12 +1236,12 @@ void seissol::Interoperability::copyFrictionOutputToFortranStrength(unsigned int
 void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(unsigned int ltsFace,
                                                                                   unsigned int meshFace,
                                                                                   real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-                                                                                  real (*iniBulkXX)[init::QInterpolated::Stop[0]],
-                                                                                  real (*iniBulkYY)[init::QInterpolated::Stop[0]],
-                                                                                  real (*iniBulkZZ)[init::QInterpolated::Stop[0]],
-                                                                                  real (*iniShearXY)[init::QInterpolated::Stop[0]],
-                                                                                  real (*iniShearYZ)[init::QInterpolated::Stop[0]],
-                                                                                  real (*iniShearXZ)[init::QInterpolated::Stop[0]]) {
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkXX,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkYY,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkZZ,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXY,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearYZ,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXZ) {
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputInitialStress(m_domain, fFace,
                                                     &initialStressInFaultCS[ltsFace][0][0],
