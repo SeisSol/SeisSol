@@ -47,16 +47,13 @@ from multSim import OptionalDimTensor
 #adrian numpy added:
 import numpy as np
 
-def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
-  if dynamicRuptureMethod == 'quadrature':
-    numberOfPoints = (aderdg.order+1)**2
-  else:
-    raise ValueError('Unknown dynamic rupture method.')
+def addKernels(generator, aderdg, matricesDir, targets):
+  numberOfPoints = (aderdg.order+1)**2
 
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  db = parseJSONMatrixFile('{}/dr_quadrature_matrices_{}.json'.format(matricesDir, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
   db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
 
   # Determine matrices

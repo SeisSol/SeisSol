@@ -82,7 +82,6 @@ add_custom_command(
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code

@@ -176,6 +176,7 @@ if args.Data == ["all"]:
         if elem.tag == "Attribute":
             variable_names.add(elem.get("Name"))
     variable_names.remove("partition")
+    variable_names.remove("locationFlag")
 else:
     variable_names = args.Data
 
