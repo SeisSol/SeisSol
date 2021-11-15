@@ -308,6 +308,9 @@ class RateAndStateFastVelocityWeakeningLaw
   void updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
 }; // end class FL_103
 
+/**
+ * As a reference, see https://www.scec.org/meetings/2020/am/poster/158
+ */
 class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeakeningLaw {
   public:
   using RateAndStateFastVelocityWeakeningLaw::RateAndStateFastVelocityWeakeningLaw;
@@ -359,9 +362,11 @@ class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeak
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
    */
-  void Calc_ThermalPressure(unsigned int pointIndex, unsigned int timeIndex, unsigned int ltsFace);
+  void updateTemperatureAndPressure(unsigned int pointIndex,
+                                    unsigned int timeIndex,
+                                    unsigned int ltsFace);
 
-  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
+  real heatSource(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
 };
 
 } // namespace seissol::dr::friction_law

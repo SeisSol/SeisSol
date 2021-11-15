@@ -528,7 +528,7 @@ void RateAndStateThermalPressurizationLaw::hookCalcP_f(std::array<real, numPadde
       Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][pointIndex][iTP_grid_nz];
     }
     //! use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-    Calc_ThermalPressure(pointIndex, timeIndex, ltsFace);
+    updateTemperatureAndPressure(pointIndex, timeIndex, ltsFace);
 
     P_f[pointIndex] = pressure[ltsFace][pointIndex];
     if (saveTmpInTP) {
@@ -540,9 +540,9 @@ void RateAndStateThermalPressurizationLaw::hookCalcP_f(std::array<real, numPadde
   }
 }
 
-void RateAndStateThermalPressurizationLaw::Calc_ThermalPressure(unsigned int pointIndex,
-                                                                unsigned int timeIndex,
-                                                                unsigned int ltsFace) {
+void RateAndStateThermalPressurizationLaw::updateTemperatureAndPressure(unsigned int pointIndex,
+                                                                        unsigned int timeIndex,
+                                                                        unsigned int ltsFace) {
   real localTemperature = 0.0;
   real localPressure = 0.0;
 
@@ -571,11 +571,11 @@ void RateAndStateThermalPressurizationLaw::Calc_ThermalPressure(unsigned int poi
 
     //! 2. Add current contribution and get new temperature
     omegaTheta[iTP_grid_nz] =
-        heat_source(tmp[iTP_grid_nz], drParameters.alpha_th, iTP_grid_nz, timeIndex);
+        heatSource(tmp[iTP_grid_nz], drParameters.alpha_th, iTP_grid_nz, timeIndex);
     Theta_tmp[iTP_grid_nz] =
         thetaCurrent[iTP_grid_nz] + (tauV / drParameters.rho_c) * omegaTheta[iTP_grid_nz];
     omegaSigma[iTP_grid_nz] =
-        heat_source(tmp[iTP_grid_nz], alphaHy[ltsFace][pointIndex], iTP_grid_nz, timeIndex);
+        heatSource(tmp[iTP_grid_nz], alphaHy[ltsFace][pointIndex], iTP_grid_nz, timeIndex);
     Sigma_tmp[iTP_grid_nz] =
         sigmaCurrent[iTP_grid_nz] + ((drParameters.tP_lambda + lambdaPrime) * tauV) /
                                         (drParameters.rho_c) * omegaSigma[iTP_grid_nz];
@@ -598,10 +598,10 @@ void RateAndStateThermalPressurizationLaw::Calc_ThermalPressure(unsigned int poi
   pressure[ltsFace][pointIndex] = -localPressure + drParameters.iniPressure;
 }
 
-real RateAndStateThermalPressurizationLaw::heat_source(real tmp,
-                                                       real alpha,
-                                                       unsigned int iTP_grid_nz,
-                                                       unsigned int timeIndex) {
+real RateAndStateThermalPressurizationLaw::heatSource(real tmp,
+                                                      real alpha,
+                                                      unsigned int iTP_grid_nz,
+                                                      unsigned int timeIndex) {
   //! original function in spatial domain
   //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_halfWidthShearZone).^2);
   //! function in the wavenumber domain *including additional factors in front of the heat source

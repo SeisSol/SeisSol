@@ -53,15 +53,15 @@ class OutputBase {
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranGeneral(ltsFace,
-                                                     meshFace,
-                                                     slip,
-                                                     slipStrike,
-                                                     slipDip,
-                                                     ruptureTime,
-                                                     dynStressTime,
-                                                     peakSR,
-                                                     tractionXY,
-                                                     tractionXZ);
+                                                            meshFace,
+                                                            slip,
+                                                            slipStrike,
+                                                            slipDip,
+                                                            ruptureTime,
+                                                            dynStressTime,
+                                                            peakSR,
+                                                            tractionXY,
+                                                            tractionXZ);
     }
   }
 

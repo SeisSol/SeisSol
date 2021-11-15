@@ -50,20 +50,20 @@ MODULE Thermalpressure_mod
   IMPLICIT NONE
   !PRIVATE
   !---------------------------------------------------------------------------!
-  INTERFACE Calc_ThermalPressure
-     MODULE PROCEDURE Calc_ThermalPressure
+  INTERFACE updateTemperatureAndPressure
+     MODULE PROCEDURE updateTemperatureAndPressure
   END INTERFACE
-  INTERFACE heat_source
-     MODULE PROCEDURE heat_source
+  INTERFACE heatSource
+     MODULE PROCEDURE heatSource
   END INTERFACE
   !---------------------------------------------------------------------------!
-  PUBLIC  :: Calc_ThermalPressure, heat_source
+  PUBLIC  :: updateTemperatureAndPressure, heatSource
 
   !---------------------------------------------------------------------------!
 
 CONTAINS
 
-  SUBROUTINE Calc_ThermalPressure(EQN,dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, &
+  SUBROUTINE updateTemperatureAndPressure(EQN,dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, &
              Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp, pressure)
     !-------------------------------------------------------------------------!
 
@@ -130,9 +130,9 @@ CONTAINS
     temp = T + EQN%Temp_0
     pressure = -p + EQN%Pressure_0
  
-  END SUBROUTINE Calc_ThermalPressure
+  END SUBROUTINE updateTemperatureAndPressure
 
-  SUBROUTINE  heat_source(TP_half_width_shear_zone, alpha, dt, Dwn, TP_grid_nz, omega)
+  SUBROUTINE  heatSource(TP_half_width_shear_zone, alpha, dt, Dwn, TP_grid_nz, omega)
 
     !-------------------------------------------------------------------------!
 
@@ -163,6 +163,6 @@ CONTAINS
 
     RETURN
 
-  END SUBROUTINE heat_source
+  END SUBROUTINE heatSource
 
 END MODULE Thermalpressure_mod
