@@ -17,7 +17,6 @@ void LinearSlipWeakeningInitializer::initializeFault(
        ++it) {
     bool(*DS)[numPaddedPoints] = it->var(concreteLts->ds);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
-    real(*dynStressTime)[numPaddedPoints] = it->var(concreteLts->dynStressTime);
     real(*slipRateStrike)[numPaddedPoints] = it->var(concreteLts->slipRateStrike);
     real(*slipRateDip)[numPaddedPoints] = it->var(concreteLts->slipRateDip);
     real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
@@ -28,7 +27,6 @@ void LinearSlipWeakeningInitializer::initializeFault(
 
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        dynStressTime[ltsFace][pointIndex] = 0.0;
         DS[ltsFace][pointIndex] = drParameters.isDsOutputOn;
         slipRateStrike[ltsFace][pointIndex] = 0.0;
         slipRateDip[ltsFace][pointIndex] = 0.0;
@@ -37,8 +35,8 @@ void LinearSlipWeakeningInitializer::initializeFault(
       }
       averagedSlip[ltsFace] = 0.0;
       // can be removed once output is in c++
-      e_interoperability->copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
+      e_interoperability->copyFrictionOutputToFortranSpecific(
+          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
     }
   }
 }

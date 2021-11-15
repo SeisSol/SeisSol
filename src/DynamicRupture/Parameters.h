@@ -43,8 +43,8 @@ struct DRParameters {
   real tP_lambda{0.0};
   real initialTemperature{0.0};
   real iniPressure{0.0};
-  real v_star{0.0}; // Prakash-Clifton regularization parameter
-  real prakash_length{0.0};
+  real vStar{0.0}; // Prakash-Clifton regularization parameter
+  real prakashLength{0.0};
   std::string faultFileName{""};
 };
 
@@ -93,8 +93,8 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlParams, "inipressure", drParameters.iniPressure);
 
     // Prakash-Clifton regularization parameters
-    initializers::updateIfExists(yamlParams, "v_star", drParameters.v_star);
-    initializers::updateIfExists(yamlParams, "L", drParameters.prakash_length);
+    initializers::updateIfExists(yamlParams, "vStar", drParameters.vStar);
+    initializers::updateIfExists(yamlParams, "prakashLength", drParameters.prakashLength);
 
     // filename of the yaml file describing the fault parameters
     initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);

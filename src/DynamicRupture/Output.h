@@ -39,7 +39,8 @@ class OutputBase {
     real(*slip)[size] = layerData.var(dynRup->slip);
     real(*slipStrike)[size] = layerData.var(dynRup->slipStrike);
     real(*slipDip)[size] = layerData.var(dynRup->slipDip);
-    real(*rupture_time)[size] = layerData.var(dynRup->ruptureTime);
+    real(*ruptureTime)[size] = layerData.var(dynRup->ruptureTime);
+    real(*dynStressTime)[size] = layerData.var(dynRup->dynStressTime);
     real(*peakSR)[size] = layerData.var(dynRup->peakSlipRate);
     real(*tractionXY)[size] = layerData.var(dynRup->tractionXY);
     real(*tractionXZ)[size] = layerData.var(dynRup->tractionXZ);
@@ -51,12 +52,13 @@ class OutputBase {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-      e_interoperability.copyFrictionOutputToFortran(ltsFace,
+      e_interoperability.copyFrictionOutputToFortranGeneral(ltsFace,
                                                      meshFace,
                                                      slip,
                                                      slipStrike,
                                                      slipDip,
-                                                     rupture_time,
+                                                     ruptureTime,
+                                                     dynStressTime,
                                                      peakSR,
                                                      tractionXY,
                                                      tractionXZ);
@@ -106,7 +108,6 @@ class OutputLinearSlipWeakening : public OutputBase {
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
     constexpr auto size = init::QInterpolated::Stop[0];
-    real(*dynStressTime)[size] = layerData.var(concreteLts->dynStressTime);
     real(*slipRateStrike)[size] = layerData.var(concreteLts->slipRateStrike);
     real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
     real(*mu)[size] = layerData.var(concreteLts->mu);
@@ -116,8 +117,8 @@ class OutputLinearSlipWeakening : public OutputBase {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-      e_interoperability.copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
+      e_interoperability.copyFrictionOutputToFortranSpecific(
+          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
     }
   }
 
@@ -158,7 +159,6 @@ class OutputRateAndState : public OutputBase {
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
     constexpr auto size = init::QInterpolated::Stop[0];
-    real(*dynStressTime)[size] = layerData.var(concreteLts->dynStressTime);
     real(*slipRateStrike)[size] = layerData.var(concreteLts->slipRateStrike);
     real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
     real(*mu)[size] = layerData.var(concreteLts->mu);
@@ -169,8 +169,8 @@ class OutputRateAndState : public OutputBase {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-      e_interoperability.copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
+      e_interoperability.copyFrictionOutputToFortranSpecific(
+          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
       e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
     }
   }

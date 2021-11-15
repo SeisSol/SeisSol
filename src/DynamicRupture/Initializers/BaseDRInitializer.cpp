@@ -128,6 +128,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     // initialize all other variables to zero
     real(*peakSlipRate)[numPaddedPoints] = it->var(dynRup->peakSlipRate);
     real(*ruptureTime)[numPaddedPoints] = it->var(dynRup->ruptureTime);
+    real(*dynStressTime)[numPaddedPoints] = it->var(dynRup->dynStressTime);
     real(*slip)[numPaddedPoints] = it->var(dynRup->slip);
     real(*slipDip)[numPaddedPoints] = it->var(dynRup->slipDip);
     real(*slipStrike)[numPaddedPoints] = it->var(dynRup->slipStrike);
@@ -139,6 +140,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
       for (unsigned int pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
         peakSlipRate[ltsFace][pointIndex] = 0;
         ruptureTime[ltsFace][pointIndex] = 0;
+        dynStressTime[ltsFace][pointIndex] = 0;
         slip[ltsFace][pointIndex] = 0;
         slipDip[ltsFace][pointIndex] = 0;
         slipStrike[ltsFace][pointIndex] = 0;
@@ -151,15 +153,16 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      e_interoperability->copyFrictionOutputToFortran(ltsFace,
-                                                      meshFace,
-                                                      slip,
-                                                      slipStrike,
-                                                      slipDip,
-                                                      ruptureTime,
-                                                      peakSlipRate,
-                                                      tractionXY,
-                                                      tractionXZ);
+      e_interoperability->copyFrictionOutputToFortranGeneral(ltsFace,
+                                                             meshFace,
+                                                             slip,
+                                                             slipStrike,
+                                                             slipDip,
+                                                             ruptureTime,
+                                                             dynStressTime,
+                                                             peakSlipRate,
+                                                             tractionXY,
+                                                             tractionXZ);
     }
   }
 }

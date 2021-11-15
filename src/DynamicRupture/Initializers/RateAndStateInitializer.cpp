@@ -14,7 +14,6 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
 
     bool(*ds)[numPaddedPoints] = it->var(concreteLts->ds);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
-    real(*dynStressTime)[numPaddedPoints] = it->var(concreteLts->dynStressTime);
     real(*slipRateStrike)[numPaddedPoints] = it->var(concreteLts->slipRateStrike);
     real(*slipRateDip)[numPaddedPoints] = it->var(concreteLts->slipRateDip);
     real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
@@ -31,7 +30,6 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
         ds[ltsFace][pointIndex] = drParameters.isDsOutputOn;
-        dynStressTime[ltsFace][pointIndex] = 0.0;
         slipRateStrike[ltsFace][pointIndex] = drParameters.rs_initialSlipRate1;
         slipRateDip[ltsFace][pointIndex] = drParameters.rs_initialSlipRate2;
         // compute initial friction and state
@@ -52,8 +50,8 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      e_interoperability->copyFrictionOutputToFortranFL2(
-          ltsFace, meshFace, averagedSlip, dynStressTime, slipRateStrike, slipRateDip, mu);
+      e_interoperability->copyFrictionOutputToFortranSpecific(
+          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
       e_interoperability->copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVariable);
     }
   }
@@ -77,7 +75,6 @@ std::pair<real, real>
                                 rs_b);
   real tmp2 = initialSlipRate * 0.5 / rs_sr0 *
               std::exp((rs_f0 + rs_b * std::log(rs_sr0 * stateVariable / rs_sl0)) / rs_a);
-  // asinh(x)=log(x+sqrt(x^2+1))
   real mu = rs_a * std::asinh(tmp2);
   return {stateVariable, mu};
 }

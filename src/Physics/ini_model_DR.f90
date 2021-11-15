@@ -211,25 +211,6 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDDO
     ENDIF
-    if (EQN%FL /= 33) then !33 is ImposedSlipRateOnDRBoundary
-        !faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)
-        !
-        !if (faultParameterizedByTraction) then
-        !  call c_interoperability_addFaultParameter("T_n" // c_null_char, EQN%IniBulk_xx)
-        !  call c_interoperability_addFaultParameter("T_s" // c_null_char, EQN%IniShearXY)
-        !  call c_interoperability_addFaultParameter("T_d" // c_null_char, EQN%IniShearXZ)
-        !  EQN%IniBulk_yy(:,:) = 0.0d0
-        !  EQN%IniBulk_zz(:,:) = 0.0d0
-        !  EQN%IniShearYZ(:,:) = 0.0d0
-        !else
-        !  call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
-        !  call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
-        !  call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
-        !  call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
-        !  call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
-        !  call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
-        !endif
-    endif
 
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
@@ -246,10 +227,6 @@ MODULE ini_model_DR_mod
            DISC%DynRup%Mu_S(:,i) = 0.0
            DISC%DynRup%Mu_D(:,i) = 0.0
        END DO
-!       call c_interoperability_addFaultParameter("cohesion" // c_null_char, DISC%DynRup%cohesion)
-!       call c_interoperability_addFaultParameter("d_c" // c_null_char, DISC%DynRup%D_C)
-!       call c_interoperability_addFaultParameter("mu_s" // c_null_char, DISC%DynRup%Mu_S)
-!       call c_interoperability_addFaultParameter("mu_d" // c_null_char, DISC%DynRup%Mu_D)
        if (EQN%FL == 16) then
          ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
          ! Initialize w/ first-touch
@@ -257,7 +234,6 @@ MODULE ini_model_DR_mod
          DO i=1,MESH%fault%nSide
              DISC%DynRup%forced_rupture_time(:,i) = 0.0
          END DO
-!         call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
        end if
 
     CASE(33) ! ImposedSlipRateOnDRBoundary, Yoffe STF
@@ -277,12 +253,6 @@ MODULE ini_model_DR_mod
             DISC%DynRup%YoffeTR(:,i) = 0.0d0
         END DO
 
-!        call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
-!        call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
-!        call c_interoperability_addFaultParameter("rupture_onset" // c_null_char, DISC%DynRup%RuptureOnset)
-!        call c_interoperability_addFaultParameter("tau_S" // c_null_char, DISC%DynRup%YoffeTS)
-!        call c_interoperability_addFaultParameter("tau_R" // c_null_char, DISC%DynRup%YoffeTR)
-
     CASE(34) ! ImposedSlipRateOnDRBoundary, Gaussian STF
         allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                               &
                   nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                               &
@@ -298,12 +268,6 @@ MODULE ini_model_DR_mod
             DISC%DynRup%RuptureRiseTime(:,i) = 0.0d0
         END DO
 
-!        call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
-!        call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
-!        call c_interoperability_addFaultParameter("rupture_onset" // c_null_char, DISC%DynRup%RuptureOnset)
-!        call c_interoperability_addFaultParameter("rupture_rise_time" // c_null_char, DISC%DynRup%RuptureRiseTime)
-
-
     CASE(3,4,7,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
       ! Initialize w/ first-touch
@@ -311,7 +275,6 @@ MODULE ini_model_DR_mod
       DO i=1,MESH%fault%nSide
           DISC%DynRup%rs_a_array(:,i) = 0.0
       END DO
-!          call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
       if ((EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) then
         nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
         allocate( DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),  &
@@ -328,7 +291,6 @@ MODULE ini_model_DR_mod
            DO i=1,MESH%fault%nSide
                DISC%DynRup%RS_srW_array(:,i) = 0.0
            END DO
-!           call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         endif
 
         ! Initialize w/ first-touch
@@ -343,22 +305,6 @@ MODULE ini_model_DR_mod
             nuc_xz(:,i) = 0.0
         END DO
 
-!        call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
-        if (nucleationParameterizedByTraction) then
-!          call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
-!          call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
-!          call c_interoperability_addFaultParameter("Tnuc_d" // c_null_char, nuc_xz)
-          nuc_yy(:,:) = 0.0d0
-          nuc_zz(:,:) = 0.0d0
-          nuc_yz(:,:) = 0.0d0
-        else
-!          call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
-!          call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
-!          call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
-!          call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
-!          call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
-!          call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
-        endif
       end if
       if (DISC%DynRup%ThermalPress == 1) THEN
          nz = DISC%DynRup%TP_grid_nz !number of grid points for the advection equation perpendicular to the fault, currently fixed to 60.0 but requires more testing
@@ -379,9 +325,6 @@ MODULE ini_model_DR_mod
              DISC%DynRup%alpha_hy(:, i) = 0.0
              DISC%DynRup%TP_half_width_shear_zone(:, i) = 0.0
          END DO
-
-!        call c_interoperability_addFaultParameter("alpha_hy" // c_null_char, DISC%DynRup%alpha_hy)
-!        call c_interoperability_addFaultParameter("TP_half_width_shear_zone" // c_null_char, DISC%DynRup%TP_half_width_shear_zone)
 
         DISC%DynRup%TP_grid(:) = 0.0
         DISC%DynRup%TP_DFinv(:) = 0.0

@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law {
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
 template <class Derived>
-class LinearSlipWeakeningLaw : public BaseFrictionLaw {
+class LinearSlipWeakeningBase : public BaseFrictionLaw {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
@@ -220,9 +220,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw {
   }
 };
 
-class LinearSlipWeakeningLawFL2 : public LinearSlipWeakeningLaw<LinearSlipWeakeningLawFL2> {
+class LinearSlipWeakeningLaw : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw> {
   public:
-  using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
+  using LinearSlipWeakeningBase::LinearSlipWeakeningBase;
   virtual void calcStrengthHook(std::array<real, numPaddedPoints>& strength,
                                 FaultStresses& faultStresses,
                                 unsigned int timeIndex,
@@ -235,9 +235,9 @@ class LinearSlipWeakeningLawFL2 : public LinearSlipWeakeningLaw<LinearSlipWeaken
                                      unsigned int ltsFace);
 };
 
-class LinearSlipWeakeningLawFL16 : public LinearSlipWeakeningLawFL2 {
+class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
   public:
-  using LinearSlipWeakeningLawFL2::LinearSlipWeakeningLawFL2;
+  using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
 
   protected:
   real (*forcedRuptureTime)[numPaddedPoints];
@@ -261,10 +261,10 @@ class LinearSlipWeakeningLawFL16 : public LinearSlipWeakeningLawFL2 {
  * currently regularized strength is not used (bug)
  * State variable (slip) is not resampled in this friction law!
  */
-class LinearSlipWeakeningLawBimaterialFL6
-    : public LinearSlipWeakeningLaw<LinearSlipWeakeningLawBimaterialFL6> {
+class LinearSlipWeakeningLawBimaterial
+    : public LinearSlipWeakeningBase<LinearSlipWeakeningLawBimaterial> {
   public:
-  using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
+  using LinearSlipWeakeningBase::LinearSlipWeakeningBase;
   virtual void calcStrengthHook(std::array<real, numPaddedPoints>& strength,
                                 FaultStresses& faultStresses,
                                 unsigned int timeIndex,

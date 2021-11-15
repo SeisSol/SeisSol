@@ -43,7 +43,7 @@ class LinearSlipWeakeningForcedRuptureTimeInitializer : public LinearSlipWeakeni
 
   protected:
   /**
-   * Reads the additional parameter forced_ruptre_time
+   * Reads the additional parameter forced_rupture_time
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,

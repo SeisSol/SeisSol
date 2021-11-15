@@ -1,9 +1,10 @@
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
-void RateAndStateNucFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
-                                                seissol::initializers::DynamicRupture* dynRup,
-                                                real fullUpdateTime) {
+void RateAndStateFastVelocityWeakeningLaw::copyLtsTreeToLocalRS(
+    seissol::initializers::Layer& layerData,
+    seissol::initializers::DynamicRupture* dynRup,
+    real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // maybe change later to const_cast?
@@ -20,7 +21,7 @@ void RateAndStateNucFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& la
   dynStressTime = layerData.var(concreteLts->dynStressTime);
 }
 
-void RateAndStateNucFL103::preCalcTime() {
+void RateAndStateFastVelocityWeakeningLaw::preCalcTime() {
   dt = 0;
   for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
     dt += deltaT[timeIndex];
@@ -30,8 +31,8 @@ void RateAndStateNucFL103::preCalcTime() {
   }
 }
 
-void RateAndStateNucFL103::setInitialValues(std::array<real, numPaddedPoints>& localStateVariable,
-                                            unsigned int ltsFace) {
+void RateAndStateFastVelocityWeakeningLaw::setInitialValues(
+    std::array<real, numPaddedPoints>& localStateVariable, unsigned int ltsFace) {
   if (m_fullUpdateTime <= drParameters.t0) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       for (int i = 0; i < 6; i++) {
@@ -46,7 +47,7 @@ void RateAndStateNucFL103::setInitialValues(std::array<real, numPaddedPoints>& l
   }
 }
 
-void RateAndStateNucFL103::calcInitialSlipRate(
+void RateAndStateFastVelocityWeakeningLaw::calcInitialSlipRate(
     std::array<real, numPaddedPoints>& totalShearStressYZ,
     FaultStresses& faultStresses,
     std::array<real, numPaddedPoints>& stateVarZero,
@@ -87,7 +88,7 @@ void RateAndStateNucFL103::calcInitialSlipRate(
   } // End of pointIndex-loop
 }
 
-void RateAndStateNucFL103::updateStateVariableIterative(
+void RateAndStateFastVelocityWeakeningLaw::updateStateVariableIterative(
     bool& has_converged,
     std::array<real, numPaddedPoints>& stateVarZero,
     std::array<real, numPaddedPoints>& SR_tmp,
@@ -131,7 +132,7 @@ void RateAndStateNucFL103::updateStateVariableIterative(
   } // End of pointIndex-loop
 }
 
-void RateAndStateNucFL103::executeIfNotConverged(
+void RateAndStateFastVelocityWeakeningLaw::executeIfNotConverged(
     std::array<real, numPaddedPoints>& localStateVariable, unsigned ltsFace) {
   real tmp = 0.5 / drParameters.rs_sr0 * exp(localStateVariable[0] / a[ltsFace][0]) *
              slipRateMagnitude[ltsFace][0];
@@ -140,7 +141,7 @@ void RateAndStateNucFL103::executeIfNotConverged(
   assert(!std::isnan(tmp) && "nonConvergence RS Newton");
 }
 
-void RateAndStateNucFL103::calcSlipRateAndTraction(
+void RateAndStateFastVelocityWeakeningLaw::calcSlipRateAndTraction(
     std::array<real, numPaddedPoints>& stateVarZero,
     std::array<real, numPaddedPoints>& SR_tmp,
     std::array<real, numPaddedPoints>& localStateVariable,
@@ -214,8 +215,8 @@ void RateAndStateNucFL103::calcSlipRateAndTraction(
   } // End of BndGP-loop
 }
 
-void RateAndStateNucFL103::resampleStateVar(real deltaStateVar[numPaddedPoints],
-                                            unsigned int ltsFace) {
+void RateAndStateFastVelocityWeakeningLaw::resampleStateVar(real deltaStateVar[numPaddedPoints],
+                                                            unsigned int ltsFace) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resampleM = init::resample::Values;
   real resampledDeltaStateVariable[numPaddedPoints];
@@ -230,7 +231,7 @@ void RateAndStateNucFL103::resampleStateVar(real deltaStateVar[numPaddedPoints],
   }
 }
 
-void RateAndStateNucFL103::saveDynamicStressOutput(unsigned int face) {
+void RateAndStateFastVelocityWeakeningLaw::saveDynamicStressOutput(unsigned int face) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
     if (ruptureTime[face][pointIndex] > 0.0 && ruptureTime[face][pointIndex] <= m_fullUpdateTime &&
@@ -243,25 +244,25 @@ void RateAndStateNucFL103::saveDynamicStressOutput(unsigned int face) {
   }
 }
 
-void RateAndStateNucFL103::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
-                                             unsigned int ltsFace) {
+void RateAndStateFastVelocityWeakeningLaw::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
+                                                             unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     P_f[pointIndex] = 0.0;
   }
 }
 
-void RateAndStateNucFL103::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
-                                       FaultStresses& faultStresses,
-                                       bool saveTmpInTP,
-                                       unsigned int timeIndex,
-                                       unsigned int ltsFace) {}
+void RateAndStateFastVelocityWeakeningLaw::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
+                                                       FaultStresses& faultStresses,
+                                                       bool saveTmpInTP,
+                                                       unsigned int timeIndex,
+                                                       unsigned int ltsFace) {}
 
-void RateAndStateNucFL103::updateStateVariable(int pointIndex,
-                                               unsigned int face,
-                                               real SV0,
-                                               real time_inc,
-                                               real& SR_tmp,
-                                               real& localStateVariable) {
+void RateAndStateFastVelocityWeakeningLaw::updateStateVariable(int pointIndex,
+                                                               unsigned int face,
+                                                               real SV0,
+                                                               real time_inc,
+                                                               real& SR_tmp,
+                                                               real& localStateVariable) {
   double flv, fss, SVss;
   double fw = drParameters.mu_w;
   double localSrW = srW[face][pointIndex];
@@ -286,7 +287,7 @@ void RateAndStateNucFL103::updateStateVariable(int pointIndex,
   assert(!(std::isnan(localStateVariable) && pointIndex < numberOfPoints) && "NaN detected");
 }
 
-bool RateAndStateNucFL103::IterativelyInvertSR(
+bool RateAndStateFastVelocityWeakeningLaw::IterativelyInvertSR(
     unsigned int ltsFace,
     int nSRupdates,
     std::array<real, numPaddedPoints>& localStateVariable,
@@ -363,7 +364,7 @@ bool RateAndStateNucFL103::IterativelyInvertSR(
   return has_converged;
 }
 
-bool RateAndStateNucFL103::IterativelyInvertSR_Brent(
+bool RateAndStateFastVelocityWeakeningLaw::IterativelyInvertSR_Brent(
     unsigned int ltsFace,
     int nSRupdates,
     std::array<real, numPaddedPoints>& localStateVariable,
@@ -468,9 +469,9 @@ bool RateAndStateNucFL103::IterativelyInvertSR_Brent(
   }
   return true;
 }
-void RateAndStateNucFL103::updateMu(unsigned int ltsFace,
-                                    unsigned int pointIndex,
-                                    real localStateVariable) {
+void RateAndStateFastVelocityWeakeningLaw::updateMu(unsigned int ltsFace,
+                                                    unsigned int pointIndex,
+                                                    real localStateVariable) {
   //! X in Asinh(x) for mu calculation
   real tmp = 0.5 / drParameters.rs_sr0 * exp(localStateVariable / a[ltsFace][pointIndex]) *
              slipRateMagnitude[ltsFace][pointIndex];
@@ -479,15 +480,17 @@ void RateAndStateNucFL103::updateMu(unsigned int ltsFace,
       a[ltsFace][pointIndex] * std::log(tmp + std::sqrt(std::pow(tmp, 2) + 1.0));
 }
 
-void RateAndStateThermalFL103::initializeTP(seissol::Interoperability& e_interoperability) {
+void RateAndStateThermalPressurizationLaw::initializeTP(
+    seissol::Interoperability& e_interoperability) {
   e_interoperability.getDynRupTP(TP_grid, TP_DFinv);
 }
 
-void RateAndStateThermalFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
-                                                    seissol::initializers::DynamicRupture* dynRup,
-                                                    real fullUpdateTime) {
+void RateAndStateThermalPressurizationLaw::copyLtsTreeToLocalRS(
+    seissol::initializers::Layer& layerData,
+    seissol::initializers::DynamicRupture* dynRup,
+    real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
-  RateAndStateNucFL103::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
+  RateAndStateFastVelocityWeakeningLaw::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
 
   // maybe change later to const_cast?
   auto concreteLts =
@@ -500,18 +503,18 @@ void RateAndStateThermalFL103::copyLtsTreeToLocalRS(seissol::initializers::Layer
   alphaHy = layerData.var(concreteLts->alphaHy);
 }
 
-void RateAndStateThermalFL103::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
-                                                 unsigned int ltsFace) {
+void RateAndStateThermalPressurizationLaw::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
+                                                             unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     P_f[pointIndex] = pressure[ltsFace][pointIndex];
   }
 }
 
-void RateAndStateThermalFL103::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
-                                           FaultStresses& faultStresses,
-                                           bool saveTmpInTP,
-                                           unsigned int timeIndex,
-                                           unsigned int ltsFace) {
+void RateAndStateThermalPressurizationLaw::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
+                                                       FaultStresses& faultStresses,
+                                                       bool saveTmpInTP,
+                                                       unsigned int timeIndex,
+                                                       unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
     // compute fault strength (Sh)
@@ -537,9 +540,9 @@ void RateAndStateThermalFL103::hookCalcP_f(std::array<real, numPaddedPoints>& P_
   }
 }
 
-void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
-                                                    unsigned int timeIndex,
-                                                    unsigned int ltsFace) {
+void RateAndStateThermalPressurizationLaw::Calc_ThermalPressure(unsigned int pointIndex,
+                                                                unsigned int timeIndex,
+                                                                unsigned int ltsFace) {
   real localTemperature = 0.0;
   real localPressure = 0.0;
 
@@ -595,10 +598,10 @@ void RateAndStateThermalFL103::Calc_ThermalPressure(unsigned int pointIndex,
   pressure[ltsFace][pointIndex] = -localPressure + drParameters.iniPressure;
 }
 
-real RateAndStateThermalFL103::heat_source(real tmp,
-                                           real alpha,
-                                           unsigned int iTP_grid_nz,
-                                           unsigned int timeIndex) {
+real RateAndStateThermalPressurizationLaw::heat_source(real tmp,
+                                                       real alpha,
+                                                       unsigned int iTP_grid_nz,
+                                                       unsigned int timeIndex) {
   //! original function in spatial domain
   //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_halfWidthShearZone).^2);
   //! function in the wavenumber domain *including additional factors in front of the heat source

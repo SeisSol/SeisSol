@@ -453,25 +453,31 @@ class seissol::Interoperability {
   /**
    * Temporary Interoperability function for Dynamic rupture outputs
    * copy values from C++ computation back to Fortran output writer.
+   * copy parameters, which are present in all friction laws
    **/
-  void copyFrictionOutputToFortran(unsigned ltsFace,
-                                   unsigned meshFace,
-                                   real  (*slip)[init::QInterpolated::Stop[0]],
-                                   real  (*slipStrike)[init::QInterpolated::Stop[0]],
-                                   real  (*slipDip)[init::QInterpolated::Stop[0]],
-                                   real  (*ruptureTime)[init::QInterpolated::Stop[0]],
-                                   real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
-                                   real  (*tractionXY)[init::QInterpolated::Stop[0]],
-                                   real  (*tractionXZ)[init::QInterpolated::Stop[0]]
+  void copyFrictionOutputToFortranGeneral(unsigned ltsFace,
+                                          unsigned meshFace,
+                                          real  (*slip)[init::QInterpolated::Stop[0]],
+                                          real  (*slipStrike)[init::QInterpolated::Stop[0]],
+                                          real  (*slipDip)[init::QInterpolated::Stop[0]],
+                                          real  (*ruptureTime)[init::QInterpolated::Stop[0]],
+                                          real  (*dynStressTime)[init::QInterpolated::Stop[0]],
+                                          real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
+                                          real  (*tractionXY)[init::QInterpolated::Stop[0]],
+                                          real  (*tractionXZ)[init::QInterpolated::Stop[0]]
   );
 
-  void copyFrictionOutputToFortranFL2(unsigned ltsFace,
-                                      unsigned meshFace,
-                                      real *averagedSlip,
-                                      real (*dynStressTime)[init::QInterpolated::Stop[0]],
-                                      real (*slipRateStrike)[init::QInterpolated::Stop[0]],
-                                      real (*slipRateDip)[init::QInterpolated::Stop[0]],
-                                      real (*mu)[seissol::init::QInterpolated::Stop[0]]
+  /**
+   * Temporary Interoperability function for Dynamic rupture outputs
+   * copy values from C++ computation back to Fortran output writer.
+   * copy parameters, which differ from friction law to friction law
+   **/
+  void copyFrictionOutputToFortranSpecific(unsigned ltsFace,
+                                           unsigned meshFace,
+                                           real *averagedSlip,
+                                           real (*slipRateStrike)[init::QInterpolated::Stop[0]],
+                                           real (*slipRateDip)[init::QInterpolated::Stop[0]],
+                                           real (*mu)[seissol::init::QInterpolated::Stop[0]]
   );
 
   void copyFrictionOutputToFortranStateVar(unsigned ltsFace, unsigned meshFace,

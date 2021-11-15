@@ -147,7 +147,8 @@ class RateAndStateSolver : public BaseFrictionLaw {
  * Rate and state solver FL103, time and space dependent nucleation parameters: RS_a_array,
  * RS_srW_array, RS_sl0_array
  */
-class RateAndStateNucFL103 : public RateAndStateSolver<RateAndStateNucFL103> {
+class RateAndStateFastVelocityWeakeningLaw
+    : public RateAndStateSolver<RateAndStateFastVelocityWeakeningLaw> {
   public:
   using RateAndStateSolver::RateAndStateSolver;
 
@@ -307,9 +308,9 @@ class RateAndStateNucFL103 : public RateAndStateSolver<RateAndStateNucFL103> {
   void updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
 }; // end class FL_103
 
-class RateAndStateThermalFL103 : public RateAndStateNucFL103 {
+class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeakeningLaw {
   public:
-  using RateAndStateNucFL103::RateAndStateNucFL103;
+  using RateAndStateFastVelocityWeakeningLaw::RateAndStateFastVelocityWeakeningLaw;
 
   protected:
   real (*temperature)[numPaddedPoints];

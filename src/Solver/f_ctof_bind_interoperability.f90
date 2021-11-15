@@ -58,17 +58,6 @@ module f_ctof_bind_interoperability
       implicit none
       type(tUnstructDomainDescript), pointer :: domain
       integer     :: fromMeshId, toMeshId,iFace
-      
-
-      !domain%disc%DynRup%output_Mu(:,fromMeshId:toMeshId)             = domain%disc%DynRup%Mu(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_Strength(:,fromMeshId:toMeshId)       = domain%disc%DynRup%Strength(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_Slip(:,fromMeshId:toMeshId)           = domain%disc%DynRup%Slip(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_Slip1(:,fromMeshId:toMeshId)          = domain%disc%DynRup%Slip1(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_Slip2(:,fromMeshId:toMeshId)          = domain%disc%DynRup%Slip2(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_rupture_time(:,fromMeshId:toMeshId)   = domain%disc%DynRup%rupture_time(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_PeakSR(:,fromMeshId:toMeshId)         = domain%disc%DynRup%PeakSR(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_dynStress_time(:,fromMeshId:toMeshId) = domain%disc%DynRup%dynStress_time(:,fromMeshId:toMeshId)
-      !domain%disc%DynRup%output_StateVar(:,fromMeshId:toMeshId)       = domain%disc%DynRup%StateVar(:,fromMeshId:toMeshId)
     end subroutine
     !
     ! C to fortran bindings
@@ -382,11 +371,10 @@ module f_ctof_bind_interoperability
       l_TP_DFinv(:)  = l_domain%DISC%DynRup%TP_DFinv(:)
     end subroutine
 
-    !!Code added by ADRIAN
-    subroutine f_interoperability_setFrictionOutput(i_domain, i_face, &
-              i_slip, i_slipStrike, i_slipDip, i_ruptureTime,&
+    subroutine f_interoperability_setFrictionOutputGeneral(i_domain, i_face, &
+              i_slip, i_slipStrike, i_slipDip, i_ruptureTime, i_dynStressTime,&
               i_PeakSlipRate, i_tractionXY, i_tractionXZ)&
-        bind (c, name='f_interoperability_setFrictionOutput')
+        bind (c, name='f_interoperability_setFrictionOutputGeneral')
         use iso_c_binding
         use typesDef
         use f_ftoc_bind_interoperability
@@ -407,6 +395,8 @@ module f_ctof_bind_interoperability
 
         type(c_ptr), value                     :: i_ruptureTime
         REAL_TYPE, pointer                     :: l_ruptureTime(:)
+        type(c_ptr), value                     :: i_dynStressTime
+        REAL_TYPE, pointer                     :: l_dynStressTime(:)
         type(c_ptr), value                     :: i_PeakSlipRate
         REAL_TYPE, pointer                     :: l_PeakSlipRate(:)
         type(c_ptr), value                     :: i_tractionXY
@@ -423,6 +413,7 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_slipStrike, l_slipStrike, [nBndGP])
         call c_f_pointer( i_slipDip, l_slipDip, [nBndGP])
         call c_f_pointer( i_ruptureTime, l_ruptureTime, [nBndGP])
+        call c_f_pointer( i_dynStressTime, l_dynStressTime, [nBndGP])
         call c_f_pointer( i_PeakslipRate, l_PeakslipRate, [nBndGP])
         call c_f_pointer( i_tractionXY, l_tractionXY, [nBndGP])
         call c_f_pointer( i_tractionXZ, l_tractionXZ, [nBndGP])
@@ -432,16 +423,16 @@ module f_ctof_bind_interoperability
         l_domain%DISC%DynRup%output_Slip1(:,i_face)                 = l_slipStrike(:)
         l_domain%DISC%DynRup%output_Slip2(:,i_face)                 = l_slipDip(:)
         l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_ruptureTime(:)
+        l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStressTime(:)
         l_domain%DISC%DynRup%rupture_time(:,i_face)                 = l_ruptureTime(:)
         l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSlipRate(:)
         l_domain%DISC%DynRup%TracXY(:,i_face)                       = l_tractionXY(:)
         l_domain%DISC%DynRup%TracXZ(:,i_face)                       = l_tractionXZ(:)
     end subroutine
 
-    !!Code added by ADRIAN
-    subroutine f_interoperability_setFrictionOutputFL2(i_domain, i_face, &
-          i_averagedSlip, i_dynStressTime, i_slipRateStrike, i_slipRateDip, i_mu)&
-          bind (c, name='f_interoperability_setFrictionOutputFL2')
+    subroutine f_interoperability_setFrictionOutputSpecific(i_domain, i_face, &
+          i_averagedSlip, i_slipRateStrike, i_slipRateDip, i_mu)&
+          bind (c, name='f_interoperability_setFrictionOutputSpecific')
 
       use iso_c_binding
       use typesDef
@@ -455,8 +446,6 @@ module f_ctof_bind_interoperability
       integer(kind=c_int), value             :: i_face
       type(c_ptr), value                     :: i_averagedSlip
       REAL_TYPE, pointer                     :: l_averagedSlip
-      type(c_ptr), value                     :: i_dynStressTime
-      REAL_TYPE, pointer                     :: l_dynStressTime(:)
       type(c_ptr), value                     :: i_slipRateStrike
       REAL_TYPE, pointer                     :: l_slipRateStrike(:)
       type(c_ptr), value                     :: i_slipRateDip
@@ -470,8 +459,6 @@ module f_ctof_bind_interoperability
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
       call c_f_pointer( i_averagedSlip, l_averagedSlip)
-      call c_f_pointer( i_dynStressTime, l_dynStressTime, [nBndGP])
-      call c_f_pointer( i_slipRateStrike, l_slipRateStrike, [nBndGP])
       call c_f_pointer( i_slipRateDip, l_slipRateDip, [nBndGP])
       call c_f_pointer( i_slipRateStrike, l_slipRateStrike, [nBndGP])
       call c_f_pointer( i_mu, l_mu, [nBndGP])
@@ -481,7 +468,6 @@ module f_ctof_bind_interoperability
       IF (l_domain%DISC%DynRup%magnitude_output_on.EQ.1) THEN
         l_domain%DISC%DynRup%averaged_Slip(i_face)        = l_averagedSlip
       ENDIF
-      l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStressTime(:)
       l_domain%DISC%DynRup%SlipRate1(:,i_face)                    = l_slipRateStrike(:)
       l_domain%DISC%DynRup%SlipRate2(:,i_face)                    = l_slipRateDip(:)
       l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:)

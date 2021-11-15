@@ -147,6 +147,8 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
 
   easi::Query query(m_numberOfPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
+  // loop over all fault elements which are managed by this generator
+  // note: we have one generator per LTS layer
   for (unsigned faultId: m_faceIDs) {
     const Fault& f = fault.at(faultId);
     int element, side, sideOrientation;
