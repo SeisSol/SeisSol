@@ -758,10 +758,6 @@ CONTAINS
 
     IF(MESH%nElem_Tet.GT.0) THEN
 
-#ifdef USE_DR_CELLAVERAGE
-        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, DISC%Galerkin%BndGaussP_Tet)
-        DISC%Galerkin%BndGaussW_Tet = 1.e99 ! blow up solution if used
-#else
         ! Compute and store surface gaussian integration points
         CALL TriangleQuadraturePoints(                         &
                  nIntGP     = DISC%Galerkin%nBndGP,            &
@@ -771,7 +767,6 @@ CONTAINS
                  IO         = IO,                              &
                  quiet      = .TRUE.,                          &
                  MPI        = MPI                              )
-#endif
 
 #ifndef NDEBUG
         ! assert contant material parameters per element

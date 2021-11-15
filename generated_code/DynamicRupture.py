@@ -50,8 +50,6 @@ import numpy as np
 def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (aderdg.order+1)**2
-  elif dynamicRuptureMethod == 'cellaverage':
-    numberOfPoints = int(4**math.ceil(math.log(aderdg.order*(aderdg.order+1)/2,4)))
   else:
     raise ValueError('Unknown dynamic rupture method.')
 

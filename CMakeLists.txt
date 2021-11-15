@@ -488,12 +488,5 @@ if (TESTING)
 endif()
 
 
-#adrian
-if (DYNAMIC_RUPTURE_METHOD STREQUAL "quadrature")
-  target_compile_definitions(SeisSol-lib PUBLIC DR_METHOD=0)
-elseif (DYNAMIC_RUPTURE_METHOD STREQUAL "cellaverage")
-  target_compile_definitions(SeisSol-lib PUBLIC DR_METHOD=1)
-endif()
-
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/

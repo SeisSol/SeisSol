@@ -11,10 +11,6 @@ namespace seissol::dr::initializers {
 void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                         seissol::initializers::LTSTree* dynRupTree,
                                         seissol::Interoperability* e_interoperability) {
-  if (!drParameters.isGpWiseInitialization) {
-    logError() << "Dynamic Rupture with cell average not supported any more";
-  }
-
   seissol::initializers::FaultParameterDB faultParameterDB;
   dynRup->isFaultParameterizedByTraction =
       faultParameterDB.faultParameterizedByTraction(drParameters.faultFileName);

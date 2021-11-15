@@ -4,7 +4,6 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Parameters.h"
-#include "DynamicRupture/Math.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
 
