@@ -418,8 +418,8 @@ if (TESTING)
     include(cmake/CodeCoverage.cmake)
     append_coverage_compiler_flags()
     setup_target_for_coverage_lcov(
-            NAME seissol-coverage
-            EXECUTABLE seissol-serial-test
+            NAME SeisSol-coverage
+            EXECUTABLE SeisSol-serial-test
             EXCLUDE "/usr/*"
                     "submodules/*"
                     "*/tests/*"
@@ -428,13 +428,13 @@ if (TESTING)
     )
   endif()
 
-  add_library(seissol-test-runner src/tests/test_main.cpp)
-  target_link_libraries(seissol-test-runner PUBLIC SeisSol-lib)
-  target_include_directories(seissol-test-runner PUBLIC external/)
+  add_library(SeisSol-test-runner src/tests/test_main.cpp)
+  target_link_libraries(SeisSol-test-runner PUBLIC SeisSol-lib)
+  target_include_directories(SeisSol-test-runner PUBLIC external/)
 
-  add_executable(seissol-serial-test src/tests/test_serial.cpp)
-  target_link_libraries(seissol-serial-test seissol-test-runner)
-  doctest_discover_tests(seissol-serial-test TEST_PREFIX "" TEST_SUFFIX "")
+  add_executable(SeisSol-serial-test src/tests/test_serial.cpp)
+  target_link_libraries(SeisSol-serial-test SeisSol-test-runner)
+  doctest_discover_tests(SeisSol-serial-test TEST_PREFIX "" TEST_SUFFIX "")
 
   #if (TESTING_GENERATED)
     #CXXTEST_ADD_TEST_MPI(

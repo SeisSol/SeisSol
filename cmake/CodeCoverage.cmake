@@ -224,6 +224,7 @@ endif()
 # )
 function(setup_target_for_coverage_lcov)
 
+    message("GCOV_PATH = ${GCOV_PATH}")
     set(options NO_DEMANGLE)
     set(oneValueArgs BASE_DIRECTORY NAME)
     set(multiValueArgs EXCLUDE EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES LCOV_ARGS GENHTML_ARGS)
