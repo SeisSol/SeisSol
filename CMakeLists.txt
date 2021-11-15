@@ -414,7 +414,7 @@ if (TESTING)
   include(cmake/doctest.cmake)
 
   # Coverage
-  if(CMAKE_COMPILER_IS_GNUCXX)
+  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
     include(cmake/CodeCoverage.cmake)
     append_coverage_compiler_flags()
     setup_target_for_coverage_lcov(
