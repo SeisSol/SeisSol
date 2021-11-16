@@ -9,6 +9,7 @@ dependent on depth. Strongly super-shear rupture conditions are assumed.
 .. figure:: LatexFigures/tpv12_13.png
    :alt: Geometry in SCEC benchmarks TPV12/13
    :width: 9.00000cm
+   :align: center
 
    Figure 1: Geometry in SCEC benchmarks TPV12/13, including a 60-degree dipping normal fault.
 
@@ -28,6 +29,7 @@ The geometry and mesh generation process is similar to TPV5.
 .. figure:: LatexFigures/tpv12mesh2.png
    :alt: TPV12/13 geometry modeled in Gmsh.
    :width: 9.00000cm
+   :align: center
 
    Figure 2: TPV12/13 geometry modeled in Gmsh. The domain box is
    500 km :math:`\times` 500 km :math:`\times` 50 km. The fault reaches the top surface.
@@ -107,6 +109,7 @@ SeisSol output can be visualized directly in Paraview by loading their xdmf file
 .. figure:: LatexFigures/SR_W_tpv12.png
    :alt: fault and volume output of TPV12 vizualized in Paraview.
    :width: 11.00000cm
+   :align: center
 
    Figure 3: Fault and volume output of TPV12 visualized in Paraview. Fault slip rate in dip-direction
    (SRd) and vertical velocity (w) in the volume. A cut-view of the volume output allows visualizing the unstructured tetrahedral mesh. 
