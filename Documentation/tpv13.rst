@@ -49,7 +49,7 @@ To turn on plasticity in SeisSol, add the following lines in
 
 .. code-block:: Fortran
   
-  &SourceType
+  &Equations
   Plasticity = 1 ! default = 0
   Tv = 0.03 ! Plastic relaxation
   /
