@@ -4,8 +4,9 @@
 #include <Initializer/BasicTypedefs.hpp>
 #include <stddef.h>
 
-#define NUM_STREESS_COMPONENTS 6
+#define NUM_STRESS_COMPONENTS 6
 
+// NOTE: using c++14 because of cuda@10
 namespace seissol {
 namespace kernels {
 namespace device {
@@ -39,7 +40,8 @@ void computePstrains(real **pstrains,
 } // namespace plasticity
 } // namespace aux
 } // namespace device
-} // namespace algorithms
+} // namespace kernels
 } // namespace seissol
+
 
 #endif // SEISSOL_DEVICEAUX_PLASTICITY_H

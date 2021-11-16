@@ -267,7 +267,7 @@ namespace seissol::kernels {
       real** modalStressTensors = (entry.content[*EntityId::Dofs])->getPointers();
       real** nodalStressTensors = (entry.content[*EntityId::NodalStressTensor])->getPointers();
 
-      const size_t firsModesSize = NUM_STREESS_COMPONENTS * numElements * sizeof(real);
+      const size_t firsModesSize = NUM_STRESS_COMPONENTS * numElements * sizeof(real);
       real *firsModes = reinterpret_cast<real*>(device.api->getStackMemory(firsModesSize));
       ++stackMemCounter;
 

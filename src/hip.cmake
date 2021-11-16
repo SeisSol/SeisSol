@@ -13,7 +13,8 @@ set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
 set(HIP_COMPILER hcc)
 find_package(HIP REQUIRED)
 
-set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++11; -O3)
+# Note: -std=c++14 because of cuda@10
+set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++14; -O3)
 set(SEISSOL_HCC)
 
 set(IS_NVCC_PLATFORM OFF)

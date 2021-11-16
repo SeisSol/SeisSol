@@ -1,8 +1,7 @@
 #ifndef SEISSOL_EQUATIONS
 #define SEISSOL_EQUATIONS
 
-//If we enable C++11 at some time, the following defines may be replaced
-// by the following code:
+
 constexpr unsigned numberOfBasisFunctions(unsigned O) {
   return O * (O + 1) * (O + 2) / 6;
 }

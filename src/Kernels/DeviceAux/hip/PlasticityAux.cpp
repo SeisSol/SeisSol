@@ -3,19 +3,25 @@
 #include <init.h>
 #include <cmath>
 
-#if REAL_SIZE == 8
-#define SQRT(X) sqrt(X)
-#define MAX(X,Y) fmax(X,Y)
-#elif REAL_SIZE == 4
-#define SQRT(X) sqrtf(X)
-#define MAX(X,Y) fmaxf(X,Y)
-#endif
-
+// NOTE: using c++14 because of cuda@10 which acts as a HIP backend for CI
 namespace seissol {
 namespace kernels {
 namespace device {
 namespace aux {
 namespace plasticity {
+
+template<typename T>
+__forceinline__ __device__ typename std::enable_if<std::is_floating_point<T>::value,T>::type
+squareRoot(T x) {
+  return std::is_same<T, double>::value ? sqrt(x) : sqrtf(x);
+}
+
+template<typename T>
+__forceinline__ __device__ typename std::enable_if<std::is_floating_point<T>::value,T>::type
+maxValue(T x, T y) {
+  return std::is_same<T, double>::value ? fmax(x, y) : fmaxf(x, y);
+}
+
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_saveFirstMode(real *firstModes,
                                      const real **modalStressTensors) {
@@ -26,7 +32,7 @@ __global__ void kernel_saveFirstMode(real *firstModes,
 void saveFirstModes(real *firstModes,
                     const real **modalStressTensors,
                     const size_t numElements) {
-  dim3 block(NUM_STREESS_COMPONENTS, 1, 1);
+  dim3 block(NUM_STRESS_COMPONENTS, 1, 1);
   dim3 grid(numElements, 1, 1);
   hipLaunchKernelGGL(kernel_saveFirstMode, grid, block, 0, 0, firstModes, modalStressTensors);
 }
@@ -38,13 +44,13 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
                                                const PlasticityData *plasticity,
                                                const double oneMinusIntegratingFactor) {
   real *elementTensors = nodalStressTensors[hipBlockIdx_x];
-  real localStresses[NUM_STREESS_COMPONENTS];
+  real localStresses[NUM_STRESS_COMPONENTS];
 
 
   // NOTE: hipBlockDim_x == tensor::QStressNodal::Shape[0] i.e., num nodes
   constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
   #pragma unroll
-  for (int i = 0; i < NUM_STREESS_COMPONENTS; ++i) {
+  for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
     localStresses[i] = elementTensors[hipThreadIdx_x + numNodesPerElement * i];
   }
 
@@ -64,13 +70,13 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   tau += (localStresses[3] * localStresses[3] +
           localStresses[4] * localStresses[4] +
           localStresses[5] * localStresses[5]);
-  tau = SQRT(tau);
+  tau = squareRoot(tau);
 
   // 5. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction = plasticity[hipBlockIdx_x].cohesionTimesCosAngularFriction;
   const real sinAngularFriction = plasticity[hipBlockIdx_x].sinAngularFriction;
   real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
-  taulim = MAX(0.0, taulim);
+  taulim = maxValue(static_cast<real>(0.0), taulim);
 
   __shared__ int isAdjusted;
   if (hipThreadIdx_x == 0) {isAdjusted = static_cast<int>(false);}
@@ -87,7 +93,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   __syncthreads();
   if (isAdjusted) {
     #pragma unroll
-    for (int i = 0; i < NUM_STREESS_COMPONENTS; ++i) {
+    for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
       elementTensors[hipThreadIdx_x + hipBlockIdx_x * i] = localStresses[i] * factor;
     }
   }
@@ -125,33 +131,33 @@ __global__ void kernel_adjustModalStresses(real** modalStressTensors,
 
     // NOTE: hipBlockDim_x == init::QStressNodal::Shape[0]
     constexpr int numNodes = init::QStressNodal::Shape[0];
-    constexpr size_t nodalTensorSize = numNodes * NUM_STREESS_COMPONENTS;
+    constexpr size_t nodalTensorSize = numNodes * NUM_STRESS_COMPONENTS;
     __shared__ real shrMem[nodalTensorSize];
 
     real *modalTensor = modalStressTensors[hipBlockIdx_x];
     const real *nodalTensor = nodalStressTensors[hipBlockIdx_x];
 
-    for (int n = 0; n < NUM_STREESS_COMPONENTS; ++n) {
+    for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
       shrMem[hipThreadIdx_x + numNodes * n] = nodalTensor[hipThreadIdx_x + numNodes * n];
     }
     __syncthreads();
 
-    // matrix multiply: (numNodes x numNodes) * (numNodes x NUM_STREESS_COMPONENTS)
-    real accumulator[NUM_STREESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    // matrix multiply: (numNodes x numNodes) * (numNodes x NUM_STRESS_COMPONENTS)
+    real accumulator[NUM_STRESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     real value = 0.0;
     // inverseVandermondeMatrix - square matrix
     for (int k = 0; k < numNodes; ++k) {
       value = inverseVandermondeMatrix[hipThreadIdx_x + numNodes * k];
 
       #pragma unroll
-      for (int n = 0; n < NUM_STREESS_COMPONENTS; ++n) {
+      for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
         accumulator[n] += value * shrMem[k + numNodes * n];
       }
     }
 
     constexpr unsigned numModesPerElement = init::Q::Shape[0];
     #pragma unroll
-    for (int n = 0; n < NUM_STREESS_COMPONENTS; ++n) {
+    for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
       modalTensor[hipThreadIdx_x + numModesPerElement * n] += accumulator[n];
     }
   }
@@ -194,7 +200,7 @@ __global__ void kernel_computePstrains(real **pstrains,
     // get local data
     real *localPstrains = pstrains[index];
     const real *localModalTensor = modalStressTensors[index];
-    const real *localFirstMode = &firsModes[NUM_STREESS_COMPONENTS * index];
+    const real *localFirstMode = &firsModes[NUM_STRESS_COMPONENTS * index];
     const PlasticityData *localData = &plasticity[index];
 
     constexpr unsigned numModesPerElement = init::Q::Shape[0];
@@ -202,7 +208,7 @@ __global__ void kernel_computePstrains(real **pstrains,
     real duDtPstrain = factor * (localFirstMode[hipThreadIdx_x] - localModalTensor[hipThreadIdx_x * numModesPerElement]);
     localPstrains[hipThreadIdx_x] += timeStepWidth * duDtPstrain;
 
-    __shared__ real squaredDuDtPstrains[NUM_STREESS_COMPONENTS];
+    __shared__ real squaredDuDtPstrains[NUM_STRESS_COMPONENTS];
     real coefficient = hipThreadIdx_x < 3 ? 0.5f : 1.0f;
     squaredDuDtPstrains[hipThreadIdx_x] = coefficient * duDtPstrain * duDtPstrain;
     __syncthreads();
@@ -211,10 +217,10 @@ __global__ void kernel_computePstrains(real **pstrains,
       real sum = 0.0;
 
       #pragma unroll
-      for (int i = 0; i < NUM_STREESS_COMPONENTS; ++i) {
+      for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
         sum += squaredDuDtPstrains[i];
       }
-      localPstrains[6] += (timeStepWidth * SQRT(duDtPstrain));
+      localPstrains[6] += (timeStepWidth * squareRoot(duDtPstrain));
     }
   }
 }
@@ -229,7 +235,7 @@ void computePstrains(real **pstrains,
                      const double timeStepWidth,
                      const double T_v,
                      const size_t numElements) {
-  dim3 block(NUM_STREESS_COMPONENTS, 32, 1);
+  dim3 block(NUM_STRESS_COMPONENTS, 32, 1);
   size_t numBlocks = (numElements + block.y - 1) / block.y;
   dim3 grid(numBlocks, 1, 1);
 
@@ -252,5 +258,5 @@ void computePstrains(real **pstrains,
 } // namespace plasticity
 } // namespace aux
 } // namespace device
-} // namespace algorithms
+} // namespace kernels
 } // namespace seissol

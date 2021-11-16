@@ -1,4 +1,6 @@
 find_package(CUDA REQUIRED)
+
+# Note: -std=c++14 because of cuda@10
 set(CUDA_NVCC_FLAGS -std=c++14;
         -Xptxas -v;
         -arch=${DEVICE_ARCH};
