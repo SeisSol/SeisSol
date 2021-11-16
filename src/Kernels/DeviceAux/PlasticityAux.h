@@ -14,19 +14,22 @@ namespace aux {
 namespace plasticity {
 void saveFirstModes(real *firstModes,
                     const real **modalStressTensors,
-                    size_t numElements);
+                    size_t numElements,
+                    void* streamPtr);
 
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              int *isAdjustableVector,
                              const PlasticityData *plasticity,
                              double oneMinusIntegratingFactor,
-                             size_t numElements);
+                             size_t numElements,
+                             void* streamPtr);
 
 void adjustModalStresses(real **modalStressTensors,
                          const real **nodalStressTensors,
                          const real *inverseVandermondeMatrix,
                          const int *isAdjustableVector,
-                         size_t numElements);
+                         size_t numElements,
+                         void* streamPtr);
 
 void computePstrains(real **pstrains,
                      const int *isAdjustableVector,
@@ -36,7 +39,8 @@ void computePstrains(real **pstrains,
                      double oneMinusIntegratingFactor,
                      double timeStepWidth,
                      double T_v,
-                     size_t numElements);
+                     size_t numElements,
+                     void* streamPtr);
 } // namespace plasticity
 } // namespace aux
 } // namespace device

@@ -12,49 +12,50 @@ squareRoot(T x) {
   return std::is_same<T, double>::value ? sqrt(x) : sqrtf(x);
 }
 
-cl::sycl::queue *getQueue() {
-  return nullptr;
-}
-
 //--------------------------------------------------------------------------------------------------
-void kernel_saveFirstMode(cl::sycl::range<3> group_size, cl::sycl::range<3> group_count, real *firstModes,
-                          const real **modalStressTensors) {
+void saveFirstModes(real *firstModes,
+                    const real **modalStressTensors,
+                    const size_t numElements,
+                    void *queuePtr) {
+  cl::sycl::range<3> groupCount(NUM_STRESS_COMPONENTS, 1, 1);
+  cl::sycl::range<3> groupSize(numElements, 1, 1);
 
-  getQueue()->submit([&](cl::sycl::handler &cgh) {
+  assert(queuePtr != nullptr && "a pointer to a SYCL queue must be a valid one");
+  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
+
+  queue->submit([&](cl::sycl::handler &cgh) {
     cgh.parallel_for(cl::sycl::nd_range < 3 >
-                     {{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1),
-                       group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item) {
+                     {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
+                       groupCount.get(2) * groupSize.get(2)}, groupSize}, [=](cl::sycl::nd_item<3> item) {
       constexpr unsigned numModesPerElement = tensor::Q::Shape[0];
       firstModes[item.get_local_id(0) + item.get_local_range(0) * item.get_group().get_id(0)] =
           modalStressTensors[item.get_group().get_id(0)][item.get_local_id(0) * numModesPerElement];
     });
   });
-
-}
-
-void saveFirstModes(real *firstModes,
-                    const real **modalStressTensors,
-                    const size_t numElements) {
-  cl::sycl::range<3> group_count(NUM_STRESS_COMPONENTS, 1, 1);
-  cl::sycl::range<3> group_size(numElements, 1, 1);
-  kernel_saveFirstMode(group_size, group_count, firstModes, modalStressTensors);
 }
 
 
 //--------------------------------------------------------------------------------------------------
-void kernel_adjustDeviatoricTensors(cl::sycl::range<3> group_size, cl::sycl::range<3> group_count,
-                                    real **nodalStressTensors,
-                                    int *isAdjustableVector,
-                                    const PlasticityData *plasticity,
-                                    const double oneMinusIntegratingFactor) {
+void adjustDeviatoricTensors(real **nodalStressTensors,
+                             int *isAdjustableVector,
+                             const PlasticityData *plasticity,
+                             const double oneMinusIntegratingFactor,
+                             const size_t numElements,
+                             void *queuePtr) {
+  constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
+  cl::sycl::range<3> groupCount(numNodesPerElement, 1, 1);
+  cl::sycl::range<3> groupSize(numElements, 1, 1);
 
-  getQueue()->submit([&](cl::sycl::handler &cgh) {
+  assert(queuePtr != nullptr && "a pointer to a SYCL queue must be a valid one");
+  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
+
+  queue->submit([&](cl::sycl::handler &cgh) {
 
     cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> isAdjusted(1, cgh);
 
     cgh.parallel_for(cl::sycl::nd_range < 3 >
-                     {{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1),
-                       group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item) {
+                     {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
+                       groupCount.get(2) * groupSize.get(2)}, groupSize}, [=](cl::sycl::nd_item<3> item) {
       real *elementTensors = nodalStressTensors[item.get_group().get_id(0)];
       real localStresses[NUM_STRESS_COMPONENTS];
 
@@ -116,38 +117,31 @@ void kernel_adjustDeviatoricTensors(cl::sycl::range<3> group_size, cl::sycl::ran
   });
 }
 
-void adjustDeviatoricTensors(real **nodalStressTensors,
-                             int *isAdjustableVector,
-                             const PlasticityData *plasticity,
-                             const double oneMinusIntegratingFactor,
-                             const size_t numElements) {
-  constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
-  cl::sycl::range<3> group_count(numNodesPerElement, 1, 1);
-  cl::sycl::range<3> group_size(numElements, 1, 1);
-  kernel_adjustDeviatoricTensors(group_size, group_count, nodalStressTensors,
-                                 isAdjustableVector,
-                                 plasticity,
-                                 oneMinusIntegratingFactor);
-}
-
 //--------------------------------------------------------------------------------------------------
-void kernel_adjustModalStresses(cl::sycl::range<3> group_size, cl::sycl::range<3> group_count,
-                                real **modalStressTensors,
-                                const real **nodalStressTensors,
-                                const real *inverseVandermondeMatrix,
-                                const int *isAdjustableVector) {
+void adjustModalStresses(real **modalStressTensors,
+                         const real **nodalStressTensors,
+                         const real *inverseVandermondeMatrix,
+                         const int *isAdjustableVector,
+                         const size_t numElements,
+                         void *queuePtr) {
+  constexpr unsigned numNodesPerElement = init::vInv::Shape[0];
+  cl::sycl::range<3> groupCount(numNodesPerElement, 1, 1);
+  cl::sycl::range<3> groupSize(numElements, 1, 1);
+
+  assert(queuePtr != nullptr && "a pointer to a SYCL queue must be a valid one");
+  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
 
   // NOTE: item.get_local_range(0) == init::QStressNodal::Shape[0]
   constexpr int numNodes = init::QStressNodal::Shape[0];
   constexpr size_t nodalTensorSize = numNodes * NUM_STRESS_COMPONENTS;
 
-  getQueue()->submit([&](cl::sycl::handler &cgh) {
+  queue->submit([&](cl::sycl::handler &cgh) {
     cl::sycl::accessor<real, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> shrMem(
         nodalTensorSize, cgh);
 
     cgh.parallel_for(cl::sycl::nd_range < 3 >
-                     {{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1),
-                       group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item) {
+                     {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
+                       groupCount.get(2) * groupSize.get(2)}, groupSize}, [=](cl::sycl::nd_item<3> item) {
       if (isAdjustableVector[item.get_group().get_id(0)]) {
 
 
@@ -182,39 +176,32 @@ void kernel_adjustModalStresses(cl::sycl::range<3> group_size, cl::sycl::range<3
   });
 }
 
-void adjustModalStresses(real **modalStressTensors,
-                         const real **nodalStressTensors,
-                         const real *inverseVandermondeMatrix,
-                         const int *isAdjustableVector,
-                         const size_t numElements) {
-  constexpr unsigned numNodesPerElement = init::vInv::Shape[0];
-  cl::sycl::range<3> group_count(numNodesPerElement, 1, 1);
-  cl::sycl::range<3> group_size(numElements, 1, 1);
-
-  kernel_adjustModalStresses(group_size, group_count, modalStressTensors,
-                             nodalStressTensors,
-                             inverseVandermondeMatrix,
-                             isAdjustableVector);
-}
-
 //--------------------------------------------------------------------------------------------------
-void kernel_computePstrains(cl::sycl::range<3> group_size, cl::sycl::range<3> group_count, real **pstrains,
-                            const int *isAdjustableVector,
-                            const real **modalStressTensors,
-                            const real *firsModes,
-                            const PlasticityData *plasticity,
-                            const double oneMinusIntegratingFactor,
-                            const double timeStepWidth,
-                            const double T_v,
-                            const size_t numElements) {
+void computePstrains(real **pstrains,
+                     const int *isAdjustableVector,
+                     const real **modalStressTensors,
+                     const real *firsModes,
+                     const PlasticityData *plasticity,
+                     const double oneMinusIntegratingFactor,
+                     const double timeStepWidth,
+                     const double T_v,
+                     const size_t numElements,
+                     void *queuePtr) {
 
-  getQueue()->submit([&](cl::sycl::handler &cgh) {
+  cl::sycl::range<3> groupCount(NUM_STRESS_COMPONENTS, 32, 1);
+  size_t numBlocks = (numElements + groupCount.get(1) - 1) / groupCount.get(1);
+  cl::sycl::range<3> groupSize(numBlocks, 1, 1);
+
+  assert(queuePtr != nullptr && "a pointer to a SYCL queue must be a valid one");
+  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
+
+  queue->submit([&](cl::sycl::handler &cgh) {
     cl::sycl::accessor<real, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> squaredDuDtPstrains(
         NUM_STRESS_COMPONENTS, cgh);
 
     cgh.parallel_for(cl::sycl::nd_range < 3 >
-                     {{group_count.get(0) * group_size.get(0), group_count.get(1) * group_size.get(1),
-                       group_count.get(2) * group_size.get(2)}, group_size}, [=](cl::sycl::nd_item<3> item) {
+                     {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
+                       groupCount.get(2) * groupSize.get(2)}, groupSize}, [=](cl::sycl::nd_item<3> item) {
 
       // compute element id
       size_t index = item.get_local_id(1) + item.get_group().get_id(0) * item.get_local_range(1);
@@ -240,7 +227,7 @@ void kernel_computePstrains(cl::sycl::range<3> group_size, cl::sycl::range<3> gr
         if (item.get_local_id(0) == 0) {
           real sum = 0.0;
 
-#pragma unroll
+          #pragma unroll
           for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
             sum += squaredDuDtPstrains[i];
           }
@@ -249,29 +236,5 @@ void kernel_computePstrains(cl::sycl::range<3> group_size, cl::sycl::range<3> gr
       }
     });
   });
-}
-
-
-void computePstrains(real **pstrains,
-                     const int *isAdjustableVector,
-                     const real **modalStressTensors,
-                     const real *firsModes,
-                     const PlasticityData *plasticity,
-                     const double oneMinusIntegratingFactor,
-                     const double timeStepWidth,
-                     const double T_v,
-                     const size_t numElements) {
-  cl::sycl::range<3> group_count(NUM_STRESS_COMPONENTS, 32, 1);
-  size_t numBlocks = (numElements + group_count.get(1) - 1) / group_count.get(1);
-  cl::sycl::range<3> group_size(numBlocks, 1, 1);
-  kernel_computePstrains(group_size, group_count, pstrains,
-                         isAdjustableVector,
-                         modalStressTensors,
-                         firsModes,
-                         plasticity,
-                         oneMinusIntegratingFactor,
-                         timeStepWidth,
-                         T_v,
-                         numElements);
 }
 } // namespace seissol::kernels::device::aux::plasticity

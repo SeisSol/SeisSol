@@ -32,10 +32,12 @@ __global__ void kernel_saveFirstMode(real *firstModes,
 
 void saveFirstModes(real *firstModes,
                     const real **modalStressTensors,
-                    const size_t numElements) {
+                    const size_t numElements,
+                    void *streamPtr) {
   dim3 block(NUM_STRESS_COMPONENTS, 1, 1);
   dim3 grid(numElements, 1, 1);
-  kernel_saveFirstMode<<<grid, block>>>(firstModes, modalStressTensors);
+  auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
+  kernel_saveFirstMode<<<grid, block, 0, stream>>>(firstModes, modalStressTensors);
 }
 
 
@@ -108,14 +110,16 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
                              int *isAdjustableVector,
                              const PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
-                             const size_t numElements) {
+                             const size_t numElements,
+                             void *streamPtr) {
   constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
   dim3 grid(numElements, 1, 1);
-  kernel_adjustDeviatoricTensors<<<grid, block>>>(nodalStressTensors,
-                                                  isAdjustableVector,
-                                                  plasticity,
-                                                  oneMinusIntegratingFactor);
+  auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
+  kernel_adjustDeviatoricTensors<<<grid, block, 0, stream>>>(nodalStressTensors,
+                                                             isAdjustableVector,
+                                                             plasticity,
+                                                             oneMinusIntegratingFactor);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -163,15 +167,17 @@ void adjustModalStresses(real **modalStressTensors,
                          const real **nodalStressTensors,
                          const real *inverseVandermondeMatrix,
                          const int *isAdjustableVector,
-                         const size_t numElements) {
+                         const size_t numElements,
+                         void *streamPtr) {
   constexpr unsigned numNodesPerElement = init::vInv::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
   dim3 grid(numElements, 1, 1);
+  auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
 
-  kernel_adjustModalStresses<<<grid, block>>>(modalStressTensors,
-                                              nodalStressTensors,
-                                              inverseVandermondeMatrix,
-                                              isAdjustableVector);
+  kernel_adjustModalStresses<<<grid, block, 0, stream>>>(modalStressTensors,
+                                                         nodalStressTensors,
+                                                         inverseVandermondeMatrix,
+                                                         isAdjustableVector);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -226,19 +232,21 @@ void computePstrains(real **pstrains,
                      const double oneMinusIntegratingFactor,
                      const double timeStepWidth,
                      const double T_v,
-                     const size_t numElements) {
+                     const size_t numElements,
+                     void *streamPtr) {
   dim3 block(NUM_STRESS_COMPONENTS, 32, 1);
   size_t numBlocks = (numElements + block.y - 1) / block.y;
   dim3 grid(numBlocks, 1, 1);
-  kernel_computePstrains<<<grid, block>>>(pstrains,
-                                          isAdjustableVector,
-                                          modalStressTensors,
-                                          firsModes,
-                                          plasticity,
-                                          oneMinusIntegratingFactor,
-                                          timeStepWidth,
-                                          T_v,
-                                          numElements);
+  auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
+  kernel_computePstrains<<<grid, block, 0, stream>>>(pstrains,
+                                                     isAdjustableVector,
+                                                     modalStressTensors,
+                                                     firsModes,
+                                                     plasticity,
+                                                     oneMinusIntegratingFactor,
+                                                     timeStepWidth,
+                                                     T_v,
+                                                     numElements);
 }
 } // namespace plasticity
 } // namespace aux

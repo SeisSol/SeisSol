@@ -273,7 +273,10 @@ namespace seissol::kernels {
 
       device::aux::plasticity::saveFirstModes(firsModes,
                                               const_cast<const real**>(modalStressTensors),
-                                              numElements);
+                                              numElements,
+                                              defaultStream);
+
+      auto defaultStream = device.api->getDefaultStream();
 
       assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
       real** initLoad = (entry.content[*EntityId::InitialLoad])->getPointers();
@@ -283,6 +286,7 @@ namespace seissol::kernels {
       m2nKrnl.QStressNodal = nodalStressTensors;
       m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
       m2nKrnl.initialLoadingM = const_cast<const real**>(initLoad);
+      m2nKrnl.streamPtr = defaultStream;
       m2nKrnl.numElements = numElements;
 
       const size_t MAX_TMP_MEM = m2nKrnl.TmpMaxMemRequiredInBytes * numElements;
@@ -301,7 +305,8 @@ namespace seissol::kernels {
                                                        isAdjustableVector,
                                                        plasticity,
                                                        oneMinusIntegratingFactor,
-                                                       numElements);
+                                                       numElements,
+                                                       defaultStream);
 
       unsigned numAdjustedDofs = device.algorithms.reduceVector(isAdjustableVector,
                                                                 numElements,
@@ -313,7 +318,8 @@ namespace seissol::kernels {
                                                    const_cast<const real **>(nodalStressTensors),
                                                    global->vandermondeMatrixInverse,
                                                    isAdjustableVector,
-                                                   numElements);
+                                                   numElements,
+                                                   defaultStream);
 
       // compute Pstrains
       real **pstrains = entry.content[*EntityId::Pstrains]->getPointers();
@@ -325,7 +331,8 @@ namespace seissol::kernels {
                                                oneMinusIntegratingFactor,
                                                timeStepWidth,
                                                T_v,
-                                               numElements);
+                                               numElements,
+                                               defaultStream);
 
       // NOTE: Temp memory must be properly clean after using negative signed integers
       // This kind of memory is mainly used for floating-point numbers. Negative signed ints might corrupt

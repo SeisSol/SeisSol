@@ -31,10 +31,12 @@ __global__ void kernel_saveFirstMode(real *firstModes,
 
 void saveFirstModes(real *firstModes,
                     const real **modalStressTensors,
-                    const size_t numElements) {
+                    const size_t numElements,
+                    void *streamPtr) {
   dim3 block(NUM_STRESS_COMPONENTS, 1, 1);
   dim3 grid(numElements, 1, 1);
-  hipLaunchKernelGGL(kernel_saveFirstMode, grid, block, 0, 0, firstModes, modalStressTensors);
+  auto stream = reinterpret_cast<hipStream_t>(streamPtr);
+  hipLaunchKernelGGL(kernel_saveFirstMode, grid, block, 0, stream, firstModes, modalStressTensors);
 }
 
 
@@ -107,15 +109,17 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
                              int *isAdjustableVector,
                              const PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
-                             const size_t numElements) {
+                             const size_t numElements,
+                             void *streamPtr) {
   constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
   dim3 grid(numElements, 1, 1);
+  auto stream = reinterpret_cast<hipStream_t>(streamPtr);
   hipLaunchKernelGGL(kernel_adjustDeviatoricTensors,
                      grid,
                      block,
                      0,
-                     0,
+                     stream,
                      nodalStressTensors,
                      isAdjustableVector,
                      plasticity,
@@ -167,15 +171,17 @@ void adjustModalStresses(real **modalStressTensors,
                          const real **nodalStressTensors,
                          const real *inverseVandermondeMatrix,
                          const int *isAdjustableVector,
-                         const size_t numElements) {
+                         const size_t numElements,
+                         void *streamPtr) {
   constexpr unsigned numNodesPerElement = init::vInv::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
   dim3 grid(numElements, 1, 1);
+  auto stream = reinterpret_cast<hipStream_t>(streamPtr);
   hipLaunchKernelGGL(kernel_adjustModalStresses,
                      grid,
                      block,
                      0,
-                     0,
+                     stream,
                      modalStressTensors,
                      nodalStressTensors,
                      inverseVandermondeMatrix,
@@ -234,16 +240,18 @@ void computePstrains(real **pstrains,
                      const double oneMinusIntegratingFactor,
                      const double timeStepWidth,
                      const double T_v,
-                     const size_t numElements) {
+                     const size_t numElements,
+                     void *streamPtr) {
   dim3 block(NUM_STRESS_COMPONENTS, 32, 1);
   size_t numBlocks = (numElements + block.y - 1) / block.y;
   dim3 grid(numBlocks, 1, 1);
+  auto stream = reinterpret_cast<hipStream_t>(streamPtr);
 
   hipLaunchKernelGGL(kernel_computePstrains,
                      grid,
                      block,
                      0,
-                     0,
+                     stream,
                      pstrains,
                      isAdjustableVector,
                      modalStressTensors,
