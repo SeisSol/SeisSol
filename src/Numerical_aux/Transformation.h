@@ -126,6 +126,7 @@ namespace seissol {
                                          unsigned col = 0 );
 
     void chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3], int sideOrientation = -1);
+    void XiEtaZeta2chiTau(unsigned face, double const xiEtaZeta[3], double chiTau[2]);
   }
 }
 

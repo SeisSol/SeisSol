@@ -44,8 +44,6 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
-# check linker flags for std::filesystem
-include(filesystem)
 
 # Generate version.h
 

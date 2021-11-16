@@ -146,6 +146,10 @@ public:
 		m_xdmfWriter = 0L;
 	}
 
+    static std::string getLabelName(size_t index) {
+	  return LABELS[index];
+	}
+
 private:
 	/** Variable names in the output */
 	static char const * const LABELS[];

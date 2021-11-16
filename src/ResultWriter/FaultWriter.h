@@ -52,6 +52,11 @@
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
 
+namespace seissol::dr::output {
+  class Base;
+}
+
+
 namespace seissol
 {
 
@@ -76,6 +81,8 @@ private:
 
 	/** Frontend stopwatch */
 	Stopwatch m_stopwatch;
+
+    dr::output::Base* callbackObject{nullptr};
 
 public:
 	FaultWriter()
@@ -157,6 +164,10 @@ public:
 	void tearDown()
 	{
 		m_executor.finalize();
+	}
+
+	void setupCallbackObject(dr::output::Base* faultOutput) {
+	  callbackObject = faultOutput;
 	}
 
 	//

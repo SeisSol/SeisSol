@@ -142,7 +142,10 @@ src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/NoFaultInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
-#src/DynamicRupture/DR_Parameters.h
+
+src/DynamicRupture/Output/Base.cpp
+src/DynamicRupture/Output/FaultRefiner/RefinerFactory.cpp
+src/DynamicRupture/Output/OutputAux.cpp
 )
 if (MPI)
   target_sources(SeisSol-lib PUBLIC
