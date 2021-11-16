@@ -219,35 +219,32 @@ endif()
 target_include_directories(SeisSol-lib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
-if ("${DEVICE_BACKEND}" STREQUAL "CUDA")
-
+if (WITH_GPU)
   target_sources(SeisSol-lib PUBLIC
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/NeighIntegrationRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/PlasticityRecorder.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/DynamicRuptureRecorder.cpp)
 
-  find_package(CUDA REQUIRED)
-  set(CUDA_NVCC_FLAGS -std=c++14;
-                      -Xptxas -v;
-                      -arch=${DEVICE_SUB_ARCH};
-                      -DREAL_SIZE=${REAL_SIZE_IN_BYTES};
-                      --compiler-options ${EXTRA_CXX_FLAGS};
-                      -O3;)
 
-  set(DEVICE_SRC ${DEVICE_SRC} ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-                               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu)
-  set_source_files_properties(${DEVICE_SRC} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
+  set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
+                             ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+                             ${CMAKE_BINARY_DIR}/src/generated_code
+                             ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-  cuda_add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
-  target_include_directories(Seissol-device-lib PUBLIC ${DEVICE_INCLUDE_DIRS}
-                                                       ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-                                                       ${CMAKE_BINARY_DIR}/src/generated_code
-                                                       ${CMAKE_CURRENT_SOURCE_DIR}/src
-                                                       ${CUDA_TOOLKIT_ROOT_DIR})
-  target_compile_options(Seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
+  if ("${DEVICE_BACKEND}" STREQUAL "cuda")
+    include(${CMAKE_SOURCE_DIR}/src/cuda.cmake)
+  elseif ("${DEVICE_BACKEND}" STREQUAL "hip")
+    include(${CMAKE_SOURCE_DIR}/src/hip.cmake)
+  elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
+    include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
+  endif()
 
+  target_compile_options(Seissol-device-lib PRIVATE -fPIC)
+
+  add_dependencies(Seissol-device-lib SeisSol-codegen)
   target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
-  add_dependencies(Seissol-device-lib SeisSol-lib)
 
+else()
+  add_dependencies(SeisSol-lib SeisSol-codegen)
 endif()
