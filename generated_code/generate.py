@@ -59,8 +59,8 @@ cmdLineParser.add_argument('--equations')
 cmdLineParser.add_argument('--matricesDir')
 cmdLineParser.add_argument('--outputDir')
 cmdLineParser.add_argument('--host_arch')
+cmdLineParser.add_argument('--device_backend', default=None)
 cmdLineParser.add_argument('--device_arch', default=None)
-cmdLineParser.add_argument('--device_sub_arch', default=None)
 cmdLineParser.add_argument('--order', type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--memLayout')
@@ -71,8 +71,8 @@ cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
-gpu_platforms = ['nvidia', 'amd-gpu']
-targets = ['gpu', 'cpu'] if cmdLineArgs.device_arch[1:] in gpu_platforms else ['cpu']
+gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
 if cmdLineArgs.memLayout == 'auto':
   # TODO(Lukas) Don't hardcode this
@@ -80,7 +80,7 @@ if cmdLineArgs.memLayout == 'auto':
     'equations': cmdLineArgs.equations,
     'order': cmdLineArgs.order,
     'arch': cmdLineArgs.host_arch,
-    'device': cmdLineArgs.device_arch,
+    'device_arch': cmdLineArgs.device_arch,
     'multipleSimulations': cmdLineArgs.multipleSimulations,
     'targets': targets
   }
@@ -89,10 +89,10 @@ else:
   mem_layout = cmdLineArgs.memLayout
 
 
-if cmdLineArgs.device_arch == 'none':
+if cmdLineArgs.device_backend == 'none':
     arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
 else:
-    arch = useArchitectureIdentifiedBy(cmdLineArgs.device_arch, cmdLineArgs.device_sub_arch, cmdLineArgs.host_arch)
+    arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend)
 
 
 equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
