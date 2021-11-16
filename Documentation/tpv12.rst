@@ -20,7 +20,7 @@ planar, normal fault. It reaches the Earth’s surface, and extends up to 12.990
 A square nucleation area of 3 :math:`\times` 3 km is assumed.
 In fault coordinates, it is centered at (0, -12) km, that is at a depth of 10.3923 km.
 The CAD model (see :ref:`Figure 2 <TP12_figure_2>`) and mesh are generated with `Gmsh <https://gmsh.info/>`_. All the files that are needed for
-the simulation are provided at https://github.com/SeisSol/Examples/tree/master/tpv12_13.
+the simulation are provided `here <https://github.com/SeisSol/Examples/tree/master/tpv12_13>`_.
 The geometry and mesh generation process is similar to TPV5. 
 
 .. _TP12_figure_2:

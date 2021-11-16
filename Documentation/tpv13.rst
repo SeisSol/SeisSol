@@ -44,8 +44,7 @@ TPV13 uses the same nucleation strategy as TPV12.
 Plasticity parameters
 ~~~~~~~~~~~~~~~~~~~~~
 
-To turn on plasticity in SeisSol, add the following lines in
-*parameters.par* (https://github.com/SeisSol/Examples/blob/master/tpv12_13/parameters.par):
+To turn on plasticity in SeisSol, add the following lines in `parameters.par <https://github.com/SeisSol/Examples/blob/master/tpv12_13/parameters.par>`_:
 
 .. code-block:: Fortran
   
