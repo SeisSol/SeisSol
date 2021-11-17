@@ -99,7 +99,7 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);
   }
   // if there is no filename given for the fault, assume that we do not use dynamic rupture
-  if(drParameters.faultFileName == "") {
+  if (drParameters.faultFileName == "") {
     drParameters.isDynamicRuptureEnabled = false;
   }
 
