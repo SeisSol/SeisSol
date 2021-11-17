@@ -3,7 +3,6 @@
 
 #include "FaultRefinerInterface.hpp"
 
-
 namespace seissol::dr::output {
 class TripleFaultFaceRefiner : public FaultRefinerInterface {
   int getNumSubTriangles() override { return 3; }
@@ -55,6 +54,6 @@ class TripleFaultFaceRefiner : public FaultRefinerInterface {
     }
   }
 };
-}
+} // namespace seissol::dr::output
 
-#endif //SEISSOL_TRIPLEFAULTFACEREFINER_HPP
+#endif // SEISSOL_TRIPLEFAULTFACEREFINER_HPP

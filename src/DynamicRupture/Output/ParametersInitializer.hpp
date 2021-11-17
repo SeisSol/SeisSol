@@ -4,7 +4,6 @@
 #include "DataTypes.hpp"
 #include <yaml-cpp/yaml.h>
 
-
 namespace seissol::dr::output {
 class ParametersInitializer {
   public:
@@ -105,5 +104,5 @@ class ParametersInitializer {
   private:
   const YAML::Node& data;
 };
-}
-#endif //SEISSOL_DRINITIALIZER_HPP
+} // namespace seissol::dr::output
+#endif // SEISSOL_DRINITIALIZER_HPP

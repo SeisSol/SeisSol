@@ -5,7 +5,6 @@
 #include "Geometry/MeshReader.h"
 #include <Initializer/InputAux.hpp>
 
-
 namespace seissol::dr::output {
 class PickpointOutput {
   public:
@@ -106,5 +105,5 @@ class PickpointOutput {
   const MeshReader* meshReader;
   OutputData outputData;
 };
-}
-#endif //SEISSOL_PICKPOINTOUTPUT_HPP
+} // namespace seissol::dr::output
+#endif // SEISSOL_PICKPOINTOUTPUT_HPP

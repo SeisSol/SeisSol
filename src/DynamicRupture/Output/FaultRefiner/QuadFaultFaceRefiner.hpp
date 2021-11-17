@@ -5,7 +5,6 @@
 #include "Numerical_aux/Transformation.h"
 #include "DynamicRupture/Output/OutputAux.hpp"
 
-
 namespace seissol::dr::output {
 class QuadFaultFaceRefiner : public FaultRefinerInterface {
   int getNumSubTriangles() override { return 4; }
@@ -71,6 +70,6 @@ class QuadFaultFaceRefiner : public FaultRefinerInterface {
     }
   }
 };
-}
+} // namespace seissol::dr::output
 
-#endif //SEISSOL_QUADFAULTFACEREFINER_HPP
+#endif // SEISSOL_QUADFAULTFACEREFINER_HPP

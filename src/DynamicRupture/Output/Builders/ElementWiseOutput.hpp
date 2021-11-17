@@ -7,7 +7,6 @@
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Parallel/MPI.h"
 
-
 namespace seissol::dr::output {
 struct FaultGeomParamsT {
   int numSubTriangles{};
@@ -203,5 +202,5 @@ class ElementWiseOutput {
   int localRank{-1};
   OutputData outputData;
 };
-}
-#endif //SEISSOL_DRELEMENTWISEOUTPUT_HPP
+} // namespace seissol::dr::output
+#endif // SEISSOL_DRELEMENTWISEOUTPUT_HPP

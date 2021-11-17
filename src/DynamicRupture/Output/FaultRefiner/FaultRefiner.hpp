@@ -6,8 +6,7 @@
 #include <memory>
 
 namespace seissol::dr::output {
-  std::unique_ptr<FaultRefinerInterface> getRefiner(int strategy);
+std::unique_ptr<FaultRefinerInterface> getRefiner(int strategy);
 }
 
-
-#endif //SEISSOL_FAULTREFINER_HPP
+#endif // SEISSOL_FAULTREFINER_HPP

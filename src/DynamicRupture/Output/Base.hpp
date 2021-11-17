@@ -8,7 +8,6 @@
 #include <iostream>
 #include <memory>
 
-
 namespace seissol::dr::output {
 class Base {
   public:
@@ -129,5 +128,5 @@ class Base {
   std::vector<std::pair<seissol::initializers::Layer*, size_t>> faceToLtsMap{};
   size_t iterationStep{0};
 };
-}
-#endif //SEISSOL_DROUTOUT_DRBASE_HPP
+} // namespace seissol::dr::output
+#endif // SEISSOL_DROUTOUT_DRBASE_HPP

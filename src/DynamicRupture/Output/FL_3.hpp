@@ -3,7 +3,6 @@
 
 #include "DynamicRupture/Output/Base.hpp"
 
-
 namespace seissol::dr::output {
 class FL_3 : public Base {
   public:
@@ -21,5 +20,5 @@ class FL_3 : public Base {
     std::cout << "output vars for FL_33\n";
   }
 };
-}
-#endif //SEISSOL_DROUTOUT_FL_3_HPP
+} // namespace seissol::dr::output
+#endif // SEISSOL_DROUTOUT_FL_3_HPP

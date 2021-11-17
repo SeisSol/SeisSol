@@ -4,7 +4,6 @@
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include <memory>
 
-
 namespace seissol::dr::output {
 class FaultRefinerInterface {
   public:
@@ -21,5 +20,5 @@ class FaultRefinerInterface {
   protected:
   ReceiverPointsT points{};
 };
-}
-#endif //SEISSOL_INTERFACE_HPP
+} // namespace seissol::dr::output
+#endif // SEISSOL_INTERFACE_HPP
