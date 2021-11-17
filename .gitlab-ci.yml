@@ -67,6 +67,7 @@ ci_builder_build:
              - precision: double
              - precision: single
     script:
+        - echo "now building"
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
         - cmake --version
         - gcc --version
