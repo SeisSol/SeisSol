@@ -431,6 +431,7 @@ if (TESTING)
   add_executable(SeisSol-serial-test
           src/tests/Numerical_aux/TestNumerical_aux.cpp
           src/tests/Geometry/TestGeometry.cpp
+          src/tests/SourceTerm/SourceTermTest.cpp
           src/tests/test_main.cpp)
   target_link_libraries(SeisSol-serial-test PUBLIC SeisSol-lib)
   target_include_directories(SeisSol-serial-test PUBLIC external/)
