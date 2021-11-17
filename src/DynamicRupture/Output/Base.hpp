@@ -11,7 +11,7 @@
 namespace seissol::dr::output {
 class Base {
   public:
-  virtual ~Base() {}
+  virtual ~Base() = default;
 
   void setInputParam(const YAML::Node& InputData, const MeshReader& Mesher) {
     using namespace initializers;
