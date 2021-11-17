@@ -428,13 +428,13 @@ if (TESTING)
     )
   endif()
 
-  add_library(SeisSol-test-runner src/tests/test_main.cpp)
-  target_link_libraries(SeisSol-test-runner PUBLIC SeisSol-lib)
-  target_include_directories(SeisSol-test-runner PUBLIC external/)
-
-  add_executable(SeisSol-serial-test src/tests/test_serial.cpp)
-  target_link_libraries(SeisSol-serial-test SeisSol-test-runner)
-  doctest_discover_tests(SeisSol-serial-test TEST_PREFIX "" TEST_SUFFIX "")
+  add_executable(SeisSol-serial-test
+          src/tests/Numerical_aux/TestNumerical_aux.cpp
+          src/tests/Geometry/TestGeometry.cpp
+          src/tests/test_main.cpp)
+  target_link_libraries(SeisSol-serial-test PUBLIC SeisSol-lib)
+  target_include_directories(SeisSol-serial-test PUBLIC external/)
+  doctest_discover_tests(SeisSol-serial-test)
 
   #if (TESTING_GENERATED)
     #CXXTEST_ADD_TEST_MPI(

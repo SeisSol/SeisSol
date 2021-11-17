@@ -2,34 +2,23 @@
 #include <iostream>
 #include <iomanip>
 
-#include <cxxtest/TestSuite.h>
 #include <Eigen/Dense>
 
+#include "Kernels/precision.hpp"
 #include "MockReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 #include "Geometry/refinement/RefinerUtils.h"
 #include "Geometry/refinement/VariableSubSampler.h"
-#include "Kernels/precision.hpp"
 
+TEST_CASE("Variable Subsampler") {
+  constexpr double epsilon = std::numeric_limits<real>::epsilon();
+  std::srand(1234);
 
-namespace seissol {
-  namespace unit_test {
-    class VariableSubsamplerTestSuite;
-  }
-}
+  SUBCASE("Divide by 4") {
+    seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
+    seissol::refinement::VariableSubsampler<double> subsampler(1, refineBy4, 3, 9, 12);
 
-class seissol::unit_test::VariableSubsamplerTestSuite : public CxxTest::TestSuite
-{
-  public:
-    //We do all tests in double precision
-    const double epsilon = std::numeric_limits<real>::epsilon();
-
-    void testDivideBy4() {
-      std::srand(1234);
-      seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
-      seissol::refinement::VariableSubsampler<double> subsampler(1, refineBy4, 3, 9, 12);
-
-      std::array<real, 36> expectedDOFs = {
+    const std::array<real, 36> expectedDOFs = {
         -0.95909429432054482678,
         -0.24576668840548565598,
         -0.073841666364211855367,
@@ -66,23 +55,23 @@ class seissol::unit_test::VariableSubsamplerTestSuite : public CxxTest::TestSuit
         0.49194913342387541766,
         0.74918009276514585526,
         1.1485201151026944721
-      };
-
-      //For order 3 there are 108 DOFs (taking alignment into account)
-      real dofs[108];
-      for (int i = 0; i < 108; i++) {
-        dofs[i] = (real)std::rand()/RAND_MAX;
-      } 
-      unsigned int cellMap[1] = {0};
-      //A triangle is divided into four subtriangles there are 9 quantities.
-      real outDofs[36];
-      std::fill(std::begin(outDofs), std::end(outDofs), 0);
-
-      for (unsigned var = 0; var < 9; var++) {
-        subsampler.get(dofs, cellMap, var, &outDofs[var*4]);
-      }
-      for (int i = 0; i < 36; i++) {
-        TS_ASSERT_DELTA(outDofs[i], expectedDOFs[i], epsilon);
-      }
     };
+
+    //For order 3 there are 108 DOFs (taking alignment into account)
+    std::array<real, 108> dofs;
+    for (int i = 0; i < 108; i++) {
+      dofs[i] = (real) std::rand() / RAND_MAX;
+    }
+    unsigned int cellMap[1] = {0};
+    //A triangle is divided into four subtriangles there are 9 quantities.
+    real outDofs[36];
+    std::fill(std::begin(outDofs), std::end(outDofs), 0);
+
+    for (unsigned var = 0; var < 9; var++) {
+      subsampler.get(dofs.data(), cellMap, var, &outDofs[var * 4]);
+    }
+    for (int i = 0; i < 36; i++) {
+      REQUIRE(outDofs[i] == doctest::Approx(expectedDOFs[i]).epsilon(epsilon));
+    }
+  };
 }; 
