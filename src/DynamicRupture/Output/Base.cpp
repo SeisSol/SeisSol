@@ -220,9 +220,9 @@ void seissol::dr::output::Base::calcFaultOutput(const OutputType type,
     const auto ltsId = ltsMap.second;
 
     auto mu = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->mu));
-    auto rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->rupture_time));
+    auto rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->ruptureTime));
     auto slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip));
-    auto peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSR));
+    auto peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSlipRate));
 
     const auto nearestGaussPoint = outputData.receiverPoints[i].nearestGpIndex;
     const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;

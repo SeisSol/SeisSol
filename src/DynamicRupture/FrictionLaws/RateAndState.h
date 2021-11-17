@@ -5,25 +5,22 @@
 #include "Solver/Interoperability.h"
 
 namespace seissol::dr::friction_law {
-template <class Derived>
-class RateAndStateSolver;       // general concept of rate and state solver
-class RateAndStateNucFL103;     // rate and state slip law with time and space dependent nucleation
-class RateAndStateThermalFL103; // specialization of FL103, extended with
-} // namespace seissol::dr::friction_law
-
-/*
+/**
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
 template <class Derived>
-class seissol::dr::friction_law::RateAndStateSolver
-    : public seissol::dr::friction_law::BaseFrictionLaw {
+class RateAndStateSolver : public BaseFrictionLaw {
+  public:
+  using BaseFrictionLaw::BaseFrictionLaw;
 
   protected:
-  //! PARAMETERS of THE optimisation loops
-  //! absolute tolerance on the function to be optimzed
-  //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-  //! the most adapted Number of iteration in the loops
+  /**
+   * PARAMETERS of THE optimisation loops
+   * absolute tolerance on the function to be optimzed
+   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
+   * the most adapted Number of iteration in the loops
+   */
   const unsigned int nSRupdates = 60;
   const unsigned int nSVupdates = 2;
 
@@ -150,32 +147,35 @@ class seissol::dr::friction_law::RateAndStateSolver
  * Rate and state solver FL103, time and space dependent nucleation parameters: RS_a_array,
  * RS_srW_array, RS_sl0_array
  */
-class seissol::dr::friction_law::RateAndStateNucFL103
-    : public seissol::dr::friction_law::RateAndStateSolver<
-          seissol::dr::friction_law::RateAndStateNucFL103> {
+class RateAndStateFastVelocityWeakeningLaw
+    : public RateAndStateSolver<RateAndStateFastVelocityWeakeningLaw> {
+  public:
+  using RateAndStateSolver::RateAndStateSolver;
+
   protected:
   // Attributes
+  // CS = coordinate system
   real (*nucleationStressInFaultCS)[numPaddedPoints][6];
   real dt = 0;
   real gNuc = 0;
 
-  real (*RS_a_array)[numPaddedPoints];
-  real (*RS_srW_array)[numPaddedPoints];
-  real (*RS_sl0_array)[numPaddedPoints];
+  real (*a)[numPaddedPoints];
+  real (*srW)[numPaddedPoints];
+  real (*sl0)[numPaddedPoints];
 
-  bool (*DS)[numPaddedPoints];
-  real (*stateVar)[numPaddedPoints];
-  real (*dynStress_time)[numPaddedPoints];
+  bool (*ds)[numPaddedPoints];
+  real (*stateVariable)[numPaddedPoints];
+  real (*dynStressTime)[numPaddedPoints];
 
   //! TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   //! as a consequence, the SR is affected the AlmostZero value when too small
-  const real AlmostZero = 1e-45;
+  const real almostZero = 1e-45;
 
   //! PARAMETERS of THE optimisation loops
   //! absolute tolerance on the function to be optimzed
   //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
   //! the most adapted Number of iteration in the loops
-  const unsigned int nSRupdates = 60;
+  const unsigned int numberSlipRateUpdates = 60;
   const unsigned int nSVupdates = 2;
 
   const double aTolF = 1e-8;
@@ -197,17 +197,18 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    * compute initial stress from nucleation Stress (only in FL103)
    * and set intial value of state variables
    */
-  void setInitialValues(std::array<real, numPaddedPoints>& LocSV, unsigned int ltsFace);
+  void setInitialValues(std::array<real, numPaddedPoints>& localStateVariable,
+                        unsigned int ltsFace);
 
   /*
    * Compute shear stress magnitude, set reference state variable (StateVarZero)
    * Computre slip rate magnitude and set it as inital guess for iterations
    */
-  void calcInitialSlipRate(std::array<real, numPaddedPoints>& TotalShearStressYZ,
+  void calcInitialSlipRate(std::array<real, numPaddedPoints>& totalShearStressYZ,
                            FaultStresses& faultStresses,
                            std::array<real, numPaddedPoints>& stateVarZero,
-                           std::array<real, numPaddedPoints>& LocSV,
-                           std::array<real, numPaddedPoints>& SR_tmp,
+                           std::array<real, numPaddedPoints>& localStateVariable,
+                           std::array<real, numPaddedPoints>& temporarySlipRate,
                            unsigned int timeIndex,
                            unsigned int ltsFace);
 
@@ -239,7 +240,7 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    */
   void calcSlipRateAndTraction(std::array<real, numPaddedPoints>& stateVarZero,
                                std::array<real, numPaddedPoints>& SR_tmp,
-                               std::array<real, numPaddedPoints>& LocSV,
+                               std::array<real, numPaddedPoints>& localStateVariable,
                                std::array<real, numPaddedPoints>& normalStress,
                                std::array<real, numPaddedPoints>& TotalShearStressYZ,
                                std::array<real, numPaddedPoints>& tmpSlip,
@@ -278,14 +279,14 @@ class seissol::dr::friction_law::RateAndStateNucFL103
   /*
    * If the function did not converge it returns false
    * Newton method to solve non-linear equation of slip rate
-   * solution returned in SRtest
+   * solution returned in slipRateTest
    */
   bool IterativelyInvertSR(unsigned int ltsFace,
                            int nSRupdates,
-                           std::array<real, numPaddedPoints>& LocSV,
-                           std::array<real, numPaddedPoints>& n_stress,
-                           std::array<real, numPaddedPoints>& sh_stress,
-                           std::array<real, numPaddedPoints>& SRtest);
+                           std::array<real, numPaddedPoints>& localStateVariable,
+                           std::array<real, numPaddedPoints>& normalStress,
+                           std::array<real, numPaddedPoints>& shearStress,
+                           std::array<real, numPaddedPoints>& slipRateTest);
 
   /*
    * Alternative to IterativelyInvertSR: Instead of newton, brents method is used:
@@ -304,18 +305,23 @@ class seissol::dr::friction_law::RateAndStateNucFL103
    * update friction mu according to:
    * mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
    */
-  void updateMu(unsigned int ltsFace, unsigned int pointIndex, real LocSV);
+  void updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
 }; // end class FL_103
 
-class seissol::dr::friction_law::RateAndStateThermalFL103
-    : public seissol::dr::friction_law::RateAndStateNucFL103 {
+/**
+ * As a reference, see https://www.scec.org/meetings/2020/am/poster/158
+ */
+class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeakeningLaw {
+  public:
+  using RateAndStateFastVelocityWeakeningLaw::RateAndStateFastVelocityWeakeningLaw;
+
   protected:
   real (*temperature)[numPaddedPoints];
   real (*pressure)[numPaddedPoints];
   real (*TP_Theta)[numPaddedPoints][TP_grid_nz];
   real (*TP_sigma)[numPaddedPoints][TP_grid_nz];
-  real (*TP_half_width_shear_zone)[numPaddedPoints];
-  real (*alpha_hy)[numPaddedPoints];
+  real (*TP_halfWidthShearZone)[numPaddedPoints];
+  real (*alphaHy)[numPaddedPoints];
 
   real TP_grid[TP_grid_nz];
   real TP_DFinv[TP_grid_nz];
@@ -356,9 +362,12 @@ class seissol::dr::friction_law::RateAndStateThermalFL103
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
    */
-  void Calc_ThermalPressure(unsigned int pointIndex, unsigned int timeIndex, unsigned int ltsFace);
+  void updateTemperatureAndPressure(unsigned int pointIndex,
+                                    unsigned int timeIndex,
+                                    unsigned int ltsFace);
 
-  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
+  real heatSource(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
 };
 
+} // namespace seissol::dr::friction_law
 #endif // SEISSOL_RATEANDSTATE_H

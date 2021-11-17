@@ -98,7 +98,6 @@ class seissol::Interoperability {
     unsigned*                         m_ltsFaceToMeshFace;
     
     //! Set of parameters that have to be initialized for dynamic rupture
-    std::unordered_map<std::string, double*> m_faultParameters;
 
     std::vector<Eigen::Vector3d>           m_recPoints;
 
@@ -196,17 +195,6 @@ class seissol::Interoperability {
                           double Qp,
                           double Qs,
                           seissol::model::ViscoElasticMaterial& material );
-
-    void addFaultParameter( std::string const& name,
-                           double* memory) {
-      m_faultParameters[name] = memory;
-    }
-    
-    //! \todo Documentation
-    void initializeFault( char*   modelFileName,
-                          int     gpwise,
-                          double* bndPoints,
-                          int     numberOfBndPoints );
 
    /**
     * Adds a receiver at the specified location.
@@ -441,16 +429,12 @@ class seissol::Interoperability {
  *
  * @param ltsFace current ltsFace to get Parameters
  * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
- * @param i_RS_f0     Reference friction coefficient
  * @param i_RS_a      RS constitutive parameter "a"
- * @param i_RS_b      RS constitutive parameter "b"
  * @param i_RS_sl0    Reference slip
  * @param i_RS_sr0    Reference slip rate
  **/
   void getDynRupFL_3(int ltsFace,  unsigned meshFace,
-                                              real *i_RS_f0,
                                               real *i_RS_a,
-                                              real *i_RS_b,
                                               real *i_RS_sl0,
                                               real *i_RS_sr0);
 
@@ -462,29 +446,38 @@ class seissol::Interoperability {
    * @param TP_grid     grid for TP
    * @param TP_DFinv    inverse Fourier coefficients
    **/
-  void getDynRupTP(real TP_grid[TP_grid_nz],real TP_DFinv[TP_grid_nz]);
+  void getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],real TP_DFinv[seissol::dr::TP_grid_nz]);
 
+  void copyFrictionOutputInitialStressInFaultCS(unsigned numberOfCells, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
 
   /**
    * Temporary Interoperability function for Dynamic rupture outputs
    * copy values from C++ computation back to Fortran output writer.
+   * copy parameters, which are present in all friction laws
    **/
-  void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
-                                                              real (*mu)[seissol::init::QInterpolated::Stop[0]],
-                                                              real  (*slip)[init::QInterpolated::Stop[0]],
-                                                              real  (*slip1)[init::QInterpolated::Stop[0]],
-                                                              real  (*slip2)[init::QInterpolated::Stop[0]],
-                                                              real  (*slipRate1)[init::QInterpolated::Stop[0]],
-                                                              real  (*slipRate2)[init::QInterpolated::Stop[0]],
-                                                              real  (*rupture_time)[init::QInterpolated::Stop[0]],
-                                                              real  (*peakSR)[init::QInterpolated::Stop[0]],
-                                                              real  (*tracXY)[init::QInterpolated::Stop[0]],
-                                                              real  (*tracXZ)[init::QInterpolated::Stop[0]]
+  void copyFrictionOutputToFortranGeneral(unsigned ltsFace,
+                                          unsigned meshFace,
+                                          real  (*slip)[init::QInterpolated::Stop[0]],
+                                          real  (*slipStrike)[init::QInterpolated::Stop[0]],
+                                          real  (*slipDip)[init::QInterpolated::Stop[0]],
+                                          real  (*ruptureTime)[init::QInterpolated::Stop[0]],
+                                          real  (*dynStressTime)[init::QInterpolated::Stop[0]],
+                                          real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
+                                          real  (*tractionXY)[init::QInterpolated::Stop[0]],
+                                          real  (*tractionXZ)[init::QInterpolated::Stop[0]]
   );
 
-  void copyFrictionOutputToFortranFL2(unsigned ltsFace, unsigned meshFace,
-          real  *averaged_Slip,
-          real  (*dynStress_time)[init::QInterpolated::Stop[0]]
+  /**
+   * Temporary Interoperability function for Dynamic rupture outputs
+   * copy values from C++ computation back to Fortran output writer.
+   * copy parameters, which differ from friction law to friction law
+   **/
+  void copyFrictionOutputToFortranSpecific(unsigned ltsFace,
+                                           unsigned meshFace,
+                                           real *averagedSlip,
+                                           real (*slipRateStrike)[init::QInterpolated::Stop[0]],
+                                           real (*slipRateDip)[init::QInterpolated::Stop[0]],
+                                           real (*mu)[seissol::init::QInterpolated::Stop[0]]
   );
 
   void copyFrictionOutputToFortranStateVar(unsigned ltsFace, unsigned meshFace,
@@ -496,8 +489,15 @@ class seissol::Interoperability {
   );
 
   void copyFrictionOutputToFortranInitialStressInFaultCS(unsigned ltsFace, unsigned meshFace,
-                                                         real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]
-  );
+                                                         real  (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkXX,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkYY,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkZZ,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXY,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearYZ,
+                                                         std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXZ);
+
+  void initializeFaultOutput();
 
 
    /**

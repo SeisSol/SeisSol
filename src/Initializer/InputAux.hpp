@@ -6,18 +6,38 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 
-namespace seissol::initializers {
-template <typename T>
-T getParamIfExists(const YAML::Node& Param, std::string&& Field, T DefaultValue) {
-  if (std::is_same<T, bool>::value) {
-    T Value{DefaultValue};
-    if (Param[Field]) {
-      Value = Param[Field].as<int>() > 0;
-    }
-    return Value;
+#include "DynamicRupture/Typedefs.hpp"
+
+namespace YAML {
+template <>
+struct convert<seissol::dr::FrictionLawType> {
+  static Node encode(const seissol::dr::FrictionLawType& rhs) {
+    Node node;
+    node.push_back(static_cast<unsigned int>(rhs));
+    return node;
   }
-  else {
-    return Param[Field] ? Param[Field].as<T>() : DefaultValue;
+
+  static bool decode(const Node& node, seissol::dr::FrictionLawType& rhs) {
+    if (node.IsSequence() || node.size() != 0) {
+      return false;
+    }
+
+    rhs = static_cast<seissol::dr::FrictionLawType>(node.as<unsigned int>());
+    return true;
+  }
+};
+} // namespace YAML
+namespace seissol::initializers {
+  template <typename T>
+  void updateIfExists(const YAML::Node& param, std::string&& field, T& value) {
+    // if params stores a node with name field override value
+    if (param[field]) {
+      // booleans are stored as integers
+      if constexpr(std::is_same<T, bool>::value) {
+        value = param[field].as<int>() > 0;
+      } else {
+        value = param[field].as<T>();
+      }
   }
 }
 /**

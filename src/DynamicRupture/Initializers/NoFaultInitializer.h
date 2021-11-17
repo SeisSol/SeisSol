@@ -4,18 +4,16 @@
 #include "BaseDRInitializer.h"
 
 namespace seissol::dr::initializers {
-class NoFaultInitializer; // NoFaultFL0
-}
 
-class seissol::dr::initializers::NoFaultInitializer
-    : public seissol::dr::initializers::BaseDRInitializer {
+/**
+ * Derived initializer class for the NoFault friction law
+ * does nothing in particular
+ */
+class NoFaultInitializer : public BaseDRInitializer {
   public:
-  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture* dynRup,
-                                          seissol::initializers::LTSTree* dynRupTree,
-                                          seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                          std::unordered_map<std::string, double*> faultParameters,
-                                          unsigned* ltsFaceToMeshFace,
-                                          seissol::Interoperability& e_interoperability) override;
+  using BaseDRInitializer::BaseDRInitializer;
+  using BaseDRInitializer::initializeFault;
 };
+} // namespace seissol::dr::initializers
 
 #endif // SEISSOL_NOFAULTINITIALIZER_H

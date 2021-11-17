@@ -145,9 +145,12 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
-  easi::Query query(m_numberOfPoints * fault.size(), 3);
+  easi::Query query(m_numberOfPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
-  for (Fault const& f : fault) {
+  // loop over all fault elements which are managed by this generator
+  // note: we have one generator per LTS layer
+  for (unsigned faultId: m_faceIDs) {
+    const Fault& f = fault.at(faultId);
     int element, side, sideOrientation;
     if (f.element >= 0) {
       element = f.element;
@@ -292,7 +295,7 @@ namespace seissol {
       easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
 
-      easi::ArraysAdapter<double> adapter;
+      easi::ArraysAdapter<real> adapter;
       for (auto& kv : m_parameters) {
         adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
       }

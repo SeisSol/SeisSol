@@ -4,7 +4,6 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Parameters.h"
-#include "DynamicRupture/Math.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
 
@@ -14,29 +13,19 @@ class BaseFrictionLaw;
 
 // Base class, has implementations of methods that are used by each friction law
 class seissol::dr::friction_law::BaseFrictionLaw {
-
   public:
-  /*
-   * Destructor, if memory is allocated in this class, deallocate it here.
-   */
-  virtual ~BaseFrictionLaw() {}
-
-  /*
-   * Set the parameters from .par file with yaml to this class attributes.
-   * This function is called at initialisation time. Could be extended to initialize more parameters
-   * if needed.
-   */
-  void setInputParam(dr::DRParameters* DynRupParameter) { m_Params = DynRupParameter; }
+  BaseFrictionLaw(dr::DRParameters& drParameters) : drParameters(drParameters){};
 
   protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0]; // DISC%Galerkin%nBndGP
   static constexpr int numPaddedPoints =
       init::QInterpolated::Stop[0]; // number of points padded to next dividable number by four
   // YAML::Node m_InputParam;
-  dr::DRParameters* m_Params;
+  dr::DRParameters& drParameters;
   ImpedancesAndEta* impAndEta;
   real m_fullUpdateTime;
   real deltaT[CONVERGENCE_ORDER] = {};
+  // CS = coordinate system
   real (*initialStressInFaultCS)[numPaddedPoints][6];
   real (*cohesion)[numPaddedPoints];
   real (*mu)[numPaddedPoints];
@@ -48,14 +37,14 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   real (*slipRateDip)[numPaddedPoints];
   real (*ruptureTime)[numPaddedPoints];
   bool (*ruptureFront)[numPaddedPoints];
-  real (*peakSR)[numPaddedPoints];
+  real (*peakSlipRate)[numPaddedPoints];
   real (*tractionXY)[numPaddedPoints];
   real (*tractionXZ)[numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 
   // be careful only for some FLs initialized:
-  real* averaged_Slip;
+  real* averagedSlip;
 
   /*
    * Struct that contains all input stresses and output stresses
@@ -127,7 +116,7 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   void saveRuptureFrontOutput(unsigned int ltsFace);
 
   /*
-   * save the maximal computed slip rate magnitude in peakSR
+   * save the maximal computed slip rate magnitude in RpeakSlipRate
    */
   void savePeakSlipRateOutput(unsigned int ltsFace);
 

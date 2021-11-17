@@ -159,24 +159,12 @@ extern "C" {
                                         waveSpeeds );
   }
   
-  void c_interoperability_addFaultParameter(  char* name,
-                                              double* memory  ) {
-    e_interoperability.addFaultParameter(name, memory);
-  }
-  
   bool c_interoperability_faultParameterizedByTraction( char* modelFileName ) {
     return seissol::initializers::FaultParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
   }
 
   bool c_interoperability_nucleationParameterizedByTraction( char* modelFileName ) {
     return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
-  }
-
-  void c_interoperability_initializeFault(  char*   modelFileName,
-                                            int     gpwise,
-                                            double* bndPoints,
-                                            int     numberOfBndPoints ) {    
-    e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
   void c_interoperability_addRecPoint(double x, double y, double z) {
@@ -366,23 +354,33 @@ void c_interoperability_report_device_memory_status() {
   extern void f_interoperability_getDynRupNucStress(void*  i_domain, int iFace,  real *nucleationStressInFaultCS) ;
 
 
-  extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_f0, real* i_RS_a, real* i_RS_b, real* i_RS_sl0, real* i_RS_sr0) ;
+  extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_a, real* i_RS_sl0, real* i_RS_sr0) ;
 
   extern void f_interoperability_getDynRupTP(void*  i_domain, real* i_TP_grid, real* i_TP_DFinv);
 
-  extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face,
-        real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time, real* i_PeakSR, real* i_tracXY, real* i_tracXZ);
+  extern void f_interoperability_setFrictionOutputGeneral( void*  i_domain, int i_face,
+                                                    real* i_slip,
+                                                    real* i_slipStrike,
+                                                    real* i_slipDip,
+                                                    real* i_ruptureTime,
+                                                    real* i_dynStressTime,
+                                                    real* i_peakSlipRate,
+                                                    real* i_tractionXY,
+                                                    real* i_tractionXZ);
 
-  extern void f_interoperability_setFrictionOutputFL2( void*  i_domain, int i_face,
-                                                  real* i_averaged_Slip,
-                                                  real* i_dynStress_time);
+  extern void f_interoperability_setFrictionOutputSpecific( void*  i_domain, int i_face,
+                                                       real* i_averagedSlip,
+                                                       real* slipRateStrike,
+                                                       real* slipRateDip,
+                                                       real* mu);
 
   extern void f_interoperability_setFrictionOutputStateVar( void*  i_domain, int i_face, real* stateVar);
 
   extern void f_interoperability_setFrictionOutputStrength( void*  i_domain, int i_face, real* strength);
 
-  extern void f_interoperability_setFrictionOutputInitialStress( void*  i_domain, int i_face, real* i_InitialStressInFaultCS);
+  extern void f_interoperability_setFrictionOutputInitialStress( void*  i_domain, int i_face, real* i_initialStressInFaultCS, real* i_bulkXX, real* i_bulkYY, real* i_bulkZZ, real* i_shearXY, real* i_shearYZ, real* shear_XZ);
 
+  extern void f_interoperability_initializeFaultOutput(void* i_domain);
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
@@ -461,8 +459,7 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
-  //added by Adrian
-  seissol::SeisSol::main.getMemoryManager().initializeFrictionFactory();
+  seissol::SeisSol::main.getMemoryManager().initializeFrictionLaw();
 
   unsigned* numberOfDRCopyFaces;
   unsigned* numberOfDRInteriorFaces;
@@ -500,8 +497,6 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
                                                          m_meshStructure,
                                                          m_ltsTree->var(m_lts->cellInformation) );
-
-
 }
 
 void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
@@ -718,28 +713,6 @@ void seissol::Interoperability::fitAttenuation( double rho,
 #endif
 }
 
-void seissol::Interoperability::initializeFault( char*   modelFileName,
-                                                 int     gpwise,
-                                                 double* bndPoints,
-                                                 int     numberOfBndPoints )
-{
-  seissol::initializers::FaultParameterDB parameterDB;
-  for (auto const& kv : m_faultParameters) {
-    parameterDB.addParameter(kv.first, kv.second);
-  }
-  
-  if (gpwise != 0) {
-    seissol::initializers::FaultGPGenerator queryGen( seissol::SeisSol::main.meshReader(),
-                                                      reinterpret_cast<double(*)[2]>(bndPoints),
-                                                      numberOfBndPoints );
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
-  } else {
-    seissol::initializers::FaultBarycentreGenerator queryGen( seissol::SeisSol::main.meshReader(),
-                                                              numberOfBndPoints );
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
-  }
-}
-
 void seissol::Interoperability::enableDynamicRupture() {
   // DR is always enabled if there are dynamic rupture cells
 }
@@ -818,15 +791,14 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            m_ltsFaceToMeshFace,
                                                            *memoryManager.getGlobalDataOnHost(),
                                                            m_timeStepping );
-  //added by adrian
-  seissol::initializers::initializeFrictionMatrices(
-      seissol::SeisSol::main.getMemoryManager().getDRInitializer(),
-      seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
-      seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
-      seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-      m_faultParameters,
-      m_ltsFaceToMeshFace,
-      e_interoperability);
+
+  memoryManager.readFrictionData(this);
+
+  //memoryManager.getDRInitializer()->initializeFrictionMatrices(
+  //    seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+  //    seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
+  //    seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
+  //    m_ltsFaceToMeshFace);
 
   seissol::initializers::initializeBoundaryMappings(meshReader,
                                                     memoryManager.getEasiBoundaryReader(),
@@ -1200,52 +1172,53 @@ void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int mes
 }
 
 void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
-                                              real *i_RS_f0,
                                               real *i_RS_a,
-                                              real *i_RS_b,
                                               real *i_RS_sl0,
                                               real *i_RS_sr0) {
   int fFace = meshFace + 1;
-  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_f0[ltsFace], &i_RS_a[ltsFace], &i_RS_b[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
+  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_a[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
 }
 
-void seissol::Interoperability::getDynRupTP(real TP_grid[TP_grid_nz],
-                                            real TP_DFinv[TP_grid_nz]) {
+void seissol::Interoperability::getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],
+                                            real TP_DFinv[seissol::dr::TP_grid_nz]) {
   f_interoperability_getDynRupTP(m_domain,  &TP_grid[0], &TP_DFinv[0]);
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
-        real (*mu)[seissol::init::QInterpolated::Stop[0]],
-        real  (*slip)[init::QInterpolated::Stop[0]],
-        real  (*slip1)[init::QInterpolated::Stop[0]],
-        real  (*slip2)[init::QInterpolated::Stop[0]],
-        real  (*slipRate1)[init::QInterpolated::Stop[0]],
-        real  (*slipRate2)[init::QInterpolated::Stop[0]],
-        real  (*rupture_time)[init::QInterpolated::Stop[0]],
-        real  (*peakSR)[init::QInterpolated::Stop[0]],
-        real  (*tracXY)[init::QInterpolated::Stop[0]],
-        real  (*tracXZ)[init::QInterpolated::Stop[0]]
+void seissol::Interoperability::copyFrictionOutputToFortranGeneral(unsigned ltsFace, unsigned meshFace,
+                                                                   real  (*slip)[init::QInterpolated::Stop[0]],
+                                                                   real  (*slipStrike)[init::QInterpolated::Stop[0]],
+                                                                   real  (*slipDip)[init::QInterpolated::Stop[0]],
+                                                                   real  (*ruptureTime)[init::QInterpolated::Stop[0]],
+                                                                   real  (*dynStressTime)[init::QInterpolated::Stop[0]],
+                                                                   real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
+                                                                   real  (*tractionXY)[init::QInterpolated::Stop[0]],
+                                                                   real  (*tractionXZ)[init::QInterpolated::Stop[0]]
         ){
     int fFace = meshFace + 1;
-    f_interoperability_setFrictionOutput(m_domain, fFace,
-                                         &mu[ltsFace][0],
-                                         &slip[ltsFace][0],
-                                         &slip1[ltsFace][0],
-                                         &slip2[ltsFace][0],
-                                         &slipRate1[ltsFace][0],
-                                         &slipRate2[ltsFace][0],
-                                         &rupture_time[ltsFace][0],
-                                         &peakSR[ltsFace][0],
-                                         &tracXY[ltsFace][0],
-                                         &tracXZ[ltsFace][0]);
+    f_interoperability_setFrictionOutputGeneral(m_domain, fFace,
+                                                &slip[ltsFace][0],
+                                                &slipStrike[ltsFace][0],
+                                                &slipDip[ltsFace][0],
+                                                &ruptureTime[ltsFace][0],
+                                                &dynStressTime[ltsFace][0],
+                                                &peakSlipRate[ltsFace][0],
+                                                &tractionXY[ltsFace][0],
+                                                &tractionXZ[ltsFace][0]);
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortranFL2(unsigned int ltsFace, unsigned int meshFace, real *averaged_Slip, real (*dynStress_time)[init::QInterpolated::Stop[0]]
+void seissol::Interoperability::copyFrictionOutputToFortranSpecific(unsigned int ltsFace, unsigned int meshFace,
+                                                                    real *averagedSlip,
+                                                                    real (*slipRateStrike)[init::QInterpolated::Stop[0]],
+                                                                    real (*slipRateDip)[init::QInterpolated::Stop[0]],
+                                                                    real (*mu)[init::QInterpolated::Stop[0]]
 ){
-    int fFace = meshFace + 1;
-    f_interoperability_setFrictionOutputFL2(m_domain, fFace,
-                                         &averaged_Slip[ltsFace],
-                                         &dynStress_time[ltsFace][0]);
+  int fFace = meshFace + 1;
+  f_interoperability_setFrictionOutputSpecific(m_domain, fFace,
+                                               &averagedSlip[ltsFace],
+                                               &slipRateStrike[ltsFace][0],
+                                               &slipRateDip[ltsFace][0],
+                                               &mu[ltsFace][0]
+  );
 }
 
 void seissol::Interoperability::copyFrictionOutputToFortranStateVar(unsigned int ltsFace, unsigned int meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]
@@ -1260,10 +1233,24 @@ void seissol::Interoperability::copyFrictionOutputToFortranStrength(unsigned int
   f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(unsigned int ltsFace, unsigned int meshFace,  real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]
-){
+void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(unsigned int ltsFace,
+                                                                                  unsigned int meshFace,
+                                                                                  real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkXX,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkYY,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkZZ,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXY,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearYZ,
+                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXZ) {
   int fFace = meshFace + 1;
-  f_interoperability_setFrictionOutputInitialStress( m_domain, fFace, &initialStressInFaultCS[ltsFace][0][0]);
+  f_interoperability_setFrictionOutputInitialStress(m_domain, fFace,
+                                                    &initialStressInFaultCS[ltsFace][0][0],
+                                                    &iniBulkXX[ltsFace][0],
+                                                    &iniBulkYY[ltsFace][0],
+                                                    &iniBulkZZ[ltsFace][0],
+                                                    &iniShearXY[ltsFace][0],
+                                                    &iniShearYZ[ltsFace][0],
+                                                    &iniShearXZ[ltsFace][0]);
 }
 
 void seissol::Interoperability::reportDeviceMemoryStatus() {
@@ -1287,3 +1274,8 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
   }
 #endif
 }
+
+void Interoperability::initializeFaultOutput() {
+  f_interoperability_initializeFaultOutput(m_domain);
+}
+

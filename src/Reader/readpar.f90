@@ -915,7 +915,7 @@ CONTAINS
     REAL                                   :: RS_sv0, XRef, YRef, ZRef, GPwise,  &
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
+                                              RS_iniSlipRate2, vStar, L, t_0, Mu_W, &
                                               alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                               NucRS_sv0, r_s, energy_rate_printtimeinterval
 
@@ -924,7 +924,7 @@ CONTAINS
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
-                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
+                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, vstar, &
                                                 thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                                 L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
@@ -955,7 +955,7 @@ CONTAINS
     RS_b = 0
     RS_iniSlipRate1 = 0
     RS_iniSlipRate2 = 0
-    v_star = 0
+    vstar = 0
     t_0 = 0
     L = 0
     Mu_W = 0
@@ -1020,7 +1020,7 @@ CONTAINS
                DISC%DynRup%t_0 = t_0 
              ENDIF
            CASE(6) ! bimaterial with LSW
-             DISC%DynRup%v_star = v_star
+             DISC%DynRup%v_star = vstar
              DISC%DynRup%L = L
              CONTINUE
            CASE(33, 34) !ImposedSlipRateOnDRBoundary

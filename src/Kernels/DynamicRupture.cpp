@@ -87,32 +87,11 @@ void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& g
 
 void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 {
-#ifdef USE_DR_CELLAVERAGE
-  static_assert(false, "Cell average currently not supported");
-  /*double subIntervalWidth = timestep / CONVERGENCE_ORDER;
-  for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-    double t1 = timeInterval * subIntervalWidth;
-    double t2 = t1 + subIntervalWidth;
-    /// Compute time-integrated Taylor expansion (at t0=0) weights for interval [t1,t2].
-    unsigned factorial = 1;
-    for (unsigned derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-      m_timeFactors[timeInterval][derivative] = (t2-t1) / (factorial * subIntervalWidth);
-      t1 *= t1;
-      t2 *= t2;
-      factorial *= (derivative+2);
-    }
-    /// We define the time "point" of the interval as the centre of the interval in order
-    /// to be somewhat compatible to legacy code.
-    timePoints[timeInterval] = timeInterval * subIntervalWidth + subIntervalWidth / 2.;
-    timeWeights[timeInterval] = subIntervalWidth;
-  }*/
-#else
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
   }
-#endif
 }
 
 void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,

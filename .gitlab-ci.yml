@@ -69,7 +69,6 @@ ci_builder_build:
     script:
         - echo "now building"
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
-        - git submodule update --init --recursive
         - cmake --version
         - gcc --version
         - set -euo pipefail
@@ -228,7 +227,7 @@ gpu_build:
         - git submodule --quiet update --init --recursive 
     script:
         - *common_gpu_steps
-        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git@v0.0.204
         - set -euo pipefail
         - for precision in double single; do
             mkdir -p ./build_${precision} && cd ./build_${precision} ;
@@ -267,6 +266,7 @@ gpu_convergence_test:
             cd ./build_${precision} ;
             echo "Elastic Convergence test with precision - " ${precision} ;
             cp -r ../tests/convergence_elastic/* . ;
+            ls -la;
             PYTHONPATH=$PWD python3 ./elastic_convergence_runner
             --executable $PWD/SeisSol_Release_?nvidia_?_elastic
             --tmp-dir /tmp/seissol

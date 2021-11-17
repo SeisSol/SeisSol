@@ -104,7 +104,7 @@ struct GeneralParamsT {
   OutputType outputPointType{OutputType::AtPickpoint};
   int slipRateOutputType{1};
   int frictionLawType{0};
-  int backgroundType{0};
+  int backgroundType{1};
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
   bool isMagnitudeOutputOn{false};
@@ -117,7 +117,7 @@ struct GeneralParamsT {
   std::string outputFilePrefix{"data"};
   std::string xdmfWriterBackend{"hdf5"};
   std::string checkPointBackend{"none"};
-  real endTime{0.0};
+  real endTime{15.0};
   size_t maxIteration{10000000};
 };
 

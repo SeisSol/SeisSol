@@ -1,6 +1,7 @@
 #ifndef SEISSOL_DRELEMENTWISEOUTPUT_HPP
 #define SEISSOL_DRELEMENTWISEOUTPUT_HPP
 
+#include <DynamicRupture/Math.h>
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiner.hpp"
 #include "Geometry/MeshReader.h"

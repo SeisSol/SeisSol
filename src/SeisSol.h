@@ -139,7 +139,7 @@ private:
   writer::ReceiverWriter m_receiverWriter;
 
   //! Input parameters
-  YAML::Node m_inputParams;
+  std::shared_ptr<YAML::Node> m_inputParams;
 
 private:
 	/**
@@ -300,9 +300,9 @@ public:
 		return *m_meshReader;
 	}
 
-  void setInputParams(const YAML::Node& Params);
+  void readInputParams();
 
-  const YAML::Node& getInputParams() {
+  const std::shared_ptr<YAML::Node> getInputParams() {
     return m_inputParams;
   }
 

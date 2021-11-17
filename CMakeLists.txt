@@ -82,7 +82,6 @@ add_custom_command(
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
@@ -498,13 +497,6 @@ if (TESTING)
     )
 endif()
 
-
-#TODO: Remove cellaverage
-if (DYNAMIC_RUPTURE_METHOD STREQUAL "quadrature")
-  target_compile_definitions(SeisSol-lib PUBLIC DR_METHOD=0)
-elseif (DYNAMIC_RUPTURE_METHOD STREQUAL "cellaverage")
-  target_compile_definitions(SeisSol-lib PUBLIC DR_METHOD=1)
-endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/

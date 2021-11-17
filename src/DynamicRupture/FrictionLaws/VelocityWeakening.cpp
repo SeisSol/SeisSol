@@ -8,14 +8,13 @@ void VelocityWeakening::copyLtsTreeToLocal(seissol::initializers::Layer& layerDa
   // first copy all Variables from the Base Lts dynRup tree
   BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // TODO: change later to const_cast
-  // seissol::initializers::DR_lts_template *ConcreteLts =
+  // seissol::initializers::DR_lts_template *concreteLts =
   // dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
-  seissol::initializers::LTS_RateAndStateFL3* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_RateAndStateFL3*>(dynRup);
-  stateVar = layerData.var(ConcreteLts->stateVar);
-  RS_sl0 = layerData.var(ConcreteLts->RS_sl0);
-  RS_a = layerData.var(ConcreteLts->RS_a);
+  auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
+  stateVar = layerData.var(concreteLts->stateVariable);
+  sl0 = layerData.var(concreteLts->rs_sl0);
+  a = layerData.var(concreteLts->rs_a);
 
   /*a
    * Add new LTS parameter specific for this
@@ -78,7 +77,7 @@ void VelocityWeakening::evaluate(
         slipRateMagnitude[ltsFace][pointIndex] =
             std::sqrt(std::pow(localSlipRate1, 2) + std::pow(localSlipRate2, 2));
 
-        real characteristicTime = RS_sl0[ltsFace] / m_Params->rs_sr0;
+        real characteristicTime = sl0[ltsFace][pointIndex] / drParameters.rs_sr0;
         real coeft = exp(-timeIncrement / characteristicTime);
 
         real tmp = 0;
@@ -102,21 +101,23 @@ void VelocityWeakening::evaluate(
               slipRateMagnitude[ltsFace][pointIndex]; // We use as first guess the SR value of the
                                                       // previous time ste
 
-          for (unsigned int i = 0; i < nSRupdates; i++) { //! This loop corrects SR values
+          for (unsigned int i = 0; i < nSRupdates; i++) {
             real tmp =
-                m_Params->rs_f0 +
-                RS_a[ltsFace] * slipRateGuess / (slipRateGuess + m_Params->rs_sr0) -
-                m_Params->rs_b * localStateVariable / (localStateVariable + RS_sl0[ltsFace]); //=mu
+                drParameters.rs_f0 +
+                a[ltsFace][pointIndex] * slipRateGuess / (slipRateGuess + drParameters.rs_sr0) -
+                drParameters.rs_b * localStateVariable /
+                    (localStateVariable + sl0[ltsFace][pointIndex]);
             real NR =
                 -impAndEta[ltsFace].inv_eta_s * (std::abs(pressure) * tmp - totalShearStressYZ) -
                 slipRateGuess;
             real dNR = -impAndEta[ltsFace].inv_eta_s *
-                           (abs(pressure) * (RS_a[ltsFace] / (slipRateGuess + m_Params->rs_sr0) -
-                                             RS_a[ltsFace] * slipRateGuess /
-                                                 std::pow(slipRateGuess + m_Params->rs_sr0, 2))) -
+                           (abs(pressure) *
+                            (a[ltsFace][pointIndex] / (slipRateGuess + drParameters.rs_sr0) -
+                             a[ltsFace][pointIndex] * slipRateGuess /
+                                 std::pow(slipRateGuess + drParameters.rs_sr0, 2))) -
                        1.0;
             slipRateGuess = slipRateGuess - NR / dNR;
-          } // End nSRupdates-Loop
+          } // End numberSlipRateUpdates-Loop
           // For the next SV update, use the mean slip rate between the
           // initial guess and the one found (Kaneko 2008, step 6)
           tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex] + std::abs(slipRateGuess));
@@ -124,23 +125,25 @@ void VelocityWeakening::evaluate(
         } // End nSVupdates-Loop -  This loop corrects SV values
 
         localStateVariable = characteristicTime * tmp * (1 - coeft) + coeft * stateVariable;
-        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / m_Params->rs_sr0 *
-              exp((m_Params->rs_f0 +
-                   m_Params->rs_b * log(m_Params->rs_sr0 * localStateVariable / RS_sl0[ltsFace])) /
-                  RS_a[ltsFace]);
+        tmp = 0.5 * (slipRateMagnitude[ltsFace][pointIndex]) / drParameters.rs_sr0 *
+              exp((drParameters.rs_f0 +
+                   drParameters.rs_b *
+                       log(drParameters.rs_sr0 * localStateVariable / sl0[ltsFace][pointIndex])) /
+                  a[ltsFace][pointIndex]);
 
         //! Ampuero and Ben-Zion 2008 (eq. 1):
         // localMu = friction coefficient (mu_f)
-        // RS_f0 = static coefficient (mu_s)
-        // RS_a = positive coefficient, quantifying  the direct effect (alpha)
+        // rs_f0 = static coefficient (mu_s)
+        // rs_a = positive coefficient, quantifying  the direct effect (alpha)
         // localSlipRate = slip rate (V)
-        // RS_sr0 = characteristic velocity scale (V_c)
-        // RS_b = positive coefficient, quantifying  the evolution effect (beta)
-        // RS_sl0 = characteristic velocity scale (V_c)
-        localMu = m_Params->rs_f0 +
-                  RS_a[ltsFace] * slipRateMagnitude[ltsFace][pointIndex] /
-                      (slipRateMagnitude[ltsFace][pointIndex] + m_Params->rs_sr0) -
-                  m_Params->rs_b * localStateVariable / (localStateVariable + RS_sl0[ltsFace]);
+        // rs_sr0 = characteristic velocity scale (V_c)
+        // rs_b = positive coefficient, quantifying  the evolution effect (beta)
+        // sl0 = characteristic velocity scale (V_c)
+        localMu = drParameters.rs_f0 +
+                  a[ltsFace][pointIndex] * slipRateMagnitude[ltsFace][pointIndex] /
+                      (slipRateMagnitude[ltsFace][pointIndex] + drParameters.rs_sr0) -
+                  drParameters.rs_b * localStateVariable /
+                      (localStateVariable + sl0[ltsFace][pointIndex]);
 
         // update stress change
         real localTractionXY = -((initialStressInFaultCS[ltsFace][pointIndex][3] +
