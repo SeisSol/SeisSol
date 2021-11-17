@@ -835,6 +835,9 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
 }
 
 void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {
+  if (!m_dynRupParameter.isDynamicRuptureEnabled) {
+    return;
+  }
   m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
   interoperability->initializeFaultOutput();
 }

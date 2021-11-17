@@ -11,11 +11,6 @@ namespace seissol::dr::initializers {
 void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                         seissol::initializers::LTSTree* dynRupTree,
                                         seissol::Interoperability* e_interoperability) {
-  if (drParameters.faultFileName == "") {
-    // Todo find better way to enable/disable dynamic rupture
-    logInfo() << "No fault filename set. Assume, we don't compute dynamic rupture";
-    return;
-  }
   seissol::initializers::FaultParameterDB faultParameterDB;
   dynRup->isFaultParameterizedByTraction =
       faultParameterDB.faultParameterizedByTraction(drParameters.faultFileName);

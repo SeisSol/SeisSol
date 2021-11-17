@@ -16,6 +16,7 @@ namespace seissol::dr {
  * if values are not defined they are set to an initial value (mostly 0)
  */
 struct DRParameters {
+  bool isDynamicRuptureEnabled{true};
   static constexpr unsigned int TP_grid_nz = 60;
   int outputPointType{3};
   Eigen::Vector3d referencePoint;
@@ -96,6 +97,10 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
 
     // filename of the yaml file describing the fault parameters
     initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);
+  }
+  // if there is no filename given for the fault, assume that we do not use dynamic rupture
+  if(drParameters.faultFileName == "") {
+    drParameters.isDynamicRuptureEnabled = false;
   }
 
   return drParameters;
