@@ -82,7 +82,6 @@ namespace seissol {
                                         seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
                                         DynamicRupture *dynRup,
                                         LTSTree* dynRupTree,
-                                        std::unordered_map<std::string, double*> faultParameters,
                                         unsigned*              ltsFaceToMeshFace,
                                         seissol::Interoperability &e_interoperability
     );

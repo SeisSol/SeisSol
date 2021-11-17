@@ -168,9 +168,7 @@ private:
     seissol::initializers::TimeCluster* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
-
-    //added by Adrian
-    dr::friction_law::BaseFrictionLaw* m_FrictonLaw;
+    dr::friction_law::BaseFrictionLaw* m_FrictionLaw;
     dr::output::OutputBase* m_DrOutput;
 
   //! time step width of the performed time step.
@@ -504,7 +502,7 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS* i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 seissol::dr::friction_law::BaseFrictionLaw* i_FrictonLaw,
+                 seissol::dr::friction_law::BaseFrictionLaw* i_FrictionLaw,
                  dr::output::OutputBase* i_DrOutput,
                  LoopStatistics* i_loopStatistics );
 

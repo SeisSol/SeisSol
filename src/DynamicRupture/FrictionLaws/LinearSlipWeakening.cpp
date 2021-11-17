@@ -1,9 +1,9 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
-void LinearSlipWeakeningLawFL2::calcStrengthHook(std::array<real, numPaddedPoints>& Strength,
-                                                 FaultStresses& faultStresses,
-                                                 unsigned int timeIndex,
-                                                 unsigned int ltsFace) {
+void LinearSlipWeakeningLaw::calcStrengthHook(std::array<real, numPaddedPoints>& Strength,
+                                              FaultStresses& faultStresses,
+                                              unsigned int timeIndex,
+                                              unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     //-------------------------------------
     // calculate Fault Strength
@@ -16,7 +16,7 @@ void LinearSlipWeakeningLawFL2::calcStrengthHook(std::array<real, numPaddedPoint
   }
 }
 
-void LinearSlipWeakeningLawFL2::calcStateVariableHook(
+void LinearSlipWeakeningLaw::calcStateVariableHook(
     std::array<real, numPaddedPoints>& stateVariablePsi,
     std::array<real, numPaddedPoints>& outputSlip,
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
@@ -49,36 +49,37 @@ void LinearSlipWeakeningLawFL2::calcStateVariableHook(
   }
 }
 
-void LinearSlipWeakeningLawFL16::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                                    seissol::initializers::DynamicRupture* dynRup,
-                                                    real fullUpdateTime) {
+void LinearSlipWeakeningLawForcedRuptureTime::copyLtsTreeToLocal(
+    seissol::initializers::Layer& layerData,
+    seissol::initializers::DynamicRupture* dynRup,
+    real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
-  LinearSlipWeakeningLawFL2::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  LinearSlipWeakeningLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // maybe change later to const_cast?
-  seissol::initializers::LTS_LinearSlipWeakeningFL16* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningFL16*>(dynRup);
-  forced_rupture_time = layerData.var(ConcreteLts->forced_rupture_time);
-  tn = layerData.var(ConcreteLts->tn);
+  auto concreteLts =
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
+  forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
+  tn = layerData.var(concreteLts->tn);
 }
 
-void LinearSlipWeakeningLawFL16::setTimeHook(unsigned int ltsFace) {
+void LinearSlipWeakeningLawForcedRuptureTime::setTimeHook(unsigned int ltsFace) {
   tn[ltsFace] = m_fullUpdateTime;
 }
 
-void LinearSlipWeakeningLawFL16::calcStateVariableHook(
+void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
     std::array<real, numPaddedPoints>& stateVariablePsi,
     std::array<real, numPaddedPoints>& outputSlip,
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  LinearSlipWeakeningLawFL2::calcStateVariableHook(
+  LinearSlipWeakeningLaw::calcStateVariableHook(
       stateVariablePsi, outputSlip, resampleKrnl, timeIndex, ltsFace);
   tn[ltsFace] += deltaT[timeIndex];
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     real f2 = 0.0;
-    if (m_Params->t_0 == 0) {
-      if (tn[ltsFace] >= forced_rupture_time[ltsFace][pointIndex]) {
+    if (drParameters.t0 == 0) {
+      if (tn[ltsFace] >= forcedRuptureTime[ltsFace][pointIndex]) {
         f2 = 1.0;
       } else {
         f2 = 0.0;
@@ -87,17 +88,16 @@ void LinearSlipWeakeningLawFL16::calcStateVariableHook(
       f2 = std::max(
           static_cast<real>(0.0),
           std::min(static_cast<real>(1.0),
-                   (m_fullUpdateTime - forced_rupture_time[ltsFace][pointIndex]) / m_Params->t_0));
+                   (m_fullUpdateTime - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t0));
     }
     stateVariablePsi[pointIndex] = std::max(stateVariablePsi[pointIndex], f2);
   }
 }
 
-void LinearSlipWeakeningLawBimaterialFL6::calcStrengthHook(
-    std::array<real, numPaddedPoints>& Strength,
-    FaultStresses& faultStresses,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
+void LinearSlipWeakeningLawBimaterial::calcStrengthHook(std::array<real, numPaddedPoints>& strength,
+                                                        FaultStresses& faultStresses,
+                                                        unsigned int timeIndex,
+                                                        unsigned int ltsFace) {
   std::array<real, numPaddedPoints> LocSlipRate;
   std::array<real, numPaddedPoints> sigma;
 
@@ -110,18 +110,18 @@ void LinearSlipWeakeningLawBimaterialFL6::calcStrengthHook(
                   slipRateDip[ltsFace][pointIndex] * slipRateDip[ltsFace][pointIndex]);
     sigma[pointIndex] = faultStresses.NormalStressGP[timeIndex][pointIndex] +
                         initialStressInFaultCS[ltsFace][pointIndex][0];
-    prak_clif_mod(strengthData[ltsFace][pointIndex],
+    prak_clif_mod(regularisedStrength[ltsFace][pointIndex],
                   sigma[pointIndex],
                   LocSlipRate[pointIndex],
                   mu[ltsFace][pointIndex],
                   deltaT[timeIndex]);
 
     // TODO: add this line to make the FL6 actually functional: (this line is also missing in the
-    // master branch) Strength[pointIndex] = strengthData[ltsFace][pointIndex];
+    // master branch) strength[pointIndex] = strengthData[ltsFace][pointIndex];
   }
 }
 
-void LinearSlipWeakeningLawBimaterialFL6::calcStateVariableHook(
+void LinearSlipWeakeningLawBimaterial::calcStateVariableHook(
     std::array<real, numPaddedPoints>& stateVariablePsi,
     std::array<real, numPaddedPoints>& outputSlip,
     dynamicRupture::kernel::resampleParameter& resampleKrnl,
@@ -141,25 +141,26 @@ void LinearSlipWeakeningLawBimaterialFL6::calcStateVariableHook(
   }
 }
 
-void LinearSlipWeakeningLawBimaterialFL6::copyLtsTreeToLocal(
+void LinearSlipWeakeningLawBimaterial::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
-  LinearSlipWeakeningLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  LinearSlipWeakeningBase::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // maybe change later to const_cast?
-  seissol::initializers::LTS_LinearBimaterialFL6* ConcreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearBimaterialFL6*>(dynRup);
-  strengthData = layerData.var(ConcreteLts->strengthData);
+  auto concreteLts =
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
+  regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
 /*
  * calculates strength
  */
-void LinearSlipWeakeningLawBimaterialFL6::prak_clif_mod(
+void LinearSlipWeakeningLawBimaterial::prak_clif_mod(
     real& strength, real& sigma, real& LocSlipRate, real& mu, real& dt) {
   real expterm;
-  expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star) * dt / m_Params->prakash_length);
+  expterm =
+      std::exp(-(std::abs(LocSlipRate) + drParameters.vStar) * dt / drParameters.prakashLength);
   strength = strength * expterm - std::max(static_cast<real>(0.0), -mu * sigma) * (expterm - 1.0);
 }
 } // namespace seissol::dr::friction_law

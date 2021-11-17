@@ -4,19 +4,17 @@
 #include "BaseFrictionLaw.h"
 
 namespace seissol::dr::friction_law {
-class ImposedSlipRates;
-}
-/*
- * Slip rates are set fixed values (defined by nucleationStressInFaultCS)
+/**
+ * Slip rates are set fixed values
  */
-class seissol::dr::friction_law::ImposedSlipRates : public BaseFrictionLaw {
+class ImposedSlipRates : public BaseFrictionLaw {
+  public:
+  using BaseFrictionLaw::BaseFrictionLaw;
+
   protected:
-  // Attributes
+  // CS = coordinate system
   real (*nucleationStressInFaultCS)[numPaddedPoints][6];
 
-  /*
-   * copies all parameters from the DynamicRupture LTS to the local attributes
-   */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) override;
@@ -31,4 +29,5 @@ class seissol::dr::friction_law::ImposedSlipRates : public BaseFrictionLaw {
                double timeWeights[CONVERGENCE_ORDER]) override;
 };
 
+} // namespace seissol::dr::friction_law
 #endif // SEISSOL_IMPOSEDSLIPRATES_H

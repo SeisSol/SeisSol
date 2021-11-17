@@ -159,15 +159,13 @@ class seissol::initializers::MemoryManager {
     LTSTree               m_ltsTree;
     LTS                   m_lts;
     
-    LTSTree               m_dynRupTree;
-    DynamicRupture*       m_dynRup;
-
-    //added by Adrian
-    seissol::dr::initializers::BaseDRInitializer* m_DRInitializer = nullptr;
-    seissol::dr::friction_law::BaseFrictionLaw* m_FrictonLaw = nullptr;
-    seissol::dr::output::OutputBase* m_DROutput = nullptr;
-    dr::DRParameters* m_dynRupParameter;
-    YAML::Node m_inputParams;
+    LTSTree m_dynRupTree;
+    std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
+    std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
+    std::unique_ptr<dr::friction_law::BaseFrictionLaw> m_FrictionLaw = nullptr;
+    std::unique_ptr<dr::output::OutputBase> m_DROutput = nullptr;
+    dr::DRParameters m_dynRupParameter;
+    std::shared_ptr<YAML::Node> m_inputParams = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -245,14 +243,7 @@ class seissol::initializers::MemoryManager {
     /**
      * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager() {
-        //added by adrian
-        delete m_dynRup;
-        delete m_DRInitializer;
-        delete m_FrictonLaw;
-        delete m_DROutput;
-        delete m_dynRupParameter;
-    }
+    ~MemoryManager() {}
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -331,7 +322,7 @@ class seissol::initializers::MemoryManager {
     }
                           
     inline DynamicRupture* getDynamicRupture() {
-      return m_dynRup;
+      return m_dynRup.get();
     }
 
     inline LTSTree* getBoundaryTree() {
@@ -348,26 +339,27 @@ class seissol::initializers::MemoryManager {
       return &m_easiBoundary;
     }
 
-    //added by Adrian
-    void initializeFrictionFactory();
-
     inline dr::friction_law::BaseFrictionLaw* getFrictionLaw() {
-        return m_FrictonLaw;
+        return m_FrictionLaw.get();
     }
     inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
-        return m_DRInitializer;
+        return m_DRInitializer.get();
     }
     inline seissol::dr::output::OutputBase* getDROutput() {
-        return m_DROutput;
+        return m_DROutput.get();
     }
 
-    void setInputParams(const YAML::Node& Params) {
-      m_inputParams = Params;
+    void setInputParams(std::shared_ptr<YAML::Node> params) {
+      m_inputParams = params;
     }
 
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
 #endif
+
+  void initializeFrictionLaw();
+
+  void readFrictionData(Interoperability *interoperability);
 };
 
 
