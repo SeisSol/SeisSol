@@ -1,24 +1,21 @@
-#ifndef SEISSOL_DROUTOUT_FL_3_HPP
-#define SEISSOL_DROUTOUT_FL_3_HPP
+#ifndef SEISSOL_DR_OUTOUT_IMPOSED_RS_HPP
+#define SEISSOL_DR_OUTOUT_IMPOSED_RS_HPP
 
 #include "DynamicRupture/Output/Base.hpp"
 
 namespace seissol::dr::output {
-class FL_3 : public Base {
+class ImposedSlipRates : public Base {
   public:
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* dynRup,
                            seissol::Interoperability& e_interoperability) override {
-    seissol::initializers::DR_FL_33* ConcreteLts =
-        dynamic_cast<seissol::initializers::DR_FL_33*>(dynRup);
-    std::cout << "tie ptr for FL_33\n";
+    Base::tiePointers(layerData, dynRup, e_interoperability);
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
-    seissol::initializers::DR_FL_33& ConcreteLts =
-        dynamic_cast<seissol::initializers::DR_FL_33&>(DynRup);
-    std::cout << "output vars for FL_33\n";
+    // do nothing
   }
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DROUTOUT_FL_3_HPP
+
+#endif // SEISSOL_DR_OUTOUT_IMPOSED_RS_HPP

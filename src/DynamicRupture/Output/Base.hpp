@@ -1,7 +1,8 @@
-#ifndef SEISSOL_DROUTOUT_DRBASE_HPP
-#define SEISSOL_DROUTOUT_DRBASE_HPP
+#ifndef SEISSOL_DROUTOUT_DR_BASE_HPP
+#define SEISSOL_DROUTOUT_DR_BASE_HPP
 
 #include "Initializer/InputAux.hpp"
+#include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/Output/ParametersInitializer.hpp"
 #include "DynamicRupture/Output/Builders/ElementWiseOutput.hpp"
 #include "DynamicRupture/Output/Builders/PickpointOutput.hpp"
@@ -60,7 +61,7 @@ class Base {
     dynRup = drDescription;
   }
 
-  void init(const std::unordered_map<std::string, double*>& FaultParams);
+  void init();
   void initFaceToLtsMap();
 
   void writePickpointOutput(double time, double dt);
@@ -103,7 +104,7 @@ class Base {
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) = 0;
 
   protected:
-  void initEwOutput(const std::unordered_map<std::string, double*>& FaultParams);
+  void initEwOutput();
   void initPickpointOutput();
 
   std::string constructPpReveiverFileName(int receiverGlobalIndex) const;
@@ -125,4 +126,4 @@ class Base {
   size_t iterationStep{0};
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DROUTOUT_DRBASE_HPP
+#endif // SEISSOL_DROUTOUT_DR_BASE_HPP

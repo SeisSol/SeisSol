@@ -117,7 +117,7 @@ struct GeneralParamsT {
   std::string outputFilePrefix{"data"};
   std::string xdmfWriterBackend{"hdf5"};
   std::string checkPointBackend{"none"};
-  real endTime{15.0};
+  double endTime{15.0};
   size_t maxIteration{10000000};
 };
 

@@ -9,6 +9,8 @@
 #include "Parallel/MPI.h"
 
 namespace seissol::dr::output {
+class Base;
+
 struct FaultGeomParamsT {
   int numSubTriangles{};
   int numSubElements{};
@@ -30,7 +32,7 @@ class ElementWiseOutput {
     localRank = MPI::mpi.rank();
   }
 
-  void init(const std::unordered_map<std::string, double*>& faultParams) {
+  void init() {
     initReceiverLocations();
     assignNearestGaussianPoints(outputData.receiverPoints);
     initTimeCaching();
@@ -134,7 +136,7 @@ class ElementWiseOutput {
 
   void initRotationMatrices() {
     using namespace seissol::transformations;
-    using RotationMatrixViewT = yateto::DenseTensorView<2, double, unsigned>;
+    using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
 
     // allocate Rotation Matrices
     // Note: several receiver can share the same rotation matrix

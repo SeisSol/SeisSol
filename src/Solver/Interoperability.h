@@ -155,6 +155,7 @@ class seissol::Interoperability {
     **/
    void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
    void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void bindFaultOutputManager();
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation

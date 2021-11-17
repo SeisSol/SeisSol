@@ -22,7 +22,7 @@ class ParametersInitializer {
     auto outputPointID = static_cast<int>(OutputType::AtPickpoint);
     updateIfExists(drSettings, "outputpointtype", outputPointID);
     params.outputPointType = static_cast<OutputType>(outputPointID);
-    
+
     updateIfExists(drSettings, "sliprateoutputtype", params.slipRateOutputType);
     updateIfExists(drSettings, "fl", params.frictionLawType);
     updateIfExists(drSettings, "backgroundtype", params.backgroundType);

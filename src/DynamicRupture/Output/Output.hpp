@@ -1,8 +1,11 @@
-#ifndef SEISSOL_DROUTPUT_HPP
-#define SEISSOL_DROUTPUT_HPP
+#ifndef SEISSOL_DR_OUTPUT_HPP
+#define SEISSOL_DR_OUTPUT_HPP
 
-#include "DynamicRupture/Output/FL_2.hpp"
-#include "DynamicRupture/Output/FL_3.hpp"
-#include "DynamicRupture/Output/FL_33.hpp"
+#include "DynamicRupture/Output/NoFault.hpp"
+#include "DynamicRupture/Output/LinearSlipWeakening.hpp"
+#include "DynamicRupture/Output/LinearSlipWeakeningBimaterial.hpp"
+#include "DynamicRupture/Output/ImposedSlipRates.hpp"
+#include "DynamicRupture/Output/RateAndState.hpp"
+#include "DynamicRupture/Output/RateAndStateThermalPressurisation.hpp"
 
-#endif // SEISSOL_DROUTPUT_HPP
+#endif // SEISSOL_DR_OUTPUT_HPP

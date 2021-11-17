@@ -33,8 +33,8 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildInType<T, U> obj) {
   return stream;
 }
 
-std::string
-    seissol::dr::output::Base::constructPpReveiverFileName(const int receiverGlobalIndex) const {
+namespace seissol::dr::output {
+std::string Base::constructPpReveiverFileName(const int receiverGlobalIndex) const {
   std::stringstream fileName;
   fileName << generalParams.outputFilePrefix << "-new-faultreceiver-"
            << makeFormatted<int, WideFormat>(receiverGlobalIndex);
@@ -45,9 +45,8 @@ std::string
   return fileName.str();
 }
 
-void seissol::dr::output::Base::initEwOutput(
-    const std::unordered_map<std::string, double*>& FaultParams) {
-  ewOutputBuilder->init(FaultParams);
+void Base::initEwOutput() {
+  ewOutputBuilder->init();
 
   const auto& receiverPoints = ewOutputBuilder->outputData.receiverPoints;
   auto cellConnectivity = getCellConnectivity(receiverPoints);
@@ -83,7 +82,7 @@ void seissol::dr::output::Base::initEwOutput(
   seissol::SeisSol::main.secondFaultWriter().setupCallbackObject(this);
 }
 
-void seissol::dr::output::Base::initPickpointOutput() {
+void Base::initPickpointOutput() {
   ppOutputBuilder->init();
 
   std::stringstream baseHeader;
@@ -125,16 +124,16 @@ void seissol::dr::output::Base::initPickpointOutput() {
   }
 }
 
-void seissol::dr::output::Base::init(const std::unordered_map<std::string, double*>& FaultParams) {
+void Base::init() {
   if (ewOutputBuilder) {
-    initEwOutput(FaultParams);
+    initEwOutput();
   }
   if (ppOutputBuilder) {
     initPickpointOutput();
   }
 }
 
-void seissol::dr::output::Base::initFaceToLtsMap() {
+void Base::initFaceToLtsMap() {
   faceToLtsMap.resize(drTree->getNumberOfCells(Ghost));
   for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != drTree->endLeaf();
@@ -147,7 +146,7 @@ void seissol::dr::output::Base::initFaceToLtsMap() {
   }
 }
 
-bool seissol::dr::output::Base::isAtPickpoint(double time, double dt) {
+bool Base::isAtPickpoint(double time, double dt) {
   bool isFirstStep = iterationStep == 0;
 
   const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
@@ -160,7 +159,7 @@ bool seissol::dr::output::Base::isAtPickpoint(double time, double dt) {
   return ppOutputBuilder && (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void seissol::dr::output::Base::writePickpointOutput(double time, double dt) {
+void Base::writePickpointOutput(double time, double dt) {
 
   if (this->isAtPickpoint(time, dt)) {
 
@@ -203,14 +202,12 @@ void seissol::dr::output::Base::writePickpointOutput(double time, double dt) {
   iterationStep += 1;
 }
 
-void seissol::dr::output::Base::updateElementwiseOutput() {
+void Base::updateElementwiseOutput() {
   calcFaultOutput(OutputType::Elementwise, ewOutputBuilder->outputData);
 }
 
 using DrPaddedArrayT = real (*)[seissol::init::QInterpolated::Stop[0]];
-void seissol::dr::output::Base::calcFaultOutput(const OutputType type,
-                                                OutputData& outputData,
-                                                double time) {
+void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double time) {
 
   size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
@@ -281,3 +278,4 @@ void seissol::dr::output::Base::calcFaultOutput(const OutputType type,
     outputData.currentCacheLevel += 1;
   }
 }
+} // namespace seissol::dr::output

@@ -81,6 +81,10 @@ extern "C" {
     e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity);
   }
 
+  void c_interoperability_bindFaultOutputManager() {
+    e_interoperability.bindFaultOutputManager();
+  }
+
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
   }
@@ -517,6 +521,10 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
 
+void seissol::Interoperability::bindFaultOutputManager() {
+  auto faultOutputManager = seissol::SeisSol::main.getMemoryManager().getDROutput();
+  seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
+}
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::Interoperability::setupNRFPointSources( char const* fileName )
@@ -793,7 +801,9 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            m_timeStepping );
 
   memoryManager.readFrictionData(this);
+  seissol::SeisSol::main.getMemoryManager().getDROutput()->initFaceToLtsMap();
 
+  // TODO (Ravil and Sebastian): discuss and remove this comment (dr/cpp)
   //memoryManager.getDRInitializer()->initializeFrictionMatrices(
   //    seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
   //    seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),

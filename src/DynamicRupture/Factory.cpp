@@ -41,35 +41,35 @@ products NoFaultFactory::produce() {
   return {std::make_unique<seissol::initializers::DynamicRupture>(),
           std::make_unique<initializers::NoFaultInitializer>(drParameters),
           std::make_unique<friction_law::NoFault>(drParameters),
-          std::make_unique<output::OutputNoFault>(drParameters)};
+          std::make_unique<output::NoFault>()};
 }
 
 products LinearSlipWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
           std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
           std::make_unique<friction_law::LinearSlipWeakeningLaw>(drParameters),
-          std::make_unique<output::OutputLinearSlipWeakening>(drParameters)};
+          std::make_unique<output::LinearSlipWeakening>()};
 }
 
 products RateAndStateAgingFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
           std::make_unique<initializers::RateAndStateInitializer>(drParameters),
           std::make_unique<friction_law::AgingLaw>(drParameters),
-          std::make_unique<output::OutputRateAndState>(drParameters)};
+          std::make_unique<output::RateAndState>()};
 }
 
 products RateAndStateSlipFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
           std::make_unique<initializers::RateAndStateInitializer>(drParameters),
           std::make_unique<friction_law::SlipLaw>(drParameters),
-          std::make_unique<output::OutputRateAndState>(drParameters)};
+          std::make_unique<output::RateAndState>()};
 }
 
 products LinearSlipWeakeningBimaterialFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningBimaterial>(),
           std::make_unique<initializers::LinearSlipWeakeningBimaterialInitializer>(drParameters),
           std::make_unique<friction_law::LinearSlipWeakeningLawBimaterial>(drParameters),
-          std::make_unique<output::OutputLinearSlipWeakeningBimaterial>(drParameters)};
+          std::make_unique<output::LinearSlipWeakeningBimaterial>()};
 }
 
 products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
@@ -77,21 +77,21 @@ products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
       std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
       std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
       std::make_unique<friction_law::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
-      std::make_unique<output::OutputLinearSlipWeakening>(drParameters)};
+      std::make_unique<output::LinearSlipWeakening>()};
 }
 
 products ImposedSlipRatesFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_ImposedSlipRates>(),
           std::make_unique<initializers::ImposedSlipRatesInitializer>(drParameters),
           std::make_unique<friction_law::ImposedSlipRates>(drParameters),
-          std::make_unique<output::OutputImposedSlipRates>(drParameters)};
+          std::make_unique<output::ImposedSlipRates>()};
 }
 
 products RateAndStateFastVelocityWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
           std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
           std::make_unique<friction_law::RateAndStateFastVelocityWeakeningLaw>(drParameters),
-          std::make_unique<output::OutputRateAndState>(drParameters)};
+          std::make_unique<output::RateAndState>()};
 }
 
 products RateAndStateThermalPressurisationFactory::produce() {
@@ -99,6 +99,6 @@ products RateAndStateThermalPressurisationFactory::produce() {
       std::make_unique<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
       std::make_unique<initializers::RateAndStateThermalPressurisationInitializer>(drParameters),
       std::make_unique<friction_law::RateAndStateThermalPressurizationLaw>(drParameters),
-      std::make_unique<output::OutputRateAndStateThermalPressurisation>(drParameters)};
+      std::make_unique<output::RateAndStateThermalPressurisation>()};
 }
 } // namespace seissol::dr::factory

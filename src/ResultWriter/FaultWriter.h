@@ -82,7 +82,7 @@ private:
 	/** Frontend stopwatch */
 	Stopwatch m_stopwatch;
 
-    dr::output::Base* callbackObject{nullptr};
+	dr::output::Base* callbackObject{nullptr};
 
 public:
 	FaultWriter()
@@ -167,7 +167,7 @@ public:
 	}
 
 	void setupCallbackObject(dr::output::Base* faultOutput) {
-	  callbackObject = faultOutput;
+		callbackObject = faultOutput;
 	}
 
 	//

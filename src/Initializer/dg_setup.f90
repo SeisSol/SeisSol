@@ -463,6 +463,8 @@ CONTAINS
             enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
             usePlasticity = logical(EQN%Plasticity == 1, 1))
 
+    call c_interoperability_bindFaultOutputManager()
+
   ! Initialize source terms
   select case(SOURCE%Type)
     case(0)

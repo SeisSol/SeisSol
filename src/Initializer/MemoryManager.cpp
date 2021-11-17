@@ -832,6 +832,11 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   m_DRInitializer = std::move(product.initializer);
   m_FrictionLaw = std::move(product.frictionLaw);
   m_DROutput = std::move(product.output);
+
+  // TODO: switch m_dynRup to shared or weak pointer
+  m_DROutput->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
+  m_DROutput->setDrData(&m_dynRupTree, m_dynRup.get());
+  m_DROutput->init();
 }
 
 void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {

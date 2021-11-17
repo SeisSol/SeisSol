@@ -111,6 +111,10 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   }
 }
 
+void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::Base* faultOutputManager) {
+  m_faultOutputManager = faultOutputManager;
+}
+
 void seissol::time_stepping::TimeManager::startCommunicationThread() {
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
   g_executeCommThread = true;
@@ -293,6 +297,7 @@ void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady() {
     }
 
     e_interoperability.faultOutput(FirstCluster->m_fullUpdateTime, FirstCluster->timeStepWidth());
+    m_faultOutputManager->writePickpointOutput(FirstCluster->m_fullUpdateTime, FirstCluster->timeStepWidth());
   }
 }
 
