@@ -48,7 +48,9 @@ parser.add_argument(
     "--use_Yoffe",
     help="replace the discretized STF with a Yoffe function (e.g. for comparison with FL33)",
     dest="use_Yoffe",
-    action="store_true",
+    nargs=1,
+    metavar=("PSRthreshold"),
+    type=float,
 )
 
 args = parser.parse_args()
@@ -58,12 +60,16 @@ p1.init_from_srf(args.filename)
 p1.compute_xy_from_latlon(args.proj)
 p1.compute_time_array()
 
+use_Yoffe = True if args.use_Yoffe else False
+if use_Yoffe:
+    p1.assess_STF_parameters(args.use_Yoffe[0])
+
 p2 = p1.upsample_fault(
     spatial_order=args.spatial_order[0],
     spatial_zoom=args.spatial_zoom[0],
     temporal_zoom=args.temporal_zoom[0],
     proj=args.proj,
-    use_Yoffe=args.use_Yoffe,
+    use_Yoffe=use_Yoffe,
     time_smoothing_kernel_as_dt_fraction=args.time_smoothing_kernel_as_dt_fraction[0],
 )
 prefix, ext = os.path.splitext(args.filename)

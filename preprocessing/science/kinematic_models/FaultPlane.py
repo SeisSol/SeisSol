@@ -374,8 +374,9 @@ class FaultPlane:
                             self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
                             break
 
-    def assess_STF_parameters(self):
+    def assess_STF_parameters(self, threshold):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
+        assert threshold >= 0.0 and threshold < 1
         self.rise_time = np.zeros((self.ny, self.nx))
         self.tacc = np.zeros((self.ny, self.nx))
         for j in range(self.ny):
@@ -384,9 +385,11 @@ class FaultPlane:
                     self.rise_time[j, i] = np.nan
                     self.tacc[j, i] = np.nan
                 else:
-                    first_non_zero = np.amin(np.where(self.aSR[j, i, :])[0])
-                    last_non_zero = np.amax(np.where(self.aSR[j, i, :])[0])
-                    id_max = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0]
+                    id_max = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0][0]
+                    peakSR = self.aSR[j, i, id_max]
+                    ids_greater_than_threshold = np.where(self.aSR[j, i, :] > threshold * peakSR)[0]
+                    first_non_zero = np.amin(ids_greater_than_threshold)
+                    last_non_zero = np.amax(ids_greater_than_threshold)
                     self.rise_time[j, i] = (last_non_zero - first_non_zero + 1) * self.dt
                     self.tacc[j, i] = (id_max - first_non_zero + 1) * self.dt
                     self.t0[j, i] += first_non_zero * self.dt
@@ -428,7 +431,6 @@ class FaultPlane:
         print(f"seismic potency ratio (upscaled over initial): {ratio_potency}")
 
         if use_Yoffe:
-            self.assess_STF_parameters()
             allarr = np.array([self.rise_time, self.tacc])
             pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
             pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))

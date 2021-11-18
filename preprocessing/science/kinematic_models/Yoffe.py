@@ -46,7 +46,7 @@ def regularizedYoffe(t, ts, tr):
     Implementation of the regularized Yoffe function
     defined in Appendix of Tinti et al. (2005), https://doi.org/10.1785/0120040177
     """
-    assert ts < tr
+    assert ts < tr, f"ts:{ts} >= tr:{tr}"
     K = 2.0 / (pi * tr * ts * ts)
     if tr > 2.0 * ts:
         if t <= 0:
