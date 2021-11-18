@@ -15,50 +15,54 @@ int getElementVertexId(int localSideId, int localFaceVertexId) {
 
 ExtTriangle getReferenceFace(int localSideId) {
   ExtTriangle referenceFace;
+  constexpr int xi{0};
+  constexpr int eta{1};
+  constexpr int zeta{2};
+  
   switch (localSideId) {
   case 0:
-    referenceFace.p1.xi = 0.0;
-    referenceFace.p1.eta = 0.0;
-    referenceFace.p1.zeta = 0.0;
-    referenceFace.p2.xi = 0.0;
-    referenceFace.p2.eta = 1.0;
-    referenceFace.p2.zeta = 0.0;
-    referenceFace.p3.xi = 1.0;
-    referenceFace.p3.eta = 0.0;
-    referenceFace.p3.zeta = 0.0;
+    referenceFace.p1[xi] = 0.0;
+    referenceFace.p1[eta] = 0.0;
+    referenceFace.p1[zeta] = 0.0;
+    referenceFace.p2[xi] = 0.0;
+    referenceFace.p2[eta] = 1.0;
+    referenceFace.p2[zeta] = 0.0;
+    referenceFace.p3[xi] = 1.0;
+    referenceFace.p3[eta] = 0.0;
+    referenceFace.p3[zeta] = 0.0;
     break;
   case 1:
-    referenceFace.p1.xi = 0.0;
-    referenceFace.p1.eta = 0.0;
-    referenceFace.p1.zeta = 0.0;
-    referenceFace.p2.xi = 1.0;
-    referenceFace.p2.eta = 0.0;
-    referenceFace.p2.zeta = 0.0;
-    referenceFace.p3.xi = 0.0;
-    referenceFace.p3.eta = 0.0;
-    referenceFace.p3.zeta = 1.0;
+    referenceFace.p1[xi] = 0.0;
+    referenceFace.p1[eta] = 0.0;
+    referenceFace.p1[zeta] = 0.0;
+    referenceFace.p2[xi] = 1.0;
+    referenceFace.p2[eta] = 0.0;
+    referenceFace.p2[zeta] = 0.0;
+    referenceFace.p3[xi] = 0.0;
+    referenceFace.p3[eta] = 0.0;
+    referenceFace.p3[zeta] = 1.0;
     break;
   case 2:
-    referenceFace.p1.xi = 0.0;
-    referenceFace.p1.eta = 0.0;
-    referenceFace.p1.zeta = 0.0;
-    referenceFace.p2.xi = 0.0;
-    referenceFace.p2.eta = 0.0;
-    referenceFace.p2.zeta = 1.0;
-    referenceFace.p3.xi = 0.0;
-    referenceFace.p3.eta = 1.0;
-    referenceFace.p3.zeta = 0.0;
+    referenceFace.p1[xi] = 0.0;
+    referenceFace.p1[eta] = 0.0;
+    referenceFace.p1[zeta] = 0.0;
+    referenceFace.p2[xi] = 0.0;
+    referenceFace.p2[eta] = 0.0;
+    referenceFace.p2[zeta] = 1.0;
+    referenceFace.p3[xi] = 0.0;
+    referenceFace.p3[eta] = 1.0;
+    referenceFace.p3[zeta] = 0.0;
     break;
   case 3:
-    referenceFace.p1.xi = 1.0;
-    referenceFace.p1.eta = 0.0;
-    referenceFace.p1.zeta = 0.0;
-    referenceFace.p2.xi = 0.0;
-    referenceFace.p2.eta = 1.0;
-    referenceFace.p2.zeta = 0.0;
-    referenceFace.p3.xi = 0.0;
-    referenceFace.p3.eta = 0.0;
-    referenceFace.p3.zeta = 1.0;
+    referenceFace.p1[xi] = 1.0;
+    referenceFace.p1[eta] = 0.0;
+    referenceFace.p1[zeta] = 0.0;
+    referenceFace.p2[xi] = 0.0;
+    referenceFace.p2[eta] = 1.0;
+    referenceFace.p2[zeta] = 0.0;
+    referenceFace.p3[xi] = 0.0;
+    referenceFace.p3[eta] = 0.0;
+    referenceFace.p3[zeta] = 1.0;
     break;
   default:
     throw std::runtime_error("Unknown Local Side Id. Must be 0, 1, 2 or 3");
@@ -170,9 +174,9 @@ void projectPointToFace(ExtVrtxCoords& point,
                         const VrtxCoords faceNormal) {
   using namespace Eigen;
 
-  Vector3d originalPoint(point.x, point.y, point.z);
+  Vector3d originalPoint(point[0], point[1], point[2]);
 
-  Vector3d r = originalPoint - Vector3d(face.p1.x, face.p1.y, face.p1.z);
+  Vector3d r = originalPoint - Vector3d(face.p1[0], face.p1[1], face.p1[2]);
   Vector3d direction(faceNormal[0], faceNormal[1], faceNormal[2]);
   direction.normalize();
 
@@ -222,15 +226,14 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
 
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
+    for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
+      const auto &triangle = receiverPoints[pointIndex].globalSubTet;
+      auto &point = const_cast<ExtVrtxCoords&>(triangle.points[vertexIndex]);
 
-      vertices[3 * globalVertexIndex] =
-          receiverPoints[pointIndex].globalSubTet.points[vertexIndex].x;
-      vertices[3 * globalVertexIndex + 1] =
-          receiverPoints[pointIndex].globalSubTet.points[vertexIndex].y;
-      vertices[3 * globalVertexIndex + 2] =
-          receiverPoints[pointIndex].globalSubTet.points[vertexIndex].z;
+      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
+      for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
+        vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
+      }
     }
   }
   return vertices;

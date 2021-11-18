@@ -1,8 +1,7 @@
 #ifndef SEISSOL_DROUTOUT_DRDATATYPES_HPP
 #define SEISSOL_DROUTOUT_DRDATATYPES_HPP
 
-#include "Kernels/precision.hpp"
-#include "Geometry/MeshDefinition.h"
+#include "Geometry.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include <vector>
 #include <array>
@@ -142,82 +141,6 @@ struct ElementwiseFaultParamsT {
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
-struct ExtVrtxCoords {
-  ExtVrtxCoords() = default;
-  ~ExtVrtxCoords() = default;
-  ExtVrtxCoords(const ExtVrtxCoords& other) {
-    for (int i = 0; i < 3; ++i)
-      coords[i] = other.coords[i];
-  }
-  ExtVrtxCoords& operator=(const ExtVrtxCoords& other) {
-    for (int i = 0; i < 3; ++i)
-      coords[i] = other.coords[i];
-    return *this;
-  }
-  ExtVrtxCoords(std::initializer_list<double> inputCoords) {
-    assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
-    auto begin = inputCoords.begin();
-    for (int i = 0; i < 3; ++i, ++begin)
-      coords[i] = *begin;
-  }
-
-  VrtxCoords coords = {0.0, 0.0, 0.0};
-  double& x = coords[0];
-  double& y = coords[1];
-  double& z = coords[2];
-
-  double& xi = coords[0];
-  double& eta = coords[1];
-  double& zeta = coords[2];
-};
-
-struct ExtTriangle {
-  ExtTriangle() = default;
-  ~ExtTriangle() = default;
-  explicit ExtTriangle(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2, const ExtVrtxCoords& p3) {
-    points[0] = p1;
-    points[1] = p2;
-    points[2] = p3;
-  }
-
-  ExtTriangle(const ExtTriangle& other) {
-    for (int i = 0; i < 3; ++i)
-      points[i] = other.points[i];
-  }
-  ExtTriangle& operator=(const ExtTriangle& other) {
-    for (int i = 0; i < 3; ++i)
-      points[i] = other.points[i];
-    return *this;
-  }
-
-  std::array<ExtVrtxCoords, 3> points{};
-  ExtVrtxCoords& p1 = points[0];
-  ExtVrtxCoords& p2 = points[1];
-  ExtVrtxCoords& p3 = points[2];
-};
-
-struct ReceiverPointT {
-  ExtVrtxCoords global{};      // physical coords of a receiver
-  ExtVrtxCoords referece{};    // reference coords of a receiver
-  ExtTriangle globalSubTet{};  // (subtet) vertices coordinates (of a surrounding triangle)
-  int faultFaceIndex{-1};      // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};     // Side ID of a reference element
-  int elementIndex{-1};        // Element which the receiver belongs to
-  int globalReceiverIndex{-1}; // receiver index of global list
-  bool isInside{};             // If a point is inside the mesh or not
-  int nearestGpIndex{-1};
-  double distanceToNearestGp{std::numeric_limits<double>::max()};
-};
-using ReceiverPointsT = std::vector<ReceiverPointT>;
-
-struct FaultDirectionsT {
-  const double* faceNormal{};
-  const double* tangent1{};
-  const double* tangent2{};
-  VrtxCoords strike{0.0, 0.0, 0.0};
-  VrtxCoords dip{0.0, 0.0, 0.0};
-};
-
 struct PlusMinusBasisFunctionsT {
   std::vector<real> plusSide;
   std::vector<real> minusSide;

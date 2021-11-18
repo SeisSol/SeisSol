@@ -103,9 +103,9 @@ class ElementWiseOutput {
           auto elementVertexId = getElementVertexId(localFaceSideId, faceVertexId);
           auto globalVertexId = elementsInfo[elementIndex].vertices[elementVertexId];
 
-          globalFace.points[faceVertexId].x = verticesInfo[globalVertexId].coords[0];
-          globalFace.points[faceVertexId].y = verticesInfo[globalVertexId].coords[1];
-          globalFace.points[faceVertexId].z = verticesInfo[globalVertexId].coords[2];
+          for (int coordId = 0; coordId < 3; ++coordId) {
+            globalFace.points[faceVertexId][coordId] = verticesInfo[globalVertexId].coords[coordId];
+          }
         }
 
         faultRefiner->refineAndAccumulate(
@@ -200,10 +200,10 @@ class ElementWiseOutput {
   ElementwiseFaultParamsT elementwiseParams;
   FaultGeomParamsT geomParam;
 
-  const MeshReader* meshReader;
-  size_t nOutPoints;
+  const MeshReader* meshReader{nullptr};
+  size_t nOutPoints{};
   int localRank{-1};
-  OutputData outputData;
+  OutputData outputData{};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DRELEMENTWISEOUTPUT_HPP

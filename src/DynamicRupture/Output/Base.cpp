@@ -101,8 +101,8 @@ void Base::initPickpointOutput() {
   aux::forEach(ppOutputBuilder->outputData.vars, collectVariableNames);
 
   auto& outputData = ppOutputBuilder->outputData;
-  for (const auto& point : outputData.receiverPoints) {
-    const size_t globalIndex = point.globalReceiverIndex;
+  for (const auto& receiver : outputData.receiverPoints) {
+    const size_t globalIndex = receiver.globalReceiverIndex;
     auto fileName = constructPpReveiverFileName(globalIndex);
     if (!std::filesystem::exists(fileName)) {
 
@@ -113,9 +113,12 @@ void Base::initPickpointOutput() {
 
         file << title.str() << '\n';
         file << baseHeader.str() << '\n';
-        file << "# x1\t" << makeFormatted(point.global.x) << '\n';
-        file << "# x2\t" << makeFormatted(point.global.y) << '\n';
-        file << "# x3\t" << makeFormatted(point.global.z) << '\n';
+
+        auto &point = const_cast<ExtVrtxCoords&>(receiver.global);
+        file << "# x1\t" << makeFormatted(point[0]) << '\n';
+        file << "# x2\t" << makeFormatted(point[1]) << '\n';
+        file << "# x3\t" << makeFormatted(point[2]) << '\n';
+
       } else {
         logError() << "cannot open " << fileName;
       }
