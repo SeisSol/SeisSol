@@ -33,6 +33,6 @@ struct ImpedancesAndEta {
 };
 
 constexpr unsigned int TP_grid_nz = 60;
-}; // namespace seissol::dr
+} // namespace seissol::dr
 
 #endif
