@@ -5,6 +5,7 @@ from scipy import interpolate
 from netCDF4 import Dataset
 from Yoffe import regularizedYoffe
 from scipy import ndimage
+from GaussianSTF import GaussianSTF
 
 
 def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
@@ -379,6 +380,8 @@ class FaultPlane:
         assert threshold >= 0.0 and threshold < 1
         self.rise_time = np.zeros((self.ny, self.nx))
         self.tacc = np.zeros((self.ny, self.nx))
+        misfits_Yoffe = []
+        misfits_Gaussian = []
         for j in range(self.ny):
             for i in range(self.nx):
                 if not self.slip1[j, i]:
@@ -393,6 +396,26 @@ class FaultPlane:
                     self.rise_time[j, i] = (last_non_zero - first_non_zero + 1) * self.dt
                     self.tacc[j, i] = (id_max - first_non_zero + 1) * self.dt
                     self.t0[j, i] += first_non_zero * self.dt
+                    # 2 dims: 0: Yoffe 1: Gaussian
+                    newSR = np.zeros((self.ndt, 2))
+                    ts = self.tacc[j, i] / 1.27
+                    tr = self.rise_time[j, i] - 2.0 * ts
+                    tr = max(tr, ts)
+                    for k, tk in enumerate(self.myt):
+                        newSR[k, 0] = regularizedYoffe(tk - self.t0[j, i], ts, tr)
+                        newSR[k, 1] = GaussianSTF(tk - self.t0[j, i], self.rise_time[j, i], self.dt)
+
+                    integral_aSTF = np.trapz(np.abs(self.aSR[j, i, :]), dx=self.dt)
+                    integral_Yoffe = np.trapz(np.abs(newSR[:, 0]), dx=self.dt)
+                    integral_Gaussian = np.trapz(np.abs(newSR[:, 1]), dx=self.dt)
+                    if integral_aSTF > 0:
+                        misfits_Yoffe.append(np.linalg.norm(self.aSR[j, i, :] / integral_aSTF - newSR[:, 0] / integral_Yoffe))
+                        misfits_Gaussian.append(np.linalg.norm(self.aSR[j, i, :] / integral_aSTF - newSR[:, 1] / integral_Gaussian))
+        misfits_Yoffe = np.array(misfits_Yoffe)
+        misfits_Gaussian = np.array(misfits_Gaussian)
+        print(f"misfit Yoffe (10-50-90%): {np.percentile(misfits_Yoffe,10):.2f} {np.percentile(misfits_Yoffe,50):.2f} {np.percentile(misfits_Yoffe,90):.2f}")
+        print(f"misfit Gaussian (10-50-90%): {np.percentile(misfits_Gaussian,10):.2f} {np.percentile(misfits_Gaussian,50):.2f} {np.percentile(misfits_Gaussian,90):.2f}")
+
         self.rise_time = interpolate_nan_from_neighbors(self.rise_time)
         self.tacc = interpolate_nan_from_neighbors(self.tacc)
 
