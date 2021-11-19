@@ -14,7 +14,7 @@ namespace seissol::dr::factory {
 struct products {
   std::unique_ptr<seissol::initializers::DynamicRupture> ltsTree;
   std::unique_ptr<seissol::dr::initializers::BaseDRInitializer> initializer;
-  std::unique_ptr<seissol::dr::friction_law::BaseFrictionLaw> frictionLaw;
+  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
   std::unique_ptr<seissol::dr::output::OutputBase> output;
 };
 

@@ -10,14 +10,14 @@ namespace seissol::dr::friction_law {
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
 template <class Derived>
-class RateAndStateSolver : public BaseFrictionLaw {
+class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   public:
-  using BaseFrictionLaw::BaseFrictionLaw;
+  using BaseFrictionLaw<RateAndStateBase<Derived>>::BaseFrictionLaw;
 
   protected:
   /**
-   * PARAMETERS of THE optimisation loops
-   * absolute tolerance on the function to be optimzed
+   * Parameters of the optimisation loops
+   * absolute tolerance on the function to be optimized
    * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
    * the most adapted Number of iteration in the loops
    */
@@ -25,15 +25,14 @@ class RateAndStateSolver : public BaseFrictionLaw {
   const unsigned int nSVupdates = 2;
 
   public:
-  virtual void
-      evaluate(seissol::initializers::Layer& layerData,
-               seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real fullUpdateTime,
-               double timeWeights[CONVERGENCE_ORDER]) override {
-    // first copy all Variables from the Base Lts dynRup tree
-    static_cast<Derived*>(this)->copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
+  void evaluate(seissol::initializers::Layer& layerData,
+                seissol::initializers::DynamicRupture* dynRup,
+                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                real fullUpdateTime,
+                double timeWeights[CONVERGENCE_ORDER]) {
+    BaseFrictionLaw<RateAndStateBase<Derived>>::copyLtsTreeToLocal(
+        layerData, dynRup, fullUpdateTime);
 
     // compute time increments (Gnuc)
     static_cast<Derived*>(this)->preCalcTime();
@@ -59,7 +58,7 @@ class RateAndStateSolver : public BaseFrictionLaw {
       std::array<real, numPaddedPoints> P_f{0};
 
       // compute Godunov state
-      precomputeStressFromQInterpolated(
+      this->precomputeStressFromQInterpolated(
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       // Compute Initial stress (only for FL103), and set initial StateVariable
@@ -118,10 +117,10 @@ class RateAndStateSolver : public BaseFrictionLaw {
       // output rupture front
       // outside of timeIndex loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      saveRuptureFrontOutput(ltsFace);
+      this->saveRuptureFrontOutput(ltsFace);
 
       // save maximal slip rates
-      savePeakSlipRateOutput(ltsFace);
+      this->savePeakSlipRateOutput(ltsFace);
 
       // output time when shear stress is equal to the dynamic stress after rupture arrived
       // currently only for linear slip weakening
@@ -131,26 +130,22 @@ class RateAndStateSolver : public BaseFrictionLaw {
       //    to this end, here the slip is computed and averaged per element
       //    in calc_seissol.f90 this value will be multiplied by the element surface
       //    and an output happened once at the end of the simulation
-      saveAverageSlipOutput(tmpSlip, ltsFace);
+      this->saveAverageSlipOutput(tmpSlip, ltsFace);
 
       // compute resulting stresses (+/- side) by time integration from godunov state
-      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-                                           QInterpolatedMinus[ltsFace],
-                                           faultStresses,
-                                           timeWeights,
-                                           ltsFace);
+      this->postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
+                                                 QInterpolatedMinus[ltsFace],
+                                                 faultStresses,
+                                                 timeWeights,
+                                                 ltsFace);
     } // end face loop
   }   // end evaluate function
 };
 
-/*
- * Rate and state solver FL103, time and space dependent nucleation parameters: RS_a_array,
- * RS_srW_array, RS_sl0_array
- */
 class RateAndStateFastVelocityWeakeningLaw
-    : public RateAndStateSolver<RateAndStateFastVelocityWeakeningLaw> {
+    : public RateAndStateBase<RateAndStateFastVelocityWeakeningLaw> {
   public:
-  using RateAndStateSolver::RateAndStateSolver;
+  using RateAndStateBase<RateAndStateFastVelocityWeakeningLaw>::RateAndStateBase;
 
   protected:
   // Attributes
@@ -184,9 +179,9 @@ class RateAndStateFastVelocityWeakeningLaw
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  virtual void copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
-                                    seissol::initializers::DynamicRupture* dynRup,
-                                    real fullUpdateTime);
+  void copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
+                            seissol::initializers::DynamicRupture* dynRup,
+                            real fullUpdateTime);
 
   /*
    * compute time increments (Gnuc)
@@ -259,14 +254,14 @@ class RateAndStateFastVelocityWeakeningLaw
   void saveDynamicStressOutput(unsigned int face);
 
   // set to zero since only required for Thermal pressure
-  virtual void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
+  void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
 
   // empty since only required for Thermal pressure
-  virtual void hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
-                           FaultStresses& faultStresses,
-                           bool saveTmpInTP,
-                           unsigned int timeIndex,
-                           unsigned int ltsFace);
+  void hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
+                   FaultStresses& faultStresses,
+                   bool saveTmpInTP,
+                   unsigned int timeIndex,
+                   unsigned int ltsFace);
 
   protected:
   /*
@@ -306,11 +301,8 @@ class RateAndStateFastVelocityWeakeningLaw
    * mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
    */
   void updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
-}; // end class FL_103
+};
 
-/**
- * As a reference, see https://www.scec.org/meetings/2020/am/poster/158
- */
 class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeakeningLaw {
   public:
   using RateAndStateFastVelocityWeakeningLaw::RateAndStateFastVelocityWeakeningLaw;
@@ -339,15 +331,15 @@ class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeak
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  virtual void copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
-                                    seissol::initializers::DynamicRupture* dynRup,
-                                    real fullUpdateTime) override;
+  void copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
+                            seissol::initializers::DynamicRupture* dynRup,
+                            real fullUpdateTime);
 
   protected:
   /*
    * set initial value of thermal pressure
    */
-  void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace) override;
+  void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
@@ -357,7 +349,7 @@ class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeak
                    FaultStresses& faultStresses,
                    bool saveTmpInTP,
                    unsigned int timeIndex,
-                   unsigned int ltsFace) override;
+                   unsigned int ltsFace);
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010

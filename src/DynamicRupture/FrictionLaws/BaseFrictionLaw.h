@@ -8,23 +8,73 @@
 #include "Kernels/DynamicRupture.h"
 
 namespace seissol::dr::friction_law {
-class BaseFrictionLaw;
-}
+static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
+/**
+ * number of points padded to next dividable number by four
+ */
+static constexpr int numPaddedPoints = init::QInterpolated::Stop[0];
 
-// Base class, has implementations of methods that are used by each friction law
-class seissol::dr::friction_law::BaseFrictionLaw {
+/**
+ * Struct that contains all input stresses and output stresses
+ * IN: NormalStressGP, XYStressGP, XZStressGP (Godunov stresses computed by
+ * precomputeStressFromQInterpolated) OUT: XYTractionResultGP, XZTractionResultGP and
+ * NormalStressGP (used to compute resulting +/- sided stress results by
+ * postcomputeImposedStateFromNewStress)
+ */
+struct FaultStresses {
+  real XYTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+  real XZTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+  real NormalStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+  real XYStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+  real XZStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+};
+
+/**
+ * Abstract Base for friction solver class with the public interface
+ * Only needed to be able to store a shared_ptr<FrictionSolver> in MemoryManager and TimeCluster.
+ * BaseFrictionLaw has a template argument for CRTP, hence, we can't store a pointer to any
+ * BaseFrictionLaw.
+ */
+class FrictionSolver {
+  protected:
+  real deltaT[CONVERGENCE_ORDER] = {};
+
+  public:
+  virtual ~FrictionSolver(){};
+  virtual void
+      evaluate(seissol::initializers::Layer& layerData,
+               seissol::initializers::DynamicRupture* dynRup,
+               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real fullUpdateTime,
+               double timeWeights[CONVERGENCE_ORDER]) = 0;
+
+  /**
+   * compute the DeltaT from the current timePoints
+   * call this function before evaluate to set the correct DeltaT
+   */
+  void computeDeltaT(double timePoints[CONVERGENCE_ORDER]) {
+    deltaT[0] = timePoints[0];
+    for (int timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+      deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
+    }
+    // to fill last segment of Gaussian integration
+    deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
+  }
+};
+
+/**
+ * Base class, has implementations of methods that are used by each friction law
+ * Actual friction law is plugged in via CRTP.
+ */
+template <typename Derived>
+class BaseFrictionLaw : public FrictionSolver {
   public:
   BaseFrictionLaw(dr::DRParameters& drParameters) : drParameters(drParameters){};
 
-  protected:
-  static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0]; // DISC%Galerkin%nBndGP
-  static constexpr int numPaddedPoints =
-      init::QInterpolated::Stop[0]; // number of points padded to next dividable number by four
-  // YAML::Node m_InputParam;
   dr::DRParameters& drParameters;
   ImpedancesAndEta* impAndEta;
   real m_fullUpdateTime;
-  real deltaT[CONVERGENCE_ORDER] = {};
   // CS = coordinate system
   real (*initialStressInFaultCS)[numPaddedPoints][6];
   real (*cohesion)[numPaddedPoints];
@@ -46,104 +96,214 @@ class seissol::dr::friction_law::BaseFrictionLaw {
   // be careful only for some FLs initialized:
   real* averagedSlip;
 
-  /*
-   * Struct that contains all input stresses and output stresses
-   * IN: NormalStressGP, XYStressGP, XZStressGP (Godunov stresses computed by
-   * precomputeStressFromQInterpolated) OUT: XYTractionResultGP, XZTractionResultGP and
-   * NormalStressGP (used to compute resulting +/- sided stress results by
-   * postcomputeImposedStateFromNewStress)
-   */
-  struct FaultStresses {
-    real XYTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
-        {}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real XZTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {
-        {}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-    real NormalStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-    real XYStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-    real XZStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-  };
-
-  /*
+  /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  virtual void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                  seissol::initializers::DynamicRupture* dynRup,
-                                  real fullUpdateTime);
-  /*
-   * output:
-   * NorStressGP, XYStressGP, XZStressGP
-   *
-   * input:
-   * QInterpolatedPlus, QInterpolatedMinus, eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig
-   *
+  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                          seissol::initializers::DynamicRupture* dynRup,
+                          real fullUpdateTime) {
+    impAndEta = layerData.var(dynRup->impAndEta);
+    initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
+    mu = layerData.var(dynRup->mu);
+    slip = layerData.var(dynRup->slip);
+    slipStrike = layerData.var(dynRup->slipStrike);
+    slipDip = layerData.var(dynRup->slipDip);
+    slipRateMagnitude = layerData.var(dynRup->slipRateMagnitude);
+    slipRateStrike = layerData.var(dynRup->slipRateStrike);
+    slipRateDip = layerData.var(dynRup->slipRateDip);
+    ruptureTime = layerData.var(dynRup->ruptureTime);
+    ruptureFront = layerData.var(dynRup->ruptureFront);
+    peakSlipRate = layerData.var(dynRup->peakSlipRate);
+    tractionXY = layerData.var(dynRup->tractionXY);
+    tractionXZ = layerData.var(dynRup->tractionXZ);
+    imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
+    imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
+    m_fullUpdateTime = fullUpdateTime;
+    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  }
+
+  /**
    * Calculate godunov state from jump of plus and minus side
    * using equations (A2) from Pelites et al. 2014
    * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
+   * input:
+   * QInterpolatedPlus, QInterpolatedMinus
+   * output:
+   * NorStressGP, XYStressGP, XZStressGP
    */
-  virtual void precomputeStressFromQInterpolated(
+  void precomputeStressFromQInterpolated(
       FaultStresses& faultStresses,
       real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      unsigned int ltsFace);
-  /*
-   * Output: imposedStatePlus, imposedStateMinus
-   *
+      unsigned int ltsFace) {
+
+    static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
+                  "Different number of quadrature points?");
+
+    // this initialization of the kernel could be moved to the initializer,
+    // since all inputs outside the j-loop are time independent
+    // set inputParam could be extendent for this
+    // the kernel then could be a class attribute (but be careful of race conditions since this is
+    // computed in parallel!!)
+    dynamicRupture::kernel::StressFromQInterpolated StressFromQInterpolatedKrnl;
+    StressFromQInterpolatedKrnl.eta_p = impAndEta[ltsFace].eta_p;
+    StressFromQInterpolatedKrnl.eta_s = impAndEta[ltsFace].eta_s;
+    StressFromQInterpolatedKrnl.inv_Zp = impAndEta[ltsFace].inv_Zp;
+    StressFromQInterpolatedKrnl.inv_Zs = impAndEta[ltsFace].inv_Zs;
+    StressFromQInterpolatedKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
+    StressFromQInterpolatedKrnl.inv_Zs_neig = impAndEta[ltsFace].inv_Zs_neig;
+    StressFromQInterpolatedKrnl.select0 = init::select0::Values;
+    StressFromQInterpolatedKrnl.select3 = init::select3::Values;
+    StressFromQInterpolatedKrnl.select5 = init::select5::Values;
+    StressFromQInterpolatedKrnl.select6 = init::select6::Values;
+    StressFromQInterpolatedKrnl.select7 = init::select7::Values;
+    StressFromQInterpolatedKrnl.select8 = init::select8::Values;
+
+    for (int j = 0; j < CONVERGENCE_ORDER; j++) {
+      StressFromQInterpolatedKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
+      StressFromQInterpolatedKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
+      StressFromQInterpolatedKrnl.NorStressGP = faultStresses.NormalStressGP[j];
+      StressFromQInterpolatedKrnl.XYStressGP = faultStresses.XYStressGP[j];
+      StressFromQInterpolatedKrnl.XZStressGP = faultStresses.XZStressGP[j];
+      // Carsten Uphoff Thesis: EQ.: 4.53
+      StressFromQInterpolatedKrnl.execute();
+    }
+  }
+
+  /**
    * Integrate over all Time points with the time weights and calculate the traction vor each side
-   * according to Carsten Uphoff Thesis: EQ.: 4.60 IN: NormalStressGP, XYTractionResultGP,
-   * XZTractionResultGP OUT: imposedStatePlus, imposedStateMinus
+   * according to Carsten Uphoff Thesis: EQ.: 4.60
+   * IN: NormalStressGP, XYTractionResultGP, * XZTractionResultGP
+   * OUT: imposedStatePlus, imposedStateMinus
    */
   void postcomputeImposedStateFromNewStress(
       real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       const FaultStresses& faultStresses,
       double timeWeights[CONVERGENCE_ORDER],
-      unsigned int ltsFace);
+      unsigned int ltsFace) {
+    // this initialization of the kernel could be moved to the initializer
+    // set inputParam could be extendent for this (or create own function)
+    // the kernel then could be a class attribute and following values are only set once
+    //(but be careful of race conditions since this is computed in parallel for each face!!)
+    dynamicRupture::kernel::ImposedStateFromNewStress ImposedStateFromNewStressKrnl;
+    ImposedStateFromNewStressKrnl.select0 = init::select0::Values;
+    ImposedStateFromNewStressKrnl.select3 = init::select3::Values;
+    ImposedStateFromNewStressKrnl.select5 = init::select5::Values;
+    ImposedStateFromNewStressKrnl.select6 = init::select6::Values;
+    ImposedStateFromNewStressKrnl.select7 = init::select7::Values;
+    ImposedStateFromNewStressKrnl.select8 = init::select8::Values;
+    ImposedStateFromNewStressKrnl.inv_Zs = impAndEta[ltsFace].inv_Zs;
+    ImposedStateFromNewStressKrnl.inv_Zs_neig = impAndEta[ltsFace].inv_Zs_neig;
+    ImposedStateFromNewStressKrnl.inv_Zp = impAndEta[ltsFace].inv_Zp;
+    ImposedStateFromNewStressKrnl.inv_Zp_neig = impAndEta[ltsFace].inv_Zp_neig;
 
-  /*
-   * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
+    // set imposed state to zero
+    for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
+      imposedStatePlus[ltsFace][i] = 0;
+      imposedStateMinus[ltsFace][i] = 0;
+    }
+    ImposedStateFromNewStressKrnl.imposedStatePlus = imposedStatePlus[ltsFace];
+    ImposedStateFromNewStressKrnl.imposedStateMinus = imposedStateMinus[ltsFace];
+
+    for (int j = 0; j < CONVERGENCE_ORDER; j++) {
+      ImposedStateFromNewStressKrnl.NorStressGP = faultStresses.NormalStressGP[j];
+      ImposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.XYTractionResultGP[j];
+      ImposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.XZTractionResultGP[j];
+      ImposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
+      ImposedStateFromNewStressKrnl.QInterpolatedMinus = QInterpolatedMinus[j];
+      ImposedStateFromNewStressKrnl.QInterpolatedPlus = QInterpolatedPlus[j];
+      // Carsten Uphoff Thesis: EQ.: 4.60
+      ImposedStateFromNewStressKrnl.execute();
+    }
+  }
+
+  /**
+   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
-  real calcSmoothStepIncrement(real current_time, real dt);
+  real calcSmoothStepIncrement(real currentTime, real dt) {
+    if (currentTime > 0.0 && currentTime <= drParameters.t0) {
+      real gNuc = calcSmoothStep(currentTime);
+      real prevTime = currentTime - dt;
+      if (prevTime > 0.0) {
+        gNuc = gNuc - calcSmoothStep(prevTime);
+      }
+      return gNuc;
+    } else {
+      return 0.0;
+    }
+  }
 
-  /*
-   * https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
+  /**
+   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
-  real calcSmoothStep(real current_time);
+  real calcSmoothStep(real currentTime) {
+    if (currentTime <= 0) {
+      return 0.0;
+    } else if (currentTime < drParameters.t0) {
+      return std::exp(std::pow(currentTime - drParameters.t0, 2) /
+                      (currentTime * (currentTime - 2.0 * drParameters.t0)));
+    } else {
+      return 1.0;
+    }
+  }
 
-  /*
+  /**
    * output rupture front, saves update time of the rupture front
    * rupture front is the first registered change in slip rates that exceeds 0.001
    */
-  void saveRuptureFrontOutput(unsigned int ltsFace);
+  void saveRuptureFrontOutput(unsigned int ltsFace) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+      constexpr real ruptureFrontThreshold = 0.001;
+      if (ruptureFront[ltsFace][pointIndex] &&
+          slipRateMagnitude[ltsFace][pointIndex] > ruptureFrontThreshold) {
+        ruptureTime[ltsFace][pointIndex] = m_fullUpdateTime;
+        ruptureFront[ltsFace][pointIndex] = false;
+      }
+    }
+  }
 
-  /*
+  /**
    * save the maximal computed slip rate magnitude in RpeakSlipRate
    */
-  void savePeakSlipRateOutput(unsigned int ltsFace);
+  void savePeakSlipRateOutput(unsigned int ltsFace) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+      if (slipRateMagnitude[ltsFace][pointIndex] > peakSlipRate[ltsFace][pointIndex]) {
+        peakSlipRate[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
+      }
+    }
+  }
 
-  //---compute and store slip to determine the magnitude of an earthquake ---
-  //    to this end, here the slip is computed and averaged per element
-  //    in calc_seissol.f90 this value will be multiplied by the element surface
-  //    and an output happened once at the end of the simulation
-  void saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip, unsigned int ltsFace);
+  /**
+   * compute and store slip to determine the magnitude of an earthquake
+   * to this end, here the slip is computed and averaged per element
+   * in calc_seissol.f90 this value will be multiplied by the element surface
+   * and an output happened once at the end of the simulation
+   * @param tmpSlip
+   * @param ltsFace
+   */
+  void saveAverageSlipOutput(std::array<real, numPaddedPoints>& tmpSlip, unsigned int ltsFace) {
+    real sumOfTmpSlip = 0;
+    if (drParameters.isMagnitudeOutputOn) {
+      for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++) {
+        sumOfTmpSlip += tmpSlip[pointIndex];
+      }
+      averagedSlip[ltsFace] = averagedSlip[ltsFace] + sumOfTmpSlip / numberOfPoints;
+    }
+  }
 
   public:
-  /*
+  /**
    * evaluates the current friction model
-   * Friction laws (child classes) implement this function
+   * TODO: move implementation here and define useful hooks
    */
-  virtual void
-      evaluate(seissol::initializers::Layer& layerData,
-               seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real fullUpdateTime,
-               double timeWeights[CONVERGENCE_ORDER]) = 0;
-
-  /*
-   * compute the DeltaT from the current timePoints
-   * call this function before evaluate to set the correct DeltaT
-   */
-  void computeDeltaT(double timePoints[CONVERGENCE_ORDER]);
+  void evaluate(seissol::initializers::Layer& layerData,
+                seissol::initializers::DynamicRupture* dynRup,
+                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                real fullUpdateTime,
+                double timeWeights[CONVERGENCE_ORDER]) = 0;
 };
+} // namespace seissol::dr::friction_law
 
 #endif // SEISSOL_BASEFRICTIONLAW_H

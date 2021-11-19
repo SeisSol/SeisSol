@@ -78,14 +78,6 @@ namespace seissol {
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
 
-    void initializeFrictionMatrices(    seissol::dr::initializers::BaseDRInitializer* FrictionInitializer,
-                                        seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-                                        DynamicRupture *dynRup,
-                                        LTSTree* dynRupTree,
-                                        unsigned*              ltsFaceToMeshFace,
-                                        seissol::Interoperability &e_interoperability
-    );
-
       void copyCellMatricesToDevice(LTSTree*          ltsTree,
                                     LTS*              lts,
                                     LTSTree*          dynRupTree,

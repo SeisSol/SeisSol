@@ -9,8 +9,8 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class VelocityWeakening : public BaseFrictionLaw {
-  protected:
+class VelocityWeakening : public BaseFrictionLaw<VelocityWeakening> {
+  public:
   // Attributes
   real (*stateVar)[numPaddedPoints]{};
   real (*sl0)[numPaddedPoints]{};
@@ -21,16 +21,14 @@ class VelocityWeakening : public BaseFrictionLaw {
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
-                          real fullUpdateTime) override;
+                          real fullUpdateTime);
 
-  public:
-  virtual void
-      evaluate(seissol::initializers::Layer& layerData,
-               seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real fullUpdateTime,
-               double timeWeights[CONVERGENCE_ORDER]) override;
+  void evaluate(seissol::initializers::Layer& layerData,
+                seissol::initializers::DynamicRupture* dynRup,
+                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                real fullUpdateTime,
+                double timeWeights[CONVERGENCE_ORDER]);
 };
 } // namespace seissol::dr::friction_law
 
