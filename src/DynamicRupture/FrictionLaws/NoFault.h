@@ -12,12 +12,14 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture* dynRup,
-                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]);
+  void updateFrictionAndSlip(FaultStresses& faultStresses,
+                             std::array<real, numPaddedPoints>& stateVariableBuffer,
+                             std::array<real, numPaddedPoints>& strengthBuffer,
+                             unsigned& ltsFace,
+                             unsigned& timeIndex);
+
+  void preHook(unsigned ltsFace);
+  void postHook(unsigned ltsFace);
 };
 } // namespace seissol::dr::friction_law
 #endif // SEISSOL_NOFAULT_H

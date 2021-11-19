@@ -1,7 +1,7 @@
 #ifndef SEISSOL_AGINGLAW_H
 #define SEISSOL_AGINGLAW_H
 
-#include "BaseFrictionLaw.h"
+#include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
 
@@ -10,21 +10,13 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class AgingLaw : public BaseFrictionLaw<AgingLaw> {
+class AgingLaw : public RateAndStateBase<AgingLaw> {
   public:
-  using BaseFrictionLaw::BaseFrictionLaw;
-  using BaseFrictionLaw::copyLtsTreeToLocal;
+  using RateAndStateBase<AgingLaw>::RateAndStateBase;
+  using RateAndStateBase<AgingLaw>::copyLtsTreeToLocal;
 
   protected:
   real calcStateVariableHook(real SV0, real tmp, real time_inc, real rs_sl0);
-
-  public:
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture* dynRup,
-                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]) override;
 };
 
 } // namespace seissol::dr::friction_law

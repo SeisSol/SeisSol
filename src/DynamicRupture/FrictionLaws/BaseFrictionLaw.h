@@ -36,9 +36,6 @@ struct FaultStresses {
  * BaseFrictionLaw.
  */
 class FrictionSolver {
-  protected:
-  real deltaT[CONVERGENCE_ORDER] = {};
-
   public:
   virtual ~FrictionSolver(){};
   virtual void
@@ -61,6 +58,8 @@ class FrictionSolver {
     // to fill last segment of Gaussian integration
     deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
   }
+
+  real deltaT[CONVERGENCE_ORDER] = {};
 };
 
 /**
@@ -292,7 +291,48 @@ class BaseFrictionLaw : public FrictionSolver {
     }
   }
 
-  public:
+  /**
+   *  compute the slip rate and the traction from the fault strength and fault stresses
+   *  also updates the directional slipStrike and slipDip
+   */
+  void calcSlipRateAndTraction(FaultStresses& faultStresses,
+                               std::array<real, numPaddedPoints>& strength,
+                               unsigned int timeIndex,
+                               unsigned int ltsFace) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+      // calculate absolute value of stress in Y and Z direction
+      real totalStressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
+                           faultStresses.XYStressGP[timeIndex][pointIndex];
+      real totalStressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
+                           faultStresses.XZStressGP[timeIndex][pointIndex];
+      real absoluteShearStress = std::sqrt(std::pow(totalStressXY, 2) + std::pow(totalStressXZ, 2));
+
+      // calculate slip rates
+      slipRateMagnitude[ltsFace][pointIndex] =
+          std::max(static_cast<real>(0.0),
+                   (absoluteShearStress - strength[pointIndex]) * impAndEta[ltsFace].inv_eta_s);
+
+      slipRateStrike[ltsFace][pointIndex] =
+          slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / absoluteShearStress;
+      slipRateDip[ltsFace][pointIndex] =
+          slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / absoluteShearStress;
+
+      // calculate traction
+      faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
+          faultStresses.XYStressGP[timeIndex][pointIndex] -
+          impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
+      faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
+          faultStresses.XZStressGP[timeIndex][pointIndex] -
+          impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
+      tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+      tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+
+      // update directional slip
+      slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
+      slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
+    }
+  }
+
   /**
    * evaluates the current friction model
    * TODO: move implementation here and define useful hooks
@@ -302,7 +342,56 @@ class BaseFrictionLaw : public FrictionSolver {
                 real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                 real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                 real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]) = 0;
+                double timeWeights[CONVERGENCE_ORDER]) {
+    BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+
+    // loop over all dynamic rupture faces, in this LTS layer
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+      // initialize struct for in/outputs stresses
+      FaultStresses faultStresses = {};
+
+      this->precomputeStressFromQInterpolated(
+          faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+
+      static_cast<Derived*>(this)->preHook(ltsFace);
+
+      // define some temporary variables
+      std::array<real, numPaddedPoints> stateVariableBuffer{0};
+      std::array<real, numPaddedPoints> strengthBuffer{0};
+
+      // loop over sub time steps (i.e. quadrature points in time)
+      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+        static_cast<Derived*>(this)->updateFrictionAndSlip(
+            faultStresses, stateVariableBuffer, strengthBuffer, ltsFace, timeIndex);
+      }
+
+      static_cast<Derived*>(this)->preHook(ltsFace);
+
+      // output rupture front
+      this->saveRuptureFrontOutput(ltsFace);
+
+      // output time when shear stress is equal to the dynamic stress after rupture arrived
+      // Todo: Only for linear slip weakening
+      // this->saveDynamicStressOutput(ltsFace);
+
+      // output peak slip rate
+      this->savePeakSlipRateOutput(ltsFace);
+
+      // output average slip
+      // TODO: What about outputSlip
+      // this->saveAverageSlipOutput(outputSlip, ltsFace);
+
+      // compute output
+      this->postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
+                                                 QInterpolatedMinus[ltsFace],
+                                                 faultStresses,
+                                                 timeWeights,
+                                                 ltsFace);
+    }
+  }
 };
 } // namespace seissol::dr::friction_law
 

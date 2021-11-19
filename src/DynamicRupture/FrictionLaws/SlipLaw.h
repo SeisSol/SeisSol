@@ -9,9 +9,10 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class SlipLaw : public AgingLaw {
+class SlipLaw : public RateAndStateBase<SlipLaw> {
   public:
-  using AgingLaw::AgingLaw;
+  using RateAndStateBase<SlipLaw>::RateAndStateBase;
+  using RateAndStateBase<SlipLaw>::copyLtsTreeToLocal;
 
   real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0);
 };

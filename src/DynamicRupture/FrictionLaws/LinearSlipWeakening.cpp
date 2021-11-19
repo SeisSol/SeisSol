@@ -1,53 +1,50 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
-void LinearSlipWeakeningLaw::calcStrengthHook(std::array<real, numPaddedPoints>& Strength,
-                                              FaultStresses& faultStresses,
+void LinearSlipWeakeningLaw::calcStrengthHook(FaultStresses& faultStresses,
+                                              std::array<real, numPaddedPoints>& strength,
                                               unsigned int timeIndex,
                                               unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     //-------------------------------------
     // calculate Fault Strength
     // fault strength (Uphoff eq 2.44) with addition cohesion term
-    Strength[pointIndex] =
+    real totalNormalStress = initialStressInFaultCS[ltsFace][pointIndex][0] +
+                             faultStresses.NormalStressGP[timeIndex][pointIndex];
+    strength[pointIndex] =
         cohesion[ltsFace][pointIndex] -
-        mu[ltsFace][pointIndex] * std::min(initialStressInFaultCS[ltsFace][pointIndex][0] +
-                                               faultStresses.NormalStressGP[timeIndex][pointIndex],
-                                           static_cast<real>(0.0));
+        mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
   }
 }
 
-void LinearSlipWeakeningLaw::calcStateVariableHook(
-    std::array<real, numPaddedPoints>& stateVariablePsi,
-    std::array<real, numPaddedPoints>& outputSlip,
-    dynamicRupture::kernel::resampleParameter& resampleKrnl,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
+void LinearSlipWeakeningLaw::calcStateVariableHook(std::array<real, numPaddedPoints>& stateVariable,
+                                                   unsigned int timeIndex,
+                                                   unsigned int ltsFace) {
   real resampledSlipRate[numPaddedPoints];
+  dynamicRupture::kernel::resampleParameter resampleKrnl;
+  resampleKrnl.resampleM = init::resample::Values;
   resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
-  resampleKrnl.resampledPar = resampledSlipRate; // output from execute
+  resampleKrnl.resampledPar = resampledSlipRate;
 
-  // Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees
+  // Resample slip-rate, such that the state (slip) lies in the same polynomial space as the degrees
   // of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the reference
   // triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial
   // at the quadrature points
   resampleKrnl.execute();
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-    //-------------------------------------
-    // integrate Sliprate To Get Slip = State Variable
+    // integrate slip rate to get slip = state variable
     slip[ltsFace][pointIndex] =
         slip[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
-    outputSlip[pointIndex] =
-        outputSlip[pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
 
-    //-------------------------------------
     // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
     // actually slip is already the stateVariable for this FL, but to simplify the next equations we
     // divide it here by d_C
-    stateVariablePsi[pointIndex] = std::min(
+    stateVariable[pointIndex] = std::min(
         std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
   }
 }
+
+void LinearSlipWeakeningLaw::preHook(unsigned int ltsFace) {}
 
 void LinearSlipWeakeningLawForcedRuptureTime::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
@@ -62,18 +59,15 @@ void LinearSlipWeakeningLawForcedRuptureTime::copyLtsTreeToLocal(
   tn = layerData.var(concreteLts->tn);
 }
 
-void LinearSlipWeakeningLawForcedRuptureTime::setTimeHook(unsigned int ltsFace) {
+void LinearSlipWeakeningLawForcedRuptureTime::preHook(unsigned int ltsFace) {
   tn[ltsFace] = m_fullUpdateTime;
 }
 
 void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
     std::array<real, numPaddedPoints>& stateVariablePsi,
-    std::array<real, numPaddedPoints>& outputSlip,
-    dynamicRupture::kernel::resampleParameter& resampleKrnl,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  LinearSlipWeakeningLaw::calcStateVariableHook(
-      stateVariablePsi, outputSlip, resampleKrnl, timeIndex, ltsFace);
+  LinearSlipWeakeningLaw::calcStateVariableHook(stateVariablePsi, timeIndex, ltsFace);
   tn[ltsFace] += deltaT[timeIndex];
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
@@ -94,50 +88,28 @@ void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
   }
 }
 
-void LinearSlipWeakeningLawBimaterial::calcStrengthHook(std::array<real, numPaddedPoints>& strength,
-                                                        FaultStresses& faultStresses,
+void LinearSlipWeakeningLawBimaterial::calcStrengthHook(FaultStresses& faultStresses,
+                                                        std::array<real, numPaddedPoints>& strength,
                                                         unsigned int timeIndex,
                                                         unsigned int ltsFace) {
-  std::array<real, numPaddedPoints> LocSlipRate;
-  std::array<real, numPaddedPoints> sigma;
-
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     //  modify strength according to prakash clifton
     // literature e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture
     // problems
-    LocSlipRate[pointIndex] =
+    real localSlipRate =
         std::sqrt(slipRateStrike[ltsFace][pointIndex] * slipRateStrike[ltsFace][pointIndex] +
                   slipRateDip[ltsFace][pointIndex] * slipRateDip[ltsFace][pointIndex]);
-    sigma[pointIndex] = faultStresses.NormalStressGP[timeIndex][pointIndex] +
-                        initialStressInFaultCS[ltsFace][pointIndex][0];
+    real sigma = faultStresses.NormalStressGP[timeIndex][pointIndex] +
+                 initialStressInFaultCS[ltsFace][pointIndex][0];
     prak_clif_mod(regularisedStrength[ltsFace][pointIndex],
-                  sigma[pointIndex],
-                  LocSlipRate[pointIndex],
+                  sigma,
+                  localSlipRate,
                   mu[ltsFace][pointIndex],
                   deltaT[timeIndex]);
 
     // TODO: add this line to make the FL6 actually functional: (this line is also missing in the
-    // master branch) strength[pointIndex] = strengthData[ltsFace][pointIndex];
-  }
-}
-
-void LinearSlipWeakeningLawBimaterial::calcStateVariableHook(
-    std::array<real, numPaddedPoints>& stateVariablePsi,
-    std::array<real, numPaddedPoints>& outputSlip,
-    dynamicRupture::kernel::resampleParameter& resampleKrnl,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
-  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-    slip[ltsFace][pointIndex] =
-        slip[ltsFace][pointIndex] + slipRateMagnitude[ltsFace][pointIndex] * deltaT[timeIndex];
-    outputSlip[pointIndex] = slip[ltsFace][pointIndex];
-
-    //-------------------------------------
-    // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-    // actually slip is already the stateVariable for this FL, but to simplify the next equations we
-    // divide it here by d_C
-    stateVariablePsi[pointIndex] = std::min(
-        std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
+    // master branch)
+    strength[pointIndex] = regularisedStrength[ltsFace][pointIndex];
   }
 }
 
@@ -157,10 +129,9 @@ void LinearSlipWeakeningLawBimaterial::copyLtsTreeToLocal(
  * calculates strength
  */
 void LinearSlipWeakeningLawBimaterial::prak_clif_mod(
-    real& strength, real& sigma, real& LocSlipRate, real& mu, real& dt) {
-  real expterm;
-  expterm =
-      std::exp(-(std::abs(LocSlipRate) + drParameters.vStar) * dt / drParameters.prakashLength);
+    real& strength, real& sigma, real& localSlipRate, real& mu, real& dt) {
+  real expterm =
+      std::exp(-(std::abs(localSlipRate) + drParameters.vStar) * dt / drParameters.prakashLength);
   strength = strength * expterm - std::max(static_cast<real>(0.0), -mu * sigma) * (expterm - 1.0);
 }
 } // namespace seissol::dr::friction_law

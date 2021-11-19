@@ -1,7 +1,7 @@
 #ifndef SEISSOL_VELOCITYWEAKENING_H
 #define SEISSOL_VELOCITYWEAKENING_H
 
-#include "BaseFrictionLaw.h"
+#include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -9,26 +9,25 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class VelocityWeakening : public BaseFrictionLaw<VelocityWeakening> {
+template <class Derived>
+class VelocityWeakening : public RateAndStateBase<VelocityWeakening<Derived>> {
   public:
   // Attributes
   real (*stateVar)[numPaddedPoints]{};
   real (*sl0)[numPaddedPoints]{};
   real (*a)[numPaddedPoints]{};
 
-  /*
+  /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
-                          real fullUpdateTime);
-
-  void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture* dynRup,
-                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]);
+                          real fullUpdateTime) {
+    auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
+    stateVar = layerData.var(concreteLts->stateVariable);
+    sl0 = layerData.var(concreteLts->rs_sl0);
+    a = layerData.var(concreteLts->rs_a);
+  }
 };
 } // namespace seissol::dr::friction_law
 
