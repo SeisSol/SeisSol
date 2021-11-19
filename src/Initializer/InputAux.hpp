@@ -25,7 +25,7 @@ struct convert<seissol::dr::FrictionLawType> {
     return true;
   }
 };
-}; // namespace YAML
+} // namespace YAML
 namespace seissol::initializers {
   template <typename T>
   void updateIfExists(const YAML::Node& param, std::string&& field, T& value) {
