@@ -470,6 +470,9 @@ private:
     //! simulation time of the last full update (this is a complete volume and boundary integration)
     double m_fullUpdateTime;
 
+    //! previous simulation time of the last full update (necessary for the fault output)
+    double m_previousFullUpdateTime;
+
     //! final time of the prediction (derivatives and time integrated DOFs).
     double m_predictionTime;
 

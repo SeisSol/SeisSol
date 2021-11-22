@@ -69,37 +69,8 @@ class Base {
   void updateElementwiseOutput();
 
   virtual void tiePointers(seissol::initializers::Layer& layerData,
-                           seissol::initializers::DynamicRupture* dynRup,
-                           seissol::Interoperability& e_interoperability) {
-    constexpr auto size = init::QInterpolated::Stop[0];
-    real(*slip)[size] = layerData.var(dynRup->slip);
-    real(*slipStrike)[size] = layerData.var(dynRup->slipStrike);
-    real(*slipDip)[size] = layerData.var(dynRup->slipDip);
-    real(*ruptureTime)[size] = layerData.var(dynRup->ruptureTime);
-    real(*dynStressTime)[size] = layerData.var(dynRup->dynStressTime);
-    real(*peakSR)[size] = layerData.var(dynRup->peakSlipRate);
-    real(*tractionXY)[size] = layerData.var(dynRup->tractionXY);
-    real(*tractionXZ)[size] = layerData.var(dynRup->tractionXZ);
-
-    DRFaceInformation* faceInformation = layerData.var(dynRup->faceInformation);
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-      e_interoperability.copyFrictionOutputToFortranGeneral(ltsFace,
-                                                            meshFace,
-                                                            slip,
-                                                            slipStrike,
-                                                            slipDip,
-                                                            ruptureTime,
-                                                            dynStressTime,
-                                                            peakSR,
-                                                            tractionXY,
-                                                            tractionXZ);
-    }
-  }
+                           seissol::initializers::DynamicRupture* description,
+                           seissol::Interoperability& e_interoperability);
 
   virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) = 0;
 
@@ -107,8 +78,8 @@ class Base {
   void initEwOutput();
   void initPickpointOutput();
 
-  std::string constructPpReveiverFileName(int receiverGlobalIndex) const;
-  void calcFaultOutput(const OutputType type, OutputData& state, double time = 0.0);
+  [[nodiscard]] std::string constructPpReceiverFileName(int receiverGlobalIndex) const;
+  void calcFaultOutput(OutputType type, OutputData& state, double time = 0.0);
 
   GeneralParamsT generalParams;
 

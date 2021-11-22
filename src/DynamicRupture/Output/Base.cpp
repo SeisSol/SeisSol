@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildInType<T, U> obj) {
 }
 
 namespace seissol::dr::output {
-std::string Base::constructPpReveiverFileName(const int receiverGlobalIndex) const {
+std::string Base::constructPpReceiverFileName(const int receiverGlobalIndex) const {
   std::stringstream fileName;
   fileName << generalParams.outputFilePrefix << "-new-faultreceiver-"
            << makeFormatted<int, WideFormat>(receiverGlobalIndex);
@@ -103,7 +103,7 @@ void Base::initPickpointOutput() {
   auto& outputData = ppOutputBuilder->outputData;
   for (const auto& receiver : outputData.receiverPoints) {
     const size_t globalIndex = receiver.globalReceiverIndex;
-    auto fileName = constructPpReveiverFileName(globalIndex);
+    auto fileName = constructPpReceiverFileName(globalIndex);
     if (!std::filesystem::exists(fileName)) {
 
       std::ofstream file(fileName, std::ios_base::out);
@@ -114,7 +114,7 @@ void Base::initPickpointOutput() {
         file << title.str() << '\n';
         file << baseHeader.str() << '\n';
 
-        auto &point = const_cast<ExtVrtxCoords&>(receiver.global);
+        auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
         file << "# x1\t" << makeFormatted(point[0]) << '\n';
         file << "# x2\t" << makeFormatted(point[1]) << '\n';
         file << "# x3\t" << makeFormatted(point[2]) << '\n';
@@ -190,7 +190,7 @@ void Base::writePickpointOutput(double time, double dt) {
         }
 
         auto fileName =
-            constructPpReveiverFileName(outputData.receiverPoints[pointId].globalReceiverIndex);
+            constructPpReceiverFileName(outputData.receiverPoints[pointId].globalReceiverIndex);
         std::ofstream file(fileName, std::ios_base::app);
         if (file.is_open()) {
           file << data.str();
@@ -279,6 +279,39 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
   if (type == OutputType::AtPickpoint) {
     outputData.cachedTime[outputData.currentCacheLevel] = time;
     outputData.currentCacheLevel += 1;
+  }
+}
+
+void Base::tiePointers(seissol::initializers::Layer& layerData,
+                       seissol::initializers::DynamicRupture* description,
+                       seissol::Interoperability& e_interoperability) {
+  constexpr auto size = init::QInterpolated::Stop[0];
+  real(*slip)[size] = layerData.var(description->slip);
+  real(*slipStrike)[size] = layerData.var(description->slipStrike);
+  real(*slipDip)[size] = layerData.var(description->slipDip);
+  real(*ruptureTime)[size] = layerData.var(description->ruptureTime);
+  real(*dynStressTime)[size] = layerData.var(description->dynStressTime);
+  real(*peakSR)[size] = layerData.var(description->peakSlipRate);
+  real(*tractionXY)[size] = layerData.var(description->tractionXY);
+  real(*tractionXZ)[size] = layerData.var(description->tractionXZ);
+
+  DRFaceInformation* faceInformation = layerData.var(description->faceInformation);
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+  for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+    unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
+    e_interoperability.copyFrictionOutputToFortranGeneral(ltsFace,
+                                                          meshFace,
+                                                          slip,
+                                                          slipStrike,
+                                                          slipDip,
+                                                          ruptureTime,
+                                                          dynStressTime,
+                                                          peakSR,
+                                                          tractionXY,
+                                                          tractionXZ);
   }
 }
 } // namespace seissol::dr::output

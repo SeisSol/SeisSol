@@ -29,13 +29,13 @@ class QuadFaultFaceRefiner : public FaultRefinerInterface {
       return;
     }
 
-    ExtVrtxCoords refMidPoint1 = getMidPoint(referenceFace.p1, referenceFace.p2);
-    ExtVrtxCoords refMidPoint2 = getMidPoint(referenceFace.p2, referenceFace.p3);
-    ExtVrtxCoords refMidPoint3 = getMidPoint(referenceFace.p3, referenceFace.p1);
+    auto refMidPoint1 = getMidPoint(referenceFace.p1, referenceFace.p2);
+    auto refMidPoint2 = getMidPoint(referenceFace.p2, referenceFace.p3);
+    auto refMidPoint3 = getMidPoint(referenceFace.p3, referenceFace.p1);
 
-    ExtVrtxCoords glbMidPoint1 = getMidPoint(globalFace.p1, globalFace.p2);
-    ExtVrtxCoords glbMidPoint2 = getMidPoint(globalFace.p2, globalFace.p3);
-    ExtVrtxCoords glbMidPoint3 = getMidPoint(globalFace.p3, globalFace.p1);
+    auto glbMidPoint1 = getMidPoint(globalFace.p1, globalFace.p2);
+    auto glbMidPoint2 = getMidPoint(globalFace.p2, globalFace.p3);
+    auto glbMidPoint3 = getMidPoint(globalFace.p3, globalFace.p1);
 
     {
       // First sub-face (-triangle)

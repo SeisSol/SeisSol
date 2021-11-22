@@ -26,8 +26,8 @@ class TripleFaultFaceRefiner : public FaultRefinerInterface {
       return;
     }
 
-    ExtVrtxCoords refMidTriangle = getMidTrianglePoint(referenceFace);
-    ExtVrtxCoords glbMidTriangle = getMidTrianglePoint(globalFace);
+    auto refMidTriangle = getMidTrianglePoint(referenceFace);
+    auto glbMidTriangle = getMidTrianglePoint(globalFace);
 
     {
       // First sub-face (-triangle)

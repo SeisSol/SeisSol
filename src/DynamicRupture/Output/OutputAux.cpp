@@ -18,7 +18,7 @@ ExtTriangle getReferenceFace(int localSideId) {
   constexpr int xi{0};
   constexpr int eta{1};
   constexpr int zeta{2};
-  
+
   switch (localSideId) {
   case 0:
     referenceFace.p1[xi] = 0.0;

@@ -39,6 +39,7 @@ PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords point,
                                                     const VrtxCoords* minusElementCoords[4]);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverPoints);
+
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT& receiverPoints);
 
 template <int Size>

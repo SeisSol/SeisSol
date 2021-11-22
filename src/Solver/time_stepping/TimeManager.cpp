@@ -285,19 +285,23 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
   }
 }
 
-void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady() {
-  auto& FirstCluster = this->m_clusters[0];
+void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady(const TimeCluster * timeCluster) {
+  // First cluster calls fault receiver output
+  // TODO (old from master branch): Change from iteration based to time based
+  if (timeCluster->m_clusterId == 0) {
+    auto& firstCluster = this->m_clusters[0];
 
-  // if the first (leading) cluster has been fully updated (both copy and interior layers)
-  if ((!FirstCluster->m_updatable.neighboringInterior) && (!FirstCluster->m_updatable.neighboringCopy)) {
+    // if the first (leading) cluster has been fully updated (both copy and interior layers)
+    if ((!firstCluster->m_updatable.neighboringInterior) && (!firstCluster->m_updatable.neighboringCopy)) {
 
-    // iterate over all clusters and update faults
-    for (auto Cluster: this->m_clusters) {
-      Cluster->updateFaultOutput();
+      // iterate over all clusters and update faults
+      for (auto cluster: this->m_clusters) {
+        cluster->updateFaultOutput();
+      }
+
+      e_interoperability.faultOutput(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
+      m_faultOutputManager->writePickpointOutput(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
     }
-
-    e_interoperability.faultOutput(FirstCluster->m_fullUpdateTime, FirstCluster->timeStepWidth());
-    m_faultOutputManager->writePickpointOutput(FirstCluster->m_fullUpdateTime, FirstCluster->timeStepWidth());
   }
 }
 
@@ -372,8 +376,8 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     // iterate over all items of the neighboring copy queue and update everything possible
     for( std::list<TimeCluster*>::iterator l_cluster = m_neighboringCopyQueue.begin(); l_cluster != m_neighboringCopyQueue.end(); ) {
       if( (*l_cluster)->computeNeighboringCopy() ) {
-        checkAndWriteFaultOutputIfReady();
-        unsigned int l_clusterId = (*l_cluster)->m_clusterId;
+        checkAndWriteFaultOutputIfReady(*l_cluster);
+        auto l_clusterId = (*l_cluster)->m_clusterId;
         l_cluster = m_neighboringCopyQueue.erase( l_cluster );
         updateClusterDependencies( l_clusterId );
         wasSomethingUpdated = true;
@@ -395,7 +399,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     if( !m_neighboringInteriorQueue.empty() ) {
       TimeCluster *l_timeCluster = m_neighboringInteriorQueue.top();
       l_timeCluster->computeNeighboringInterior();
-      checkAndWriteFaultOutputIfReady();
+      checkAndWriteFaultOutputIfReady(l_timeCluster);
       m_neighboringInteriorQueue.pop();
       updateClusterDependencies(l_timeCluster->m_clusterId);
       wasSomethingUpdated = true;
