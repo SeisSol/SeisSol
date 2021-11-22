@@ -398,6 +398,10 @@ class FaultPlane:
                     self.t0[j, i] += first_non_zero * self.dt
                     # 2 dims: 0: Yoffe 1: Gaussian
                     newSR = np.zeros((self.ndt, 2))
+                    # Ts and Td parameters of the Yoffe function have no direct physical meaning
+                    # Tinti et al. (2005) suggest that Ts can nevertheless be associated with the acceleration time tacc
+                    # Empirically, they find that Ts and Tacc are for most (Ts,Td) parameter sets linearly related
+                    # with the 'magic' number 1.27
                     ts = self.tacc[j, i] / 1.27
                     tr = self.rise_time[j, i] - 2.0 * ts
                     tr = max(tr, ts)
@@ -458,9 +462,11 @@ class FaultPlane:
             pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
             pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))
             pf.tacc = np.maximum(pf.tacc, np.amin(self.tacc))
+            # see comment above explaining why the 1.27 factor
             print("using ts = tacc / 1.27 to compute the regularized Yoffe")
             ts = pf.tacc / 1.27
             tr = pf.rise_time - 2.0 * ts
+            tr = np.maximum(tr, ts)
             for j in range(pf.ny):
                 for i in range(pf.nx):
                     for k, tk in enumerate(pf.myt):
