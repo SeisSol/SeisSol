@@ -116,6 +116,21 @@ def same_geometry(sx1, sx2):
         return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4))
 
 
+def compute_areas(geom, connect):
+    triangles = geom[connect, :]
+    a = triangles[:, 1, :] - triangles[:, 0, :]
+    b = triangles[:, 2, :] - triangles[:, 0, :]
+    return 0.5 * np.linalg.norm(np.cross(a, b), axis=1)
+
+
+def l1_norm(areas, q):
+    return np.dot(areas, np.abs(q))
+
+
+def l2_norm(areas, q):
+    return np.dot(areas, np.power(q, 2))
+
+
 parser = argparse.ArgumentParser(
     description="make difference between 2 (paraview) output files: f2-f1. \
 The output must be from the same mesh, but the partionning may differ."
@@ -136,13 +151,6 @@ parser.add_argument(
     metavar=("variable"),
     help="Data to differenciate (example SRs); all for all stored quantities",
 )
-parser.add_argument(
-    "--ratio",
-    dest="ratio",
-    default=False,
-    action="store_true",
-    help="compute relative ratio (f1-f2)/f1 instead of f2-f1",
-)
 
 args = parser.parse_args()
 
@@ -162,6 +170,8 @@ else:
         raise ValueError("geometry arrays differ")
     ind1, ind2 = multidim_intersect(connect1, connect2)
     connect1 = connect1[ind1, :]
+
+areas = compute_areas(geom1, connect1)
 
 if args.idt[0] == -1:
     args.idt = list(range(0, sx1.ndt))
@@ -184,6 +194,7 @@ if args.Data == ["all"]:
 else:
     variable_names = args.Data
 
+print("#idt relative_error_l2 relative_error_l1 min_abs_error max_abs_error")
 for dataname in variable_names:
     print(dataname)
     myData1 = read_reshape2d(sx1, dataname)
@@ -191,24 +202,28 @@ for dataname in variable_names:
     ndt = min(myData1.shape[0], myData2.shape[0])
     if same_geom:
         myData = myData1[0:ndt, :] - myData2[0:ndt, :]
-        if args.ratio:
-            myData = myData / myData1[0:ndt, :]
     else:
         myData = myData1[0:ndt, ind1] - myData2[0:ndt, ind2]
-        if args.ratio:
-            myData = myData / myData1[0:ndt, ind1]
 
     for idt in args.idt:
         if idt < ndt:
-            print(idt, np.amin(myData[idt, :]), np.amax(myData[idt, :]))
+            relative_error_l2 = l2_norm(areas, myData[idt, :]) / l2_norm(
+                areas, myData1[idt, ind1]
+            )
+            relative_error_l1 = l1_norm(areas, myData[idt, :]) / l1_norm(
+                areas, myData1[idt, ind1]
+            )
+            min_error, max_error = np.amin(myData[idt, :]), np.amax(myData[idt, :])
+            print(
+                f"{idt} {relative_error_l2} {relative_error_l1} {min_error} {max_error}"
+            )
         else:
             print(f"removing idt={idt}>{ndt} from args.idt")
             args.idt.pop(idt)
 
     aData.append(myData)
 prefix, ext = os.path.splitext(args.xdmf_filename1)
-add2prefix = "ratio" if args.ratio else "diff"
-fname = f"{add2prefix}_{os.path.basename(prefix)}"
+fname = f"diff_{os.path.basename(prefix)}"
 
 try:
     dt = sx1.ReadTimeStep()
