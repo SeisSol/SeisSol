@@ -433,6 +433,7 @@ if (TESTING)
           src/tests/Initializer/TestInitializer.cpp
           src/tests/Numerical_aux/TestNumerical_aux.cpp
           src/tests/Geometry/TestGeometry.cpp
+          src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/SourceTermTest.cpp
           src/tests/test_main.cpp)
   target_link_libraries(SeisSol-serial-test PUBLIC SeisSol-lib)
