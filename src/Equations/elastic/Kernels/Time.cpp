@@ -290,7 +290,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     device.algorithms.streamBatchedData((entry.content[*EntityId::Dofs])->getPointers(),
                                         (entry.content[*EntityId::Derivatives])->getPointers(),
                                         tensor::Q::Size,
-                                        derivativesKrnl.numElements);
+                                        derivativesKrnl.numElements,
+                                        device.api->getDefaultStream());
 
     constexpr size_t MAX_TMP_MEM = (intKrnl.TmpMaxMemRequiredInBytes > derivativesKrnl.TmpMaxMemRequiredInBytes) \
                                    ? intKrnl.TmpMaxMemRequiredInBytes : derivativesKrnl.TmpMaxMemRequiredInBytes;

@@ -115,7 +115,8 @@ namespace seissol::initializers {
         const real scaleFactor = -1.0;
         device.algorithms.scaleArray(const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
                                      scaleFactor,
-                                     init::kDivMT::size(transposedStiffness));
+                                     init::kDivMT::size(transposedStiffness),
+                                     device.api->getDefaultStream());
       }
 #endif // ACL_DEVICE
     }

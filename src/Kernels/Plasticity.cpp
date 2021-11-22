@@ -258,6 +258,7 @@ namespace seissol::kernels {
 
     DeviceInstance &device = DeviceInstance::getInstance();
     ConditionalKey key(*KernelNames::Plasticity);
+    auto defaultStream = device.api->getDefaultStream();
 
     if (table.find(key) != table.end()) {
       unsigned stackMemCounter{0};
@@ -266,13 +267,16 @@ namespace seissol::kernels {
       real** modalStressTensors = (entry.content[*EntityId::Dofs])->getPointers();
       real** nodalStressTensors = (entry.content[*EntityId::NodalStressTensor])->getPointers();
 
-      const size_t firsModesSize = NUM_STREESS_COMPONENTS * numElements * sizeof(real);
+      const size_t firsModesSize = NUM_STRESS_COMPONENTS * numElements * sizeof(real);
       real *firsModes = reinterpret_cast<real*>(device.api->getStackMemory(firsModesSize));
       ++stackMemCounter;
 
       device::aux::plasticity::saveFirstModes(firsModes,
                                               const_cast<const real**>(modalStressTensors),
-                                              numElements);
+                                              numElements,
+                                              defaultStream);
+
+      auto defaultStream = device.api->getDefaultStream();
 
       assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
       real** initLoad = (entry.content[*EntityId::InitialLoad])->getPointers();
@@ -282,6 +286,7 @@ namespace seissol::kernels {
       m2nKrnl.QStressNodal = nodalStressTensors;
       m2nKrnl.replicateInitialLoadingM = global->replicateStresses;
       m2nKrnl.initialLoadingM = const_cast<const real**>(initLoad);
+      m2nKrnl.streamPtr = defaultStream;
       m2nKrnl.numElements = numElements;
 
       const size_t MAX_TMP_MEM = m2nKrnl.TmpMaxMemRequiredInBytes * numElements;
@@ -300,18 +305,21 @@ namespace seissol::kernels {
                                                        isAdjustableVector,
                                                        plasticity,
                                                        oneMinusIntegratingFactor,
-                                                       numElements);
+                                                       numElements,
+                                                       defaultStream);
 
       unsigned numAdjustedDofs = device.algorithms.reduceVector(isAdjustableVector,
                                                                 numElements,
-                                                                ::device::ReductionType::Add);
+                                                                ::device::ReductionType::Add,
+                                                                defaultStream);
 
       // apply stress adjustment
       device::aux::plasticity::adjustModalStresses(modalStressTensors,
                                                    const_cast<const real **>(nodalStressTensors),
                                                    global->vandermondeMatrixInverse,
                                                    isAdjustableVector,
-                                                   numElements);
+                                                   numElements,
+                                                   defaultStream);
 
       // compute Pstrains
       real **pstrains = entry.content[*EntityId::Pstrains]->getPointers();
@@ -323,14 +331,16 @@ namespace seissol::kernels {
                                                oneMinusIntegratingFactor,
                                                timeStepWidth,
                                                T_v,
-                                               numElements);
+                                               numElements,
+                                               defaultStream);
 
       // NOTE: Temp memory must be properly clean after using negative signed integers
       // This kind of memory is mainly used for floating-point numbers. Negative signed ints might corrupt
       // the most significant bits. We came to this conclusion by our first-hand experience
       device.algorithms.fillArray(reinterpret_cast<char*>(isAdjustableVector),
                                   static_cast<char>(0),
-                                  numElements * sizeof(int));
+                                  numElements * sizeof(int),
+                                  defaultStream);
 
       for (unsigned i = 0; i < stackMemCounter; ++i) {
         device.api->popStackMemory();
