@@ -429,6 +429,7 @@ if (TESTING)
   endif()
 
   add_executable(SeisSol-serial-test
+          src/tests/Model/TestModel.cpp
           src/tests/Initializer/TestInitializer.cpp
           src/tests/Numerical_aux/TestNumerical_aux.cpp
           src/tests/Geometry/TestGeometry.cpp
