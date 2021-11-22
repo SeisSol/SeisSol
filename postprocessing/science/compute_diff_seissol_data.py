@@ -42,12 +42,12 @@ def fuzzysort(arr, idx, dim=0, tol=1e-6):
     return srtdidx
 
 
-def lookup_sorted_geom(geom):
+def lookup_sorted_geom(geom, atol):
     """return the indices to sort the
     geometry array by x, then y, then z
     and the associated inverse look-up table
     """
-    ind = fuzzysort(geom.T, list(range(0, geom.shape[0])), tol=1e-4)
+    ind = fuzzysort(geom.T, list(range(0, geom.shape[0])), tol=atol)
     # generate inverse look-up table
     dic = {i: index for i, index in enumerate(ind)}
     ind_inv = np.zeros_like(ind)
@@ -60,7 +60,7 @@ def read_geom_connect(sx):
     return sx.ReadGeometry(), sx.ReadConnect()
 
 
-def return_sorted_geom_connect(sx):
+def return_sorted_geom_connect(sx, atol):
     """sort geom array and reindex connect array to match the new geom array"""
     geom, connect = read_geom_connect(sx)
     nv = geom.shape[0]
@@ -69,21 +69,21 @@ def return_sorted_geom_connect(sx):
         import pymesh
 
         geom, connect, inf = pymesh.remove_duplicated_vertices_raw(
-            geom, connect, tol=1e-4
+            geom, connect, tol=atol
         )
         print(f"removed {inf['num_vertex_merged']} duplicates out of {nv}")
     except ModuleNotFoundError:
         print("pymesh not found, trying trimesh...")
         import trimesh
 
-        trimesh.tol.merge = 1e-4
+        trimesh.tol.merge = atol
         mesh = trimesh.Trimesh(geom, connect)
         mesh.merge_vertices()
         geom = mesh.vertices
         connect = mesh.faces
         print(f"removed {nv-geom.shape[0]} duplicates out of {nv}")
 
-    ind, ind_inv = lookup_sorted_geom(geom)
+    ind, ind_inv = lookup_sorted_geom(geom, atol)
     geom = geom[ind, :]
     connect = np.array([ind_inv[x] for x in connect.flatten()]).reshape(connect.shape)
     # sort along line (then we can use multidim_intersect)
@@ -107,13 +107,13 @@ def multidim_intersect(arr1, arr2):
     return ind1, ind2
 
 
-def same_geometry(sx1, sx2):
+def same_geometry(sx1, sx2, atol):
     geom1 = sx1.ReadGeometry()
     geom2 = sx2.ReadGeometry()
     if geom1.shape[0] != geom2.shape[0]:
         return False
     else:
-        return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4))
+        return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=atol))
 
 
 def compute_areas(geom, connect):
@@ -151,22 +151,31 @@ parser.add_argument(
     metavar=("variable"),
     help="Data to differenciate (example SRs); all for all stored quantities",
 )
+parser.add_argument(
+    "--atol",
+    nargs=1,
+    metavar=("atol"),
+    help="absolute tolerance to merge vertices",
+    type=float,
+    default=[1e-3],
+)
 
 args = parser.parse_args()
+atol = args.atol[0]
 
 sx1 = sx.seissolxdmf(args.xdmf_filename1)
 sx2 = sx.seissolxdmf(args.xdmf_filename2)
 
-same_geom = same_geometry(sx1, sx2)
+same_geom = same_geometry(sx1, sx2, atol)
 
 if same_geom:
     print("same indexing detected, no need to reindex arrays")
     geom1, connect1 = read_geom_connect(sx1)
     geom2, connect2 = read_geom_connect(sx2)
 else:
-    geom1, connect1 = return_sorted_geom_connect(sx1)
-    geom2, connect2 = return_sorted_geom_connect(sx2)
-    if not np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4)):
+    geom1, connect1 = return_sorted_geom_connect(sx1, atol)
+    geom2, connect2 = return_sorted_geom_connect(sx2, atol)
+    if not np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=atol)):
         raise ValueError("geometry arrays differ")
     ind1, ind2 = multidim_intersect(connect1, connect2)
     connect1 = connect1[ind1, :]
