@@ -38,9 +38,9 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      TS_ASSERT_DELTA(testPoint.x, targetPoint.x, EPS);
-      TS_ASSERT_DELTA(testPoint.y, targetPoint.y, EPS);
-      TS_ASSERT_DELTA(testPoint.z, targetPoint.z, EPS);
+      TS_ASSERT_DELTA(testPoint[x], targetPoint[x], EPS);
+      TS_ASSERT_DELTA(testPoint[y], targetPoint[y], EPS);
+      TS_ASSERT_DELTA(testPoint[z], targetPoint[z], EPS);
     }
     {
       ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
@@ -48,9 +48,9 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      TS_ASSERT_DELTA(testPoint.x, targetPoint.x, EPS);
-      TS_ASSERT_DELTA(testPoint.y, targetPoint.y, EPS);
-      TS_ASSERT_DELTA(testPoint.z, targetPoint.z, EPS);
+      TS_ASSERT_DELTA(testPoint[x], targetPoint[x], EPS);
+      TS_ASSERT_DELTA(testPoint[y], targetPoint[y], EPS);
+      TS_ASSERT_DELTA(testPoint[z], targetPoint[z], EPS);
     }
   }
 
@@ -74,9 +74,9 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     auto testMiddle = getMidPoint(point1, point2);
 
     const double EPS = 1e-6;
-    TS_ASSERT_DELTA(testMiddle.x, -1.0, EPS);
-    TS_ASSERT_DELTA(testMiddle.y, 0.0, EPS);
-    TS_ASSERT_DELTA(testMiddle.z, 1.0, EPS);
+    TS_ASSERT_DELTA(testMiddle[0], -1.0, EPS);
+    TS_ASSERT_DELTA(testMiddle[1], 0.0, EPS);
+    TS_ASSERT_DELTA(testMiddle[2], 1.0, EPS);
   }
 
   void testMidTrianglePoint() {
@@ -88,9 +88,9 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     auto testMiddle = getMidTrianglePoint(triangle);
 
     const double EPS = 1e-6;
-    TS_ASSERT_DELTA(testMiddle.x, 1.0, EPS);
-    TS_ASSERT_DELTA(testMiddle.y, 1 / 3.0, EPS);
-    TS_ASSERT_DELTA(testMiddle.z, 1.0, EPS);
+    TS_ASSERT_DELTA(testMiddle[x], 1.0, EPS);
+    TS_ASSERT_DELTA(testMiddle[y], 1 / 3.0, EPS);
+    TS_ASSERT_DELTA(testMiddle[z], 1.0, EPS);
   }
 
   void testTriangleQuadraturePoints() {
@@ -210,8 +210,8 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
-      TS_ASSERT_DELTA(testChiTau[0], xiEtaZeta.eta, EPS);
-      TS_ASSERT_DELTA(testChiTau[1], xiEtaZeta.zeta, EPS);
+      TS_ASSERT_DELTA(testChiTau[0], xiEtaZeta[eta], EPS);
+      TS_ASSERT_DELTA(testChiTau[1], xiEtaZeta[zeta], EPS);
     }
   }
 
@@ -287,6 +287,15 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     TS_ASSERT_EQUALS(meshId[1], std::numeric_limits<unsigned>::max());
     TS_ASSERT_EQUALS(meshId[2], 1);
   }
+
+  protected:
+  constexpr static int x{0};
+  constexpr static int y{1};
+  constexpr static int z{2};
+
+  constexpr static int xi{0};
+  constexpr static int eta{1};
+  constexpr static int zeta{2};
 };
 
 #endif // SEISSOL_GEOMETRY_T_H

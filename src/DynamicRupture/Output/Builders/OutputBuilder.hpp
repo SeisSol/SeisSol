@@ -1,0 +1,113 @@
+#ifndef SEISSOL_DR_OUTPUT_BUILDER_HPP
+#define SEISSOL_DR_OUTPUT_BUILDER_HPP
+
+#include "DynamicRupture/Output/DataTypes.hpp"
+#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Math.h"
+#include "Parallel/MPI.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/InputAux.hpp"
+#include "Numerical_aux/Transformation.h"
+
+namespace seissol::dr::output {
+class OutputBuilder {
+  public:
+  virtual ~OutputBuilder() {
+    auto deallocateVars = [](auto& var, int) { var.releaseData(); };
+    aux::forEach(outputData.vars, deallocateVars);
+  }
+
+  virtual void init() = 0;
+  virtual void initTimeCaching() = 0;
+
+  void setMeshReader(const MeshReader* reader) {
+    meshReader = reader;
+    localRank = MPI::mpi.rank();
+  }
+
+  void initBasisFunctions() {
+    const auto& faultInfo = meshReader->getFault();
+    const auto& elementsInfo = meshReader->getElements();
+    const auto& verticesInfo = meshReader->getVertices();
+
+    for (const auto& point : outputData.receiverPoints) {
+      auto elementIndex = faultInfo[point.faultFaceIndex].element;
+      auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+
+      const VrtxCoords* elemCoords[4]{};
+      const VrtxCoords* neighborElemCoords[4]{};
+
+      for (int i = 0; i < 4; ++i) {
+        elemCoords[i] = &(verticesInfo[elementsInfo[elementIndex].vertices[i]].coords);
+        neighborElemCoords[i] =
+            &(verticesInfo[elementsInfo[neighborElementIndex].vertices[i]].coords);
+      }
+
+      outputData.basisFunctions.emplace_back(
+          getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
+    }
+  }
+
+  void initFaultDirections() {
+    size_t size = outputData.receiverPoints.size();
+    outputData.faultDirections.resize(size);
+    const auto& faultInfo = meshReader->getFault();
+
+    for (size_t index = 0; index < size; ++index) {
+      size_t globalIndex = outputData.receiverPoints[index].faultFaceIndex;
+
+      outputData.faultDirections[index].faceNormal = faultInfo[globalIndex].normal;
+      outputData.faultDirections[index].tangent1 = faultInfo[globalIndex].tangent1;
+      outputData.faultDirections[index].tangent2 = faultInfo[globalIndex].tangent2;
+      computeStrikeAndDipVectors(outputData.faultDirections[index].faceNormal,
+                                 outputData.faultDirections[index].strike,
+                                 outputData.faultDirections[index].dip);
+    }
+  }
+
+  void initRotationMatrices() {
+    using namespace seissol::transformations;
+    using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
+
+    // allocate Rotation Matrices
+    // Note: several receiver can share the same rotation matrix
+    size_t size = outputData.receiverPoints.size();
+    outputData.rotationMatrices.resize(size);
+
+    // init Rotation Matrices
+    for (size_t index = 0; index < size; ++index) {
+      const auto faceNormal = outputData.faultDirections[index].faceNormal;
+      const auto strike = outputData.faultDirections[index].strike;
+      const auto dip = outputData.faultDirections[index].dip;
+
+      computeStrikeAndDipVectors(faceNormal, strike, dip);
+
+      std::vector<real> rotationMatrix(36, 0.0);
+      RotationMatrixViewT rotationMatrixView(const_cast<real*>(rotationMatrix.data()), {6, 6});
+
+      symmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
+      outputData.rotationMatrices[index] = std::move(rotationMatrix);
+    }
+  }
+
+  void initOutputVariables(std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask) {
+    auto assignMask = [this, &outputMask](auto& var, int index) {
+      var.isActive = outputMask[index];
+    };
+    aux::forEach(outputData.vars, assignMask);
+
+    auto allocateVariables = [this](auto& var, int) {
+      var.maxCacheLevel = outputData.maxCacheLevel;
+      var.allocateData(this->outputData.receiverPoints.size());
+    };
+    aux::forEach(outputData.vars, allocateVariables);
+  }
+
+  protected:
+  const MeshReader* meshReader{};
+  OutputData outputData;
+  int localRank{-1};
+};
+} // namespace seissol::dr::output
+
+#endif // SEISSOL_DR_OUTPUT_BUILDER_HPP

@@ -4,8 +4,8 @@
 #include "Initializer/InputAux.hpp"
 #include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/Output/ParametersInitializer.hpp"
-#include "DynamicRupture/Output/Builders/ElementWiseOutput.hpp"
-#include "DynamicRupture/Output/Builders/PickpointOutput.hpp"
+#include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
+#include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
 #include <iostream>
 #include <memory>
 
@@ -29,26 +29,31 @@ class Base {
 
     PickpointParamsT PpParams;
     ElementwiseFaultParamsT EwParams;
+
     switch (generalParams.outputPointType) {
     case OutputType::None:
       break;
 
     case OutputType::AtPickpoint:
-      ppOutputBuilder = std::make_unique<PickpointOutput>();
-      ppOutputBuilder->setParams(Reader.getPickPointParams(), &Mesher);
+      ppOutputBuilder = std::make_unique<PickPointBuilder>();
+      ppOutputBuilder->setMeshReader(&Mesher);
+      ppOutputBuilder->setParams(Reader.getPickPointParams());
       break;
 
     case OutputType::Elementwise:
-      ewOutputBuilder = std::make_unique<ElementWiseOutput>();
-      ewOutputBuilder->setParams(Reader.getElementwiseFaultParams(), &Mesher);
+      ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
+      ewOutputBuilder->setMeshReader(&Mesher);
+      ewOutputBuilder->setParams(Reader.getElementwiseFaultParams());
       break;
 
     case OutputType::AtPickpointAndElementwise:
-      ppOutputBuilder = std::make_unique<PickpointOutput>();
-      ppOutputBuilder->setParams(Reader.getPickPointParams(), &Mesher);
+      ppOutputBuilder = std::make_unique<PickPointBuilder>();
+      ppOutputBuilder->setMeshReader(&Mesher);
+      ppOutputBuilder->setParams(Reader.getPickPointParams());
 
-      ewOutputBuilder = std::make_unique<ElementWiseOutput>();
-      ewOutputBuilder->setParams(Reader.getElementwiseFaultParams(), &Mesher);
+      ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
+      ewOutputBuilder->setMeshReader(&Mesher);
+      ewOutputBuilder->setParams(Reader.getElementwiseFaultParams());
       break;
 
     default:
@@ -83,11 +88,11 @@ class Base {
 
   GeneralParamsT generalParams;
 
-  std::unique_ptr<ElementWiseOutput> ewOutputBuilder{nullptr};
+  std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   OutputData ewOutputData{};
   // std::vector<std::pair<initializers::Layer*, size_t>> faceToLtsMap{};
 
-  std::unique_ptr<PickpointOutput> ppOutputBuilder{nullptr};
+  std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
   OutputData ppOutputState{};
 
   seissol::initializers::LTSTree* drTree{nullptr};

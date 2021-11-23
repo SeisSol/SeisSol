@@ -367,6 +367,7 @@ class seissol::Interoperability {
 
    /*
     * Not in use any more
+    * TODO(Ravil, Sebastian): remove this and all callees inside
     */
    void evaluateFrictionLaw(  int face,
                               real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],

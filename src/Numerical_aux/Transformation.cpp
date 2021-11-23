@@ -229,7 +229,7 @@ void seissol::transformations::chiTau2XiEtaZeta(unsigned face, double const chiT
 }
 
 void seissol::transformations::XiEtaZeta2chiTau(unsigned face, double const xiEtaZeta[3], double chiTau[2]) {
-  const double EPS = 1e-6;
+  constexpr double EPS = 1e-6;
 
   switch (face) {
   case 0: {

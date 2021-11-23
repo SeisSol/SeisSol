@@ -6,9 +6,9 @@
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   public:
-  virtual void tiePointers(seissol::initializers::Layer& layerData,
-                           seissol::initializers::DynamicRupture* dynRup,
-                           seissol::Interoperability& e_interoperability) override {
+  void tiePointers(seissol::initializers::Layer& layerData,
+                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::Interoperability& e_interoperability) override {
     LinearSlipWeakening::tiePointers(layerData, dynRup, e_interoperability);
 
     auto concreteLts =
@@ -28,7 +28,7 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
     }
   }
 
-  virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
     // do nothing
   }
 };

@@ -71,6 +71,22 @@ ExtTriangle getReferenceFace(int localSideId) {
   return referenceFace;
 }
 
+ExtTriangle getGlobalFace(const Fault& fault,
+                          const std::vector<Element>& elementsInfo,
+                          const std::vector<Vertex>& verticesInfo) {
+  ExtTriangle globalFace{};
+  auto localSideId = fault.side;
+  auto elementIndex = fault.element;
+
+  for (int vertexId = 0; vertexId < 3; ++vertexId) {
+    auto elementVertexId = getElementVertexId(localSideId, vertexId);
+    auto globalVertexId = elementsInfo[elementIndex].vertices[elementVertexId];
+
+    globalFace.points[vertexId] = verticesInfo[globalVertexId].coords;
+  }
+  return globalFace;
+}
+
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
   // Note: equations are explained in documentation -> left-lateral-right-lateral-normal-reverse
 
@@ -140,7 +156,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
     auto currentDistance = distance(targetPoint, nextPoint);
     if (shortestDistance > currentDistance) {
       shortestDistance = currentDistance;
-      nearestPoint = index;
+      nearestPoint = static_cast<int>(index);
     }
   }
   return std::make_pair(nearestPoint, shortestDistance);
@@ -172,20 +188,22 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
 void projectPointToFace(ExtVrtxCoords& point,
                         const ExtTriangle& face,
                         const VrtxCoords faceNormal) {
-  using namespace Eigen;
-
-  Vector3d originalPoint(point[0], point[1], point[2]);
-
-  Vector3d r = originalPoint - Vector3d(face.p1[0], face.p1[1], face.p1[2]);
-  Vector3d direction(faceNormal[0], faceNormal[1], faceNormal[2]);
-  direction.normalize();
-
-  auto displacement = -direction.dot(r);
-  Vector3d targetPoint = originalPoint + displacement * direction;
-
+  auto displacement = getDisplacementFromPointToFace(point, face, faceNormal);
   for (int i = 0; i < 3; ++i) {
-    point.coords[i] = targetPoint(i);
+    point.coords[i] += displacement * faceNormal[i];
   }
+}
+
+double getDisplacementFromPointToFace(const ExtVrtxCoords& point,
+                                      const ExtTriangle& face,
+                                      const VrtxCoords faceNormal) {
+
+  VrtxCoords diff{0.0, 0.0, 0.0};
+  MeshTools::sub(point.coords, face.p1.coords, diff);
+
+  // not faceNormal vector is not normalized
+  double faceNormalLength = MeshTools::dot(faceNormal, faceNormal);
+  return -1.0 * MeshTools::dot(faceNormal, diff) / faceNormalLength;
 }
 
 PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
@@ -227,8 +245,8 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
 
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
-      const auto &triangle = receiverPoints[pointIndex].globalSubTet;
-      auto &point = const_cast<ExtVrtxCoords&>(triangle.points[vertexIndex]);
+      const auto& triangle = receiverPoints[pointIndex].globalSubTet;
+      auto& point = const_cast<ExtVrtxCoords&>(triangle.points[vertexIndex]);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {

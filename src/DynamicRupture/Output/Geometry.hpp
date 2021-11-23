@@ -3,23 +3,49 @@
 
 #include "Kernels/precision.hpp"
 #include "Geometry/MeshDefinition.h"
+#include <Eigen/Dense>
 #include <cassert>
 #include <array>
-
 
 namespace seissol::dr {
 struct ExtVrtxCoords {
   ExtVrtxCoords() = default;
   ~ExtVrtxCoords() = default;
+
+  // TODO (Ravil): template this mess
   ExtVrtxCoords(const ExtVrtxCoords& other) {
     for (int i = 0; i < 3; ++i)
       coords[i] = other.coords[i];
   }
+
   ExtVrtxCoords& operator=(const ExtVrtxCoords& other) {
     for (int i = 0; i < 3; ++i)
       coords[i] = other.coords[i];
     return *this;
   }
+
+  explicit ExtVrtxCoords(const VrtxCoords& other) {
+    for (int i = 0; i < 3; ++i)
+      coords[i] = other[i];
+  }
+
+  ExtVrtxCoords& operator=(const VrtxCoords& other) {
+    for (int i = 0; i < 3; ++i)
+      coords[i] = other[i];
+    return *this;
+  }
+
+  explicit ExtVrtxCoords(const Eigen::Vector3d& other) {
+    for (int i = 0; i < 3; ++i)
+      coords[i] = other[i];
+  }
+
+  ExtVrtxCoords& operator=(const Eigen::Vector3d& other) {
+    for (int i = 0; i < 3; ++i)
+      coords[i] = other[i];
+    return *this;
+  }
+
   ExtVrtxCoords(std::initializer_list<double> inputCoords) {
     assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
     auto begin = inputCoords.begin();
@@ -32,11 +58,17 @@ struct ExtVrtxCoords {
     return coords[index];
   }
 
+  double operator[](size_t index) const {
+    assert((index < 3) && "ExtVrtxCoords index must be less than 3");
+    return coords[index];
+  }
+
+  Eigen::Vector3d getAsEigenVector() { return Eigen::Vector3d(coords[0], coords[1], coords[2]); }
+
   static int size() { return 3; }
 
   VrtxCoords coords = {0.0, 0.0, 0.0};
 };
-
 
 struct ExtTriangle {
   ExtTriangle() = default;

@@ -6,9 +6,9 @@
 namespace seissol::dr::output {
 class LinearSlipWeakening : public Base {
   public:
-  virtual void tiePointers(seissol::initializers::Layer& layerData,
-                           seissol::initializers::DynamicRupture* dynRup,
-                           seissol::Interoperability& e_interoperability) override {
+  void tiePointers(seissol::initializers::Layer& layerData,
+                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::Interoperability& e_interoperability) override {
     Base::tiePointers(layerData, dynRup, e_interoperability);
 
     auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
@@ -30,7 +30,7 @@ class LinearSlipWeakening : public Base {
     }
   }
 
-  virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
     // do nothing
   }
 };
