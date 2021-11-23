@@ -395,7 +395,8 @@ class FaultPlane:
                     last_non_zero = np.amax(ids_greater_than_threshold)
                     self.rise_time[j, i] = (last_non_zero - first_non_zero + 1) * self.dt
                     self.tacc[j, i] = (id_max - first_non_zero + 1) * self.dt
-                    self.t0[j, i] += first_non_zero * self.dt
+                    t0_increment = first_non_zero * self.dt
+                    self.t0[j, i] += t0_increment
                     # 2 dims: 0: Yoffe 1: Gaussian
                     newSR = np.zeros((self.ndt, 2))
                     # Ts and Td parameters of the Yoffe function have no direct physical meaning
@@ -406,9 +407,8 @@ class FaultPlane:
                     tr = self.rise_time[j, i] - 2.0 * ts
                     tr = max(tr, ts)
                     for k, tk in enumerate(self.myt):
-                        newSR[k, 0] = regularizedYoffe(tk - self.t0[j, i], ts, tr)
-                        newSR[k, 1] = GaussianSTF(tk - self.t0[j, i], self.rise_time[j, i], self.dt)
-
+                        newSR[k, 0] = regularizedYoffe(tk - t0_increment, ts, tr)
+                        newSR[k, 1] = GaussianSTF(tk - t0_increment, self.rise_time[j, i], self.dt)
                     integral_aSTF = np.trapz(np.abs(self.aSR[j, i, :]), dx=self.dt)
                     integral_Yoffe = np.trapz(np.abs(newSR[:, 0]), dx=self.dt)
                     integral_Gaussian = np.trapz(np.abs(newSR[:, 1]), dx=self.dt)
