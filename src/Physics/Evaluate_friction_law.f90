@@ -843,7 +843,7 @@ MODULE Eval_friction_law_mod
     REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SR_tmp(nBndGP), SRtest(nBndGP)
     REAL        :: LocSV(nBndGP)
     REAL        :: tmpSlip(nBndGP)
-    REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0(nBndGP),RS_sr0
+    REAL        :: RS_f0(nBndGP),RS_a(nBndGP),RS_b,RS_sl0(nBndGP),RS_sr0
     REAL        :: RS_fw,RS_srW(nBndGP),flv(nBndGP),fss(nBndGP),SVss(nBndGP)
     REAL_TYPE   :: resampleMatrix(nBndGP,nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
@@ -915,7 +915,7 @@ MODULE Eval_friction_law_mod
          LocP   = NorStressGP(:,iTimeGP)
          time_inc = DeltaT(iTimeGP)
          !
-         RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
+         RS_f0  = DISC%DynRup%RS_f0_array(:,iFace)     ! mu_0, reference friction coefficient
          RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
          IF(EQN%FL.EQ.103) THEN 
              RS_fw  = DISC%DynRup%Mu_w      ! mu_w, weakening friction coefficient
@@ -1101,7 +1101,7 @@ MODULE Eval_friction_law_mod
     TYPE (tMPI)                    :: MPI
     ! Argument list declaration
     INTEGER                  :: iFace, nBndGP
-    REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
+    REAL                     :: RS_f0(nBndGP), RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
     REAL                     :: SV0(nBndGP), time_inc, SR_tmp(nBndGP)                  !changing during iterations
     REAL                     :: flv(nBndGP), fss(nBndGP), SVss(nBndGP), LocSV(nBndGP)                 !calculated in this routine
     !-------------------------------------------------------------------------!
@@ -1109,7 +1109,7 @@ MODULE Eval_friction_law_mod
     INTENT(INOUT) :: LocSV
     !-------------------------------------------------------------------------!
 
-    RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
+    RS_f0  = DISC%DynRup%RS_f0_array(:,iFace)     ! mu_0, reference friction coefficient
     RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
     IF(EQN%FL.EQ.103) THEN 
         RS_fw  = DISC%DynRup%Mu_w      ! mu_w, weakening friction coefficient
@@ -1156,7 +1156,7 @@ MODULE Eval_friction_law_mod
     LOGICAL       :: has_converged                                            !check convergence
     INTEGER       :: nSRupdates, i, iFace, nBndGP
     REAL          :: RS_sr0, RS_a(nBndGP)                                     !constants
-    REAL          :: RS_f0, RS_b, RS_sl0(nBndGP)
+    REAL          :: RS_f0(nBndGP), RS_b, RS_sl0(nBndGP)
     REAL          :: SRtest(nBndGP), LocSR(nBndGP), LocSV(nBndGP)
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
@@ -1179,7 +1179,7 @@ MODULE Eval_friction_law_mod
 
 
     ! first guess = SR value of the previous step
-    RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
+    RS_f0  = DISC%DynRup%RS_f0_array(:,iFace)     ! mu_0, reference friction coefficient
     RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
     RS_a   = DISC%DynRup%RS_a_array(:,iFace) ! a, direct effect, space dependent
     RS_b   = DISC%DynRup%RS_b       ! b, evolution effect

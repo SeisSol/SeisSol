@@ -315,6 +315,7 @@ MODULE ini_model_DR_mod
       if ((EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) then
         nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
         allocate( DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),  &
+                  DISC%DynRup%RS_f0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),   &
                   nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
@@ -335,6 +336,7 @@ MODULE ini_model_DR_mod
         !$omp parallel do schedule(static)
         DO i=1,MESH%fault%nSide
             DISC%DynRup%RS_sl0_array(:,i) = 0.0
+            DISC%DynRup%RS_f0_array(:,i) = 0.0
             nuc_xx(:,i) = 0.0
             nuc_yy(:,i) = 0.0
             nuc_zz(:,i) = 0.0
@@ -344,6 +346,7 @@ MODULE ini_model_DR_mod
         END DO
 
         call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
+        call c_interoperability_addFaultParameter("RS_f0" // c_null_char, DISC%DynRup%RS_f0_array)
         if (nucleationParameterizedByTraction) then
           call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
           call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
@@ -674,8 +677,8 @@ MODULE ini_model_DR_mod
               tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(iBndGP,iFace)/ DISC%DynRup%RS_a_array(iBndGP,iFace))
           else
               EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_sl0_array(iBndGP,iFace)/DISC%DynRup%RS_sr0* &
-              & EXP((DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(EXP(tmp)-EXP(-tmp)) - DISC%DynRup%RS_f0 - DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
-              tmp  = iniSlipRate*0.5D0/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(iBndGP,iFace)/DISC%DynRup%RS_sl0_array(iBndGP,iFace)))/DISC%DynRup%RS_a_array(iBndGP,iFace))
+              & EXP((DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(EXP(tmp)-EXP(-tmp)) - DISC%DynRup%RS_f0_array(iBndGP,iFace) - DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
+              tmp  = iniSlipRate*0.5D0/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0_array(iBndGP,iFace) + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(iBndGP,iFace)/DISC%DynRup%RS_sl0_array(iBndGP,iFace)))/DISC%DynRup%RS_a_array(iBndGP,iFace))
           endif
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
           EQN%IniMu(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace) * LOG(tmp + SQRT(tmp**2 + 1.0D0))

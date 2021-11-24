@@ -658,6 +658,7 @@ MODULE TypesDef
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
      REAL, ALLOCATABLE                      :: RS_srW_array(:,:)                !< velocity weakening scale, array of spatial dependency
      REAL, ALLOCATABLE                      :: RS_sl0_array(:,:)                !< Reference slip, array of spatial dependency
+     REAL, ALLOCATABLE                      :: RS_f0_array(:,:)                 !< Reference steady state low-velocity friction coefficient, array of spatial dependency
      REAL                                   :: RS_sr0                           !< Reference slip rate
      REAL                                   :: RS_sl0                           !< Reference slip
      REAL                                   :: RS_f0                            !< Reference friction coefficient
