@@ -71,18 +71,17 @@ ExtTriangle getReferenceFace(int localSideId) {
   return referenceFace;
 }
 
-ExtTriangle getGlobalFace(const Fault& fault,
-                          const std::vector<Element>& elementsInfo,
+
+ExtTriangle getGlobalFace(int localSideId,
+                          const Element& element,
                           const std::vector<Vertex>& verticesInfo) {
   ExtTriangle globalFace{};
-  auto localSideId = fault.side;
-  auto elementIndex = fault.element;
 
   for (int vertexId = 0; vertexId < 3; ++vertexId) {
     auto elementVertexId = getElementVertexId(localSideId, vertexId);
-    auto globalVertexId = elementsInfo[elementIndex].vertices[elementVertexId];
+    auto globalVertexId = element.vertices[elementVertexId];
 
-    globalFace.points[vertexId] = verticesInfo[globalVertexId].coords;
+    globalFace[vertexId] = verticesInfo[globalVertexId].coords;
   }
   return globalFace;
 }

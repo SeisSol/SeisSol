@@ -54,10 +54,10 @@ class PickPointBuilder : public OutputBuilder {
   }
 
   void initReceiverLocations() {
-    // TODO: split method into smaller ones
-
     const auto numPoints = outputData.receiverPoints.size();
 
+    // findMeshIds expects a vector of eigenPoints.
+    // Therefore, we need to convert
     std::vector<Eigen::Vector3d> eigenPoints(numPoints);
     for (size_t pointIdx{0}; pointIdx < numPoints; ++pointIdx) {
       auto& receiverPoint = outputData.receiverPoints[pointIdx];
@@ -91,13 +91,11 @@ class PickPointBuilder : public OutputBuilder {
         auto meshId = meshIds[receiverIdx];
         const auto& faultIndices = elementToFault[meshId];
 
-        // TODO: needs to be extended to a general case where an element can have
-        //       more than one face rupture
-        assert(faultIndices.size() == 1 &&
-               "currently, we assume that only one element contains a DR receiver");
-        auto faultItem = fault[faultIndices[0]];
+        auto element = meshElements[meshId];
+        auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
+        auto faultItem = fault[closest];
 
-        receiver.globalSubTet = getGlobalFace(faultItem, meshElements, meshVertices);
+        receiver.globalSubTet = getGlobalFace(faultItem.side, element, meshVertices);
         projectPointToFace(receiver.global, receiver.globalSubTet, faultItem.normal);
 
         receiver.isInside = true;
@@ -107,13 +105,11 @@ class PickPointBuilder : public OutputBuilder {
         receiver.elementIndex = meshId;
 
         using namespace seissol::transformations;
-        auto element = meshElements[meshId];
         receiver.referece = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
                                                          meshVertices[element.vertices[1]].coords,
                                                          meshVertices[element.vertices[2]].coords,
                                                          meshVertices[element.vertices[3]].coords,
                                                          receiver.global.getAsEigenVector());
-
         receiver.isInside = true;
 
       } else {
@@ -140,15 +136,15 @@ class PickPointBuilder : public OutputBuilder {
 
     for (size_t faultIdx{0}; faultIdx < numFaultElements; ++faultIdx) {
       const auto& faultItem = fault[faultIdx];
-      Element element = meshElements[faultItem.element];
+
+      // element copy done on purpose because we are recording
+      // a new vertex array and thus we need to modify vertex indices
+      // inside of each element
+      auto element = meshElements[faultItem.element];
 
       for (size_t vertexIdx{0}; vertexIdx < 4; ++vertexIdx) {
-        Vertex vertex = meshVertices[element.vertices[vertexIdx]];
         const size_t faultVertexIdx = vertexIdx + 4 * faultIdx;
-        faultVertices[faultVertexIdx] = vertex;
-
-        // note: we need to remap vertex indicies inside of an element
-        // because we record a new vertex vector
+        faultVertices[faultVertexIdx] = meshVertices[element.vertices[vertexIdx]];
         element.vertices[vertexIdx] = faultVertexIdx;
       }
 
@@ -157,6 +153,37 @@ class PickPointBuilder : public OutputBuilder {
     }
 
     return std::make_tuple(faultVertices, faultElements, elementToFault);
+  }
+
+  size_t findClosestFaultIndex(const ExtVrtxCoords& point,
+                               const Element& element,
+                               const std::vector<size_t>& faultIndices) {
+    assert(!faultIndices.empty() && "an element must contain some rupture faces");
+
+    // Note: it is not so common to have an element with multiple rupture faces.
+    //       Handling a trivial solution
+    if (faultIndices.size() == 1) {
+      return faultIndices[0];
+    }
+
+    const auto& fault = meshReader->getFault();
+    const auto& meshVertices = meshReader->getVertices();
+
+    auto minDistance = std::numeric_limits<double>::max();
+    auto closest = std::numeric_limits<size_t>::max();
+
+    for (auto faceIdx: faultIndices) {
+      const auto& faultItem = fault[faceIdx];
+
+      auto face = getGlobalFace(faultItem.side, element, meshVertices);
+
+      auto distance = getDisplacementFromPointToFace(point, face, faultItem.normal);
+      if (minDistance > distance) {
+        minDistance = distance;
+        closest = faceIdx;
+      }
+    }
+    return closest;
   }
 
   void initTimeCaching() override {

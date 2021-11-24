@@ -12,35 +12,14 @@ struct ExtVrtxCoords {
   ExtVrtxCoords() = default;
   ~ExtVrtxCoords() = default;
 
-  // TODO (Ravil): template this mess
-  ExtVrtxCoords(const ExtVrtxCoords& other) {
-    for (int i = 0; i < 3; ++i)
-      coords[i] = other.coords[i];
-  }
-
-  ExtVrtxCoords& operator=(const ExtVrtxCoords& other) {
-    for (int i = 0; i < 3; ++i)
-      coords[i] = other.coords[i];
-    return *this;
-  }
-
-  explicit ExtVrtxCoords(const VrtxCoords& other) {
+  template <typename T>
+  ExtVrtxCoords(const T& other) {
     for (int i = 0; i < 3; ++i)
       coords[i] = other[i];
   }
 
-  ExtVrtxCoords& operator=(const VrtxCoords& other) {
-    for (int i = 0; i < 3; ++i)
-      coords[i] = other[i];
-    return *this;
-  }
-
-  explicit ExtVrtxCoords(const Eigen::Vector3d& other) {
-    for (int i = 0; i < 3; ++i)
-      coords[i] = other[i];
-  }
-
-  ExtVrtxCoords& operator=(const Eigen::Vector3d& other) {
+  template <typename T>
+  ExtVrtxCoords& operator=(const T& other) {
     for (int i = 0; i < 3; ++i)
       coords[i] = other[i];
     return *this;
@@ -65,7 +44,7 @@ struct ExtVrtxCoords {
 
   Eigen::Vector3d getAsEigenVector() { return Eigen::Vector3d(coords[0], coords[1], coords[2]); }
 
-  static int size() { return 3; }
+  constexpr static int size() { return 3; }
 
   VrtxCoords coords = {0.0, 0.0, 0.0};
 };

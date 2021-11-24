@@ -53,12 +53,15 @@ class ElementWiseBuilder : public OutputBuilder {
 
       // get a Global Element ID for the current fault face
       auto elementIndex = faultInfo[faceIndex].element;
+      const auto& element = elementsInfo[elementIndex];
+
+      // TODO: check whether we need this if-statement
       if (elementIndex > 0) {
 
         // store coords of vertices of the current ELEMENT
         std::array<const double*, 4> elementVerticesCoords{};
         for (int ElementVertexId = 0; ElementVertexId < 4; ++ElementVertexId) {
-          auto globalVertexId = elementsInfo[elementIndex].vertices[ElementVertexId];
+          auto globalVertexId = element.vertices[ElementVertexId];
           elementVerticesCoords[ElementVertexId] = verticesInfo[globalVertexId].coords;
         }
 
@@ -68,7 +71,7 @@ class ElementWiseBuilder : public OutputBuilder {
         ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
 
         // init global coordinates of the fault face
-        ExtTriangle globalFace = getGlobalFace(faultInfo[faceIndex], elementsInfo, verticesInfo);
+        ExtTriangle globalFace = getGlobalFace(localFaceSideId, element, verticesInfo);
 
         faultRefiner->refineAndAccumulate(
             elementwiseParams.refinement, faceIndex, localFaceSideId, referenceFace, globalFace);

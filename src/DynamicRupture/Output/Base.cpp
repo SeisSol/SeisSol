@@ -137,14 +137,16 @@ void Base::init() {
 }
 
 void Base::initFaceToLtsMap() {
-  faceToLtsMap.resize(drTree->getNumberOfCells(Ghost));
-  for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-       it != drTree->endLeaf();
-       ++it) {
+  if (drTree) {
+    faceToLtsMap.resize(drTree->getNumberOfCells(Ghost));
+    for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
+         it != drTree->endLeaf();
+         ++it) {
 
-    DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
-    for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
+      DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
+      for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
+      }
     }
   }
 }
@@ -163,50 +165,54 @@ bool Base::isAtPickpoint(double time, double dt) {
 }
 
 void Base::writePickpointOutput(double time, double dt) {
+  if (this->ppOutputBuilder) {
+    if (this->isAtPickpoint(time, dt)) {
 
-  if (this->isAtPickpoint(time, dt)) {
+      auto& outputData = ppOutputBuilder->outputData;
+      calcFaultOutput(OutputType::AtPickpoint, outputData, time);
 
-    auto& outputData = ppOutputBuilder->outputData;
-    calcFaultOutput(OutputType::AtPickpoint, outputData, time);
+      const bool isMaxCacheLevel =
+          outputData.currentCacheLevel >=
+          static_cast<size_t>(ppOutputBuilder->pickpointParams.maxPickStore);
+      const bool isCloseToEnd = (generalParams.endTime - time) < dt * 1.005;
+      if (isMaxCacheLevel || isCloseToEnd) {
+        for (size_t pointId = 0; pointId < outputData.receiverPoints.size(); ++pointId) {
 
-    const bool isMaxCacheLevel = outputData.currentCacheLevel >=
-                                 static_cast<size_t>(ppOutputBuilder->pickpointParams.maxPickStore);
-    const bool isCloseToEnd = (generalParams.endTime - time) < dt * 1.005;
-    if (isMaxCacheLevel || isCloseToEnd) {
-      for (size_t pointId = 0; pointId < outputData.receiverPoints.size(); ++pointId) {
-
-        std::stringstream data;
-        for (size_t level = 0; level < outputData.currentCacheLevel; ++level) {
-          data << makeFormatted(outputData.cachedTime[level]) << '\t';
-          auto recordResults = [pointId, level, &data](auto& var, int) {
-            if (var.isActive) {
-              for (int dim = 0; dim < var.dim(); ++dim) {
-                data << makeFormatted(var(dim, level, pointId)) << '\t';
+          std::stringstream data;
+          for (size_t level = 0; level < outputData.currentCacheLevel; ++level) {
+            data << makeFormatted(outputData.cachedTime[level]) << '\t';
+            auto recordResults = [pointId, level, &data](auto& var, int) {
+              if (var.isActive) {
+                for (int dim = 0; dim < var.dim(); ++dim) {
+                  data << makeFormatted(var(dim, level, pointId)) << '\t';
+                }
               }
-            }
-          };
-          aux::forEach(outputData.vars, recordResults);
-          data << '\n';
-        }
+            };
+            aux::forEach(outputData.vars, recordResults);
+            data << '\n';
+          }
 
-        auto fileName =
-            constructPpReceiverFileName(outputData.receiverPoints[pointId].globalReceiverIndex);
-        std::ofstream file(fileName, std::ios_base::app);
-        if (file.is_open()) {
-          file << data.str();
-        } else {
-          logError() << "cannot open " << fileName;
+          auto fileName =
+              constructPpReceiverFileName(outputData.receiverPoints[pointId].globalReceiverIndex);
+          std::ofstream file(fileName, std::ios_base::app);
+          if (file.is_open()) {
+            file << data.str();
+          } else {
+            logError() << "cannot open " << fileName;
+          }
+          file.close();
         }
-        file.close();
+        outputData.currentCacheLevel = 0;
       }
-      outputData.currentCacheLevel = 0;
     }
+    iterationStep += 1;
   }
-  iterationStep += 1;
 }
 
 void Base::updateElementwiseOutput() {
-  calcFaultOutput(OutputType::Elementwise, ewOutputBuilder->outputData);
+  if (this->ewOutputBuilder) {
+    calcFaultOutput(OutputType::Elementwise, ewOutputBuilder->outputData);
+  }
 }
 
 using DrPaddedArrayT = real (*)[seissol::init::QInterpolated::Stop[0]];

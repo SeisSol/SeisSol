@@ -17,9 +17,8 @@ int getElementVertexId(int localSideId, int localFaceVertexId);
 
 ExtTriangle getReferenceFace(int localSideId);
 
-ExtTriangle getGlobalFace(const Fault& fault,
-                          const std::vector<Element>& elementsInfo,
-                          const std::vector<Vertex>& verticesInfo);
+ExtTriangle
+    getGlobalFace(int localSideId, const Element& element, const std::vector<Vertex>& verticesInfo);
 
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
 
