@@ -51,6 +51,8 @@ ci_builder_build:
     stage: build
     tags:
         - ci_testing_cc
+    variables:
+        GIT_STRATEGY: clone
     needs:
         - job: ci_builder_pre
     before_script:
@@ -92,6 +94,8 @@ ci_builder_test:
         stage: test
         tags:
             - ci_testing_cc
+        variables:
+            GIT_STRATEGY: clone
         allow_failure: true
         needs:
             - job: ci_builder_build
