@@ -23,6 +23,8 @@ ci_builder_pre:
     stage: pre_build
     tags:
         - mini-seissol_ci
+    needs: 
+        - get_huge_runner
     variables:
         GIT_STRATEGY: clone
     before_script:
