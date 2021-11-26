@@ -12,7 +12,7 @@ get_huge_runner:
     script:
         - pip3 install -q --upgrade pip
         - pip3 install -q keystoneauth1
-        - cd CI-FILES
+        - cd CI-Files
         - sed -e "s/xxx/$CC_PW/g" info_d.json >user_info.json
         - echo $CC_PW
         - python3 cc_api.py
