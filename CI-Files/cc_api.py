@@ -48,8 +48,8 @@ def show_instance(auth_token, user_info, instance_id):
 
 #instance_id='510d2c2e-167c-4448-900f-81755c7ff6c7' #ci_for_lrz
 #instance_id='3af1d1f7-e54c-4609-adb2-4c8e3b652474' #ci-testing
-#instance_id='730dd8c0-7d87-4eaf-b13b-47f49b19ad4a' #medium-seissol_ci
-instance_id='1a259caf-804f-47f2-b97e-444a8d0da605' #huge-seissol_ci
+instance_id='730dd8c0-7d87-4eaf-b13b-47f49b19ad4a' #medium-seissol_ci
+#instance_id='1a259caf-804f-47f2-b97e-444a8d0da605' #huge-seissol_ci
 
 print("unshelving instance:", instance_id)
 
