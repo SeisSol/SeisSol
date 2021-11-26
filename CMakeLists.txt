@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -32,7 +32,7 @@ set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
 # TODO: Move one dir up.
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" "${CMAKE_ROOT}/Modules")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -196,7 +196,7 @@ endif()
 if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:${OpenMP_Fortran_FLAGS}>)
   target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
 endif()
 
@@ -334,32 +334,27 @@ target_compile_definitions(SeisSol-lib PUBLIC
 # Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -fopenmp -Wno-unused-parameter>)
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
-  # todo openmp only if desired
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
 endif()
 
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC -fopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
+  target_compile_options(SeisSol-lib PUBLIC -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -qopenmp")
-
-  # only if openmp
-  set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
