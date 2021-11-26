@@ -86,7 +86,7 @@ void RateAndStateInitializer::addAdditionalParameters(
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
   real(*rs_sl0)[numPaddedPoints] = it->var(concreteLts->rs_sl0);
   real(*rs_a)[numPaddedPoints] = it->var(concreteLts->rs_a);
-  parameterToStorageMap.insert({"sl0", (real*)rs_sl0});
+  parameterToStorageMap.insert({"rs_sl0", (real*)rs_sl0});
   parameterToStorageMap.insert({"rs_a", (real*)rs_a});
 }
 

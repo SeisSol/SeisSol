@@ -12,154 +12,6 @@ namespace seissol::dr::friction_law {
 template <class Derived>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   public:
-  using BaseFrictionLaw<RateAndStateBase<Derived>>::BaseFrictionLaw;
-
-  protected:
-  /**
-   * Parameters of the optimisation loops
-   * absolute tolerance on the function to be optimized
-   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-   * the most adapted Number of iteration in the loops
-   */
-  const unsigned int nSRupdates = 60;
-  const unsigned int nSVupdates = 2;
-
-  public:
-  void updateFrictionAndSlip(FaultStresses& faultStresses,
-                             std::array<real, numPaddedPoints>& stateVariableBuffer,
-                             std::array<real, numPaddedPoints>& strengthBuffer,
-                             unsigned& ltsFace,
-                             unsigned& timeIndex) {
-    // TODO
-  }
-  //  void evaluate(seissol::initializers::Layer& layerData,
-  //                seissol::initializers::DynamicRupture* dynRup,
-  //                real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-  //                real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-  //                real fullUpdateTime,
-  //                double timeWeights[CONVERGENCE_ORDER]) {
-  //    BaseFrictionLaw<RateAndStateBase<Derived>>::copyLtsTreeToLocal(
-  //        layerData, dynRup, fullUpdateTime);
-  //
-  //    // compute time increments (Gnuc)
-  //    static_cast<Derived*>(this)->preCalcTime();
-  //
-  //#ifdef _OPENMP
-  //#pragma omp parallel for schedule(static)
-  //#endif
-  //    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-  //
-  //      // initialize local variables inside parallel face loop
-  //      bool has_converged = false;
-  //      FaultStresses faultStresses = {};
-  //      real deltaStateVar[numPaddedPoints] = {0};
-  //      std::array<real, numPaddedPoints> tmpSlip{0}; // required for averageSlip calculation
-  //      std::array<real, numPaddedPoints> normalStress{0};
-  //      std::array<real, numPaddedPoints> TotalShearStressYZ{0};
-  //      std::array<real, numPaddedPoints> stateVarZero{0};
-  //      std::array<real, numPaddedPoints> SR_tmp{0};
-  //      std::array<real, numPaddedPoints> LocSV{0};
-  //      std::array<real, numPaddedPoints> SRtest{0};
-  //
-  //      // for thermalPressure
-  //      std::array<real, numPaddedPoints> P_f{0};
-  //
-  //      // compute Godunov state
-  //      this->precomputeStressFromQInterpolated(
-  //          faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
-  //
-  //      // Compute Initial stress (only for FL103), and set initial StateVariable
-  //      static_cast<Derived*>(this)->setInitialValues(LocSV, ltsFace);
-  //
-  //      for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-  //        // compute initial slip rates
-  //        static_cast<Derived*>(this)->calcInitialSlipRate(
-  //            TotalShearStressYZ, faultStresses, stateVarZero, LocSV, SR_tmp, timeIndex, ltsFace);
-  //        // compute initial thermal pressure (ony for FL103 TP)
-  //        static_cast<Derived*>(this)->hookSetInitialP_f(P_f, ltsFace);
-  //
-  //        for (unsigned int j = 0; j < nSVupdates; j++) {
-  //          // compute pressure from thermal pressurization (only FL103 TP)
-  //          static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, false, timeIndex,
-  //          ltsFace);
-  //          // compute slip rates by solving non-linear system of equations (with newton)
-  //          static_cast<Derived*>(this)->updateStateVariableIterative(has_converged,
-  //                                                                    stateVarZero,
-  //                                                                    SR_tmp,
-  //                                                                    LocSV,
-  //                                                                    P_f,
-  //                                                                    normalStress,
-  //                                                                    TotalShearStressYZ,
-  //                                                                    SRtest,
-  //                                                                    faultStresses,
-  //                                                                    timeIndex,
-  //                                                                    ltsFace);
-  //        } // End nSVupdates-loop   j=1,nSVupdates   !This loop corrects SV values
-  //
-  //        // check for convergence
-  //        if (!has_converged) {
-  //          static_cast<Derived*>(this)->executeIfNotConverged(LocSV, ltsFace);
-  //        }
-  //        // compute final thermal pressure for FL103TP
-  //        static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, true, timeIndex, ltsFace);
-  //        // compute final slip rates and traction from median value of the iterative solution and
-  //        the
-  //        // initial guess
-  //        static_cast<Derived*>(this)->calcSlipRateAndTraction(stateVarZero,
-  //                                                             SR_tmp,
-  //                                                             LocSV,
-  //                                                             normalStress,
-  //                                                             TotalShearStressYZ,
-  //                                                             tmpSlip,
-  //                                                             deltaStateVar,
-  //                                                             faultStresses,
-  //                                                             timeIndex,
-  //                                                             ltsFace);
-  //
-  //      } // End of timeIndex-loop
-  //
-  //      // resample state variables
-  //      static_cast<Derived*>(this)->resampleStateVar(deltaStateVar, ltsFace);
-  //
-  //      //---------------------------------------------
-  //
-  //      // output rupture front
-  //      // outside of timeIndex loop in order to safe an 'if' in a loop
-  //      // this way, no subtimestep resolution possible
-  //      this->saveRuptureFrontOutput(ltsFace);
-  //
-  //      // save maximal slip rates
-  //      this->savePeakSlipRateOutput(ltsFace);
-  //
-  //      // output time when shear stress is equal to the dynamic stress after rupture arrived
-  //      // currently only for linear slip weakening
-  //      static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
-  //
-  //      //---compute and store slip to determine the magnitude of an earthquake ---
-  //      //    to this end, here the slip is computed and averaged per element
-  //      //    in calc_seissol.f90 this value will be multiplied by the element surface
-  //      //    and an output happened once at the end of the simulation
-  //      this->saveAverageSlipOutput(tmpSlip, ltsFace);
-  //
-  //      // compute resulting stresses (+/- side) by time integration from godunov state
-  //      this->postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace],
-  //                                                 QInterpolatedMinus[ltsFace],
-  //                                                 faultStresses,
-  //                                                 timeWeights,
-  //                                                 ltsFace);
-  //    } // end face loop
-  //  }   // end evaluate function
-
-  void preHook(unsigned ltsFace){};
-  void postHook(unsigned ltsFace){};
-};
-
-class RateAndStateFastVelocityWeakeningLaw
-    : public RateAndStateBase<RateAndStateFastVelocityWeakeningLaw> {
-  public:
-  using RateAndStateBase<RateAndStateFastVelocityWeakeningLaw>::RateAndStateBase;
-
-  protected:
   // Attributes
   // CS = coordinate system
   real (*nucleationStressInFaultCS)[numPaddedPoints][6];
@@ -178,22 +30,119 @@ class RateAndStateFastVelocityWeakeningLaw
   //! as a consequence, the SR is affected the AlmostZero value when too small
   const real almostZero = 1e-45;
 
-  //! PARAMETERS of THE optimisation loops
-  //! absolute tolerance on the function to be optimzed
-  //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-  //! the most adapted Number of iteration in the loops
+  /**
+   * Parameters of the optimisation loops
+   * absolute tolerance on the function to be optimized
+   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
+   * the most adapted Number of iteration in the loops
+   */
   const unsigned int numberSlipRateUpdates = 60;
   const unsigned int nSVupdates = 2;
 
   const double aTolF = 1e-8;
 
+  using BaseFrictionLaw<RateAndStateBase<Derived>>::BaseFrictionLaw;
+
+  protected:
+  public:
+  void updateFrictionAndSlip(FaultStresses& faultStresses,
+                             std::array<real, numPaddedPoints>& stateVariableBuffer,
+                             std::array<real, numPaddedPoints>& strengthBuffer,
+                             unsigned& ltsFace,
+                             unsigned& timeIndex) {
+    bool has_converged = false;
+
+    // for thermalPressure
+    std::array<real, numPaddedPoints> P_f{0};
+    std::array<real, numPaddedPoints> SR_tmp{0};
+    std::array<real, numPaddedPoints> stateVarZero{0};
+    std::array<real, numPaddedPoints> normalStress{0};
+    std::array<real, numPaddedPoints> TotalShearStressYZ{0};
+    std::array<real, numPaddedPoints> SRtest{0};
+    // compute initial slip rates
+    static_cast<Derived*>(this)->calcInitialSlipRate(TotalShearStressYZ,
+                                                     faultStresses,
+                                                     stateVarZero,
+                                                     stateVariableBuffer,
+                                                     SR_tmp,
+                                                     timeIndex,
+                                                     ltsFace);
+    // compute initial thermal pressure (ony for FL103 TP)
+    static_cast<Derived*>(this)->hookSetInitialP_f(P_f, ltsFace);
+
+    for (unsigned int j = 0; j < nSVupdates; j++) {
+      // compute pressure from thermal pressurization (only FL103 TP)
+      static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, false, timeIndex, ltsFace);
+      // compute slip rates by solving non-linear system of equations (with newton)
+      static_cast<Derived*>(this)->updateStateVariableIterative(has_converged,
+                                                                stateVarZero,
+                                                                SR_tmp,
+                                                                stateVariableBuffer,
+                                                                P_f,
+                                                                normalStress,
+                                                                TotalShearStressYZ,
+                                                                SRtest,
+                                                                faultStresses,
+                                                                timeIndex,
+                                                                ltsFace);
+    }
+
+    // check for convergence
+    if (!has_converged) {
+      static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
+    }
+    // compute final thermal pressure for FL103TP
+    static_cast<Derived*>(this)->hookCalcP_f(P_f, faultStresses, true, timeIndex, ltsFace);
+    // compute final slip rates and traction from median value of the iterative solution and
+    // initial guess
+    static_cast<Derived*>(this)->calcSlipRateAndTraction(stateVarZero,
+                                                         SR_tmp,
+                                                         stateVariableBuffer,
+                                                         normalStress,
+                                                         TotalShearStressYZ,
+                                                         faultStresses,
+                                                         timeIndex,
+                                                         ltsFace);
+  }
+
+  void preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
+    // compute time increments (Gnuc)
+    static_cast<Derived*>(this)->preCalcTime();
+
+    // Compute Initial stress (only for FL103), and set initial StateVariable
+    static_cast<Derived*>(this)->setInitialValues(stateVariableBuffer, ltsFace);
+  }
+
+  void postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
+    std::array<real, numPaddedPoints> deltaStateVar = {0};
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
+      deltaStateVar[pointIndex] =
+          stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
+    }
+    // resample state variables
+    static_cast<Derived*>(this)->resampleStateVar(deltaStateVar, ltsFace);
+  }
+
+  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                          seissol::initializers::DynamicRupture* dynRup,
+                          real fullUpdateTime) {
+    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+  }
+};
+
+class RateAndStateFastVelocityWeakeningLaw
+    : public RateAndStateBase<RateAndStateFastVelocityWeakeningLaw> {
+  public:
+  using RateAndStateBase<RateAndStateFastVelocityWeakeningLaw>::RateAndStateBase;
+
+  protected:
   public:
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
-                            seissol::initializers::DynamicRupture* dynRup,
-                            real fullUpdateTime);
+  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                          seissol::initializers::DynamicRupture* dynRup,
+                          real fullUpdateTime);
 
   /*
    * compute time increments (Gnuc)
@@ -250,8 +199,6 @@ class RateAndStateFastVelocityWeakeningLaw
                                std::array<real, numPaddedPoints>& localStateVariable,
                                std::array<real, numPaddedPoints>& normalStress,
                                std::array<real, numPaddedPoints>& TotalShearStressYZ,
-                               std::array<real, numPaddedPoints>& tmpSlip,
-                               real deltaStateVar[numPaddedPoints],
                                FaultStresses& faultStresses,
                                unsigned int timeIndex,
                                unsigned int ltsFace);
@@ -259,7 +206,7 @@ class RateAndStateFastVelocityWeakeningLaw
   /*
    * resample output state variable
    */
-  void resampleStateVar(real deltaStateVar[numPaddedPoints], unsigned int ltsFace);
+  void resampleStateVar(std::array<real, numPaddedPoints>& deltaStateVar, unsigned int ltsFace);
 
   // output time when shear stress is equal to the dynamic stress after rupture arrived
   // currently only for linear slip weakening
@@ -343,9 +290,9 @@ class RateAndStateThermalPressurizationLaw : public RateAndStateFastVelocityWeak
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocalRS(seissol::initializers::Layer& layerData,
-                            seissol::initializers::DynamicRupture* dynRup,
-                            real fullUpdateTime);
+  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
+                          seissol::initializers::DynamicRupture* dynRup,
+                          real fullUpdateTime);
 
   protected:
   /*

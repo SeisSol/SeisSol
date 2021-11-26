@@ -24,8 +24,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates> {
                              unsigned& ltsFace,
                              unsigned& timeIndex);
 
-  void preHook(unsigned ltsFace);
-  void postHook(unsigned ltsFace);
+  void preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace);
+  void postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace);
 };
 
 } // namespace seissol::dr::friction_law

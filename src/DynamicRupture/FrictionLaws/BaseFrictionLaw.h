@@ -356,11 +356,11 @@ class BaseFrictionLaw : public FrictionSolver {
       this->precomputeStressFromQInterpolated(
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-      static_cast<Derived*>(this)->preHook(ltsFace);
-
       // define some temporary variables
       std::array<real, numPaddedPoints> stateVariableBuffer{0};
       std::array<real, numPaddedPoints> strengthBuffer{0};
+
+      static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
 
       // loop over sub time steps (i.e. quadrature points in time)
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
@@ -368,7 +368,7 @@ class BaseFrictionLaw : public FrictionSolver {
             faultStresses, stateVariableBuffer, strengthBuffer, ltsFace, timeIndex);
       }
 
-      static_cast<Derived*>(this)->preHook(ltsFace);
+      static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
       // output rupture front
       this->saveRuptureFrontOutput(ltsFace);

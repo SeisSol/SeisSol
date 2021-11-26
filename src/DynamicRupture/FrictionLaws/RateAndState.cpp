@@ -1,12 +1,10 @@
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
-void RateAndStateFastVelocityWeakeningLaw::copyLtsTreeToLocalRS(
+void RateAndStateFastVelocityWeakeningLaw::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real fullUpdateTime) {
-  // first copy all Variables from the Base Lts dynRup tree
-  BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   // maybe change later to const_cast?
   auto concreteLts =
       dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
@@ -137,7 +135,7 @@ void RateAndStateFastVelocityWeakeningLaw::executeIfNotConverged(
   real tmp = 0.5 / drParameters.rs_sr0 * exp(localStateVariable[0] / a[ltsFace][0]) *
              slipRateMagnitude[ltsFace][0];
   //! logError(*) 'nonConvergence RS Newton', time
-  std::cout << "nonConvergence RS Newton, time: " << m_fullUpdateTime << std::endl;
+  // std::cout << "nonConvergence RS Newton, time: " << m_fullUpdateTime << std::endl;
   assert(!std::isnan(tmp) && "nonConvergence RS Newton");
 }
 
@@ -147,8 +145,6 @@ void RateAndStateFastVelocityWeakeningLaw::calcSlipRateAndTraction(
     std::array<real, numPaddedPoints>& localStateVariable,
     std::array<real, numPaddedPoints>& normalStress,
     std::array<real, numPaddedPoints>& TotalShearStressYZ,
-    std::array<real, numPaddedPoints>& tmpSlip,
-    real deltaStateVar[numPaddedPoints],
     FaultStresses& faultStresses,
     unsigned int timeIndex,
     unsigned int ltsFace) {
@@ -201,7 +197,6 @@ void RateAndStateFastVelocityWeakeningLaw::calcSlipRateAndTraction(
       slipRateDip[ltsFace][pointIndex] *=
           slipRateMagnitude[ltsFace][pointIndex] / LocslipRateMagnitude[pointIndex];
     }
-    tmpSlip[pointIndex] += LocslipRateMagnitude[pointIndex] * deltaT[timeIndex];
 
     slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
     slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
@@ -209,18 +204,15 @@ void RateAndStateFastVelocityWeakeningLaw::calcSlipRateAndTraction(
     //! Save traction for flux computation
     faultStresses.XYTractionResultGP[timeIndex][pointIndex] = tractionXY[ltsFace][pointIndex];
     faultStresses.XZTractionResultGP[timeIndex][pointIndex] = tractionXZ[ltsFace][pointIndex];
-
-    // Could be outside TimeLoop, since only last time result is used later
-    deltaStateVar[pointIndex] = localStateVariable[pointIndex] - stateVariable[ltsFace][pointIndex];
   } // End of BndGP-loop
 }
 
-void RateAndStateFastVelocityWeakeningLaw::resampleStateVar(real deltaStateVar[numPaddedPoints],
-                                                            unsigned int ltsFace) {
+void RateAndStateFastVelocityWeakeningLaw::resampleStateVar(
+    std::array<real, numPaddedPoints>& deltaStateVar, unsigned int ltsFace) {
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resampleM = init::resample::Values;
   real resampledDeltaStateVariable[numPaddedPoints];
-  resampleKrnl.resamplePar = deltaStateVar;
+  resampleKrnl.resamplePar = deltaStateVar.data();
   resampleKrnl.resampledPar = resampledDeltaStateVariable; // output from execute
   resampleKrnl.execute();
 
@@ -485,12 +477,12 @@ void RateAndStateThermalPressurizationLaw::initializeTP(
   e_interoperability.getDynRupTP(TP_grid, TP_DFinv);
 }
 
-void RateAndStateThermalPressurizationLaw::copyLtsTreeToLocalRS(
+void RateAndStateThermalPressurizationLaw::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture* dynRup,
     real fullUpdateTime) {
   // first copy all Variables from the Base Lts dynRup tree
-  RateAndStateFastVelocityWeakeningLaw::copyLtsTreeToLocalRS(layerData, dynRup, fullUpdateTime);
+  RateAndStateFastVelocityWeakeningLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
   // maybe change later to const_cast?
   auto concreteLts =

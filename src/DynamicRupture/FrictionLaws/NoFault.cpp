@@ -13,6 +13,6 @@ void NoFault::updateFrictionAndSlip(FaultStresses& faultStresses,
         faultStresses.XZStressGP[timeIndex][pointIndex];
   }
 }
-void NoFault::preHook(unsigned ltsFace){};
-void NoFault::postHook(unsigned ltsFace){};
+void NoFault::preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace){};
+void NoFault::postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace){};
 } // namespace seissol::dr::friction_law

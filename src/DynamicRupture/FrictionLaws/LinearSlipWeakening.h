@@ -113,16 +113,20 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
                              unsigned int ltsFace) {
     static_cast<Derived*>(this)->calcStateVariableHook(stateVariable, timeIndex, ltsFace);
   }
-  void preHook(unsigned int ltsFace) { static_cast<Derived*>(this)->preHook(ltsFace); };
-  void postHook(unsigned int ltsFace) { static_cast<Derived*>(this)->postHook(ltsFace); };
+  void preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+    static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
+  };
+  void postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+    static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
+  };
 };
 
 class LinearSlipWeakeningLaw : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw> {
   public:
   using LinearSlipWeakeningBase::LinearSlipWeakeningBase;
 
-  void preHook(unsigned int ltsFace);
-  void postHook(unsigned int ltsFace);
+  void preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace);
+  void postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace);
 
   void calcStrengthHook(FaultStresses& faultStresses,
                         std::array<real, numPaddedPoints>& strength,
@@ -145,8 +149,8 @@ class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
-  void preHook(unsigned int ltsFace);
-  void postHook(unsigned int ltsFace);
+  void preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace);
+  void postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace);
 
   void calcStateVariableHook(std::array<real, numPaddedPoints>& stateVariable,
                              unsigned int timeIndex,

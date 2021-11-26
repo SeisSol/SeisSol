@@ -44,7 +44,10 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(std::array<real, numPaddedPoi
   }
 }
 
-void LinearSlipWeakeningLaw::preHook(unsigned int ltsFace) {}
+void LinearSlipWeakeningLaw::preHook(std::array<real, numPaddedPoints>& stateVariableBuffer,
+                                     unsigned int ltsFace) {}
+void LinearSlipWeakeningLaw::postHook(std::array<real, numPaddedPoints>& stateVariableBuffer,
+                                      unsigned int ltsFace) {}
 
 void LinearSlipWeakeningLawForcedRuptureTime::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
@@ -59,7 +62,8 @@ void LinearSlipWeakeningLawForcedRuptureTime::copyLtsTreeToLocal(
   tn = layerData.var(concreteLts->tn);
 }
 
-void LinearSlipWeakeningLawForcedRuptureTime::preHook(unsigned int ltsFace) {
+void LinearSlipWeakeningLawForcedRuptureTime::preHook(
+    std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
   tn[ltsFace] = m_fullUpdateTime;
 }
 

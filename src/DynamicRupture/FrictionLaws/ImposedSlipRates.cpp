@@ -52,6 +52,8 @@ void ImposedSlipRates::updateFrictionAndSlip(FaultStresses& faultStresses,
   }
 }
 
-void ImposedSlipRates::preHook(unsigned ltsFace){};
-void ImposedSlipRates::postHook(unsigned ltsFace){};
+void ImposedSlipRates::preHook(std::array<real, numPaddedPoints>& stateVariableBuffer,
+                               unsigned ltsFace){};
+void ImposedSlipRates::postHook(std::array<real, numPaddedPoints>& stateVariableBuffer,
+                                unsigned ltsFace){};
 } // namespace seissol::dr::friction_law
