@@ -47,6 +47,7 @@ ci_builder_pre:
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
         - cat .git/config
+        - echo "now unshelving huge instance"
         
 ci_builder_build:
     stage: build
@@ -65,7 +66,7 @@ ci_builder_build:
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
         - git submodule update --init --recursive
         - cat .git/config
-        - cat .gitsubmodules
+        - cat .gitmodules
     artifacts:
         paths:
             - build_*
@@ -86,5 +87,5 @@ ci_builder_test:
             - pwd
             - ls
             - cd $DIR
-            - cat .gitsubmodules
+            - cat .gitmodules
             - cat .git/config
