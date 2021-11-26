@@ -17,7 +17,8 @@ get_huge_runner:
         - echo $CC_PW
         - python3 cc_api.py
         - sleep 30
-        - echo "finished unshelving stage at" date
+        - echo "finished unshelving stage at:"
+        - date
 
 ci_builder_pre:
     stage: pre_build
@@ -121,3 +122,4 @@ ci_builder_test:
             - pwd
             - ls
             - cd $DIR
+            - make test
