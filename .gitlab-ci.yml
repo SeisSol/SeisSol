@@ -42,12 +42,14 @@ ci_builder_pre:
         - pip3 install -q setuptools
         - pip3 install -q sphinx
         - pip3 install -q sphinx_rtd_theme
+        - pip3 install -q keystoneauth1
         - tar -xzf netcdf-4.6.1.tar.gz
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
         - cat .git/config
         - echo "now unshelving huge instance"
+        - ls CI-Files
         
 ci_builder_build:
     stage: build
