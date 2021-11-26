@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTOUT_GEOMETRY_HPP
-#define SEISSOL_DR_OUTOUT_GEOMETRY_HPP
+#ifndef SEISSOL_DR_OUTPUT_GEOMETRY_HPP
+#define SEISSOL_DR_OUTPUT_GEOMETRY_HPP
 
 #include "Kernels/precision.hpp"
 #include "Geometry/MeshDefinition.h"
@@ -82,14 +82,14 @@ struct ExtTriangle {
 };
 
 struct ReceiverPointT {
-  ExtVrtxCoords global{};      // physical coords of a receiver
-  ExtVrtxCoords referece{};    // reference coords of a receiver
-  ExtTriangle globalSubTet{};  // (subtet) vertices coordinates (of a surrounding triangle)
-  int faultFaceIndex{-1};      // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};     // Side ID of a reference element
-  int elementIndex{-1};        // Element which the receiver belongs to
-  int globalReceiverIndex{-1}; // receiver index of global list
-  bool isInside{};             // If a point is inside the mesh or not
+  ExtVrtxCoords global{};       // physical coords of a receiver
+  ExtVrtxCoords reference{};    // reference coords of a receiver
+  ExtTriangle globalTriangle{}; // a surrounding triangle of a receiver
+  int faultFaceIndex{-1};       // Face Fault index which the receiver belongs to
+  int localFaceSideId{-1};      // Side ID of a reference element
+  int elementIndex{-1};         // Element which the receiver belongs to
+  int globalReceiverIndex{-1};  // receiver index of global list
+  bool isInside{};              // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   double distanceToNearestGp{std::numeric_limits<double>::max()};
 };
@@ -104,4 +104,4 @@ struct FaultDirectionsT {
 };
 } // namespace seissol::dr
 
-#endif // SEISSOL_DR_OUTOUT_GEOMETRY_HPP
+#endif // SEISSOL_DR_OUTPUT_GEOMETRY_HPP

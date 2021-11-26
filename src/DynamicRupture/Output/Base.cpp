@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildInType<T, U> obj) {
 }
 
 namespace seissol::dr::output {
-std::string Base::constructPpReceiverFileName(const int receiverGlobalIndex) const {
+std::string Base::constructPickpointReceiverFileName(const int receiverGlobalIndex) const {
   std::stringstream fileName;
   fileName << generalParams.outputFilePrefix << "-new-faultreceiver-"
            << makeFormatted<int, WideFormat>(receiverGlobalIndex);
@@ -45,7 +45,7 @@ std::string Base::constructPpReceiverFileName(const int receiverGlobalIndex) con
   return fileName.str();
 }
 
-void Base::initEwOutput() {
+void Base::initElementwiseOutput() {
   ewOutputBuilder->init();
 
   const auto& receiverPoints = ewOutputBuilder->outputData.receiverPoints;
@@ -103,7 +103,7 @@ void Base::initPickpointOutput() {
   auto& outputData = ppOutputBuilder->outputData;
   for (const auto& receiver : outputData.receiverPoints) {
     const size_t globalIndex = receiver.globalReceiverIndex;
-    auto fileName = constructPpReceiverFileName(globalIndex);
+    auto fileName = constructPickpointReceiverFileName(globalIndex);
     if (!std::filesystem::exists(fileName)) {
 
       std::ofstream file(fileName, std::ios_base::out);
@@ -129,7 +129,7 @@ void Base::initPickpointOutput() {
 
 void Base::init() {
   if (ewOutputBuilder) {
-    initEwOutput();
+    initElementwiseOutput();
   }
   if (ppOutputBuilder) {
     initPickpointOutput();
@@ -155,7 +155,6 @@ bool Base::isAtPickpoint(double time, double dt) {
   bool isFirstStep = iterationStep == 0;
 
   const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
-  constexpr double timeMargin = 1.005;
   const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
 
   const int printTimeInterval = ppOutputBuilder->pickpointParams.printTimeInterval;
@@ -174,7 +173,7 @@ void Base::writePickpointOutput(double time, double dt) {
       const bool isMaxCacheLevel =
           outputData.currentCacheLevel >=
           static_cast<size_t>(ppOutputBuilder->pickpointParams.maxPickStore);
-      const bool isCloseToEnd = (generalParams.endTime - time) < dt * 1.005;
+      const bool isCloseToEnd = (generalParams.endTime - time) < dt * timeMargin;
       if (isMaxCacheLevel || isCloseToEnd) {
         for (size_t pointId = 0; pointId < outputData.receiverPoints.size(); ++pointId) {
 
@@ -192,8 +191,8 @@ void Base::writePickpointOutput(double time, double dt) {
             data << '\n';
           }
 
-          auto fileName =
-              constructPpReceiverFileName(outputData.receiverPoints[pointId].globalReceiverIndex);
+          auto fileName = constructPickpointReceiverFileName(
+              outputData.receiverPoints[pointId].globalReceiverIndex);
           std::ofstream file(fileName, std::ios_base::app);
           if (file.is_open()) {
             file << data.str();
@@ -239,9 +238,9 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
     const auto strike = outputData.faultDirections[faceIndex].strike;
     const auto dip = outputData.faultDirections[faceIndex].dip;
 
-    auto& functionAndState = std::get<VariableID::FunctionAndState>(outputData.vars);
-    if (functionAndState.isActive) {
-      functionAndState(ParamID::FUNCTION, level, i) = mu[ltsId][nearestGaussPoint];
+    auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
+    if (frictionAndState.isActive) {
+      frictionAndState(ParamID::FRICTION_COEFFICIENT, level, i) = mu[ltsId][nearestGaussPoint];
     }
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
@@ -249,12 +248,12 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       ruptureTime(level, i) = rt[ltsId][nearestGaussPoint];
     }
 
-    auto& absoluteSlip = std::get<VariableID::AbsoluteSlip>(outputData.vars);
-    if (absoluteSlip.isActive) {
-      absoluteSlip(level, i) = slip[ltsId][nearestGaussPoint];
+    auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
+    if (accumulatedSlip.isActive) {
+      accumulatedSlip(level, i) = slip[ltsId][nearestGaussPoint];
     }
 
-    auto& peakSlipsRate = std::get<VariableID::PeakSlipsRate>(outputData.vars);
+    auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
     if (peakSlipsRate.isActive) {
       peakSlipsRate(level, i) = peakSR[ltsId][nearestGaussPoint];
     }

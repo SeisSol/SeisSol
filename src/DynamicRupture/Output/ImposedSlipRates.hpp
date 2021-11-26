@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTOUT_IMPOSED_RS_HPP
-#define SEISSOL_DR_OUTOUT_IMPOSED_RS_HPP
+#ifndef SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
+#define SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
 
 #include "DynamicRupture/Output/Base.hpp"
 
@@ -18,4 +18,4 @@ class ImposedSlipRates : public Base {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTOUT_IMPOSED_RS_HPP
+#endif // SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP

@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTOUT_RS_TP_HPP
-#define SEISSOL_DR_OUTOUT_RS_TP_HPP
+#ifndef SEISSOL_DR_OUTPUT_RS_TP_HPP
+#define SEISSOL_DR_OUTPUT_RS_TP_HPP
 
 #include "DynamicRupture/Output/Base.hpp"
 
@@ -12,4 +12,4 @@ class RateAndStateThermalPressurisation : public RateAndState {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTOUT_RS_TP_HPP
+#endif // SEISSOL_DR_OUTPUT_RS_TP_HPP

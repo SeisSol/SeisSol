@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTOUT_NO_OUTPUT_HPP
-#define SEISSOL_DR_OUTOUT_NO_OUTPUT_HPP
+#ifndef SEISSOL_DR_OUTPUT_NO_FAULT_HPP
+#define SEISSOL_DR_OUTPUT_NO_FAULT_HPP
 
 #include <Solver/Interoperability.h>
 #include "DynamicRupture/Output/Base.hpp"
@@ -19,4 +19,4 @@ class NoFault : public Base {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTOUT_NO_OUTPUT_HPP
+#endif // SEISSOL_DR_OUTPUT_NO_FAULT_HPP

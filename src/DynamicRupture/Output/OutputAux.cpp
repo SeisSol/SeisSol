@@ -1,5 +1,4 @@
 #include "OutputAux.hpp"
-#include "DynamicRupture/Math.h"
 #include "Geometry/MeshTools.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
@@ -15,75 +14,46 @@ int getElementVertexId(int localSideId, int localFaceVertexId) {
 
 ExtTriangle getReferenceFace(int localSideId) {
   ExtTriangle referenceFace;
-  constexpr int xi{0};
-  constexpr int eta{1};
-  constexpr int zeta{2};
-
   switch (localSideId) {
   case 0:
-    referenceFace.p1[xi] = 0.0;
-    referenceFace.p1[eta] = 0.0;
-    referenceFace.p1[zeta] = 0.0;
-    referenceFace.p2[xi] = 0.0;
-    referenceFace.p2[eta] = 1.0;
-    referenceFace.p2[zeta] = 0.0;
-    referenceFace.p3[xi] = 1.0;
-    referenceFace.p3[eta] = 0.0;
-    referenceFace.p3[zeta] = 0.0;
+    referenceFace.p1 = {0.0, 0.0, 0.0};
+    referenceFace.p2 = {0.0, 1.0, 0.0};
+    referenceFace.p3 = {1.0, 0.0, 0.0};
     break;
   case 1:
-    referenceFace.p1[xi] = 0.0;
-    referenceFace.p1[eta] = 0.0;
-    referenceFace.p1[zeta] = 0.0;
-    referenceFace.p2[xi] = 1.0;
-    referenceFace.p2[eta] = 0.0;
-    referenceFace.p2[zeta] = 0.0;
-    referenceFace.p3[xi] = 0.0;
-    referenceFace.p3[eta] = 0.0;
-    referenceFace.p3[zeta] = 1.0;
+    referenceFace.p1 = {0.0, 0.0, 0.0};
+    referenceFace.p2 = {1.0, 0.0, 0.0};
+    referenceFace.p3 = {0.0, 0.0, 1.0};
     break;
   case 2:
-    referenceFace.p1[xi] = 0.0;
-    referenceFace.p1[eta] = 0.0;
-    referenceFace.p1[zeta] = 0.0;
-    referenceFace.p2[xi] = 0.0;
-    referenceFace.p2[eta] = 0.0;
-    referenceFace.p2[zeta] = 1.0;
-    referenceFace.p3[xi] = 0.0;
-    referenceFace.p3[eta] = 1.0;
-    referenceFace.p3[zeta] = 0.0;
+    referenceFace.p1 = {0.0, 0.0, 0.0};
+    referenceFace.p2 = {0.0, 0.0, 1.0};
+    referenceFace.p3 = {0.0, 1.0, 0.0};
     break;
   case 3:
-    referenceFace.p1[xi] = 1.0;
-    referenceFace.p1[eta] = 0.0;
-    referenceFace.p1[zeta] = 0.0;
-    referenceFace.p2[xi] = 0.0;
-    referenceFace.p2[eta] = 1.0;
-    referenceFace.p2[zeta] = 0.0;
-    referenceFace.p3[xi] = 0.0;
-    referenceFace.p3[eta] = 0.0;
-    referenceFace.p3[zeta] = 1.0;
+    referenceFace.p1 = {1.0, 0.0, 0.0};
+    referenceFace.p2 = {0.0, 1.0, 0.0};
+    referenceFace.p3 = {0.0, 0.0, 1.0};
     break;
   default:
-    throw std::runtime_error("Unknown Local Side Id. Must be 0, 1, 2 or 3");
+    logError() << "Unknown Local Side Id. Must be 0, 1, 2 or 3";
   }
 
   return referenceFace;
 }
 
-
-ExtTriangle getGlobalFace(int localSideId,
-                          const Element& element,
-                          const std::vector<Vertex>& verticesInfo) {
-  ExtTriangle globalFace{};
+ExtTriangle getGlobalTriangle(int localSideId,
+                              const Element& element,
+                              const std::vector<Vertex>& verticesInfo) {
+  ExtTriangle triangle{};
 
   for (int vertexId = 0; vertexId < 3; ++vertexId) {
     auto elementVertexId = getElementVertexId(localSideId, vertexId);
     auto globalVertexId = element.vertices[elementVertexId];
 
-    globalFace[vertexId] = verticesInfo[globalVertexId].coords;
+    triangle[vertexId] = verticesInfo[globalVertexId].coords;
   }
-  return globalFace;
+  return triangle;
 }
 
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
@@ -173,7 +143,7 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
 
     double targetPoint2D[2];
     transformations::XiEtaZeta2chiTau(
-        geoPoint.localFaceSideId, geoPoint.referece.coords, targetPoint2D);
+        geoPoint.localFaceSideId, geoPoint.reference.coords, targetPoint2D);
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
@@ -187,54 +157,44 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
 void projectPointToFace(ExtVrtxCoords& point,
                         const ExtTriangle& face,
                         const VrtxCoords faceNormal) {
-  auto displacement = getDisplacementFromPointToFace(point, face, faceNormal);
+  auto distance = getDistanceFromPointToFace(point, face, faceNormal);
+  double faceNormalLength = MeshTools::norm(faceNormal);
+  auto adjustedDistance = distance / faceNormalLength;
+
   for (int i = 0; i < 3; ++i) {
-    point.coords[i] += displacement * faceNormal[i];
+    point.coords[i] += adjustedDistance * faceNormal[i];
   }
 }
 
-double getDisplacementFromPointToFace(const ExtVrtxCoords& point,
-                                      const ExtTriangle& face,
-                                      const VrtxCoords faceNormal) {
+double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+                                  const ExtTriangle& face,
+                                  const VrtxCoords faceNormal) {
 
   VrtxCoords diff{0.0, 0.0, 0.0};
-  MeshTools::sub(point.coords, face.p1.coords, diff);
+  MeshTools::sub(face.p1.coords, point.coords, diff);
 
-  // not faceNormal vector is not normalized
-  double faceNormalLength = MeshTools::dot(faceNormal, faceNormal);
-  return -1.0 * MeshTools::dot(faceNormal, diff) / faceNormalLength;
+  // Note: faceNormal may not be precisely a unit vector
+  double faceNormalLength = MeshTools::norm(faceNormal);
+  return MeshTools::dot(faceNormal, diff) / faceNormalLength;
 }
 
 PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
                                                     const VrtxCoords* plusElementCoords[4],
                                                     const VrtxCoords* minusElementCoords[4]) {
 
-  PlusMinusBasisFunctionsT basisFunctions{};
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  {
-    auto plusXiEtaZeta = transformations::tetrahedronGlobalToReference(*plusElementCoords[0],
-                                                                       *plusElementCoords[1],
-                                                                       *plusElementCoords[2],
-                                                                       *plusElementCoords[3],
-                                                                       point);
-
+  auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
+    auto referenceCoords = transformations::tetrahedronGlobalToReference(
+        *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
     basisFunction::SampledBasisFunctions<real> sampler(
-        CONVERGENCE_ORDER, plusXiEtaZeta[0], plusXiEtaZeta[1], plusXiEtaZeta[2]);
-    basisFunctions.plusSide = std::move(sampler.m_data);
-  }
+        CONVERGENCE_ORDER, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+    return sampler.m_data;
+  };
 
-  {
-    auto minusXiEtaZeta = transformations::tetrahedronGlobalToReference(*minusElementCoords[0],
-                                                                        *minusElementCoords[1],
-                                                                        *minusElementCoords[2],
-                                                                        *minusElementCoords[3],
-                                                                        point);
-
-    basisFunction::SampledBasisFunctions<real> sampler(
-        CONVERGENCE_ORDER, minusXiEtaZeta[0], minusXiEtaZeta[1], minusXiEtaZeta[2]);
-    basisFunctions.minusSide = std::move(sampler.m_data);
-  }
+  PlusMinusBasisFunctionsT basisFunctions{};
+  basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
+  basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
 
   return basisFunctions;
 }
@@ -244,7 +204,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
 
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
-      const auto& triangle = receiverPoints[pointIndex].globalSubTet;
+      const auto& triangle = receiverPoints[pointIndex].globalTriangle;
       auto& point = const_cast<ExtVrtxCoords&>(triangle.points[vertexIndex]);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;

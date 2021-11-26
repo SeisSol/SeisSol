@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTOUT_LSW_HPP
-#define SEISSOL_DR_OUTOUT_LSW_HPP
+#ifndef SEISSOL_DR_OUTPUT_LSW_HPP
+#define SEISSOL_DR_OUTPUT_LSW_HPP
 
 #include "DynamicRupture/Output/Base.hpp"
 
@@ -36,4 +36,4 @@ class LinearSlipWeakening : public Base {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTOUT_LSW_HPP
+#endif // SEISSOL_DR_OUTPUT_LSW_HPP

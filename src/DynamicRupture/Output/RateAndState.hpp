@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTOUT_RS_AGING_LAW_HPP
-#define SEISSOL_DR_OUTOUT_RS_AGING_LAW_HPP
+#ifndef SEISSOL_DR_OUTPUT_RS_HPP
+#define SEISSOL_DR_OUTPUT_RS_HPP
 
 #include "DynamicRupture/Output/Base.hpp"
 
@@ -15,11 +15,11 @@ class RateAndState : public Base {
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
-    constexpr auto size = init::QInterpolated::Stop[0];
-    real(*slipRateStrike)[size] = layerData.var(concreteLts->slipRateStrike);
-    real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
-    real(*mu)[size] = layerData.var(concreteLts->mu);
-    real(*stateVar)[size] = layerData.var(concreteLts->stateVariable);
+    constexpr auto numGaussPoints2d = init::QInterpolated::Stop[0];
+    real(*slipRateStrike)[numGaussPoints2d] = layerData.var(concreteLts->slipRateStrike);
+    real(*slipRateDip)[numGaussPoints2d] = layerData.var(concreteLts->slipRateDip);
+    real(*mu)[numGaussPoints2d] = layerData.var(concreteLts->mu);
+    real(*stateVar)[numGaussPoints2d] = layerData.var(concreteLts->stateVariable);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -37,4 +37,4 @@ class RateAndState : public Base {
   }
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTOUT_RS_AGING_LAW_HPP
+#endif // SEISSOL_DR_OUTPUT_RS_HPP

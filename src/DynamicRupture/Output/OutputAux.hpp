@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DROUTPUTAUX_HPP
-#define SEISSOL_DROUTPUTAUX_HPP
+#ifndef SEISSOL_DR_OUTPUT_AUX_HPP
+#define SEISSOL_DR_OUTPUT_AUX_HPP
 
 #include "DataTypes.hpp"
 #include "Geometry/MeshReader.h"
@@ -17,8 +17,9 @@ int getElementVertexId(int localSideId, int localFaceVertexId);
 
 ExtTriangle getReferenceFace(int localSideId);
 
-ExtTriangle
-    getGlobalFace(int localSideId, const Element& element, const std::vector<Vertex>& verticesInfo);
+ExtTriangle getGlobalTriangle(int localSideId,
+                              const Element& element,
+                              const std::vector<Vertex>& verticesInfo);
 
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
 
@@ -37,9 +38,9 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 
 void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
 
-double getDisplacementFromPointToFace(const ExtVrtxCoords& point,
-                                      const ExtTriangle& face,
-                                      const VrtxCoords faceNormal);
+double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+                                  const ExtTriangle& face,
+                                  const VrtxCoords faceNormal);
 
 PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords point,
                                                     const VrtxCoords* plusElementCoords[4],
@@ -61,4 +62,4 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
 }
 } // namespace seissol::dr
 
-#endif // SEISSOL_DROUTPUTAUX_HPP
+#endif // SEISSOL_DR_OUTPUT_AUX_HPP

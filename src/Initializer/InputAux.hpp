@@ -45,13 +45,13 @@ namespace seissol::initializers {
  *  is less or equal to the size of a container
  * */
 template<typename OutputType, typename ContainerT>
-bool isCapacityEnough(const std::string& InputString, ContainerT& OutputMask) {
-  std::istringstream InputStream(InputString);
-  auto Begin = std::istream_iterator<OutputType>(InputStream);
-  auto End = std::istream_iterator<OutputType>();
+bool isCapacityEnough(const std::string& inputString, ContainerT& outputMask) {
+  std::istringstream inputStream(inputString);
+  auto begin = std::istream_iterator<OutputType>(inputStream);
+  auto end = std::istream_iterator<OutputType>();
 
-  const size_t NumInputElements = std::distance(Begin, End);
-  return NumInputElements <= OutputMask.size();
+  const size_t numInputElements = std::distance(begin, end);
+  return numInputElements <= outputMask.size();
 }
 
 /**
@@ -60,22 +60,22 @@ bool isCapacityEnough(const std::string& InputString, ContainerT& OutputMask) {
  * \throws runtime_error if an input string contains more parameters than the capacity of a provided container
  * */
 template<typename ContainerT>
-void convertStringToMask(const std::string& StringMask, ContainerT& Mask) {
+void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   using T = typename std::iterator_traits<typename ContainerT::iterator>::value_type;
 
-  if (!isCapacityEnough<T>(StringMask, Mask))
-    throw std::runtime_error("Num. input elements is more than the Mask capacity");
+  if (!isCapacityEnough<T>(stringMask, mask))
+    throw std::runtime_error("Number of input elements is more than the mask capacity");
 
-  std::istringstream InputStream(StringMask);
-  auto Begin = std::istream_iterator<T>(InputStream);
-  auto End = std::istream_iterator<T>();
+  std::istringstream inputStream(stringMask);
+  auto it = std::istream_iterator<T>(inputStream);
+  auto end = std::istream_iterator<T>();
 
-  for (int Index = 0; Begin != End; ++Index, ++Begin) {
+  for (int index = 0; it != end; ++index, ++it) {
     if (std::is_same<T, bool>::value) {
-      Mask[Index] = (*Begin) > 0;
+      mask[index] = (*it) > 0;
     }
     else {
-      Mask[Index] = (*Begin);
+      mask[index] = (*it);
     }
   }
 }
@@ -83,38 +83,38 @@ void convertStringToMask(const std::string& StringMask, ContainerT& Mask) {
 using StringsT = std::list<std::string>;
 class FileProcessor {
 public:
-  static StringsT getFileAsStrings(const std::string &FileName) {
-    StringsT Content;
-    std::fstream ParamFile(FileName, std::ios_base::in);
-    if (!ParamFile.is_open()) {
-      throw std::runtime_error("cannot open file: " + FileName);
+  static StringsT getFileAsStrings(const std::string & fileName) {
+    StringsT content;
+    std::fstream paramFile(fileName, std::ios_base::in);
+    if (!paramFile.is_open()) {
+      throw std::runtime_error("cannot open file: " + fileName);
     }
 
-    std::string TmpString;
-    while (std::getline(ParamFile, TmpString)) {
-      Content.push_back(TmpString);
+    std::string tmpString;
+    while (std::getline(paramFile, tmpString)) {
+      content.push_back(tmpString);
     }
 
-    ParamFile.close();
-    return Content;
+    paramFile.close();
+    return content;
   }
 
-  static void removeEmptyLines(StringsT &Content) {
+  static void removeEmptyLines(StringsT & content) {
 
     const std::string WHITESPACE = " \n\r\t\f\v";
-    auto isEmptyString = [&WHITESPACE](const std::string &String) -> bool {
-      size_t Start = String.find_first_not_of(WHITESPACE);
-      return Start == std::string::npos;
+    auto isEmptyString = [&WHITESPACE](const std::string & string) -> bool {
+      size_t start = string.find_first_not_of(WHITESPACE);
+      return start == std::string::npos;
     };
 
-    std::vector<StringsT::iterator> Deletees;
-    for (auto Itr = Content.begin(); Itr != Content.end(); ++Itr) {
-      if (isEmptyString(*Itr))
-        Deletees.push_back(Itr);
+    std::vector<StringsT::iterator> deletees;
+    for (auto itr = content.begin(); itr != content.end(); ++itr) {
+      if (isEmptyString(*itr))
+        deletees.push_back(itr);
     }
 
-    for (auto &Itr : Deletees) {
-      Content.erase(Itr);
+    for (auto &itr : deletees) {
+      content.erase(itr);
     }
   }
 };

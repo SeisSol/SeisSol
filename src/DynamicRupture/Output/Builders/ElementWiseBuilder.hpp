@@ -1,9 +1,8 @@
-#ifndef SEISSOL_DR_ELEMENTWISE_BUILDER_HPP
-#define SEISSOL_DR_ELEMENTWISE_BUILDER_HPP
+#ifndef SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
+#define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 
 #include "OutputBuilder.hpp"
-#include <DynamicRupture/Math.h>
-#include "DynamicRupture/Output/FaultRefiner/FaultRefiner.hpp"
+#include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
 
 namespace seissol::dr::output {
 class Base;
@@ -33,15 +32,14 @@ class ElementWiseBuilder : public OutputBuilder {
   }
 
   void initReceiverLocations() {
-    std::unique_ptr<FaultRefinerInterface> faultRefiner{nullptr};
-    faultRefiner = getRefiner(elementwiseParams.refinementStrategy);
+    std::unique_ptr<refiner::FaultRefiner> faultRefiner{nullptr};
+    faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
 
-    const auto size = meshReader->getFault().size();
+    const auto numFaultElements = meshReader->getFault().size();
     const auto numSubTriangles = faultRefiner->getNumSubTriangles();
 
-    logInfo(localRank) << "CPP: Initialising Fault output. Refinement strategy: "
-                       << elementwiseParams.refinementStrategy
-                       << " Number of sub-triangles: " << numSubTriangles;
+    logInfo(localRank) << "CPP: Initialising Fault output. "
+                       << "Number of sub-triangles: " << numSubTriangles;
 
     // get arrays of elements and vertices from the mesher
     const auto& faultInfo = meshReader->getFault();
@@ -49,7 +47,7 @@ class ElementWiseBuilder : public OutputBuilder {
     const auto& verticesInfo = meshReader->getVertices();
 
     // iterate through each fault side
-    for (size_t faceIndex = 0; faceIndex < size; ++faceIndex) {
+    for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
 
       // get a Global Element ID for the current fault face
       auto elementIndex = faultInfo[faceIndex].element;
@@ -60,9 +58,9 @@ class ElementWiseBuilder : public OutputBuilder {
 
         // store coords of vertices of the current ELEMENT
         std::array<const double*, 4> elementVerticesCoords{};
-        for (int ElementVertexId = 0; ElementVertexId < 4; ++ElementVertexId) {
-          auto globalVertexId = element.vertices[ElementVertexId];
-          elementVerticesCoords[ElementVertexId] = verticesInfo[globalVertexId].coords;
+        for (int elementVertexId = 0; elementVertexId < 4; ++elementVertexId) {
+          auto globalVertexId = element.vertices[elementVertexId];
+          elementVerticesCoords[elementVertexId] = verticesInfo[globalVertexId].coords;
         }
 
         auto localFaceSideId = faultInfo[faceIndex].side;
@@ -71,10 +69,11 @@ class ElementWiseBuilder : public OutputBuilder {
         ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
 
         // init global coordinates of the fault face
-        ExtTriangle globalFace = getGlobalFace(localFaceSideId, element, verticesInfo);
+        ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
 
         faultRefiner->refineAndAccumulate(
-            elementwiseParams.refinement, faceIndex, localFaceSideId, referenceFace, globalFace);
+            {elementwiseParams.refinement, static_cast<int>(faceIndex), localFaceSideId},
+            std::make_pair(globalFace, referenceFace));
       }
     }
 
@@ -83,14 +82,7 @@ class ElementWiseBuilder : public OutputBuilder {
     faultRefiner.reset(nullptr);
   }
 
-  void initConstrains() {
-    /*
-    for (const auto& Point: m_ReceiverPoints) {
-      const auto& RotationMatrix = m_RotationMatrices[Point.FaultFaceIndex];
-
-    }
-    */
-  }
+  void initConstrains() {}
 
   void evaluateInitialStressInFaultCS() {
     // Compute initialStressInFaultCS
@@ -102,4 +94,4 @@ class ElementWiseBuilder : public OutputBuilder {
   ElementwiseFaultParamsT elementwiseParams;
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_ELEMENTWISE_BUILDER_HPP
+#endif // SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP

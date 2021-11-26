@@ -138,7 +138,7 @@ src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
 
 src/DynamicRupture/Output/Base.cpp
-src/DynamicRupture/Output/FaultRefiner/RefinerFactory.cpp
+src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
 src/DynamicRupture/Output/OutputAux.cpp
 )
 if (MPI)

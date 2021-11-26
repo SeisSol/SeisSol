@@ -1,7 +1,9 @@
-#ifndef SEISSOL_DROUTOUT_DRINITIALIZER_HPP
-#define SEISSOL_DROUTOUT_DRINITIALIZER_HPP
+#ifndef SEISSOL_DR_OUTPUT_INITIALIZER_HPP
+#define SEISSOL_DR_OUTPUT_INITIALIZER_HPP
 
 #include "DataTypes.hpp"
+#include "FaultRefiner/FaultRefiners.hpp"
+#include <utils/logger.h>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::dr::output {
@@ -14,25 +16,23 @@ class ParametersInitializer {
     GeneralParamsT params{};
 
     if (!data["dynamicrupture"]) {
-      throw std::runtime_error("dynamic rupture params. is not provided");
+      logError() << "dynamic rupture params. is not provided in the namelist";
     }
 
     using namespace seissol::initializers;
     const YAML::Node& drSettings = data["dynamicrupture"];
-    auto outputPointID = static_cast<int>(OutputType::AtPickpoint);
+    auto outputPointID = static_cast<int>(OutputType::None);
     updateIfExists(drSettings, "outputpointtype", outputPointID);
     params.outputPointType = static_cast<OutputType>(outputPointID);
 
     updateIfExists(drSettings, "sliprateoutputtype", params.slipRateOutputType);
     updateIfExists(drSettings, "fl", params.frictionLawType);
-    updateIfExists(drSettings, "backgroundtype", params.backgroundType);
     updateIfExists(drSettings, "rf_output_on", params.isRfOutputOn);
     updateIfExists(drSettings, "ds_output_on", params.isDsOutputOn);
     updateIfExists(drSettings, "magnitude_output_on", params.isMagnitudeOutputOn);
     updateIfExists(drSettings, "energy_rate_output_on", params.isEnergyRateOutputOn);
-    updateIfExists(drSettings, "gpwise", params.isGpWiseOutput);
-    updateIfExists(drSettings, "thermalpress", params.isTermalPressureOn);
-    updateIfExists(drSettings, "energy_rate_printtimeinterval", params.backgroundType);
+    updateIfExists(drSettings, "thermalpress", params.isThermalPressurizationOn);
+    updateIfExists(drSettings, "energy_rate_printtimeinterval", params.energyRatePrintTimeInterval);
 
     using namespace seissol::initializers;
     const YAML::Node& outputParams = data["output"];
@@ -59,13 +59,12 @@ class ParametersInitializer {
     PickpointParamsT ppParams{};
 
     if (!data["pickpoint"]) {
-      throw std::runtime_error("pickpoint output parameters for dynamic rupture is not provided");
+      logError() << "pickpoint output parameters for dynamic rupture is not provided";
     }
 
     using namespace seissol::initializers;
     const YAML::Node& ppData = data["pickpoint"];
     updateIfExists(ppData, "printtimeinterval", ppParams.printTimeInterval);
-    updateIfExists(ppData, "noutpoints", ppParams.numOutputPoints);
     updateIfExists(ppData, "ppfilename", ppParams.ppFileName);
 
     if (ppData["outputmask"]) {
@@ -81,18 +80,17 @@ class ParametersInitializer {
     ElementwiseFaultParamsT ewParams{};
 
     if (!data["elementwise"]) {
-      throw std::runtime_error(
-          "elementwise fault output parameters for dynamic rupture is not provided");
+      logError() << "elementwise fault output parameters for dynamic rupture is not provided";
     }
 
     using namespace seissol::initializers;
     const YAML::Node& ewData = data["elementwise"];
-    updateIfExists(ewData, "printtimeinterval", ewParams.printTimeInterval);
     updateIfExists(ewData, "printtimeinterval_sec", ewParams.printTimeIntervalSec);
-    updateIfExists(ewData, "printintervalcriterion", ewParams.printIntervalCriterion);
-    updateIfExists(ewData, "maxpickstore", ewParams.maxPickStore);
-    updateIfExists(ewData, "refinement_strategy", ewParams.refinementStrategy);
     updateIfExists(ewData, "refinement", ewParams.refinement);
+
+    int refinementStrategy{2};
+    updateIfExists(ewData, "refinement_strategy", refinementStrategy);
+    ewParams.refinementStrategy = refiner::convertToType(refinementStrategy);
 
     if (ewData["outputmask"]) {
       convertStringToMask(ewData["outputmask"].as<std::string>(), ewParams.outputMask);
@@ -105,4 +103,4 @@ class ParametersInitializer {
   const YAML::Node& data;
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DRINITIALIZER_HPP
+#endif // SEISSOL_DR_OUTPUT_INITIALIZER_HPP

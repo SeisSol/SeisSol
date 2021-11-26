@@ -164,7 +164,8 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
           /*if (contained[point] != 0) {
              logError() << "point with id " << point << " was already found in a different element!";
           }*/
-          if ((contained[point] == 0) || (meshIds[point] > elements[elem].localId)) {
+          auto localId = static_cast<unsigned>(elements[elem].localId);
+          if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
             meshIds[point] = elements[elem].localId;
           }

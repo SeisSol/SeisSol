@@ -3,7 +3,7 @@
 
 #include <cxxtest/TestSuite.h>
 #include <DynamicRupture/Output/DataTypes.hpp>
-#include <DynamicRupture/Math.h>
+#include <DynamicRupture/Mics.h>
 #include <Initializer/MemoryAllocator.h>
 
 namespace seissol::unit_test::dr {

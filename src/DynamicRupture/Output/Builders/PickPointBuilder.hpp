@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_PICKPOINT_BUILDER_HPP
-#define SEISSOL_DR_PICKPOINT_BUILDER_HPP
+#ifndef SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
+#define SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
 
 #include "OutputBuilder.hpp"
 #include <Initializer/PointMapper.h>
@@ -35,10 +35,6 @@ class PickPointBuilder : public OutputBuilder {
     StringsT content = FileProcessor::getFileAsStrings(pickpointParams.ppFileName);
     FileProcessor::removeEmptyLines(content);
 
-    if (pickpointParams.numOutputPoints > static_cast<int>(content.size()))
-      throw std::runtime_error(
-          "requested num. of fault pick-points is more than the file contains");
-
     // iterate line by line and initialize DrRecordPoints
     for (const auto& line : content) {
       std::array<real, 3> coords{};
@@ -54,18 +50,18 @@ class PickPointBuilder : public OutputBuilder {
   }
 
   void initReceiverLocations() {
-    const auto numPoints = outputData.receiverPoints.size();
+    const auto numReceiverPoints = outputData.receiverPoints.size();
 
     // findMeshIds expects a vector of eigenPoints.
     // Therefore, we need to convert
-    std::vector<Eigen::Vector3d> eigenPoints(numPoints);
-    for (size_t pointIdx{0}; pointIdx < numPoints; ++pointIdx) {
-      auto& receiverPoint = outputData.receiverPoints[pointIdx];
-      eigenPoints[pointIdx] = receiverPoint.global.getAsEigenVector();
+    std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
+    for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
+      auto& receiverPoint = outputData.receiverPoints[receiverId];
+      eigenPoints[receiverId] = receiverPoint.global.getAsEigenVector();
     }
 
-    std::vector<short> contained(numPoints);
-    std::vector<unsigned> meshIds(numPoints, std::numeric_limits<unsigned>::max());
+    std::vector<short> contained(numReceiverPoints);
+    std::vector<unsigned> meshIds(numReceiverPoints, std::numeric_limits<unsigned>::max());
 
     std::vector<Vertex> faultVertices;
     std::vector<Element> faultElements;
@@ -76,7 +72,7 @@ class PickPointBuilder : public OutputBuilder {
     seissol::initializers::findMeshIds(eigenPoints.data(),
                                        faultVertices,
                                        faultElements,
-                                       numPoints,
+                                       numReceiverPoints,
                                        contained.data(),
                                        meshIds.data());
 
@@ -84,32 +80,32 @@ class PickPointBuilder : public OutputBuilder {
     auto meshVertices = meshReader->getVertices();
 
     const auto& fault = meshReader->getFault();
-    for (size_t receiverIdx{0}; receiverIdx < numPoints; ++receiverIdx) {
-      auto& receiver = outputData.receiverPoints[receiverIdx];
+    for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
+      auto& receiver = outputData.receiverPoints[receiverId];
 
-      if (static_cast<bool>(contained[0])) {
-        auto meshId = meshIds[receiverIdx];
+      if (static_cast<bool>(contained[receiverId])) {
+        auto meshId = meshIds[receiverId];
         const auto& faultIndices = elementToFault[meshId];
 
         auto element = meshElements[meshId];
         auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
         auto faultItem = fault[closest];
 
-        receiver.globalSubTet = getGlobalFace(faultItem.side, element, meshVertices);
-        projectPointToFace(receiver.global, receiver.globalSubTet, faultItem.normal);
+        receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
+        projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
         receiver.isInside = true;
         receiver.faultFaceIndex = faultIndices[0];
         receiver.localFaceSideId = faultItem.side;
-        receiver.globalReceiverIndex = receiverIdx;
+        receiver.globalReceiverIndex = receiverId;
         receiver.elementIndex = meshId;
 
         using namespace seissol::transformations;
-        receiver.referece = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
-                                                         meshVertices[element.vertices[1]].coords,
-                                                         meshVertices[element.vertices[2]].coords,
-                                                         meshVertices[element.vertices[3]].coords,
-                                                         receiver.global.getAsEigenVector());
+        receiver.reference = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
+                                                          meshVertices[element.vertices[1]].coords,
+                                                          meshVertices[element.vertices[2]].coords,
+                                                          meshVertices[element.vertices[3]].coords,
+                                                          receiver.global.getAsEigenVector());
         receiver.isInside = true;
 
       } else {
@@ -172,12 +168,12 @@ class PickPointBuilder : public OutputBuilder {
     auto minDistance = std::numeric_limits<double>::max();
     auto closest = std::numeric_limits<size_t>::max();
 
-    for (auto faceIdx: faultIndices) {
+    for (auto faceIdx : faultIndices) {
       const auto& faultItem = fault[faceIdx];
 
-      auto face = getGlobalFace(faultItem.side, element, meshVertices);
+      auto face = getGlobalTriangle(faultItem.side, element, meshVertices);
 
-      auto distance = getDisplacementFromPointToFace(point, face, faultItem.normal);
+      auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
       if (minDistance > distance) {
         minDistance = distance;
         closest = faceIdx;
@@ -196,4 +192,4 @@ class PickPointBuilder : public OutputBuilder {
   PickpointParamsT pickpointParams;
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_PICKPOINT_BUILDER_HPP
+#endif // SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP

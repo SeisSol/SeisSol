@@ -55,6 +55,7 @@
 #include <Numerical_aux/BasisFunction.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
+#include <DynamicRupture/Mics.h>
 
 seissol::Interoperability e_interoperability;
 
@@ -1137,7 +1138,7 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 {
   int fFace = face + 1;
   int numberOfPoints = tensor::QInterpolated::Shape[0];
-  int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
+  auto godunovLd = static_cast<int>(dr::aux::leadDim<init::QInterpolated>());
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
 
@@ -1168,64 +1169,94 @@ void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 
 //Code added by ADRIAN
 void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFace,
-        real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-        real (*mu)[seissol::init::QInterpolated::Stop[0]],
-        real  (*slipRate1)[init::QInterpolated::Stop[0]],
-        real (*slipRate2)[init::QInterpolated::Stop[0]],
-        bool  (*RF)[ init::QInterpolated::Stop[0] ] ){
+        real (*initialStressInFaultCS)[dr::aux::AlignedNumGaussianPoints][6],
+        real (*mu)[seissol::dr::aux::AlignedNumGaussianPoints],
+        real  (*slipRate1)[dr::aux::AlignedNumGaussianPoints],
+        real (*slipRate2)[dr::aux::AlignedNumGaussianPoints],
+        bool  (*RF)[dr::aux::AlignedNumGaussianPoints]) {
+
   //m_ltsFaceToMeshFace maps from lts index to fortran mesh index
   //this function is called for each ltsFace
   int fFace = meshFace + 1;
   real tmpInitialStressInFaultCS[tensor::QInterpolated::Shape[0]*6] ={0};
-  f_interoperability_getDynRup(m_domain, fFace, &tmpInitialStressInFaultCS[0], &mu[ltsFace][0], &slipRate1[ltsFace][0], &slipRate2[ltsFace][0], &RF[ltsFace][0]);
+  f_interoperability_getDynRup(m_domain,
+                               fFace,
+                               &tmpInitialStressInFaultCS[0],
+                               &mu[ltsFace][0],
+                               &slipRate1[ltsFace][0],
+                               &slipRate2[ltsFace][0],
+                               &RF[ltsFace][0]);
 
   for(int i = 0; i< 6; i++){
     for(unsigned int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++){
-      initialStressInFaultCS[ltsFace][iBndGP][i] = tmpInitialStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
+      initialStressInFaultCS[ltsFace][iBndGP][i] =
+          tmpInitialStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
     }
   }
 }
 
 
-void seissol::Interoperability::getDynRupStateVar(int ltsFace, unsigned int meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]) {
+void seissol::Interoperability::getDynRupStateVar(
+    int ltsFace,
+    unsigned int meshFace,
+    real (*stateVar)[dr::aux::AlignedNumGaussianPoints]) {
+
   int fFace = meshFace + 1;
   f_interoperability_getDynRupStateVar(m_domain, fFace, &stateVar[ltsFace][0]);
 }
 
-void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6]) {
+void seissol::Interoperability::getDynRupNucStress(
+    int ltsFace,
+    unsigned int meshFace,
+    real (*nucleationStressInFaultCS)[dr::aux::AlignedNumGaussianPoints][6]) {
+
   int fFace = meshFace + 1;
   real tmpNucleationStressInFaultCS[tensor::QInterpolated::Shape[0] * 6] = {0};
-  f_interoperability_getDynRupNucStress(m_domain, fFace, &tmpNucleationStressInFaultCS[0]);
+  f_interoperability_getDynRupNucStress(m_domain,
+                                        fFace,
+                                        &tmpNucleationStressInFaultCS[0]);
+
   for (int i = 0; i < 6; i++) {
     for (unsigned int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
-      nucleationStressInFaultCS[ltsFace][iBndGP][i] = tmpNucleationStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
+      nucleationStressInFaultCS[ltsFace][iBndGP][i] =
+          tmpNucleationStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
     }
   }
 }
 
-void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
-                                              real *i_RS_a,
-                                              real *i_RS_sl0,
-                                              real *i_RS_sr0) {
+void seissol::Interoperability::getDynRupFL_3(
+    int ltsFace,
+    unsigned meshFace,
+    real *i_RS_a,
+    real *i_RS_sl0,
+    real *i_RS_sr0) {
+
   int fFace = meshFace + 1;
-  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_a[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
+  f_interoperability_getDynRupFL_3(m_domain,
+                                   fFace,
+                                   &i_RS_a[ltsFace],
+                                   &i_RS_sl0[ltsFace],
+                                   &i_RS_sr0[ltsFace]);
 }
 
-void seissol::Interoperability::getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],
-                                            real TP_DFinv[seissol::dr::TP_grid_nz]) {
-  f_interoperability_getDynRupTP(m_domain,  &TP_grid[0], &TP_DFinv[0]);
+void seissol::Interoperability::getDynRupTP(
+    real TP_grid[seissol::dr::TP_grid_nz],
+    real TP_DFinv[seissol::dr::TP_grid_nz]) {
+
+  f_interoperability_getDynRupTP(m_domain, &TP_grid[0], &TP_DFinv[0]);
 }
 
 void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
     unsigned ltsFace, unsigned meshFace,
-    real  (*slip)[init::QInterpolated::Stop[0]],
-    real  (*slipStrike)[init::QInterpolated::Stop[0]],
-    real  (*slipDip)[init::QInterpolated::Stop[0]],
-    real  (*ruptureTime)[init::QInterpolated::Stop[0]],
-    real  (*dynStressTime)[init::QInterpolated::Stop[0]],
-    real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
-    real  (*tractionXY)[init::QInterpolated::Stop[0]],
-    real  (*tractionXZ)[init::QInterpolated::Stop[0]]) {
+    real  (*slip)[dr::aux::AlignedNumGaussianPoints],
+    real  (*slipStrike)[dr::aux::AlignedNumGaussianPoints],
+    real  (*slipDip)[dr::aux::AlignedNumGaussianPoints],
+    real  (*ruptureTime)[dr::aux::AlignedNumGaussianPoints],
+    real  (*dynStressTime)[dr::aux::AlignedNumGaussianPoints],
+    real  (*peakSlipRate)[dr::aux::AlignedNumGaussianPoints],
+    real  (*tractionXY)[dr::aux::AlignedNumGaussianPoints],
+    real  (*tractionXZ)[dr::aux::AlignedNumGaussianPoints]) {
+
     int fFace = meshFace + 1;
     f_interoperability_setFrictionOutputGeneral(m_domain, fFace,
                                                 &slip[ltsFace][0],
@@ -1238,12 +1269,13 @@ void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
                                                 &tractionXZ[ltsFace][0]);
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortranSpecific(unsigned int ltsFace, unsigned int meshFace,
-                                                                    real *averagedSlip,
-                                                                    real (*slipRateStrike)[init::QInterpolated::Stop[0]],
-                                                                    real (*slipRateDip)[init::QInterpolated::Stop[0]],
-                                                                    real (*mu)[init::QInterpolated::Stop[0]]
-){
+void seissol::Interoperability::copyFrictionOutputToFortranSpecific(
+    unsigned int ltsFace, unsigned int meshFace,
+    real *averagedSlip,
+    real (*slipRateStrike)[dr::aux::AlignedNumGaussianPoints],
+    real (*slipRateDip)[dr::aux::AlignedNumGaussianPoints],
+    real (*mu)[dr::aux::AlignedNumGaussianPoints]) {
+
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputSpecific(m_domain, fFace,
                                                &averagedSlip[ltsFace],
@@ -1253,27 +1285,35 @@ void seissol::Interoperability::copyFrictionOutputToFortranSpecific(unsigned int
   );
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortranStateVar(unsigned int ltsFace, unsigned int meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]
-){
+void seissol::Interoperability::copyFrictionOutputToFortranStateVar(
+    unsigned int ltsFace,
+    unsigned int meshFace,
+    real (*stateVar)[dr::aux::AlignedNumGaussianPoints]) {
+
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputStateVar(m_domain, fFace,&stateVar[ltsFace][0]);
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortranStrength(unsigned int ltsFace, unsigned int meshFace, real (*strength)[init::QInterpolated::Stop[0]]
-){
+void seissol::Interoperability::copyFrictionOutputToFortranStrength(
+    unsigned int ltsFace,
+    unsigned int meshFace,
+    real (*strength)[dr::aux::AlignedNumGaussianPoints]) {
+
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
 }
 
-void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(unsigned int ltsFace,
-                                                                                  unsigned int meshFace,
-                                                                                  real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkXX,
-                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkYY,
-                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkZZ,
-                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXY,
-                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearYZ,
-                                                                                  std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniShearXZ) {
+void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(
+    unsigned int ltsFace,
+    unsigned int meshFace,
+    real (*initialStressInFaultCS)[dr::aux::AlignedNumGaussianPoints][6],
+    std::vector<std::array<real, dr::aux::AlignedNumGaussianPoints>>& iniBulkXX,
+    std::vector<std::array<real, dr::aux::AlignedNumGaussianPoints>>& iniBulkYY,
+    std::vector<std::array<real, dr::aux::AlignedNumGaussianPoints>>& iniBulkZZ,
+    std::vector<std::array<real, dr::aux::AlignedNumGaussianPoints>>& iniShearXY,
+    std::vector<std::array<real, dr::aux::AlignedNumGaussianPoints>>& iniShearYZ,
+    std::vector<std::array<real, dr::aux::AlignedNumGaussianPoints>>& iniShearXZ) {
+
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputInitialStress(m_domain, fFace,
                                                     &initialStressInFaultCS[ltsFace][0][0],
