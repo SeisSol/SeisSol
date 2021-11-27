@@ -53,31 +53,10 @@ configure_file("src/version_template.h"
                "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
 message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
 
-find_package(GemmTools REQUIRED)
-include(src/sources.cmake)
-
-if(GemmTools_INCLUDE_DIRS)
-  target_include_directories(SeisSol-lib PUBLIC ${GemmTools_INCLUDE_DIRS})
-endif()
-if(GemmTools_LIBRARIES)
-  target_link_libraries(SeisSol-lib PUBLIC ${GemmTools_LIBRARIES})
-endif()
-if(GemmTools_COMPILER_DEFINITIONS)  
-  target_compile_definitions(SeisSol-lib PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
-endif()
 
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
 
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
 
 add_custom_command(
   COMMAND
@@ -97,37 +76,54 @@ add_custom_command(
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
-       build-time-make-directory
-       generated_code/arch.py
-       generated_code/memlayout.py
-       generated_code/viscoelastic.py
-       generated_code/DynamicRupture.py
-       generated_code/Plasticity.py
-       generated_code/multSim.py
-       generated_code/aderdg.py
-       generated_code/generate.py
-       generated_code/Point.py
-       generated_code/elastic.py
-       generated_code/viscoelastic2.py
-       generated_code/poroelastic.py
-       generated_code/anisotropic.py
-       generated_code/SurfaceDisplacement.py
-       generated_code/NodalBoundaryConditions.py
-       generated_code/matrices/matrices_poroelastic.xml
+        build-time-make-directory
+        generated_code/arch.py
+        generated_code/memlayout.py
+        generated_code/viscoelastic.py
+        generated_code/DynamicRupture.py
+        generated_code/Plasticity.py
+        generated_code/multSim.py
+        generated_code/aderdg.py
+        generated_code/generate.py
+        generated_code/Point.py
+        generated_code/elastic.py
+        generated_code/viscoelastic2.py
+        generated_code/poroelastic.py
+        generated_code/anisotropic.py
+        generated_code/SurfaceDisplacement.py
+        generated_code/NodalBoundaryConditions.py
+        generated_code/matrices/matrices_poroelastic.xml
     OUTPUT
-       ${GENERATED_FILES_FOR_SEISSOL}
+        src/generated_code/subroutine.h
+        src/generated_code/tensor.cpp
+        src/generated_code/subroutine.cpp
+        src/generated_code/gpulike_subroutine.cpp
+        src/generated_code/tensor.h
+        src/generated_code/init.cpp
+        src/generated_code/init.h
+        src/generated_code/kernel.h
+        src/generated_code/kernel.cpp
     COMMENT "Codegen for tensor stuff."
        )
 
-add_custom_target(SeisSol-codegen ALL
-  DEPENDS
-    ${GENERATED_FILES_FOR_SEISSOL}
-)
+find_package(GemmTools REQUIRED)
+include(src/sources.cmake)
 
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
+target_link_libraries(SeisSol-lib PUBLIC SeisSol-gencode)
+
+if (WITH_GPU)
+  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
+endif()
+
+
+if(GemmTools_INCLUDE_DIRS)
+  target_include_directories(SeisSol-gencode PUBLIC ${GemmTools_INCLUDE_DIRS})
+endif()
+if(GemmTools_LIBRARIES)
+  target_link_libraries(SeisSol-gencode PUBLIC ${GemmTools_LIBRARIES})
+endif()
+if(GemmTools_COMPILER_DEFINITIONS)
+  target_compile_definitions(SeisSol-gencode PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
 endif()
 
 # Find appropriate compiler flags based on the target computer architecture
@@ -137,12 +133,20 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})
-target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
+target_compile_definitions(SeisSol-gencode PUBLIC ${HARDWARE_DEFINITIONS})
+target_compile_options(SeisSol-gencode PUBLIC ${CPU_ARCH_FLAGS})
 
 target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL})
 target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
                                               LOGLEVEL0=${LOG_LEVEL_MASTER})
+
+
+if (PLASTICITY_METHOD STREQUAL "ip")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
+elseif (PLASTICITY_METHOD STREQUAL "nb")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
+endif()
+
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -195,9 +199,19 @@ endif()
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
   find_package(OpenMP REQUIRED)
-  target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:${OpenMP_Fortran_FLAGS}>)
-  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
+  target_link_libraries(SeisSol-gencode PRIVATE OpenMP::OpenMP_CXX)
+  target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_Fortran)
+
+  find_package(OpenMP_Offloading QUIET)
+  # Note: there is a conflict between OpenMP offloading and libsxmm
+  if (OpenMP_Offloading_FOUND)
+    message(STATUS "Found OpenMP Offloading: TRUE")
+    target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX_with_offloading)
+    target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE_OFFLOAD)
+  else()
+    message(STATUS "Found OpenMP Offloading: FALSE")
+    target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
+  endif()
 endif()
 
 if (MPI)
@@ -309,19 +323,29 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
+
+# Note: we need to provide a support for Eigen backend
+#       for both gencode and SeisSol
+target_include_directories(SeisSol-gencode PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+)
+
+target_include_directories(SeisSol-gencode PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+)
+
 target_include_directories(SeisSol-lib PUBLIC
-				   ${CMAKE_CURRENT_SOURCE_DIR}/src
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-				   # todo: use reexport from easi?
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-				   ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
+    # todo: use reexport from easi?
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
+    ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
@@ -354,7 +378,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-variable -Wno-unused-parameter")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
@@ -362,7 +386,9 @@ target_link_libraries(SeisSol-lib PUBLIC std::filesystem)
 
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
-  set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+  set_source_files_properties(
+      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+  )
 endif()
 
 # adjust prefix name of executables

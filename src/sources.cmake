@@ -1,3 +1,4 @@
+# Source code
 add_library(SeisSol-lib
 
 src/Initializer/ParameterDB.cpp
@@ -17,16 +18,6 @@ src/Model/common.cpp
 src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Transformation.cpp
 src/Numerical_aux/Statistics.cpp
-
-src/generated_code/subroutine.h
-src/generated_code/tensor.cpp
-src/generated_code/subroutine.cpp
-src/generated_code/tensor.h
-src/generated_code/init.cpp
-#src/generated_code/KernelTest.t.h
-src/generated_code/init.h
-src/generated_code/kernel.h
-src/generated_code/kernel.cpp
 
 src/Solver/Simulator.cpp
 src/Solver/FreeSurfaceIntegrator.cpp
@@ -133,8 +124,6 @@ if (MPI)
 )
 endif()
 
-target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
-
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Wavefield.cpp
@@ -219,6 +208,20 @@ endif()
 target_include_directories(SeisSol-lib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
+
+# Generated code
+add_library(SeisSol-gencode STATIC
+    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
+)
+target_compile_options(SeisSol-gencode PUBLIC ${EXTRA_CXX_FLAGS})
+target_include_directories(SeisSol-gencode PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
+
+
+# GPU code
 if (WITH_GPU)
   target_sources(SeisSol-lib PUBLIC
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
@@ -240,11 +243,6 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 
-  target_compile_options(Seissol-device-lib PRIVATE -fPIC)
-
-  add_dependencies(Seissol-device-lib SeisSol-codegen)
-  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
-
-else()
-  add_dependencies(SeisSol-lib SeisSol-codegen)
+  target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
+  target_include_directories(SeisSol-gencode PRIVATE ${DEVICE_INCLUDE_DIRS})
 endif()
