@@ -201,15 +201,22 @@ if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-gencode PRIVATE OpenMP::OpenMP_CXX)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_Fortran)
+  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
 
-  find_package(OpenMP_Offloading QUIET)
-  # Note: there is a conflict between OpenMP offloading and libsxmm
+  if (WITH_GPU)
+    find_package(OpenMP_Offloading QUIET)
+  endif()
+
+  # Note: there may be a conflict between OpenMP offloading and libsxmm.
+  # A collision can happen due to -march flags for CPUs and OpenMP GPU target
+  # (e.g. with clang -Xopenmp-target -march=sm_75). Therefore, we separate
+  # compilations for the source and generated codes and apply different
+  # imported OpenMP targets to them.
   if (OpenMP_Offloading_FOUND)
     message(STATUS "Found OpenMP Offloading: TRUE")
     target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX_with_offloading)
     target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE_OFFLOAD)
   else()
-    message(STATUS "Found OpenMP Offloading: FALSE")
     target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
   endif()
 endif()
@@ -328,10 +335,6 @@ endif()
 #       for both gencode and SeisSol
 target_include_directories(SeisSol-gencode PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-)
-
-target_include_directories(SeisSol-gencode PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 )
 

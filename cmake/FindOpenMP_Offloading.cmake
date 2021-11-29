@@ -19,10 +19,23 @@ include(CMakePushCheckState)
 
 cmake_push_check_state()
 
-set(_PARENT_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-set(CMAKE_CXX_STANDARD 17)
+set(_is_offloading_test_ready True)
+if (NOT OpenMP_FOUND)
+    message(WARNING "OpenMP is not found. Make sure that you called find_package(OpenMP REQUIRED) first")
+    set(_is_offloading_test_ready False)
+endif()
 
-if (OpenMP_FOUND)
+if (NOT DEFINED DEVICE_BACKEND)
+    message(WARNING "DEVICE_BACKEND is not defined")
+    set(_is_offloading_test_ready False)
+endif()
+
+if (NOT DEFINED DEVICE_ARCH)
+    message(WARNING "DEVICE_ARCH is not defined")
+    set(_is_offloading_test_ready False)
+endif()
+
+if (_is_offloading_test_ready)
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
         if (${DEVICE_BACKEND} STREQUAL "cuda")
             set(_Offloading_CXX_FLAGS -fopenmp-targets=nvptx64-nvidia-cuda
@@ -58,6 +71,8 @@ if (OpenMP_FOUND)
       return canOffload;
     }
     " _OPENMP_OFFLOAD_RESULT)
+else()
+    message(WARNING "OpenMP Offloading test skipped")
 endif()
 
 if (_OPENMP_OFFLOAD_RESULT)
@@ -69,7 +84,5 @@ if (_OPENMP_OFFLOAD_RESULT)
 endif()
 
 find_package_handle_standard_args(OpenMP_Offloading OpenMP_Offloading_FLAGS _OPENMP_OFFLOAD_RESULT)
-mark_as_advanced(_PARENT_CMAKE_CXX_STANDARD _Offloading_CXX_FLAGS)
-
-set(CMAKE_CXX_STANDARD ${_PARENT_CMAKE_CXX_STANDARD})
+mark_as_advanced(_is_offloading_test_ready _Offloading_CXX_FLAGS)
 cmake_pop_check_state()
