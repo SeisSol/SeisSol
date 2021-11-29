@@ -235,6 +235,7 @@ if (WITH_GPU)
                              ${CMAKE_BINARY_DIR}/src/generated_code
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+  # include cmake files will define SeisSol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda")
     include(${CMAKE_SOURCE_DIR}/src/cuda.cmake)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hip")
@@ -245,4 +246,7 @@ if (WITH_GPU)
 
   target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
   target_include_directories(SeisSol-gencode PRIVATE ${DEVICE_INCLUDE_DIRS})
+
+  # Note: we need to enforce SeisSol-gencode to be built before SeisSol-device-lib
+  add_dependencies(SeisSol-device-lib SeisSol-gencode)
 endif()
