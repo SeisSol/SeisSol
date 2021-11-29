@@ -436,6 +436,7 @@ if (TESTING)
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/SourceTermTest.cpp
+          src/tests/Pipeline/TestPipeline.cpp
           )
 
 

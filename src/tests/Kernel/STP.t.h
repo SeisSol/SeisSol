@@ -17,7 +17,7 @@
 #include "Equations/poroelastic/Model/datastructures.hpp"
 #include "generated_code/tensor.h"
 
-namespace seissol::unit_tests {
+namespace seissol::unit_test {
 class SpaceTimePredictorTestFixture {
 protected:
   const int N = NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS * CONVERGENCE_ORDER;
