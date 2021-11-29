@@ -10,6 +10,8 @@
 #include "Geometry/refinement/RefinerUtils.h"
 #include "Geometry/refinement/VariableSubSampler.h"
 
+namespace seissol::unit_test {
+
 TEST_CASE("Variable Subsampler") {
   constexpr double epsilon = std::numeric_limits<real>::epsilon();
   std::srand(1234);
@@ -71,7 +73,9 @@ TEST_CASE("Variable Subsampler") {
       subsampler.get(dofs.data(), cellMap, var, &outDofs[var * 4]);
     }
     for (int i = 0; i < 36; i++) {
-      REQUIRE(outDofs[i] == doctest::Approx(expectedDOFs[i]).epsilon(epsilon));
+      REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(epsilon));
     }
   };
-}; 
+};
+
+} // namespace seissol::unit_test

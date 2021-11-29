@@ -1,6 +1,8 @@
 #include <Eigen/Dense>
 #include <Numerical_aux/Transformation.h>
 
+namespace seissol::unit_test {
+
 TEST_CASE("Test tetrahedron global to reference") {
   //We do all tests in double precision
   constexpr real epsilon = 10 * std::numeric_limits<double>::epsilon();
@@ -27,7 +29,9 @@ TEST_CASE("Test tetrahedron global to reference") {
       vertices[2].data(),
       vertices[3].data(),
       center);
-  REQUIRE(res(0) == doctest::Approx(0.25).epsilon(epsilon));
-  REQUIRE(res(1) == doctest::Approx(0.25).epsilon(epsilon));
-  REQUIRE(res(2) == doctest::Approx(0.25).epsilon(epsilon));
+  REQUIRE(res(0) == AbsApprox(0.25).epsilon(epsilon));
+  REQUIRE(res(1) == AbsApprox(0.25).epsilon(epsilon));
+  REQUIRE(res(2) == AbsApprox(0.25).epsilon(epsilon));
 }
+
+} // namespace seissol::unit_test

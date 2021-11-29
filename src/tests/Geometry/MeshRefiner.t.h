@@ -5,9 +5,11 @@
 #include "Geometry/refinement/MeshRefiner.h"
 #include "Geometry/refinement/RefinerUtils.h"
 
+namespace seissol::unit_test {
+
 void assertPoint(const double* a, const Eigen::Vector3d& b, double epsilon) {
   for (int i = 0; i < 3; i++) {
-    REQUIRE(a[i] == doctest::Approx(b[i]).epsilon(epsilon));
+    REQUIRE(a[i] == AbsApprox(b[i]).epsilon(epsilon));
   }
 }
 
@@ -161,3 +163,5 @@ TEST_CASE("Mesh refiner") {
     }
   }
 }
+
+} // namespace seissol::unit_test

@@ -2,12 +2,14 @@
 #include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
 #include <memory>
 
+namespace seissol::unit_test {
+
 TEST_CASE("LTS Weights") {
 // PUMLReader is only available with MPI
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializers::time_stepping;
-  LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1 };
+  LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config);
   seissol::PUMLReader pumlReader("Testing/mesh.h5", 5000.0, "", ltsWeights.get());
@@ -21,3 +23,5 @@ TEST_CASE("LTS Weights") {
   }
 #endif
 }
+
+} // namespace seissol::unit_test

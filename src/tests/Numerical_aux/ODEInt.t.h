@@ -3,6 +3,8 @@
 #include "Numerical_aux/ODEVector.h"
 #include <Numerical_aux/ODEInt.h>
 
+namespace seissol::unit_test {
+
 TEST_CASE("Test ODE Solver") {
 #ifdef SINGLE_PRECISION
   constexpr real eps = 10e-4;
@@ -25,8 +27,8 @@ TEST_CASE("Test ODE Solver") {
     auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
 
     auto solver = seissol::ode::RungeKuttaODESolver({sizeIntegratedSolution, sizeSolution}, odeSolverConfig);
-    auto f = [&](seissol::ode::ODEVector &du,
-                 seissol::ode::ODEVector &u,
+    auto f = [&](seissol::ode::ODEVector& du,
+                 seissol::ode::ODEVector& u,
                  double time) {
       // Unpack du
       auto[dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
@@ -60,8 +62,8 @@ TEST_CASE("Test ODE Solver") {
     const double uShould = std::exp(2 * timeSpan.end);
     const double uIntegratedShould = std::exp(2 * timeSpan.end) / 2 - 0.5;
     for (int i = 0; i < sizeSolution; ++i) {
-      REQUIRE(curUSolution[i] == doctest::Approx(uShould).epsilon(eps));
-      REQUIRE(curUSolutionIntegrated[i] == doctest::Approx(uIntegratedShould).epsilon(eps));
+      REQUIRE(curUSolution[i] == AbsApprox(uShould).epsilon(eps));
+      REQUIRE(curUSolutionIntegrated[i] == AbsApprox(uIntegratedShould).epsilon(eps));
     }
   }
   SUBCASE("Test integration of Lotka-Voltera model") {
@@ -80,8 +82,8 @@ TEST_CASE("Test ODE Solver") {
 
     auto solver = seissol::ode::RungeKuttaODESolver({sizeSolution}, odeSolverConfig);
     auto parameters = std::array<real, 4>{1.5, 1.0, 3.0, 1.0};
-    auto f = [&](seissol::ode::ODEVector &du,
-                 seissol::ode::ODEVector &u,
+    auto f = [&](seissol::ode::ODEVector& du,
+                 seissol::ode::ODEVector& u,
                  double time) {
       // A simple Lotka-Volterra model
       // See: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
@@ -114,7 +116,9 @@ TEST_CASE("Test ODE Solver") {
     sol = solve(prob, DifferentialEquations.Vern7(), dt=0.01, adaptive=false)
      */
     const auto uShould = std::array<double, 2>{2.070817357298899e-8, 15.074149470779822};
-    REQUIRE(curU[0] == doctest::Approx(uShould[0]).epsilon(eps));
-    REQUIRE(curU[1] == doctest::Approx(uShould[1]).epsilon(eps));
+    REQUIRE(curU[0] == AbsApprox(uShould[0]).epsilon(eps));
+    REQUIRE(curU[1] == AbsApprox(uShould[1]).epsilon(eps));
   }
 }
+
+} // namespace seissol::unit_test

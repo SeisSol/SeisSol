@@ -1,5 +1,7 @@
 #include <SourceTerm/PointSource.h>
 
+namespace seissol::unit_test {
+
 TEST_CASE("Transform moment tensor") {
   constexpr double epsilon = 100 * std::numeric_limits<real>::epsilon();
 
@@ -24,12 +26,12 @@ TEST_CASE("Transform moment tensor") {
                                              l_momentTensor);
 
   // Compare to hand-computed reference solution
-  REQUIRE(l_momentTensor[0] == doctest::Approx(-5.0 * std::sqrt(3.0) / 32.0).epsilon(epsilon));
-  REQUIRE(l_momentTensor[1] == doctest::Approx(-7.0 * std::sqrt(3.0) / 32.0).epsilon(epsilon));
-  REQUIRE(l_momentTensor[2] == doctest::Approx(3.0 * std::sqrt(3.0) / 8.0).epsilon(epsilon));
-  REQUIRE(l_momentTensor[3] == doctest::Approx(19.0 / 32.0).epsilon(epsilon));
-  REQUIRE(l_momentTensor[4] == doctest::Approx(-9.0 / 16.0).epsilon(epsilon));
-  REQUIRE(l_momentTensor[5] == doctest::Approx(-std::sqrt(3.0) / 16.0).epsilon(epsilon));
+  REQUIRE(l_momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(epsilon));
+  REQUIRE(l_momentTensor[1] == AbsApprox(-7.0 * std::sqrt(3.0) / 32.0).epsilon(epsilon));
+  REQUIRE(l_momentTensor[2] == AbsApprox(3.0 * std::sqrt(3.0) / 8.0).epsilon(epsilon));
+  REQUIRE(l_momentTensor[3] == AbsApprox(19.0 / 32.0).epsilon(epsilon));
+  REQUIRE(l_momentTensor[4] == AbsApprox(-9.0 / 16.0).epsilon(epsilon));
+  REQUIRE(l_momentTensor[5] == AbsApprox(-std::sqrt(3.0) / 16.0).epsilon(epsilon));
   REQUIRE(l_momentTensor[6] == 0);
   REQUIRE(l_momentTensor[7] == 0);
   REQUIRE(l_momentTensor[8] == 0);
@@ -51,12 +53,12 @@ TEST_CASE("Transform moment tensor") {
                                              l_momentTensor);
 
   // Compare to hand-computed reference solution
-  REQUIRE(l_momentTensor[0] == doctest::Approx(-0.415053502680640).epsilon(epsilon));
-  REQUIRE(l_momentTensor[1] == doctest::Approx(0.648994284092410).epsilon(epsilon));
-  REQUIRE(l_momentTensor[2] == doctest::Approx(3.061692966762920).epsilon(epsilon));
-  REQUIRE(l_momentTensor[3] == doctest::Approx(1.909053142737053).epsilon(epsilon));
-  REQUIRE(l_momentTensor[4] == doctest::Approx(0.677535767462651).epsilon(epsilon));
-  REQUIRE(l_momentTensor[5] == doctest::Approx(-1.029826812214912).epsilon(epsilon));
+  REQUIRE(l_momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(epsilon));
+  REQUIRE(l_momentTensor[1] == AbsApprox(0.648994284092410).epsilon(epsilon));
+  REQUIRE(l_momentTensor[2] == AbsApprox(3.061692966762920).epsilon(epsilon));
+  REQUIRE(l_momentTensor[3] == AbsApprox(1.909053142737053).epsilon(epsilon));
+  REQUIRE(l_momentTensor[4] == AbsApprox(0.677535767462651).epsilon(epsilon));
+  REQUIRE(l_momentTensor[5] == AbsApprox(-1.029826812214912).epsilon(epsilon));
   REQUIRE(l_momentTensor[6] == 0.0);
   REQUIRE(l_momentTensor[7] == 0.0);
   REQUIRE(l_momentTensor[8] == 0.0);
@@ -103,26 +105,28 @@ TEST_CASE("Compute PwLFTimeIntegral") {
 
   // integrate f(t) from -2 to 1.05 (only first term)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, -2.0, 1.05) ==
-          doctest::Approx(0.5 * 40.0 * (1.05 * 1.05 - 1.0) - 39 * 0.05).epsilon(epsilon));
+          AbsApprox(0.5 * 40.0 * (1.05 * 1.05 - 1.0) - 39 * 0.05).epsilon(epsilon));
 
   // integrate f(t) from 1.04 to 1.06 (over boundary)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.04, 1.06) ==
-          doctest::Approx(
+          AbsApprox(
               0.5 * 40.0 * (1.05 * 1.05 - 1.04 * 1.04) - 39 * 0.01 - 0.5 * 80 * (1.06 * 1.06 - 1.05 * 1.05) +
               87 * 0.01).epsilon(300 * epsilon));
 
   // integrate f(t) from 1.10 to 1.10 (on boundary)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.1, 1.1) ==
-          doctest::Approx(0.0).epsilon(epsilon));
+          AbsApprox(0.0).epsilon(epsilon));
 
   // integrate f(t) from 1.19 to 100 (only last term)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.19, 100.0) ==
-          doctest::Approx(0.5 * 10.0 * (1.2 * 1.2 - 1.19 * 1.19) - 9.5 * 0.01).epsilon(epsilon));
+          AbsApprox(0.5 * 10.0 * (1.2 * 1.2 - 1.19 * 1.19) - 9.5 * 0.01).epsilon(epsilon));
 
   // integrate f(t) from -100 to 100 (integral over whole support)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, -100.0, 100.0) ==
-          doctest::Approx(0.5 * 40.0 * (1.05 * 1.05 - 1.00 * 1.00) - 39.0 * 0.05
-                          - 0.5 * 80.0 * (1.10 * 1.10 - 1.05 * 1.05) + 87.0 * 0.05
-                          + 0.5 * 60.0 * (1.15 * 1.15 - 1.10 * 1.10) - 67.0 * 0.05
-                          + 0.5 * 10.0 * (1.20 * 1.20 - 1.15 * 1.15) - 9.5 * 0.05).epsilon(4 * epsilon));
+          AbsApprox(0.5 * 40.0 * (1.05 * 1.05 - 1.00 * 1.00) - 39.0 * 0.05
+                    - 0.5 * 80.0 * (1.10 * 1.10 - 1.05 * 1.05) + 87.0 * 0.05
+                    + 0.5 * 60.0 * (1.15 * 1.15 - 1.10 * 1.10) - 67.0 * 0.05
+                    + 0.5 * 10.0 * (1.20 * 1.20 - 1.15 * 1.15) - 9.5 * 0.05).epsilon(4 * epsilon));
+}
+
 }

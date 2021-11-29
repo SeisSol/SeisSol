@@ -18,6 +18,7 @@
 #include "generated_code/tensor.h"
 
 namespace seissol::unit_test {
+
 class SpaceTimePredictorTestFixture {
 protected:
   const int N = NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS * CONVERGENCE_ORDER;
@@ -261,4 +262,5 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
 
   REQUIRE(diffNorm / refNorm < epsilon);
 }
-}
+
+} // namespace seissol::unit_test

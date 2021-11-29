@@ -1,4 +1,5 @@
 #include "doctest.h"
+#include "tests/TestHelper.h"
 
 #include "Eigenvalues.t.h"
 #include "Functions.t.h"
