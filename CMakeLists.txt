@@ -333,8 +333,11 @@ endif()
 
 # Note: we need to provide a support for Eigen backend
 #       for both gencode and SeisSol
+target_include_directories(SeisSol-lib SYSTEM PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+)
+
 target_include_directories(SeisSol-gencode PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 )
 
@@ -345,10 +348,6 @@ target_include_directories(SeisSol-lib PUBLIC
     # todo: use reexport from easi?
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
-)
-
-target_include_directories(SeisSol-lib SYSTEM PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
@@ -381,7 +380,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-variable -Wno-unused-parameter")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
@@ -402,13 +401,21 @@ else()
 endif()
 
 
+# Note: SeisSol-lib and SeisSol-gencode have cyclic dependencies
+# (e.g., libsxmm flop counters). Thus we add the to the rest of
+# the project though the interface with the following linking option
+add_library(SeisSol-lib-interface INTERFACE)
+target_link_libraries(SeisSol-lib-interface INTERFACE
+  "-Wl,--start-group" SeisSol-lib SeisSol-gencode "-Wl,--end-group"
+)
+
 add_executable(SeisSol-bin src/main.cpp)
-target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
+target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib-interface)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
 # SeisSol proxy-core
 add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
-target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
+target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib-interface)
 
 if (PROXY_PYBINDING)
   if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -424,7 +431,7 @@ endif()
 
 # C/C++ proxy interface
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
-target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib-interface)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 
 find_package(likwid QUIET)
@@ -453,7 +460,7 @@ if (TESTING)
             ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
     )
 
-    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
+    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib-interface)
     target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   endif()
   configure_file(
@@ -502,7 +509,7 @@ if (TESTING)
     test_serial.cpp
     ${test_sources}
     )
-  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
+  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib-interface)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
   CXXTEST_ADD_TEST_MPI(
@@ -511,7 +518,7 @@ if (TESTING)
           test_parallel.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
   )
-  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
+  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib-interface)
   target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   target_compile_definitions(test_parallel_test_suite PRIVATE
     SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
