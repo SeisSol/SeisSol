@@ -2,12 +2,10 @@
 #include "Solver/Pipeline/DrTuner.h"
 #include <array>
 
-
 namespace seissol::unit_test {
 
 TEST_CASE("Dr tuner") {
-  constexpr static size_t
-      ComputeStageId{1};
+  constexpr static size_t ComputeStageId{1};
   std::array<double, 3> timing{};
   constexpr static double eps{2.0};
   size_t batchSize{0};
@@ -39,9 +37,7 @@ TEST_CASE("Dr tuner") {
   SUBCASE("Max is withing range") {
     const auto midPoint = 0.5 * (tuner.getMaxBatchSize() + tuner.getMinBatchSize());
 
-    auto hatFunction = [midPoint](size_t x) {
-      return std::abs(midPoint - x);
-    };
+    auto hatFunction = [midPoint](size_t x) { return std::abs(midPoint - x); };
 
     while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
@@ -50,7 +46,5 @@ TEST_CASE("Dr tuner") {
     }
     REQUIRE(batchSize == AbsApprox(midPoint).epsilon(eps));
   }
-
-
 };
 } // namespace seissol::unit_test

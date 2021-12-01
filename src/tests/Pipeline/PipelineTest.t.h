@@ -8,17 +8,15 @@
 namespace seissol::unit_test {
 
 class PipelineTest {
-public:
+  public:
   using TestPipeline = seissol::GenericPipeline<4, 1024>;
 
   struct TestStageCallBack : public TestPipeline::PipelineCallBack {
     explicit TestStageCallBack(std::string& buffer) : buffer(buffer) {}
 
-    void finalize() override {
-      buffer.push_back('F');
-    }
+    void finalize() override { buffer.push_back('F'); }
 
-  protected:
+protected:
     std::string& buffer;
   };
 
@@ -30,35 +28,29 @@ public:
       batchSizes.emplace_back(batchSize);
     }
 
-    std::vector <size_t> getBatchSizes() { return batchSizes; }
+    std::vector<size_t> getBatchSizes() { return batchSizes; }
 
-  private:
+private:
     // Note: it is enough to test batchSizes in only one stage
-    std::vector <size_t> batchSizes{};
+    std::vector<size_t> batchSizes{};
   };
 
   struct SecondStage : public TestStageCallBack {
     explicit SecondStage(std::string& buffer) : TestStageCallBack(buffer) {}
 
-    void operator()(size_t, size_t, size_t) override {
-      buffer.push_back('B');
-    }
+    void operator()(size_t, size_t, size_t) override { buffer.push_back('B'); }
   };
 
   struct ThirdStage : public TestStageCallBack {
     explicit ThirdStage(std::string& buffer) : TestStageCallBack(buffer) {}
 
-    void operator()(size_t, size_t, size_t) override {
-      buffer.push_back('C');
-    }
+    void operator()(size_t, size_t, size_t) override { buffer.push_back('C'); }
   };
 
   struct FourthStage : public TestStageCallBack {
     explicit FourthStage(std::string& buffer) : TestStageCallBack(buffer) {}
 
-    void operator()(size_t, size_t, size_t) override {
-      buffer.push_back('D');
-    }
+    void operator()(size_t, size_t, size_t) override { buffer.push_back('D'); }
   };
 
   static std::string format(std::string&& stringWithSpaces) {
@@ -71,7 +63,6 @@ public:
                  notSpace);
     return stringWoSpaces;
   }
-
 };
 TEST_CASE("Sizes of pipeline are correct") {
   REQUIRE(PipelineTest::TestPipeline::NumStages == 4);
@@ -93,7 +84,8 @@ TEST_CASE("Ultra short pipeline") {
 
   pipeline.run(PipelineTest::TestPipeline::DefaultBatchSize - 3);
 
-  auto testedBatchSizes = static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
+  auto testedBatchSizes =
+      static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
   std::vector<size_t> expectedBatchSizes{PipelineTest::TestPipeline::DefaultBatchSize - 3};
   REQUIRE(testedBatchSizes.size() == expectedBatchSizes.size());
   for (size_t i = 0; i < expectedBatchSizes.size(); ++i)
@@ -119,7 +111,8 @@ TEST_CASE("Short pipeline") {
 
   pipeline.run(2 * PipelineTest::TestPipeline::DefaultBatchSize - 3);
 
-  auto testedBatchSizes = static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
+  auto testedBatchSizes =
+      static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
   std::vector<size_t> expectedBatchSizes{PipelineTest::TestPipeline::DefaultBatchSize,
                                          PipelineTest::TestPipeline::DefaultBatchSize - 3};
   REQUIRE(testedBatchSizes.size() == expectedBatchSizes.size());
@@ -146,7 +139,8 @@ TEST_CASE("One full pipeline iteration") {
 
   pipeline.run(4 * PipelineTest::TestPipeline::DefaultBatchSize - 3);
 
-  auto testedBatchSizes = static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
+  auto testedBatchSizes =
+      static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
   std::vector<size_t> expectedBatchSizes{PipelineTest::TestPipeline::DefaultBatchSize,
                                          PipelineTest::TestPipeline::DefaultBatchSize,
                                          PipelineTest::TestPipeline::DefaultBatchSize,
@@ -174,7 +168,8 @@ TEST_CASE("Long pipeline") {
 
   pipeline.run(4 * PipelineTest::TestPipeline::DefaultBatchSize + 3);
 
-  auto testedBatchSizes = static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
+  auto testedBatchSizes =
+      static_cast<PipelineTest::FirstStage*>(callBacks[0].get())->getBatchSizes();
   std::vector<size_t> expectedBatchSizes{PipelineTest::TestPipeline::DefaultBatchSize,
                                          PipelineTest::TestPipeline::DefaultBatchSize,
                                          PipelineTest::TestPipeline::DefaultBatchSize,

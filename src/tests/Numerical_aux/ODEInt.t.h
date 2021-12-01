@@ -26,32 +26,30 @@ TEST_CASE("Test ODE Solver") {
     const double dt = 0.0007;
     auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
 
-    auto solver = seissol::ode::RungeKuttaODESolver({sizeIntegratedSolution, sizeSolution}, odeSolverConfig);
-    auto f = [&](seissol::ode::ODEVector& du,
-                 seissol::ode::ODEVector& u,
-                 double time) {
+    auto solver =
+        seissol::ode::RungeKuttaODESolver({sizeIntegratedSolution, sizeSolution}, odeSolverConfig);
+    auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double time) {
       // Unpack du
-      auto[dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
+      auto [dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
       REQUIRE(dUIntegratedSize == sizeIntegratedSolution);
-      auto[dUStorage, dUSize] = du.getSubvector(1);
+      auto [dUStorage, dUSize] = du.getSubvector(1);
       REQUIRE(dUSize == sizeSolution);
 
       // Unpack u
-      auto[uIntegrated, uIntegratedSize] = u.getSubvector(0);
+      auto [uIntegrated, uIntegratedSize] = u.getSubvector(0);
       REQUIRE(uIntegratedSize == sizeIntegratedSolution);
-      auto[uStorage, uSize] = u.getSubvector(1);
+      auto [uStorage, uSize] = u.getSubvector(1);
       REQUIRE(uSize == sizeSolution);
 
       // f(x)' = 2f(x) and f(0) = 1
       // Solution: exp(2x)
       // Solution for int u dx is exp(2x)/2 - C (C=0.5)
-      //du[0] = u[1];
-      //du[1] = 2 * u[1];
+      // du[0] = u[1];
+      // du[1] = 2 * u[1];
       for (int i = 0; i < sizeSolution; ++i) {
         dUIntegratedStorage[i] = uStorage[i];
         dUStorage[i] = 2 * uStorage[i];
       }
-
     };
     for (int i = 0; i < sizeSolution; ++i) {
       curUSolution[i] = 1.0;
@@ -71,8 +69,7 @@ TEST_CASE("Test ODE Solver") {
 
     alignas(ALIGNMENT) real curUSolution[sizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolution},
-                                        {sizeSolution}};
+    auto curU = seissol::ode::ODEVector{{curUSolution}, {sizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 1};
@@ -82,15 +79,13 @@ TEST_CASE("Test ODE Solver") {
 
     auto solver = seissol::ode::RungeKuttaODESolver({sizeSolution}, odeSolverConfig);
     auto parameters = std::array<real, 4>{1.5, 1.0, 3.0, 1.0};
-    auto f = [&](seissol::ode::ODEVector& du,
-                 seissol::ode::ODEVector& u,
-                 double time) {
+    auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double time) {
       // A simple Lotka-Volterra model
       // See: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
 
       // dx/dt = \alpha x - \beta x y
       // dy/dt = \delta x y - \gamma y
-      auto&[alpha, beta, delta, gamma] = parameters;
+      auto& [alpha, beta, delta, gamma] = parameters;
       du[0] = alpha * u[0] - beta * u[0] * u[1];
       du[1] = delta * u[0] * u[1] - gamma * u[1];
     };

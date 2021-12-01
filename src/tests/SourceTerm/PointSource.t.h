@@ -21,8 +21,13 @@ TEST_CASE("Transform moment tensor") {
 
   real l_momentTensor[NUMBER_OF_QUANTITIES];
 
-  seissol::sourceterm::transformMomentTensor(l_localMomentTensorXY, l_localSolidVelocityComponent,
-                                             l_localPressureComponent, l_localFluidVelocityComponent, strike, dip, rake,
+  seissol::sourceterm::transformMomentTensor(l_localMomentTensorXY,
+                                             l_localSolidVelocityComponent,
+                                             l_localPressureComponent,
+                                             l_localFluidVelocityComponent,
+                                             strike,
+                                             dip,
+                                             rake,
                                              l_momentTensor);
 
   // Compare to hand-computed reference solution
@@ -43,13 +48,18 @@ TEST_CASE("Transform moment tensor") {
 
   // Random M
   real l_localMomentTensorXZ[3][3] = {
-      {1.833885014595086,  -0.970040810572334, 0.602398893453385},
+      {1.833885014595086, -0.970040810572334, 0.602398893453385},
       {-0.970040810572334, -1.307688296305273, 1.572402458710038},
-      {0.602398893453385,  1.572402458710038,  2.769437029884877},
+      {0.602398893453385, 1.572402458710038, 2.769437029884877},
   };
 
-  seissol::sourceterm::transformMomentTensor(l_localMomentTensorXZ, l_localSolidVelocityComponent,
-                                             l_localPressureComponent, l_localFluidVelocityComponent, strike, dip, rake,
+  seissol::sourceterm::transformMomentTensor(l_localMomentTensorXZ,
+                                             l_localSolidVelocityComponent,
+                                             l_localPressureComponent,
+                                             l_localFluidVelocityComponent,
+                                             strike,
+                                             dip,
+                                             rake,
                                              l_momentTensor);
 
   // Compare to hand-computed reference solution
@@ -64,21 +74,22 @@ TEST_CASE("Transform moment tensor") {
   REQUIRE(l_momentTensor[8] == 0.0);
 }
 
-
 TEST_CASE("Samples to piecewise linear function 1D") {
-  const real l_samples[] = {0.312858596637428, -0.864879917324456, -0.030051296196269, -0.164879019209038};
+  const real l_samples[] = {
+      0.312858596637428, -0.864879917324456, -0.030051296196269, -0.164879019209038};
   const unsigned l_numberOfSamples = sizeof(l_samples) / sizeof(real);
   const real l_onsetTime = 1.2;
   const real l_samplingInterval = 0.05;
   PiecewiseLinearFunction1D l_pwlf;
 
-  seissol::sourceterm::samplesToPiecewiseLinearFunction1D(l_samples, l_numberOfSamples, l_onsetTime, l_samplingInterval,
-                                                          &l_pwlf);
+  seissol::sourceterm::samplesToPiecewiseLinearFunction1D(
+      l_samples, l_numberOfSamples, l_onsetTime, l_samplingInterval, &l_pwlf);
 
   for (int i = 0; i < 3; ++i) {
     REQUIRE(l_pwlf.slopes[i] == (l_samples[i + 1] - l_samples[i]) / l_samplingInterval);
-    REQUIRE(l_pwlf.intercepts[i] == l_samples[i] - (l_samples[i + 1] - l_samples[i]) / l_samplingInterval *
-                                                   (l_onsetTime + i * l_samplingInterval));
+    REQUIRE(l_pwlf.intercepts[i] == l_samples[i] - (l_samples[i + 1] - l_samples[i]) /
+                                                       l_samplingInterval *
+                                                       (l_onsetTime + i * l_samplingInterval));
   }
 
   REQUIRE(l_pwlf.numberOfPieces == 3);
@@ -100,8 +111,8 @@ TEST_CASE("Compute PwLFTimeIntegral") {
   const real l_onsetTime = 1.0;
   const real l_samplingInterval = 0.05;
   PiecewiseLinearFunction1D l_pwlf;
-  seissol::sourceterm::samplesToPiecewiseLinearFunction1D(l_samples, l_numberOfSamples, l_onsetTime, l_samplingInterval,
-                                                          &l_pwlf);
+  seissol::sourceterm::samplesToPiecewiseLinearFunction1D(
+      l_samples, l_numberOfSamples, l_onsetTime, l_samplingInterval, &l_pwlf);
 
   // integrate f(t) from -2 to 1.05 (only first term)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, -2.0, 1.05) ==
@@ -109,9 +120,9 @@ TEST_CASE("Compute PwLFTimeIntegral") {
 
   // integrate f(t) from 1.04 to 1.06 (over boundary)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.04, 1.06) ==
-          AbsApprox(
-              0.5 * 40.0 * (1.05 * 1.05 - 1.04 * 1.04) - 39 * 0.01 - 0.5 * 80 * (1.06 * 1.06 - 1.05 * 1.05) +
-              87 * 0.01).epsilon(300 * epsilon));
+          AbsApprox(0.5 * 40.0 * (1.05 * 1.05 - 1.04 * 1.04) - 39 * 0.01 -
+                    0.5 * 80 * (1.06 * 1.06 - 1.05 * 1.05) + 87 * 0.01)
+              .epsilon(300 * epsilon));
 
   // integrate f(t) from 1.10 to 1.10 (on boundary)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.1, 1.1) ==
@@ -123,10 +134,11 @@ TEST_CASE("Compute PwLFTimeIntegral") {
 
   // integrate f(t) from -100 to 100 (integral over whole support)
   REQUIRE(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, -100.0, 100.0) ==
-          AbsApprox(0.5 * 40.0 * (1.05 * 1.05 - 1.00 * 1.00) - 39.0 * 0.05
-                    - 0.5 * 80.0 * (1.10 * 1.10 - 1.05 * 1.05) + 87.0 * 0.05
-                    + 0.5 * 60.0 * (1.15 * 1.15 - 1.10 * 1.10) - 67.0 * 0.05
-                    + 0.5 * 10.0 * (1.20 * 1.20 - 1.15 * 1.15) - 9.5 * 0.05).epsilon(4 * epsilon));
+          AbsApprox(0.5 * 40.0 * (1.05 * 1.05 - 1.00 * 1.00) - 39.0 * 0.05 -
+                    0.5 * 80.0 * (1.10 * 1.10 - 1.05 * 1.05) + 87.0 * 0.05 +
+                    0.5 * 60.0 * (1.15 * 1.15 - 1.10 * 1.10) - 67.0 * 0.05 +
+                    0.5 * 10.0 * (1.20 * 1.20 - 1.15 * 1.15) - 9.5 * 0.05)
+              .epsilon(4 * epsilon));
 }
 
-}
+} // namespace seissol::unit_test

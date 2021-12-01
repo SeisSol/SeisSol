@@ -22,33 +22,33 @@ void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
 TEST_CASE("Mesh refiner") {
   constexpr double epsilon = std::numeric_limits<double>::epsilon();
   std::srand(0);
-  const auto vertices = std::array<Eigen::Vector3d, 4>{{
-                                                           Eigen::Vector3d((double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX),
-                                                           Eigen::Vector3d((double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX),
-                                                           Eigen::Vector3d((double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX),
-                                                           Eigen::Vector3d((double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX,
-                                                                           (double) std::rand() / RAND_MAX)}};
+  const auto vertices =
+      std::array<Eigen::Vector3d, 4>{{Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX),
+                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX),
+                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX),
+                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX)}};
   const seissol::MockReader mockReader(vertices);
 
   SUBCASE("Divide by 4") {
     const std::array<Eigen::Vector3d, 5> expectedVerticesDivideBy4 = {
-        vertices[0], vertices[1], vertices[2], vertices[3],
-        0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3])
-    };
+        vertices[0],
+        vertices[1],
+        vertices[2],
+        vertices[3],
+        0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3])};
 
-    const std::array<Eigen::Vector4i, 4> expectedCellsDivideBy4{
-        Eigen::Vector4i(0, 1, 2, 4),
-        Eigen::Vector4i(0, 1, 3, 4),
-        Eigen::Vector4i(0, 2, 3, 4),
-        Eigen::Vector4i(1, 2, 3, 4)
-    };
+    const std::array<Eigen::Vector4i, 4> expectedCellsDivideBy4{Eigen::Vector4i(0, 1, 2, 4),
+                                                                Eigen::Vector4i(0, 1, 3, 4),
+                                                                Eigen::Vector4i(0, 2, 3, 4),
+                                                                Eigen::Vector4i(1, 2, 3, 4)};
 
     seissol::refinement::DivideTetrahedronBy4<double> refineBy4;
     seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy4);
@@ -63,25 +63,25 @@ TEST_CASE("Mesh refiner") {
   }
   SUBCASE("Divide by 8") {
     const std::array<Eigen::Vector3d, 10> expectedVerticesDivideBy8 = {
-        vertices[0], vertices[1], vertices[2], vertices[3],
+        vertices[0],
+        vertices[1],
+        vertices[2],
+        vertices[3],
         0.5 * (vertices[0] + vertices[1]),
         0.5 * (vertices[0] + vertices[2]),
         0.5 * (vertices[0] + vertices[3]),
         0.5 * (vertices[1] + vertices[2]),
         0.5 * (vertices[1] + vertices[3]),
-        0.5 * (vertices[2] + vertices[3])
-    };
+        0.5 * (vertices[2] + vertices[3])};
 
-    const std::array<Eigen::Vector4i, 8> expectedCellsDivideBy8{
-        Eigen::Vector4i(0, 4, 5, 6),
-        Eigen::Vector4i(1, 4, 7, 8),
-        Eigen::Vector4i(2, 5, 7, 9),
-        Eigen::Vector4i(3, 6, 8, 9),
-        Eigen::Vector4i(4, 5, 6, 8),
-        Eigen::Vector4i(4, 5, 7, 8),
-        Eigen::Vector4i(5, 6, 8, 9),
-        Eigen::Vector4i(5, 7, 8, 9)
-    };
+    const std::array<Eigen::Vector4i, 8> expectedCellsDivideBy8{Eigen::Vector4i(0, 4, 5, 6),
+                                                                Eigen::Vector4i(1, 4, 7, 8),
+                                                                Eigen::Vector4i(2, 5, 7, 9),
+                                                                Eigen::Vector4i(3, 6, 8, 9),
+                                                                Eigen::Vector4i(4, 5, 6, 8),
+                                                                Eigen::Vector4i(4, 5, 7, 8),
+                                                                Eigen::Vector4i(5, 6, 8, 9),
+                                                                Eigen::Vector4i(5, 7, 8, 9)};
 
     seissol::refinement::DivideTetrahedronBy8<double> refineBy8;
     seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy8);
@@ -97,7 +97,10 @@ TEST_CASE("Mesh refiner") {
 
   SUBCASE("Divide by 32") {
     const std::array<Eigen::Vector3d, 18> expectedVerticesDivideBy32 = {
-        vertices[0], vertices[1], vertices[2], vertices[3],
+        vertices[0],
+        vertices[1],
+        vertices[2],
+        vertices[3],
         0.5 * (vertices[0] + vertices[1]),
         0.5 * (vertices[0] + vertices[2]),
         0.5 * (vertices[0] + vertices[3]),
@@ -113,43 +116,20 @@ TEST_CASE("Mesh refiner") {
         0.375 * vertices[0] + 0.25 * vertices[1] + 0.125 * vertices[2] + 0.25 * vertices[3],
         0.25 * vertices[0] + 0.375 * vertices[1] + 0.25 * vertices[2] + 0.125 * vertices[3],
         0.25 * vertices[0] + 0.125 * vertices[1] + 0.25 * vertices[2] + 0.375 * vertices[3],
-        0.125 * vertices[0] + 0.25 * vertices[1] + 0.375 * vertices[2] + 0.25 * vertices[3]
-    };
+        0.125 * vertices[0] + 0.25 * vertices[1] + 0.375 * vertices[2] + 0.25 * vertices[3]};
 
     const std::array<Eigen::Vector4i, 32> expectedCellsDivideBy32{
-        Eigen::Vector4i(0, 4, 5, 10),
-        Eigen::Vector4i(0, 4, 6, 10),
-        Eigen::Vector4i(0, 5, 6, 10),
-        Eigen::Vector4i(4, 5, 6, 10),
-        Eigen::Vector4i(1, 4, 7, 11),
-        Eigen::Vector4i(1, 4, 8, 11),
-        Eigen::Vector4i(1, 7, 8, 11),
-        Eigen::Vector4i(4, 7, 8, 11),
-        Eigen::Vector4i(2, 5, 7, 12),
-        Eigen::Vector4i(2, 5, 9, 12),
-        Eigen::Vector4i(2, 7, 9, 12),
-        Eigen::Vector4i(5, 7, 9, 12),
-        Eigen::Vector4i(3, 6, 8, 13),
-        Eigen::Vector4i(3, 6, 9, 13),
-        Eigen::Vector4i(3, 8, 9, 13),
-        Eigen::Vector4i(6, 8, 9, 13),
-        Eigen::Vector4i(4, 5, 6, 14),
-        Eigen::Vector4i(4, 5, 8, 14),
-        Eigen::Vector4i(4, 6, 8, 14),
-        Eigen::Vector4i(5, 6, 8, 14),
-        Eigen::Vector4i(4, 5, 7, 15),
-        Eigen::Vector4i(4, 5, 8, 15),
-        Eigen::Vector4i(4, 7, 8, 15),
-        Eigen::Vector4i(5, 7, 8, 15),
-        Eigen::Vector4i(5, 6, 8, 16),
-        Eigen::Vector4i(5, 6, 9, 16),
-        Eigen::Vector4i(5, 8, 9, 16),
-        Eigen::Vector4i(6, 8, 9, 16),
-        Eigen::Vector4i(5, 7, 8, 17),
-        Eigen::Vector4i(5, 7, 9, 17),
-        Eigen::Vector4i(5, 8, 9, 17),
-        Eigen::Vector4i(7, 8, 9, 17)
-    };
+        Eigen::Vector4i(0, 4, 5, 10), Eigen::Vector4i(0, 4, 6, 10), Eigen::Vector4i(0, 5, 6, 10),
+        Eigen::Vector4i(4, 5, 6, 10), Eigen::Vector4i(1, 4, 7, 11), Eigen::Vector4i(1, 4, 8, 11),
+        Eigen::Vector4i(1, 7, 8, 11), Eigen::Vector4i(4, 7, 8, 11), Eigen::Vector4i(2, 5, 7, 12),
+        Eigen::Vector4i(2, 5, 9, 12), Eigen::Vector4i(2, 7, 9, 12), Eigen::Vector4i(5, 7, 9, 12),
+        Eigen::Vector4i(3, 6, 8, 13), Eigen::Vector4i(3, 6, 9, 13), Eigen::Vector4i(3, 8, 9, 13),
+        Eigen::Vector4i(6, 8, 9, 13), Eigen::Vector4i(4, 5, 6, 14), Eigen::Vector4i(4, 5, 8, 14),
+        Eigen::Vector4i(4, 6, 8, 14), Eigen::Vector4i(5, 6, 8, 14), Eigen::Vector4i(4, 5, 7, 15),
+        Eigen::Vector4i(4, 5, 8, 15), Eigen::Vector4i(4, 7, 8, 15), Eigen::Vector4i(5, 7, 8, 15),
+        Eigen::Vector4i(5, 6, 8, 16), Eigen::Vector4i(5, 6, 9, 16), Eigen::Vector4i(5, 8, 9, 16),
+        Eigen::Vector4i(6, 8, 9, 16), Eigen::Vector4i(5, 7, 8, 17), Eigen::Vector4i(5, 7, 9, 17),
+        Eigen::Vector4i(5, 8, 9, 17), Eigen::Vector4i(7, 8, 9, 17)};
 
     seissol::refinement::DivideTetrahedronBy32<double> refineBy32;
     seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy32);

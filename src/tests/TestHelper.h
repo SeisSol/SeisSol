@@ -10,7 +10,7 @@ namespace seissol::unit_test {
 
 // Inspired by doctest's Approx, slightly modified
 class AbsApprox {
-public:
+  public:
   inline explicit AbsApprox(double value);
 
   inline AbsApprox operator()(double value) const;
@@ -43,7 +43,7 @@ public:
 
   friend doctest::String toString(const AbsApprox& in);
 
-private:
+  private:
   double m_epsilon;
   double m_value;
 };
@@ -93,6 +93,6 @@ inline doctest::String toString(const AbsApprox& in) {
   return doctest::String("AbsApprox( ") + doctest::toString(in.m_value) + " )";
 }
 
-}
+} // namespace seissol::unit_test
 
-#endif //SEISSOL_TESTHELPER_H
+#endif // SEISSOL_TESTHELPER_H

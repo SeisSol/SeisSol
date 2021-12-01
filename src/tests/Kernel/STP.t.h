@@ -20,7 +20,7 @@
 namespace seissol::unit_test {
 
 class SpaceTimePredictorTestFixture {
-protected:
+  protected:
   const int N = NUMBER_OF_QUANTITIES * NUMBER_OF_BASIS_FUNCTIONS * CONVERGENCE_ORDER;
   constexpr static double const epsilon = std::numeric_limits<real>::epsilon();
   constexpr static double const dt = 1.05109e-06;
@@ -30,11 +30,7 @@ protected:
   real sourceMatrix[tensor::ET::size()];
   real zMatrix[NUMBER_OF_QUANTITIES][tensor::Zinv::size(0)];
 
-  void setStarMatrix(real* i_AT,
-                     real* i_BT,
-                     real* i_CT,
-                     real i_grad[3],
-                     real* o_starMatrix) {
+  void setStarMatrix(real* i_AT, real* i_BT, real* i_CT, real i_grad[3], real* o_starMatrix) {
     for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
       o_starMatrix[idx] = i_grad[0] * i_AT[idx];
     }
@@ -49,24 +45,34 @@ protected:
   }
 
   void prepareModel() {
-    //prepare Material
-    std::array<double, 10> materialVals = {{40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
+    // prepare Material
+    std::array<double, 10> materialVals = {
+        {40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
     model::PoroElasticMaterial material(materialVals.data(), 10);
 
-    //prepare Geometry
+    // prepare Geometry
     std::srand(0);
-    std::mt19937 generator(20210109); //Standard mersenne_twister_engine seeded with today's date
+    std::mt19937 generator(20210109); // Standard mersenne_twister_engine seeded with today's date
     std::uniform_real_distribution<real> distribution(0, 1);
-    real x[] = {distribution(generator), distribution(generator), distribution(generator), distribution(generator)};
-    real y[] = {distribution(generator), distribution(generator), distribution(generator), distribution(generator)};
-    real z[] = {distribution(generator), distribution(generator), distribution(generator), distribution(generator)};
+    real x[] = {distribution(generator),
+                distribution(generator),
+                distribution(generator),
+                distribution(generator)};
+    real y[] = {distribution(generator),
+                distribution(generator),
+                distribution(generator),
+                distribution(generator)};
+    real z[] = {distribution(generator),
+                distribution(generator),
+                distribution(generator),
+                distribution(generator)};
     real gradXi[3];
     real gradEta[3];
     real gradZeta[3];
 
     transformations::tetrahedronGlobalToReferenceJacobian(x, y, z, gradXi, gradEta, gradZeta);
 
-    //prepare starmatrices
+    // prepare starmatrices
     real ATData[tensor::star::size(0)];
     real BTData[tensor::star::size(1)];
     real CTData[tensor::star::size(2)];
@@ -80,11 +86,11 @@ protected:
     setStarMatrix(ATData, BTData, CTData, gradEta, starMatrices1);
     setStarMatrix(ATData, BTData, CTData, gradZeta, starMatrices2);
 
-    //prepare sourceterm
+    // prepare sourceterm
     auto ET = init::ET::view::create(sourceMatrix);
     model::getTransposedSourceCoefficientTensor(material, ET);
 
-    //prepare Zinv
+    // prepare Zinv
     auto Zinv = init::Zinv::view<0>::create(zMatrix[0]);
     model::calcZinv(Zinv, ET, 0, dt);
     auto Zinv1 = init::Zinv::view<1>::create(zMatrix[1]);
@@ -117,15 +123,18 @@ protected:
     for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
       if (n > 0) {
         for (int d = 0; d < 3; ++d) {
-          m_krnlPrototype.kDivMTSub(d, n) = seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
+          m_krnlPrototype.kDivMTSub(d, n) =
+              seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
         }
       }
-      m_krnlPrototype.selectModes(n) = seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
+      m_krnlPrototype.selectModes(n) =
+          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
     }
     for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
-      m_krnlPrototype.selectQuantity(k) = seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(
-          k)];
-      m_krnlPrototype.selectQuantityG(k) = init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
+      m_krnlPrototype.selectQuantity(k) =
+          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
+      m_krnlPrototype.selectQuantityG(k) =
+          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
     }
     m_krnlPrototype.timeInt = seissol::init::timeInt::Values;
     m_krnlPrototype.wHat = seissol::init::wHat::Values;
@@ -145,13 +154,13 @@ protected:
   }
 
   void prepareQ(real* QData) {
-    //scale quantities to make it more realistic
+    // scale quantities to make it more realistic
     std::array<real, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto Q = init::Q::view::create(QData);
     std::srand(1234);
     for (int q = 0; q < NUMBER_OF_QUANTITIES; q++) {
       for (int bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; bf++) {
-        Q(bf, q) = (real) std::rand() / RAND_MAX * factor.at(q);
+        Q(bf, q) = (real)std::rand() / RAND_MAX * factor.at(q);
       }
     }
   }
@@ -217,13 +226,9 @@ protected:
     testRhsKrnl.execute();
   };
 
-public:
-  SpaceTimePredictorTestFixture() {
-    prepareModel();
-  };
-
+  public:
+  SpaceTimePredictorTestFixture() { prepareModel(); };
 };
-
 
 TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
   alignas(PAGESIZE_STACK) real stp[seissol::tensor::spaceTimePredictor::size()];
@@ -247,7 +252,6 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
 
   auto lhsView = init::testLhs::view::create(lhs);
   auto rhsView = init::testRhs::view::create(rhs);
-
 
   for (size_t b = 0; b < tensor::spaceTimePredictor::Shape[0]; b++) {
     for (size_t q = 0; q < tensor::spaceTimePredictor::Shape[1]; q++) {

@@ -15,9 +15,8 @@ TEST_CASE("LTS Weights") {
   seissol::PUMLReader pumlReader("Testing/mesh.h5", 5000.0, "", ltsWeights.get());
   std::cout.clear();
 
-  std::array<unsigned, 24> expectedWeights = {
-      2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1
-  };
+  std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
+                                              2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
   for (int i = 0; i < 24; i++) {
     REQUIRE(ltsWeights->vertexWeights()[i] == expectedWeights[i]);
   }
