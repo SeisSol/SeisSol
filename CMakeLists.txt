@@ -441,28 +441,42 @@ if (likwid_FOUND)
 endif()
 
 if (TESTING)
-  include(cmake/testing.cmake)
-
-  # Testing
-  set(CXXTEST_TESTGEN_ARGS "--template=${CMAKE_CURRENT_SOURCE_DIR}/src/tests/mpirunner.tpl")
-  find_package(CxxTest REQUIRED)
-
-  # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
   enable_testing()
+  include(cmake/doctest.cmake)
 
-  # what about the unit tests for the lts layout?
+  # Coverage
+  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+    include(cmake/CodeCoverage.cmake)
+    append_coverage_compiler_flags()
+    setup_target_for_coverage_lcov(
+            NAME SeisSol-coverage
+            EXECUTABLE SeisSol-serial-test
+            EXCLUDE "/usr/*"
+                    "submodules/*"
+                    "*/tests/*"
+                    "external/*"
+                    "*/yaml-cpp-install/*"
+    )
+  endif()
+
+  set(seissol_test_sources
+          src/tests/Model/TestModel.cpp
+          src/tests/Initializer/TestInitializer.cpp
+          src/tests/Numerical_aux/TestNumerical_aux.cpp
+          src/tests/Geometry/TestGeometry.cpp
+          src/tests/Kernel/TestKernel.cpp
+          src/tests/SourceTerm/SourceTermTest.cpp
+          src/tests/Pipeline/TestPipeline.cpp
+          )
+
 
   if (TESTING_GENERATED)
-    CXXTEST_ADD_TEST_MPI(
-            test_kernel_test_suite
-            1
-            test_kernel.cpp
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
-    )
-
-    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib-interface)
-    target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+    set(seissol_test_sources
+            ${seissol_test_sources}
+            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
+            )
   endif()
+
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
@@ -475,54 +489,23 @@ if (TESTING)
     )
 
   if (NETCDF)
-  configure_file(
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
-          ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
-          COPYONLY
-  )
-  set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
+    configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
+            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
+            COPYONLY
+    )
+    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/ReaderTest.cpp)
   endif()
 
-  set(test_sources ${test_sources} 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Eigenvalues.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/ODEInt.t.h      
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-    ${SeisSol_NETCDF_TEST_FILES}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
-    )
-  if(${EQUATIONS} STREQUAL "poroelastic")
-    set(test_sources ${test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h)
-  endif()
-  CXXTEST_ADD_TEST_MPI(
-    test_serial_test_suite
-    1
-    test_serial.cpp
-    ${test_sources}
-    )
-  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib-interface)
-  target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  add_executable(SeisSol-serial-test
+            ${seissol_test_sources}
+            src/tests/test_main.cpp)
+  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib-interface)
+  target_include_directories(SeisSol-serial-test PUBLIC external/)
+  doctest_discover_tests(SeisSol-serial-test)
 
-  CXXTEST_ADD_TEST_MPI(
-          test_parallel_test_suite
-          4
-          test_parallel.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-  )
-  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib-interface)
-  target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
-  target_compile_definitions(test_parallel_test_suite PRIVATE
-    SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
-    )
+  # Avoid duplicate definition of FLOP counters
+  target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
