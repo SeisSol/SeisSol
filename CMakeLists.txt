@@ -103,7 +103,6 @@ add_custom_command(
         src/generated_code/init.h
         src/generated_code/kernel.h
         src/generated_code/kernel.cpp
-        generated_code/test-kernel.cpp
     COMMENT "Codegen for tensor stuff."
        )
 
@@ -501,7 +500,7 @@ if (TESTING)
   add_executable(SeisSol-serial-test
             ${seissol_test_sources}
             src/tests/test_main.cpp)
-  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
+  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib-interface)
   target_include_directories(SeisSol-serial-test PUBLIC external/)
   doctest_discover_tests(SeisSol-serial-test)
 
