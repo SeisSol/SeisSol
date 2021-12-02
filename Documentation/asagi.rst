@@ -59,7 +59,7 @@ On a cluster without restricted access to outside sources, you could then clone 
 
 .. code-block:: bash
 
-   git clone --recursive https://github.com/TUM-I5/ASAGI.github
+   git clone --recursive https://github.com/TUM-I5/ASAGI.git
    
 On supermuc, you have to set up port forwarding as described in :ref:`compile_run_supermuc`.
 
