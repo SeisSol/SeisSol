@@ -46,7 +46,8 @@ parser.add_argument(
 
 parser.add_argument(
     "--use_Yoffe",
-    help="replace the discretized STF with a Yoffe function (e.g. for comparison with FL33)",
+    help="replace the discretized STF with a Yoffe function (e.g. for comparison with FL33).\
+       Requires peak slip rate threshold (0-1) to determine onset time and duration of STF",
     dest="use_Yoffe",
     nargs=1,
     metavar=("PSRthreshold"),
