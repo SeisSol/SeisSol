@@ -19,9 +19,6 @@
 [submodule "submodules/easi"]
 	path = submodules/easi
 	url = ../../SeisSol/easi.git
-[submodule "submodules/yaml-cpp"]
-	path = submodules/yaml-cpp
-	url = ../../jbeder/yaml-cpp.git
 [submodule "submodules/ImpalaJIT"]
 	path = submodules/ImpalaJIT
 	url = ../../uphoffc/ImpalaJIT.git

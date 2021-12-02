@@ -44,6 +44,17 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
+# Check internet connection. If not access to internet we can try ssh protocol for github
+execute_process(
+    COMMAND ping www.google.com -c 2
+    ERROR_QUIET
+    RESULT_VARIABLE NO_CONNECTION
+)
+if(NO_CONNECTION GREATER 0)
+    set(SSH_PROTOCOL ON)
+else()
+    set(SSH_PROTOCOL OFF)
+endif()
 
 # Generate version.h
 
@@ -160,8 +171,19 @@ if (YAML-CPP_FOUND)
   target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
   target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 else()
+    if (SSH_PROTOCOL)
+       set(GITREP "git@github.com:jbeder/yaml-cpp")
+    else()
+       set(GITREP "https://github.com/jbeder/yaml-cpp")
+    endif()
+    FetchContent_Declare(yaml-cpp
+     GIT_REPOSITORY ${GITREP}
+     GIT_TAG 11607eb5bf1258641d80f7051e7cf09e317b4746
+    )
+    FetchContent_MakeAvailable(yaml-cpp)
+
   ExternalProject_Add(yaml-cpp-build
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
+    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/_deps/yaml-cpp-src/
     INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
