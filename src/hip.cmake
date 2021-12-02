@@ -53,19 +53,19 @@ set(DEVICE_SRC ${DEVICE_SRC}
 set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
 
 hip_reset_flags()
-hip_add_library(Seissol-device-lib SHARED ${DEVICE_SRC}
+hip_add_library(SeisSol-device-lib SHARED ${DEVICE_SRC}
         HIPCC_OPTIONS ${SEISSOL_HIPCC}
         HCC_OPTIONS ${SEISSOL_HCC}
         NVCC_OPTIONS ${SEISSOL_NVCC})
 
-target_include_directories(Seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
-set_property(TARGET Seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
+target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
+set_property(TARGET SeisSol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
 
 
 if (IS_NVCC_PLATFORM)
-    set_target_properties(Seissol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
-    target_link_options(Seissol-device-lib PRIVATE -arch=${DEVICE_ARCH})
+    set_target_properties(SeisSol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
+    target_link_options(SeisSol-device-lib PRIVATE -arch=${DEVICE_ARCH})
 else()
-    target_link_libraries(Seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
+    target_link_libraries(SeisSol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
 
