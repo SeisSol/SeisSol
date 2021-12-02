@@ -388,8 +388,8 @@ class FaultPlane:
                     self.rise_time[j, i] = np.nan
                     self.tacc[j, i] = np.nan
                 else:
-                    id_max = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0][0]
-                    peakSR = self.aSR[j, i, id_max]
+                    peakSR = np.amax(self.aSR[j, i, :])
+                    id_max = np.where(self.aSR[j, i, :] == peakSR)[0][0]
                     ids_greater_than_threshold = np.where(self.aSR[j, i, :] > threshold * peakSR)[0]
                     first_non_zero = np.amin(ids_greater_than_threshold)
                     last_non_zero = np.amax(ids_greater_than_threshold)
