@@ -23,7 +23,7 @@ jobs:
                         gcc --version
                         gcov-tool --version
                         gcov --version
-                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev lcov
+                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev lcov libnetcdf-mpi-dev
                         sudo pip3 install --upgrade pip
                         sudo pip3 install 'numpy>=1.12.0'
                         git clone https://github.com/hfp/libxsmm
@@ -40,7 +40,7 @@ jobs:
                             mechanisms=0
                         fi
                         mkdir -p build && cd build
-                        CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=${{ build_type }} -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=${{ precision }} -DEQUATIONS=${{ equation }} -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCOVERAGE=ON ..
+                        CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=ON -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=${{ build_type }} -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=${{ precision }} -DEQUATIONS=${{ equation }} -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCOVERAGE=ON ..
                         make -j $(nproc)
                         make test
 
