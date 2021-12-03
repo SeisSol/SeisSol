@@ -23,7 +23,7 @@ jobs:
                         gcc --version
                         gcov-tool --version
                         gcov --version
-                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev lcov libnetcdf-dev libnetcdf-pnetcdf-dev
+                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev lcov
                         sudo pip3 install 'numpy>=1.12.0'
                         git clone https://github.com/hfp/libxsmm
                         cd libxsmm
@@ -31,6 +31,7 @@ jobs:
                         mkdir -p $HOME/bin
                         cp bin/libxsmm_gemm_generator $HOME/bin
                         export PATH=$HOME/bin:$PATH
+                        wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-c-4.7.4.tar.gz && tar -xvf netcdf-c-4.7.4.tar.gz && cd netcdf-c-4.7.4 && CFLAGS="-fPIC" CC=/home/tools/bin/h5pcc ./configure --enable-shared=no --prefix=/home/tools --disable-dap && make -j2 && make install
                         cd ..
                         git submodule update --init
                         if [ "${{ equation }}" = viscoelastic2 ]; then
