@@ -6,6 +6,7 @@
 #
 #  OpenMP_Offloading_FOUND               - compiler is able to perform OpenMP offloading
 #  OpenMP_Offloading_FLAGS               - compiler flags for OpenMP Offloading
+#  OpenMP_Offloading_LINK_LIBRARIES      - link libraries for OpenMP Offloading
 #  OpenMP::OpenMP_CXX_with_offloading    - imported target
 #
 #  NOTE: it is not an official cmake search file
@@ -41,10 +42,12 @@ if (_is_offloading_test_ready)
             set(_Offloading_CXX_FLAGS -fopenmp-targets=nvptx64-nvidia-cuda
                                       -Xopenmp-target
                                       -march=${DEVICE_ARCH})
+            set(_Offloading_LINK_LIBS -lomptarget)
         endif()
     elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
         if (${DEVICE_BACKEND} STREQUAL "cuda")
             set(_Offloading_CXX_FLAGS --target=nvptx-none)
+            set(_Offloading_LINK_LIBS -lomptarget)
         endif()
     endif()
 
@@ -77,12 +80,21 @@ endif()
 
 if (_OPENMP_OFFLOAD_RESULT)
     set(OpenMP_Offloading_FLAGS ${_Offloading_CXX_FLAGS})
+    set(OpenMP_Offloading_LINK_LIBRARIES ${_Offloading_LINK_LIBS})
 
     add_library(OpenMP::OpenMP_CXX_with_offloading INTERFACE IMPORTED)
     set_property(TARGET OpenMP::OpenMP_CXX_with_offloading APPEND PROPERTY INTERFACE_COMPILE_OPTIONS
             $<$<COMPILE_LANGUAGE:CXX>:${OpenMP_CXX_FLAGS} ${_Offloading_CXX_FLAGS}>)
+
+    target_link_libraries(OpenMP::OpenMP_CXX_with_offloading INTERFACE
+            ${OpenMP_CXX_LIBRARIES}
+            ${OpenMP_CXX_FLAGS} ${OpenMP_Offloading_FLAGS}
+            ${OpenMP_Offloading_LINK_LIBRARIES})
 endif()
 
-find_package_handle_standard_args(OpenMP_Offloading OpenMP_Offloading_FLAGS _OPENMP_OFFLOAD_RESULT)
-mark_as_advanced(_is_offloading_test_ready _Offloading_CXX_FLAGS)
+find_package_handle_standard_args(OpenMP_Offloading
+                                  OpenMP_Offloading_FLAGS
+                                  OpenMP_Offloading_LINK_LIBRARIES
+                                  _OPENMP_OFFLOAD_RESULT)
+mark_as_advanced(_is_offloading_test_ready _Offloading_CXX_FLAGS _Offloading_LINK_LIBS)
 cmake_pop_check_state()
