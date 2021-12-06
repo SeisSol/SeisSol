@@ -81,7 +81,7 @@ namespace seissol {
     class NeighborBase;
   }
 }
-class GlobalData;
+struct GlobalData;
 
 class seissol::kernels::NeighborBase {
   protected:

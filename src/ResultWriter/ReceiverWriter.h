@@ -49,8 +49,8 @@
 #include <Modules/Module.h>
 #include <Monitoring/Stopwatch.h>
 
-class LocalIntegrationData;
-class GlobalData;
+struct LocalIntegrationData;
+struct GlobalData;
 namespace seissol {
   namespace writer {
     class ReceiverWriter : public seissol::Module {

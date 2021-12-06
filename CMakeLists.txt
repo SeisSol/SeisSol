@@ -341,10 +341,16 @@ target_include_directories(SeisSol-gencode PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 )
 
+# Note: it is better to include `async` as system headers
+# because it emits lot's of warnings from clang.
+# Most of them are issues with respect to overriden
+# virtual methods
+target_include_directories(SeisSol-lib SYSTEM PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async)
+
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
     # todo: use reexport from easi?
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
@@ -380,7 +386,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 endif()
 
 find_package(FILESYSTEM REQUIRED)

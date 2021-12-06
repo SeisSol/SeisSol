@@ -51,7 +51,7 @@
 #include <Kernels/Interface.hpp>
 #include <generated_code/init.h>
 
-class GlobalData;
+struct GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
