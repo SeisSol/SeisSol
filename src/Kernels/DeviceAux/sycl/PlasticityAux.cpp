@@ -12,6 +12,11 @@ squareRoot(T x) {
   return std::is_same<T, double>::value ? sqrt(x) : sqrtf(x);
 }
 
+template<typename Tensor>
+constexpr size_t leadDim() {
+  return Tensor::Stop[0] - Tensor::Start[0];
+}
+
 //--------------------------------------------------------------------------------------------------
 void saveFirstModes(real *firstModes,
                     const real **modalStressTensors,
@@ -27,9 +32,9 @@ void saveFirstModes(real *firstModes,
     cgh.parallel_for(cl::sycl::nd_range < 3 >
                      {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
                        groupCount.get(2) * groupSize.get(2)}, groupSize}, [=](cl::sycl::nd_item<3> item) {
-      constexpr unsigned numModesPerElement = tensor::Q::Shape[0];
+      constexpr auto modalStressTensorsColumn = leadDim<init::Q>();
       firstModes[item.get_local_id(0) + item.get_local_range(0) * item.get_group().get_id(0)] =
-          modalStressTensors[item.get_group().get_id(0)][item.get_local_id(0) * numModesPerElement];
+          modalStressTensors[item.get_group().get_id(0)][item.get_local_id(0) * modalStressTensorsColumn];
     });
   });
 }
@@ -42,8 +47,8 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void *queuePtr) {
-  constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
-  cl::sycl::range<3> groupCount(numNodesPerElement, 1, 1);
+  constexpr unsigned numNodes = tensor::QStressNodal::Shape[0];
+  cl::sycl::range<3> groupCount(numNodes, 1, 1);
   cl::sycl::range<3> groupSize(numElements, 1, 1);
 
   assert(queuePtr != nullptr && "a pointer to a SYCL queue must be a valid one");
@@ -61,10 +66,10 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
 
 
       // NOTE: item.get_local_range(0) == tensor::QStressNodal::Shape[0] i.e., num nodes
-      constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
+      constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
       #pragma unroll
       for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-        localStresses[i] = elementTensors[item.get_local_id(0) + numNodesPerElement * i];
+        localStresses[i] = elementTensors[item.get_local_id(0) + elementTensorsColumn * i];
       }
 
       // 2. Compute the mean stress for each node
@@ -106,7 +111,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
       if (isAdjusted[0]) {
         #pragma unroll
         for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-          elementTensors[item.get_local_id(0) + item.get_local_range(0) * i] = localStresses[i] * factor;
+          elementTensors[item.get_local_id(0) + elementTensorsColumn * i] = localStresses[i] * factor;
         }
       }
 
@@ -124,7 +129,7 @@ void adjustModalStresses(real **modalStressTensors,
                          const int *isAdjustableVector,
                          const size_t numElements,
                          void *queuePtr) {
-  constexpr unsigned numNodesPerElement = init::vInv::Shape[0];
+  constexpr unsigned numNodesPerElement = init::QStressNodal::Shape[0];
   cl::sycl::range<3> groupCount(numNodesPerElement, 1, 1);
   cl::sycl::range<3> groupSize(numElements, 1, 1);
 
@@ -133,6 +138,7 @@ void adjustModalStresses(real **modalStressTensors,
 
   // NOTE: item.get_local_range(0) == init::QStressNodal::Shape[0]
   constexpr int numNodes = init::QStressNodal::Shape[0];
+  constexpr size_t nodalTensorColumn = leadDim<init::QStressNodal>();
   constexpr size_t nodalTensorSize = numNodes * NUM_STRESS_COMPONENTS;
 
   queue->submit([&](cl::sycl::handler &cgh) {
@@ -149,16 +155,15 @@ void adjustModalStresses(real **modalStressTensors,
         const real *nodalTensor = nodalStressTensors[item.get_group().get_id(0)];
 
         for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-          shrMem[item.get_local_id(0) + numNodes * n] = nodalTensor[item.get_local_id(0) + numNodes * n];
+          shrMem[item.get_local_id(0) + numNodes * n] = nodalTensor[item.get_local_id(0) + nodalTensorColumn * n];
         }
         item.barrier();
 
         // matrix multiply: (numNodes x numNodes) * (numNodes x NUM_STRESS_COMPONENTS)
         real accumulator[NUM_STRESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-        real value = 0.0;
-        // inverseVandermondeMatrix - square matrix
+        constexpr auto vInvColumn = leadDim<init::vInv>();
         for (int k = 0; k < numNodes; ++k) {
-          value = inverseVandermondeMatrix[item.get_local_id(0) + numNodes * k];
+          real value = inverseVandermondeMatrix[item.get_local_id(0) + vInvColumn * k];
 
           #pragma unroll
           for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
@@ -166,10 +171,10 @@ void adjustModalStresses(real **modalStressTensors,
           }
         }
 
-        constexpr unsigned numModesPerElement = init::Q::Shape[0];
+        constexpr size_t modalTensorColumn = leadDim<init::Q>();
         #pragma unroll
         for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-          modalTensor[item.get_local_id(0) + numModesPerElement * n] += accumulator[n];
+          modalTensor[item.get_local_id(0) + modalTensorColumn * n] += accumulator[n];
         }
       }
     });
@@ -214,13 +219,13 @@ void computePstrains(real **pstrains,
         const real *localFirstMode = &firsModes[NUM_STRESS_COMPONENTS * index];
         const PlasticityData *localData = &plasticity[index];
 
-        constexpr unsigned numModesPerElement = init::Q::Shape[0];
+        constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
         real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
         real duDtPstrain = factor * (localFirstMode[item.get_local_id(0)] -
-                                     localModalTensor[item.get_local_id(0) * numModesPerElement]);
+                                     localModalTensor[item.get_local_id(0) * elementTensorsColumn]);
         localPstrains[item.get_local_id(0)] += timeStepWidth * duDtPstrain;
 
-        real coefficient = item.get_local_id(0) < 3 ? 0.5f : 1.0f;
+        real coefficient = item.get_local_id(0) < 3 ? static_cast<real>(0.5) : static_cast<real>(1.0);
         squaredDuDtPstrains[item.get_local_id(0)] = coefficient * duDtPstrain * duDtPstrain;
         item.barrier();
 

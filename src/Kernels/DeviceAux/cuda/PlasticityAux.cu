@@ -22,12 +22,18 @@ maxValue(T x, T y) {
   return std::is_same<T, double>::value ? fmax(x, y) : fmaxf(x, y);
 }
 
+template<typename Tensor>
+__forceinline__  __device__
+constexpr size_t leadDim() {
+  return Tensor::Stop[0] - Tensor::Start[0];
+}
+
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_saveFirstMode(real *firstModes,
                                      const real **modalStressTensors) {
-  constexpr unsigned numModesPerElement = tensor::Q::Shape[0];
+  constexpr auto modalStressTensorsColumn = leadDim<init::Q>();
   firstModes[threadIdx.x + blockDim.x * blockIdx.x] =
-      modalStressTensors[blockIdx.x][threadIdx.x * numModesPerElement];
+      modalStressTensors[blockIdx.x][threadIdx.x * modalStressTensorsColumn];
 }
 
 void saveFirstModes(real *firstModes,
@@ -50,11 +56,10 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   real localStresses[NUM_STRESS_COMPONENTS];
 
 
-  // NOTE: blockDim.x == tensor::QStressNodal::Shape[0] i.e., num nodes
-  constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
+  constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
   #pragma unroll
   for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-    localStresses[i] = elementTensors[threadIdx.x + numNodesPerElement * i];
+    localStresses[i] = elementTensors[threadIdx.x + elementTensorsColumn * i];
   }
 
   // 2. Compute the mean stress for each node
@@ -97,7 +102,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   if (isAdjusted) {
     #pragma unroll
     for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-      elementTensors[threadIdx.x + blockDim.x * i] = localStresses[i] * factor;
+      elementTensors[threadIdx.x + elementTensorsColumn * i] = localStresses[i] * factor;
     }
   }
 
@@ -112,8 +117,8 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void *streamPtr) {
-  constexpr unsigned numNodesPerElement = tensor::QStressNodal::Shape[0];
-  dim3 block(numNodesPerElement, 1, 1);
+  constexpr unsigned numNodes = tensor::QStressNodal::Shape[0];
+  dim3 block(numNodes, 1, 1);
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
   kernel_adjustDeviatoricTensors<<<grid, block, 0, stream>>>(nodalStressTensors,
@@ -129,36 +134,33 @@ __global__ void kernel_adjustModalStresses(real **modalStressTensors,
                                            const int *isAdjustableVector) {
   if (isAdjustableVector[blockIdx.x]) {
 
-    // NOTE: blockDim.x == init::QStressNodal::Shape[0]
     constexpr int numNodes = init::QStressNodal::Shape[0];
-    constexpr size_t nodalTensorSize = numNodes * NUM_STRESS_COMPONENTS;
-    __shared__ real shrMem[nodalTensorSize];
+    __shared__ real shrMem[NUM_STRESS_COMPONENTS][numNodes];
 
     real *modalTensor = modalStressTensors[blockIdx.x];
     const real *nodalTensor = nodalStressTensors[blockIdx.x];
 
+    constexpr size_t nodalTensorColumn = leadDim<init::QStressNodal>();
     for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-      shrMem[threadIdx.x + numNodes * n] = nodalTensor[threadIdx.x + numNodes * n];
+      shrMem[n][threadIdx.x] = nodalTensor[threadIdx.x + nodalTensorColumn * n];
     }
     __syncthreads();
 
-    // matrix multiply: (numNodes x numNodes) * (numNodes x NUM_STRESS_COMPONENTS)
     real accumulator[NUM_STRESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    real value = 0.0;
-    // inverseVandermondeMatrix - square matrix
+    constexpr auto vInvColumn = leadDim<init::vInv>();
     for (int k = 0; k < numNodes; ++k) {
-      value = inverseVandermondeMatrix[threadIdx.x + numNodes * k];
+      real value = inverseVandermondeMatrix[threadIdx.x + vInvColumn * k];
 
       #pragma unroll
       for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-        accumulator[n] += value * shrMem[k + numNodes * n];
+        accumulator[n] += value * shrMem[n][k];
       }
     }
 
-    constexpr unsigned numModesPerElement = init::Q::Shape[0];
+    constexpr size_t modalTensorColumn = leadDim<init::Q>();
     #pragma unroll
     for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-      modalTensor[threadIdx.x + numModesPerElement * n] += accumulator[n];
+      modalTensor[threadIdx.x + modalTensorColumn * n] += accumulator[n];
     }
   }
 }
@@ -169,7 +171,7 @@ void adjustModalStresses(real **modalStressTensors,
                          const int *isAdjustableVector,
                          const size_t numElements,
                          void *streamPtr) {
-  constexpr unsigned numNodesPerElement = init::vInv::Shape[0];
+  constexpr unsigned numNodesPerElement = init::QStressNodal::Shape[0];
   dim3 block(numNodesPerElement, 1, 1);
   dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
@@ -201,13 +203,13 @@ __global__ void kernel_computePstrains(real **pstrains,
     const real *localFirstMode = &firsModes[NUM_STRESS_COMPONENTS * index];
     const PlasticityData *localData = &plasticity[index];
 
-    constexpr unsigned numModesPerElement = init::Q::Shape[0];
+    constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
     real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
-    real duDtPstrain = factor * (localFirstMode[threadIdx.x] - localModalTensor[threadIdx.x * numModesPerElement]);
+    real duDtPstrain = factor * (localFirstMode[threadIdx.x] - localModalTensor[threadIdx.x * elementTensorsColumn]);
     localPstrains[threadIdx.x] += timeStepWidth * duDtPstrain;
 
     __shared__ real squaredDuDtPstrains[NUM_STRESS_COMPONENTS];
-    real coefficient = threadIdx.x < 3 ? 0.5f : 1.0f;
+    real coefficient = threadIdx.x < 3 ? static_cast<real>(0.5) : static_cast<real>(1.0);
     squaredDuDtPstrains[threadIdx.x] = coefficient * duDtPstrain * duDtPstrain;
     __syncthreads();
 
