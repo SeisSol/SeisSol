@@ -18,21 +18,15 @@ void saveFirstModes(real *firstModes,
                     void* streamPtr);
 
 void adjustDeviatoricTensors(real **nodalStressTensors,
-                             int *isAdjustableVector,
+                             unsigned *isAdjustableVector,
                              const PlasticityData *plasticity,
                              double oneMinusIntegratingFactor,
                              size_t numElements,
                              void* streamPtr);
 
-void adjustModalStresses(real **modalStressTensors,
-                         const real **nodalStressTensors,
-                         const real *inverseVandermondeMatrix,
-                         const int *isAdjustableVector,
-                         size_t numElements,
-                         void* streamPtr);
 
 void computePstrains(real **pstrains,
-                     const int *isAdjustableVector,
+                     const unsigned *isAdjustableVector,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,

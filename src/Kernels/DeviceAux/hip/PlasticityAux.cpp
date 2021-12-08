@@ -51,7 +51,7 @@ void saveFirstModes(real *firstModes,
 
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
-                                               int *isAdjustableVector,
+                                               unsigned *isAdjustableVector,
                                                const PlasticityData *plasticity,
                                                const double oneMinusIntegratingFactor) {
   real *elementTensors = nodalStressTensors[hipBlockIdx_x];
@@ -89,14 +89,14 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
   taulim = maxValue(static_cast<real>(0.0), taulim);
 
-  __shared__ int isAdjusted;
-  if (hipThreadIdx_x == 0) {isAdjusted = static_cast<int>(false);}
+  __shared__ unsigned isAdjusted;
+  if (hipThreadIdx_x == 0) {isAdjusted = static_cast<unsigned>(false);}
   __syncthreads();
 
   // 6. Compute the yield factor
   real factor = 0.0;
   if (tau > taulim) {
-    isAdjusted = static_cast<int>(true);
+    isAdjusted = static_cast<unsigned>(true);
     factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
   }
 
@@ -115,7 +115,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
 }
 
 void adjustDeviatoricTensors(real **nodalStressTensors,
-                             int *isAdjustableVector,
+                             unsigned *isAdjustableVector,
                              const PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
@@ -135,71 +135,10 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
                      oneMinusIntegratingFactor);
 }
 
-//--------------------------------------------------------------------------------------------------
-__global__ void kernel_adjustModalStresses(real** modalStressTensors,
-                                           const real** nodalStressTensors,
-                                           const real * inverseVandermondeMatrix,
-                                           const int* isAdjustableVector) {
-  if (isAdjustableVector[hipBlockIdx_x]) {
-
-    constexpr int numNodes = init::QStressNodal::Shape[0];
-    __shared__ real shrMem[NUM_STRESS_COMPONENTS][numNodes];
-
-    real *modalTensor = modalStressTensors[hipBlockIdx_x];
-    const real *nodalTensor = nodalStressTensors[hipBlockIdx_x];
-
-    constexpr size_t nodalTensorColumn = leadDim<init::QStressNodal>();
-    for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-      shrMem[n][hipThreadIdx_x] = nodalTensor[threadIdx.x + nodalTensorColumn * n];
-    }
-    __syncthreads();
-
-
-    real accumulator[NUM_STRESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-    constexpr auto vInvColumn = leadDim<init::vInv>();
-    for (int k = 0; k < numNodes; ++k) {
-      real value = inverseVandermondeMatrix[hipThreadIdx_x + vInvColumn * k];
-
-      #pragma unroll
-      for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-        accumulator[n] += value * shrMem[n][k];
-      }
-    }
-
-
-    constexpr size_t modalTensorColumn = leadDim<init::Q>();
-    #pragma unroll
-    for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-      modalTensor[hipThreadIdx_x + modalTensorColumn * n] += accumulator[n];
-    }
-  }
-}
-
-void adjustModalStresses(real **modalStressTensors,
-                         const real **nodalStressTensors,
-                         const real *inverseVandermondeMatrix,
-                         const int *isAdjustableVector,
-                         const size_t numElements,
-                         void *streamPtr) {
-  constexpr unsigned numNodesPerElement = init::QStressNodal::Shape[0];
-  dim3 block(numNodesPerElement, 1, 1);
-  dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<hipStream_t>(streamPtr);
-  hipLaunchKernelGGL(kernel_adjustModalStresses,
-                     grid,
-                     block,
-                     0,
-                     stream,
-                     modalStressTensors,
-                     nodalStressTensors,
-                     inverseVandermondeMatrix,
-                     isAdjustableVector);
-}
 
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_computePstrains(real **pstrains,
-                                       const int* isAdjustableVector,
+                                       const unsigned * isAdjustableVector,
                                        const real** modalStressTensors,
                                        const real* firsModes,
                                        const PlasticityData* plasticity,
@@ -243,7 +182,7 @@ __global__ void kernel_computePstrains(real **pstrains,
 
 
 void computePstrains(real **pstrains,
-                     const int *isAdjustableVector,
+                     const unsigned *isAdjustableVector,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,

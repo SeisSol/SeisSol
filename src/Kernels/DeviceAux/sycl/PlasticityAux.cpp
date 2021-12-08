@@ -42,7 +42,7 @@ void saveFirstModes(real *firstModes,
 
 //--------------------------------------------------------------------------------------------------
 void adjustDeviatoricTensors(real **nodalStressTensors,
-                             int *isAdjustableVector,
+                             unsigned *isAdjustableVector,
                              const PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
@@ -56,7 +56,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
 
   queue->submit([&](cl::sycl::handler &cgh) {
 
-    cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> isAdjusted(1, cgh);
+    cl::sycl::accessor<unsigned, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> isAdjusted(1, cgh);
 
     cgh.parallel_for(cl::sycl::nd_range < 3 >
                      {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
@@ -96,13 +96,13 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
       real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
       taulim = cl::sycl::fmax(static_cast<real>(0.0), taulim);
 
-      if (item.get_local_id(0) == 0) { isAdjusted[0] = static_cast<int>(false); }
+      if (item.get_local_id(0) == 0) { isAdjusted[0] = static_cast<unsigned>(false); }
       item.barrier();
 
       // 6. Compute the yield factor
       real factor = 0.0;
       if (tau > taulim) {
-        isAdjusted[0] = static_cast<int>(true);
+        isAdjusted[0] = static_cast<unsigned>(true);
         factor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
       }
 
@@ -122,68 +122,10 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
   });
 }
 
-//--------------------------------------------------------------------------------------------------
-void adjustModalStresses(real **modalStressTensors,
-                         const real **nodalStressTensors,
-                         const real *inverseVandermondeMatrix,
-                         const int *isAdjustableVector,
-                         const size_t numElements,
-                         void *queuePtr) {
-  constexpr unsigned numNodesPerElement = init::QStressNodal::Shape[0];
-  cl::sycl::range<3> groupCount(numNodesPerElement, 1, 1);
-  cl::sycl::range<3> groupSize(numElements, 1, 1);
-
-  assert(queuePtr != nullptr && "a pointer to a SYCL queue must be a valid one");
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-
-  // NOTE: item.get_local_range(0) == init::QStressNodal::Shape[0]
-  constexpr int numNodes = init::QStressNodal::Shape[0];
-  constexpr size_t nodalTensorColumn = leadDim<init::QStressNodal>();
-  constexpr size_t nodalTensorSize = numNodes * NUM_STRESS_COMPONENTS;
-
-  queue->submit([&](cl::sycl::handler &cgh) {
-    cl::sycl::accessor<real, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> shrMem(
-        nodalTensorSize, cgh);
-
-    cgh.parallel_for(cl::sycl::nd_range < 3 >
-                     {{groupCount.get(0) * groupSize.get(0), groupCount.get(1) * groupSize.get(1),
-                       groupCount.get(2) * groupSize.get(2)}, groupSize}, [=](cl::sycl::nd_item<3> item) {
-      if (isAdjustableVector[item.get_group().get_id(0)]) {
-
-
-        real *modalTensor = modalStressTensors[item.get_group().get_id(0)];
-        const real *nodalTensor = nodalStressTensors[item.get_group().get_id(0)];
-
-        for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-          shrMem[item.get_local_id(0) + numNodes * n] = nodalTensor[item.get_local_id(0) + nodalTensorColumn * n];
-        }
-        item.barrier();
-
-        // matrix multiply: (numNodes x numNodes) * (numNodes x NUM_STRESS_COMPONENTS)
-        real accumulator[NUM_STRESS_COMPONENTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-        constexpr auto vInvColumn = leadDim<init::vInv>();
-        for (int k = 0; k < numNodes; ++k) {
-          real value = inverseVandermondeMatrix[item.get_local_id(0) + vInvColumn * k];
-
-          #pragma unroll
-          for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-            accumulator[n] += value * shrMem[k + numNodes * n];
-          }
-        }
-
-        constexpr size_t modalTensorColumn = leadDim<init::Q>();
-        #pragma unroll
-        for (int n = 0; n < NUM_STRESS_COMPONENTS; ++n) {
-          modalTensor[item.get_local_id(0) + modalTensorColumn * n] += accumulator[n];
-        }
-      }
-    });
-  });
-}
 
 //--------------------------------------------------------------------------------------------------
 void computePstrains(real **pstrains,
-                     const int *isAdjustableVector,
+                     const unsigned *isAdjustableVector,
                      const real **modalStressTensors,
                      const real *firsModes,
                      const PlasticityData *plasticity,

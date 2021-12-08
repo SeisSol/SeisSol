@@ -276,8 +276,6 @@ namespace seissol::kernels {
                                               numElements,
                                               defaultStream);
 
-      auto defaultStream = device.api->getDefaultStream();
-
       assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
       real** initLoad = (entry.content[*EntityId::InitialLoad])->getPointers();
       kernel::gpu_plConvertToNodal m2nKrnl;
@@ -289,16 +287,18 @@ namespace seissol::kernels {
       m2nKrnl.streamPtr = defaultStream;
       m2nKrnl.numElements = numElements;
 
-      const size_t MAX_TMP_MEM = m2nKrnl.TmpMaxMemRequiredInBytes * numElements;
-      real *tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM));
-      ++stackMemCounter;
+      {
+        const size_t MAX_TMP_MEM = kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes * numElements;
+        real *tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM));
+        ++stackMemCounter;
 
-      m2nKrnl.linearAllocator.initialize(tmpMem);
+        m2nKrnl.linearAllocator.initialize(tmpMem);
+      }
       m2nKrnl.execute();
       m2nKrnl.linearAllocator.free();
 
-      int *isAdjustableVector =
-          reinterpret_cast<int*>(device.api->getStackMemory(numElements * sizeof(int)));
+      auto *isAdjustableVector =
+          reinterpret_cast<unsigned*>(device.api->getStackMemory(numElements * sizeof(int)));
       ++stackMemCounter;
 
       device::aux::plasticity::adjustDeviatoricTensors(nodalStressTensors,
@@ -313,13 +313,24 @@ namespace seissol::kernels {
                                                                 ::device::ReductionType::Add,
                                                                 defaultStream);
 
-      // apply stress adjustment
-      device::aux::plasticity::adjustModalStresses(modalStressTensors,
-                                                   const_cast<const real **>(nodalStressTensors),
-                                                   global->vandermondeMatrixInverse,
-                                                   isAdjustableVector,
-                                                   numElements,
-                                                   defaultStream);
+      kernel::gpu_plConvertToModal n2mKrnl;
+      n2mKrnl.vInv = global->vandermondeMatrixInverse;
+      n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
+      n2mKrnl.QStress = modalStressTensors;
+      n2mKrnl.streamPtr = defaultStream;
+      n2mKrnl.flags = isAdjustableVector;
+      n2mKrnl.numElements = numElements;
+
+      {
+        const size_t MAX_TMP_MEM = kernel::gpu_plConvertToModal::TmpMaxMemRequiredInBytes * numElements;
+        real *tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM));
+        ++stackMemCounter;
+
+        n2mKrnl.linearAllocator.initialize(tmpMem);
+      }
+      n2mKrnl.execute();
+      n2mKrnl.linearAllocator.free();
+
 
       // compute Pstrains
       real **pstrains = entry.content[*EntityId::Pstrains]->getPointers();
