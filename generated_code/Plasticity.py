@@ -82,7 +82,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
   generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
 
-  for target in ['cpu', 'gpu']:
+  for target in targets:
     name_prefix = generate_kernel_name_prefix(target)
     generator.add(name=f'{name_prefix}plConvertToNodalNoLoading',
                   ast=QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'],

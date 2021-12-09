@@ -12,11 +12,6 @@ namespace kernels {
 namespace device {
 namespace aux {
 namespace plasticity {
-void saveFirstModes(real *firstModes,
-                    const real **modalStressTensors,
-                    size_t numElements,
-                    void* streamPtr);
-
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              unsigned *isAdjustableVector,
                              const PlasticityData *plasticity,
@@ -24,17 +19,46 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
                              size_t numElements,
                              void* streamPtr);
 
+void adjustPointers(real *QEtaNodal,
+                    real **QEtaNodalPtrs,
+                    real *QEtaModal,
+                    real **QEtaModalPtrs,
+                    real *dUdTpstrain,
+                    real **dUdTpstrainPtrs,
+                    size_t numElements,
+                    void *streamPtr);
 
 void computePstrains(real **pstrains,
-                     const unsigned *isAdjustableVector,
-                     const real **modalStressTensors,
-                     const real *firsModes,
-                     const PlasticityData *plasticity,
+                     const PlasticityData *plasticityData,
+                     real **dofs,
+                     real *prevDofs,
+                     real **dUdTpstrain,
+                     double T_v,
                      double oneMinusIntegratingFactor,
                      double timeStepWidth,
-                     double T_v,
+                     unsigned *isAdjustableVector,
                      size_t numElements,
-                     void* streamPtr);
+                     void *streamPtr);
+
+void pstrainToQEtaModal(real **pstrains,
+                        real **QEtaModalPtrs,
+                        unsigned *isAdjustableVector,
+                        size_t numElements,
+                        void *streamPtr);
+
+void qEtaModalToPstrain(real **QEtaModalPtrs,
+                        real **pstrains,
+                        unsigned *isAdjustableVector,
+                        size_t numElements,
+                        void *streamPtr);
+
+void updateQEtaNodal(real **QEtaNodalPtrs,
+                     real **QStressNodalPtrs,
+                     double timeStepWidth,
+                     unsigned *isAdjustableVector,
+                     size_t numElements,
+                     void *streamPtr);
+
 } // namespace plasticity
 } // namespace aux
 } // namespace device
