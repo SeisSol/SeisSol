@@ -493,7 +493,7 @@ int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
 std::vector<std::unordered_map<idx_t, int>>
 LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                           const std::vector<idx_t>&>& graph) {
-  static_assert(sizeof(idx_t) == sizeof(MPI_INT64_T));
+  static_assert(sizeof(idx_t) <= sizeof(MPI_LONG_LONG_INT));
 
   const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
   const std::vector<idx_t>& xadj = std::get<1>(graph);
@@ -566,13 +566,20 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
     int offset = 0;
     for (int neighbor_rank : neighbor_ranks) {
       const std::vector<idx_t>& layer_ref = ghost_layer_to_send[neighbor_rank];
+      size_t elcount = layer_ref.size();
+      std::vector<long long int> layer_lli(elcount);
+      for ( idx_t el : layer_ref)
+      {
+        layer_lli.push_back(static_cast<long long int>(el));
+      }
 
       assert(!layer_ref.empty());
+      assert(!layer_lli.empty());
 
       //std::cout << "Ghost layer to be sent from rank: " << rank << " to " << neighbor_rank
       //          << " has " << layer_ref.size() / 2 << " elements" << std::endl;
 
-      MPI_Isend(layer_ref.data(), layer_ref.size(), MPI_INT64_T, neighbor_rank, rank,
+      MPI_Isend(layer_ref.data(), layer_ref.size(), MPI_LONG_LONG_INT, neighbor_rank, rank,
                 MPI_COMM_WORLD, &send_requests[offset]);
       offset += 1;
     }
@@ -603,12 +610,12 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
         if (flag) {
           int count = 0;
 
-          MPI_Get_count(&recv_stats[offset], MPI_INT64_T, &count);
+          MPI_Get_count(&recv_stats[offset], MPI_LONG_LONG_INT, &count);
 
           assert(ghost_layer_received[neighbor_rank].empty());
           ghost_layer_received[neighbor_rank].resize(count);
           assert(ghost_layer_mapped[neighbor_rank].empty());
-          MPI_Recv(ghost_layer_received[neighbor_rank].data(), count, MPI_INT64_T, neighbor_rank,
+          MPI_Recv(ghost_layer_received[neighbor_rank].data(), count, MPI_LONG_LONG_INT, neighbor_rank,
                    neighbor_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
           got += 1;
 
