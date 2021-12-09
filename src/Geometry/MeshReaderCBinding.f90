@@ -87,7 +87,8 @@ module MeshReaderCBinding
                                     scalingMatrix, &
                                     easiVelocityModel, &
                                     clusterRate, &
-                                    ltsWeightsTypeId, &
+                                    nodeWeightModelTypeId, &
+                                    edgeWeightModelTypeId, &
                                     vertexWeightElement, &
                                     vertexWeightDynamicRupture, &
                                     vertexWeightFreeSurfaceWithGravity, &
@@ -99,7 +100,7 @@ module MeshReaderCBinding
             logical( kind=c_bool ), value :: hasFault
             real(kind=c_double), dimension(*), intent(in) :: displacement
             real(kind=c_double), dimension(*), intent(in) :: scalingMatrix
-            integer(kind=c_int), value, intent(in) :: clusterRate, ltsWeightsTypeId
+            integer(kind=c_int), value, intent(in) :: clusterRate, nodeWeightModelTypeId, edgeWeightModelTypeId
             integer(kind=c_int), value, intent(in) :: vertexWeightElement, vertexWeightDynamicRupture
             integer(kind=c_int), value, intent(in) :: vertexWeightFreeSurfaceWithGravity
             logical(kind=c_bool), value :: usePlasticity
@@ -154,7 +155,8 @@ contains
                                     m_mesh%ScalingMatrix(:,:),                  &
                                     trim(EQN%MaterialFileName) // c_null_char,  &
                                     disc%galerkin%clusteredLts, &
-                                    disc%galerkin%ltsWeightTypeId, &
+                                    disc%galerkin%nodeWeightModelTypeId, &
+                                    disc%galerkin%edgeWeightModelTypeId, &
                                     MESH%vertexWeightElement, &
                                     MESH%vertexWeightDynamicRupture, &
                                     MESH%vertexWeightFreeSurfaceWithGravity, &

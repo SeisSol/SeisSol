@@ -348,7 +348,8 @@ MODULE TypesDef
                                                      !< 5 = Nonlinear ADER DG
                                                      !< 6 = local RK-DG, ADD eqn.
     INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
-    INTEGER           :: ltsWeightTypeId             !< 0 = exponential, 1 = balanced exponential, 2 = encoded
+    INTEGER           :: nodeWeightModelTypeId       !< 0 = exponential, 1 = balanced exponential, 2 = encoded
+    INTEGER           :: edgeWeightModelTypeId       !< 0 = naive (all 1), 1 = penalize cut between clusters, 2 = approximate communication cost
     INTEGER           :: CKMethod                    !< 0 = regular CK
                                                      !< 1 = local space-time DG
                                                      !<

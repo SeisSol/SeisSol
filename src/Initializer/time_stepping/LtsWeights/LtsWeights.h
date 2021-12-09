@@ -2,23 +2,25 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT tum.de,
+ *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017 - 2020, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -39,17 +41,22 @@
  * Class for calculating weights for load balancing
  **/
 
-#ifndef INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
-#define INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
+#pragma once
 
+#include <limits>
 #include <string>
 #include <vector>
-#include <limits>
+
+// needed for the idx_t type declaration
+#include <parmetis.h>
+// for std pair
+#include <utility>
 
 #ifndef PUML_PUML_H
-namespace PUML { class TETPUML; }
+namespace PUML {
+class TETPUML;
+}
 #endif // PUML_PUML_H
-
 
 namespace seissol::initializers::time_stepping {
 struct LtsWeightsConfig {
@@ -60,33 +67,53 @@ struct LtsWeightsConfig {
   int vertexWeightFreeSurfaceWithGravity{};
 };
 
+class NodeWeightModel;
+class EdgeWeightModel;
 
 class LtsWeights {
-public:
-  LtsWeights(const LtsWeightsConfig &config) : m_velocityModel(config.velocityModel),
-                                               m_rate(config.rate),
-                                               m_vertexWeightElement(config.vertexWeightElement),
-                                               m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
-                                               m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity) {}
-
-  virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep);
-
-  const int *vertexWeights() const;
-  const double *imbalances() const;
-  int nWeightsPerVertex() const;
-
-protected:
+  private:
   struct GlobalTimeStepDetails {
     double globalMinTimeStep{};
     double globalMaxTimeStep{};
     std::vector<double> timeSteps{};
   } m_details;
 
+  std::string m_velocityModel{};
+  unsigned m_rate{};
+  std::vector<int> m_vertexWeights{};
+  std::vector<int> m_edgeWeights{};
+  std::vector<double> m_imbalances{};
+  std::vector<int> m_cellCosts{};
+  int m_vertexWeightElement{};
+  int m_vertexWeightDynamicRupture{};
+  int m_vertexWeightFreeSurfaceWithGravity{};
+  int m_ncon{std::numeric_limits<int>::infinity()};
+  const PUML::TETPUML* m_mesh{nullptr};
+  std::vector<int> m_clusterIds{};
+
+  NodeWeightModel* m_nodeWeightModel;
+  EdgeWeightModel* m_edgeWeightModel;
+
+  public:
+  LtsWeights(const LtsWeightsConfig& config);
+
+  ~LtsWeights();
+  void computeNodeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
+  void computeEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                     const std::vector<idx_t>&>& graph);
+
+  const int* vertexWeights() const;
+  const double* imbalances() const;
+  int nWeightsPerVertex() const;
+
+  const int* edgeWeights() const;
+  int edgeCount() const;
+
   GlobalTimeStepDetails collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
-  void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
+  void computeMaxTimesteps(std::vector<double> const& pWaveVel, std::vector<double>& timeSteps,
+                           double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, unsigned rate);
-  int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
+  int getBoundaryCondition(int const* boundaryCond, unsigned cell, unsigned face);
   std::vector<int> computeClusterIds();
   int enforceMaximumDifference();
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
@@ -94,22 +121,32 @@ protected:
 
   static int ipow(int x, int y);
 
-  virtual void setVertexWeights() = 0;
-  virtual void setAllowedImbalances() = 0;
-  virtual int evaluateNumberOfConstraints() = 0;
+  void setVertexWeights();
+  void setAllowedImbalances();
+  int evaluateNumberOfConstraints();
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph);
 
-  std::string m_velocityModel{};
-  unsigned m_rate{};
-  std::vector<int> m_vertexWeights{};
-  std::vector<double> m_imbalances{};
-  std::vector<int> m_cellCosts{};
-  int m_vertexWeightElement{};
-  int m_vertexWeightDynamicRupture{};
-  int m_vertexWeightFreeSurfaceWithGravity{};
-  int m_ncon{std::numeric_limits<int>::infinity()};
-  const PUML::TETPUML * m_mesh{nullptr};
-  std::vector<int> m_clusterIds{};
+  GlobalTimeStepDetails& getDetails();
+  std::string& getVelocityModel();
+  unsigned getRate();
+  std::vector<int>& getVertexWeights();
+  std::vector<int>& getEdgeWeights();
+  std::vector<double>& getImbalances();
+  std::vector<int>& getCellCosts();
+  int getVertexWeightElement();
+  int getVertexWeightDynamicRupture();
+  int getVertexWeightFreeSurfaceWithGravity();
+  int getNcon();
+  const PUML::TETPUML* getMesh();
+  std::vector<int>& getClusterIds();
+
+  void addWeightModels(NodeWeightModel* nwm, EdgeWeightModel* ewm);
+
+  int find_rank(const std::vector<idx_t> &vrtxdist, idx_t elemId);
+  
+  std::vector<std::unordered_map<idx_t, int>>
+  exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                const std::vector<idx_t>&>& graph);
 };
-}
-
-#endif
+} // namespace seissol::initializers::time_stepping
