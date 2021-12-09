@@ -20,8 +20,7 @@ set(_PARENT_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD 17)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    message(STATUS "a")
-    add_link_options("-stdlib=libstc++")
+    add_link_options("-lstdc++fs")
 endif()
 
 set(_FILESYSTEM_TEST_RPOGRAM "
