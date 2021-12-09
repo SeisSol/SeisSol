@@ -91,3 +91,14 @@ The wave speeds are given in [km/s]:
 
    \bar{c}_s = \sqrt{\frac{\bar{\mu}}{\bar{\rho}}} = 10^{-3}c_s, \quad
        \bar{c}_p = \sqrt{\frac{\bar{\lambda} + 2\bar{\mu}}{\bar{\rho}}} = 10^{-3}c_p,
+
+Acoustic-elastic with water layer
+---------------------------------
+The acoustic wave equation is a special case of the elastic wave equation, therefore the scaling
+of parameters is identical.
+However, when using a water layer one needs to adjust gravitational acceleration in the
+:doc:`parameters file <parameter-file>`:
+
+.. code-block:: Fortran
+
+    GravitationalAcceleration = 0.00981
