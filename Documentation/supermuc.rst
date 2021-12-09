@@ -209,7 +209,7 @@ We describe how to use pip on SuperMUC in the following.
 
 ::
 
-    Host supermuNG
+    Host supermucNG
         ...
         RemoteForward ddddd localhost:8899
 
