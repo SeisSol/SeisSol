@@ -15,7 +15,7 @@
 	url = ../../TUM-I5/scons-tools.git
 [submodule "submodules/PUML"]
 	path = submodules/PUML
-	url = ../../TUM-I5/PUML2.git
+	url = https://github.com/ThrudPrimrose/PUML2.git
 [submodule "submodules/easi"]
 	path = submodules/easi
 	url = ../../SeisSol/easi.git
