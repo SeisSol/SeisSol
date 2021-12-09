@@ -19,6 +19,9 @@ cmake_push_check_state()
 set(_PARENT_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD 17)
 
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    add_link_options("-stdlib=libstc++")
+endif()
 
 set(_FILESYSTEM_TEST_RPOGRAM "
 #include <filesystem>
