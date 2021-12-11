@@ -333,7 +333,7 @@ endif()
 
 # Note: we need to provide a support for Eigen backend
 #       for both gencode and SeisSol
-target_include_directories(SeisSol-lib SYSTEM PUBLIC
+target_include_directories(SeisSol-gencode SYSTEM PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 )
 
