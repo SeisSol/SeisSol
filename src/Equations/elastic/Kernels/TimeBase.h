@@ -82,7 +82,7 @@ namespace seissol {
     class TimeBase;
   }
 }
-class GlobalData;
+struct GlobalData;
 
 class seissol::kernels::TimeBase {
   protected:
