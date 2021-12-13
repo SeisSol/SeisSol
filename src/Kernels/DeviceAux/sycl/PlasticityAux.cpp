@@ -29,7 +29,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
   cl::sycl::nd_range rng{{numNodes * numElements}, {numNodes}};
 
   queue->submit([&](cl::sycl::handler &cgh) {
-    cl::sycl::local_accessor<unsigned> isAdjusted{1, cgh};
+    cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> isAdjusted(1, cgh);
 
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
       auto wid = item.get_group().get_id(0);

@@ -36,19 +36,17 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
 
   if ("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "FPGA")
     message(NOTICE "FPGA is used as target device, compilation will take several hours to complete!")
-    target_compile_options(SeisSol-device-lib PRIVATE "-fsycl" "-fintelfpga" "-fsycl-unnamed-lambda")
-    set_target_properties(SeisSol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fintelfpga -Xshardware")
+    target_compile_options(SeisSol-device-lib PRIVATE -fsycl -fintelfpga -fsycl-unnamed-lambda)
+    set_target_properties(SeisSol-device-lib PROPERTIES LINK_FLAGS -fsycl -fintelfpga -Xshardware)
   elseif("$ENV{PREFERRED_DEVICE_TYPE}" STREQUAL "GPU")
     if (${DEVICE_ARCH} MATCHES "sm_*")
-      find_package(CUDA REQUIRED)
-      target_include_directories(SeisSol-device-lib PUBLIC ${CUDA_TOOLKIT_ROOT_DIR})
-
-      target_compile_options(SeisSol-device-lib PRIVATE "-fsycl" "-fsycl-targets=nvptx64-nvidia-cuda-sycldevice" "-fsycl-unnamed-lambda" "-Xsycl-target-backend" "--cuda-gpu-arch=${DEVICE_SUB_ARCH}")
-      set_target_properties(SeisSol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_ARCH}\"")
-
-      target_link_libraries(SeisSol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_ARCH}\"")
-      target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib "-fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice -Xs \"-device ${DEVICE_ARCH}\"")
-
+      set(DEVICE_FLAGS -std=c++17
+              -fsycl
+              -Xsycl-target-backend
+              --cuda-gpu-arch=${DEVICE_ARCH}
+              -fsycl-targets=nvptx64-nvidia-cuda)
+      target_compile_options(SeisSol-device-lib PRIVATE ${DEVICE_FLAGS})
+      target_link_libraries(SeisSol-device-lib PRIVATE ${DEVICE_FLAGS})
     else()
       target_compile_options(SeisSol-device-lib PRIVATE "-fsycl" "-fsycl-targets=spir64_gen-unknown-unknown-sycldevice" "-fsycl-unnamed-lambda")
       set_target_properties(SeisSol-device-lib PROPERTIES LINK_FLAGS "-fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice -Xs \"-device ${DEVICE_ARCH}\"")
@@ -63,6 +61,7 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
     target_link_libraries(SeisSol-device-lib PUBLIC sycl "-fsycl" "-fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march ${DEVICE_ARCH}\"")
     target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib "-fsycl -sycl-targets=spir64_x86_64-unknown-unknown-sycldevice -Xs \"-march ${DEVICE_ARCH}\"")
   else()
-    message(FATAL_ERROR "please set PREFERRED_DEVICE type to GPU, FPGA, or CPU in order to activate AOT compilation. If AOT is not performed, unnamed lambdas will cause errors at runtime")
+    message(FATAL_ERROR "please set PREFERRED_DEVICE_TYPE type to GPU, FPGA, or CPU in order to activate AOT "
+            "compilation. If AOT is not performed, unnamed lambdas will cause errors at runtime")
   endif()
 endif()
