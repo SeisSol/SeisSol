@@ -46,6 +46,7 @@ import sys
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
 from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS, GemmForge
+from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture
 import Plasticity
@@ -154,9 +155,21 @@ for tool in gemm_tool_list:
           "Please, refer to the documentation".format(tool))
     sys.exit("failure")
 
+
+cost_estimators = BoundingBoxCostEstimator
+if 'gpu' in targets and cmdLineArgs.equations == 'elastic':
+  try:
+    chainforge_spec = importlib.util.find_spec('chainforge')
+    chainforge_spec.loader.load_module()
+    cost_estimators = FusedGemmsBoundingBoxCostEstimator
+  except:
+    print('WARNING: ChainForge was not found. Falling back to GemmForge.')
+
+
 # Generate code
 gemmTools = GeneratorCollection(gemm_generators)
 generator.generate(outputDir=cmdLineArgs.outputDir,
                    namespace='seissol',
                    gemm_cfg=gemmTools,
+                   cost_estimator=cost_estimators,
                    include_tensors=include_tensors)

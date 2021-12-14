@@ -113,7 +113,15 @@ src/Parallel/mpiF.f90
 
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
+
+target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
 
 if (MPI)
   target_sources(SeisSol-lib PUBLIC
@@ -209,18 +217,6 @@ target_include_directories(SeisSol-lib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
 
-# Generated code
-add_library(SeisSol-gencode STATIC
-    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
-)
-target_compile_options(SeisSol-gencode PUBLIC ${EXTRA_CXX_FLAGS})
-target_include_directories(SeisSol-gencode PUBLIC
-    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
-
-
 # GPU code
 if (WITH_GPU)
   target_sources(SeisSol-lib PUBLIC
@@ -245,8 +241,5 @@ if (WITH_GPU)
   endif()
 
   target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
-  target_include_directories(SeisSol-gencode PRIVATE ${DEVICE_INCLUDE_DIRS})
-
-  # Note: we need to enforce SeisSol-gencode to be built before SeisSol-device-lib
-  add_dependencies(SeisSol-device-lib SeisSol-gencode)
+  target_include_directories(SeisSol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 endif()
