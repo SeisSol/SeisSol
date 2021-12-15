@@ -44,6 +44,7 @@ from PyQt5.QtWidgets import *
 
 import os
 import copy
+import re
 
 import Tecplot
 import Waveform
@@ -102,11 +103,13 @@ class Navigation(QWidget):
       files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
       files.sort()
       numValidFiles = 0
+      receiver_name_regex = r"\w*-receiver-(\d*)-\d*\.dat"
       for f in files:
         if f.endswith('dat'):
           wf = Tecplot.read(os.path.join(folder,f))
+          receiver_number = re.match(receiver_name_regex, f).group(1)
           if wf:
-            item = QStandardItem(f)
+            item = QStandardItem(receiver_number)
             item.setData(wf)
             self.model.appendRow(item)
             numValidFiles = numValidFiles + 1
