@@ -415,33 +415,33 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   return numberOfReductions;
 }
 
-LtsWeights::GlobalTimeStepDetails& LtsWeights::getDetails() { return m_details; }
+const LtsWeights::GlobalTimeStepDetails& LtsWeights::getDetails() const { return m_details; }
 
-std::string& LtsWeights::getVelocityModel() { return m_velocityModel; }
+const std::string& LtsWeights::getVelocityModel() const { return m_velocityModel; }
 
-unsigned LtsWeights::getRate() { return m_rate; }
+unsigned LtsWeights::getRate() const { return m_rate; }
 
 std::vector<int>& LtsWeights::getVertexWeights() { return m_vertexWeights; }
 
 std::vector<double>& LtsWeights::getImbalances() { return m_imbalances; }
 
-std::vector<int>& LtsWeights::getCellCosts() { return m_cellCosts; }
+const std::vector<int>& LtsWeights::getCellCosts() const { return m_cellCosts; }
 
-int LtsWeights::getVertexWeightElement() { return m_vertexWeightElement; }
+int LtsWeights::getVertexWeightElement() const { return m_vertexWeightElement; }
 
-int LtsWeights::getVertexWeightDynamicRupture() { return m_vertexWeightDynamicRupture; }
+int LtsWeights::getVertexWeightDynamicRupture() const { return m_vertexWeightDynamicRupture; }
 
-int LtsWeights::getVertexWeightFreeSurfaceWithGravity() {
+int LtsWeights::getVertexWeightFreeSurfaceWithGravity() const {
   return m_vertexWeightFreeSurfaceWithGravity;
 }
 
-int LtsWeights::getNcon() { return m_ncon; }
+int LtsWeights::getNcon() const { return m_ncon; }
 
-const PUML::TETPUML* LtsWeights::getMesh() { return m_mesh; }
+const PUML::TETPUML* LtsWeights::getMesh() const { return m_mesh; }
 
-std::vector<int>& LtsWeights::getClusterIds() { return m_clusterIds; }
+const std::vector<int>& LtsWeights::getClusterIds() const { return m_clusterIds; }
 
-LtsWeights::LtsWeights(const LtsWeightsConfig& config)
+LtsWeights::LtsWeights(const LtsWeightsConfig& config) noexcept
     : m_velocityModel(config.velocityModel), m_rate(config.rate),
       m_vertexWeightElement(config.vertexWeightElement),
       m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
@@ -452,7 +452,7 @@ void LtsWeights::setVertexWeights() { m_nodeWeightModel->setVertexWeights(); }
 
 void LtsWeights::setAllowedImbalances() { m_nodeWeightModel->setAllowedImbalances(); }
 
-int LtsWeights::evaluateNumberOfConstraints() {
+int LtsWeights::evaluateNumberOfConstraints() const {
   return m_nodeWeightModel->evaluateNumberOfConstraints();
 }
 
@@ -461,7 +461,7 @@ void LtsWeights::setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std:
   m_edgeWeightModel->setEdgeWeights(graph);
 }
 
-LtsWeights::~LtsWeights() {
+LtsWeights::~LtsWeights() noexcept {
   delete m_nodeWeightModel;
   delete m_edgeWeightModel;
 }

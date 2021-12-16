@@ -78,9 +78,9 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
   m_imbalances[1] = mediumLtsMemoryImbalance;
 }
 
-int EncodedBalancedWeights::evaluateNumberOfConstraints() {
-  auto& m_details = ltsWeights.getDetails();
-  auto m_rate = ltsWeights.getRate();
+int EncodedBalancedWeights::evaluateNumberOfConstraints() const {
+  const auto& m_details = ltsWeights.getDetails();
+  const auto m_rate = ltsWeights.getRate();
 
   int maxCluster =
       ltsWeights.getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, m_rate);
@@ -88,9 +88,9 @@ int EncodedBalancedWeights::evaluateNumberOfConstraints() {
 }
 
 void EncodedBalancedWeights::setVertexWeights() {
-  auto m_ncon = ltsWeights.getNcon();
-  auto& m_cellCosts = ltsWeights.getCellCosts();
-  auto& m_clusterIds = ltsWeights.getClusterIds();
+  const auto m_ncon = ltsWeights.getNcon();
+  const auto& m_cellCosts = ltsWeights.getCellCosts();
+  const auto& m_clusterIds = ltsWeights.getClusterIds();
   auto& m_vertexWeights = ltsWeights.getVertexWeights();
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
@@ -102,7 +102,7 @@ void EncodedBalancedWeights::setVertexWeights() {
 }
 
 void EncodedBalancedWeights::setAllowedImbalances() {
-  auto m_ncon = ltsWeights.getNcon();
+  const auto m_ncon = ltsWeights.getNcon();
   auto& m_imbalances = ltsWeights.getImbalances();
 
   m_imbalances.resize(m_ncon);
@@ -128,7 +128,7 @@ void EdgeWeightModel::setEdgeWeights(
         graph,
     std::function<int(idx_t, idx_t)>& factor) {
   
-  static_assert(sizeof(idx_t) == sizeof(MPI_INT64_T));
+  //static_assert(sizeof(idx_t) == sizeof(MPI_INT64_T));
   
   const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
   const std::vector<idx_t>& xadj = std::get<1>(graph);
@@ -218,14 +218,15 @@ int ipow(int x, int y) {
 void ApproximateCommunication::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
-  std::vector<int>& clusterIds = ltsWeights.getClusterIds();
+  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
+  unsigned rate = ltsWeights.getRate();
   int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
   int global_max_cluster = 0;
 
   MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
-  std::function<int(idx_t, idx_t)> factor = [global_max_cluster](idx_t cluster1, idx_t cluster2) {
-    int rt = ipow(2, global_max_cluster - cluster1);
+  std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
+    int rt = ipow(rate, global_max_cluster - cluster1);
     return rt;
   };
 

@@ -95,7 +95,7 @@ class LtsWeights {
   EdgeWeightModel* m_edgeWeightModel;
 
   public:
-  LtsWeights(const LtsWeightsConfig& config);
+  LtsWeights(const LtsWeightsConfig& config) noexcept;
 
   ~LtsWeights();
   void computeNodeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
@@ -123,27 +123,27 @@ class LtsWeights {
 
   void setVertexWeights();
   void setAllowedImbalances();
-  int evaluateNumberOfConstraints();
+  int evaluateNumberOfConstraints() const;
   void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph);
 
-  GlobalTimeStepDetails& getDetails();
-  std::string& getVelocityModel();
-  unsigned getRate();
+  const GlobalTimeStepDetails& getDetails() const;
+  const std::string& getVelocityModel() const;
+  unsigned getRate() const;
   std::vector<int>& getVertexWeights();
   std::vector<int>& getEdgeWeights();
   std::vector<double>& getImbalances();
-  std::vector<int>& getCellCosts();
-  int getVertexWeightElement();
-  int getVertexWeightDynamicRupture();
-  int getVertexWeightFreeSurfaceWithGravity();
-  int getNcon();
-  const PUML::TETPUML* getMesh();
-  std::vector<int>& getClusterIds();
+  const std::vector<int>& getCellCosts() const;
+  int getVertexWeightElement() const;
+  int getVertexWeightDynamicRupture() const;
+  int getVertexWeightFreeSurfaceWithGravity() const;
+  int getNcon() const;
+  const PUML::TETPUML* getMesh() const;
+  const std::vector<int>& getClusterIds() const;
 
   void addWeightModels(NodeWeightModel* nwm, EdgeWeightModel* ewm);
 
-  int find_rank(const std::vector<idx_t> &vrtxdist, idx_t elemId);
+  static int find_rank(const std::vector<idx_t> &vrtxdist, idx_t elemId);
   
   std::vector<std::unordered_map<idx_t, int>>
   exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
