@@ -8,6 +8,7 @@ option(OPENMP "Use OpenMP parallelization" ON)
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(USE_IMPALA_JIT_LLVM "Use llvm version of impalajit" OFF)
+option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 
 option(INTEGRATE_QUANTITIES "Compute cell-averaged integrated velocity and stress components (currently breaks compilation)" OFF)
 option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
@@ -23,7 +24,6 @@ option(COVERAGE "Generate targed for code coverage using lcob" OFF)
 set(ORDER 6 CACHE STRING "Convergence order")  # must be INT type, by cmake-3.16 accepts only STRING
 set(ORDER_OPTIONS 2 3 4 5 6 7 8)
 set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
-
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
