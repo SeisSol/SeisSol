@@ -3,7 +3,7 @@
 
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
-#include "DynamicRupture/Mics.h"
+#include "DynamicRupture/Misc.h"
 #include "Parallel/MPI.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.hpp"
@@ -14,7 +14,7 @@ class OutputBuilder {
   public:
   virtual ~OutputBuilder() {
     auto deallocateVars = [](auto& var, int) { var.releaseData(); };
-    aux::forEach(outputData.vars, deallocateVars);
+    misc::forEach(outputData.vars, deallocateVars);
   }
 
   virtual void init() = 0;
@@ -92,13 +92,13 @@ class OutputBuilder {
     auto assignMask = [&outputMask](auto& var, int receiverId) {
       var.isActive = outputMask[receiverId];
     };
-    aux::forEach(outputData.vars, assignMask);
+    misc::forEach(outputData.vars, assignMask);
 
     auto allocateVariables = [this](auto& var, int) {
       var.maxCacheLevel = outputData.maxCacheLevel;
       var.allocateData(this->outputData.receiverPoints.size());
     };
-    aux::forEach(outputData.vars, allocateVariables);
+    misc::forEach(outputData.vars, allocateVariables);
   }
 
   protected:

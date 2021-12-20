@@ -66,7 +66,7 @@ void Base::initElementwiseOutput() {
         dataPointers.push_back(var.data[dim]);
     }
   };
-  aux::forEach(ewOutputBuilder->outputData.vars, recordPointers);
+  misc::forEach(ewOutputBuilder->outputData.vars, recordPointers);
 
   seissol::SeisSol::main.secondFaultWriter().init(
       cellConnectivity.data(),
@@ -98,7 +98,7 @@ void Base::initPickpointOutput() {
       labelCounter += var.dim();
     }
   };
-  aux::forEach(ppOutputBuilder->outputData.vars, collectVariableNames);
+  misc::forEach(ppOutputBuilder->outputData.vars, collectVariableNames);
 
   auto& outputData = ppOutputBuilder->outputData;
   for (const auto& receiver : outputData.receiverPoints) {
@@ -187,7 +187,7 @@ void Base::writePickpointOutput(double time, double dt) {
                 }
               }
             };
-            aux::forEach(outputData.vars, recordResults);
+            misc::forEach(outputData.vars, recordResults);
             data << '\n';
           }
 

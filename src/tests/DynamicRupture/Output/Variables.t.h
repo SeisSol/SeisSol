@@ -3,7 +3,7 @@
 
 #include <cxxtest/TestSuite.h>
 #include <DynamicRupture/Output/DataTypes.hpp>
-#include <DynamicRupture/Mics.h>
+#include <DynamicRupture/Misc.h>
 #include <Initializer/MemoryAllocator.h>
 
 namespace seissol::unit_test::dr {
@@ -21,7 +21,7 @@ class seissol::unit_test::dr::Variables : public CxxTest::TestSuite {
     unsigned variableCounter = 0;
     auto countVariables = [&variableCounter](auto& var, int) { ++variableCounter; };
 
-    aux::forEach(drVars, countVariables);
+    misc::forEach(drVars, countVariables);
     TS_ASSERT_EQUALS(variableCounter, 12);
   }
 
@@ -34,7 +34,7 @@ class seissol::unit_test::dr::Variables : public CxxTest::TestSuite {
 
     auto assignMask = [&mask](auto& var, int index) { var.isActive = mask[index]; };
 
-    aux::forEach(drVars, assignMask);
+    misc::forEach(drVars, assignMask);
 
     unsigned variableCounter = 0;
     auto countVariables = [&variableCounter](auto& var, int) {
@@ -43,7 +43,7 @@ class seissol::unit_test::dr::Variables : public CxxTest::TestSuite {
       }
     };
 
-    aux::forEach(drVars, countVariables);
+    misc::forEach(drVars, countVariables);
     TS_ASSERT_EQUALS(variableCounter, 20);
   }
 
@@ -56,7 +56,7 @@ class seissol::unit_test::dr::Variables : public CxxTest::TestSuite {
 
     auto assignMask = [&mask](auto& var, int index) { var.isActive = mask[index]; };
 
-    aux::forEach(drVars, assignMask);
+    misc::forEach(drVars, assignMask);
 
     seissol::memory::ManagedAllocator allocator;
     const unsigned numElements = 1024;
@@ -64,7 +64,7 @@ class seissol::unit_test::dr::Variables : public CxxTest::TestSuite {
       var.maxCacheLevel = 3;
       var.allocateData(numElements);
     };
-    aux::forEach(drVars, allocateVariables);
+    misc::forEach(drVars, allocateVariables);
 
     real assignValue = 0.0;
     auto initVariables = [assignValue](auto& var, int) {
@@ -78,10 +78,10 @@ class seissol::unit_test::dr::Variables : public CxxTest::TestSuite {
         }
       }
     };
-    aux::forEach(drVars, initVariables);
+    misc::forEach(drVars, initVariables);
 
     auto deallocateVariables = [](auto& var, int) { var.releaseData(); };
-    aux::forEach(drVars, deallocateVariables);
+    misc::forEach(drVars, deallocateVariables);
   }
 };
 

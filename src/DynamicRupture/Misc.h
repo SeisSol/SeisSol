@@ -1,16 +1,16 @@
-#ifndef SEISSOL_DR_MICS_H
-#define SEISSOL_DR_MICS_H
+#ifndef SEISSOL_DR_MISC_H
+#define SEISSOL_DR_MISC_H
 
 #include <generated_code/init.h>
 #include <stdexcept>
 #include <cmath>
 
-namespace seissol::dr::aux {
+namespace seissol::dr::misc {
 template <typename Tensor>
 constexpr size_t leadDim() noexcept {
   return Tensor::Stop[0] - Tensor::Start[0];
 }
-static constexpr inline size_t AlignedNumGaussianPoints = leadDim<init::QInterpolated>();
+static constexpr inline size_t AlignedNumGaussPoints = leadDim<init::QInterpolated>();
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {
@@ -26,6 +26,6 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
       std::forward<F>(functor),
       std::make_index_sequence<std::tuple_size<std::remove_reference_t<TupleT>>::value>{});
 }
-} // namespace seissol::dr::aux
+} // namespace seissol::dr::misc
 
-#endif // SEISSOL_DR_MICS_H
+#endif // SEISSOL_DR_MISC_H
