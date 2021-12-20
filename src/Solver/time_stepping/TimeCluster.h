@@ -169,7 +169,7 @@ private:
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
     dr::friction_law::BaseFrictionLaw* m_FrictionLaw;
-    dr::output::OutputBase* m_DrOutput;
+    dr::output::Base* m_DrOutput;
 
   //! time step width of the performed time step.
     double m_timeStepWidth;
@@ -470,6 +470,9 @@ private:
     //! simulation time of the last full update (this is a complete volume and boundary integration)
     double m_fullUpdateTime;
 
+    //! previous simulation time of the last full update (necessary for the fault output)
+    double m_previousFullUpdateTime;
+
     //! final time of the prediction (derivatives and time integrated DOFs).
     double m_predictionTime;
 
@@ -503,7 +506,7 @@ private:
                  seissol::initializers::LTS* i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
                  seissol::dr::friction_law::BaseFrictionLaw* i_FrictionLaw,
-                 dr::output::OutputBase* i_DrOutput,
+                 dr::output::Base* i_DrOutput,
                  LoopStatistics* i_loopStatistics );
 
     /**

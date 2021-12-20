@@ -474,6 +474,17 @@ if (TESTING)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
   CXXTEST_ADD_TEST_MPI(
+          dr_tests
+          1
+          dr_tests.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/DynamicRupture/Output/Geometry.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/DynamicRupture/Output/Variables.t.h
+  )
+  target_link_libraries(dr_tests PRIVATE SeisSol-lib)
+  target_compile_options(dr_tests PRIVATE "-g" "-O0")
+  target_include_directories(dr_tests PRIVATE ${CXXTEST_INCLUDE_DIR})
+
+  CXXTEST_ADD_TEST_MPI(
           test_parallel_test_suite
           4
           test_parallel.cpp

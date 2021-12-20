@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <string>
+#include <fstream>
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Typedefs.hpp"
@@ -37,8 +38,86 @@ namespace seissol::initializers {
       } else {
         value = param[field].as<T>();
       }
+  }
+}
+/**
+ * \brief Returns true if number elements in the input string (separated by the white space)
+ *  is less or equal to the size of a container
+ * */
+template<typename OutputType, typename ContainerT>
+bool isCapacityEnough(const std::string& inputString, ContainerT& outputMask) {
+  std::istringstream inputStream(inputString);
+  auto begin = std::istream_iterator<OutputType>(inputStream);
+  auto end = std::istream_iterator<OutputType>();
+
+  const size_t numInputElements = std::distance(begin, end);
+  return numInputElements <= outputMask.size();
+}
+
+/**
+ * \brief Initializes the given input mask with values from the input string
+ *
+ * \throws runtime_error if an input string contains more parameters than the capacity of a provided container
+ * */
+template<typename ContainerT>
+void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
+  using T = typename std::iterator_traits<typename ContainerT::iterator>::value_type;
+
+  if (!isCapacityEnough<T>(stringMask, mask))
+    throw std::runtime_error("Number of input elements is more than the mask capacity");
+
+  std::istringstream inputStream(stringMask);
+  auto it = std::istream_iterator<T>(inputStream);
+  auto end = std::istream_iterator<T>();
+
+  for (int index = 0; it != end; ++index, ++it) {
+    if (std::is_same<T, bool>::value) {
+      mask[index] = (*it) > 0;
+    }
+    else {
+      mask[index] = (*it);
     }
   }
 }
+
+using StringsT = std::list<std::string>;
+class FileProcessor {
+public:
+  static StringsT getFileAsStrings(const std::string & fileName) {
+    StringsT content;
+    std::fstream paramFile(fileName, std::ios_base::in);
+    if (!paramFile.is_open()) {
+      throw std::runtime_error("cannot open file: " + fileName);
+    }
+
+    std::string tmpString;
+    while (std::getline(paramFile, tmpString)) {
+      content.push_back(tmpString);
+    }
+
+    paramFile.close();
+    return content;
+  }
+
+  static void removeEmptyLines(StringsT & content) {
+
+    const std::string WHITESPACE = " \n\r\t\f\v";
+    auto isEmptyString = [&WHITESPACE](const std::string & string) -> bool {
+      size_t start = string.find_first_not_of(WHITESPACE);
+      return start == std::string::npos;
+    };
+
+    std::vector<StringsT::iterator> deletees;
+    for (auto itr = content.begin(); itr != content.end(); ++itr) {
+      if (isEmptyString(*itr))
+        deletees.push_back(itr);
+    }
+
+    for (auto &itr : deletees) {
+      content.erase(itr);
+    }
+  }
+};
+} // seissol::initializers
 
 #endif //INITIALIZER_INPUTAUX_H_
