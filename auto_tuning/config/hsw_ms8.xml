@@ -1,9 +1,5 @@
 <memory_layouts>
 
-<matrix name="kDivMT(0)" sparse="True"/>
-<matrix name="kDivMT(1)" sparse="True"/>
-<matrix name="kDivMT(2)" sparse="True"/>
-
 <matrix name="kDivM(0)" sparse="True"/>
 <matrix name="kDivM(1)" sparse="True"/>
 <matrix name="kDivM(2)" sparse="True"/>
