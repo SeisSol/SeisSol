@@ -61,11 +61,13 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w", "rotX", "rotY", "rotZ"});
+  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
 #ifdef USE_POROELASTIC
   std::array<std::string, 4> additionalNames({"p", "u_f", "v_f", "w_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
+  std::array<std::string, 3> rotationNames({"rotX", "rotY", "rotZ"});
+  names.insert(names.end() ,rotationNames.begin(), rotationNames.end());
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
@@ -103,6 +105,7 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   m_stopwatch.start();
 
   for (auto& cluster : m_receiverClusters) {
+    // TODO(Sebastian) Remove hard coded 3
     auto ncols = cluster.ncols() + 3;
     for (auto& receiver : cluster) {
       assert(receiver.output.size() % ncols == 0);

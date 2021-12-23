@@ -72,69 +72,32 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
-#ifdef USE_STP
   alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
   alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-
+  alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+#ifdef USE_STP
+  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
   kernel::evaluateDOFSAtPointSTP krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.spaceTimePredictor = stp;
-
-  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-
-  double receiverTime = time;
-  if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    for (auto& receiver : m_receivers) {
-      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
-
-      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
-      g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
-      g_SeisSolHardwareFlopsOther += m_hardwareFlops;
-
-      receiverTime = time;
-      while (receiverTime < expansionPoint + timeStepWidth) {
-        //eval time basis
-        double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
-        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
-        krnl.execute();
-
-        receiver.output.push_back(receiverTime);
-#ifdef MULTIPLE_SIMULATIONS
-        for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
-          for (auto quantity : m_quantities) {
-            receiver.output.push_back(qAtPoint(sim, quantity));
-          }
-        }
-#else //MULTIPLE_SIMULATIONS
-        for (auto quantity : m_quantities) {
-          receiver.output.push_back(qAtPoint(quantity));
-        }
-#endif //MULTITPLE_SIMULATIONS
-
-        receiverTime += m_samplingInterval;
-      }
-    }
-  }
-  return receiverTime;
-#else //USE_STP
-  real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
-  real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
-  real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
-  real timeDerivativesEvaluatedAtPoint[tensor::QDerivativeAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
-
+  kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
+  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+  derivativeKrnl.spaceTimePredictor = stp;
+#else
+  alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
   kernels::LocalTmp tmp;
 
   kernel::evaluateDOFSAtPoint krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.Q = timeEvaluated;
   kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
-  derivativeKrnl.QDerivativeAtPoint = timeDerivativesEvaluatedAtPoint;
+  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
   derivativeKrnl.Q = timeEvaluated;
+#endif
+
 
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeDerivativesEvaluatedAtPoint);
+  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
@@ -142,17 +105,30 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
       derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
+#ifdef USE_STP
+      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
+#else
       m_timeKernel.computeAder( timeStepWidth,
-                                receiver.data,
-                                tmp,
-                                timeEvaluated, // useless but the interface requires it
-                                timeDerivatives );
+                               receiver.data,
+                               tmp,
+                               timeEvaluated, // useless but the interface requires it
+                               timeDerivatives );
+#endif
       g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
       g_SeisSolHardwareFlopsOther += m_hardwareFlops;
 
       receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
+#ifdef USE_STP
+        //eval time basis
+        double tau = (time - expansionPoint) / timeStepWidth;
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
+        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
+        derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
+#else
         m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+#endif
+
         krnl.execute();
         derivativeKrnl.execute();
 
@@ -160,9 +136,9 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
-           if (!std::isfinite(qAtPoint(sim, quantity))) {
-            logError() << "Detected Inf/NaN in receiver output. Aborting.";
-          }
+            if (!std::isfinite(qAtPoint(sim, quantity))) {
+              logError() << "Detected Inf/NaN in receiver output. Aborting.";
+            }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
         }
@@ -183,6 +159,5 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
     }
   }
   return receiverTime;
-#endif //USE_STP
 }
 
