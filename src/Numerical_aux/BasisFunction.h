@@ -44,8 +44,10 @@
 #include <numeric>
 #include <vector>
 #include <type_traits>
+#include "generated_code/init.h"
 
 #include "Functions.h"
+#include "Transformation.h"
 
 namespace seissol {
 namespace basisFunction {
@@ -149,9 +151,10 @@ class SampledBasisFunctions {
 
 public:
   /** The basis function samples */
-  std::vector<T> m_data;
+  std::vector<T> m_data{};
 
 public:
+  SampledBasisFunctions() {};
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -207,61 +210,86 @@ class SampledBasisFunctionDerivatives {
   static_assert(std::is_arithmetic<T>::value, "Type T for SampledBasisFunctions must be arithmetic.");
   
 public:
-  /** The basis function derivative samples w.r.t. xi, eta, zeta */
-  std::array<std::vector<T>, 3> m_data;
+  /**
+   * The basis function derivative samples w.r.t. the three spatial dimension
+   * Use DenseTensorView to access data
+   */
+  std::vector<T> m_data{};
 
 public:
-    /**
-     * Constructor to generate the sampled basis functions of given order
-     * and at a given point in the reference tetrahedron.
-     * @param order The order of the computation. It determines how many Basis
-     * functions are generated. @see getBasisFunctionsPerOrder
-     * @param eta The eta coordinate in the reference tetrahedron.
-     * @param zeta The zeta coordinate in the reference tetrahedron.
-     * @param xi The xi coordinate in the reference tetrahedron.
-     */
-    SampledBasisFunctionDerivatives(unsigned int order,
-                                    T xi, T eta, T zeta)
-    	: m_data({std::vector<T>(basisFunctionsForOrder(order)), std::vector<T>(basisFunctionsForOrder(order)), std::vector<T>(basisFunctionsForOrder(order))})
-    {
-        BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+  SampledBasisFunctionDerivatives() {};
+  /**
+   * Constructor to generate the sampled basis functions of given order
+   * and at a given point in the reference tetrahedron.
+   * @param order The order of the computation. It determines how many Basis
+   * functions are generated. @see getBasisFunctionsPerOrder
+   * @param eta The eta coordinate in the reference tetrahedron.
+   * @param zeta The zeta coordinate in the reference tetrahedron.
+   * @param xi The xi coordinate in the reference tetrahedron.
+   */
+  SampledBasisFunctionDerivatives(unsigned int order,
+                                  T xi, T eta, T zeta)
+  	: m_data(3*basisFunctionsForOrder(order))
+  {
+      BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+      auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
 
-        unsigned int i = 0;
-        for (unsigned int ord = 0; ord < order; ord++) {
-          for (unsigned int k = 0; k <= ord; k++) {
-            for (unsigned int j = 0; j <= ord - k; j++) {
-              const auto derivatives = gen(ord - j - k, j, k);
-              for (unsigned int direction = 0; direction < 3; direction++) {
-                m_data[direction][i] = derivatives[direction];
-              }
-              i++;
+      unsigned int i = 0;
+      for (unsigned int ord = 0; ord < order; ord++) {
+        for (unsigned int k = 0; k <= ord; k++) {
+          for (unsigned int j = 0; j <= ord - k; j++) {
+            const auto derivatives = gen(ord - j - k, j, k);
+            for (unsigned int direction = 0; direction < 3; direction++) {
+              dataView(i, direction) = derivatives[direction];
             }
+            i++;
           }
         }
+      }
+  }
+
+  /**
+   * After a call to the constructor m_data contains the sampled derivatives
+   * w.r.t. xi, eta, zeta on the reference triangle. Use this function to
+   * transform the derivatives to derivatives w.r.t. to x, y, z in a physical
+   * tetrahedron.
+   * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
+   * physical tetrahedron.
+   */
+  void transformToGlobalCoordinates(double const* coords[4])  {
+    real xCoords[4];
+    real yCoords[4];
+    real zCoords[4];
+    for (size_t i = 0; i < 4; ++i) {
+      xCoords[i] = coords[i][0];
+      yCoords[i] = coords[i][1];
+      zCoords[i] = coords[i][2];
     }
 
-public:
-    /**
-     * Function to evaluate the samples by multiplying the sampled Basis
-     * function with its coefficient and summing up the products.
-     * res = c0 * bf0 + c1 * bf1 + ... + cn * bfn
-     * @param coeffIter the const iterator to read the coefficients
-     */
-    template<class ConstIterator>
-    std::array<T, 3> evalWithCoeffs(ConstIterator coeffIter) const
-    {
-      return {std::inner_product(m_data[0].begin(), m_data[0].end(), coeffIter, static_cast<T>(0)),
-              std::inner_product(m_data[1].begin(), m_data[1].end(), coeffIter, static_cast<T>(0)),
-              std::inner_product(m_data[2].begin(), m_data[2].end(), coeffIter, static_cast<T>(0))};
-    }
+    real gradXi[3];
+    real gradEta[3];
+    real gradZeta[3];
 
-    /**
-     * Returns the amount of Basis functions this class represents.
-     */
-    unsigned int getSize() const
-    {
-        return m_data[0].size();
+    seissol::transformations::tetrahedronGlobalToReferenceJacobian(xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
+    std::vector<T> oldData = m_data;
+
+    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
+    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
+      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1]; ++direction) {
+        // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
+        newView(i, direction) = oldView(i,0) * gradXi[direction] + oldView(i,1) * gradEta[direction] + oldView(i,2) * gradZeta[direction];
+      }
     }
+  }
+
+  /**
+   * Returns the amount of Basis functions this class represents.
+   */
+  unsigned int getSize() const
+  {
+      return m_data.size();
+  }
 };
 
 //==============================================================================

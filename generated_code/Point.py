@@ -53,6 +53,7 @@ def addKernels(generator, aderdg):
   mNormal = Tensor('mNormal', (3,))
   mArea = Scalar('mArea')
   basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
+  basisFunctionDerivativesAtPoint = Tensor('basisFunctionDerivativesAtPoint', (numberOf3DBasisFunctions, 3))
   timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (order,))
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
   JInv = Scalar('JInv')
@@ -91,6 +92,9 @@ def addKernels(generator, aderdg):
   QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
   evaluateDOFSAtPoint = QAtPoint['p'] <= aderdg.Q['kp'] * basisFunctionsAtPoint['k']
   generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
+  QDerivativeAtPoint = OptionalDimTensor('QDerivativeAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities, 3))
+  evaluateDerivativeDOFSAtPoint = QDerivativeAtPoint['pd'] <= aderdg.Q['kp'] * basisFunctionDerivativesAtPoint['kd']
+  generator.add('evaluateDerivativeDOFSAtPoint', evaluateDerivativeDOFSAtPoint)
 
   stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
   spaceTimePredictor = OptionalDimTensor('spaceTimePredictor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)

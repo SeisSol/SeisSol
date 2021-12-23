@@ -40,30 +40,33 @@
 #ifndef KERNELS_RECEIVER_H_
 #define KERNELS_RECEIVER_H_
 
-#include <vector>
 #include <Eigen/Dense>
 #include <Geometry/MeshReader.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Initializer/tree/Lut.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/PointMapper.h>
-#include <Kernels/Time.h>
+#include <Initializer/tree/Lut.hpp>
 #include <Kernels/Interface.hpp>
+#include <Kernels/Time.h>
+#include <Numerical_aux/BasisFunction.h>
+#include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
+#include <vector>
 
 struct GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
-      Receiver(unsigned pointId, double xi, double eta, double zeta, kernels::LocalData data, size_t reserved)
-        : pointId(pointId),
-          basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
-          data(data)
-      {
+      Receiver(unsigned pointId, double const* coords[4], Eigen::Vector3d const& point, kernels::LocalData data, size_t reserved)
+          : pointId(pointId), data(data) {
         output.reserve(reserved);
+        auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(coords[0], coords[1], coords[2], coords[3], point);
+        basisFunctions = basisFunction::SampledBasisFunctions(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctionDerivatives.transformToGlobalCoordinates(coords);
       }
       unsigned pointId;
       basisFunction::SampledBasisFunctions<real> basisFunctions;
+      basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
       kernels::LocalData data;
       std::vector<real> output;
     };

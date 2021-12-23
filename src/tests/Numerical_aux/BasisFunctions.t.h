@@ -1,6 +1,7 @@
 #include "doctest.h"
 #include <Numerical_aux/BasisFunction.h>
 #include <Kernels/precision.hpp>
+#include <generated_code/init.h>
 
 namespace seissol::unit_test {
 TEST_CASE("Sampled Basis Functions") {
@@ -66,9 +67,10 @@ TEST_CASE("Sampled Derivatives Functions") {
   }};
 
   basisFunction::SampledBasisFunctionDerivatives<real> sampledBasisFunctionDerivatives(6, 0.3, 0.3, 0.3);
+  auto dataView = init::basisFunctionDerivativesAtPoint::view::create(sampledBasisFunctionDerivatives.m_data.data());
   for (size_t i = 0; i < precomputedValues[0].size(); ++i) {
     for (size_t direction = 0; direction < 3; ++direction) {
-      REQUIRE(sampledBasisFunctionDerivatives.m_data[direction].at(i) == AbsApprox(precomputedValues[direction].at(i)).epsilon(epsilon));
+      REQUIRE(dataView(i, direction) == AbsApprox(precomputedValues[direction].at(i)).epsilon(epsilon));
     }
   }
 }

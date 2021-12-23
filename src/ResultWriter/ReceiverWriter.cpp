@@ -61,7 +61,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
+  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w", "rotX", "rotY", "rotZ"});
 #ifdef USE_POROELASTIC
   std::array<std::string, 4> additionalNames({"p", "u_f", "v_f", "w_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
@@ -103,7 +103,7 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   m_stopwatch.start();
 
   for (auto& cluster : m_receiverClusters) {
-    auto ncols = cluster.ncols();
+    auto ncols = cluster.ncols() + 3;
     for (auto& receiver : cluster) {
       assert(receiver.output.size() % ncols == 0);
       size_t nSamples = receiver.output.size() / ncols;

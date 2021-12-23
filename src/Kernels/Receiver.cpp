@@ -59,14 +59,12 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
   for (unsigned v = 0; v < 4; ++v) {
     coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
   }
-  auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(coords[0], coords[1], coords[2], coords[3], point);
 
   // (time + number of quantities) * number of samples until sync point
   size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back( pointId,
-                            xiEtaZeta[0],
-                            xiEtaZeta[1],
-                            xiEtaZeta[2],
+                            coords,
+                            point,
                             kernels::LocalData::lookup(lts, ltsLut, meshId),
                             reserved);
 }
@@ -124,19 +122,25 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
   real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
   real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
   real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
+  real timeDerivativesEvaluatedAtPoint[tensor::QDerivativeAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
 
   kernels::LocalTmp tmp;
 
   kernel::evaluateDOFSAtPoint krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.Q = timeEvaluated;
+  kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+  derivativeKrnl.QDerivativeAtPoint = timeDerivativesEvaluatedAtPoint;
+  derivativeKrnl.Q = timeEvaluated;
 
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeDerivativesEvaluatedAtPoint);
 
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
+      derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,
@@ -150,6 +154,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       while (receiverTime < expansionPoint + timeStepWidth) {
         m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
         krnl.execute();
+        derivativeKrnl.execute();
 
         receiver.output.push_back(receiverTime);
 #ifdef MULTIPLE_SIMULATIONS
@@ -168,6 +173,9 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
           }
           receiver.output.push_back(qAtPoint(quantity));
         }
+        receiver.output.push_back(qDerivativeAtPoint(8, 1) - qDerivativeAtPoint(7, 2));
+        receiver.output.push_back(qDerivativeAtPoint(6, 2) - qDerivativeAtPoint(8, 0));
+        receiver.output.push_back(qDerivativeAtPoint(7, 0) - qDerivativeAtPoint(6, 1));
 #endif //MULTITPLE_SIMULATIONS
 
         receiverTime += m_samplingInterval;
