@@ -141,6 +141,9 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
             }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
+          receiver.output.push_back(qDerivativeAtPoint(sim, 8, 1) - qDerivativeAtPoint(sim, 7, 2));
+          receiver.output.push_back(qDerivativeAtPoint(sim, 6, 2) - qDerivativeAtPoint(sim, 8, 0));
+          receiver.output.push_back(qDerivativeAtPoint(sim, 7, 0) - qDerivativeAtPoint(sim, 6, 1));
         }
 #else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
