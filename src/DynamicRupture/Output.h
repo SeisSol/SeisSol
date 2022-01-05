@@ -163,6 +163,15 @@ class OutputRateAndState : public OutputBase {
     real(*slipRateDip)[size] = layerData.var(concreteLts->slipRateDip);
     real(*mu)[size] = layerData.var(concreteLts->mu);
     real(*stateVar)[size] = layerData.var(concreteLts->stateVariable);
+    real(*initialStressInFaultCS)[size][6] = layerData.var(concreteLts->initialStressInFaultCS);
+    using VectorOfArrays = std::vector<std::array<real, size>>;
+
+    VectorOfArrays iniXX(layerData.getNumberOfCells());
+    VectorOfArrays iniYY(layerData.getNumberOfCells());
+    VectorOfArrays iniZZ(layerData.getNumberOfCells());
+    VectorOfArrays iniXY(layerData.getNumberOfCells());
+    VectorOfArrays iniXZ(layerData.getNumberOfCells());
+    VectorOfArrays iniYZ(layerData.getNumberOfCells());
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -172,6 +181,8 @@ class OutputRateAndState : public OutputBase {
       e_interoperability.copyFrictionOutputToFortranSpecific(
           ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
       e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
+      e_interoperability.copyFrictionOutputToFortranInitialStressInFaultCS(
+          ltsFace, meshFace, initialStressInFaultCS, iniXX, iniYY, iniZZ, iniXY, iniYZ, iniXZ);
     }
   }
 
