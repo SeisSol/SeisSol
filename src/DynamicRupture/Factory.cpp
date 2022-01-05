@@ -1,6 +1,7 @@
 #include "Factory.h"
 
 #include <Solver/Interoperability.h>
+#include "FrictionLaws/FrictionLaws.h"
 
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory> getFactory(dr::DRParameters& drParameters) {

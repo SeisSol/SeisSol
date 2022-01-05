@@ -6,7 +6,7 @@
 #include <tuple>
 
 #include "Output.h"
-#include "DynamicRupture/FrictionLaws/FrictionLaws.h"
+#include "FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Initializers/Initializers.h"
 #include "Initializer/DynamicRupture.h"
 
