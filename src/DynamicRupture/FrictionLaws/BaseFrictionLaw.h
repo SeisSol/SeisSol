@@ -280,7 +280,6 @@ class BaseFrictionLaw : public FrictionSolver {
 
   /**
    * evaluates the current friction model
-   * TODO: move implementation here and define useful hooks
    */
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture* dynRup,
@@ -319,8 +318,7 @@ class BaseFrictionLaw : public FrictionSolver {
       this->saveRuptureFrontOutput(ltsFace);
 
       // output time when shear stress is equal to the dynamic stress after rupture arrived
-      // Todo: Only for linear slip weakening
-      // this->saveDynamicStressOutput(ltsFace);
+      static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
       // output peak slip rate
       this->savePeakSlipRateOutput(ltsFace);

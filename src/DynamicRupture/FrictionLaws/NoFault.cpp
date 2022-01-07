@@ -15,4 +15,5 @@ void NoFault::updateFrictionAndSlip(FaultStresses& faultStresses,
 }
 void NoFault::preHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace){};
 void NoFault::postHook(std::array<real, numPaddedPoints>& stateVariableBuffer, unsigned ltsFace){};
+void NoFault::saveDynamicStressOutput(unsigned int ltsFace) {}
 } // namespace seissol::dr::friction_law

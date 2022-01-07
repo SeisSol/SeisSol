@@ -91,7 +91,7 @@ products ImposedSlipRatesFactory::produce() {
 products RateAndStateFastVelocityWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
           std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
-          std::make_unique<friction_law::RateAndStateFastVelocityWeakeningLaw>(drParameters),
+          std::make_unique<friction_law::FastVelocityWeakeningLaw>(drParameters),
           std::make_unique<output::OutputRateAndState>(drParameters)};
 }
 
