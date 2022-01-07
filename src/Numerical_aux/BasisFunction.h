@@ -96,7 +96,7 @@ public:
      * @param k Polynomial index information
      */
     T operator()(unsigned int i, unsigned int j, unsigned int k) const {
-      return functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
+      return static_cast<T>(functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
     }
 
 };
@@ -131,7 +131,8 @@ public:
    * @param k Polynomial index information
    */
   std::array<T, 3> operator()(unsigned int i, unsigned int j, unsigned int k) const {
-    return functions::gradTetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
+    std::array<double, 3> gradEvaluated = functions::gradTetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
+    return {static_cast<T>(gradEvaluated[0]), static_cast<T>(gradEvaluated[1]), static_cast<T>(gradEvaluated[2])};
   }
 
 };
