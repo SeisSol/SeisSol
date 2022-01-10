@@ -444,8 +444,9 @@ if (TESTING)
           src/tests/Numerical_aux/TestNumerical_aux.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
-          src/tests/SourceTerm/SourceTermTest.cpp
+          src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Pipeline/TestPipeline.cpp
+          src/tests/ResultWriter/TestResultWriter.cpp
           )
 
 
@@ -466,6 +467,11 @@ if (TESTING)
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
     COPYONLY
     )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
+    COPYONLY
+  )
 
   if (NETCDF)
     configure_file(
