@@ -79,7 +79,8 @@ std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::strin
   std::ifstream file{receiverFileName};
   std::string line{};
   while (std::getline(file, line)) {
-    points.emplace_back(parseReceiverLine(line));
+    bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), isspace);
+    if (!onlyWhiteSpace) points.emplace_back(parseReceiverLine(line));
   }
   return points;
 }
