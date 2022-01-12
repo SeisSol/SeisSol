@@ -7,22 +7,16 @@ void FastVelocityWeakeningLaw::copyLtsTreeToLocal(seissol::initializers::Layer& 
   // maybe change later to const_cast?
   auto concreteLts =
       dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
-  nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
 
-  sl0 = layerData.var(concreteLts->rs_sl0);
-  a = layerData.var(concreteLts->rs_a);
-  srW = layerData.var(concreteLts->rs_srW);
-  ds = layerData.var(concreteLts->ds);
   averagedSlip = layerData.var(concreteLts->averagedSlip);
-  stateVariable = layerData.var(concreteLts->stateVariable);
-  dynStressTime = layerData.var(concreteLts->dynStressTime);
+  srW = layerData.var(concreteLts->rs_srW);
 }
 
 real FastVelocityWeakeningLaw::updateStateVariable(int pointIndex,
                                                    unsigned int face,
                                                    real stateVarReference,
                                                    real timeIncrement,
-                                                   real& localSlipRate) {
+                                                   real localSlipRate) {
   double fw = drParameters.mu_w;
   double localSrW = srW[face][pointIndex];
   double localA = a[face][pointIndex];

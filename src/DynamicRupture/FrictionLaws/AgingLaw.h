@@ -30,7 +30,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw> {
                            unsigned int face,
                            real stateVarReference,
                            real timeIncrement,
-                           real& localSlipRate);
+                           real localSlipRate);
 };
 
 } // namespace seissol::dr::friction_law

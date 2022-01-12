@@ -13,28 +13,19 @@ template <class Derived>
 class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived>> {
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw>::RateAndStateBase;
-  // Attributes
-  real (*stateVar)[numPaddedPoints]{};
-  real (*sl0)[numPaddedPoints]{};
-  real (*a)[numPaddedPoints]{};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
-                          real fullUpdateTime) {
-    auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
-    stateVar = layerData.var(concreteLts->stateVariable);
-    sl0 = layerData.var(concreteLts->rs_sl0);
-    a = layerData.var(concreteLts->rs_a);
-  }
+                          real fullUpdateTime) {}
 
   real updateStateVariable(int pointIndex,
                            unsigned int face,
                            real stateVarReference,
                            real timeIncrement,
-                           real& localSlipRate) {
+                           real localSlipRate) {
     return static_cast<Derived*>(this)->updateStateVariable(
         pointIndex, face, stateVarReference, timeIncrement, localSlipRate);
   }
@@ -47,8 +38,8 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
    * @return \f$ \mu \f$
    */
   real updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable) {
-    real localA = a[ltsFace][pointIndex];
-    real localSL0 = sl0[ltsFace][pointIndex];
+    real localA = this->a[ltsFace][pointIndex];
+    real localSL0 = this->sl0[ltsFace][pointIndex];
     real log1 = std::log(this->drParameters.rs_sr0 * localStateVariable / localSL0);
     // x in asinh(x) for mu calculation
     real x = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] / this->drParameters.rs_sr0) *

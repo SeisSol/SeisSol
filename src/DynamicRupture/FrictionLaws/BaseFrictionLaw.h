@@ -39,6 +39,8 @@ class BaseFrictionLaw : public FrictionSolver {
 
   // be careful only for some FLs initialized:
   real* averagedSlip;
+  real (*dynStressTime)[numPaddedPoints];
+  bool (*ds)[numPaddedPoints];
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -63,6 +65,9 @@ class BaseFrictionLaw : public FrictionSolver {
     imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
     imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
     m_fullUpdateTime = fullUpdateTime;
+    ds = layerData.var(dynRup->ds);
+    averagedSlip = layerData.var(dynRup->averagedSlip);
+    dynStressTime = layerData.var(dynRup->dynStressTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -233,48 +238,6 @@ class BaseFrictionLaw : public FrictionSolver {
         sumOfTmpSlip += tmpSlip[pointIndex];
       }
       averagedSlip[ltsFace] = averagedSlip[ltsFace] + sumOfTmpSlip / numberOfPoints;
-    }
-  }
-
-  /**
-   *  compute the slip rate and the traction from the fault strength and fault stresses
-   *  also updates the directional slipStrike and slipDip
-   */
-  void calcSlipRateAndTraction(FaultStresses& faultStresses,
-                               std::array<real, numPaddedPoints>& strength,
-                               unsigned int timeIndex,
-                               unsigned int ltsFace) {
-    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-      // calculate absolute value of stress in Y and Z direction
-      real totalStressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
-                           faultStresses.XYStressGP[timeIndex][pointIndex];
-      real totalStressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
-                           faultStresses.XZStressGP[timeIndex][pointIndex];
-      real absoluteShearStress = std::sqrt(std::pow(totalStressXY, 2) + std::pow(totalStressXZ, 2));
-
-      // calculate slip rates
-      slipRateMagnitude[ltsFace][pointIndex] =
-          std::max(static_cast<real>(0.0),
-                   (absoluteShearStress - strength[pointIndex]) * impAndEta[ltsFace].inv_eta_s);
-
-      slipRateStrike[ltsFace][pointIndex] =
-          slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / absoluteShearStress;
-      slipRateDip[ltsFace][pointIndex] =
-          slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / absoluteShearStress;
-
-      // calculate traction
-      faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
-          faultStresses.XYStressGP[timeIndex][pointIndex] -
-          impAndEta[ltsFace].eta_s * slipRateStrike[ltsFace][pointIndex];
-      faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
-          faultStresses.XZStressGP[timeIndex][pointIndex] -
-          impAndEta[ltsFace].eta_s * slipRateDip[ltsFace][pointIndex];
-      tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-      tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-
-      // update directional slip
-      slipStrike[ltsFace][pointIndex] += slipRateStrike[ltsFace][pointIndex] * deltaT[timeIndex];
-      slipDip[ltsFace][pointIndex] += slipRateDip[ltsFace][pointIndex] * deltaT[timeIndex];
     }
   }
 

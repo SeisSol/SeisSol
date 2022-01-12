@@ -8,6 +8,7 @@ namespace seissol::dr::friction_law {
 class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLaw> {
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw>::RateAndStateBase;
+  real (*srW)[numPaddedPoints];
 
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
@@ -32,7 +33,7 @@ class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLa
                            unsigned int face,
                            real stateVarReference,
                            real timeIncrement,
-                           real& localSlipRate);
+                           real localSlipRate);
 
   /**
    * Computes the friction coefficient from the state variable and slip rate

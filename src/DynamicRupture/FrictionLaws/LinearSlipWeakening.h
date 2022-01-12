@@ -25,8 +25,6 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
   real (*mu_S)[numPaddedPoints];
   real (*mu_D)[numPaddedPoints];
   real (*cohesion)[numPaddedPoints];
-  real (*dynStressTime)[numPaddedPoints];
-  bool (*DS)[numPaddedPoints];
 
   void updateFrictionAndSlip(FaultStresses& faultStresses,
                              std::array<real, numPaddedPoints>& stateVariableBuffer,
@@ -55,9 +53,52 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
     this->mu_S = layerData.var(concreteLts->mu_s);
     this->mu_D = layerData.var(concreteLts->mu_d);
     this->cohesion = layerData.var(concreteLts->cohesion);
-    this->DS = layerData.var(concreteLts->ds);
-    this->averagedSlip = layerData.var(concreteLts->averagedSlip);
-    this->dynStressTime = layerData.var(concreteLts->dynStressTime);
+  }
+
+  /**
+   *  compute the slip rate and the traction from the fault strength and fault stresses
+   *  also updates the directional slipStrike and slipDip
+   */
+  void calcSlipRateAndTraction(FaultStresses& faultStresses,
+                               std::array<real, numPaddedPoints>& strength,
+                               unsigned int timeIndex,
+                               unsigned int ltsFace) {
+    for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+      // calculate absolute value of stress in Y and Z direction
+      real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+                           faultStresses.XYStressGP[timeIndex][pointIndex];
+      real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+                           faultStresses.XZStressGP[timeIndex][pointIndex];
+      real absoluteShearStress = std::sqrt(std::pow(totalStressXY, 2) + std::pow(totalStressXZ, 2));
+
+      // calculate slip rates
+      this->slipRateMagnitude[ltsFace][pointIndex] = std::max(
+          static_cast<real>(0.0),
+          (absoluteShearStress - strength[pointIndex]) * this->impAndEta[ltsFace].inv_eta_s);
+
+      this->slipRateStrike[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / absoluteShearStress;
+      this->slipRateDip[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / absoluteShearStress;
+
+      // calculate traction
+      faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
+          faultStresses.XYStressGP[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].eta_s * this->slipRateStrike[ltsFace][pointIndex];
+      faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
+          faultStresses.XZStressGP[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].eta_s * this->slipRateDip[ltsFace][pointIndex];
+      this->tractionXY[ltsFace][pointIndex] =
+          faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+      this->tractionXZ[ltsFace][pointIndex] =
+          faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+
+      // update directional slip
+      this->slipStrike[ltsFace][pointIndex] +=
+          this->slipRateStrike[ltsFace][pointIndex] * this->deltaT[timeIndex];
+      this->slipDip[ltsFace][pointIndex] +=
+          this->slipRateDip[ltsFace][pointIndex] * this->deltaT[timeIndex];
+    }
   }
 
   /**
@@ -93,10 +134,11 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
       if (this->ruptureTime[ltsFace][pointIndex] > 0.0 &&
-          this->ruptureTime[ltsFace][pointIndex] <= this->m_fullUpdateTime && DS[pointIndex] &&
+          this->ruptureTime[ltsFace][pointIndex] <= this->m_fullUpdateTime &&
+          this->ds[pointIndex] &&
           std::fabs(this->slip[ltsFace][pointIndex]) >= d_c[ltsFace][pointIndex]) {
-        dynStressTime[ltsFace][pointIndex] = this->m_fullUpdateTime;
-        DS[ltsFace][pointIndex] = false;
+        this->dynStressTime[ltsFace][pointIndex] = this->m_fullUpdateTime;
+        this->ds[ltsFace][pointIndex] = false;
       }
     }
   }
