@@ -63,13 +63,13 @@ Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   Eigen::Vector3d coordinates{};
   unsigned numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
-    if (numberOfCoordinates > coordinates.size()) {
-      break;
+    if (numberOfCoordinates >= coordinates.size()) {
+      throw std::runtime_error("Too many coordinates in line " + line + ".");
     }
     coordinates[numberOfCoordinates] = std::stod(*iter);
   }
   if (numberOfCoordinates != coordinates.size()) {
-    throw std::runtime_error("Incorrect number of coordinates in line " + line + ".");
+    throw std::runtime_error("To few coordinates in line " + line + ".");
   }
   return coordinates;
 }
