@@ -39,6 +39,7 @@
 
 #include "ReceiverWriter.h"
 
+#include <cctype>
 #include <iterator>
 #include <sstream>
 #include <iomanip>
@@ -59,7 +60,7 @@ Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
                                   rgx,
                                   -1);
   std::sregex_token_iterator end;
-  std::array<double, 3> coordinates{};
+  Eigen::Vector3d coordinates{};
   unsigned numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
     if (numberOfCoordinates > coordinates.size()) {
@@ -70,7 +71,7 @@ Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   if (numberOfCoordinates != coordinates.size()) {
     throw std::runtime_error("Incorrect number of coordinates in line " + line + ".");
   }
-  return {coordinates[0], coordinates[1], coordinates[2]};
+  return coordinates;
 }
 
 std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::string& receiverFileName) {
@@ -79,7 +80,9 @@ std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::strin
   std::ifstream file{receiverFileName};
   std::string line{};
   while (std::getline(file, line)) {
-    bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), isspace);
+    bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), [](auto& c) {
+      return std::isspace(c); // This lambda is needed (opt. argument)
+    });
     if (!onlyWhiteSpace) points.emplace_back(parseReceiverLine(line));
   }
   return points;

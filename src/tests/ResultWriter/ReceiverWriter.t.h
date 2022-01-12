@@ -5,12 +5,16 @@ TEST_CASE("Parses line correctly") {
   const auto lines = std::vector<std::string>{
   "1\t0.1  10",
   "10\t2\t0.2",
-  "1e4   1e3  1e-10"
+  "1e4   1e3  1e-10",
+  "-1e4   1e3  1e-10",
+  "1e4\t\t-1e3 \t 1e-10",
   };
   const auto expectedPoints = std::vector<Eigen::Vector3d>{
       {1, 0.1, 10},
       {10, 2, 0.2},
-      {1e4, 1e3, 1e-10}
+      {1e4, 1e3, 1e-10},
+      {-1e4, 1e3, 1e-10},
+      {1e4, -1e3, 1e-10}
   };
 
   for (unsigned i = 0; i < lines.size(); ++i) {

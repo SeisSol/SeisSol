@@ -112,7 +112,6 @@ OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that desc
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
 
 ! off-fault ascii receivers
-nRecordPoints = 85                    ! number of Record points which are read from file
 RFileName = 'tpv33_receivers.dat'      ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
 pickDtType = 1                       ! Pickpoint Type
