@@ -20,11 +20,13 @@ protected:
 
   [[nodiscard]] double timeStepSize() const;
 
+  void unsafePerformAction(ActorAction action);
 public:
   // TODO(Lukas) Move a lot of these to protected or private
   AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, long timeStepRate);
   virtual ~AbstractTimeCluster() = default;
 
+  virtual ActorAction getNextLegalAction();
   virtual ActResult act();
   virtual bool mayPredict();
   virtual bool mayCorrect();

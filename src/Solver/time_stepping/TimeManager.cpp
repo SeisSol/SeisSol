@@ -188,7 +188,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 #endif
   }
 
-  // Sort clusters by priority (higher ones first).
+  // Sort clusters by time step size in increasing order
+  // TODO(Lukas) Might opposite order be better?
   auto rateSorter = [](const auto& a, const auto& b) {
     return a->timeStepRate < b->timeStepRate;
   };
@@ -246,51 +247,45 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
-  auto updateCluster = [&](auto* cluster) {
-    // A cluster yields once it is blocked by other cluster.
-    bool yield = false;
-    do {
-      yield = cluster->act().yield;
-      // Check ghost cells often for communication progress
-      // Note: This replaces the need for a communication thread.
-      communicationManager->progression();
-    } while (!(yield || cluster->synced()));
-    return cluster->synced();
-  };
-
-  beginAgain:
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
-    // Iterate over all clusters
-    // break loop if updated, and begin again.
-    // Assume that stuff is sorted by a useful metric
-
-
+    communicationManager->progression();
     // Update all high priority clusters
-    for (auto& highPrioCluster : highPrioClusters) {
-      bool yield = false;
-      while (!yield) {
-        const auto result = highPrioCluster->act();
-        communicationManager->progression();
-        yield = result.yield;
+    std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+      if (cluster->getNextLegalAction() == ActorAction::Predict) {
+        cluster->act();
       }
-      finished &= highPrioCluster->synced();
-    }
+    });
+    std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
+        cluster->act();
+      }
+    });
 
     // Update one low priority cluster
-    for (auto& lowPrioCluster : lowPrioClusters) {
-      bool yield = false;
-      while (!yield) {
-        const auto result = lowPrioCluster->act();
-        communicationManager->progression();
-        yield = result.yield;
-        if (result.isStateChanged) {
-          goto beginAgain;
-        }
-      }
-      finished &= lowPrioCluster->synced();
+    if (auto predictable = std::find_if(
+          lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
+            return c->getNextLegalAction() == ActorAction::Predict;
+          }
+      );
+        predictable != lowPrioClusters.end()) {
+      (*predictable)->act();
+    } else {
     }
+    if (auto correctable = std::find_if(
+          lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
+            return c->getNextLegalAction() != ActorAction::Predict && c->getNextLegalAction() != ActorAction::Nothing;
+          }
+      );
+        correctable != lowPrioClusters.end()) {
+      (*correctable)->act();
+    } else {
+    }
+    finished = std::all_of(clusters.begin(), clusters.end(),
+                           [](auto& c) {
+      return c->synced();
+    });
     finished &= communicationManager->checkIfFinished();
   }
 #ifdef ACL_DEVICE

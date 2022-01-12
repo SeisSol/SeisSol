@@ -77,7 +77,15 @@ class MessageQueue {
       Corrected,
       Predicted,
       Synced
-};
+  };
+
+  enum class ActorAction {
+    Nothing,
+    Correct,
+    Predict,
+    Sync,
+    RestartAfterSync
+  };
 
   inline std::string actorStateToString(ActorState state) {
     switch (state) {

@@ -14,56 +14,49 @@ AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTole
   ct.timeStepRate = timeStepRate;
 }
 
-ActResult AbstractTimeCluster::act() {
-  ActResult result;
-  auto stateBefore = state;
+ActorAction AbstractTimeCluster::getNextLegalAction() {
+  processMessages();
   switch (state) {
-  case ActorState::Corrected: {
-    if (maySync()) {
-        logDebug(MPI::mpi.rank()) << "synced at " << syncTime
-        << ", corrTIme =" << ct.correctionTime
-        << ", time tolerence " << timeTolerance
-        << " stepsSinceLastSync " << ct.stepsSinceLastSync
-        << " stepsUntilLastSync " << ct.stepsSinceLastSync
-        << std::endl;
-      state = ActorState::Synced;
-    } else if (mayPredict()) {
-      predict();
-      ct.predictionsSinceLastSync += ct.timeStepRate;
-      ct.predictionsSinceStart += ct.timeStepRate;
-      ct.predictionTime += timeStepSize();
-
-      for (auto &neighbor : neighbors) {
-          // TODO(Lukas) Does this handle sync points correctly?
-          // Maybe check also how many steps neighbor has to sync!
-          const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-          const bool sendMessageSteps = justBeforeSync
-                  || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
-        if (sendMessageSteps) {
-          AdvancedPredictionTimeMessage message{};
-          message.time = ct.predictionTime;
-          message.stepsSinceSync = ct.predictionsSinceLastSync;
-          neighbor.outbox->push(message);
-        }
+    case ActorState::Corrected: {
+      if (maySync()) {
+        return ActorAction::Sync;
+      } else if (mayPredict()) {
+        return ActorAction::Predict;
       }
-      state = ActorState::Predicted;
-    } else {
-      result.yield = !processMessages();
+      break;
     }
-    break;
+    case ActorState::Predicted: {
+      if (mayCorrect()) {
+        return ActorAction::Correct;
+      }
+      break;
+    }
+    case ActorState::Synced:
+      if (ct.stepsSinceLastSync == 0) {
+        return ActorAction::RestartAfterSync;
+      }
+      break;
+    default:
+      throw;
   }
-  case ActorState::Predicted: {
-    if (mayCorrect()) {
+  return ActorAction::Nothing;
+}
+
+void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
+  switch (action) {
+    case ActorAction::Nothing:
+      break;
+    case ActorAction::Correct:
+      assert(state == ActorState::Predicted);
       correct();
       ct.correctionTime += timeStepSize();
       ++numberOfTimeSteps;
       ct.stepsSinceLastSync += ct.timeStepRate;
       ct.stepsSinceStart += ct.timeStepRate;
       for (auto &neighbor : neighbors) {
-          const bool sendMessageTime = ct.correctionTime >= neighbor.ct.predictionTime - timeTolerance;
-          const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-          const bool sendMessageSteps = justBeforeSync
-                  || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
+        const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
+        const bool sendMessageSteps = justBeforeSync
+                                      || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
         if (sendMessageSteps) {
           AdvancedCorrectionTimeMessage message{};
           message.time = ct.correctionTime;
@@ -72,21 +65,55 @@ ActResult AbstractTimeCluster::act() {
         }
       }
       state = ActorState::Corrected;
-    } else {
-      result.yield = !processMessages();
-    }
-    break;
-  }
-  case ActorState::Synced:
-    if (ct.stepsSinceLastSync == 0) {
+      break;
+    case ActorAction::Predict:
+      assert(state == ActorState::Corrected);
+      predict();
+      ct.predictionsSinceLastSync += ct.timeStepRate;
+      ct.predictionsSinceStart += ct.timeStepRate;
+      ct.predictionTime += timeStepSize();
+
+      for (auto &neighbor : neighbors) {
+        // TODO(Lukas) Does this handle sync points correctly?
+        // Maybe check also how many steps neighbor has to sync!
+        const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
+        const bool sendMessageSteps = justBeforeSync
+                                      || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
+        if (sendMessageSteps) {
+          AdvancedPredictionTimeMessage message{};
+          message.time = ct.predictionTime;
+          message.stepsSinceSync = ct.predictionsSinceLastSync;
+          neighbor.outbox->push(message);
+        }
+      }
+      state = ActorState::Predicted;
+      break;
+    case ActorAction::Sync:
+      assert(state == ActorState::Corrected);
+      logDebug(MPI::mpi.rank()) << "synced at " << syncTime
+                                << ", corrTIme =" << ct.correctionTime
+                                << ", time tolerence " << timeTolerance
+                                << " stepsSinceLastSync " << ct.stepsSinceLastSync
+                                << " stepsUntilLastSync " << ct.stepsSinceLastSync
+                                << std::endl;
+      state = ActorState::Synced;
+      break;
+    case ActorAction::RestartAfterSync:
       start();
       state = ActorState::Corrected;
-    } else {
-      result.yield = true;
-    }
-    break;
-  default: throw;
+      break;
+    default:
+      break;
   }
+}
+
+ActResult AbstractTimeCluster::act() {
+  ActResult result;
+  result.yield = true; // TODO(Lukas) Maybe add again
+  auto stateBefore = state;
+  auto nextAction = getNextLegalAction();
+  unsafePerformAction(nextAction);
+
   const auto currentTime = std::chrono::steady_clock::now();
   result.isStateChanged = stateBefore != state;
   if (!result.isStateChanged) {
