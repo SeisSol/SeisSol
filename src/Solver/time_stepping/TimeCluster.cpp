@@ -108,7 +108,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
                                                   seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-                                                  dr::output::OutputBase* i_DrOutput,
+                                                  dr::output::Base* i_DrOutput,
                                                   LoopStatistics* i_loopStatistics ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
@@ -900,14 +900,7 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringInterior ) {
-    // First cluster calls fault receiver output
-    // TODO: Change from iteration based to time based
-    /*
-    if (m_clusterId == 0) {
-      e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
-    }
-    */
-
+    m_previousFullUpdateTime = m_fullUpdateTime;
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
     m_numberOfFullUpdates += 1;
@@ -946,16 +939,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringCopy ) {
-    // First cluster calls fault receiver output
-    // TODO: Change from iteration based to time based
-
-    /*
-    if (m_clusterId == 0) {
-      //m_FrictonLaw
-      e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
-    }
-    */
-
+    m_previousFullUpdateTime = m_fullUpdateTime;
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
     m_numberOfFullUpdates += 1;
@@ -1073,15 +1057,15 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 
 void seissol::time_stepping::TimeCluster::updateFaultOutput() {
 #ifdef USE_MPI
-  initializers::Layer *Layers[2];
-  Layers[0] = &(m_dynRupClusterData->child<Interior>());
-  Layers[1] = &(m_dynRupClusterData->child<Copy>());
+  initializers::Layer *layers[2];
+  layers[0] = &(m_dynRupClusterData->child<Interior>());
+  layers[1] = &(m_dynRupClusterData->child<Copy>());
 #else
-  initializers::Layer *Layers[1];
-  Layers[0] = &(m_dynRupClusterData->child<Interior>());
+  initializers::Layer *layers[1];
+  layers[0] = &(m_dynRupClusterData->child<Interior>());
 #endif
-  for (auto Layer : Layers) {
-      m_DrOutput->tiePointers(*Layer, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/);
+  for (auto layer : layers) {
+      m_DrOutput->tiePointers(*layer, m_dynRup, e_interoperability);
   }
 }
 

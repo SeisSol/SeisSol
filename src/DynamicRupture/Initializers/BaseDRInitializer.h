@@ -117,5 +117,5 @@ class BaseDRInitializer {
                              std::vector<std::array<real, numPaddedPoints>>& stressXZ);
 };
 
-};     // namespace seissol::dr::initializers
+} // namespace seissol::dr::initializers
 #endif // SEISSOL_BASEDRINITIALIZER_H

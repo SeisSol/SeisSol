@@ -155,6 +155,7 @@ class seissol::Interoperability {
     **/
    void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
    void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void bindFaultOutputManager();
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -366,6 +367,7 @@ class seissol::Interoperability {
 
    /*
     * Not in use any more
+    * TODO(Ravil, Sebastian): remove this and all callees inside
     */
    void evaluateFrictionLaw(  int face,
                               real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],

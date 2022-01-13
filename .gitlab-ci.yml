@@ -177,17 +177,18 @@ pages:
         name: ravilmobile/seissol_base_amd64:ubuntu-1804_gcc-8.3.0_openmpi-3.1.5_cuda-10.1.243
         entrypoint: [""]
     before_script:
-        - mkdir -p ./public
+        - mkdir -p ./public/${CI_COMMIT_BRANCH}
     script:
         - apt update
         - apt install -y doxygen graphviz fonts-freefont-ttf
         - cd Documentation/doxygen
         - doxygen ./Doxyfile
-        - mv html/* ../../public/
+        - mv html/* ../../public/${CI_COMMIT_BRANCH}/
     artifacts:
         paths:
             - public
     only:
+        - master
         - dr/cpp
 
 

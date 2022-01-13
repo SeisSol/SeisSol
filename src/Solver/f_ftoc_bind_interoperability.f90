@@ -101,6 +101,13 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface c_interoperability_bindFaultOutputManager
+    subroutine c_interoperability_bindFaultOutputManager() bind( C, name='c_interoperability_bindFaultOutputManager' )
+      use iso_c_binding
+      implicit none
+    end subroutine
+  end interface
+
   interface
     subroutine c_interoperability_initializeEasiBoundaries(fileName) bind( C, name='c_interoperability_initializeEasiBoundaries' )
       use iso_c_binding
