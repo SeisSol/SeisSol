@@ -20,7 +20,8 @@ class RateAndState : public Base {
     real(*slipRateDip)[numGaussPoints2d] = layerData.var(concreteLts->slipRateDip);
     real(*mu)[numGaussPoints2d] = layerData.var(concreteLts->mu);
     real(*stateVar)[numGaussPoints2d] = layerData.var(concreteLts->stateVariable);
-    real(*initialStressInFaultCS)[numGaussPoints2d][6] = layerData.var(concreteLts->initialStressInFaultCS);
+    real(*initialStressInFaultCS)[numGaussPoints2d][6] =
+        layerData.var(concreteLts->initialStressInFaultCS);
     using VectorOfArrays = std::vector<std::array<real, numGaussPoints2d>>;
 
     VectorOfArrays iniXX(layerData.getNumberOfCells());
