@@ -2,7 +2,6 @@
 #include "Kernels/Time.h"
 
 #ifndef NDEBUG
-#pragma message "compiling time kernel with assertions"
 extern long long libxsmm_num_total_flops;
 #endif
 
