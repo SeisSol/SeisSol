@@ -336,14 +336,15 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
     # 2. PGI-based compilers cannot disable warnings from includes of system libraries, -w disables all warnings
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 -w")
+    # 3. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 -w -DEIGEN_DONT_VECTORIZE=1")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
