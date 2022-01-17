@@ -307,13 +307,14 @@ target_compile_definitions(SeisSol-lib PUBLIC
 )
 
 # Fortran compliler settings
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mcpp -Mfree>)
 endif()
 
 # C++ compiler settings
