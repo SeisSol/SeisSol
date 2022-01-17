@@ -320,6 +320,8 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
     # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
     # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
   target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
+elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
 endif()
 
 # C++ compiler settings
