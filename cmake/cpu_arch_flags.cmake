@@ -61,4 +61,9 @@ function(get_arch_flags architecture compiler)
 
     endif()
 
+    if (compiler MATCHES "NVHPC|PGI")
+        #NOTE: PGI-based compiler does not have `-mno-red-zone` flag
+        set(HAS_REDZONE OFF PARENT_SCOPE)
+    endif()
+
 endfunction()

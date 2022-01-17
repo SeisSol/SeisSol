@@ -1093,6 +1093,7 @@ MODULE Eval_friction_law_mod
  END SUBROUTINE rate_and_state
 
    SUBROUTINE updateStateVariable (EQN, DISC, iFace, nBndGP, SV0, time_inc, SR_tmp, LocSV, MPI)
+    USE ieee_arithmetic
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1137,7 +1138,7 @@ MODULE Eval_friction_law_mod
         LocSV = Svss*(1.0D0-EXP(-SR_tmp*time_inc/RS_sl0))+EXP(-SR_tmp*time_inc/RS_sl0)*SV0
     END SELECT  
 
-    IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
+    IF (ANY(ieee_is_nan(LocSV)) .EQV. .TRUE.) THEN
        logError(*) 'NaN detected'
        call MPI_ABORT(MPI%commWorld, 134)
     ENDIF

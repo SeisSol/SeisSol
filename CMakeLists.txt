@@ -314,7 +314,12 @@ elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mcpp -Mfree>)
+    # NOTE:
+    # 1. -Mpreprocess enables a C preprocessor macro
+    # 2. -Mfree specifies fortran free format
+    # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
+    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
 endif()
 
 # C++ compiler settings
@@ -331,6 +336,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
+
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    # NOTE:
+    # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
+    # 2. PGI-based compilers cannot disable warnings from includes of system libraries, -w disables all warnings
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 -w")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
