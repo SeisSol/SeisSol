@@ -16,9 +16,6 @@
 [submodule "submodules/PUML"]
 	path = submodules/PUML
 	url = ../../TUM-I5/PUML2.git
-[submodule "submodules/easi"]
-	path = submodules/easi
-	url = ../../SeisSol/easi.git
 [submodule "submodules/yaml-cpp"]
 	path = submodules/yaml-cpp
 	url = ../../jbeder/yaml-cpp.git

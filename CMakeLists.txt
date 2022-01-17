@@ -160,12 +160,12 @@ include(ExternalProject)
 
 find_package(YAML-CPP 0.5.3 QUIET)
 if (YAML-CPP_FOUND)
-  target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-  target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+
 else()
+  set(YAML_CPP_INSTALL_DIR  ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install)
   ExternalProject_Add(yaml-cpp-build
     SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
+    INSTALL_DIR  ${YAML_CPP_INSTALL_DIR}
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
@@ -179,27 +179,37 @@ else()
   target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 endif()
+target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
+target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 
+# TODO Move to easi?
 if (USE_IMPALA_JIT_LLVM)
   find_package(ImpalaJIT-LLVM 1.0 REQUIRED)
   target_link_libraries(SeisSol-lib PRIVATE llvm::impalajit)
 else()
-  ExternalProject_Add(ImpalaJIT-build
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
-  )
-  add_dependencies(SeisSol-lib ImpalaJIT-build)
-  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
+  #ExternalProject_Add(ImpalaJIT-build
+    #SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
+    #INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
+    #PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
+    #CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
+    #-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    #-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    #-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    #-DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
+  #)
+  #add_dependencies(SeisSol-lib ImpalaJIT-build)
+  #target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
+  #target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
 endif()
 
-# todo: if parallelization == omp/hybrid
+# TODO Remove this!
+find_package (PkgConfig REQUIRED)
+pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi)
+pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET netcdf)
+
+find_package(easi REQUIRED)
+target_link_libraries(SeisSol-lib PRIVATE easi::easi)
+
 if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
@@ -269,7 +279,7 @@ endif()
 find_package(PkgConfig REQUIRED) 
 if (ASAGI)
   # todo warn if netcdf is off
-  pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
+  pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-lib PUBLIC USE_ASAGI)
   target_link_libraries(SeisSol-lib PUBLIC ${ASAGI_STATIC_LDFLAGS})
   target_include_directories(SeisSol-lib PUBLIC ${ASAGI_INCLUDE_DIRS})
@@ -328,12 +338,13 @@ target_include_directories(SeisSol-lib SYSTEM PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
+find_package(yaml-cpp REQUIRED
+        PATHS ${CMAKE_CURRENT_BINARY_DIR})
+
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-    # todo: use reexport from easi?
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
