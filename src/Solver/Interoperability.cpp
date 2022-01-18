@@ -179,10 +179,6 @@ extern "C" {
     e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
-  void c_interoperability_addRecPoint(double x, double y, double z) {
-    e_interoperability.addRecPoint(x, y, z);
-  }
-
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
   }
@@ -241,12 +237,12 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval) {
+		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
 			numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
-      receiverSamplingInterval, receiverSyncInterval);
+      receiverFileName, receiverSamplingInterval, receiverSyncInterval);
   }
 
   void c_interoperability_projectInitialField() {
@@ -890,7 +886,8 @@ void seissol::Interoperability::initializeIO(
 		int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
 		double* outputRegionBounds,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
-    char const* xdmfWriterBackend,
+    const char* xdmfWriterBackend,
+    const char* receiverFileName,
     double receiverSamplingInterval, double receiverSyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
@@ -936,15 +933,14 @@ void seissol::Interoperability::initializeIO(
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
 
+
   auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
   // Initialize receiver output
-  receiverWriter.init(
-    std::string(freeSurfaceFilename),
-    receiverSamplingInterval,
-    receiverSyncInterval
-  );
+  receiverWriter.init(std::string(receiverFileName),
+                      std::string(freeSurfaceFilename),
+                      receiverSyncInterval,
+                      receiverSamplingInterval);
   receiverWriter.addPoints(
-    m_recPoints,
     seissol::SeisSol::main.meshReader(),
     m_ltsLut,
     *m_lts,
