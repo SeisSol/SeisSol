@@ -1,97 +1,77 @@
-###
-# Author: Thomas Ulrich, LMU, 24.09.2015
-# Read a coastline file from GMT
-# Create a vtk file from that input
-# aim: diplaying the coastline with the simulation results for instance
-
-# parsing python arguments
+#!/usr/bin/env python3
 import argparse
 import os
 import numpy as np
 
-parser = argparse.ArgumentParser(description="create surface from a structured grid of nodes")
-parser.add_argument("--lon", nargs=2, metavar=(("lonmin"), ("lonmax")), default=(""), help="lonmin: minimum longitude, lonmax: maximum longitude", type=float)
-parser.add_argument("--lat", nargs=2, metavar=(("latmin"), ("latmax")), default=(""), help="latmin: minimum latitude, lonmax: maximum latitude", type=float)
-parser.add_argument("--proj", nargs=1, metavar=("projname"), default=(""), help="name of the projection (ex +init=EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered")
-parser.add_argument("--resolution", nargs=1, metavar=("resolution"), default=("i"), help="resolution of the coastline,  (f)ull, (h)igh, (i)ntermediate, (l)ow, and (c)rude")
-parser.add_argument("--coords", nargs=3, metavar=("x", "y", "z"), default=([0, 0, 0]), help="translation vector", type=float)
+parser = argparse.ArgumentParser(description="create coastline vtk file from gmt")
+parser.add_argument("--lon", nargs=2, metavar=(("lonmin"), ("lonmax")), help="lonmin: minimum longitude, lonmax: maximum longitude", type=float)
+parser.add_argument("--lat", nargs=2, metavar=(("latmin"), ("latmax")), help="latmin: minimum latitude, lonmax: maximum latitude", type=float)
+parser.add_argument("--proj", nargs=1, metavar=("projname"), help="project the data. projname: PROJ string describing the projection (ex epsg:32646 for UTM46N). Use geocent for geocentric cartesian")
+parser.add_argument("--resolution", nargs=1, metavar=("resolution"), default=("i"), help="Coastline resolution,  (f)ull, (h)igh, (i)ntermediate, (l)ow, and (c)rude")
+parser.add_argument("--recenter", nargs=2, metavar=("x", "y"), default=([0, 0]), help="translate coordinate array (e.g. x_new = x_old - x)", type=float)
+parser.add_argument("--z", nargs=1, metavar=("elevation"), default=([0]), help="z coordinate of coastline", type=float)
 args = parser.parse_args()
 
-if args.proj != "":
-    import pyproj
-
-    lla = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")
-    myproj = pyproj.Proj(args.proj[0])
-    print("using pyproj to project the coordinates...Please check that the projection used corresponds with your lat/lon range")
-
-if args.lon == "":
-    print("no longitude range specified")
-    exit()
-else:
-    lonmin, lonmax = args.lon[0], args.lon[1]
-
-if args.lat == "":
-    print("no longitude range specified")
-    exit()
-else:
-    latmin, latmax = args.lat[0], args.lat[1]
 
 # export cordinates from GMT
-command = "module load gmt;gmt pscoast -R%f/%f/%f/%f -D%s -M -W > coastline.dat" % (lonmin, lonmax, latmin, latmax, args.resolution[0])
-os.system(command)
+os.system("module load gmt")
+os.system(f"gmt pscoast -R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]} -D{args.resolution[0]} -M -W > coastline.dat")
 
 # Read GMT file
-vertices = []
+xyz = []
 segments = []
 nvert = 0
 newPolyLine = True
-fid = open("coastline.dat")
-for line in fid:
-    if line.startswith("#"):
-        continue
-    if line.startswith(">"):
-        newPolyLine = True
-    else:
-        vertices.append([float(val) for val in line.split()])
-        nvert = nvert + 1
-        if newPolyLine == False:
-            segments.append([nvert - 1, nvert])
-        newPolyLine = False
-fid.close()
+with open("coastline.dat") as fid:
+    for line in fid:
+        if line.startswith("#"):
+            continue
+        if line.startswith(">"):
+            newPolyLine = True
+        else:
+            xyz.append([float(val) for val in line.split()])
+            nvert = nvert + 1
+            if not newPolyLine:
+                segments.append([nvert - 1, nvert])
+            newPolyLine = False
 
-vertices = np.asarray(vertices)
+xyz = np.asarray(xyz)
+# add extra column for z coordinates
+xyz = np.insert(xyz, xyz.shape[1], 0, axis=1)
+
 segments = np.asarray(segments)
 
-# Now write vtk file
-fout = open("CoastLine.vtk", "w")
-nlines = 0
+if args.proj:
+    from pyproj import Transformer
 
-fout.write(
-    "# vtk DataFile Version 2.0\n\
-parabola - polyline\n\
-ASCII\n\n\
-DATASET POLYDATA\n"
-)
-nvert = vertices.shape[0]
-fout.write("POINTS      %d float\n" % (nvert))
-
-if args.proj != "":
-    x, y = pyproj.transform(lla, myproj, vertices[:, 0], vertices[:, 1], radians=False)
-    xy = np.vstack((x, y)).T
+    f = lambda x: {"proj": "geocent", "ellps": "WGS84", "datum": "WGS84"} if x == "geocent" else x
+    transformer = Transformer.from_crs("epsg:4326", f(args.proj[0]), always_xy=True)
+    xyz[:, 0], xyz[:, 1], xyz[:, 2] = transformer.transform(xyz[:, 0], xyz[:, 1], xyz[:, 2])
+    if args.proj[0] != "geocent":
+        xyz[:, 2] = args.z[0]
 else:
-    xy = vertices
-xy = xy - args.coords[0:2]
-xyz = np.zeros((nvert, 3))
-xyz[:, 0:2] = xy
-xyz[:, 2] = args.coords[2]
+    xyz[:, 2] = args.z[0]
 
-np.savetxt(fout, xyz, "%e %e %e")
+xyz[:, 0] -= args.recenter[0]
+xyz[:, 1] -= args.recenter[1]
 
+nvert = xyz.shape[0]
 nseg = segments.shape[0]
-fout.write("\nLINES %d %d\n" % (nseg, 3 * nseg))
-np.savetxt(fout, segments - 1, "2 %d %d")
 
-fout.write("\n")
-fout.close()
+
+# Now write vtk file
+with open("CoastLine.vtk", "w") as fout:
+    fout.write(
+        f"""# vtk DataFile Version 2.0
+parabola - polyline
+ASCII
+DATASET POLYDATA
+POINTS {nvert} float
+"""
+    )
+    np.savetxt(fout, xyz, "%e %e %e")
+    fout.write(f"\nLINES {nseg} {3*nseg}\n")
+    np.savetxt(fout, segments - 1, "2 %d %d")
+    fout.write("\n")
 
 print("CoastLine.vtk successfully created")
