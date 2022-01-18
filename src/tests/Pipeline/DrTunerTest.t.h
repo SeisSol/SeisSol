@@ -1,4 +1,3 @@
-#include <cxxtest/TestSuite.h>
 #include "Solver/Pipeline/DrTuner.h"
 #include <array>
 

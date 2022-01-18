@@ -71,10 +71,6 @@
 
 #include "Kernels/Neighbor.h"
 
-#ifndef NDEBUG
-#pragma message "compiling boundary kernel with assertions"
-#endif
-
 #include <cassert>
 #include <stdint.h>
 

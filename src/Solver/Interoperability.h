@@ -46,7 +46,6 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include <Eigen/Dense>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
@@ -98,8 +97,6 @@ class seissol::Interoperability {
     
     //! Set of parameters that have to be initialized for dynamic rupture
     std::unordered_map<std::string, double*> m_faultParameters;
-
-    std::vector<Eigen::Vector3d>           m_recPoints;
 
     //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
@@ -206,18 +203,10 @@ class seissol::Interoperability {
                           double* bndPoints,
                           int     numberOfBndPoints );
 
-   /**
-    * Adds a receiver at the specified location.
-    *
-    * @param x,y,z coordinates in physical space
-    **/
-   void addRecPoint(double x, double y, double z) {
-     m_recPoints.emplace_back(Eigen::Vector3d(x, y, z));
-   }
 
-   /**
-    * Enables dynamic rupture.
-    **/
+  /**
+   * Enables dynamic rupture.
+   **/
    void enableDynamicRupture();
 
    /**
@@ -305,7 +294,8 @@ class seissol::Interoperability {
 			int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
 			double* outputRegionBounds,
 			double freeSurfaceInterval, const char* freeSurfaceFilename,
-      char const* xdmfWriterBackend,
+      const char* xdmfWriterBackend,
+      const char* receiverFileName,
       double receiverSamplingInterval, double receiverSyncInterval);
 
    /**

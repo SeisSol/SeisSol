@@ -41,10 +41,6 @@
 
 #include "Kernels/Local.h"
 
-#ifndef NDEBUG
-#pragma message "compiling local kernel with assertions"
-#endif
-
 #include <cassert>
 #include <stdint.h>
 #include <cstring>
