@@ -52,17 +52,17 @@ class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {
   protected:
   real (*temperature)[numPaddedPoints];
   real (*pressure)[numPaddedPoints];
-  real (*TP_Theta)[numPaddedPoints][TP_grid_nz];
-  real (*TP_sigma)[numPaddedPoints][TP_grid_nz];
+  real (*TP_Theta)[numPaddedPoints][numberOfTPGridPoints];
+  real (*TP_sigma)[numPaddedPoints][numberOfTPGridPoints];
   real (*TP_halfWidthShearZone)[numPaddedPoints];
   real (*alphaHy)[numPaddedPoints];
 
-  real TP_grid[TP_grid_nz];
-  real TP_DFinv[TP_grid_nz];
+  real TP_grid[numberOfTPGridPoints];
+  real TP_DFinv[numberOfTPGridPoints];
 
   real faultStrength[numPaddedPoints];
-  real Theta_tmp[TP_grid_nz];
-  real Sigma_tmp[TP_grid_nz];
+  real Theta_tmp[numberOfTPGridPoints];
+  real Sigma_tmp[numberOfTPGridPoints];
 
   public:
   /*
@@ -100,7 +100,7 @@ class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {
                                     unsigned int timeIndex,
                                     unsigned int ltsFace);
 
-  real heatSource(real tmp, real alpha, unsigned int iTP_grid_nz, unsigned int timeIndex);
+  real heatSource(real tmp, real alpha, unsigned int tpGridPointIndex, unsigned int timeIndex);
 };
 
 } // namespace seissol::dr::friction_law

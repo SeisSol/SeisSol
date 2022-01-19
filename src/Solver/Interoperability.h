@@ -448,7 +448,7 @@ class seissol::Interoperability {
    * @param TP_grid     grid for TP
    * @param TP_DFinv    inverse Fourier coefficients
    **/
-  void getDynRupTP(real TP_grid[seissol::dr::TP_grid_nz],real TP_DFinv[seissol::dr::TP_grid_nz]);
+  void getDynRupTP(real TP_grid[seissol::dr::numberOfTPGridPoints], real TP_DFinv[seissol::dr::numberOfTPGridPoints]);
 
   void copyFrictionOutputInitialStressInFaultCS(unsigned numberOfCells, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
 

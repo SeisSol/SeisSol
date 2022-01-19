@@ -94,19 +94,21 @@ void RateAndStateThermalPressurizationLaw::hookCalcP_f(std::array<real, numPadde
                                 (faultStresses.NormalStressGP[timeIndex][pointIndex] +
                                  initialStressInFaultCS[ltsFace][pointIndex][0] - P_f[pointIndex]);
 
-    for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+    for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < numberOfTPGridPoints;
+         tpGridPointIndex++) {
       //! recover original values as it gets overwritten in the ThermalPressure routine
-      Theta_tmp[iTP_grid_nz] = TP_Theta[ltsFace][pointIndex][iTP_grid_nz];
-      Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][pointIndex][iTP_grid_nz];
+      Theta_tmp[tpGridPointIndex] = TP_Theta[ltsFace][pointIndex][tpGridPointIndex];
+      Sigma_tmp[tpGridPointIndex] = TP_sigma[ltsFace][pointIndex][tpGridPointIndex];
     }
     //! use Theta/Sigma from last call in this update, dt/2 and new SR from NS
     updateTemperatureAndPressure(pointIndex, timeIndex, ltsFace);
 
     P_f[pointIndex] = pressure[ltsFace][pointIndex];
     if (saveTmpInTP) {
-      for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-        TP_Theta[ltsFace][pointIndex][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
-        TP_sigma[ltsFace][pointIndex][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+      for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < numberOfTPGridPoints;
+           tpGridPointIndex++) {
+        TP_Theta[ltsFace][pointIndex][tpGridPointIndex] = Theta_tmp[tpGridPointIndex];
+        TP_sigma[ltsFace][pointIndex][tpGridPointIndex] = Sigma_tmp[tpGridPointIndex];
       }
     }
   }
@@ -123,43 +125,46 @@ void RateAndStateThermalPressurizationLaw::updateTemperatureAndPressure(unsigned
   real lambdaPrime = drParameters.tP_lambda * drParameters.alpha_th /
                      (alphaHy[ltsFace][pointIndex] - drParameters.alpha_th);
 
-  real tmp[TP_grid_nz];
-  real omegaTheta[TP_grid_nz]{};
-  real omegaSigma[TP_grid_nz]{};
-  real thetaCurrent[TP_grid_nz]{};
-  real sigmaCurrent[TP_grid_nz]{};
-  for (unsigned int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+  real tmp[numberOfTPGridPoints]{};
+  real omegaTheta[numberOfTPGridPoints]{};
+  real omegaSigma[numberOfTPGridPoints]{};
+  real thetaCurrent[numberOfTPGridPoints]{};
+  real sigmaCurrent[numberOfTPGridPoints]{};
+  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < numberOfTPGridPoints;
+       tpGridPointIndex++) {
     //! Gaussian shear zone in spectral domain, normalized by w
-    tmp[iTP_grid_nz] =
-        std::pow(TP_grid[iTP_grid_nz] / TP_halfWidthShearZone[ltsFace][pointIndex], 2);
+    tmp[tpGridPointIndex] =
+        std::pow(TP_grid[tpGridPointIndex] / TP_halfWidthShearZone[ltsFace][pointIndex], 2);
     //! 1. Calculate diffusion of the field at previous timestep
 
     //! temperature
-    thetaCurrent[iTP_grid_nz] =
-        Theta_tmp[iTP_grid_nz] * exp(-drParameters.alpha_th * deltaT[timeIndex] * tmp[iTP_grid_nz]);
+    thetaCurrent[tpGridPointIndex] =
+        Theta_tmp[tpGridPointIndex] *
+        exp(-drParameters.alpha_th * deltaT[timeIndex] * tmp[tpGridPointIndex]);
     //! pore pressure + lambda'*temp
-    sigmaCurrent[iTP_grid_nz] = Sigma_tmp[iTP_grid_nz] * exp(-alphaHy[ltsFace][pointIndex] *
-                                                             deltaT[timeIndex] * tmp[iTP_grid_nz]);
+    sigmaCurrent[tpGridPointIndex] =
+        Sigma_tmp[tpGridPointIndex] *
+        exp(-alphaHy[ltsFace][pointIndex] * deltaT[timeIndex] * tmp[tpGridPointIndex]);
 
     //! 2. Add current contribution and get new temperature
-    omegaTheta[iTP_grid_nz] =
-        heatSource(tmp[iTP_grid_nz], drParameters.alpha_th, iTP_grid_nz, timeIndex);
-    Theta_tmp[iTP_grid_nz] =
-        thetaCurrent[iTP_grid_nz] + (tauV / drParameters.rho_c) * omegaTheta[iTP_grid_nz];
-    omegaSigma[iTP_grid_nz] =
-        heatSource(tmp[iTP_grid_nz], alphaHy[ltsFace][pointIndex], iTP_grid_nz, timeIndex);
-    Sigma_tmp[iTP_grid_nz] =
-        sigmaCurrent[iTP_grid_nz] + ((drParameters.tP_lambda + lambdaPrime) * tauV) /
-                                        (drParameters.rho_c) * omegaSigma[iTP_grid_nz];
+    omegaTheta[tpGridPointIndex] =
+        heatSource(tmp[tpGridPointIndex], drParameters.alpha_th, tpGridPointIndex, timeIndex);
+    Theta_tmp[tpGridPointIndex] =
+        thetaCurrent[tpGridPointIndex] + (tauV / drParameters.rho_c) * omegaTheta[tpGridPointIndex];
+    omegaSigma[tpGridPointIndex] = heatSource(
+        tmp[tpGridPointIndex], alphaHy[ltsFace][pointIndex], tpGridPointIndex, timeIndex);
+    Sigma_tmp[tpGridPointIndex] =
+        sigmaCurrent[tpGridPointIndex] + ((drParameters.tP_lambda + lambdaPrime) * tauV) /
+                                             (drParameters.rho_c) * omegaSigma[tpGridPointIndex];
 
     //! 3. Recover temperature and pressure using inverse Fourier
     //! transformation with the calculated fourier coefficients
 
     //! new contribution
-    localTemperature += (TP_DFinv[iTP_grid_nz] / TP_halfWidthShearZone[ltsFace][pointIndex]) *
-                        Theta_tmp[iTP_grid_nz];
-    localPressure += (TP_DFinv[iTP_grid_nz] / TP_halfWidthShearZone[ltsFace][pointIndex]) *
-                     Sigma_tmp[iTP_grid_nz];
+    localTemperature += (TP_DFinv[tpGridPointIndex] / TP_halfWidthShearZone[ltsFace][pointIndex]) *
+                        Theta_tmp[tpGridPointIndex];
+    localPressure += (TP_DFinv[tpGridPointIndex] / TP_halfWidthShearZone[ltsFace][pointIndex]) *
+                     Sigma_tmp[tpGridPointIndex];
   }
   // Update pore pressure change (sigma = pore pressure + lambda'*temp)
   // In the BIEM code (Lapusta) they use T without initial value
@@ -167,12 +172,12 @@ void RateAndStateThermalPressurizationLaw::updateTemperatureAndPressure(unsigned
 
   // Temp and pore pressure change at single GP on the fault + initial values
   temperature[ltsFace][pointIndex] = localTemperature + drParameters.initialTemperature;
-  pressure[ltsFace][pointIndex] = -localPressure + drParameters.iniPressure;
+  pressure[ltsFace][pointIndex] = -localPressure + drParameters.initialPressure;
 }
 
 real RateAndStateThermalPressurizationLaw::heatSource(real tmp,
                                                       real alpha,
-                                                      unsigned int iTP_grid_nz,
+                                                      unsigned int tpGridPointIndex,
                                                       unsigned int timeIndex) {
   //! original function in spatial domain
   //! omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_halfWidthShearZone).^2);
@@ -180,7 +185,8 @@ real RateAndStateThermalPressurizationLaw::heatSource(real tmp,
   //! function* omega =
   //! 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_halfWidthShearZone)**2)*(1-exp(-alpha**dt**tmp))
   //! inserting Dwn/TP_halfWidthShearZone (scaled) for Dwn cancels out TP_halfWidthShearZone
-  return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) * exp(-0.5 * std::pow(TP_grid[iTP_grid_nz], 2)) *
+  return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
+         exp(-0.5 * std::pow(TP_grid[tpGridPointIndex], 2)) *
          (1.0 - exp(-alpha * deltaT[timeIndex] * tmp));
 }
 } // namespace seissol::dr::friction_law

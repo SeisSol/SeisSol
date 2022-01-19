@@ -70,20 +70,32 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
       }
     };
 
-    VectorOfArrays iniXX(it->getNumberOfCells());
-    VectorOfArrays iniYY(it->getNumberOfCells());
-    VectorOfArrays iniZZ(it->getNumberOfCells());
-    VectorOfArrays iniXY(it->getNumberOfCells());
-    VectorOfArrays iniXZ(it->getNumberOfCells());
-    VectorOfArrays iniYZ(it->getNumberOfCells());
-    addStressesToStorageMap(iniXX, iniYY, iniZZ, iniXY, iniYZ, iniXZ, false);
-    VectorOfArrays nucXX(it->getNumberOfCells());
-    VectorOfArrays nucYY(it->getNumberOfCells());
-    VectorOfArrays nucZZ(it->getNumberOfCells());
-    VectorOfArrays nucXY(it->getNumberOfCells());
-    VectorOfArrays nucXZ(it->getNumberOfCells());
-    VectorOfArrays nucYZ(it->getNumberOfCells());
-    addStressesToStorageMap(nucXX, nucYY, nucZZ, nucXY, nucYZ, nucXZ, true);
+    VectorOfArrays initialStressXX(it->getNumberOfCells());
+    VectorOfArrays initialStressYY(it->getNumberOfCells());
+    VectorOfArrays initialStressZZ(it->getNumberOfCells());
+    VectorOfArrays initialStressXY(it->getNumberOfCells());
+    VectorOfArrays initialStressXZ(it->getNumberOfCells());
+    VectorOfArrays initialStressYZ(it->getNumberOfCells());
+    addStressesToStorageMap(initialStressXX,
+                            initialStressYY,
+                            initialStressZZ,
+                            initialStressXY,
+                            initialStressYZ,
+                            initialStressXZ,
+                            false);
+    VectorOfArrays nucleationStressXX(it->getNumberOfCells());
+    VectorOfArrays nucleationStressYY(it->getNumberOfCells());
+    VectorOfArrays nucleationStressZZ(it->getNumberOfCells());
+    VectorOfArrays nucleationStressXY(it->getNumberOfCells());
+    VectorOfArrays nucleationStressXZ(it->getNumberOfCells());
+    VectorOfArrays nucleationStressYZ(it->getNumberOfCells());
+    addStressesToStorageMap(nucleationStressXX,
+                            nucleationStressYY,
+                            nucleationStressZZ,
+                            nucleationStressXY,
+                            nucleationStressYZ,
+                            nucleationStressXZ,
+                            true);
 
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, it);
@@ -97,20 +109,41 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
 
     // rotate initial stress to fault coordinate system
     real(*initialStressInFaultCS)[numPaddedPoints][6] = it->var(dynRup->initialStressInFaultCS);
-    rotateStressToFaultCS(
-        dynRup, it, initialStressInFaultCS, iniXX, iniYY, iniZZ, iniXY, iniYZ, iniXZ);
+    rotateStressToFaultCS(dynRup,
+                          it,
+                          initialStressInFaultCS,
+                          initialStressXX,
+                          initialStressYY,
+                          initialStressZZ,
+                          initialStressXY,
+                          initialStressYZ,
+                          initialStressXZ);
     // rotate nucleation stress to fault coordinate system
     real(*nucleationStressInFaultCS)[numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
-    rotateStressToFaultCS(
-        dynRup, it, nucleationStressInFaultCS, nucXX, nucYY, nucZZ, nucXY, nucYZ, nucXZ);
+    rotateStressToFaultCS(dynRup,
+                          it,
+                          nucleationStressInFaultCS,
+                          nucleationStressXX,
+                          nucleationStressYY,
+                          nucleationStressZZ,
+                          nucleationStressXY,
+                          nucleationStressYZ,
+                          nucleationStressXZ);
 
     // can be removed once output is in c++
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      e_interoperability->copyFrictionOutputToFortranInitialStressInFaultCS(
-          ltsFace, meshFace, initialStressInFaultCS, iniXX, iniYY, iniZZ, iniXY, iniYZ, iniXZ);
+      e_interoperability->copyFrictionOutputToFortranInitialStressInFaultCS(ltsFace,
+                                                                            meshFace,
+                                                                            initialStressInFaultCS,
+                                                                            initialStressXX,
+                                                                            initialStressYY,
+                                                                            initialStressZZ,
+                                                                            initialStressXY,
+                                                                            initialStressYZ,
+                                                                            initialStressXZ);
     }
 
     // initialize rupture front flag

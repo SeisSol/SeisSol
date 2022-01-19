@@ -377,8 +377,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                            std::array<real, numPaddedPoints> const& absoluteShearStress,
                            std::array<real, numPaddedPoints>& slipRateTest) {
 
-    real tmp[numPaddedPoints], tmp2[numPaddedPoints], tmp3[numPaddedPoints], mu_f[numPaddedPoints],
-        dmu_f[numPaddedPoints], NR[numPaddedPoints], dNR[numPaddedPoints];
+    real tmp[numPaddedPoints], tmp2[numPaddedPoints], tmp3[numPaddedPoints];
+    real mu_f[numPaddedPoints], dmu_f[numPaddedPoints];
+    real NR[numPaddedPoints], dNR[numPaddedPoints];
     // double AlmostZero = 1e-45;
     bool has_converged = false;
 

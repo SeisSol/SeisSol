@@ -24,12 +24,12 @@ class RateAndState : public Base {
         layerData.var(concreteLts->initialStressInFaultCS);
     using VectorOfArrays = std::vector<std::array<real, numGaussPoints2d>>;
 
-    VectorOfArrays iniXX(layerData.getNumberOfCells());
-    VectorOfArrays iniYY(layerData.getNumberOfCells());
-    VectorOfArrays iniZZ(layerData.getNumberOfCells());
-    VectorOfArrays iniXY(layerData.getNumberOfCells());
-    VectorOfArrays iniXZ(layerData.getNumberOfCells());
-    VectorOfArrays iniYZ(layerData.getNumberOfCells());
+    VectorOfArrays initialStressXX(layerData.getNumberOfCells());
+    VectorOfArrays initialStressYY(layerData.getNumberOfCells());
+    VectorOfArrays initialStressZZ(layerData.getNumberOfCells());
+    VectorOfArrays initialStressXY(layerData.getNumberOfCells());
+    VectorOfArrays initialStressXZ(layerData.getNumberOfCells());
+    VectorOfArrays initialStressYZ(layerData.getNumberOfCells());
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -39,8 +39,15 @@ class RateAndState : public Base {
       e_interoperability.copyFrictionOutputToFortranSpecific(
           ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
       e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
-      e_interoperability.copyFrictionOutputToFortranInitialStressInFaultCS(
-          ltsFace, meshFace, initialStressInFaultCS, iniXX, iniYY, iniZZ, iniXY, iniYZ, iniXZ);
+      e_interoperability.copyFrictionOutputToFortranInitialStressInFaultCS(ltsFace,
+                                                                           meshFace,
+                                                                           initialStressInFaultCS,
+                                                                           initialStressXX,
+                                                                           initialStressYY,
+                                                                           initialStressZZ,
+                                                                           initialStressXY,
+                                                                           initialStressYZ,
+                                                                           initialStressXZ);
     }
   }
 
