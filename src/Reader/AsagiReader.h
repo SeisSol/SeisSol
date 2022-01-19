@@ -43,7 +43,7 @@
 
 #include "Parallel/MPI.h"
 #include <asagi.h>
-#include <easi/util/AsagiReader.h>
+#include "easi/util/AsagiReader.h"
 
 #include "utils/env.h"
 #include "utils/logger.h"
