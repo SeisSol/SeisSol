@@ -147,17 +147,17 @@ public:
      * GPU/CPU affinity. Note, one can improve the current binding strategy using hwloc.
      * See, Professional CUDA programming, subsection Affinity on MPI-CUDA Programs as a reference.
      *
-     * The function supports the following MPI implementations: OpenMPI, MVAPICH2
+     * The function supports the following MPI implementations: OpenMPI, MVAPICH2, IntelMPI
      * */
     void  bindRankToDevice() {
       try {
         std::vector<std::string> rankEnvVars{{"OMPI_COMM_WORLD_LOCAL_RANK"},
                                              {"MV2_COMM_WORLD_LOCAL_RANK"},
-                                             {"SLURM_LOCALID"}};
+                                             {"SLURM_LOCALID"}, {"PMI_RANK"} };
 
         std::vector<std::string> sizeEnvVars{{"OMPI_COMM_WORLD_LOCAL_SIZE"},
                                              {"MV2_COMM_WORLD_LOCAL_SIZE"},
-                                             {"SLURM_NTASKS_PER_NODE"}};
+                                             {"SLURM_NTASKS_PER_NODE"}, {"PMI_SIZE"}};
 
         m_localRank = readValueFromEnvVariables(rankEnvVars);
         m_localSize = readValueFromEnvVariables(sizeEnvVars);

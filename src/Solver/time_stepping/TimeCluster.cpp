@@ -529,6 +529,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   m_timeKernel.computeBatchedAder(m_timeStepWidth, tmp, table);
   m_localKernel.computeBatchedIntegral(table, tmp);
+  auto defaultStream = device.api->getDefaultStream();
 
   for (unsigned face = 0; face < 4; ++face) {
     ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
@@ -557,13 +558,15 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       device.algorithms.streamBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
                                           (entry.content[*EntityId::Buffers])->getPointers(),
                                           tensor::I::Size,
-                                          (entry.content[*EntityId::Idofs])->getSize());
+                                          (entry.content[*EntityId::Idofs])->getSize(),
+                                          defaultStream);
     }
     else {
       device.algorithms.accumulateBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
                                               (entry.content[*EntityId::Buffers])->getPointers(),
                                               tensor::I::Size,
-                                              (entry.content[*EntityId::Idofs])->getSize());
+                                              (entry.content[*EntityId::Idofs])->getSize(),
+                                              defaultStream);
     }
   }
 

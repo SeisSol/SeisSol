@@ -290,7 +290,6 @@ private:
                                                        l_timeIntegrated);
 
 #ifdef ENABLE_MATRIX_PREFETCH
-#pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
                                       drMapping[l_cell][1].godunov;

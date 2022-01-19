@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -32,7 +32,7 @@ set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
 # TODO: Move one dir up.
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" "${CMAKE_ROOT}/Modules")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -53,21 +53,19 @@ configure_file("src/version_template.h"
                "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
 message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
 
-find_package(GemmTools REQUIRED)
-include(src/sources.cmake)
-
-if(GemmTools_INCLUDE_DIRS)
-  target_include_directories(SeisSol-lib PUBLIC ${GemmTools_INCLUDE_DIRS})
-endif()
-if(GemmTools_LIBRARIES)
-  target_link_libraries(SeisSol-lib PUBLIC ${GemmTools_LIBRARIES})
-endif()
-if(GemmTools_COMPILER_DEFINITIONS)  
-  target_compile_definitions(SeisSol-lib PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
-endif()
 
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
+
+set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
+                                src/generated_code/tensor.cpp
+                                src/generated_code/subroutine.cpp
+                                src/generated_code/gpulike_subroutine.cpp
+                                src/generated_code/tensor.h
+                                src/generated_code/init.cpp
+                                src/generated_code/init.h
+                                src/generated_code/kernel.h
+                                src/generated_code/kernel.cpp)
 
 add_custom_command(
   COMMAND
@@ -77,7 +75,7 @@ add_custom_command(
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
      "--device_arch" ${DEVICE_ARCH_STR}
-     "--device_sub_arch" ${DEVICE_SUB_ARCH}
+     "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
@@ -87,39 +85,48 @@ add_custom_command(
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
-       build-time-make-directory
-       generated_code/arch.py
-       generated_code/memlayout.py
-       generated_code/viscoelastic.py
-       generated_code/DynamicRupture.py
-       generated_code/Plasticity.py
-       generated_code/multSim.py
-       generated_code/aderdg.py
-       generated_code/generate.py
-       generated_code/Point.py
-       generated_code/elastic.py
-       generated_code/viscoelastic2.py
-       generated_code/poroelastic.py
-       generated_code/anisotropic.py
-       generated_code/SurfaceDisplacement.py
-       generated_code/NodalBoundaryConditions.py
-       generated_code/matrices/matrices_poroelastic.xml
-    OUTPUT src/generated_code/subroutine.h
-       src/generated_code/tensor.cpp
-       src/generated_code/subroutine.cpp
-       src/generated_code/gpulike_subroutine.cpp
-       src/generated_code/tensor.h
-       src/generated_code/init.cpp
-       src/generated_code/init.h
-       src/generated_code/kernel.h
-       src/generated_code/kernel.cpp
-       COMMENT "Codegen for tensor stuff."
+        build-time-make-directory
+        generated_code/arch.py
+        generated_code/memlayout.py
+        generated_code/viscoelastic.py
+        generated_code/DynamicRupture.py
+        generated_code/Plasticity.py
+        generated_code/multSim.py
+        generated_code/aderdg.py
+        generated_code/generate.py
+        generated_code/Point.py
+        generated_code/elastic.py
+        generated_code/viscoelastic2.py
+        generated_code/poroelastic.py
+        generated_code/anisotropic.py
+        generated_code/SurfaceDisplacement.py
+        generated_code/NodalBoundaryConditions.py
+        generated_code/matrices/matrices_poroelastic.xml
+    OUTPUT
+        ${GENERATED_FILES_FOR_SEISSOL}
+    COMMENT "Codegen for tensor stuff."
        )
 
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
+add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
+
+find_package(GemmTools REQUIRED)
+include(src/sources.cmake)
+
+# enforce code generation to run before any other target
+add_dependencies(SeisSol-lib SeisSol-codegen)
+if (WITH_GPU)
+  add_dependencies(SeisSol-device-lib SeisSol-codegen)
+endif()
+
+
+if(GemmTools_INCLUDE_DIRS)
+  target_include_directories(SeisSol-lib PUBLIC ${GemmTools_INCLUDE_DIRS})
+endif()
+if(GemmTools_LIBRARIES)
+  target_link_libraries(SeisSol-lib PUBLIC ${GemmTools_LIBRARIES})
+endif()
+if(GemmTools_COMPILER_DEFINITIONS)
+  target_compile_definitions(SeisSol-lib PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
 endif()
 
 # Find appropriate compiler flags based on the target computer architecture
@@ -135,6 +142,14 @@ target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
 target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL})
 target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
                                               LOGLEVEL0=${LOG_LEVEL_MASTER})
+
+
+if (PLASTICITY_METHOD STREQUAL "ip")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
+elseif (PLASTICITY_METHOD STREQUAL "nb")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
+endif()
+
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -188,7 +203,7 @@ endif()
 if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+  target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_Fortran)
   target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
 endif()
 
@@ -289,6 +304,8 @@ if (WITH_GPU)
   target_include_directories(SeisSol-lib PUBLIC submodules/Device)
   target_link_libraries(SeisSol-lib PUBLIC device)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
+
+  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
 endif()
 
 if (INTEGRATE_QUANTITIES)
@@ -301,58 +318,57 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
-target_include_directories(SeisSol-lib PUBLIC
-				   ${CMAKE_CURRENT_SOURCE_DIR}/src
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-				   # todo: use reexport from easi?
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-				   ${CMAKE_CURRENT_BINARY_DIR}/src/
+
+# Note: it is better to include `eigen3` `async` as
+# system headers because they emit lot's of warnings
+# from clang. Most of them are issues with respect
+# to overriden virtual methods
+target_include_directories(SeisSol-lib SYSTEM PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-target_include_directories(SeisSol-lib SYSTEM PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+target_include_directories(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+    # todo: use reexport from easi?
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
+    ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
-				   CONVERGENCE_ORDER=${ORDER}
-				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
-				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-				   ENABLE_MATRIX_PREFETCH
-				   )
+    CONVERGENCE_ORDER=${ORDER}
+	NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+	NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+	ENABLE_MATRIX_PREFETCH
+)
 
 # Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -fopenmp -Wno-unused-parameter>)
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
-  # todo openmp only if desired
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
 endif()
 
 string( REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC -fopenmp -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
+  target_compile_options(SeisSol-lib PUBLIC -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas>)
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -qopenmp")
-
-  # only if openmp
-  set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
@@ -360,14 +376,16 @@ target_link_libraries(SeisSol-lib PUBLIC std::filesystem)
 
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
-  set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+  set_source_files_properties(
+      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+  )
 endif()
 
 # adjust prefix name of executables
 if ("${DEVICE_ARCH_STR}" STREQUAL "none")
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
 else()
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${ORDER}_${EQUATIONS}")
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
 endif()
 
 
@@ -396,35 +414,50 @@ add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 
-find_package(likwid QUIET)
-if (likwid_FOUND)
-    target_compile_definitions(SeisSol-proxy PRIVATE LIKWID_PERFMON)
-    target_link_libraries(SeisSol-proxy PRIVATE likwid::likwid)
+if (LIKWID)
+  find_package(likwid REQUIRED)
+  target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
+  target_link_libraries(SeisSol-proxy-core PRIVATE likwid::likwid)
 endif()
 
 if (TESTING)
-  include(cmake/testing.cmake)
-
-  # Testing
-  set(CXXTEST_TESTGEN_ARGS "--template=${CMAKE_CURRENT_SOURCE_DIR}/src/tests/mpirunner.tpl")
-  find_package(CxxTest REQUIRED)
-
-  # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
   enable_testing()
+  include(cmake/doctest.cmake)
 
-  # what about the unit tests for the lts layout?
+  # Coverage
+  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+    include(cmake/CodeCoverage.cmake)
+    append_coverage_compiler_flags()
+    setup_target_for_coverage_lcov(
+            NAME SeisSol-coverage
+            EXECUTABLE SeisSol-serial-test
+            EXCLUDE "/usr/*"
+                    "submodules/*"
+                    "*/tests/*"
+                    "external/*"
+                    "*/yaml-cpp-install/*"
+    )
+  endif()
+
+  set(seissol_test_sources
+          src/tests/Model/TestModel.cpp
+          src/tests/Initializer/TestInitializer.cpp
+          src/tests/Numerical_aux/TestNumerical_aux.cpp
+          src/tests/Geometry/TestGeometry.cpp
+          src/tests/Kernel/TestKernel.cpp
+          src/tests/SourceTerm/TestSourceTerm.cpp
+          src/tests/Pipeline/TestPipeline.cpp
+          src/tests/ResultWriter/TestResultWriter.cpp
+          )
+
 
   if (TESTING_GENERATED)
-    CXXTEST_ADD_TEST_MPI(
-            test_kernel_test_suite
-            1
-            test_kernel.cpp
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
-    )
-
-    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
-    target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+    set(seissol_test_sources
+            ${seissol_test_sources}
+            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
+            )
   endif()
+
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
@@ -435,56 +468,30 @@ if (TESTING)
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
     COPYONLY
     )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
+    COPYONLY
+  )
 
   if (NETCDF)
-  configure_file(
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
-          ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
-          COPYONLY
-  )
-  set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
+    configure_file(
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
+            ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf
+            COPYONLY
+    )
+    set(seissol_test_sources ${seissol_test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/ReaderTest.cpp)
   endif()
 
-  set(test_sources ${test_sources} 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Eigenvalues.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/ODEInt.t.h      
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/SourceTerm/PointSource.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-    ${SeisSol_NETCDF_TEST_FILES}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/PipelineTest.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Pipeline/DrTunerTest.t.h
-    )
-  if(${EQUATIONS} STREQUAL "poroelastic")
-    set(test_sources ${test_sources} ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Kernel/STP.t.h)
-  endif()
-  CXXTEST_ADD_TEST_MPI(
-    test_serial_test_suite
-    1
-    test_serial.cpp
-    ${test_sources}
-    )
-  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
-  target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  add_executable(SeisSol-serial-test
+            ${seissol_test_sources}
+            src/tests/test_main.cpp)
+  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
+  target_include_directories(SeisSol-serial-test PUBLIC external/)
+  doctest_discover_tests(SeisSol-serial-test)
 
-  CXXTEST_ADD_TEST_MPI(
-          test_parallel_test_suite
-          4
-          test_parallel.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-  )
-  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
-  target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
-  target_compile_definitions(test_parallel_test_suite PRIVATE
-    SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
-    )
+  # Avoid duplicate definition of FLOP counters
+  target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/

@@ -59,8 +59,8 @@ namespace seissol {
   namespace initializers {
     typedef std::bitset<NUMBER_OF_LAYERS> LayerMask;
 
-    template<typename T> class Variable;
-    class Bucket;
+    template<typename T> struct Variable;
+    struct Bucket;
     struct MemoryInfo;
     class Layer;
 #ifdef ACL_DEVICE
