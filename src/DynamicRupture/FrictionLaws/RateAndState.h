@@ -294,7 +294,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       // Compute slip
       // ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed
       // in the solver, see linear slip weakening
-      this->slipMagnitude[ltsFace][pointIndex] +=
+      this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
           this->slipRateMagnitude[ltsFace][pointIndex] * this->deltaT[timeIndex];
 
       // Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate

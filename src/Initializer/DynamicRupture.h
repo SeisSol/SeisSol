@@ -92,12 +92,12 @@ public:
   Variable<real[numOfPointsPadded][6]> initialStressInFaultCS;
   Variable<real[numOfPointsPadded][6]> nucleationStressInFaultCS;
   Variable<real[ numOfPointsPadded ]> mu;
-  Variable<real[ numOfPointsPadded ]> slipMagnitude;
-  Variable<real[ numOfPointsPadded ]> slip1; // slip in Y-direction
-  Variable<real[ numOfPointsPadded ]> slip2; // slip in Z-direction
+  Variable<real[ numOfPointsPadded ]> accumulatedSlipMagnitude;
+  Variable<real[ numOfPointsPadded ]> slip1; // slip at given fault node along local direction 1
+  Variable<real[ numOfPointsPadded ]> slip2; // slip at given fault node along local direction 2
   Variable<real[ numOfPointsPadded ]> slipRateMagnitude;
-  Variable<real[ numOfPointsPadded ]> slipRate1; // slip rate in Y direction
-  Variable<real[ numOfPointsPadded ]> slipRate2; // slip rate in Z direction
+  Variable<real[ numOfPointsPadded ]> slipRate1; // slip rate at given fault node along local direction 1
+  Variable<real[ numOfPointsPadded ]> slipRate2; // slip rate at given fault node along local direction 2
   Variable<real[ numOfPointsPadded ]> ruptureTime;
   Variable<real[ numOfPointsPadded ]> dynStressTime;
   Variable<bool[ numOfPointsPadded ]> ruptureTimePending;
@@ -139,7 +139,7 @@ public:
     tree.addVar(dynStressTime, mask, 1, seissol::memory::Standard );
     tree.addVar(dynStressTimePending, mask, 1, seissol::memory::Standard );
     tree.addVar(mu, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipMagnitude, mask, 1, seissol::memory::Standard );
+    tree.addVar(accumulatedSlipMagnitude, mask, 1, seissol::memory::Standard );
     tree.addVar(slip1, mask, 1, seissol::memory::Standard );
     tree.addVar(slip2, mask, 1, seissol::memory::Standard );
     tree.addVar(slipRateMagnitude, mask, 1, seissol::memory::Standard );

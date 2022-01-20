@@ -123,7 +123,7 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       if (this->slipRateMagnitude[ltsFace][pointIndex] < u_0) {
         this->mu[ltsFace][pointIndex] = mu_S[ltsFace][pointIndex];
-        this->slipMagnitude[ltsFace][pointIndex] = 0.0;
+        this->accumulatedSlipMagnitude[ltsFace][pointIndex] = 0.0;
       }
     }
   }
@@ -136,7 +136,8 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
       if (this->dynStressTimePending[pointIndex] &&
-          std::fabs(this->slipMagnitude[ltsFace][pointIndex]) >= d_c[ltsFace][pointIndex]) {
+          std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
+              d_c[ltsFace][pointIndex]) {
         this->dynStressTime[ltsFace][pointIndex] = this->m_fullUpdateTime;
         this->dynStressTimePending[ltsFace][pointIndex] = false;
       }

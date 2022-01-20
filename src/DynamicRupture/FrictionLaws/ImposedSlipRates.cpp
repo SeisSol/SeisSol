@@ -44,7 +44,7 @@ void ImposedSlipRates::updateFrictionAndSlip(FaultStresses& faultStresses,
     //! Update slip
     this->slip1[ltsFace][pointIndex] += this->slipRate1[ltsFace][pointIndex] * timeInc;
     this->slip2[ltsFace][pointIndex] += this->slipRate2[ltsFace][pointIndex] * timeInc;
-    this->slipMagnitude[ltsFace][pointIndex] +=
+    this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
         this->slipRateMagnitude[ltsFace][pointIndex] * timeInc;
 
     this->tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];

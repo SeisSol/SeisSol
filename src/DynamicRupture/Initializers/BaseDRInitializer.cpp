@@ -158,7 +158,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*peakSlipRate)[numPaddedPoints] = it->var(dynRup->peakSlipRate);
     real(*ruptureTime)[numPaddedPoints] = it->var(dynRup->ruptureTime);
     real(*dynStressTime)[numPaddedPoints] = it->var(dynRup->dynStressTime);
-    real(*slipMagnitude)[numPaddedPoints] = it->var(dynRup->slipMagnitude);
+    real(*accumulatedSlipMagnitude)[numPaddedPoints] = it->var(dynRup->accumulatedSlipMagnitude);
     real(*slip1)[numPaddedPoints] = it->var(dynRup->slip2);
     real(*slip2)[numPaddedPoints] = it->var(dynRup->slip1);
     real(*slipRateMagnitude)[numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
@@ -170,7 +170,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
         peakSlipRate[ltsFace][pointIndex] = 0;
         ruptureTime[ltsFace][pointIndex] = 0;
         dynStressTime[ltsFace][pointIndex] = 0;
-        slipMagnitude[ltsFace][pointIndex] = 0;
+        accumulatedSlipMagnitude[ltsFace][pointIndex] = 0;
         slip1[ltsFace][pointIndex] = 0;
         slip2[ltsFace][pointIndex] = 0;
         slipRateMagnitude[ltsFace][pointIndex] = 0;
@@ -184,7 +184,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
       e_interoperability->copyFrictionOutputToFortranGeneral(ltsFace,
                                                              meshFace,
-                                                             slipMagnitude,
+                                                             accumulatedSlipMagnitude,
                                                              slip2,
                                                              slip1,
                                                              ruptureTime,

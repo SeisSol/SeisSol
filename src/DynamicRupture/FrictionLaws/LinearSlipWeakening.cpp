@@ -33,15 +33,16 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(std::array<real, numPaddedPoi
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     // integrate slip rate to get slip = state variable
-    slipMagnitude[ltsFace][pointIndex] =
-        slipMagnitude[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
+    accumulatedSlipMagnitude[ltsFace][pointIndex] =
+        accumulatedSlipMagnitude[ltsFace][pointIndex] +
+        resampledSlipRate[pointIndex] * deltaT[timeIndex];
 
     // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
     // actually slip is already the stateVariable for this FL, but to simplify the next equations we
     // divide it here by d_C
-    stateVariable[pointIndex] =
-        std::min(std::fabs(slipMagnitude[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex],
-                 static_cast<real>(1.0));
+    stateVariable[pointIndex] = std::min(std::fabs(accumulatedSlipMagnitude[ltsFace][pointIndex]) /
+                                             d_c[ltsFace][pointIndex],
+                                         static_cast<real>(1.0));
   }
 }
 

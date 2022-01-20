@@ -24,7 +24,7 @@ class BaseFrictionLaw : public FrictionSolver {
   real (*initialStressInFaultCS)[numPaddedPoints][6];
   real (*cohesion)[numPaddedPoints];
   real (*mu)[numPaddedPoints];
-  real (*slipMagnitude)[numPaddedPoints];
+  real (*accumulatedSlipMagnitude)[numPaddedPoints];
   real (*slip1)[numPaddedPoints];
   real (*slip2)[numPaddedPoints];
   real (*slipRateMagnitude)[numPaddedPoints];
@@ -52,7 +52,7 @@ class BaseFrictionLaw : public FrictionSolver {
     impAndEta = layerData.var(dynRup->impAndEta);
     initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
     mu = layerData.var(dynRup->mu);
-    slipMagnitude = layerData.var(dynRup->slipMagnitude);
+    accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude);
     slip1 = layerData.var(dynRup->slip1);
     slip2 = layerData.var(dynRup->slip2);
     slipRateMagnitude = layerData.var(dynRup->slipRateMagnitude);
@@ -219,7 +219,6 @@ class BaseFrictionLaw : public FrictionSolver {
 
   /**
    * Compute and store element-averaged slip to determine the magnitude of an earthquake.
-   * To this end, here the slip is computed and averaged per element.
    * In calc_seissol.f90 this value will be multiplied by the element surface
    * and the seismic moment is outputted once at the end of the simulation.
    * @param tmpSlip
