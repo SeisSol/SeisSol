@@ -11,7 +11,7 @@ void LinearSlipWeakeningLaw::calcStrengthHook(FaultStresses& faultStresses,
     real totalNormalStress = initialStressInFaultCS[ltsFace][pointIndex][0] +
                              faultStresses.NormalStressGP[timeIndex][pointIndex];
     strength[pointIndex] =
-        cohesion[ltsFace][pointIndex] -
+        -cohesion[ltsFace][pointIndex] -
         mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
   }
 }
@@ -25,22 +25,23 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(std::array<real, numPaddedPoi
   resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
   resampleKrnl.resampledPar = resampledSlipRate;
 
-  // Resample slip-rate, such that the state (slip) lies in the same polynomial space as the degrees
-  // of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the reference
-  // triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial
-  // at the quadrature points
+  // Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
+  // the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the
+  // reference triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the
+  // polynomial at the quadrature points
   resampleKrnl.execute();
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     // integrate slip rate to get slip = state variable
-    slip[ltsFace][pointIndex] =
-        slip[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
+    slipMagnitude[ltsFace][pointIndex] =
+        slipMagnitude[ltsFace][pointIndex] + resampledSlipRate[pointIndex] * deltaT[timeIndex];
 
     // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
     // actually slip is already the stateVariable for this FL, but to simplify the next equations we
     // divide it here by d_C
-    stateVariable[pointIndex] = std::min(
-        std::fabs(slip[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex], static_cast<real>(1.0));
+    stateVariable[pointIndex] =
+        std::min(std::fabs(slipMagnitude[ltsFace][pointIndex]) / d_c[ltsFace][pointIndex],
+                 static_cast<real>(1.0));
   }
 }
 
@@ -68,10 +69,10 @@ void LinearSlipWeakeningLawForcedRuptureTime::preHook(
 }
 
 void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
-    std::array<real, numPaddedPoints>& stateVariablePsi,
+    std::array<real, numPaddedPoints>& stateVariable,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  LinearSlipWeakeningLaw::calcStateVariableHook(stateVariablePsi, timeIndex, ltsFace);
+  LinearSlipWeakeningLaw::calcStateVariableHook(stateVariable, timeIndex, ltsFace);
   tn[ltsFace] += deltaT[timeIndex];
 
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
@@ -86,9 +87,11 @@ void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
       f2 = std::max(
           static_cast<real>(0.0),
           std::min(static_cast<real>(1.0),
-                   (m_fullUpdateTime - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t0));
+                   // Note: In the fortran implementation on the master branch, this is
+                   // m_fullUpdateTime, but this implementation is correct.
+                   (tn[ltsFace] - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t0));
     }
-    stateVariablePsi[pointIndex] = std::max(stateVariablePsi[pointIndex], f2);
+    stateVariable[pointIndex] = std::max(stateVariable[pointIndex], f2);
   }
 }
 
@@ -101,8 +104,7 @@ void LinearSlipWeakeningLawBimaterial::calcStrengthHook(FaultStresses& faultStre
     // literature e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture
     // problems
     real localSlipRate =
-        std::sqrt(slipRateStrike[ltsFace][pointIndex] * slipRateStrike[ltsFace][pointIndex] +
-                  slipRateDip[ltsFace][pointIndex] * slipRateDip[ltsFace][pointIndex]);
+        misc::magnitude(slipRate1[ltsFace][pointIndex], slipRate2[ltsFace][pointIndex]);
     real sigma = faultStresses.NormalStressGP[timeIndex][pointIndex] +
                  initialStressInFaultCS[ltsFace][pointIndex][0];
     prak_clif_mod(regularisedStrength[ltsFace][pointIndex],

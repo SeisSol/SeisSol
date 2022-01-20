@@ -123,6 +123,7 @@ src/Parallel/mpiF.f90
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
+src/DynamicRupture/Misc.cpp
 src/DynamicRupture/Factory.cpp
 src/DynamicRupture/FrictionLaws/AgingLaw.cpp
 src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp

@@ -14,7 +14,7 @@ static constexpr int numPaddedPoints = init::QInterpolated::Stop[0];
 /**
  * Struct that contains all input stresses and output stresses
  * IN: NormalStressGP, XYStressGP, XZStressGP (Godunov stresses computed by
- * precomputeStressFRateAndStateBaseromQInterpolated) OUT: XYTractionResultGP, XZTractionResultGP
+ * precomputeStressFromQInterpolated) OUT: XYTractionResultGP, XZTractionResultGP
  * and NormalStressGP (used to compute resulting +/- sided stress results by
  * postcomputeImposedStateFromNewStress)
  */

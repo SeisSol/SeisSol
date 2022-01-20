@@ -5,9 +5,7 @@
 
 namespace seissol::dr::friction_law {
 /**
- * This class was not tested and compared to the Fortran FL4. Since FL4 initialization did not work
- * properly on the Master Branch. This class is also less optimized. It was left in here to have a
- * reference of how it could be implemented.
+ * This class was not tested and compared to the Fortran FL4.
  */
 template <class Derived>
 class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived>> {
@@ -39,12 +37,12 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
    */
   real updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable) {
     real localA = this->a[ltsFace][pointIndex];
-    real localSL0 = this->sl0[ltsFace][pointIndex];
-    real log1 = std::log(this->drParameters.rs_sr0 * localStateVariable / localSL0);
+    real localSl0 = this->sl0[ltsFace][pointIndex];
+    real log1 = std::log(this->drParameters.rs_sr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
     real x = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] / this->drParameters.rs_sr0) *
              exp((this->drParameters.rs_f0 + this->drParameters.rs_b * log1) / localA);
-    return localA * std::log(x + std::sqrt(std::pow(x, 2) + 1.0));
+    return localA * misc::asinh(x);
   }
 };
 } // namespace seissol::dr::friction_law

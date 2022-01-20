@@ -16,8 +16,8 @@ class RateAndState : public Base {
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
     constexpr auto numGaussPoints2d = init::QInterpolated::Stop[0];
-    real(*slipRateStrike)[numGaussPoints2d] = layerData.var(concreteLts->slipRateStrike);
-    real(*slipRateDip)[numGaussPoints2d] = layerData.var(concreteLts->slipRateDip);
+    real(*slipRate1)[numGaussPoints2d] = layerData.var(concreteLts->slipRate1);
+    real(*slipRate2)[numGaussPoints2d] = layerData.var(concreteLts->slipRate2);
     real(*mu)[numGaussPoints2d] = layerData.var(concreteLts->mu);
     real(*stateVar)[numGaussPoints2d] = layerData.var(concreteLts->stateVariable);
     real(*initialStressInFaultCS)[numGaussPoints2d][6] =
@@ -37,7 +37,7 @@ class RateAndState : public Base {
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranSpecific(
-          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
+          ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
       e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
       e_interoperability.copyFrictionOutputToFortranInitialStressInFaultCS(ltsFace,
                                                                            meshFace,

@@ -81,17 +81,17 @@ class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {
   /*
    * set initial value of thermal pressure
    */
-  void hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
+  void setInitialFluidPressureHook(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
    * bool saveTmpInTP is used to save final thermal pressure values for theta and sigma
    */
-  void hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
-                   FaultStresses& faultStresses,
-                   bool saveTmpInTP,
-                   unsigned int timeIndex,
-                   unsigned int ltsFace);
+  void calcFluidPressureHook(std::array<real, numPaddedPoints>& P_f,
+                             FaultStresses& faultStresses,
+                             bool saveTmpInTP,
+                             unsigned int timeIndex,
+                             unsigned int ltsFace);
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010

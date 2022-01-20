@@ -34,18 +34,18 @@ void ImposedSlipRates::updateFrictionAndSlip(FaultStresses& faultStresses,
         faultStresses.XZStressGP[timeIndex][pointIndex] -
         this->impAndEta[ltsFace].eta_s * this->nucleationStressInFaultCS[ltsFace][pointIndex][1] *
             gNuc;
-    this->slipRateStrike[ltsFace][pointIndex] =
+    this->slipRate1[ltsFace][pointIndex] =
         this->nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
-    this->slipRateDip[ltsFace][pointIndex] =
+    this->slipRate2[ltsFace][pointIndex] =
         this->nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
     this->slipRateMagnitude[ltsFace][pointIndex] =
-        std::sqrt(std::pow(this->slipRateStrike[ltsFace][pointIndex], 2) +
-                  std::pow(this->slipRateDip[ltsFace][pointIndex], 2));
+        misc::magnitude(this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
 
     //! Update slip
-    this->slipStrike[ltsFace][pointIndex] += this->slipRateStrike[ltsFace][pointIndex] * timeInc;
-    this->slipDip[ltsFace][pointIndex] += this->slipRateDip[ltsFace][pointIndex] * timeInc;
-    this->slip[ltsFace][pointIndex] += this->slipRateMagnitude[ltsFace][pointIndex] * timeInc;
+    this->slip1[ltsFace][pointIndex] += this->slipRate1[ltsFace][pointIndex] * timeInc;
+    this->slip2[ltsFace][pointIndex] += this->slipRate2[ltsFace][pointIndex] * timeInc;
+    this->slipMagnitude[ltsFace][pointIndex] +=
+        this->slipRateMagnitude[ltsFace][pointIndex] * timeInc;
 
     this->tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
     this->tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];

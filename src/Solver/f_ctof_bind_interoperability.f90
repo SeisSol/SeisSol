@@ -431,7 +431,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     subroutine f_interoperability_setFrictionOutputSpecific(i_domain, i_face, &
-          i_averagedSlip, i_slipRateStrike, i_slipRateDip, i_mu)&
+          i_averagedSlip, i_slipRate1, i_slipRate2, i_mu)&
           bind (c, name='f_interoperability_setFrictionOutputSpecific')
 
       use iso_c_binding
@@ -446,10 +446,10 @@ module f_ctof_bind_interoperability
       integer(kind=c_int), value             :: i_face
       type(c_ptr), value                     :: i_averagedSlip
       REAL_TYPE, pointer                     :: l_averagedSlip
-      type(c_ptr), value                     :: i_slipRateStrike
-      REAL_TYPE, pointer                     :: l_slipRateStrike(:)
-      type(c_ptr), value                     :: i_slipRateDip
-      REAL_TYPE, pointer                     :: l_slipRateDip(:)
+      type(c_ptr), value                     :: i_slipRate1
+      REAL_TYPE, pointer                     :: l_slipRate1(:)
+      type(c_ptr), value                     :: i_slipRate2
+      REAL_TYPE, pointer                     :: l_slipRate2(:)
       type(c_ptr), value                     :: i_mu
       REAL_TYPE, pointer                     :: l_mu(:)
 
@@ -459,8 +459,8 @@ module f_ctof_bind_interoperability
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
       call c_f_pointer( i_averagedSlip, l_averagedSlip)
-      call c_f_pointer( i_slipRateDip, l_slipRateDip, [nBndGP])
-      call c_f_pointer( i_slipRateStrike, l_slipRateStrike, [nBndGP])
+      call c_f_pointer( i_slipRate2, l_slipRate2, [nBndGP])
+      call c_f_pointer( i_slipRate1, l_slipRate1, [nBndGP])
       call c_f_pointer( i_mu, l_mu, [nBndGP])
 
       !copy to output
@@ -468,8 +468,8 @@ module f_ctof_bind_interoperability
       IF (l_domain%DISC%DynRup%magnitude_output_on.EQ.1) THEN
         l_domain%DISC%DynRup%averaged_Slip(i_face)        = l_averagedSlip
       ENDIF
-      l_domain%DISC%DynRup%SlipRate1(:,i_face)                    = l_slipRateStrike(:)
-      l_domain%DISC%DynRup%SlipRate2(:,i_face)                    = l_slipRateDip(:)
+      l_domain%DISC%DynRup%SlipRate1(:,i_face)                    = l_slipRate1(:)
+      l_domain%DISC%DynRup%SlipRate2(:,i_face)                    = l_slipRate2(:)
       l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:)
     end subroutine
 

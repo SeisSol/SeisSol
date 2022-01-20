@@ -47,7 +47,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
         cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
       }
       if (dynRup->isFaultParameterizedByTraction) {
-        // only read traction in normal strike and slip direction
+        // only read traction in normal, strike and dip direction
         parameterToStorageMap.insert({tractionNames[0], getRawData(stressXX)});
         parameterToStorageMap.insert({tractionNames[1], getRawData(stressXY)});
         parameterToStorageMap.insert({tractionNames[2], getRawData(stressXZ)});
@@ -147,10 +147,10 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     }
 
     // initialize rupture front flag
-    bool(*ruptureFront)[numPaddedPoints] = it->var(dynRup->ruptureFront);
+    bool(*ruptureTimePending)[numPaddedPoints] = it->var(dynRup->ruptureTimePending);
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned int pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        ruptureFront[ltsFace][pointIndex] = drParameters.isRfOutputOn;
+        ruptureTimePending[ltsFace][pointIndex] = drParameters.isRfOutputOn;
       }
     }
 
@@ -158,9 +158,9 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*peakSlipRate)[numPaddedPoints] = it->var(dynRup->peakSlipRate);
     real(*ruptureTime)[numPaddedPoints] = it->var(dynRup->ruptureTime);
     real(*dynStressTime)[numPaddedPoints] = it->var(dynRup->dynStressTime);
-    real(*slip)[numPaddedPoints] = it->var(dynRup->slip);
-    real(*slipDip)[numPaddedPoints] = it->var(dynRup->slipDip);
-    real(*slipStrike)[numPaddedPoints] = it->var(dynRup->slipStrike);
+    real(*slipMagnitude)[numPaddedPoints] = it->var(dynRup->slipMagnitude);
+    real(*slip1)[numPaddedPoints] = it->var(dynRup->slip2);
+    real(*slip2)[numPaddedPoints] = it->var(dynRup->slip1);
     real(*slipRateMagnitude)[numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
     real(*tractionXY)[numPaddedPoints] = it->var(dynRup->tractionXY);
     real(*tractionXZ)[numPaddedPoints] = it->var(dynRup->tractionXZ);
@@ -170,9 +170,9 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
         peakSlipRate[ltsFace][pointIndex] = 0;
         ruptureTime[ltsFace][pointIndex] = 0;
         dynStressTime[ltsFace][pointIndex] = 0;
-        slip[ltsFace][pointIndex] = 0;
-        slipDip[ltsFace][pointIndex] = 0;
-        slipStrike[ltsFace][pointIndex] = 0;
+        slipMagnitude[ltsFace][pointIndex] = 0;
+        slip1[ltsFace][pointIndex] = 0;
+        slip2[ltsFace][pointIndex] = 0;
         slipRateMagnitude[ltsFace][pointIndex] = 0;
         tractionXY[ltsFace][pointIndex] = 0;
         tractionXZ[ltsFace][pointIndex] = 0;
@@ -184,9 +184,9 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
       e_interoperability->copyFrictionOutputToFortranGeneral(ltsFace,
                                                              meshFace,
-                                                             slip,
-                                                             slipStrike,
-                                                             slipDip,
+                                                             slipMagnitude,
+                                                             slip2,
+                                                             slip1,
                                                              ruptureTime,
                                                              dynStressTime,
                                                              peakSlipRate,

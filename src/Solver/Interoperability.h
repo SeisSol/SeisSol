@@ -477,8 +477,8 @@ class seissol::Interoperability {
   void copyFrictionOutputToFortranSpecific(unsigned ltsFace,
                                            unsigned meshFace,
                                            real *averagedSlip,
-                                           real (*slipRateStrike)[init::QInterpolated::Stop[0]],
-                                           real (*slipRateDip)[init::QInterpolated::Stop[0]],
+                                           real (*slipRate1)[init::QInterpolated::Stop[0]],
+                                           real (*slipRate2)[init::QInterpolated::Stop[0]],
                                            real (*mu)[seissol::init::QInterpolated::Stop[0]]
   );
 

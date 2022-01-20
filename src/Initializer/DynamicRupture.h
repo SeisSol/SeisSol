@@ -92,19 +92,19 @@ public:
   Variable<real[numOfPointsPadded][6]> initialStressInFaultCS;
   Variable<real[numOfPointsPadded][6]> nucleationStressInFaultCS;
   Variable<real[ numOfPointsPadded ]> mu;
-  Variable<real[ numOfPointsPadded ]> slip;
-  Variable<real[ numOfPointsPadded ]> slipStrike; // = Slip1
-  Variable<real[ numOfPointsPadded ]> slipDip;    // = Slip2
+  Variable<real[ numOfPointsPadded ]> slipMagnitude;
+  Variable<real[ numOfPointsPadded ]> slip1; // slip in Y-direction
+  Variable<real[ numOfPointsPadded ]> slip2; // slip in Z-direction
   Variable<real[ numOfPointsPadded ]> slipRateMagnitude;
-  Variable<real[ numOfPointsPadded ]> slipRateStrike;  // slip rate in Y-dirction (strike) Fortran: slipRate1
-  Variable<real[ numOfPointsPadded ]> slipRateDip; // slip rate in Z-direction (dip) Fortran: slipRate2
+  Variable<real[ numOfPointsPadded ]> slipRate1; // slip rate in Y direction
+  Variable<real[ numOfPointsPadded ]> slipRate2; // slip rate in Z direction
   Variable<real[ numOfPointsPadded ]> ruptureTime;
   Variable<real[ numOfPointsPadded ]> dynStressTime;
-  Variable<bool[ numOfPointsPadded ]> ruptureFront;
+  Variable<bool[ numOfPointsPadded ]> ruptureTimePending;
+  Variable<bool[ numOfPointsPadded ]> dynStressTimePending;
   Variable<real[ numOfPointsPadded ]> peakSlipRate;
   Variable<real[ numOfPointsPadded ]> tractionXY;
   Variable<real[ numOfPointsPadded ]> tractionXZ;
-  Variable<bool[ numOfPointsPadded ]> ds;
   Variable<real> averagedSlip;
 
 #ifdef ACL_DEVICE
@@ -135,19 +135,19 @@ public:
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      ruptureTime,                    mask,                 1,      seissol::memory::Standard );
+    tree.addVar(ruptureTimePending, mask, 1, seissol::memory::Standard );
     tree.addVar(dynStressTime, mask, 1, seissol::memory::Standard );
-    tree.addVar(      ruptureFront,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      mu,                             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      slip,                           mask,                 1,      seissol::memory::Standard );
-    tree.addVar(slipStrike, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipDip, mask, 1, seissol::memory::Standard );
+    tree.addVar(dynStressTimePending, mask, 1, seissol::memory::Standard );
+    tree.addVar(mu, mask, 1, seissol::memory::Standard );
+    tree.addVar(slipMagnitude, mask, 1, seissol::memory::Standard );
+    tree.addVar(slip1, mask, 1, seissol::memory::Standard );
+    tree.addVar(slip2, mask, 1, seissol::memory::Standard );
     tree.addVar(slipRateMagnitude, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipRateStrike, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipRateDip, mask, 1, seissol::memory::Standard );
+    tree.addVar(slipRate1, mask, 1, seissol::memory::Standard );
+    tree.addVar(slipRate2, mask, 1, seissol::memory::Standard );
     tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard );
     tree.addVar(tractionXY, mask, 1, seissol::memory::Standard );
     tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard );
-    tree.addVar(ds, mask, 1, seissol::memory::Standard );
     tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard );
 
 #ifdef ACL_DEVICE

@@ -5,6 +5,7 @@
 
 #include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -23,14 +24,14 @@ class BaseFrictionLaw : public FrictionSolver {
   real (*initialStressInFaultCS)[numPaddedPoints][6];
   real (*cohesion)[numPaddedPoints];
   real (*mu)[numPaddedPoints];
-  real (*slip)[numPaddedPoints];
-  real (*slipStrike)[numPaddedPoints];
-  real (*slipDip)[numPaddedPoints];
+  real (*slipMagnitude)[numPaddedPoints];
+  real (*slip1)[numPaddedPoints];
+  real (*slip2)[numPaddedPoints];
   real (*slipRateMagnitude)[numPaddedPoints];
-  real (*slipRateStrike)[numPaddedPoints];
-  real (*slipRateDip)[numPaddedPoints];
+  real (*slipRate1)[numPaddedPoints];
+  real (*slipRate2)[numPaddedPoints];
   real (*ruptureTime)[numPaddedPoints];
-  bool (*ruptureFront)[numPaddedPoints];
+  bool (*ruptureTimePending)[numPaddedPoints];
   real (*peakSlipRate)[numPaddedPoints];
   real (*tractionXY)[numPaddedPoints];
   real (*tractionXZ)[numPaddedPoints];
@@ -40,7 +41,7 @@ class BaseFrictionLaw : public FrictionSolver {
   // be careful only for some FLs initialized:
   real* averagedSlip;
   real (*dynStressTime)[numPaddedPoints];
-  bool (*ds)[numPaddedPoints];
+  bool (*dynStressTimePending)[numPaddedPoints];
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -51,23 +52,23 @@ class BaseFrictionLaw : public FrictionSolver {
     impAndEta = layerData.var(dynRup->impAndEta);
     initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
     mu = layerData.var(dynRup->mu);
-    slip = layerData.var(dynRup->slip);
-    slipStrike = layerData.var(dynRup->slipStrike);
-    slipDip = layerData.var(dynRup->slipDip);
+    slipMagnitude = layerData.var(dynRup->slipMagnitude);
+    slip1 = layerData.var(dynRup->slip1);
+    slip2 = layerData.var(dynRup->slip2);
     slipRateMagnitude = layerData.var(dynRup->slipRateMagnitude);
-    slipRateStrike = layerData.var(dynRup->slipRateStrike);
-    slipRateDip = layerData.var(dynRup->slipRateDip);
+    slipRate1 = layerData.var(dynRup->slipRate1);
+    slipRate2 = layerData.var(dynRup->slipRate2);
     ruptureTime = layerData.var(dynRup->ruptureTime);
-    ruptureFront = layerData.var(dynRup->ruptureFront);
+    ruptureTimePending = layerData.var(dynRup->ruptureTimePending);
     peakSlipRate = layerData.var(dynRup->peakSlipRate);
     tractionXY = layerData.var(dynRup->tractionXY);
     tractionXZ = layerData.var(dynRup->tractionXZ);
     imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
     imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
     m_fullUpdateTime = fullUpdateTime;
-    ds = layerData.var(dynRup->ds);
     averagedSlip = layerData.var(dynRup->averagedSlip);
     dynStressTime = layerData.var(dynRup->dynStressTime);
+    dynStressTimePending = layerData.var(dynRup->dynStressTimePending);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -171,16 +172,10 @@ class BaseFrictionLaw : public FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
   real calcSmoothStepIncrement(real currentTime, real dt) {
-    if (currentTime > 0.0 && currentTime <= drParameters.t0) {
-      real gNuc = calcSmoothStep(currentTime);
-      real prevTime = currentTime - dt;
-      if (prevTime > 0.0) {
-        gNuc = gNuc - calcSmoothStep(prevTime);
-      }
-      return gNuc;
-    } else {
-      return 0.0;
-    }
+    real gNuc = calcSmoothStep(currentTime);
+    real prevTime = currentTime - dt;
+    gNuc = gNuc - calcSmoothStep(prevTime);
+    return gNuc;
   }
 
   /**
@@ -190,7 +185,7 @@ class BaseFrictionLaw : public FrictionSolver {
     if (currentTime <= 0) {
       return 0.0;
     } else if (currentTime < drParameters.t0) {
-      return std::exp(std::pow(currentTime - drParameters.t0, 2) /
+      return std::exp(misc::power<2>(currentTime - drParameters.t0) /
                       (currentTime * (currentTime - 2.0 * drParameters.t0)));
     } else {
       return 1.0;
@@ -204,30 +199,29 @@ class BaseFrictionLaw : public FrictionSolver {
   void saveRuptureFrontOutput(unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       constexpr real ruptureFrontThreshold = 0.001;
-      if (ruptureFront[ltsFace][pointIndex] &&
+      if (ruptureTimePending[ltsFace][pointIndex] &&
           slipRateMagnitude[ltsFace][pointIndex] > ruptureFrontThreshold) {
         ruptureTime[ltsFace][pointIndex] = m_fullUpdateTime;
-        ruptureFront[ltsFace][pointIndex] = false;
+        ruptureTimePending[ltsFace][pointIndex] = false;
       }
     }
   }
 
   /**
-   * save the maximal computed slip rate magnitude in RpeakSlipRate
+   * Save the maximal computed slip rate magnitude in peakSlipRate
    */
   void savePeakSlipRateOutput(unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
-      if (slipRateMagnitude[ltsFace][pointIndex] > peakSlipRate[ltsFace][pointIndex]) {
-        peakSlipRate[ltsFace][pointIndex] = slipRateMagnitude[ltsFace][pointIndex];
-      }
+      peakSlipRate[ltsFace][pointIndex] =
+          std::max(peakSlipRate[ltsFace][pointIndex], slipRateMagnitude[ltsFace][pointIndex]);
     }
   }
 
   /**
-   * compute and store slip to determine the magnitude of an earthquake
-   * to this end, here the slip is computed and averaged per element
-   * in calc_seissol.f90 this value will be multiplied by the element surface
-   * and an output happened once at the end of the simulation
+   * Compute and store element-averaged slip to determine the magnitude of an earthquake.
+   * To this end, here the slip is computed and averaged per element.
+   * In calc_seissol.f90 this value will be multiplied by the element surface
+   * and the seismic moment is outputted once at the end of the simulation.
    * @param tmpSlip
    * @param ltsFace
    */
@@ -237,7 +231,7 @@ class BaseFrictionLaw : public FrictionSolver {
       for (int pointIndex = 0; pointIndex < numberOfPoints; pointIndex++) {
         sumOfTmpSlip += tmpSlip[pointIndex];
       }
-      averagedSlip[ltsFace] = averagedSlip[ltsFace] + sumOfTmpSlip / numberOfPoints;
+      averagedSlip[ltsFace] += sumOfTmpSlip / numberOfPoints;
     }
   }
 

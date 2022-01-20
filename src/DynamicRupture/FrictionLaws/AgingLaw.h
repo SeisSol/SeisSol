@@ -22,7 +22,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw> {
    * \f[\Theta(t) = - \Theta_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
    * -\frac{V}{L} \cdot t\right). \f]
    * @param stateVarReference \f$ \Theta_0 \f$
-   * @param timeIncremetn \f$ t \f$
+   * @param timeIncrement \f$ t \f$
    * @param localSlipRate \f$ V \f$
    * @return \f$ \Theta(t) \f$
    */

@@ -389,8 +389,8 @@ void c_interoperability_report_device_memory_status() {
   extern void f_interoperability_setFrictionOutputSpecific(void*  i_domain,
                                                            int i_face,
                                                            real* i_averagedSlip,
-                                                           real* slipRateStrike,
-                                                           real* slipRateDip,
+                                                           real* slipRate1,
+                                                           real* slipRate2,
                                                            real* mu);
 
   extern void f_interoperability_setFrictionOutputStateVar(void*  i_domain, int i_face, real* stateVar);
@@ -1272,15 +1272,15 @@ void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
 void seissol::Interoperability::copyFrictionOutputToFortranSpecific(
     unsigned int ltsFace, unsigned int meshFace,
     real *averagedSlip,
-    real (*slipRateStrike)[dr::misc::AlignedNumGaussPoints],
-    real (*slipRateDip)[dr::misc::AlignedNumGaussPoints],
+    real (*slipRate1)[dr::misc::AlignedNumGaussPoints],
+    real (*slipRate2)[dr::misc::AlignedNumGaussPoints],
     real (*mu)[dr::misc::AlignedNumGaussPoints]) {
 
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputSpecific(m_domain, fFace,
                                                &averagedSlip[ltsFace],
-                                               &slipRateStrike[ltsFace][0],
-                                               &slipRateDip[ltsFace][0],
+                                               &slipRate1[ltsFace][0],
+                                               &slipRate2[ltsFace][0],
                                                &mu[ltsFace][0]
   );
 }

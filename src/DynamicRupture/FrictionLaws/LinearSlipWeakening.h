@@ -38,10 +38,8 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
     // coefficient and strength
     this->calcSlipRateAndTraction(faultStresses, strengthBuffer, timeIndex, ltsFace);
 
-    // function g, output: stateVariablePsi & outputSlip
     this->calcStateVariableHook(stateVariableBuffer, timeIndex, ltsFace);
 
-    // function f, output: calculated mu
     this->frictionFunctionHook(stateVariableBuffer, ltsFace);
   }
 
@@ -57,7 +55,7 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
 
   /**
    *  compute the slip rate and the traction from the fault strength and fault stresses
-   *  also updates the directional slipStrike and slipDip
+   *  also updates the directional slip1 and slip2
    */
   void calcSlipRateAndTraction(FaultStresses& faultStresses,
                                std::array<real, numPaddedPoints>& strength,
@@ -69,35 +67,37 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
                            faultStresses.XYStressGP[timeIndex][pointIndex];
       real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
                            faultStresses.XZStressGP[timeIndex][pointIndex];
-      real absoluteShearStress = std::sqrt(std::pow(totalStressXY, 2) + std::pow(totalStressXZ, 2));
+      real absoluteShearStress = misc::magnitude(totalStressXY, totalStressXZ);
 
       // calculate slip rates
       this->slipRateMagnitude[ltsFace][pointIndex] = std::max(
           static_cast<real>(0.0),
           (absoluteShearStress - strength[pointIndex]) * this->impAndEta[ltsFace].inv_eta_s);
 
-      this->slipRateStrike[ltsFace][pointIndex] =
-          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / absoluteShearStress;
-      this->slipRateDip[ltsFace][pointIndex] =
-          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / absoluteShearStress;
+      auto divisor = strength[pointIndex] +
+                     this->impAndEta[ltsFace].eta_s * this->slipRateMagnitude[ltsFace][pointIndex];
+      this->slipRate1[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / divisor;
+      this->slipRate2[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
 
       // calculate traction
       faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
           faultStresses.XYStressGP[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].eta_s * this->slipRateStrike[ltsFace][pointIndex];
+          this->impAndEta[ltsFace].eta_s * this->slipRate1[ltsFace][pointIndex];
       faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
           faultStresses.XZStressGP[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].eta_s * this->slipRateDip[ltsFace][pointIndex];
+          this->impAndEta[ltsFace].eta_s * this->slipRate2[ltsFace][pointIndex];
       this->tractionXY[ltsFace][pointIndex] =
           faultStresses.XYTractionResultGP[timeIndex][pointIndex];
       this->tractionXZ[ltsFace][pointIndex] =
           faultStresses.XYTractionResultGP[timeIndex][pointIndex];
 
       // update directional slip
-      this->slipStrike[ltsFace][pointIndex] +=
-          this->slipRateStrike[ltsFace][pointIndex] * this->deltaT[timeIndex];
-      this->slipDip[ltsFace][pointIndex] +=
-          this->slipRateDip[ltsFace][pointIndex] * this->deltaT[timeIndex];
+      this->slip1[ltsFace][pointIndex] +=
+          this->slipRate1[ltsFace][pointIndex] * this->deltaT[timeIndex];
+      this->slip2[ltsFace][pointIndex] +=
+          this->slipRate2[ltsFace][pointIndex] * this->deltaT[timeIndex];
     }
   }
 
@@ -105,23 +105,25 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  void frictionFunctionHook(std::array<real, numPaddedPoints>& stateVariablePsi,
+  void frictionFunctionHook(std::array<real, numPaddedPoints>& stateVariable,
                             unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       this->mu[ltsFace][pointIndex] =
           mu_S[ltsFace][pointIndex] -
-          (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariablePsi[pointIndex];
+          (mu_S[ltsFace][pointIndex] - mu_D[ltsFace][pointIndex]) * stateVariable[pointIndex];
     }
   }
 
-  /*
-   * instantaneous healing option Reset Mu and Slip
+  /**
+   * Instantaneous healing option:
+   * Reset Mu and Slip, if slipRateMagnitude drops below threshold
+   * This function is currently not used, as we miss an appropriate benchmark.
    */
   void instantaneousHealing(unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
       if (this->slipRateMagnitude[ltsFace][pointIndex] < u_0) {
         this->mu[ltsFace][pointIndex] = mu_S[ltsFace][pointIndex];
-        this->slip[ltsFace][pointIndex] = 0.0;
+        this->slipMagnitude[ltsFace][pointIndex] = 0.0;
       }
     }
   }
@@ -133,12 +135,10 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
   void saveDynamicStressOutput(unsigned int ltsFace) {
     for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
-      if (this->ruptureTime[ltsFace][pointIndex] > 0.0 &&
-          this->ruptureTime[ltsFace][pointIndex] <= this->m_fullUpdateTime &&
-          this->ds[pointIndex] &&
-          std::fabs(this->slip[ltsFace][pointIndex]) >= d_c[ltsFace][pointIndex]) {
+      if (this->dynStressTimePending[pointIndex] &&
+          std::fabs(this->slipMagnitude[ltsFace][pointIndex]) >= d_c[ltsFace][pointIndex]) {
         this->dynStressTime[ltsFace][pointIndex] = this->m_fullUpdateTime;
-        this->ds[ltsFace][pointIndex] = false;
+        this->dynStressTimePending[ltsFace][pointIndex] = false;
       }
     }
   }

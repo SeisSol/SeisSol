@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <cmath>
 
+#include "Kernels/precision.hpp"
+
 namespace seissol::dr::misc {
 template <typename Tensor>
 constexpr size_t leadDim() noexcept {
@@ -26,6 +28,19 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
       std::forward<F>(functor),
       std::make_index_sequence<std::tuple_size<std::remove_reference_t<TupleT>>::value>{});
 }
+
+template <size_t exp>
+real power(real base) {
+  real result = 1.0;
+  for (size_t i = 0; i < exp; ++i) {
+    result *= base;
+  }
+  return result;
+}
+
+real magnitude(real x, real y);
+
+real asinh(real x);
 } // namespace seissol::dr::misc
 
 #endif // SEISSOL_DR_MISC_H

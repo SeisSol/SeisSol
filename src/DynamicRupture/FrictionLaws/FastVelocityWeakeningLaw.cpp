@@ -26,7 +26,7 @@ real FastVelocityWeakeningLaw::updateStateVariable(int pointIndex,
   real flv =
       drParameters.rs_f0 - (drParameters.rs_b - localA) * log(localSlipRate / drParameters.rs_sr0);
   // steady state friction coefficient
-  real fss = fw + (flv - fw) / pow(1.0 + std::pow(localSlipRate / localSrW, 8.0), 1.0 / 8.0);
+  real fss = fw + (flv - fw) / std::pow(1.0 + misc::power<8>(localSlipRate / localSrW), 1.0 / 8.0);
   // steady-state state variable
   // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
   real SVss = localA * log(2.0 * drParameters.rs_sr0 / localSlipRate *
@@ -48,8 +48,7 @@ real FastVelocityWeakeningLaw::updateMu(unsigned int ltsFace,
   // x in asinh(x) for mu calculation
   real x = 0.5 / drParameters.rs_sr0 * std::exp(localStateVariable / localA) *
            slipRateMagnitude[ltsFace][pointIndex];
-  // asinh(x)=log(x+sqrt(x^2+1))
-  return localA * std::log(x + std::sqrt(std::pow(x, 2) + 1.0));
+  return localA * misc::asinh(x);
 }
 
 void RateAndStateThermalPressurizationLaw::initializeTP(
@@ -75,24 +74,26 @@ void RateAndStateThermalPressurizationLaw::copyLtsTreeToLocal(
   alphaHy = layerData.var(concreteLts->alphaHy);
 }
 
-void RateAndStateThermalPressurizationLaw::hookSetInitialP_f(std::array<real, numPaddedPoints>& P_f,
-                                                             unsigned int ltsFace) {
+void RateAndStateThermalPressurizationLaw::setInitialFluidPressureHook(
+    std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
     P_f[pointIndex] = pressure[ltsFace][pointIndex];
   }
 }
 
-void RateAndStateThermalPressurizationLaw::hookCalcP_f(std::array<real, numPaddedPoints>& P_f,
-                                                       FaultStresses& faultStresses,
-                                                       bool saveTmpInTP,
-                                                       unsigned int timeIndex,
-                                                       unsigned int ltsFace) {
+void RateAndStateThermalPressurizationLaw::calcFluidPressureHook(
+    std::array<real, numPaddedPoints>& P_f,
+    FaultStresses& faultStresses,
+    bool saveTmpInTP,
+    unsigned int timeIndex,
+    unsigned int ltsFace) {
   for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
 
-    // compute fault strength (Sh)
-    faultStrength[pointIndex] = -mu[ltsFace][pointIndex] *
-                                (faultStresses.NormalStressGP[timeIndex][pointIndex] +
-                                 initialStressInFaultCS[ltsFace][pointIndex][0] - P_f[pointIndex]);
+    // compute fault strength
+    auto normalStress = faultStresses.NormalStressGP[timeIndex][pointIndex] +
+                        initialStressInFaultCS[ltsFace][pointIndex][0] - P_f[pointIndex];
+    faultStrength[pointIndex] =
+        -mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), normalStress);
 
     for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < numberOfTPGridPoints;
          tpGridPointIndex++) {
@@ -134,7 +135,7 @@ void RateAndStateThermalPressurizationLaw::updateTemperatureAndPressure(unsigned
        tpGridPointIndex++) {
     //! Gaussian shear zone in spectral domain, normalized by w
     tmp[tpGridPointIndex] =
-        std::pow(TP_grid[tpGridPointIndex] / TP_halfWidthShearZone[ltsFace][pointIndex], 2);
+        misc::power<2>(TP_grid[tpGridPointIndex] / TP_halfWidthShearZone[ltsFace][pointIndex]);
     //! 1. Calculate diffusion of the field at previous timestep
 
     //! temperature
@@ -186,7 +187,7 @@ real RateAndStateThermalPressurizationLaw::heatSource(real tmp,
   //! 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_halfWidthShearZone)**2)*(1-exp(-alpha**dt**tmp))
   //! inserting Dwn/TP_halfWidthShearZone (scaled) for Dwn cancels out TP_halfWidthShearZone
   return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
-         exp(-0.5 * std::pow(TP_grid[tpGridPointIndex], 2)) *
+         exp(-0.5 * misc::power<2>(TP_grid[tpGridPointIndex])) *
          (1.0 - exp(-alpha * deltaT[timeIndex] * tmp));
 }
 } // namespace seissol::dr::friction_law

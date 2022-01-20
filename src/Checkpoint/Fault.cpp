@@ -40,4 +40,4 @@
 #include "Fault.h"
 
 const char* seissol::checkpoint::Fault::VAR_NAMES[NUM_VARIABLES] = {
-		"mu", "slip_rate1", "slip_rate2", "slip", "slipStrike", "slipDip", "state", "strength" };
+		"mu", "slip_rate1", "slip_rate2", "slip", "slip1", "slip2", "state", "strength" };
