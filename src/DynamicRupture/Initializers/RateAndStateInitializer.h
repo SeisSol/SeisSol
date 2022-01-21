@@ -18,7 +18,7 @@ class RateAndStateInitializer : public BaseDRInitializer {
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* e_interoperability) override;
+                               seissol::Interoperability* eInteroperability) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
@@ -50,11 +50,11 @@ class RateAndStateInitializer : public BaseDRInitializer {
   virtual std::pair<real, real> computeInitialStateAndFriction(real tractionXY,
                                                                real tractionXZ,
                                                                real pressure,
-                                                               real rs_a,
-                                                               real rs_b,
-                                                               real rs_sl0,
-                                                               real rs_sr0,
-                                                               real rs_f0,
+                                                               real rsA,
+                                                               real rsB,
+                                                               real rsSl0,
+                                                               real rsSr0,
+                                                               real rsF0,
                                                                real initialSlipRate);
 };
 
@@ -94,11 +94,11 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
   virtual std::pair<real, real> computeInitialStateAndFriction(real tractionXY,
                                                                real tractionXZ,
                                                                real pressure,
-                                                               real rs_a,
-                                                               real rs_b,
-                                                               real rs_sl0,
-                                                               real rs_sr0,
-                                                               real rs_f0,
+                                                               real rsA,
+                                                               real rsB,
+                                                               real rsSl0,
+                                                               real rsSr0,
+                                                               real rsF0,
                                                                real initialSlipRate) override;
 };
 
@@ -115,7 +115,7 @@ class RateAndStateThermalPressurisationInitializer : public RateAndStateFastVelo
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* e_interoperability) override;
+                               seissol::Interoperability* eInteroperability) override;
 
   protected:
   /**

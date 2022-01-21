@@ -1,13 +1,13 @@
 #ifndef SEISSOL_DR_OUTPUT_BUILDER_HPP
 #define SEISSOL_DR_OUTPUT_BUILDER_HPP
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
-#include "DynamicRupture/Misc.h"
-#include "Parallel/MPI.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.hpp"
 #include "Numerical_aux/Transformation.h"
+#include "Parallel/MPI.h"
 
 namespace seissol::dr::output {
 class OutputBuilder {
@@ -76,9 +76,9 @@ class OutputBuilder {
 
     // init Rotation Matrices
     for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-      const auto faceNormal = outputData.faultDirections[receiverId].faceNormal;
-      const auto strike = outputData.faultDirections[receiverId].strike;
-      const auto dip = outputData.faultDirections[receiverId].dip;
+      const auto* const faceNormal = outputData.faultDirections[receiverId].faceNormal;
+      auto* const strike = outputData.faultDirections[receiverId].strike;
+      auto* const dip = outputData.faultDirections[receiverId].dip;
 
       std::vector<real> rotationMatrix(36, 0.0);
       RotationMatrixViewT rotationMatrixView(const_cast<real*>(rotationMatrix.data()), {6, 6});

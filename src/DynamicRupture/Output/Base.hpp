@@ -1,11 +1,11 @@
 #ifndef SEISSOL_DR_OUTPUT_BASE_HPP
 #define SEISSOL_DR_OUTPUT_BASE_HPP
 
-#include "Initializer/InputAux.hpp"
-#include "Initializer/DynamicRupture.h"
-#include "DynamicRupture/Output/ParametersInitializer.hpp"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
+#include "DynamicRupture/Output/ParametersInitializer.hpp"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/InputAux.hpp"
 #include <iostream>
 #include <memory>
 
@@ -55,9 +55,9 @@ class Base {
 
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* description,
-                           seissol::Interoperability& e_interoperability);
+                           seissol::Interoperability& eInteroperability);
 
-  virtual void postCompute(seissol::initializers::DynamicRupture& DynRup) = 0;
+  virtual void postCompute(seissol::initializers::DynamicRupture& dynRup) = 0;
 
   protected:
   void initElementwiseOutput();

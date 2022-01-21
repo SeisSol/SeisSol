@@ -52,7 +52,7 @@ class seissol::dr::friction_law::BluePrint : public seissol::dr::friction_law::B
       precomputeStressFromQInterpolated(
           faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-      for (int timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) { // loop over time steps
+      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
         /*
          * add friction law calculation here:
          * computed slip rates, traction, friction coefficients and state variables

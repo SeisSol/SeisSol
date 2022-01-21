@@ -34,37 +34,37 @@ std::unique_ptr<FaultRefiner> get(RefinerType strategy) {
 
 void FaultRefiner::repeat(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3) {
   ExtTriangle subGlobalFace(
-      std::get<GLOBAL>(point1), std::get<GLOBAL>(point2), std::get<GLOBAL>(point3));
+      std::get<global>(point1), std::get<global>(point2), std::get<global>(point3));
 
   ExtTriangle subReferenceFace(
-      std::get<REFERENCE>(point1), std::get<REFERENCE>(point2), std::get<REFERENCE>(point3));
+      std::get<reference>(point1), std::get<reference>(point2), std::get<reference>(point3));
 
   refineAndAccumulate({data.refinementLevel - 1, data.faultFaceIndex, data.localFaceSideId},
                       std::make_pair(subGlobalFace, subReferenceFace));
 }
 
-void FaultRefiner::addReceiver(Data data, TrianglePair& Face) {
+void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   ReceiverPointT receiver{};
   receiver.isInside = true;
   receiver.faultFaceIndex = data.faultFaceIndex;
   receiver.localFaceSideId = data.localFaceSideId;
   receiver.globalReceiverIndex = points.size();
-  receiver.global = getMidTrianglePoint(std::get<GLOBAL>(Face));
-  receiver.reference = getMidTrianglePoint(std::get<REFERENCE>(Face));
-  receiver.globalTriangle = std::get<GLOBAL>(Face);
+  receiver.global = getMidTrianglePoint(std::get<global>(face));
+  receiver.reference = getMidTrianglePoint(std::get<reference>(face));
+  receiver.globalTriangle = std::get<global>(face);
 
   points.push_back(receiver);
 }
 
-void TripleFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair Face) {
+void TripleFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 
   if (data.refinementLevel == 0) {
-    addReceiver(data, Face);
+    addReceiver(data, face);
     return;
   }
 
-  auto& globalFace = std::get<GLOBAL>(Face);
-  auto& referenceFace = std::get<REFERENCE>(Face);
+  auto& globalFace = std::get<global>(face);
+  auto& referenceFace = std::get<reference>(face);
 
   auto midPoint =
       std::make_pair(getMidTrianglePoint(globalFace), getMidTrianglePoint(referenceFace));
@@ -78,15 +78,15 @@ void TripleFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair Face) {
   repeat(data, points[0], midPoint, points[2]);
 }
 
-void QuadFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair Face) {
+void QuadFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 
   if (data.refinementLevel == 0) {
-    addReceiver(data, Face);
+    addReceiver(data, face);
     return;
   }
 
-  auto& globalFace = std::get<GLOBAL>(Face);
-  auto& referenceFace = std::get<REFERENCE>(Face);
+  auto& globalFace = std::get<global>(face);
+  auto& referenceFace = std::get<reference>(face);
 
   auto split = [&globalFace, &referenceFace](size_t pointIndex1, size_t pointIndex2) {
     return std::make_pair(getMidPoint(globalFace[pointIndex1], globalFace[pointIndex2]),

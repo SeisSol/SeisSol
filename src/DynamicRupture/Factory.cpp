@@ -1,33 +1,33 @@
 #include "Factory.h"
 
-#include <Solver/Interoperability.h>
 #include "FrictionLaws/FrictionLaws.h"
+#include <Solver/Interoperability.h>
 
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory> getFactory(dr::DRParameters& drParameters) {
   switch (drParameters.frictionLawType) {
-  case FrictionLawType::no_fault:
+  case FrictionLawType::NoFault:
     return std::make_unique<NoFaultFactory>(drParameters);
-  case FrictionLawType::imposed_slip_rates:
+  case FrictionLawType::ImposedSlipRates:
     return std::make_unique<ImposedSlipRatesFactory>(drParameters);
-  case FrictionLawType::linear_slip_weakening:
+  case FrictionLawType::LinearSlipWeakening:
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters);
-  case FrictionLawType::linear_slip_weakening_forced_rupture_time:
+  case FrictionLawType::LinearSlipWeakeningForcedRuptureTime:
     return std::make_unique<LinearSlipWeakeningForcedRuptureTimeFactory>(drParameters);
   // Prakash-Clifton regularisation for bimaterial faults: see (Pelties et al. 2014)
-  case FrictionLawType::linear_slip_weakening_bimaterial:
+  case FrictionLawType::LinearSlipWeakeningBimaterial:
     return std::make_unique<LinearSlipWeakeningBimaterialFactory>(drParameters);
-  case FrictionLawType::rate_and_state_aging_law:
+  case FrictionLawType::RateAndStateAgingLaw:
     return std::make_unique<RateAndStateAgingFactory>(drParameters);
-  case FrictionLawType::rate_and_state_slip_law:
+  case FrictionLawType::RateAndStateSlipLaw:
     return std::make_unique<RateAndStateSlipFactory>(drParameters);
-  case FrictionLawType::rate_and_state_velocity_weakening:
+  case FrictionLawType::RateAndStateVelocityWeakening:
     logError() << "friction law 7 currently disabled";
     return std::unique_ptr<AbstractFactory>(nullptr);
-  case FrictionLawType::rate_and_state_aging_nucleation:
+  case FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
     return std::unique_ptr<AbstractFactory>(nullptr);
-  case FrictionLawType::rate_and_state_fast_velocity_weakening:
+  case FrictionLawType::RateAndStateFastVelocityWeakening:
     if (drParameters.isThermalPressureOn == false)
       return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters);
     else
@@ -38,42 +38,42 @@ std::unique_ptr<AbstractFactory> getFactory(dr::DRParameters& drParameters) {
   }
 }
 
-products NoFaultFactory::produce() {
+Products NoFaultFactory::produce() {
   return {std::make_unique<seissol::initializers::DynamicRupture>(),
           std::make_unique<initializers::NoFaultInitializer>(drParameters),
           std::make_unique<friction_law::NoFault>(drParameters),
           std::make_unique<output::NoFault>()};
 }
 
-products LinearSlipWeakeningFactory::produce() {
+Products LinearSlipWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
           std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
           std::make_unique<friction_law::LinearSlipWeakeningLaw>(drParameters),
           std::make_unique<output::LinearSlipWeakening>()};
 }
 
-products RateAndStateAgingFactory::produce() {
+Products RateAndStateAgingFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
           std::make_unique<initializers::RateAndStateInitializer>(drParameters),
           std::make_unique<friction_law::AgingLaw>(drParameters),
           std::make_unique<output::RateAndState>()};
 }
 
-products RateAndStateSlipFactory::produce() {
+Products RateAndStateSlipFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
           std::make_unique<initializers::RateAndStateInitializer>(drParameters),
           std::make_unique<friction_law::SlipLaw>(drParameters),
           std::make_unique<output::RateAndState>()};
 }
 
-products LinearSlipWeakeningBimaterialFactory::produce() {
+Products LinearSlipWeakeningBimaterialFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningBimaterial>(),
           std::make_unique<initializers::LinearSlipWeakeningBimaterialInitializer>(drParameters),
           std::make_unique<friction_law::LinearSlipWeakeningLawBimaterial>(drParameters),
           std::make_unique<output::LinearSlipWeakeningBimaterial>()};
 }
 
-products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
+Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
   return {
       std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
       std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
@@ -81,21 +81,21 @@ products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
       std::make_unique<output::LinearSlipWeakening>()};
 }
 
-products ImposedSlipRatesFactory::produce() {
+Products ImposedSlipRatesFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_ImposedSlipRates>(),
           std::make_unique<initializers::ImposedSlipRatesInitializer>(drParameters),
           std::make_unique<friction_law::ImposedSlipRates>(drParameters),
           std::make_unique<output::ImposedSlipRates>()};
 }
 
-products RateAndStateFastVelocityWeakeningFactory::produce() {
+Products RateAndStateFastVelocityWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
           std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
           std::make_unique<friction_law::FastVelocityWeakeningLaw>(drParameters),
           std::make_unique<output::RateAndState>()};
 }
 
-products RateAndStateThermalPressurisationFactory::produce() {
+Products RateAndStateThermalPressurisationFactory::produce() {
   return {
       std::make_unique<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
       std::make_unique<initializers::RateAndStateThermalPressurisationInitializer>(drParameters),

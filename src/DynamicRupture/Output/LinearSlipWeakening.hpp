@@ -8,10 +8,10 @@ class LinearSlipWeakening : public Base {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* dynRup,
-                   seissol::Interoperability& e_interoperability) override {
-    Base::tiePointers(layerData, dynRup, e_interoperability);
+                   seissol::Interoperability& eInteroperability) override {
+    Base::tiePointers(layerData, dynRup, eInteroperability);
 
-    auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
@@ -25,12 +25,12 @@ class LinearSlipWeakening : public Base {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-      e_interoperability.copyFrictionOutputToFortranSpecific(
+      eInteroperability.copyFrictionOutputToFortranSpecific(
           ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
     // do nothing
   }
 };

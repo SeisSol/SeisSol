@@ -3,8 +3,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include "Initializer/InputAux.hpp"
 #include "DynamicRupture/Typedefs.hpp"
+#include "Initializer/InputAux.hpp"
 #include "Kernels/precision.hpp"
 #include "Typedefs.hpp"
 
@@ -30,16 +30,16 @@ struct DRParameters {
   int energyRatePrintTimeInterval{1};
   bool isInstaHealingOn{false};
   real t0{0.0};
-  real rs_f0{0.0};
-  real rs_a{0.0};
-  real rs_b{0.0};
-  real rs_sr0{0.0};
-  real rs_initialSlipRate1{0.0};
-  real rs_initialSlipRate2{0.0};
-  real mu_w{0.0};
-  real alpha_th{0.0};
-  real rho_c{0.0};
-  real tP_lambda{0.0};
+  real rsF0{0.0};
+  real rsA{0.0};
+  real rsB{0.0};
+  real rsSr0{0.0};
+  real rsInitialSlipRate1{0.0};
+  real rsInitialSlipRate2{0.0};
+  real muW{0.0};
+  real alphaTh{0.0};
+  real rhoC{0.0};
+  real tpLambda{0.0};
   real initialTemperature{0.0};
   real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
@@ -75,18 +75,18 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
         yamlParams, "energy_rate_printtimeinterval", drParameters.backgroundType);
     initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
     initializers::updateIfExists(yamlParams, "t_0", drParameters.t0);
-    initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rs_f0);
-    initializers::updateIfExists(yamlParams, "rs_a", drParameters.rs_a);
-    initializers::updateIfExists(yamlParams, "rs_b", drParameters.rs_b);
-    initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rs_sr0);
-    initializers::updateIfExists(yamlParams, "rs_inisliprate1", drParameters.rs_initialSlipRate1);
-    initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rs_initialSlipRate2);
-    initializers::updateIfExists(yamlParams, "mu_w", drParameters.mu_w);
+    initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rsF0);
+    initializers::updateIfExists(yamlParams, "rs_a", drParameters.rsA);
+    initializers::updateIfExists(yamlParams, "rs_b", drParameters.rsB);
+    initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rsSr0);
+    initializers::updateIfExists(yamlParams, "rs_inisliprate1", drParameters.rsInitialSlipRate1);
+    initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rsInitialSlipRate2);
+    initializers::updateIfExists(yamlParams, "mu_w", drParameters.muW);
 
     // Thermal Pressurisation parameters
-    initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alpha_th);
-    initializers::updateIfExists(yamlParams, "rho_c", drParameters.rho_c);
-    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tP_lambda);
+    initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alphaTh);
+    initializers::updateIfExists(yamlParams, "rho_c", drParameters.rhoC);
+    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tpLambda);
     initializers::updateIfExists(yamlParams, "initemp", drParameters.initialTemperature);
     initializers::updateIfExists(yamlParams, "inipressure", drParameters.initialPressure);
 

@@ -4,35 +4,33 @@ namespace seissol::dr::friction_law {
 void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                           seissol::initializers::DynamicRupture* dynRup,
                                           real fullUpdateTime) {
-  // first copy all Variables from the Base Lts dynRup tree
-  BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-
-  auto concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
   nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
   averagedSlip = layerData.var(concreteLts->averagedSlip);
 }
 
-void ImposedSlipRates::updateFrictionAndSlip(FaultStresses& faultStresses,
-                                             std::array<real, numPaddedPoints>& stateVariableBuffer,
-                                             std::array<real, numPaddedPoints>& strengthBuffer,
-                                             unsigned& ltsFace,
-                                             unsigned& timeIndex) {
+void ImposedSlipRates::updateFrictionAndSlip(
+    FaultStresses& faultStresses,
+    std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+    std::array<real, misc::numPaddedPoints>& strengthBuffer,
+    unsigned& ltsFace,
+    unsigned& timeIndex) {
   real timeInc = deltaT[timeIndex];
-  real tn = m_fullUpdateTime;
+  real tn = mFullUpdateTime;
   for (unsigned i = 0; i <= timeIndex; i++) {
     tn += deltaT[i];
   }
   real gNuc = this->calcSmoothStepIncrement(tn, timeInc) / timeInc;
 
-  for (int pointIndex = 0; pointIndex < numPaddedPoints; pointIndex++) {
+  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     //! EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
-    faultStresses.XYTractionResultGP[timeIndex][pointIndex] =
-        faultStresses.XYStressGP[timeIndex][pointIndex] -
-        this->impAndEta[ltsFace].eta_s * this->nucleationStressInFaultCS[ltsFace][pointIndex][0] *
+    faultStresses.xyTractionResult[timeIndex][pointIndex] =
+        faultStresses.xyStress[timeIndex][pointIndex] -
+        this->impAndEta[ltsFace].etaS * this->nucleationStressInFaultCS[ltsFace][pointIndex][0] *
             gNuc;
-    faultStresses.XZTractionResultGP[timeIndex][pointIndex] =
-        faultStresses.XZStressGP[timeIndex][pointIndex] -
-        this->impAndEta[ltsFace].eta_s * this->nucleationStressInFaultCS[ltsFace][pointIndex][1] *
+    faultStresses.xzTractionResult[timeIndex][pointIndex] =
+        faultStresses.xzStress[timeIndex][pointIndex] -
+        this->impAndEta[ltsFace].etaS * this->nucleationStressInFaultCS[ltsFace][pointIndex][1] *
             gNuc;
     this->slipRate1[ltsFace][pointIndex] =
         this->nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
@@ -47,14 +45,14 @@ void ImposedSlipRates::updateFrictionAndSlip(FaultStresses& faultStresses,
     this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
         this->slipRateMagnitude[ltsFace][pointIndex] * timeInc;
 
-    this->tractionXY[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
-    this->tractionXZ[ltsFace][pointIndex] = faultStresses.XYTractionResultGP[timeIndex][pointIndex];
+    this->tractionXY[ltsFace][pointIndex] = faultStresses.xyTractionResult[timeIndex][pointIndex];
+    this->tractionXZ[ltsFace][pointIndex] = faultStresses.xyTractionResult[timeIndex][pointIndex];
   }
 }
 
-void ImposedSlipRates::preHook(std::array<real, numPaddedPoints>& stateVariableBuffer,
+void ImposedSlipRates::preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                                unsigned ltsFace){};
-void ImposedSlipRates::postHook(std::array<real, numPaddedPoints>& stateVariableBuffer,
+void ImposedSlipRates::postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                                 unsigned ltsFace){};
 void ImposedSlipRates::saveDynamicStressOutput(unsigned int ltsFace) {}
 } // namespace seissol::dr::friction_law

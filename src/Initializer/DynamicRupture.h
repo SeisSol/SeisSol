@@ -165,18 +165,18 @@ public:
 };
 
 struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initializers::DynamicRupture {
-    Variable<real[ numOfPointsPadded ]> d_c;
-    Variable<real[ numOfPointsPadded ]> mu_s;
-    Variable<real[ numOfPointsPadded ]> mu_d;
+    Variable<real[ numOfPointsPadded ]> dC;
+    Variable<real[ numOfPointsPadded ]> muS;
+    Variable<real[ numOfPointsPadded ]> muD;
     Variable<real[ numOfPointsPadded ]> cohesion;
 
 
     virtual void addTo(initializers::LTSTree& tree) {
         seissol::initializers::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
-        tree.addVar(d_c,                              mask,                 1,      seissol::memory::Standard );
-        tree.addVar(mu_s, mask, 1, seissol::memory::Standard );
-        tree.addVar(mu_d, mask, 1, seissol::memory::Standard );
+        tree.addVar(dC, mask, 1, seissol::memory::Standard );
+        tree.addVar(muS, mask, 1, seissol::memory::Standard );
+        tree.addVar(muD, mask, 1, seissol::memory::Standard );
         tree.addVar(cohesion, mask,1, seissol::memory::Standard );
     }
 };
@@ -204,27 +204,27 @@ struct seissol::initializers::LTS_LinearSlipWeakeningBimaterial : public seissol
 };
 
 struct seissol::initializers::LTS_RateAndState : public seissol::initializers::DynamicRupture {
-  Variable<real[ numOfPointsPadded ]> rs_a;
-  Variable<real[ numOfPointsPadded ]> rs_sl0;
+  Variable<real[ numOfPointsPadded ]> rsA;
+  Variable<real[ numOfPointsPadded ]> rsSl0;
   Variable<real[ numOfPointsPadded ]> stateVariable;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rs_a, mask, 1, seissol::memory::Standard );
-    tree.addVar(rs_sl0, mask, 1, seissol::memory::Standard );
+    tree.addVar(rsA, mask, 1, seissol::memory::Standard );
+    tree.addVar(rsSl0, mask, 1, seissol::memory::Standard );
     tree.addVar(stateVariable, mask, 1, seissol::memory::Standard );
   }
 };
 
 
 struct seissol::initializers::LTS_RateAndStateFastVelocityWeakening : public seissol::initializers::LTS_RateAndState {
-  Variable<real[ numOfPointsPadded ]> rs_srW;
+  Variable<real[ numOfPointsPadded ]> rsSrW;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndState::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rs_srW, mask, 1, seissol::memory::Standard );
+    tree.addVar(rsSrW, mask, 1, seissol::memory::Standard );
   }
 };
 
@@ -232,9 +232,9 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public sei
 
   Variable<real[numOfPointsPadded]>                               temperature;  //this is TP[1] in fortran
   Variable<real[numOfPointsPadded]>                               pressure;     //this is TP[2] in fortran
-  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      TP_theta;
-  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      TP_sigma;
-  Variable<real[numOfPointsPadded]>                               TP_halfWidthShearZone;
+  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      tpTheta;
+  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      tpSigma;
+  Variable<real[numOfPointsPadded]>                               tpHalfWidthShearZone;
   Variable<real[numOfPointsPadded]>                               alphaHy;
 
   virtual void addTo(initializers::LTSTree& tree) {
@@ -242,9 +242,9 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public sei
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      temperature,                mask,                 1,      seissol::memory::Standard );
     tree.addVar(      pressure,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_theta,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_sigma,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_halfWidthShearZone,      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(tpTheta, mask, 1, seissol::memory::Standard );
+    tree.addVar(tpSigma, mask, 1, seissol::memory::Standard );
+    tree.addVar(tpHalfWidthShearZone, mask, 1, seissol::memory::Standard );
     tree.addVar(      alphaHy,                    mask,                 1,      seissol::memory::Standard );
   }
 };

@@ -1,13 +1,13 @@
 #include "Solver/Interoperability.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Initializer/DynamicRupture.h"
-#include "SeisSol.h"
 #include "Base.hpp"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/tree/Layer.hpp"
 #include "ResultWriter/common.hpp"
-#include <fstream>
-#include <unordered_map>
+#include "SeisSol.h"
 #include <filesystem>
+#include <fstream>
 #include <type_traits>
+#include <unordered_map>
 
 struct NativeFormat {};
 struct WideFormat {};
@@ -221,26 +221,26 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
     auto ltsMap = faceToLtsMap[outputData.receiverPoints[i].faultFaceIndex];
-    const auto layer = ltsMap.first;
+    auto* const layer = ltsMap.first;
     const auto ltsId = ltsMap.second;
 
-    auto mu = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->mu));
-    auto rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->ruptureTime));
-    auto slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->accumulatedSlipMagnitude));
-    auto peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSlipRate));
+    auto* mu = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->mu));
+    auto* rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->ruptureTime));
+    auto* slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->accumulatedSlipMagnitude));
+    auto* peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSlipRate));
 
     const auto nearestGaussPoint = outputData.receiverPoints[i].nearestGpIndex;
     const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
 
-    const auto normal = outputData.faultDirections[faceIndex].faceNormal;
-    const auto tangent1 = outputData.faultDirections[faceIndex].tangent1;
-    const auto tangent2 = outputData.faultDirections[faceIndex].tangent2;
-    const auto strike = outputData.faultDirections[faceIndex].strike;
-    const auto dip = outputData.faultDirections[faceIndex].dip;
+    const auto* const normal = outputData.faultDirections[faceIndex].faceNormal;
+    const auto* const tangent1 = outputData.faultDirections[faceIndex].tangent1;
+    [[maybe_unused]] const auto* const tangent2 = outputData.faultDirections[faceIndex].tangent2;
+    auto* const strike = outputData.faultDirections[faceIndex].strike;
+    [[maybe_unused]] auto* const dip = outputData.faultDirections[faceIndex].dip;
 
     auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
     if (frictionAndState.isActive) {
-      frictionAndState(ParamID::FRICTION_COEFFICIENT, level, i) = mu[ltsId][nearestGaussPoint];
+      frictionAndState(ParamID::FrictionCoefficient, level, i) = mu[ltsId][nearestGaussPoint];
     }
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
@@ -270,13 +270,13 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
       sin1 = (scalarProd > 0) ? sin1 : -sin1;
 
-      auto slip1 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip1));
-      auto slip2 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip2));
+      auto* slip1 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip1));
+      auto* slip2 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip2));
 
-      slipVectors(DirectionID::STRIKE, level, i) =
+      slipVectors(DirectionID::Strike, level, i) =
           cos1 * slip1[ltsId][nearestGaussPoint] - sin1 * slip2[ltsId][nearestGaussPoint];
 
-      slipVectors(DirectionID::DIP, level, i) =
+      slipVectors(DirectionID::Dip, level, i) =
           sin1 * slip1[ltsId][nearestGaussPoint] + cos1 * slip2[ltsId][nearestGaussPoint];
     }
   }
@@ -289,7 +289,7 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
 void Base::tiePointers(seissol::initializers::Layer& layerData,
                        seissol::initializers::DynamicRupture* description,
-                       seissol::Interoperability& e_interoperability) {
+                       seissol::Interoperability& eInteroperability) {
   constexpr auto size = init::QInterpolated::Stop[0];
   real(*accumulatedSlipMagnitude)[size] = layerData.var(description->accumulatedSlipMagnitude);
   real(*slip1)[size] = layerData.var(description->slip1);
@@ -307,16 +307,16 @@ void Base::tiePointers(seissol::initializers::Layer& layerData,
 #endif
   for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
     unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-    e_interoperability.copyFrictionOutputToFortranGeneral(ltsFace,
-                                                          meshFace,
-                                                          accumulatedSlipMagnitude,
-                                                          slip1,
-                                                          slip2,
-                                                          ruptureTime,
-                                                          dynStressTime,
-                                                          peakSR,
-                                                          tractionXY,
-                                                          tractionXZ);
+    eInteroperability.copyFrictionOutputToFortranGeneral(ltsFace,
+                                                         meshFace,
+                                                         accumulatedSlipMagnitude,
+                                                         slip1,
+                                                         slip2,
+                                                         ruptureTime,
+                                                         dynStressTime,
+                                                         peakSR,
+                                                         tractionXY,
+                                                         tractionXZ);
   }
 }
 } // namespace seissol::dr::output

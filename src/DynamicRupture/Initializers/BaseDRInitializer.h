@@ -5,9 +5,9 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Parameters.h"
 #include "Initializer/InputAux.hpp"
 #include "Initializer/ParameterDB.h"
-#include "DynamicRupture/Parameters.h"
 
 namespace seissol::dr::initializers {
 /**
@@ -52,7 +52,7 @@ class BaseDRInitializer {
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* e_interoperability);
+                               seissol::Interoperability* eInteroperability);
 
   protected:
   /**

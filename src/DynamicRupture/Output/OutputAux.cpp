@@ -1,8 +1,8 @@
 #include "OutputAux.hpp"
 #include "Geometry/MeshTools.h"
+#include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
-#include "Numerical_aux/BasisFunction.h"
 #include <Eigen/Dense>
 #include <limits>
 
@@ -60,9 +60,9 @@ void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, Vrtx
   // Note: equations are explained in documentation -> left-lateral-right-lateral-normal-reverse
 
   // compute normalized strike vector
-  auto StrikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);
-  strike[0] = normal[1] * StrikeInvLength;
-  strike[1] = -normal[0] * StrikeInvLength;
+  auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);
+  strike[0] = normal[1] * strikeInvLength;
+  strike[1] = -normal[0] * strikeInvLength;
   strike[2] = 0.0;
 
   // compute normalized dip vector
@@ -137,7 +137,7 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
   unsigned numPoints{};
 
   std::tie(numPoints, weights, pointsData) = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
-  double(*TrianglePoints2D)[2] = reshape<2>(&pointsData[0]);
+  double(*trianglePoints2D)[2] = reshape<2>(&pointsData[0]);
 
   for (auto& geoPoint : geoPoints) {
 
@@ -148,7 +148,7 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, TrianglePoints2D, numPoints);
+        getNearestFacePoint(targetPoint2D, trianglePoints2D, numPoints);
     geoPoint.nearestGpIndex = nearestPoint;
     geoPoint.distanceToNearestGp = shortestDistance;
   }
