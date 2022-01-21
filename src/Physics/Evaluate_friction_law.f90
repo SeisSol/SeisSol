@@ -454,7 +454,7 @@ MODULE Eval_friction_law_mod
             f2=0.
          end where
         ELSE
-           f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
+           f2=dmax1(0d0,dmin1((tn-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
         ENDIF
      ELSE !no forced time rupture
         f2=0.
