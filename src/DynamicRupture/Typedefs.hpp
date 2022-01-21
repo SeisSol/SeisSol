@@ -32,7 +32,7 @@ struct ImpedancesAndEta {
   real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, inv_eta_s, inv_Zp, inv_Zs, inv_Zp_neig, inv_Zs_neig;
 };
 
-constexpr unsigned int TP_grid_nz = 60;
+constexpr unsigned int numberOfTPGridPoints = 60;
 } // namespace seissol::dr
 
 #endif

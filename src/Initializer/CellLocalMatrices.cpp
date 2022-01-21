@@ -595,17 +595,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   }
 }
 
-//added by adrian
-void seissol::initializers::initializeFrictionMatrices(
-    seissol::dr::initializers::BaseDRInitializer* FrictionInitializer,
-    seissol::dr::friction_law::BaseFrictionLaw* FrictionLaw,
-    seissol::initializers::DynamicRupture *dynRup,
-    seissol::initializers::LTSTree* dynRupTree,
-    unsigned*              ltsFaceToMeshFace,
-    seissol::Interoperability &e_interoperability
-    ){
-}
-
 void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
                                                      LTS*              lts,
                                                      LTSTree*          dynRupTree,

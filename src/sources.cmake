@@ -123,15 +123,16 @@ src/Parallel/mpiF.f90
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
+src/DynamicRupture/Misc.cpp
 src/DynamicRupture/Factory.cpp
 src/DynamicRupture/FrictionLaws/AgingLaw.cpp
 src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
+src/DynamicRupture/FrictionLaws/FastVelocityWeakeningLaw.cpp
 src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
 src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
 src/DynamicRupture/FrictionLaws/NoFault.cpp
-src/DynamicRupture/FrictionLaws/RateAndState.cpp
 src/DynamicRupture/FrictionLaws/SlipLaw.cpp
-src/DynamicRupture/FrictionLaws/VelocityWeakening.cpp
+src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
 src/DynamicRupture/Initializers/BaseDRInitializer.cpp
 src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp

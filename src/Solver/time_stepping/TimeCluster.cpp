@@ -107,7 +107,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
-                                                  seissol::dr::friction_law::BaseFrictionLaw* i_FrictionLaw,
+                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
                                                   dr::output::Base* i_DrOutput,
                                                   LoopStatistics* i_loopStatistics ):
  // cluster ids
@@ -123,7 +123,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
  m_dynRup(                  i_dynRup                   ),
- m_FrictionLaw(             i_FrictionLaw               ),
+ m_FrictionSolver(          i_FrictionSolver            ),
  m_DrOutput(                i_DrOutput                 ),
  // cells
  m_cellToPointSources(      NULL                       ),
@@ -257,7 +257,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
-  m_FrictionLaw->computeDeltaT(m_dynamicRuptureKernel.timePoints);
+  m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
@@ -277,7 +277,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   } //End layerData.getNumberOfCells()-loop
 
   //Todo: Why did Adrian move this out of the loop
-  m_FrictionLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights);
+  m_FrictionSolver->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights);
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 }

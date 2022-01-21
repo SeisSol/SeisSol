@@ -1,5 +1,7 @@
 #include "RateAndStateInitializer.h"
 
+#include "DynamicRupture/Misc.h"
+
 namespace seissol::dr::initializers {
 void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                               seissol::initializers::LTSTree* dynRupTree,
@@ -12,10 +14,10 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
        it != dynRupTree->endLeaf();
        ++it) {
 
-    bool(*ds)[numPaddedPoints] = it->var(concreteLts->ds);
+    bool(*dynStressTimePending)[numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
-    real(*slipRateStrike)[numPaddedPoints] = it->var(concreteLts->slipRateStrike);
-    real(*slipRateDip)[numPaddedPoints] = it->var(concreteLts->slipRateDip);
+    real(*slipRate1)[numPaddedPoints] = it->var(concreteLts->slipRate1);
+    real(*slipRate2)[numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
 
     real(*stateVariable)[numPaddedPoints] = it->var(concreteLts->stateVariable);
@@ -24,14 +26,14 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
     real(*initialStressInFaultCS)[numPaddedPoints][6] =
         it->var(concreteLts->initialStressInFaultCS);
 
-    real initialSlipRate = std::sqrt(std::pow(drParameters.rs_initialSlipRate1, 2) +
-                                     std::pow(drParameters.rs_initialSlipRate2, 2));
+    real initialSlipRate =
+        misc::magnitude(drParameters.rs_initialSlipRate1, drParameters.rs_initialSlipRate2);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        ds[ltsFace][pointIndex] = drParameters.isDsOutputOn;
-        slipRateStrike[ltsFace][pointIndex] = drParameters.rs_initialSlipRate1;
-        slipRateDip[ltsFace][pointIndex] = drParameters.rs_initialSlipRate2;
+        dynStressTimePending[ltsFace][pointIndex] = drParameters.isDsOutputOn;
+        slipRate1[ltsFace][pointIndex] = drParameters.rs_initialSlipRate1;
+        slipRate2[ltsFace][pointIndex] = drParameters.rs_initialSlipRate2;
         // compute initial friction and state
         std::tie(stateVariable[ltsFace][pointIndex], mu[ltsFace][pointIndex]) =
             computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][pointIndex][3],
@@ -51,7 +53,7 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
       e_interoperability->copyFrictionOutputToFortranSpecific(
-          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
+          ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
       e_interoperability->copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVariable);
     }
   }
@@ -67,7 +69,7 @@ std::pair<real, real>
                                                             real rs_sr0,
                                                             real rs_f0,
                                                             real initialSlipRate) {
-  real absoluteTraction = std::sqrt(std::pow(tractionXY, 2) + std::pow(tractionXZ, 2));
+  real absoluteTraction = misc::magnitude(tractionXY, tractionXZ);
   real tmp = std::abs(absoluteTraction / (rs_a * pressure));
   real stateVariable = rs_sl0 / rs_sr0 *
                        std::exp((rs_a * std::log(std::exp(tmp) - std::exp(-tmp)) - rs_f0 -
@@ -86,7 +88,7 @@ void RateAndStateInitializer::addAdditionalParameters(
   auto concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
   real(*rs_sl0)[numPaddedPoints] = it->var(concreteLts->rs_sl0);
   real(*rs_a)[numPaddedPoints] = it->var(concreteLts->rs_a);
-  parameterToStorageMap.insert({"sl0", (real*)rs_sl0});
+  parameterToStorageMap.insert({"rs_sl0", (real*)rs_sl0});
   parameterToStorageMap.insert({"rs_a", (real*)rs_a});
 }
 
@@ -100,13 +102,12 @@ std::pair<real, real>
                                                                         real rs_sr0,
                                                                         real rs_f0,
                                                                         real initialSlipRate) {
-  real absoluteTraction = std::sqrt(std::pow(tractionXY, 2) + std::pow(tractionXZ, 2));
+  real absoluteTraction = misc::magnitude(tractionXY, tractionXZ);
   real tmp = std::abs(absoluteTraction / (rs_a * pressure));
   real stateVariable =
       rs_a * std::log(2.0 * rs_sr0 / initialSlipRate * (std::exp(tmp) - std::exp(-tmp)) / 2.0);
   real tmp2 = initialSlipRate * 0.5 / rs_sr0 * std::exp(stateVariable / rs_a);
-  // asinh(x)=log(x+sqrt(x^2+1))
-  real mu = rs_a * std::log(tmp2 + std::sqrt(std::pow(tmp2, 2) + 1.0));
+  real mu = rs_a * misc::asinh(tmp2);
   return {stateVariable, mu};
 }
 
@@ -136,16 +137,17 @@ void RateAndStateThermalPressurisationInitializer::initializeFault(
        ++it) {
     real(*temperature)[numPaddedPoints] = it->var(concreteLts->temperature);
     real(*pressure)[numPaddedPoints] = it->var(concreteLts->pressure);
-    real(*TP_Theta)[numPaddedPoints][TP_grid_nz] = it->var(concreteLts->TP_theta);
-    real(*TP_sigma)[numPaddedPoints][TP_grid_nz] = it->var(concreteLts->TP_sigma);
+    real(*TP_Theta)[numPaddedPoints][numberOfTPGridPoints] = it->var(concreteLts->TP_theta);
+    real(*TP_sigma)[numPaddedPoints][numberOfTPGridPoints] = it->var(concreteLts->TP_sigma);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
         temperature[ltsFace][pointIndex] = drParameters.initialTemperature;
-        pressure[ltsFace][pointIndex] = drParameters.iniPressure;
-        for (unsigned iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
-          TP_Theta[ltsFace][pointIndex][iTP_grid_nz] = 0.0;
-          TP_sigma[ltsFace][pointIndex][iTP_grid_nz] = 0.0;
+        pressure[ltsFace][pointIndex] = drParameters.initialPressure;
+        for (unsigned tpGridPointIndex = 0; tpGridPointIndex < numberOfTPGridPoints;
+             ++tpGridPointIndex) {
+          TP_Theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
+          TP_sigma[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
         }
       }
     }

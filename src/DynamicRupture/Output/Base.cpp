@@ -226,7 +226,7 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
     auto mu = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->mu));
     auto rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->ruptureTime));
-    auto slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip));
+    auto slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->accumulatedSlipMagnitude));
     auto peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSlipRate));
 
     const auto nearestGaussPoint = outputData.receiverPoints[i].nearestGpIndex;
@@ -270,8 +270,8 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
       sin1 = (scalarProd > 0) ? sin1 : -sin1;
 
-      auto slip1 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slipStrike));
-      auto slip2 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slipDip));
+      auto slip1 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip1));
+      auto slip2 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip2));
 
       slipVectors(DirectionID::STRIKE, level, i) =
           cos1 * slip1[ltsId][nearestGaussPoint] - sin1 * slip2[ltsId][nearestGaussPoint];
@@ -291,9 +291,9 @@ void Base::tiePointers(seissol::initializers::Layer& layerData,
                        seissol::initializers::DynamicRupture* description,
                        seissol::Interoperability& e_interoperability) {
   constexpr auto size = init::QInterpolated::Stop[0];
-  real(*slip)[size] = layerData.var(description->slip);
-  real(*slipStrike)[size] = layerData.var(description->slipStrike);
-  real(*slipDip)[size] = layerData.var(description->slipDip);
+  real(*accumulatedSlipMagnitude)[size] = layerData.var(description->accumulatedSlipMagnitude);
+  real(*slip1)[size] = layerData.var(description->slip1);
+  real(*slip2)[size] = layerData.var(description->slip2);
   real(*ruptureTime)[size] = layerData.var(description->ruptureTime);
   real(*dynStressTime)[size] = layerData.var(description->dynStressTime);
   real(*peakSR)[size] = layerData.var(description->peakSlipRate);
@@ -309,9 +309,9 @@ void Base::tiePointers(seissol::initializers::Layer& layerData,
     unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
     e_interoperability.copyFrictionOutputToFortranGeneral(ltsFace,
                                                           meshFace,
-                                                          slip,
-                                                          slipStrike,
-                                                          slipDip,
+                                                          accumulatedSlipMagnitude,
+                                                          slip1,
+                                                          slip2,
                                                           ruptureTime,
                                                           dynStressTime,
                                                           peakSR,

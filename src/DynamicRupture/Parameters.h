@@ -17,7 +17,6 @@ namespace seissol::dr {
  */
 struct DRParameters {
   bool isDynamicRuptureEnabled{true};
-  static constexpr unsigned int TP_grid_nz = 60;
   int outputPointType{3};
   Eigen::Vector3d referencePoint;
   int slipRateOutputType{1};
@@ -42,7 +41,7 @@ struct DRParameters {
   real rho_c{0.0};
   real tP_lambda{0.0};
   real initialTemperature{0.0};
-  real iniPressure{0.0};
+  real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName{""};
@@ -89,7 +88,7 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlParams, "rho_c", drParameters.rho_c);
     initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tP_lambda);
     initializers::updateIfExists(yamlParams, "initemp", drParameters.initialTemperature);
-    initializers::updateIfExists(yamlParams, "inipressure", drParameters.iniPressure);
+    initializers::updateIfExists(yamlParams, "inipressure", drParameters.initialPressure);
 
     // Prakash-Clifton regularization parameters
     initializers::updateIfExists(yamlParams, "vStar", drParameters.vStar);

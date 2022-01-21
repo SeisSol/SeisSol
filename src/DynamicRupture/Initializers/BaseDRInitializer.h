@@ -4,7 +4,7 @@
 #include <Solver/Interoperability.h>
 #include <yaml-cpp/yaml.h>
 
-#include "DynamicRupture/FrictionLaws/FrictionLaws.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "Initializer/InputAux.hpp"
 #include "Initializer/ParameterDB.h"
 #include "DynamicRupture/Parameters.h"

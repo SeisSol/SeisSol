@@ -1,7 +1,7 @@
 #ifndef SEISSOL_AGINGLAW_H
 #define SEISSOL_AGINGLAW_H
 
-#include "BaseFrictionLaw.h"
+#include "SlowVelocityWeakeningLaw.h"
 
 namespace seissol::dr::friction_law {
 
@@ -10,22 +10,27 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class AgingLaw : public BaseFrictionLaw {
+class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw> {
   public:
-  using BaseFrictionLaw::BaseFrictionLaw;
-  using BaseFrictionLaw::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<AgingLaw>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<AgingLaw>::copyLtsTreeToLocal;
 
-  protected:
-  virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real rs_sl0);
-
-  public:
-  virtual void
-      evaluate(seissol::initializers::Layer& layerData,
-               seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real fullUpdateTime,
-               double timeWeights[CONVERGENCE_ORDER]) override;
+  /**
+   * Integrates the state variable ODE in time
+   * \f[ \frac{\partial \Theta}{\partial t} = 1 - \frac{V}{L} \Theta. \f]
+   * Analytic solution:
+   * \f[\Theta(t) = - \Theta_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
+   * -\frac{V}{L} \cdot t\right). \f]
+   * @param stateVarReference \f$ \Theta_0 \f$
+   * @param timeIncrement \f$ t \f$
+   * @param localSlipRate \f$ V \f$
+   * @return \f$ \Theta(t) \f$
+   */
+  real updateStateVariable(int pointIndex,
+                           unsigned int face,
+                           real stateVarReference,
+                           real timeIncrement,
+                           real localSlipRate);
 };
 
 } // namespace seissol::dr::friction_law

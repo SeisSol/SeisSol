@@ -15,10 +15,10 @@ void LinearSlipWeakeningInitializer::initializeFault(
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    bool(*DS)[numPaddedPoints] = it->var(concreteLts->ds);
+    bool(*dynStressTimePending)[numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
-    real(*slipRateStrike)[numPaddedPoints] = it->var(concreteLts->slipRateStrike);
-    real(*slipRateDip)[numPaddedPoints] = it->var(concreteLts->slipRateDip);
+    real(*slipRate1)[numPaddedPoints] = it->var(concreteLts->slipRate1);
+    real(*slipRate2)[numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
     real(*mu_s)[numPaddedPoints] = it->var(concreteLts->mu_s);
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
@@ -27,16 +27,16 @@ void LinearSlipWeakeningInitializer::initializeFault(
 
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
-        DS[ltsFace][pointIndex] = drParameters.isDsOutputOn;
-        slipRateStrike[ltsFace][pointIndex] = 0.0;
-        slipRateDip[ltsFace][pointIndex] = 0.0;
+        dynStressTimePending[ltsFace][pointIndex] = drParameters.isDsOutputOn;
+        slipRate1[ltsFace][pointIndex] = 0.0;
+        slipRate2[ltsFace][pointIndex] = 0.0;
         // initial friction coefficient is static friction (no slip has yet occurred)
         mu[ltsFace][pointIndex] = mu_s[ltsFace][pointIndex];
       }
       averagedSlip[ltsFace] = 0.0;
       // can be removed once output is in c++
       e_interoperability->copyFrictionOutputToFortranSpecific(
-          ltsFace, meshFace, averagedSlip, slipRateStrike, slipRateDip, mu);
+          ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
     }
   }
 }
