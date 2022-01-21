@@ -176,7 +176,8 @@ gpu_build:
             -DDEVICE_BACKEND=${BACKEND}
             -DDEVICE_ARCH=${GPU_MODEL}
             -DHOST_ARCH=${HOST}
-            -DPRECISION=${precision} ;
+            -DPRECISION=${precision}
+            -DPROXY_PYBINDING=ON ;
             make -j 2 ;
             cd .. ;
           done;
@@ -243,7 +244,9 @@ gpu_performance_test:
         - for precision in double single; do
             echo "[${BACKEND}] Running SeiSol proxy with precision - ${precision}" ;
             cd ./build_${BACKEND}_${precision} ;
-            ./SeisSol_proxy_Release_* 100000 100 all ;
+            pip3 install -r ./proxy-runners/requirements.txt ;
+            python3 ./proxy-runners/run-all.py -c 25000 -t 100 ;
+            cat ./proxy_*.pd ;
             cd .. ;
           done;
         - set +u
