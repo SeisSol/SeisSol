@@ -30,7 +30,7 @@ template <class T> inline void hashCombine(std::size_t &seed, const T &value) {
   seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-template <class T> class ConditionalHash;
+template <class T> struct ConditionalHash;
 
 template <> struct ConditionalHash<ConditionalKey> {
   std::size_t operator()(ConditionalKey const &key) const {

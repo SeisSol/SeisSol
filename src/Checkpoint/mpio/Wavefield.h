@@ -83,18 +83,18 @@ public:
 	{
 	}
 
-	void setHeader(WavefieldHeader &header);
+	void setHeader(WavefieldHeader &header) override;
 
-	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1);
+	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1) override;
 
-	void load(real* dofs);
+	void load(real* dofs) override;
 
-	void initHeader(WavefieldHeader &header);
+	void initHeader(WavefieldHeader &header) override;
 
-	void write(const void* header, size_t headerSize);
+	void write(const void* header, size_t headerSize) override;
 
 protected:
-	bool validate(MPI_File file);
+	bool validate(MPI_File file) override;
 
 	/**
 	 * Write the header information to the file

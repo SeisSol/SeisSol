@@ -98,5 +98,5 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 }
 
 char const * const seissol::writer::FreeSurfaceWriterExecutor::LABELS[] = {
-	"u", "v", "w", "U", "V", "W", "locationFlag"
+	"v1", "v2", "v3", "u1", "u2", "u3", "locationFlag"
 };

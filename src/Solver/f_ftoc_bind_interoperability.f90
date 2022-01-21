@@ -200,14 +200,6 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_addRecPoint
-    subroutine c_interoperability_addRecPoint( x, y, z ) bind( C, name='c_interoperability_addRecPoint' )
-      use iso_c_binding, only: c_double
-      implicit none
-      real(kind=c_double), value :: x,y,z
-    end subroutine
-  end interface
-
   interface c_interoperability_setMaterial
     subroutine c_interoperability_setMaterial( i_elem, i_side, i_materialVal, i_numMaterialVals ) bind( C, name='c_interoperability_setMaterial' )
     use iso_c_binding
@@ -303,7 +295,7 @@ module f_ftoc_bind_interoperability
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, &
         freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
-        receiverSamplingInterval, receiverSyncInterval ) &
+        receiverFileName, receiverSamplingInterval, receiverSyncInterval ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -325,6 +317,7 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), value                    :: freeSurfaceInterval
       character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
+      character(kind=c_char), dimension(*), intent(in) :: receiverFileName
       real(kind=c_double), value                    :: receiverSamplingInterval
       real(kind=c_double), value                    :: receiverSyncInterval
     end subroutine

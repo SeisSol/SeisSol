@@ -20,6 +20,7 @@ class ODEVector {
 
 public:
   ODEVector() = default;
+  ODEVector(const ODEVector&) = default;
 
   /**
    *

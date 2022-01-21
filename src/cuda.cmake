@@ -14,7 +14,7 @@ set(DEVICE_SRC ${DEVICE_SRC}
 
 set_source_files_properties(${DEVICE_SRC} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
 
-cuda_add_library(Seissol-device-lib STATIC ${DEVICE_SRC})
-target_include_directories(Seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE}
+cuda_add_library(SeisSol-device-lib STATIC ${DEVICE_SRC})
+target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE}
                                                      ${CUDA_TOOLKIT_ROOT_DIR})
-target_compile_options(Seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
+target_compile_options(SeisSol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})

@@ -1,3 +1,4 @@
+# Source code
 add_library(SeisSol-lib
 
 src/Initializer/ParameterDB.cpp
@@ -17,16 +18,6 @@ src/Model/common.cpp
 src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Transformation.cpp
 src/Numerical_aux/Statistics.cpp
-
-src/generated_code/subroutine.h
-src/generated_code/tensor.cpp
-src/generated_code/subroutine.cpp
-src/generated_code/tensor.h
-src/generated_code/init.cpp
-#src/generated_code/KernelTest.t.h
-src/generated_code/init.h
-src/generated_code/kernel.h
-src/generated_code/kernel.cpp
 
 src/Solver/Simulator.cpp
 src/Solver/FreeSurfaceIntegrator.cpp
@@ -114,7 +105,6 @@ src/ResultWriter/energies.f90
 src/ResultWriter/FaultWriterF.f90
 src/ResultWriter/faultoutput.f90
 src/ResultWriter/common_fault_receiver.f90
-src/ResultWriter/receiver.f90
 src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
@@ -122,7 +112,15 @@ src/Parallel/mpiF.f90
 
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
+
+target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
 
 if (MPI)
   target_sources(SeisSol-lib PUBLIC
@@ -132,8 +130,6 @@ if (MPI)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/WavefieldAsync.cpp
 )
 endif()
-
-target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
 
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC
@@ -219,6 +215,8 @@ endif()
 target_include_directories(SeisSol-lib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
+
+# GPU code
 if (WITH_GPU)
   target_sources(SeisSol-lib PUBLIC
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders/LocalIntegrationRecorder.cpp
@@ -232,6 +230,7 @@ if (WITH_GPU)
                              ${CMAKE_BINARY_DIR}/src/generated_code
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+  # include cmake files will define SeisSol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda")
     include(${CMAKE_SOURCE_DIR}/src/cuda.cmake)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hip")
@@ -240,11 +239,6 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 
-  target_compile_options(Seissol-device-lib PRIVATE -fPIC)
-
-  add_dependencies(Seissol-device-lib SeisSol-codegen)
-  target_link_libraries(SeisSol-lib PUBLIC Seissol-device-lib)
-
-else()
-  add_dependencies(SeisSol-lib SeisSol-codegen)
+  target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
+  target_include_directories(SeisSol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 endif()
