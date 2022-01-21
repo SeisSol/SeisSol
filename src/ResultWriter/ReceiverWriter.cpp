@@ -39,6 +39,7 @@
 
 #include "ReceiverWriter.h"
 
+#include <cctype>
 #include <iterator>
 #include <sstream>
 #include <iomanip>
@@ -46,6 +47,46 @@
 #include <sys/stat.h>
 #include <Parallel/MPI.h>
 #include <Modules/Modules.h>
+
+#include <sstream>
+#include <string>
+#include <fstream>
+#include <regex>
+
+Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
+  std::regex rgx("\\s+");
+  std::sregex_token_iterator iter(line.begin(),
+                                  line.end(),
+                                  rgx,
+                                  -1);
+  std::sregex_token_iterator end;
+  Eigen::Vector3d coordinates{};
+  unsigned numberOfCoordinates = 0;
+  for (; iter != end; ++iter, ++numberOfCoordinates) {
+    if (numberOfCoordinates >= coordinates.size()) {
+      throw std::runtime_error("Too many coordinates in line " + line + ".");
+    }
+    coordinates[numberOfCoordinates] = std::stod(*iter);
+  }
+  if (numberOfCoordinates != coordinates.size()) {
+    throw std::runtime_error("To few coordinates in line " + line + ".");
+  }
+  return coordinates;
+}
+
+std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::string& receiverFileName) {
+  std::vector<Eigen::Vector3d> points{};
+
+  std::ifstream file{receiverFileName};
+  std::string line{};
+  while (std::getline(file, line)) {
+    bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), [](auto& c) {
+      return std::isspace(c); // This lambda is needed (opt. argument)
+    });
+    if (!onlyWhiteSpace) points.emplace_back(parseReceiverLine(line));
+  }
+  return points;
+}
 
 std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
@@ -126,22 +167,31 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init( std::string const&  fileNamePrefix,
-                                            double              samplingInterval,
-                                            double              syncPointInterval)
+void seissol::writer::ReceiverWriter::init(std::string receiverFileName, std::string fileNamePrefix,
+                                           double syncPointInterval, double samplingInterval)
 {
-  m_fileNamePrefix = fileNamePrefix;
+  m_receiverFileName = std::move(receiverFileName);
+  m_fileNamePrefix = std::move(fileNamePrefix);
   m_samplingInterval = samplingInterval;
   setSyncInterval(syncPointInterval);
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 
-void seissol::writer::ReceiverWriter::addPoints(  std::vector<Eigen::Vector3d> const& points,
-                                                  MeshReader const&                   mesh,
-                                                  seissol::initializers::Lut const&   ltsLut,
-                                                  seissol::initializers::LTS const&   lts,
-                                                  GlobalData const*                   global ) {
-  int rank = seissol::MPI::mpi.rank();
+void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
+                                                const seissol::initializers::Lut& ltsLut,
+                                                const seissol::initializers::LTS& lts,
+                                                const GlobalData* global ) {
+  std::vector<Eigen::Vector3d> points;
+  const auto rank = seissol::MPI::mpi.rank();
+  // Only parse if we have a receiver file
+  if (!m_receiverFileName.empty()) {
+    points = parseReceiverFile(m_receiverFileName);
+    logInfo(rank) << "Record points read from" << m_receiverFileName;
+    logInfo(rank) << "Number of record points =" << points.size();
+  } else {
+    logInfo(rank) << "No record points read.";
+  }
+
   unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<unsigned> meshIds(numberOfPoints);

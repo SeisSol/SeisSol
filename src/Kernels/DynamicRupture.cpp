@@ -40,10 +40,6 @@
 
 #include "DynamicRupture.h"
 
-#ifndef NDEBUG
-#pragma message "compiling dynamic rupture kernel with assertions"
-#endif
-
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
