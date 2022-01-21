@@ -5,6 +5,7 @@ from scipy import interpolate
 from netCDF4 import Dataset
 from Yoffe import regularizedYoffe
 from scipy import ndimage
+from GaussianSTF import GaussianSTF
 
 
 def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
@@ -374,22 +375,51 @@ class FaultPlane:
                             self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
                             break
 
-    def assess_STF_parameters(self):
+    def assess_STF_parameters(self, threshold):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
+        assert threshold >= 0.0 and threshold < 1
         self.rise_time = np.zeros((self.ny, self.nx))
         self.tacc = np.zeros((self.ny, self.nx))
+        misfits_Yoffe = []
+        misfits_Gaussian = []
         for j in range(self.ny):
             for i in range(self.nx):
                 if not self.slip1[j, i]:
                     self.rise_time[j, i] = np.nan
                     self.tacc[j, i] = np.nan
                 else:
-                    first_non_zero = np.amin(np.where(self.aSR[j, i, :])[0])
-                    last_non_zero = np.amax(np.where(self.aSR[j, i, :])[0])
-                    id_max = np.where(self.aSR[j, i, :] == np.amax(self.aSR[j, i, :]))[0]
+                    peakSR = np.amax(self.aSR[j, i, :])
+                    id_max = np.where(self.aSR[j, i, :] == peakSR)[0][0]
+                    ids_greater_than_threshold = np.where(self.aSR[j, i, :] > threshold * peakSR)[0]
+                    first_non_zero = np.amin(ids_greater_than_threshold)
+                    last_non_zero = np.amax(ids_greater_than_threshold)
                     self.rise_time[j, i] = (last_non_zero - first_non_zero + 1) * self.dt
                     self.tacc[j, i] = (id_max - first_non_zero + 1) * self.dt
-                    self.t0[j, i] += first_non_zero * self.dt
+                    t0_increment = first_non_zero * self.dt
+                    self.t0[j, i] += t0_increment
+                    # 2 dims: 0: Yoffe 1: Gaussian
+                    newSR = np.zeros((self.ndt, 2))
+                    # Ts and Td parameters of the Yoffe function have no direct physical meaning
+                    # Tinti et al. (2005) suggest that Ts can nevertheless be associated with the acceleration time tacc
+                    # Empirically, they find that Ts and Tacc are for most (Ts,Td) parameter sets linearly related
+                    # with the 'magic' number 1.27
+                    ts = self.tacc[j, i] / 1.27
+                    tr = self.rise_time[j, i] - 2.0 * ts
+                    tr = max(tr, ts)
+                    for k, tk in enumerate(self.myt):
+                        newSR[k, 0] = regularizedYoffe(tk - t0_increment, ts, tr)
+                        newSR[k, 1] = GaussianSTF(tk - t0_increment, self.rise_time[j, i], self.dt)
+                    integral_aSTF = np.trapz(np.abs(self.aSR[j, i, :]), dx=self.dt)
+                    integral_Yoffe = np.trapz(np.abs(newSR[:, 0]), dx=self.dt)
+                    integral_Gaussian = np.trapz(np.abs(newSR[:, 1]), dx=self.dt)
+                    if integral_aSTF > 0:
+                        misfits_Yoffe.append(np.linalg.norm(self.aSR[j, i, :] / integral_aSTF - newSR[:, 0] / integral_Yoffe))
+                        misfits_Gaussian.append(np.linalg.norm(self.aSR[j, i, :] / integral_aSTF - newSR[:, 1] / integral_Gaussian))
+        misfits_Yoffe = np.array(misfits_Yoffe)
+        misfits_Gaussian = np.array(misfits_Gaussian)
+        print(f"misfit Yoffe (10-50-90%): {np.percentile(misfits_Yoffe,10):.2f} {np.percentile(misfits_Yoffe,50):.2f} {np.percentile(misfits_Yoffe,90):.2f}")
+        print(f"misfit Gaussian (10-50-90%): {np.percentile(misfits_Gaussian,10):.2f} {np.percentile(misfits_Gaussian,50):.2f} {np.percentile(misfits_Gaussian,90):.2f}")
+
         self.rise_time = interpolate_nan_from_neighbors(self.rise_time)
         self.tacc = interpolate_nan_from_neighbors(self.tacc)
 
@@ -428,14 +458,15 @@ class FaultPlane:
         print(f"seismic potency ratio (upscaled over initial): {ratio_potency}")
 
         if use_Yoffe:
-            self.assess_STF_parameters()
             allarr = np.array([self.rise_time, self.tacc])
             pf.rise_time, pf.tacc = upsample_quantities(allarr, spatial_order, spatial_zoom, padding="edge")
             pf.rise_time = np.maximum(pf.rise_time, np.amin(self.rise_time))
             pf.tacc = np.maximum(pf.tacc, np.amin(self.tacc))
+            # see comment above explaining why the 1.27 factor
             print("using ts = tacc / 1.27 to compute the regularized Yoffe")
             ts = pf.tacc / 1.27
             tr = pf.rise_time - 2.0 * ts
+            tr = np.maximum(tr, ts)
             for j in range(pf.ny):
                 for i in range(pf.nx):
                     for k, tk in enumerate(pf.myt):
