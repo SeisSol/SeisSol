@@ -63,7 +63,6 @@ CONTAINS
 #ifdef HDF
     USE receiver_hdf_mod
 #else
-    USE receiver_mod
     USE energies_output_mod
 #endif
     USE ini_SeisSol_mod
@@ -207,13 +206,6 @@ CONTAINS
 
     logInfo(*)'<--------------------------------------------------------->'  !
     !
-    IF(IO%PGMLocationsFlag.NE.0)THEN
-#ifdef HDF
-        CALL PGM_output_hdf(IO,MPI)
-#else
-        CALL PGM_output(IO,MPI)
-#endif
-    ENDIF
 
 #ifdef USE_MPI
     CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)

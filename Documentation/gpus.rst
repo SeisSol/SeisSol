@@ -71,7 +71,7 @@ Compile SeisSol with (e.g.)
 .. code-block:: bash
 
     mkdir -p seissol-gpu/build && cd seissol-gpu/build 
-    cmake -DDEVICE_ARCH=nvidia -DDEVICE_SUB_ARCH=sm_70 -DHOST_ARCH=skx \
+    cmake -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_70 -DHOST_ARCH=skx \
     -DCOMMTHREAD=ON -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
 
@@ -83,7 +83,7 @@ of the CPU version.
 
 .. code-block:: bash
 
-    mpirun -n <M x N> ./SeisSol_*nvidia_* ./parameters.par
+    mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
 It is important to know that the GPU version of SeisSol allocates 1GB of
 GPU memory at the beginning of SeisSol execution. It is necessary for fast allocation/deallocation
@@ -95,4 +95,4 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
 .. code-block:: bash
     
     export DEVICE_STACK_MEM_SIZE=1.5
-    mpirun -n <M x N> ./SeisSol_*nvidia_* ./parameters.par
+    mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par

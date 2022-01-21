@@ -58,7 +58,7 @@ namespace seissol {
     class LocalBase;
   }
 }
-class GlobalData;
+struct GlobalData;
 
 class seissol::kernels::LocalBase {
   protected:

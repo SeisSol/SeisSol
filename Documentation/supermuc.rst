@@ -16,7 +16,7 @@ Here, we described the procedure to set up such port forwarding.
 
 ::
 
-  Host supermuNG
+  Host supermucNG
      Hostname skx.supermuc.lrz.de
      User <Your Login>    
      RemoteForward ddddd github.com:22
@@ -198,3 +198,41 @@ Running SeisSol
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 
 
+Accessing PyPI
+--------------
+
+Many post-processing scripts of SeisSol require Python dependencies.
+We describe how to use pip on SuperMUC in the following.
+
+
+1. On your local machine in ~/.ssh/config add the following `RemoteForward` line:
+
+::
+
+    Host supermucNG
+        ...
+        RemoteForward ddddd localhost:8899
+
+where ddddd is an arbitrary port number with 5 digits.
+(This number should be different from port number used in other RemoteForward entries.)
+
+2. Install proxy.py on your local machine.
+
+::
+
+    pip install --upgrade --user proxy.py
+
+3. Start proxy.py on your local machine. (And keep it running.)
+
+
+::
+
+    ~/.local/bin/proxy --port 8899
+
+4. Login to SuperMUC with `ssh supermucNG`. Pip can be used with
+
+::
+
+    pip install <package name> --user --proxy localhost:ddddd
+
+where ddddd is your arbitrary port number.

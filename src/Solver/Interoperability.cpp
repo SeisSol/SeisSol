@@ -172,9 +172,6 @@ extern "C" {
     return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
   }
 
-  void c_interoperability_addRecPoint(double x, double y, double z) {
-    e_interoperability.addRecPoint(x, y, z);
-  }
 
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
@@ -234,12 +231,12 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval) {
+		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
 			numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
-      receiverSamplingInterval, receiverSyncInterval);
+      receiverFileName, receiverSamplingInterval, receiverSyncInterval);
   }
 
   void c_interoperability_projectInitialField() {
@@ -524,6 +521,8 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
                                                          m_meshStructure,
                                                          m_ltsTree->var(m_lts->cellInformation) );
+
+
 }
 
 void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
@@ -865,7 +864,9 @@ void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> c
     unsigned meshId = duplicatedMeshIds[dupMeshId];
     T* ref = &var[ meshToLts[0][meshId] ];
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates && meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max(); ++dup) {
-      memcpy(reinterpret_cast<void*>(&var[ meshToLts[dup][meshId] ]), ref, sizeof(T));
+      memcpy(reinterpret_cast<void*>(&var[ meshToLts[dup][meshId] ]),
+             reinterpret_cast<void*>(ref),
+             sizeof(T));
     }
   }
 }
@@ -930,7 +931,8 @@ void seissol::Interoperability::initializeIO(
 		int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
 		double* outputRegionBounds,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
-    char const* xdmfWriterBackend,
+    const char* xdmfWriterBackend,
+    const char* receiverFileName,
     double receiverSamplingInterval, double receiverSyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
@@ -976,15 +978,14 @@ void seissol::Interoperability::initializeIO(
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
 
+
   auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
   // Initialize receiver output
-  receiverWriter.init(
-    std::string(freeSurfaceFilename),
-    receiverSamplingInterval,
-    receiverSyncInterval
-  );
+  receiverWriter.init(std::string(receiverFileName),
+                      std::string(freeSurfaceFilename),
+                      receiverSyncInterval,
+                      receiverSamplingInterval);
   receiverWriter.addPoints(
-    m_recPoints,
     seissol::SeisSol::main.meshReader(),
     m_ltsLut,
     *m_lts,
@@ -1350,4 +1351,3 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
 void Interoperability::initializeFaultOutput() {
   f_interoperability_initializeFaultOutput(m_domain);
 }
-
