@@ -22,8 +22,20 @@ Here, we described the procedure to set up such port forwarding.
      RemoteForward ddddd github.com:22
 
 where ddddd is an arbitrary 5-digital port number.
+  
+2. Confirm the creation of the new ssh profile by typing below command:
 
-2. ssh supermucNG to login to supermuc. Then add the following lines to the ~/.ssh/config:
+::
+
+  bash
+
+Then use below command to login to supermuc
+
+::
+
+  ssh supermucNG 
+  
+add to your supermuc ~/.ssh/config the following lines:
 
 :: 
 
@@ -34,15 +46,33 @@ where ddddd is an arbitrary 5-digital port number.
     
 With ddddd the same port number as before.
 
-4. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
+3. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
 
 ::
 
   ssh-keygen -t rsa 
 
-5. Go to https://github.com/settings/ssh, add a new SSH key, pasting the public key you just created on supermuc  ~/.ssh/id_rsa.pub. 
-Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol including the submodules using:
+4. Go to https://github.com/settings/ssh, add a new SSH key, paste the public SSH key you just created on supermuc  ~/.ssh/id_rsa.pub. For example,
 
+Title
+
+::
+
+  supermucNG 
+
+Key
+
+::
+
+  ssh-rsa AAB3Nzy2......zjZXKTq 
+
+5. Logout of supermuc and log back in with command
+
+::
+
+  ssh supermucNG 
+  
+You should now be able to clone SeisSol including the submodules using:
 
 ::
 
@@ -50,8 +80,18 @@ Logout of supermuc and log back in (ssh supermucNG). You should now be able to c
   cd SeisSol
   git submodule update --init
 
-Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
-If it works, you will see several lines of ‘cloning ….’.
+Pay attention to the typical git clone address ('https://github.com/' is replaced now by 'git@github.com:'). 
+If it works, you will see several lines, for example: 
+
+::
+
+  Cloning into 'SeisSol'...
+  remote: Enumerating objects: 25806, done.
+  remote: Counting objects: 100% (4435/4435), done.
+  remote: Compressing objects: 100% (1820/1820), done.
+  remote: Total 25806 (delta 2972), reused 3710 (delta 2551), pack-reused 21371
+  Receiving objects: 100% (25806/25806), 110.50 MiB | 9.79 MiB/s, done.
+  Resolving deltas: 100% (19382/19382), done.
 
 
 Building SeisSol
