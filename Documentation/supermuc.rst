@@ -23,13 +23,7 @@ Here, we described the procedure to set up such port forwarding.
 
 where ddddd is an arbitrary 5-digital port number.
   
-2. Confirm the creation of the new ssh profile by typing below command:
-
-::
-
-  bash
-
-Then use below command to login to supermuc
+2. Use below command to login to supermuc
 
 ::
 
