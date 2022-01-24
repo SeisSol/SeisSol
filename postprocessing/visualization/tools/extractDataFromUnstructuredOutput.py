@@ -42,34 +42,38 @@ sx = seissolxdmf.seissolxdmf(args.xdmfFilename)
 xyz = sx.ReadGeometry()
 connect = sx.ReadConnect()
 
-xyzc = (xyz[connect[:, 0], :] + xyz[connect[:, 1], :] + xyz[connect[:, 2], :]) / 3.0
+spatial_filtering = (args.xfilter or args.yfilter) or args.zfilter
+nElements = connect.shape[0]
 
+if spatial_filtering:
+    print("Warning: spatial filtering significantly slows down this script")
+    ids = range(0, sx.nElements)
+    xyzc = (xyz[connect[:, 0], :] + xyz[connect[:, 1], :] + xyz[connect[:, 2], :]) / 3.0
 
-def filter_cells(coords, filter_range):
-    m = 0.5 * (filter_range[0] + filter_range[1])
-    d = 0.5 * (filter_range[1] - filter_range[0])
-    return np.where(np.abs(coords[:] - m) < d)[0]
+    def filter_cells(coords, filter_range):
+        m = 0.5 * (filter_range[0] + filter_range[1])
+        d = 0.5 * (filter_range[1] - filter_range[0])
+        return np.where(np.abs(coords[:] - m) < d)[0]
 
+    if args.xfilter:
+        id0 = filter_cells(xyzc[:, 0], args.xfilter)
+        ids = np.intersect1d(ids, id0) if len(ids) else id0
+    if args.yfilter:
+        id0 = filter_cells(xyzc[:, 1], args.yfilter)
+        ids = np.intersect1d(ids, id0) if len(ids) else id0
+    if args.zfilter:
+        id0 = filter_cells(xyzc[:, 2], args.zfilter)
+        ids = np.intersect1d(ids, id0) if len(ids) else id0
 
-ids = range(0, sx.nElements)
-if args.xfilter:
-    id0 = filter_cells(xyzc[:, 0], args.xfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-if args.yfilter:
-    id0 = filter_cells(xyzc[:, 1], args.yfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-if args.zfilter:
-    id0 = filter_cells(xyzc[:, 2], args.zfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-
-if len(ids):
-    connect = connect[ids, :]
-    nElements = connect.shape[0]
-    if nElements != sx.nElements:
-        print(f"extracting {nElements} cells out of {sx.nElements}")
-else:
-    raise ValueError("all elements are outside filter range")
-
+    if len(ids):
+        connect = connect[ids, :]
+        nElements = connect.shape[0]
+        if nElements != sx.nElements:
+            print(f"extracting {nElements} cells out of {sx.nElements}")
+        else:
+            spatial_filtering = False
+    else:
+        raise ValueError("all elements are outside filter range")
 ndt = sx.ndt
 
 if args.last:
@@ -159,12 +163,19 @@ for ida, sdata in enumerate(args.Data):
     else:
         dset = h5fc.create_dataset("/mesh0/" + args.Data[ida], (len(indices), nElements), dtype=myDtype)
     # read only one row
+    print(sdata, end=" ", flush=True)
     for kk, i in enumerate(indices):
-        print(kk, end=" ")
+        if (kk % 10 == 0) and kk > 0:
+            print(kk)
+        else:
+            print(kk, end=" ", flush=True)
         if i >= ndt:
             print("ignoring index %d>=ndt=%d" % (i, ndt))
             continue
-        myData = sx.ReadData(args.Data[ida], idt=i)[ids]
+        if spatial_filtering:
+            myData = sx.ReadData(args.Data[ida], idt=i)[ids]
+        else:
+            myData = sx.ReadData(args.Data[ida], idt=i)
         if write2Binary:
             myData.astype(myDtype).tofile(output_file)
         else:
