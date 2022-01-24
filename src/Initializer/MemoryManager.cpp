@@ -588,7 +588,6 @@ void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
 #ifdef ACL_DEVICE
 void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
-  kernels::NeighborData::Loader loader;
 
   for (auto layer = m_ltsTree.beginLeaf(Ghost); layer != m_ltsTree.endLeaf(); ++layer) {
 

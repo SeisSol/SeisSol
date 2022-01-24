@@ -172,11 +172,15 @@ if args.Data == ["all"]:
     for elem in sx1.tree.iter():
         if elem.tag == "Attribute":
             variable_names.add(elem.get("Name"))
+    variable_names2 = set()
     for elem in sx2.tree.iter():
         if elem.tag == "Attribute":
-            variable_names.add(elem.get("Name"))
-    variable_names.remove("partition")
-    variable_names.remove("locationFlag")
+            variable_names2.add(elem.get("Name"))
+    # return only variables in common
+    variable_names = variable_names.intersection(variable_names2)
+    for to_remove in ["partition", "locationFlag"]:
+        if to_remove in variable_names:
+            variable_names.remove(to_remove)
 else:
     variable_names = args.Data
 

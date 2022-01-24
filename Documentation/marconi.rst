@@ -185,8 +185,8 @@ Installing Main Libraries and Packages
 
   $ CC=mpicc CXX=mpicxx FC=mpifort cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
-  -DDEVICE_ARCH=nvidia \
-  -DDEVICE_SUB_ARCH=sm_70 \
+  -DDEVICE_BACKEND=cuda \
+  -DDEVICE_ARCH=sm_70 \
   -DHOST_ARCH=power9 \
   -DPRECISION=single \
   -DCOMMTHREAD=ON
@@ -197,7 +197,7 @@ Installing Main Libraries and Packages
 
 ::
 
-  ./SeisSol_proxy_Release_snvidia_6_elastic 100000 100 all
+  ./SeisSol_proxy_Release_ssm70_cuda_6_elastic 100000 100 all
 
 
 Running SeisSol
@@ -250,7 +250,7 @@ with PMIX (see step 5).
   mpirun --report-bindings --map-by ppr:$SLURM_NTASKS_PER_NODE:node:pe=$NUM_CORES \
   -x UCX_MAX_EAGER_RAILS=2 -x UCX_MAX_RNDV_RAILS=2 -x UCX_NET_DEVICES=mlx5_0:1,mlx5_1:1 \
   -x UCX_MEM_MMAP_HOOK_MODE=none \
-  ./SeisSol_Release_snvidia_6_elastic ./parameters.par
+  ./SeisSol_Release_ssm70_cuda_6_elastic ./parameters.par
 
 
 

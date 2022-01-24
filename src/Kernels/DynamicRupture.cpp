@@ -40,10 +40,6 @@
 
 #include "DynamicRupture.h"
 
-#ifndef NDEBUG
-#pragma message "compiling dynamic rupture kernel with assertions"
-#endif
-
 #include <cassert>
 #include <cstring>
 #include <stdint.h>
@@ -179,6 +175,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
                                                  maxNumElements);
     }
 
+    device.api->fastStreamsSync(); // finish all previous work in the default stream
     size_t streamCounter{0};
     for (unsigned side = 0; side < 4; ++side) {
       ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);

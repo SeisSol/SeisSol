@@ -18,6 +18,7 @@ within a half-space region of 100 km :math:`\times` 100 km :math:`\times` 60 km
 .. figure:: LatexFigures/1994northridge.png
    :alt: Geometry used for modeling the 1994 Northridge earthquake.
    :width: 12.00000cm
+   :align: center
 
    Geometry assumed for the 1994 Northridge earthquake scenario. 
 
@@ -117,6 +118,7 @@ A snapshot of the vertical ground-surface velocity at 7s after rupture onset in 
 .. figure:: LatexFigures/1994_snap2_surface.png
    :alt: Cross-section of vertical velocity
    :width: 12.00000cm
+   :align: center
 
    vertical ground-surface velocity at 7 s after rupture onset. Note the unsmooth velocity field due to the coarse resolution of the kinematic model used.
 

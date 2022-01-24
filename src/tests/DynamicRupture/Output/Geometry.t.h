@@ -1,7 +1,6 @@
 #ifndef SEISSOL_GEOMETRY_T_H
 #define SEISSOL_GEOMETRY_T_H
 
-#include <cxxtest/TestSuite.h>
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Transformation.h"
@@ -10,17 +9,23 @@
 #include "tests/Geometry/MockReader.h"
 #include <iostream>
 #include <Eigen/Dense>
+#include <tests/TestHelper.h>
 
 namespace seissol::unit_test::dr {
-class Geometry;
-}
 
 using namespace seissol;
 using namespace seissol::dr;
 
-class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
-  public:
-  void testProjection() {
+TEST_CASE("DR Geometry") {
+  constexpr static int x{0};
+  constexpr static int y{1};
+  constexpr static int z{2};
+
+  constexpr static int xi{0};
+  constexpr static int eta{1};
+  constexpr static int zeta{2};
+
+  SUBCASE("Projection") {
 
     // Given a reference triangle in the first octant
     // TargetPoint - intersection of a line (which starts from the origin and goes along [1,1,1]
@@ -31,16 +36,16 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     ExtTriangle face(
         ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
 
-    const double EPS = 1e-6;
+    constexpr double epsilon = 1e-6;
     {
       ExtVrtxCoords testPoint{0.0, 0.0, 0.0};
       VrtxCoords normalDirection{1.0, 1.0, 1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      TS_ASSERT_DELTA(testPoint[x], targetPoint[x], EPS);
-      TS_ASSERT_DELTA(testPoint[y], targetPoint[y], EPS);
-      TS_ASSERT_DELTA(testPoint[z], targetPoint[z], EPS);
+      REQUIRE(testPoint[x] == AbsApprox(targetPoint[x]).epsilon(epsilon));
+      REQUIRE(testPoint[y] == AbsApprox(targetPoint[y]).epsilon(epsilon));
+      REQUIRE(testPoint[z] == AbsApprox(targetPoint[z]).epsilon(epsilon));
     }
     {
       ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
@@ -48,13 +53,13 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      TS_ASSERT_DELTA(testPoint[x], targetPoint[x], EPS);
-      TS_ASSERT_DELTA(testPoint[y], targetPoint[y], EPS);
-      TS_ASSERT_DELTA(testPoint[z], targetPoint[z], EPS);
+      REQUIRE(testPoint[x] == AbsApprox(targetPoint[x]).epsilon(epsilon));
+      REQUIRE(testPoint[y] == AbsApprox(targetPoint[y]).epsilon(epsilon));
+      REQUIRE(testPoint[z] == AbsApprox(targetPoint[z]).epsilon(epsilon));
     }
   }
 
-  void testClosestPoint() {
+  SUBCASE("ClosestPoint") {
     double targetPoint[2] = {-0.25, -0.25};
     double facePoints[4][2] = {{1.0, 1.0}, {-1.0, 1.0}, {-1.0, -1.0}, {1.0, -1.0}};
 
@@ -62,24 +67,24 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     double testDistance{-1.0};
     std::tie(testPointId, testDistance) = getNearestFacePoint(targetPoint, facePoints, 4);
 
-    const double EPS = 1e-6;
-    TS_ASSERT_EQUALS(testPointId, 2);
-    TS_ASSERT_DELTA(testDistance, std::sqrt(2 * 0.75 * 0.75), EPS);
+    constexpr double epsilon = 1e-6;
+    REQUIRE(testPointId == 2);
+    REQUIRE(testDistance == AbsApprox(std::sqrt(2 * 0.75 * 0.75)).epsilon(epsilon));
   }
 
-  void testMiddlePoint() {
+  SUBCASE("MiddlePoint") {
     ExtVrtxCoords point1{1.0, 2.0, 3.0};
     ExtVrtxCoords point2{-3.0, -2.0, -1.0};
 
     auto testMiddle = getMidPoint(point1, point2);
 
-    const double EPS = 1e-6;
-    TS_ASSERT_DELTA(testMiddle[0], -1.0, EPS);
-    TS_ASSERT_DELTA(testMiddle[1], 0.0, EPS);
-    TS_ASSERT_DELTA(testMiddle[2], 1.0, EPS);
+    constexpr double epsilon = 1e-6;
+    REQUIRE(testMiddle[0] == AbsApprox(-1.0).epsilon(epsilon));
+    REQUIRE(testMiddle[1] == AbsApprox(0.0).epsilon(epsilon));
+    REQUIRE(testMiddle[2] == AbsApprox(1.0).epsilon(epsilon));
   }
 
-  void testMidTrianglePoint() {
+  SUBCASE("MidTrianglePoint") {
     ExtVrtxCoords point1{0.5, 0.0, 2.0};
     ExtVrtxCoords point2{-0.5, 0.0, 3.0};
     ExtVrtxCoords point3{3.0, 1.0, -2.0};
@@ -87,13 +92,13 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
 
     auto testMiddle = getMidTrianglePoint(triangle);
 
-    const double EPS = 1e-6;
-    TS_ASSERT_DELTA(testMiddle[x], 1.0, EPS);
-    TS_ASSERT_DELTA(testMiddle[y], 1 / 3.0, EPS);
-    TS_ASSERT_DELTA(testMiddle[z], 1.0, EPS);
+    constexpr double epsilon = 1e-6;
+    REQUIRE(testMiddle[x] == AbsApprox(1.0).epsilon(epsilon));
+    REQUIRE(testMiddle[y] == AbsApprox(1 / 3.0).epsilon(epsilon));
+    REQUIRE(testMiddle[z] == AbsApprox(1.0).epsilon(epsilon));
   }
 
-  void testTriangleQuadraturePoints() {
+  SUBCASE("TriangleQuadraturePoints") {
     std::shared_ptr<double[]> weights = nullptr;
     std::shared_ptr<double[]> pointsData = nullptr;
     unsigned numPoints{};
@@ -140,14 +145,14 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     std::tie(numPoints, weights, pointsData) = generateTriangleQuadrature(7);
     double(*testTrianglePoints)[2] = reshape<2>(&pointsData[0]);
 
-    const double EPS = 1e-6;
+    constexpr double epsilon = 1e-6;
     for (unsigned i = 0; i < numPoints; ++i) {
-      TS_ASSERT_DELTA(testTrianglePoints[i][0], chiFortran[i], EPS);
-      TS_ASSERT_DELTA(testTrianglePoints[i][1], tauFortran[i], EPS);
+      REQUIRE(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(epsilon));
+      REQUIRE(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(epsilon));
     }
   }
 
-  void testStrikeAndDipVectors() {
+  SUBCASE("StrikeAndDipVectors") {
     VrtxCoords testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
     VrtxCoords testStrike{0.0, 0.0, 0.0};
     VrtxCoords testDip{0.0, 0.0, 0.0};
@@ -158,48 +163,48 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     Eigen::Vector3d normal(testNormal[0], testNormal[1], testNormal[2]);
     Eigen::Vector3d resultStrike = e3.cross(normal).normalized();
 
-    const double EPS = 1e-6;
+    constexpr double epsilon = 1e-6;
     for (unsigned i = 0; i < 3; ++i) {
-      TS_ASSERT_DELTA(testStrike[i], resultStrike(i), EPS);
+      REQUIRE(testStrike[i] == AbsApprox(resultStrike(i)).epsilon(epsilon));
     }
     // compute expected Dip results
     Eigen::Vector3d resultDip = normal.cross(resultStrike);
     for (unsigned i = 0; i < 3; ++i) {
-      TS_ASSERT_DELTA(testDip[i], resultDip(i), EPS);
+      REQUIRE(testDip[i] == AbsApprox(resultDip(i)).epsilon(epsilon));
     }
   }
 
-  void testXiEtaZeta2chiTau() {
-    const double EPS = 1e-6;
+  SUBCASE("XiEtaZeta2chiTau") {
+    constexpr double epsilon = 1e-6;
     double testChiTau[2] = {0.0, 0.0};
     {
       unsigned face = 0;
       VrtxCoords xiEtaZeta{0.25, 0.1, 0.0};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      TS_ASSERT_DELTA(testChiTau[0], 0.1, EPS);
-      TS_ASSERT_DELTA(testChiTau[1], 0.25, EPS);
+      REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(epsilon));
+      REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(epsilon));
     }
     {
       unsigned face = 1;
       VrtxCoords xiEtaZeta{0.1, 0.0, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      TS_ASSERT_DELTA(testChiTau[0], 0.1, EPS);
-      TS_ASSERT_DELTA(testChiTau[1], 0.25, EPS);
+      REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(epsilon));
+      REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(epsilon));
     }
     {
       unsigned face = 2;
       VrtxCoords xiEtaZeta{0.0, 0.1, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      TS_ASSERT_DELTA(testChiTau[0], 0.25, EPS);
-      TS_ASSERT_DELTA(testChiTau[1], 0.1, EPS);
+      REQUIRE(testChiTau[0] == AbsApprox(0.25).epsilon(epsilon));
+      REQUIRE(testChiTau[1] == AbsApprox(0.1).epsilon(epsilon));
     }
     {
       unsigned face = 3;
       VrtxCoords xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      TS_ASSERT_DELTA(testChiTau[0], 1 / 3.0, EPS);
-      TS_ASSERT_DELTA(testChiTau[1], 1 / 3.0, EPS);
+      REQUIRE(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(epsilon));
+      REQUIRE(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(epsilon));
     }
     {
       unsigned face = 3;
@@ -210,12 +215,12 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
-      TS_ASSERT_DELTA(testChiTau[0], xiEtaZeta[eta], EPS);
-      TS_ASSERT_DELTA(testChiTau[1], xiEtaZeta[zeta], EPS);
+      REQUIRE(testChiTau[0] == AbsApprox(xiEtaZeta[eta]).epsilon(epsilon));
+      REQUIRE(testChiTau[1] == AbsApprox(xiEtaZeta[zeta]).epsilon(epsilon));
     }
   }
 
-  void testBasisFunctions() {
+  SUBCASE("BasisFunctions") {
 
     VrtxCoords point{0.25, 0.25, 0.0};
 
@@ -237,13 +242,14 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
     auto basisFunctions =
         getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);
 
-    const double EPS = 1e-6;
+    constexpr double epsilon = 1e-6;
     for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
-      TS_ASSERT_DELTA(basisFunctions.plusSide[i], basisFunctions.minusSide[i], EPS);
+      REQUIRE(basisFunctions.plusSide[i] ==
+              AbsApprox(basisFunctions.minusSide[i]).epsilon(epsilon));
     }
   }
 
-  void testIsElementInside() {
+  SUBCASE("IsElementInside") {
 
     Eigen::Vector3d points[3] = {{0.25, 0.25, 0.25}, {0.5, 0.5, 0.5}, {0.75, 0.75, 0.1}};
     unsigned numPoints = 3;
@@ -279,23 +285,15 @@ class seissol::unit_test::dr::Geometry : public CxxTest::TestSuite {
 
     initializers::findMeshIds(points, vertices, elements, numPoints, contained, meshId);
 
-    TS_ASSERT_EQUALS(contained[0], 1);
-    TS_ASSERT_EQUALS(contained[1], 0);
-    TS_ASSERT_EQUALS(contained[2], 1);
+    REQUIRE(contained[0] == 1);
+    REQUIRE(contained[1] == 0);
+    REQUIRE(contained[2] == 1);
 
-    TS_ASSERT_EQUALS(meshId[0], 0);
-    TS_ASSERT_EQUALS(meshId[1], std::numeric_limits<unsigned>::max());
-    TS_ASSERT_EQUALS(meshId[2], 1);
+    REQUIRE(meshId[0] == 0);
+    REQUIRE(meshId[1] == std::numeric_limits<unsigned>::max());
+    REQUIRE(meshId[2] == 1);
   }
-
-  protected:
-  constexpr static int x{0};
-  constexpr static int y{1};
-  constexpr static int z{2};
-
-  constexpr static int xi{0};
-  constexpr static int eta{1};
-  constexpr static int zeta{2};
-};
+}
+} // namespace seissol::unit_test::dr
 
 #endif // SEISSOL_GEOMETRY_T_H
