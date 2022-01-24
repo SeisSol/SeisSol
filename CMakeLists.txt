@@ -159,7 +159,7 @@ endif()
 include(ExternalProject)
 
 find_package(easi 1.0.0 REQUIRED)
-target_link_libraries(SeisSol-lib PRIVATE easi::easi)
+target_link_libraries(SeisSol-lib PUBLIC easi::easi)
 
 if (OPENMP)
   find_package(OpenMP REQUIRED)
