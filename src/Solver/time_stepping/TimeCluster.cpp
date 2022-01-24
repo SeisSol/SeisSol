@@ -191,10 +191,9 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   }
 }
 
+
+#ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeSources() {
-#ifdef ACL_DEVICE
-  device.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
-#endif
   SCOREP_USER_REGION( "computeSources", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // Return when point sources not initialised. This might happen if there
@@ -230,10 +229,121 @@ void seissol::time_stepping::TimeCluster::computeSources() {
       }
     }
   }
-#ifdef ACL_DEVICE
-  device.api->popLastProfilingMark();
-#endif
 }
+#else
+#include <iostream>
+void seissol::time_stepping::TimeCluster::computeSources() {
+  device.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
+  SCOREP_USER_REGION( "computeSources", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  // Return when point sources not initialised. This might happen if there
+  // are no point sources on this rank.
+  if (m_numberOfCellToPointSourcesMappings != 0) {
+    auto numStreams = device.api->getCircularStreamSize();
+    auto totalWork = m_numberOfCellToPointSourcesMappings;
+    numStreams = totalWork > numStreams ? numStreams : totalWork;
+    auto averageWork = totalWork / numStreams;
+    std::vector<real[tensor::Q::size()]> hostDofs(totalWork);
+
+    auto getStreamWork = [numStreams, totalWork, averageWork](size_t streamIdx) {
+      return (streamIdx < numStreams - 1) ? averageWork : totalWork - averageWork * streamIdx;
+    };
+
+    using StreamT = decltype(device.api->getNextCircularStream());
+    std::list<std::pair<StreamT, size_t>> taskQueue{};
+
+    // asynchronously copy data from GPUs to CPU and
+    // record data for upcoming tasks
+    for (size_t streamIdx = 0; streamIdx < numStreams; ++streamIdx) {
+      auto streamWork = getStreamWork(streamIdx);
+      auto stream = device.api->getNextCircularStream();
+
+      auto begin = averageWork * streamIdx;
+      for (auto mapping = begin; mapping < (begin + streamWork); ++mapping) {
+        device.api->copyFromAsync(reinterpret_cast<real *>(&hostDofs[mapping]),
+                                  reinterpret_cast<real *>(m_cellToPointSources[mapping].dofs),
+                                  tensor::Q::Size * sizeof(real),
+                                  stream);
+      }
+      taskQueue.emplace_back(std::make_pair(stream, streamIdx));
+    }
+
+    // define a CPU task i.e., updates point sources and
+    // sends data back to GPU asynchronously
+    auto task = [this, &hostDofs](size_t begin, size_t end, StreamT stream) {
+      for (unsigned mapping = begin; mapping < end; ++mapping) {
+        unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
+        unsigned endSource = m_cellToPointSources[mapping].pointSourcesOffset
+                             + m_cellToPointSources[mapping].numberOfPointSources;
+
+
+        auto hostDofsPtr = reinterpret_cast<real *>(&hostDofs[mapping]);
+        if (m_pointSources->mode == sourceterm::PointSources::NRF) {
+          for (unsigned source = startSource; source < endSource; ++source) {
+            sourceterm::addTimeIntegratedPointSourceNRF(m_pointSources->mInvJInvPhisAtSources[source],
+                                                        m_pointSources->tensor[source],
+                                                        m_pointSources->A[source],
+                                                        m_pointSources->stiffnessTensor[source],
+                                                        m_pointSources->slipRates[source],
+                                                        m_fullUpdateTime,
+                                                        m_fullUpdateTime + m_timeStepWidth,
+                                                        hostDofsPtr);
+          }
+        } else {
+          for (unsigned source = startSource; source < endSource; ++source) {
+
+            sourceterm::addTimeIntegratedPointSourceFSRM(m_pointSources->mInvJInvPhisAtSources[source],
+                                                         m_pointSources->tensor[source],
+                                                         m_pointSources->slipRates[source][0],
+                                                         m_fullUpdateTime,
+                                                         m_fullUpdateTime + m_timeStepWidth,
+                                                         hostDofsPtr);
+          }
+        }
+
+        device.api->copyToAsync(reinterpret_cast<real *>(m_cellToPointSources[mapping].dofs),
+                                hostDofsPtr,
+                                tensor::Q::Size * sizeof(real),
+                                stream);
+      }
+    };
+
+    // generate CPU tasks
+    #pragma omp parallel
+    {
+      #pragma omp single nowait
+      {
+        while (!taskQueue.empty()) {
+
+          for (auto it = taskQueue.begin(); it != taskQueue.end(); ++it) {
+            auto stream = it->first;
+            auto isOk = device.api->isStreamReady(stream);
+            if (isOk) {
+              auto streamIdx = it->second;
+              it = taskQueue.erase(it);
+
+              auto streamWork = getStreamWork(streamIdx);
+              auto begin = averageWork * streamIdx;
+              auto end = begin + streamWork;
+
+              #pragma omp task if(false)
+              {
+                task(begin, end, stream);
+              }
+            }
+          }
+        }
+      }
+      // removing unnecessary taskwait caused by an implicit barrier (nowait)
+    }
+    // waiting for the tasks to finish (implicit barrier)
+
+    device.api->syncCircularBuffer();
+    // waiting for the data to be transfered back to GPU
+  }
+  device.api->popLastProfilingMark();
+}
+#endif
 
 #ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
