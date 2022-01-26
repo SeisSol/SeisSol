@@ -23,13 +23,13 @@ Here, we described the procedure to set up such port forwarding.
 
 where ddddd is an arbitrary 5-digital port number.
   
-2. Use below command to login to supermuc
+2. Use the following command to login onto SuperMUC-NG:
 
 ::
 
   ssh supermucNG 
   
-add to your supermuc ~/.ssh/config the following lines:
+Add the following lines to your ~/.ssh/config (on supermucNG):
 
 :: 
 
@@ -46,35 +46,13 @@ With ddddd the same port number as before.
 
   ssh-keygen -t rsa 
 
-4. Go to https://github.com/settings/ssh, add a new SSH key, paste the public SSH key you just created on supermuc  ~/.ssh/id_rsa.pub. For example,
-
-Title
-
-::
-
-  supermucNG 
-
-Key
-
-::
-
-  ssh-rsa AAB3Nzy2......zjZXKTq 
-
-5. Logout of supermuc and log back in with command
-
-::
-
-  ssh supermucNG 
-  
-You should now be able to clone SeisSol including the submodules using:
+4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on supermucNG). You should now be able to clone SeisSol including the submodules using:
 
 ::
 
   git clone git@github.com:SeisSol/SeisSol.git
-  cd SeisSol
-  git submodule update --init
 
-Pay attention to the typical git clone address ('https://github.com/' is replaced now by 'git@github.com:'). 
+Pay attention to the change in the git address ('https://github.com/' is now replaced by 'git@github.com:'). 
 If it works, you will see several lines, for example: 
 
 ::
