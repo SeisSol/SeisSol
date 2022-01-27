@@ -44,6 +44,15 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
              exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
     return localA * misc::asinh(x);
   }
+
+  real calcTMP(real localStateVariable, unsigned int ltsFace, unsigned int pointIndex) {
+    return 0.5 / this->drParameters.rsSr0 *
+           std::exp(
+               (this->drParameters.rsF0 +
+                this->drParameters.rsB * std::log(this->drParameters.rsSr0 * localStateVariable /
+                                                  this->sl0[ltsFace][pointIndex])) /
+               this->a[ltsFace][pointIndex]);
+  }
 };
 } // namespace seissol::dr::friction_law
 

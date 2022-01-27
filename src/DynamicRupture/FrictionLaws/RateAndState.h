@@ -394,10 +394,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // first guess = SR value of the previous step
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
-      // TODO tmp is different for slow velocity weakening.
-      // https://github.com/SeisSol/SeisSol/blame/master/src/Physics/Evaluate_friction_law.f90#L1190
-      tmp[pointIndex] = 0.5 / this->drParameters.rsSr0 *
-                        exp(localStateVariable[pointIndex] / a[ltsFace][pointIndex]);
+      // TODO, make this nicer
+      tmp[pointIndex] =
+          static_cast<Derived*>(this)->calcTMP(localStateVariable[pointIndex], ltsFace, pointIndex);
     }
 
     for (unsigned i = 0; i < numberSlipRateUpdates; i++) {

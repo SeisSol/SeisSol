@@ -43,6 +43,10 @@ class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLa
    * @return \f$ \mu \f$
    */
   real updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
+
+  real calcTMP(real localStateVariable, unsigned int ltsFace, unsigned int pointIndex) {
+    return 0.5 / this->drParameters.rsSr0 * exp(localStateVariable / this->a[ltsFace][pointIndex]);
+  }
 };
 
 class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {
