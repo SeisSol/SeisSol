@@ -53,6 +53,7 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
 #include "Equations/datastructures.hpp"
+#include <DynamicRupture/Misc.h>
 
 namespace seissol {
   class Interoperability;
@@ -385,9 +386,9 @@ class seissol::Interoperability {
    * @param slipRate2 gets initial sliprate in direction 2
    * @param RF gets intial value (bool) of rupture front output per GP
    **/
-  void getDynRupParameters(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-      real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]],
-      real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] );
+  void getDynRupParameters(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[dr::misc::numPaddedPoints][6],
+      real (*mu)[dr::misc::numPaddedPoints], real  (*slipRate1)[dr::misc::numPaddedPoints],
+      real (*slipRate2)[dr::misc::numPaddedPoints], bool  (*RF)[dr::misc::numPaddedPoints]);
 
   /**
    * get initial values from fortran

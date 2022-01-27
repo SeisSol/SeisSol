@@ -8,11 +8,11 @@ class ImposedSlipRates : public Base {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* dynRup,
-                   seissol::Interoperability& e_interoperability) override {
-    Base::tiePointers(layerData, dynRup, e_interoperability);
+                   seissol::Interoperability& eInteroperability) override {
+    Base::tiePointers(layerData, dynRup, eInteroperability);
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& DynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
     // do nothing
   }
 };

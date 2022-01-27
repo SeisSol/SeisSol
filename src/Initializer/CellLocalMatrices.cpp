@@ -515,19 +515,19 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       //code added by Adrian:
       //calculate Impedances Z and eta
-      impAndEta[ltsFace].Zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].Zp_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].Zs = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
-      impAndEta[ltsFace].Zs_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
+      impAndEta[ltsFace].zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].zpNeig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].zs = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
+      impAndEta[ltsFace].zsNeig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
 
-      impAndEta[ltsFace].inv_Zp = 1/impAndEta[ltsFace].Zp;
-      impAndEta[ltsFace].inv_Zp_neig = 1/impAndEta[ltsFace].Zp_neig;
-      impAndEta[ltsFace].inv_Zs = 1/impAndEta[ltsFace].Zs;
-      impAndEta[ltsFace].inv_Zs_neig = 1/impAndEta[ltsFace].Zs_neig;
+      impAndEta[ltsFace].invZp = 1/impAndEta[ltsFace].zp;
+      impAndEta[ltsFace].invZpNeig = 1/impAndEta[ltsFace].zpNeig;
+      impAndEta[ltsFace].invZs = 1/impAndEta[ltsFace].zs;
+      impAndEta[ltsFace].invZsNeig = 1/impAndEta[ltsFace].zsNeig;
 
-      impAndEta[ltsFace].eta_p = 1.0 / (1.0 / impAndEta[ltsFace].Zp + 1.0 / impAndEta[ltsFace].Zp_neig);
-      impAndEta[ltsFace].inv_eta_s = 1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig;
-      impAndEta[ltsFace].eta_s = 1.0 / (1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig);
+      impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+      impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
+      impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
 
       switch (plusMaterial->getMaterialType()) {

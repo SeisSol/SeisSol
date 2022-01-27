@@ -1,8 +1,8 @@
 #ifndef SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 #define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 
-#include "OutputBuilder.hpp"
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
+#include "OutputBuilder.hpp"
 
 namespace seissol::dr::output {
 class Base;

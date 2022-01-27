@@ -1,11 +1,11 @@
 #ifndef SEISSOL_DR_OUTPUT_GEOMETRY_HPP
 #define SEISSOL_DR_OUTPUT_GEOMETRY_HPP
 
-#include "Kernels/precision.hpp"
 #include "Geometry/MeshDefinition.h"
+#include "Kernels/precision.hpp"
 #include <Eigen/Dense>
-#include <cassert>
 #include <array>
+#include <cassert>
 
 namespace seissol::dr {
 struct ExtVrtxCoords {
@@ -27,7 +27,7 @@ struct ExtVrtxCoords {
 
   ExtVrtxCoords(std::initializer_list<double> inputCoords) {
     assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
-    auto begin = inputCoords.begin();
+    const auto* begin = inputCoords.begin();
     for (int i = 0; i < 3; ++i, ++begin)
       coords[i] = *begin;
   }

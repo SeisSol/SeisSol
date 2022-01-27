@@ -3,12 +3,12 @@
 
 #include "Geometry.hpp"
 #include "Initializer/tree/Layer.hpp"
-#include <vector>
 #include <array>
-#include <tuple>
 #include <cassert>
-#include <limits>
 #include <cstring>
+#include <limits>
+#include <tuple>
+#include <vector>
 
 namespace seissol::dr::output {
 template <int DIM>
@@ -71,9 +71,9 @@ using Var3D = VarT<3>;
 using DrVarsT =
     std::tuple<Var2D, Var3D, Var1D, Var2D, Var3D, Var2D, Var1D, Var1D, Var1D, Var1D, Var1D, Var2D>;
 
-enum DirectionID { STRIKE = 0, DIP = 1, NORMAL = 2 };
-enum TPID { PRESSURE = 0, TEMPERATURE = 1 };
-enum ParamID { FRICTION_COEFFICIENT = 0, STATE = 1 };
+enum DirectionID { Strike = 0, Dip = 1, Normal = 2 };
+enum TPID { Pressure = 0, Temperature = 1 };
+enum ParamID { FrictionCoefficient = 0, State = 1 };
 
 enum VariableID {
   SlipRate = 0,
@@ -87,7 +87,7 @@ enum VariableID {
   PeakSlipRate,
   RuptureTime,
   DynamicStressTime,
-  TPvariables, // Thermal Pressurization
+  TpVariables, // Thermal Pressurization
   Size
 };
 

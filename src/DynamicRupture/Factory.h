@@ -5,13 +5,13 @@
 #include <stdexcept>
 #include <tuple>
 
-#include "Output/Output.hpp"
-#include "FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Initializers/Initializers.h"
+#include "FrictionLaws/FrictionSolver.h"
 #include "Initializer/DynamicRupture.h"
+#include "Output/Output.hpp"
 
 namespace seissol::dr::factory {
-struct products {
+struct Products {
   std::unique_ptr<seissol::initializers::DynamicRupture> ltsTree;
   std::unique_ptr<seissol::dr::initializers::BaseDRInitializer> initializer;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
@@ -25,60 +25,60 @@ class AbstractFactory {
   public:
   AbstractFactory(dr::DRParameters& drParameters) : drParameters(drParameters){};
   virtual ~AbstractFactory() {}
-  virtual products produce() = 0;
+  virtual Products produce() = 0;
 };
 
 class NoFaultFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class LinearSlipWeakeningFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class RateAndStateAgingFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce();
+  virtual Products produce();
 };
 
 class RateAndStateSlipFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class LinearSlipWeakeningForcedRuptureTimeFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class ImposedSlipRatesFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 class RateAndStateThermalPressurisationFactory : public AbstractFactory {
   using AbstractFactory::AbstractFactory;
-  virtual products produce() override;
+  virtual Products produce() override;
 };
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>

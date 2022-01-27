@@ -16,7 +16,7 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* e_interoperability) override;
+                               seissol::Interoperability* eInteroperability) override;
 
   protected:
   /**
@@ -39,7 +39,7 @@ class LinearSlipWeakeningForcedRuptureTimeInitializer : public LinearSlipWeakeni
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* e_interoperability) override;
+                               seissol::Interoperability* eInteroperability) override;
 
   protected:
   /**
@@ -62,7 +62,7 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* e_interoperability) override;
+                               seissol::Interoperability* eInteroperability) override;
 };
 
 } // namespace seissol::dr::initializers

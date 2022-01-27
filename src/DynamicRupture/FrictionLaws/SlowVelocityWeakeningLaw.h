@@ -38,10 +38,10 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
   real updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable) {
     real localA = this->a[ltsFace][pointIndex];
     real localSl0 = this->sl0[ltsFace][pointIndex];
-    real log1 = std::log(this->drParameters.rs_sr0 * localStateVariable / localSl0);
+    real log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
-    real x = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] / this->drParameters.rs_sr0) *
-             exp((this->drParameters.rs_f0 + this->drParameters.rs_b * log1) / localA);
+    real x = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] / this->drParameters.rsSr0) *
+             exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
     return localA * misc::asinh(x);
   }
 };

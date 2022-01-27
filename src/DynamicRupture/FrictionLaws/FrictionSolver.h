@@ -1,29 +1,24 @@
 #ifndef SEISSOL_FRICTIONSOLVER_H
 #define SEISSOL_FRICTIONSOLVER_H
 
-#include "Kernels/DynamicRupture.h"
+#include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
+#include "Kernels/DynamicRupture.h"
 
 namespace seissol::dr::friction_law {
-static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
-/**
- * number of points padded to next dividable number by four
- */
-static constexpr int numPaddedPoints = init::QInterpolated::Stop[0];
-
 /**
  * Struct that contains all input stresses and output stresses
- * IN: NormalStressGP, XYStressGP, XZStressGP (Godunov stresses computed by
- * precomputeStressFromQInterpolated) OUT: XYTractionResultGP, XZTractionResultGP
- * and NormalStressGP (used to compute resulting +/- sided stress results by
+ * IN: NormalStress, XYStress, XZStress (Godunov stresses computed by
+ * precomputeStressFromQInterpolated) OUT: XYTractionResult, XZTractionResult
+ * and NormalStress (used to compute resulting +/- sided stress results by
  * postcomputeImposedStateFromNewStress)
  */
 struct FaultStresses {
-  real XYTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-  real XZTractionResultGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-  real NormalStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-  real XYStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
-  real XZStressGP[CONVERGENCE_ORDER][numPaddedPoints] = {{}};
+  real xyTractionResult[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xzTractionResult[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xyStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xzStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
 };
 
 /**
@@ -39,8 +34,8 @@ class FrictionSolver {
   virtual void
       evaluate(seissol::initializers::Layer& layerData,
                seissol::initializers::DynamicRupture* dynRup,
-               real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+               real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                real fullUpdateTime,
                double timeWeights[CONVERGENCE_ORDER]) = 0;
 
@@ -50,7 +45,7 @@ class FrictionSolver {
    */
   void computeDeltaT(double timePoints[CONVERGENCE_ORDER]) {
     deltaT[0] = timePoints[0];
-    for (int timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+    for (unsigned timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
       deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
     }
     // to fill last segment of Gaussian integration

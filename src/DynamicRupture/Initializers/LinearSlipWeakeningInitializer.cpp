@@ -4,13 +4,12 @@
 
 namespace seissol::dr::initializers {
 
-void LinearSlipWeakeningInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSTree* dynRupTree,
-    seissol::Interoperability* e_interoperability) {
-  BaseDRInitializer::initializeFault(dynRup, dynRupTree, e_interoperability);
+void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
+                                                     seissol::initializers::LTSTree* dynRupTree,
+                                                     seissol::Interoperability* eInteroperability) {
+  BaseDRInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
 
-  auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
   for (seissol::initializers::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
@@ -20,7 +19,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
     real(*slipRate1)[numPaddedPoints] = it->var(concreteLts->slipRate1);
     real(*slipRate2)[numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
-    real(*mu_s)[numPaddedPoints] = it->var(concreteLts->mu_s);
+    real(*muS)[numPaddedPoints] = it->var(concreteLts->muS);
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
@@ -31,11 +30,11 @@ void LinearSlipWeakeningInitializer::initializeFault(
         slipRate1[ltsFace][pointIndex] = 0.0;
         slipRate2[ltsFace][pointIndex] = 0.0;
         // initial friction coefficient is static friction (no slip has yet occurred)
-        mu[ltsFace][pointIndex] = mu_s[ltsFace][pointIndex];
+        mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
       }
       averagedSlip[ltsFace] = 0.0;
       // can be removed once output is in c++
-      e_interoperability->copyFrictionOutputToFortranSpecific(
+      eInteroperability->copyFrictionOutputToFortranSpecific(
           ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
     }
   }
@@ -45,23 +44,23 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
-  auto concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
-  real(*d_c)[numPaddedPoints] = it->var(concreteLts->d_c);
-  real(*mu_s)[numPaddedPoints] = it->var(concreteLts->mu_s);
-  real(*mu_d)[numPaddedPoints] = it->var(concreteLts->mu_d);
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+  real(*dC)[numPaddedPoints] = it->var(concreteLts->dC);
+  real(*muS)[numPaddedPoints] = it->var(concreteLts->muS);
+  real(*muD)[numPaddedPoints] = it->var(concreteLts->muD);
   real(*cohesion)[numPaddedPoints] = it->var(concreteLts->cohesion);
-  parameterToStorageMap.insert({"d_c", (real*)d_c});
-  parameterToStorageMap.insert({"mu_s", (real*)mu_s});
-  parameterToStorageMap.insert({"mu_d", (real*)mu_d});
+  parameterToStorageMap.insert({"d_c", (real*)dC});
+  parameterToStorageMap.insert({"mu_s", (real*)muS});
+  parameterToStorageMap.insert({"mu_d", (real*)muD});
   parameterToStorageMap.insert({"cohesion", (real*)cohesion});
 }
 
 void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
-    seissol::Interoperability* e_interoperability) {
-  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree, e_interoperability);
-  auto concreteLts =
+    seissol::Interoperability* eInteroperability) {
+  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+  auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
   for (seissol::initializers::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
@@ -78,7 +77,7 @@ void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
-  auto concreteLts =
+  auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
   real(*forcedRuptureTime)[numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
   parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
@@ -87,9 +86,9 @@ void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree* dynRupTree,
-    seissol::Interoperability* e_interoperability) {
-  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree, e_interoperability);
-  auto concreteLts =
+    seissol::Interoperability* eInteroperability) {
+  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+  auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
 
   for (seissol::initializers::LTSTree::leaf_iterator it =
@@ -110,7 +109,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
             mu[ltsFace][pointIndex] * initialStressInFaultCS[ltsFace][pointIndex][0];
       }
       // can be removed once output is in c++
-      e_interoperability->copyFrictionOutputToFortranStrength(
+      eInteroperability->copyFrictionOutputToFortranStrength(
           ltsFace, meshFace, regularisedStrength);
     }
   }

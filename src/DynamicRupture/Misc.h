@@ -1,9 +1,9 @@
 #ifndef SEISSOL_DR_MISC_H
 #define SEISSOL_DR_MISC_H
 
+#include <cmath>
 #include <generated_code/init.h>
 #include <stdexcept>
-#include <cmath>
 
 #include "Kernels/precision.hpp"
 
@@ -12,7 +12,15 @@ template <typename Tensor>
 constexpr size_t leadDim() noexcept {
   return Tensor::Stop[0] - Tensor::Start[0];
 }
-static constexpr inline size_t AlignedNumGaussPoints = leadDim<init::QInterpolated>();
+/**
+ * Number of gauss points padded to match the vector register length.
+ */
+static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
+/**
+ * Number of gauss points on an element surface.
+ */
+static constexpr unsigned int numberOfBoundaryGaussPoints =
+    (CONVERGENCE_ORDER + 1) * (CONVERGENCE_ORDER + 1);
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {

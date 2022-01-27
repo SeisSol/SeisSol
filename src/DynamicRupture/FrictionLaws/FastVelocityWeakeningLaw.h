@@ -8,7 +8,7 @@ namespace seissol::dr::friction_law {
 class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLaw> {
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw>::RateAndStateBase;
-  real (*srW)[numPaddedPoints];
+  real (*srW)[misc::numPaddedPoints];
 
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
@@ -29,7 +29,7 @@ class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLa
    * @param localSlipRate \f$ V \f$
    * @return \f$ \Theta(t) \f$
    */
-  real updateStateVariable(int pointIndex,
+  real updateStateVariable(unsigned int pointIndex,
                            unsigned int face,
                            real stateVarReference,
                            real timeIncrement,
@@ -50,25 +50,25 @@ class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {
   using FastVelocityWeakeningLaw::FastVelocityWeakeningLaw;
 
   protected:
-  real (*temperature)[numPaddedPoints];
-  real (*pressure)[numPaddedPoints];
-  real (*TP_Theta)[numPaddedPoints][numberOfTPGridPoints];
-  real (*TP_sigma)[numPaddedPoints][numberOfTPGridPoints];
-  real (*TP_halfWidthShearZone)[numPaddedPoints];
-  real (*alphaHy)[numPaddedPoints];
+  real (*temperature)[misc::numPaddedPoints];
+  real (*pressure)[misc::numPaddedPoints];
+  real (*tpTheta)[misc::numPaddedPoints][numberOfTPGridPoints];
+  real (*tpSigma)[misc::numPaddedPoints][numberOfTPGridPoints];
+  real (*tpHalfWidthShearZone)[misc::numPaddedPoints];
+  real (*alphaHy)[misc::numPaddedPoints];
 
-  real TP_grid[numberOfTPGridPoints];
-  real TP_DFinv[numberOfTPGridPoints];
+  real tpGrid[numberOfTPGridPoints];
+  real tpDFinv[numberOfTPGridPoints];
 
-  real faultStrength[numPaddedPoints];
-  real Theta_tmp[numberOfTPGridPoints];
-  real Sigma_tmp[numberOfTPGridPoints];
+  real faultStrength[misc::numPaddedPoints];
+  real thetaTmp[numberOfTPGridPoints];
+  real sigmaTmp[numberOfTPGridPoints];
 
   public:
   /*
    * initialize local attributes (used in initializer class respectively)
    */
-  void initializeTP(seissol::Interoperability& e_interoperability);
+  void initializeTP(seissol::Interoperability& eInteroperability);
 
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -81,13 +81,14 @@ class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {
   /*
    * set initial value of thermal pressure
    */
-  void setInitialFluidPressureHook(std::array<real, numPaddedPoints>& P_f, unsigned int ltsFace);
+  void setInitialFluidPressureHook(std::array<real, misc::numPaddedPoints>& fluidPressure,
+                                   unsigned int ltsFace);
 
   /*
    * compute thermal pressure according to Noda and Lapusta 2010
    * bool saveTmpInTP is used to save final thermal pressure values for theta and sigma
    */
-  void calcFluidPressureHook(std::array<real, numPaddedPoints>& P_f,
+  void calcFluidPressureHook(std::array<real, misc::numPaddedPoints>& fluidPressure,
                              FaultStresses& faultStresses,
                              bool saveTmpInTP,
                              unsigned int timeIndex,
