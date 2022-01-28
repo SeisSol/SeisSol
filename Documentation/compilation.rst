@@ -145,7 +145,7 @@ See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 Installing easi
 ---------------------------
-Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/index.html>`.
+Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html#compilation>`_.
 
 Compiling SeisSol
 -----------------
