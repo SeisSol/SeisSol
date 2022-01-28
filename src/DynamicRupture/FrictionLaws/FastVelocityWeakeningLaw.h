@@ -38,15 +38,28 @@ class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLa
   /**
    * Computes the friction coefficient from the state variable and slip rate
    * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp
-   * \left(\frac{\Theta}{a}\right)\right). \f] \f$V\f$ is taken from the stored values.
+   * \left(\frac{\Theta}{a}\right)\right). \f]
+   * @param localSlipRateMagnitude \f$ V \f$
    * @param localStateVariable \f$ \Theta \f$
    * @return \f$ \mu \f$
    */
-  real updateMu(unsigned int ltsFace, unsigned int pointIndex, real localStateVariable);
+  real updateMu(unsigned int ltsFace,
+                unsigned int pointIndex,
+                real localSlipRateMagnitude,
+                real localStateVariable);
 
-  real calcTMP(real localStateVariable, unsigned int ltsFace, unsigned int pointIndex) {
-    return 0.5 / this->drParameters.rsSr0 * exp(localStateVariable / this->a[ltsFace][pointIndex]);
-  }
+  /**
+   * Computes the derivative of the friction coefficient with respect to the slip rate.
+   * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{ (VC)^2 + 1} \text{ with } C =
+   * \frac{1}{2V_0} \cdot \exp \left(\frac{\Theta}{a}\right)\right).\f]
+   * @param localSlipRateMagnitude \f$ V \f$
+   * @param localStateVariable \f$ \Theta \f$
+   * @return \f$ \mu \f$
+   */
+  real updateMuDerivative(unsigned int ltsFace,
+                          unsigned int pointIndex,
+                          real localSlipRateMagnitude,
+                          real localStateVariable);
 };
 
 class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {

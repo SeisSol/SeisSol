@@ -45,13 +45,23 @@ real FastVelocityWeakeningLaw::updateStateVariable(unsigned int pointIndex,
 
 real FastVelocityWeakeningLaw::updateMu(unsigned int ltsFace,
                                         unsigned int pointIndex,
+                                        real localSlipRateMagnitude,
                                         real localStateVariable) {
   // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
   real localA = a[ltsFace][pointIndex];
   // x in asinh(x) for mu calculation
-  real x = 0.5 / drParameters.rsSr0 * std::exp(localStateVariable / localA) *
-           slipRateMagnitude[ltsFace][pointIndex];
+  real x =
+      0.5 / drParameters.rsSr0 * std::exp(localStateVariable / localA) * localSlipRateMagnitude;
   return localA * misc::asinh(x);
+}
+
+real FastVelocityWeakeningLaw::updateMuDerivative(unsigned int ltsFace,
+                                                  unsigned int pointIndex,
+                                                  real localSlipRateMagnitude,
+                                                  real localStateVariable) {
+  real localA = a[ltsFace][pointIndex];
+  real c = 0.5 / drParameters.rsSr0 * std::exp(localStateVariable / localA);
+  return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
 }
 
 void RateAndStateThermalPressurizationLaw::initializeTP(

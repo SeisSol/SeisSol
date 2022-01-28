@@ -239,8 +239,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
         this->slipRateMagnitude[ltsFace][pointIndex] = fabs(testSlipRate[pointIndex]);
 
         // update friction coefficient based on new state variable and slip rate
-        this->mu[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
-            ltsFace, pointIndex, localStateVariable[pointIndex]);
+        this->mu[ltsFace][pointIndex] =
+            static_cast<Derived*>(this)->updateMu(ltsFace,
+                                                  pointIndex,
+                                                  this->slipRateMagnitude[ltsFace][pointIndex],
+                                                  localStateVariable[pointIndex]);
       } // End of pointIndex-loop
     }
   }
@@ -273,8 +276,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                                            localSlipRate[pointIndex]);
 
       // update LocMu for next strength determination, only needed for last update
-      this->mu[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
-          ltsFace, pointIndex, localStateVariable[pointIndex]);
+      this->mu[ltsFace][pointIndex] =
+          static_cast<Derived*>(this)->updateMu(ltsFace,
+                                                pointIndex,
+                                                this->slipRateMagnitude[ltsFace][pointIndex],
+                                                localStateVariable[pointIndex]);
       real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
       real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
@@ -375,7 +381,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                            std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
                            std::array<real, misc::numPaddedPoints>& slipRateTest) {
 
-    real tmp[misc::numPaddedPoints], tmp2[misc::numPaddedPoints], tmp3[misc::numPaddedPoints];
     real muF[misc::numPaddedPoints], dMuF[misc::numPaddedPoints];
     real nr[misc::numPaddedPoints], dNr[misc::numPaddedPoints];
     // double AlmostZero = 1e-45;
@@ -394,9 +399,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // first guess = SR value of the previous step
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
-      // TODO, make this nicer
-      tmp[pointIndex] =
-          static_cast<Derived*>(this)->calcTMP(localStateVariable[pointIndex], ltsFace, pointIndex);
     }
 
     for (unsigned i = 0; i < numberSlipRateUpdates; i++) {
@@ -407,10 +409,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
         // for compiling reasons ASINH(X)=LOG(X+SQRT(X^2+1))
 
         // calculate friction coefficient
-        tmp2[pointIndex] = tmp[pointIndex] * slipRateTest[pointIndex];
-        muF[pointIndex] = a[ltsFace][pointIndex] * misc::asinh(tmp2[pointIndex]);
-        dMuF[pointIndex] =
-            a[ltsFace][pointIndex] / sqrt(1.0 + misc::power<2>(tmp2[pointIndex])) * tmp[pointIndex];
+        muF[pointIndex] = static_cast<Derived*>(this)->updateMu(
+            ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
+        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
+            ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
         nr[pointIndex] =
             -this->impAndEta[ltsFace].invEtaS * (fabs(normalStress[pointIndex]) * muF[pointIndex] -
                                                  absoluteShearStress[pointIndex]) -
@@ -436,11 +438,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                               (fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
                           1.0;
         // ratio
-        tmp3[pointIndex] = nr[pointIndex] / dNr[pointIndex];
+        real tmp3 = nr[pointIndex] / dNr[pointIndex];
 
         // update slipRateTest
-        slipRateTest[pointIndex] =
-            std::max(almostZero, slipRateTest[pointIndex] - tmp3[pointIndex]);
+        slipRateTest[pointIndex] = std::max(almostZero, slipRateTest[pointIndex] - tmp3);
       }
     }
     return hasConverged;
