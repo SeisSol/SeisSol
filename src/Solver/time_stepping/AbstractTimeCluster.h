@@ -24,6 +24,9 @@ protected:
 public:
   // TODO(Lukas) Move a lot of these to protected or private
   AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, long timeStepRate);
+
+  AbstractTimeCluster();
+
   virtual ~AbstractTimeCluster() = default;
 
   virtual ActorAction getNextLegalAction();
