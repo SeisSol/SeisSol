@@ -38,7 +38,18 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-sx = seissolxdmf.seissolxdmf(args.xdmfFilename)
+
+class seissolxdmfExtended(seissolxdmf.seissolxdmf):
+    def ReadData(self, dataName, idt=-1):
+        if dataName == "SR":
+            SRs = super().ReadData("SRs", idt)
+            SRd = super().ReadData("SRd", idt)
+            return np.sqrt(SRs ** 2 + SRd ** 2)
+        else:
+            return super().ReadData(dataName, idt)
+
+
+sx = seissolxdmfExtended(args.xdmfFilename)
 xyz = sx.ReadGeometry()
 connect = sx.ReadConnect()
 
