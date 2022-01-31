@@ -1,4 +1,5 @@
 #include "Solver/time_stepping/AbstractTimeCluster.h"
+#include <iostream>
 namespace seissol::unit_test {
 using namespace time_stepping;
 
@@ -43,5 +44,72 @@ TEST_CASE("TimeCluster") {
     REQUIRE(cluster.getState() == ActorState::Predicted);
   }
 
+}
+
+TEST_CASE("GTS Timesteping works") {
+  const double dt = 1.0;
+  const auto numberOfIterations = 10;
+  const double endTime = dt * numberOfIterations;
+  const double tolerance = 1e-15;
+  auto cluster1 = MockTimeCluster(dt, tolerance, 1);
+  auto cluster2 = MockTimeCluster(dt, tolerance, 1);
+  auto clusters = std::vector<MockTimeCluster*>{
+    &cluster1,
+    &cluster2,
+  };
+
+  cluster1.connect(cluster2);
+
+  for (auto* cluster : clusters) {
+    cluster->updateSyncTime(endTime);
+    cluster->reset();
+  }
+
+  // First, move from synced -> corrected
+  for (auto& cluster : clusters) {
+    REQUIRE_CALL(*cluster, start());
+    cluster->act();
+    REQUIRE(cluster->getState() == ActorState::Corrected);
+  }
+
+  bool isFinished = false;
+  auto iteration = 0;
+  while(!isFinished) {
+    isFinished = true;
+
+    ALLOW_CALL(cluster1, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster2, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster1, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster2, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
+
+    for (auto& cluster : clusters) {
+      REQUIRE(cluster->getState() == ActorState::Corrected);
+      if (iteration < numberOfIterations) {
+        REQUIRE(cluster->getNextLegalAction() == ActorAction::Predict);
+        REQUIRE_CALL(*cluster, predict());
+        cluster->act();
+        REQUIRE(cluster->getState() == ActorState::Predicted);
+      } else {
+        REQUIRE(cluster->getNextLegalAction() == ActorAction::Sync);
+        cluster->act();
+        REQUIRE(cluster->getState() == ActorState::Synced);
+      }
+    }
+    for (auto& cluster : clusters) {
+      if (!cluster->synced()) {
+        REQUIRE_CALL(*cluster, correct());
+        REQUIRE(cluster->getNextLegalAction() == ActorAction::Correct);
+        cluster->act();
+        REQUIRE(cluster->getState() == ActorState::Corrected);
+        isFinished = false;
+      }
+
+    }
+    ++iteration;
+  }
+
+  for (auto& cluster : clusters) {
+    REQUIRE(cluster->synced());
+  }
 }
 } // namespace seissol::unit_test
