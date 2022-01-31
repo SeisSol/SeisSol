@@ -64,6 +64,23 @@ real FastVelocityWeakeningLaw::updateMuDerivative(unsigned int ltsFace,
   return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
 }
 
+std::array<real, misc::numPaddedPoints> FastVelocityWeakeningLaw::resampleStateVar(
+    std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+  std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
+  std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
+  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    deltaStateVar[pointIndex] =
+        stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
+  }
+  dynamicRupture::kernel::resampleParameter resampleKrnl;
+  resampleKrnl.resampleM = init::resample::Values;
+  resampleKrnl.resamplePar = deltaStateVar.data();
+  resampleKrnl.resampledPar = resampledDeltaStateVar.data(); // output from execute
+  resampleKrnl.execute();
+
+  return resampledDeltaStateVar;
+}
+
 void RateAndStateThermalPressurizationLaw::initializeTP(
     seissol::Interoperability& eInteroperability) {
   eInteroperability.getDynRupTP(tpGrid, tpDFinv);

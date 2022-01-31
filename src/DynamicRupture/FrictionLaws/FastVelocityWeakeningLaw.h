@@ -60,6 +60,10 @@ class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLa
                           unsigned int pointIndex,
                           real localSlipRateMagnitude,
                           real localStateVariable);
+
+  std::array<real, misc::numPaddedPoints>
+      resampleStateVar(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+                       unsigned int ltsFace);
 };
 
 class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {

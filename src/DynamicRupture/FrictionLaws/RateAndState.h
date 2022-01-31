@@ -108,15 +108,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   }
 
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
-    std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      deltaStateVar[pointIndex] =
-          stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
-    }
     // resample state variables
-    // TODO: Not for slip and ageing law
-    // https://github.com/SeisSol/SeisSol/blob/master/src/Physics/Evaluate_friction_law.f90#L1085
-    static_cast<Derived*>(this)->resampleStateVar(deltaStateVar, ltsFace);
+    std::array<real, misc::numPaddedPoints> deltaStateVar =
+        static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
+    // write back State Variable to lts tree
+    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+      this->stateVariable[ltsFace][pointIndex] += deltaStateVar[pointIndex];
+    }
   }
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
@@ -330,21 +328,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       this->slip2[ltsFace][pointIndex] +=
           this->slipRate2[ltsFace][pointIndex] * this->deltaT[timeIndex];
     } // End of BndGP-loop
-  }
-
-  void resampleStateVar(std::array<real, misc::numPaddedPoints>& deltaStateVar,
-                        unsigned int ltsFace) {
-    dynamicRupture::kernel::resampleParameter resampleKrnl;
-    resampleKrnl.resampleM = init::resample::Values;
-    real resampledDeltaStateVariable[misc::numPaddedPoints];
-    resampleKrnl.resamplePar = deltaStateVar.data();
-    resampleKrnl.resampledPar = resampledDeltaStateVariable; // output from execute
-    resampleKrnl.execute();
-
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      // write back State Variable to lts tree
-      stateVariable[ltsFace][pointIndex] += resampledDeltaStateVariable[pointIndex];
-    }
   }
 
   void saveDynamicStressOutput(unsigned int face) {
