@@ -28,10 +28,10 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw> {
    * @return \f$ \Theta(t) \f$
    */
   double updateStateVariable(int pointIndex,
-                           unsigned int face,
-                           double stateVarReference,
-                           double timeIncrement,
-                           double localSlipRate);
+                             unsigned int face,
+                             double stateVarReference,
+                             double timeIncrement,
+                             double localSlipRate);
 };
 
 } // namespace seissol::dr::friction_law
