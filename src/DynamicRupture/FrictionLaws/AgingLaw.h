@@ -26,11 +26,11 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw> {
    * @param localSlipRate \f$ V \f$
    * @return \f$ \Theta(t) \f$
    */
-  real updateStateVariable(int pointIndex,
+  double updateStateVariable(int pointIndex,
                            unsigned int face,
-                           real stateVarReference,
-                           real timeIncrement,
-                           real localSlipRate);
+                           double stateVarReference,
+                           double timeIncrement,
+                           double localSlipRate);
 };
 
 } // namespace seissol::dr::friction_law

@@ -19,11 +19,11 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {}
 
-  real updateStateVariable(int pointIndex,
+  double updateStateVariable(int pointIndex,
                            unsigned int face,
-                           real stateVarReference,
-                           real timeIncrement,
-                           real localSlipRate) {
+                           double stateVarReference,
+                           double timeIncrement,
+                           double localSlipRate) {
     return static_cast<Derived*>(this)->updateStateVariable(
         pointIndex, face, stateVarReference, timeIncrement, localSlipRate);
   }
@@ -36,15 +36,15 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
    * @param localStateVariable \f$ \Theta \f$
    * @return \f$ \mu \f$
    */
-  real updateMu(unsigned int ltsFace,
+  double updateMu(unsigned int ltsFace,
                 unsigned int pointIndex,
-                real localSlipRateMagnitude,
-                real localStateVariable) {
-    real localA = this->a[ltsFace][pointIndex];
-    real localSl0 = this->sl0[ltsFace][pointIndex];
-    real log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
+                double localSlipRateMagnitude,
+                double localStateVariable) {
+    double localA = this->a[ltsFace][pointIndex];
+    double localSl0 = this->sl0[ltsFace][pointIndex];
+    double log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
-    real x = 0.5 * (localSlipRateMagnitude / this->drParameters.rsSr0) *
+    double x = 0.5 * (localSlipRateMagnitude / this->drParameters.rsSr0) *
              std::exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
     return localA * misc::asinh(x);
   }
@@ -57,14 +57,14 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
    * @param localStateVariable \f$ \Theta \f$
    * @return \f$ \mu \f$
    */
-  real updateMuDerivative(unsigned int ltsFace,
+  double updateMuDerivative(unsigned int ltsFace,
                           unsigned int pointIndex,
-                          real localSlipRateMagnitude,
-                          real localStateVariable) {
-    real localA = this->a[ltsFace][pointIndex];
-    real localSl0 = this->sl0[ltsFace][pointIndex];
-    real log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
-    real c = (0.5 / this->drParameters.rsSr0) *
+                          double localSlipRateMagnitude,
+                          double localStateVariable) {
+    double localA = this->a[ltsFace][pointIndex];
+    double localSl0 = this->sl0[ltsFace][pointIndex];
+    double log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
+    double c = (0.5 / this->drParameters.rsSr0) *
              std::exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
     return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
   }
