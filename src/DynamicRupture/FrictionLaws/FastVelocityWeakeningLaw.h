@@ -61,9 +61,15 @@ class FastVelocityWeakeningLaw : public RateAndStateBase<FastVelocityWeakeningLa
                           real localSlipRateMagnitude,
                           real localStateVariable);
 
+  /**
+   * Resample the state variable.
+   */
   std::array<real, misc::numPaddedPoints>
       resampleStateVar(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                        unsigned int ltsFace);
+
+  void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
+                             unsigned ltsFace);
 };
 
 class RateAndStateThermalPressurizationLaw : public FastVelocityWeakeningLaw {

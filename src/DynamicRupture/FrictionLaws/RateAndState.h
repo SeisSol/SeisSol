@@ -78,7 +78,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
 
     // check for convergence
     if (!hasConverged) {
-      this->executeIfNotConverged(stateVariableBuffer, ltsFace);
+      static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
     }
     // compute final thermal pressure for FL103TP
     // Todo: Enable TP again
@@ -103,17 +103,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     static_cast<Derived*>(this)->adjustInitialStress(ltsFace);
     // copy state variable from last time step
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      stateVariableBuffer[pointIndex] = stateVariable[ltsFace][pointIndex];
+      stateVariableBuffer[pointIndex] = this->stateVariable[ltsFace][pointIndex];
     }
   }
 
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
     // resample state variables
-    std::array<real, misc::numPaddedPoints> deltaStateVar =
+    std::array<real, misc::numPaddedPoints> resampledStateVar =
         static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
-    // write back State Variable to lts tree
+    // write back state Variable to lts tree
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      this->stateVariable[ltsFace][pointIndex] += deltaStateVar[pointIndex];
+      this->stateVariable[ltsFace][pointIndex] = resampledStateVar[pointIndex];
     }
   }
 
@@ -244,16 +244,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                                   localStateVariable[pointIndex]);
       } // End of pointIndex-loop
     }
-  }
-
-  void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                             unsigned ltsFace) {
-    // TODO: Make this work for slow velocity weakening
-    // https://github.com/SeisSol/SeisSol/blob/master/src/Physics/Evaluate_friction_law.f90#L1013
-    [[maybe_unused]] real tmp = 0.5 / this->drParameters.rsSr0 *
-                                exp(localStateVariable[0] / a[ltsFace][0]) *
-                                this->slipRateMagnitude[ltsFace][0];
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 
   void calcSlipRateAndTraction(std::array<real, misc::numPaddedPoints> const& stateVarReference,

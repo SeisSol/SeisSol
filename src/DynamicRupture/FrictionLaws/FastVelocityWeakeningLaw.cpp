@@ -68,6 +68,7 @@ std::array<real, misc::numPaddedPoints> FastVelocityWeakeningLaw::resampleStateV
     std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
   std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
   std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
+  std::array<real, misc::numPaddedPoints> resampledStateVar = {0};
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
     deltaStateVar[pointIndex] =
         stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
@@ -75,11 +76,23 @@ std::array<real, misc::numPaddedPoints> FastVelocityWeakeningLaw::resampleStateV
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resampleM = init::resample::Values;
   resampleKrnl.resamplePar = deltaStateVar.data();
-  resampleKrnl.resampledPar = resampledDeltaStateVar.data(); // output from execute
+  resampleKrnl.resampledPar = resampledDeltaStateVar.data();
   resampleKrnl.execute();
 
-  return resampledDeltaStateVar;
+  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    resampledStateVar[pointIndex] = this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
+  }
+
+  return resampledStateVar;
 }
+
+  void FastVelocityWeakeningLaw::executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
+                             unsigned ltsFace) {
+    [[maybe_unused]] real tmp = 0.5 / this->drParameters.rsSr0 *
+                                exp(localStateVariable[0] / a[ltsFace][0]) *
+                                this->slipRateMagnitude[ltsFace][0];
+    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
+  }
 
 void RateAndStateThermalPressurizationLaw::initializeTP(
     seissol::Interoperability& eInteroperability) {

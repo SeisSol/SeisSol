@@ -69,15 +69,25 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
     return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
   }
 
+  /**
+   * Resample the state variable. For Slow Velocity Weakening Laws, we do nothing.
+   */
   std::array<real, misc::numPaddedPoints>
       resampleStateVar(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                        unsigned int ltsFace) {
-    std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      deltaStateVar[pointIndex] =
-          stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
-    }
-    return deltaStateVar;
+    return stateVariableBuffer;
+  }
+
+  void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
+                             unsigned ltsFace) {
+    [[maybe_unused]] real tmp =
+        0.5 / this->drParameters.rsSr0 *
+        std::exp(
+            (this->drParameters.rsF0 +
+             this->drParameters.rsB * std::log(this->drParameters.rsSr0 * localStateVariable[0] /
+                                               this->drParameters.rsSr0)) /
+            this->a[ltsFace][0]);
+    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 };
 } // namespace seissol::dr::friction_law
