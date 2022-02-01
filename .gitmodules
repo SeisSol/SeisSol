@@ -32,7 +32,7 @@
 	url = https://github.com/username/ABC.git
 	branch = Development
 [submodule "submodules/eigen3"]
-	path = submodules/eigen3
+	path = submodules/eigen
 	url = https://github.com/ThrudPrimrose/scorepeigen.git
 [submodule "submodules/PUML"]
 	path = submodules/PUML
