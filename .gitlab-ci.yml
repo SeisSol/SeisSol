@@ -44,7 +44,7 @@ ci_builder_pre:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
-        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git && mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF -DCMAKE_INSTALL_PREFIX=$HOME ../easi && make -j $(nproc) install && cd ..
+        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git && mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && sudo make -j $(nproc) install && cd ..
         
 ci_builder_build:
     stage: build
