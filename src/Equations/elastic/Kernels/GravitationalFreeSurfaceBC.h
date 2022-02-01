@@ -17,11 +17,7 @@ double getGravitationalAcceleration();
 
 class GravitationalFreeSurfaceBc {
 public:
-  GravitationalFreeSurfaceBc()
-      : odeSolver(ode::RungeKuttaODESolver(
-      {init::averageNormalDisplacement::size(),
-       init::faceDisplacement::size()}, ode::ODESolverConfig(1.0)
-  )) {}
+  GravitationalFreeSurfaceBc() { }
 
   template <typename TimeKrnl>
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
@@ -66,8 +62,8 @@ public:
   void evaluate(unsigned faceIdx,
                 MappingKrnl&& projectKernelPrototype,
                 const CellBoundaryMapping& boundaryMapping,
-                real* displacementNodal,
-                real* integratedDisplacementNodal,
+                real* displacementNodalData,
+                real* integratedDisplacementNodalData,
                 TimeKrnl& timeKernel,
                 real* derivatives,
                 double startTime,
@@ -77,18 +73,8 @@ public:
     // This function does two things:
     // 1: Compute eta (for all three dimensions) at the end of the timestep
     // 2: Compute the integral of eta in normal direction (called H) over the timestep
-    // TODO(Lukas) Values below only correct for acoustic!
-    // We do this by solving the following set of ODEs (described only for 1 point here!)
-    // pressureAtBnd = 0 (for free surface)
-    // pressureAtBnd = -\rho \eta g (for gravitational free surface)
-    // dH/dt = etaN,
-    // dEtaN/dt =  u_r + 1/Z ( pressureAtBnd - pressureInside ),
-    // dEtaS/dt = v_r
-    // dEtaT/dt = w_r
-    // where the vales u_r/p_r are boundary extrapolated from the interior
-    // The initial conditions are H(t^n) = 0, eta(t^n) = eta_0
 
-    // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
+   // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
     assert(boundaryMapping.TinvData != nullptr);
     assert(boundaryMapping.TData != nullptr);
@@ -111,10 +97,14 @@ public:
     }
     static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
     alignas(ALIGNMENT) real rotatedFaceDisplacement[init::rotatedFaceDisplacement::Size];
+
+    auto integratedDisplacementNodal = init::averageNormalDisplacement::view::create(integratedDisplacementNodalData);
+    auto displacementNodal = init::faceDisplacement::view::create(rotatedFaceDisplacement);
+
     // Rotate face displacement to face-normal coordinate system in which the computation is
     // more convenient.
     auto rotateFaceDisplacementKrnl = kernel::rotateFaceDisplacement();
-    rotateFaceDisplacementKrnl.faceDisplacement = displacementNodal;
+    rotateFaceDisplacementKrnl.faceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
     rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacement;
     rotateFaceDisplacementKrnl.execute();
@@ -127,103 +117,79 @@ public:
     alignas(ALIGNMENT) real dofsFaceNodalStorage[tensor::INodal::size()];
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
-    auto f = [&](
-        ode::ODEVector& du,
-        ode::ODEVector& u,
-        double time) {
-      // Evaluate Taylor series at time
+    // Temporary buffer to store nodal face coefficients at some time t
+    // TODO(Lukas) We actually only need one coeff per node! -> std::array
+    alignas(ALIGNMENT) real prevCoefficientsStorage[tensor::INodal::size()];
+    auto prevCoefficients = init::INodal::view::create(prevCoefficientsStorage);
+
+    const double deltaT = timeStepWidth;
+    const double deltaTInt = timeStepWidth;
+    // Initialize first component of series
+    //evaluated = eta_ic
+    //evaluated_int =  delta_t_int * eta_ic
+
+    for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+      prevCoefficients(i,0) = displacementNodal(i, 0);
+      integratedDisplacementNodal(i) = deltaTInt * displacementNodal(i,0);
+    }
+
+    // Coefficients for Taylor series
+    double factorEvaluated = 1;
+    double factorInt = deltaTInt;
+
+    // Note: Probably need to increase CONVERGENCE_ORDER by 1 here!
+    for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
+      // TODO(Lukas): Actually just picks out the nth coefficient...
       dofsVolumeInteriorModal.setZero();
       dofsFaceNodal.setZero();
-
-      timeKernel.computeTaylorExpansion(time,
+      timeKernel.computeDerivativeTaylorExpansion(startTime,
                                         startTime,
                                         derivatives,
-                                        dofsVolumeInteriorModal.data());
+                                        dofsVolumeInteriorModal.data(),
+                                        order-1);
 
-      // Project to face and rotate into face-normal aligned coordinate system.
       projectKernel.I = dofsVolumeInteriorModal.data();
       projectKernel.INodal = dofsFaceNodal.data();
       projectKernel.execute(faceIdx);
 
-      // Unpack du
-      auto[dEtaIntegratedStorage, dEtaIntegratedSize] = du.getSubvector(0);
-      assert(dEtaIntegratedSize == init::averageNormalDisplacement::size());
-      auto dEtaIntegrated = init::averageNormalDisplacement::view::create(dEtaIntegratedStorage);
-      auto[dEtaStorage, dEtaSize] = du.getSubvector(1);
-      assert(dEtaSize == init::faceDisplacement::size());
-      auto dEta = init::faceDisplacement::view::create(dEtaStorage);
-
-      // Unpack u
-      auto[etaStorage, etaSize] = u.getSubvector(1);
-      assert(etaSize == init::faceDisplacement::size());
-      auto eta = init::faceDisplacement::view::create(etaStorage);
-
-      constexpr int pIdx = 0;
-      constexpr int uIdx = 6;
-
-      dEta.setZero();
-      dEtaIntegrated.setZero();
+      factorEvaluated *= deltaT / (1.0 * order);
+      factorInt *= deltaTInt / (order + 1.0);
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         const double rho = materialData.local.rho;
         const double g = getGravitationalAcceleration(); // [m/s^2]
-        double pressureAtBnd = 0;
-        if (faceType == FaceType::freeSurfaceGravity) {
-          pressureAtBnd = -1 * rho * g * eta(i, 0);
-        }
-#ifdef USE_ELASTIC
         const double Z = std::sqrt(materialData.local.lambda * rho) ;
-        bool isAcoustic = std::abs(materialData.local.mu) < 1e-15;
-#else
-        const real Z = 0.0; // Sets penalty term effectively to zero
-        bool isAcoustic = false;
-#endif
 
-        // dH/dt = etaN,
-        // dEtaN/dt =  u_r - 1/Z ( p_r - pressureAtBnd ),
+        // Derivatives of interior variables
+        constexpr int pIdx = 0;
+        constexpr int uIdx = 6;
+
         const auto uInside = dofsFaceNodal(i, uIdx + 0);
         const auto vInside = dofsFaceNodal(i, uIdx + 1);
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
-        if (isAcoustic
-            && (faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity)) {
-          dEta(i, 0) = uInside + 1 / Z * (pressureAtBnd - pressureInside);
-        } else {
-          // If not on acoustic boundary, just use values inside
-          dEta(i, 0) = uInside;
-        }
-        dEta(i, 1) = vInside;
-        dEta(i, 2) = wInside;
-        dEtaIntegrated(i) = eta(i, 0);
+
+        const double prevCoeff = prevCoefficients(i, 0);
+        // TODO(Lukas) Check sign
+        const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoeff + pressureInside);
+        prevCoefficients(i,0) = curCoeff;
+
+        displacementNodal(i,0) += factorEvaluated * curCoeff;
+        //TODO(Lukas) Check if Taylor series for displ is correct
+        displacementNodal(i,1) += factorEvaluated * vInside;
+        displacementNodal(i,2) += factorEvaluated * wInside;
+
+        integratedDisplacementNodal(i) += factorInt * curCoeff;
       }
-    };
 
-    constexpr auto integratedEtaSize = init::averageNormalDisplacement::size();
-    constexpr auto etaSize = init::faceDisplacement::size();
-
-    auto curValue = ode::ODEVector{{integratedDisplacementNodal, rotatedFaceDisplacement},
-                                   {integratedEtaSize,           etaSize}};
-
-    // Apply initial condition to integrated displacement (start from 0 each PDE timestep)
-    std::fill_n(integratedDisplacementNodal, integratedEtaSize, 0.0);
-
-    // Setup ODE solver
-    ode::TimeSpan timeSpan = {startTime, startTime + timeStepWidth};
-    auto odeSolverConfig = ode::ODESolverConfig(timeStepWidth);
-    odeSolverConfig.initialDt = timeStepWidth;
-
-    odeSolver.setConfig(odeSolverConfig);
-    odeSolver.solve(f, curValue, timeSpan);
+    }
 
     // Rotate face displacement back to global coordinate system which we use as storage
     // coordinate system
     rotateFaceDisplacementKrnl.faceDisplacement = rotatedFaceDisplacement;
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
-    rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodal;
+    rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.execute();
   }
-
-private:
-  ode::RungeKuttaODESolver odeSolver;
 };
 
 } // namespace seissol
