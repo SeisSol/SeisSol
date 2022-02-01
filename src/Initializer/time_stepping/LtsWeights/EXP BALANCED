@@ -1,0 +1,122 @@
+EXP BALANCED
+NAIVE
+
+  93 Thu Dec 16 17:34:53, Info:  occupied memory on device( 2 ):  68.0682 %
+  94 Thu Dec 16 17:34:53, Info:  occupied memory on device( 0 ):  71.7779 %
+  95 Thu Dec 16 17:34:53, Info:  occupied memory on device( 3 ):  69.6062 %
+  96 Thu Dec 16 17:34:53, Info:  occupied memory on device( 1 ):  72.3824 %
+  97 Thu Dec 16 17:34:53, Info:  #max-updates since sync:  0  @  0
+  98 Thu Dec 16 17:36:28, Info:  7.62107 TFLOPS (rank 0: 1939.26 GFLOPS, average over ranks: 1905.27 GFLOPS)
+  99 Thu Dec 16 17:36:28, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+ 100 Thu Dec 16 17:36:28, Info:  Elapsed time (via clock_gettime): 95.7347 seconds.
+ 101 Thu Dec 16 17:36:28, Info:  Time spent in compute kernels: mean = 88.5921  std = 1.64657  min = 85.9132  media     n = 89.1971  max = 90.061
+ 102 Thu Dec 16 17:36:28, Info:  Load imbalance: 1.63098 %
+
+
+cluster 110
+ 218 Thu Dec 16 17:37:07, Info:  occupied memory on device( 2 ):  70.7575 %
+ 219 Thu Dec 16 17:37:07, Info:  occupied memory on device( 0 ):  68.8371 %
+ 220 Thu Dec 16 17:37:07, Info:  occupied memory on device( 1 ):  69.9694 %
+ 221 Thu Dec 16 17:37:07, Info:  occupied memory on device( 3 ):  72.0355 %
+ 222 Thu Dec 16 17:37:07, Info:  #max-updates since sync:  0  @  0
+ 223 Thu Dec 16 17:38:44, Info:  7.50471 TFLOPS (rank 0: 1874.04 GFLOPS, average over ranks: 1876.18 GFLOPS)
+ 224 Thu Dec 16 17:38:44, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+ 225 Thu Dec 16 17:38:44, Info:  Elapsed time (via clock_gettime): 97.1749 seconds.
+ 226 Thu Dec 16 17:38:44, Info:  Time spent in compute kernels: mean = 88.8641  std = 1.62927  min = 86.9521  media     n = 88.523  max = 91.4582
+ 227 Thu Dec 16 17:38:44, Info:  Load imbalance: 2.83643 %
+
+cluster 140
+  469 Thu Dec 16 17:41:39, Info:  occupied memory on device( 0 ):  70.2846 %
+ 470 Thu Dec 16 17:41:39, Info:  occupied memory on device( 3 ):  70.2434 %
+ 471 Thu Dec 16 17:41:39, Info:  occupied memory on device( 1 ):  71.9767 %
+ 472 Thu Dec 16 17:41:39, Info:  occupied memory on device( 2 ):  69.086 %
+ 473 Thu Dec 16 17:41:39, Info:  #max-updates since sync:  0  @  0
+ 474 Thu Dec 16 17:43:15, Info:  7.60032 TFLOPS (rank 0: 1903.8 GFLOPS, average over ranks: 1900.08 GFLOPS)
+ 475 Thu Dec 16 17:43:15, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+ 476 Thu Dec 16 17:43:15, Info:  Elapsed time (via clock_gettime): 95.9516 seconds.
+ 477 Thu Dec 16 17:43:15, Info:  Time spent in compute kernels: mean = 89.1422  std = 0.587859  min = 88.4987  medi     an = 89.0543  max = 89.9614
+
+cluster 150
+ 594 Thu Dec 16 17:43:53, Info:  occupied memory on device( 2 ):  70.2875 %
+ 595 Thu Dec 16 17:43:53, Info:  occupied memory on device( 3 ):  70.1259 %
+ 596 Thu Dec 16 17:43:53, Info:  occupied memory on device( 1 ):  71.4228 %
+ 597 Thu Dec 16 17:43:53, Info:  occupied memory on device( 0 ):  69.7464 %
+ 598 Thu Dec 16 17:43:53, Info:  #max-updates since sync:  0  @  0
+ 599 Thu Dec 16 17:45:30, Info:  7.54231 TFLOPS (rank 0: 1887.39 GFLOPS, average over ranks: 1885.58 GFLOPS)
+ 600 Thu Dec 16 17:45:30, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+ 601 Thu Dec 16 17:45:30, Info:  Elapsed time (via clock_gettime): 96.6848 seconds.
+ 602 Thu Dec 16 17:45:30, Info:  Time spent in compute kernels: mean = 89.348  std = 0.969961  min = 87.782  median      = 89.7191  max = 90.172
+ 603 Thu Dec 16 17:45:30, Info:  Load imbalance: 0.913776 %
+
+cluster 160
+ 843 Thu Dec 16 17:48:24, Info:  occupied memory on device( 2 ):  71.4394 %
+ 844 Thu Dec 16 17:48:24, Info:  occupied memory on device( 0 ):  67.0929 %
+ 845 Thu Dec 16 17:48:24, Info:  occupied memory on device( 1 ):  70.2211 %
+ 846 Thu Dec 16 17:48:24, Info:  occupied memory on device( 3 ):  72.8581 %
+ 847 Thu Dec 16 17:48:24, Info:  #max-updates since sync:  0  @  0
+ 848 Thu Dec 16 17:50:01, Info:  7.50835 TFLOPS (rank 0: 1831.55 GFLOPS, average over ranks: 1877.09 GFLOPS)
+ 849 Thu Dec 16 17:50:01, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+ 850 Thu Dec 16 17:50:01, Info:  Elapsed time (via clock_gettime): 97.1288 seconds.
+ 851 Thu Dec 16 17:50:01, Info:  Time spent in compute kernels: mean = 88.9835  std = 2.08965  min = 86.4158  media     n = 88.7489  max = 92.0206
+ 852 Thu Dec 16 17:50:01, Info:  Load imbalance: 3.30041 %
+
+cluster 200000
+1093 Thu Dec 16 17:52:55, Info:  occupied memory on device( 2 ):  71.1899 %
+1094 Thu Dec 16 17:52:55, Info:  occupied memory on device( 0 ):  70.39 %
+1095 Thu Dec 16 17:52:55, Info:  occupied memory on device( 1 ):  69.2186 %
+1096 Thu Dec 16 17:52:55, Info:  occupied memory on device( 3 ):  70.7492 %
+1097 Thu Dec 16 17:52:55, Info:  #max-updates since sync:  0  @  0
+1098 Thu Dec 16 17:54:36, Info:  7.20347 TFLOPS (rank 0: 1804.35 GFLOPS, average over ranks: 1800.87 GFLOPS)
+1099 Thu Dec 16 17:54:36, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+1100 Thu Dec 16 17:54:36, Info:  Elapsed time (via clock_gettime): 101.222 seconds.
+1101 Thu Dec 16 17:54:36, Info:  Time spent in compute kernels: mean = 90.616  std = 1.62143  min = 88.1019  median      = 90.8642  max = 92.6337
+1102 Thu Dec 16 17:54:36, Info:  Load imbalance: 2.1782 %
+
+comm COMM_APPROX1218 
+Thu Dec 16 17:55:14, Info:  occupied memory on device( 1 ):  69.6295 %
+1219 Thu Dec 16 17:55:14, Info:  occupied memory on device( 2 ):  71.3046 %
+1220 Thu Dec 16 17:55:14, Info:  occupied memory on device( 0 ):  71.3787 %
+1221 Thu Dec 16 17:55:14, Info:  occupied memory on device( 3 ):  69.4786 %
+1222 Thu Dec 16 17:55:14, Info:  #max-updates since sync:  0  @  0
+1223 Thu Dec 16 17:56:52, Info:  7.45288 TFLOPS (rank 0: 1905.97 GFLOPS, average over ranks: 1863.22 GFLOPS)
+1224 Thu Dec 16 17:56:52, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at       0.2
+1225 Thu Dec 16 17:56:52, Info:  Elapsed time (via clock_gettime): 97.8945 seconds.
+1226 Thu Dec 16 17:56:52, Info:  Time spent in compute kernels: mean = 89.2211  std = 1.77262  min = 86.8166  media     n = 89.1853  max = 91.697
+1227 Thu Dec 16 17:56:52, Info:  Load imbalance: 2.70014 %
+
+
+50:
+ 93 Thu Dec 16 19:21:22, Info:  occupied memory on device( 1 ):  70.7396 %
+ 94 Thu Dec 16 19:21:22, Info:  occupied memory on device( 3 ):  70.0187 %
+ 95 Thu Dec 16 19:21:22, Info:  occupied memory on device( 0 ):  70.6761 %
+ 96 Thu Dec 16 19:21:22, Info:  occupied memory on device( 2 ):  70.638 %
+ 97 Thu Dec 16 19:21:22, Info:  #max-updates since sync:  0  @  0
+ 98 Thu Dec 16 19:22:58, Info:  7.5631 TFLOPS (rank 0: 1903.28 GFLOPS, average over ranks: 1890.77 GFLOPS)
+ 99 Thu Dec 16 19:22:58, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at      0.2
+100 Thu Dec 16 19:22:58, Info:  Elapsed time (via clock_gettime): 96.4948 seconds.
+101 Thu Dec 16 19:22:58, Info:  Time spent in compute kernels: mean = 89.041  std = 1.61197  min = 86.2665  median     = 89.8596  max = 90.1781
+102 Thu Dec 16 19:22:58, Info:  Load imbalance: 1.26102 %
+
+70
+219 Thu Dec 16 19:23:37, Info:  occupied memory on device( 1 ):  68.459 %
+220 Thu Dec 16 19:23:37, Info:  occupied memory on device( 3 ):  68.5789 %
+221 Thu Dec 16 19:23:37, Info:  occupied memory on device( 0 ):  72.0306 %
+222 Thu Dec 16 19:23:37, Info:  occupied memory on device( 2 ):  72.9567 %
+223 Thu Dec 16 19:23:37, Info:  #max-updates since sync:  0  @  0
+224 Thu Dec 16 19:25:16, Info:  7.37866 TFLOPS (rank 0: 1904.53 GFLOPS, average over ranks: 1844.66 GFLOPS)
+225 Thu Dec 16 19:25:16, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at      0.2
+226 Thu Dec 16 19:25:16, Info:  Elapsed time (via clock_gettime): 98.9287 seconds.
+227 Thu Dec 16 19:25:16, Info:  Time spent in compute kernels: mean = 88.7799  std = 3.60106  min = 83.222  median     = 89.6688  max = 92.5598
+228 Thu Dec 16 19:25:16, Info:  Load imbalance: 4.08383 %
+
+ 70
+470 Thu Dec 16 19:35:13, Info:  occupied memory on device( 1 ):  68.459 %
+471 Thu Dec 16 19:35:13, Info:  occupied memory on device( 3 ):  68.5789 %
+472 Thu Dec 16 19:35:13, Info:  occupied memory on device( 0 ):  72.0306 %
+473 Thu Dec 16 19:35:13, Info:  occupied memory on device( 2 ):  72.9567 %
+474 Thu Dec 16 19:35:13, Info:  #max-updates since sync:  0  @  0
+475 Thu Dec 16 19:36:53, Info:  7.32817 TFLOPS (rank 0: 1891.73 GFLOPS, average over ranks: 1832.04 GFLOPS)
+476 Thu Dec 16 19:36:53, Info:  Ignoring duplicate synchronisation point at time 0.2 ; the last sync point was at      0.2
+477 Thu Dec 16 19:36:53, Info:  Elapsed time (via clock_gettime): 99.5979 seconds.
+478 Thu Dec 16 19:36:53, Info:  Time spent in compute kernels: mean = 88.4906  std = 3.50277  min = 83.283  median     = 89.2793  max = 92.1207
+479 Thu Dec 16 19:36:53, Info:  Load imbalance: 3.94063 %

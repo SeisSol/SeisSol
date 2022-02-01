@@ -9,6 +9,11 @@ if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
 endif()
 
+if(SCOREP_WORKAROUND)
+  message(STATUS "Allowing multiple definitions for compiling with score-p wrappers")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
+endif()
+
 project(SeisSol LANGUAGES C CXX Fortran)
 
 # set hardware specific definition needed for seissol compilation
@@ -199,11 +204,11 @@ endif()
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
   find_package(OpenMP REQUIRED)
-  target_link_libraries(SeisSol-gencode PRIVATE OpenMP::OpenMP_CXX)
-  target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_Fortran)
-  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
+#  target_link_libraries(SeisSol-gencode PRIVATE OpenMP::OpenMP_CXX)
+#  target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_Fortran)
+#  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
 
-  if (WITH_GPU)
+ if (WITH_GPU)
     find_package(OpenMP_Offloading QUIET)
   endif()
 
@@ -334,7 +339,7 @@ endif()
 # Note: we need to provide a support for Eigen backend
 #       for both gencode and SeisSol
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen
 )
 
 target_include_directories(SeisSol-gencode PUBLIC
