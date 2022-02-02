@@ -112,4 +112,70 @@ TEST_CASE("GTS Timesteping works") {
     REQUIRE(cluster->synced());
   }
 }
+
+TEST_CASE("LTS Timesteping works") {
+  const double dt = 1.0;
+  const auto numberOfIterations = 2;
+  const double endTime = dt * numberOfIterations;
+  const double tolerance = 1e-15;
+  auto cluster1 = MockTimeCluster(dt, tolerance, 1);
+  auto cluster2 = MockTimeCluster(2*dt, tolerance, 2);
+  auto clusters = std::vector<MockTimeCluster*>{
+      &cluster1,
+      &cluster2,
+  };
+
+  cluster1.connect(cluster2);
+
+  for (auto* cluster : clusters) {
+    cluster->updateSyncTime(endTime);
+    cluster->reset();
+  }
+
+  ALLOW_CALL(cluster1, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster2, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster1, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster2, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
+
+  // First, move from synced -> corrected -> predicted
+  for (auto& cluster : clusters) {
+    REQUIRE_CALL(*cluster, start());
+    cluster->act();
+    REQUIRE(cluster->getState() == ActorState::Corrected);
+
+    REQUIRE_CALL(*cluster, predict());
+    cluster->act();
+    REQUIRE(cluster->getState() == ActorState::Predicted);
+
+    // Cluster should now be blocked by progress of other cluster
+    REQUIRE(cluster->getNextLegalAction() == ActorAction::Nothing);
+  }
+
+  // Now, the second cluster should not be able to predict.
+  REQUIRE(cluster2.getNextLegalAction() == ActorAction::Nothing);
+
+  // The first should do: correction -> prediction -> correction
+  REQUIRE_CALL(cluster1, correct());
+  cluster1.act();
+  REQUIRE(cluster1.getState() == ActorState::Corrected);
+
+  REQUIRE_CALL(cluster1, predict());
+  cluster1.act();
+  REQUIRE(cluster1.getState() == ActorState::Predicted);
+
+  REQUIRE_CALL(cluster1, correct());
+  cluster1.act();
+  REQUIRE(cluster1.getState() == ActorState::Corrected);
+
+  cluster1.act();
+  REQUIRE(cluster1.getState() == ActorState::Synced);
+
+  REQUIRE_CALL(cluster2, correct());
+  cluster2.act();
+  REQUIRE(cluster2.getState() == ActorState::Corrected);
+
+  cluster2.act();
+  REQUIRE(cluster2.getState() == ActorState::Synced);
+}
+
 } // namespace seissol::unit_test
