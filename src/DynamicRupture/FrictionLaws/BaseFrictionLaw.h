@@ -73,16 +73,18 @@ class BaseFrictionLaw : public FrictionSolver {
   }
 
   /**
-   * Calculate godunov state from jump of plus and minus side
-   * using equations (A2) from Pelites et al. 2014
+   * Calculate traction and normal stress at the interface.
+   * Using equations (A2) from Pelties et al. 2014
    * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
-   * input:
-   * QInterpolatedPlus, QInterpolatedMinus
-   * output:
-   * NorStressGP, XYStressGP, XZStressGP
+   * @param qInterpolatedPlus: Quantities from one fault side, at the 2d face quadrature nodes
+   * evaluated at the time quadrature points
+   * @param qInterpolatedMinus: Quantities from the other fault side, at the 2d face quadrature
+   * nodes evaluated at the time quadrature points output:
+   * @returns
+   * NormalStress XYStress, XZStress at the 2d face quadrature nodes evaluated at the time
+   * quadrature points
    */
-  void precomputeStressFromQInterpolated(
-      FaultStresses& faultStresses,
+  FaultStresses precomputeStressFromQInterpolated(
       real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       unsigned int ltsFace) {
@@ -90,6 +92,7 @@ class BaseFrictionLaw : public FrictionSolver {
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                   "Different number of quadrature points?");
 
+    FaultStresses faultStresses{};
     // this initialization of the kernel could be moved to the initializer,
     // since all inputs outside the j-loop are time independent
     // set inputParam could be extendent for this
@@ -118,10 +121,11 @@ class BaseFrictionLaw : public FrictionSolver {
       // Carsten Uphoff Thesis: EQ.: 4.53
       stressFromQInterpolatedKrnl.execute();
     }
+    return faultStresses;
   }
 
   /**
-   * Integrate over all Time points with the time weights and calculate the traction vor each side
+   * Integrate over all Time points with the time weights and calculate the traction for each side
    * according to Carsten Uphoff Thesis: EQ.: 4.60
    * IN: NormalStressGP, XYTractionResultGP, * XZTractionResultGP
    * OUT: imposedStatePlus, imposedStateMinus
@@ -130,6 +134,7 @@ class BaseFrictionLaw : public FrictionSolver {
       real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       const FaultStresses& faultStresses,
+      const TractionResults& tractionResults,
       double timeWeights[CONVERGENCE_ORDER],
       unsigned int ltsFace) {
     // this initialization of the kernel could be moved to the initializer
@@ -158,8 +163,8 @@ class BaseFrictionLaw : public FrictionSolver {
 
     for (unsigned j = 0; j < CONVERGENCE_ORDER; j++) {
       imposedStateFromNewStressKrnl.NorStressGP = faultStresses.normalStress[j];
-      imposedStateFromNewStressKrnl.TractionGP_XY = faultStresses.xyTractionResult[j];
-      imposedStateFromNewStressKrnl.TractionGP_XZ = faultStresses.xzTractionResult[j];
+      imposedStateFromNewStressKrnl.TractionGP_XY = tractionResults.xyTraction[j];
+      imposedStateFromNewStressKrnl.TractionGP_XZ = tractionResults.xzTraction[j];
       imposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
       imposedStateFromNewStressKrnl.QInterpolatedMinus = qInterpolatedMinus[j];
       imposedStateFromNewStressKrnl.QInterpolatedPlus = qInterpolatedPlus[j];
@@ -251,11 +256,8 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      // initialize struct for in/outputs stresses
-      FaultStresses faultStresses = {};
-
-      this->precomputeStressFromQInterpolated(
-          faultStresses, qInterpolatedPlus[ltsFace], qInterpolatedMinus[ltsFace], ltsFace);
+      FaultStresses faultStresses = this->precomputeStressFromQInterpolated(
+          qInterpolatedPlus[ltsFace], qInterpolatedMinus[ltsFace], ltsFace);
 
       // define some temporary variables
       std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
@@ -263,10 +265,16 @@ class BaseFrictionLaw : public FrictionSolver {
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
 
+      TractionResults tractionResults = {};
+
       // loop over sub time steps (i.e. quadrature points in time)
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-        static_cast<Derived*>(this)->updateFrictionAndSlip(
-            faultStresses, stateVariableBuffer, strengthBuffer, ltsFace, timeIndex);
+        static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
+                                                           tractionResults,
+                                                           stateVariableBuffer,
+                                                           strengthBuffer,
+                                                           ltsFace,
+                                                           timeIndex);
       }
 
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
@@ -288,6 +296,7 @@ class BaseFrictionLaw : public FrictionSolver {
       this->postcomputeImposedStateFromNewStress(qInterpolatedPlus[ltsFace],
                                                  qInterpolatedMinus[ltsFace],
                                                  faultStresses,
+                                                 tractionResults,
                                                  timeWeights,
                                                  ltsFace);
     }

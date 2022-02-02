@@ -27,6 +27,7 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
   real (*cohesion)[misc::numPaddedPoints];
 
   void updateFrictionAndSlip(FaultStresses& faultStresses,
+                             TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
                              unsigned int ltsFace,
@@ -36,7 +37,8 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
 
     // computes resulting slip rates, traction and slip dependent on current friction
     // coefficient and strength
-    this->calcSlipRateAndTraction(faultStresses, strengthBuffer, timeIndex, ltsFace);
+    this->calcSlipRateAndTraction(
+        faultStresses, tractionResults, strengthBuffer, timeIndex, ltsFace);
 
     this->calcStateVariableHook(stateVariableBuffer, timeIndex, ltsFace);
 
@@ -58,6 +60,7 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
    *  also updates the directional slip1 and slip2
    */
   void calcSlipRateAndTraction(FaultStresses& faultStresses,
+                               TractionResults& tractionResults,
                                std::array<real, misc::numPaddedPoints>& strength,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
@@ -82,14 +85,14 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
           this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
 
       // calculate traction
-      faultStresses.xyTractionResult[timeIndex][pointIndex] =
+      tractionResults.xyTraction[timeIndex][pointIndex] =
           faultStresses.xyStress[timeIndex][pointIndex] -
           this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
-      faultStresses.xzTractionResult[timeIndex][pointIndex] =
+      tractionResults.xzTraction[timeIndex][pointIndex] =
           faultStresses.xzStress[timeIndex][pointIndex] -
           this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
-      this->tractionXY[ltsFace][pointIndex] = faultStresses.xyTractionResult[timeIndex][pointIndex];
-      this->tractionXZ[ltsFace][pointIndex] = faultStresses.xyTractionResult[timeIndex][pointIndex];
+      this->tractionXY[ltsFace][pointIndex] = tractionResults.xyTraction[timeIndex][pointIndex];
+      this->tractionXZ[ltsFace][pointIndex] = tractionResults.xzTraction[timeIndex][pointIndex];
 
       // update directional slip
       this->slip1[ltsFace][pointIndex] +=
