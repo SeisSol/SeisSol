@@ -45,13 +45,54 @@ real FastVelocityWeakeningLaw::updateStateVariable(unsigned int pointIndex,
 
 real FastVelocityWeakeningLaw::updateMu(unsigned int ltsFace,
                                         unsigned int pointIndex,
+                                        real localSlipRateMagnitude,
                                         real localStateVariable) {
   // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
   real localA = a[ltsFace][pointIndex];
   // x in asinh(x) for mu calculation
-  real x = 0.5 / drParameters.rsSr0 * std::exp(localStateVariable / localA) *
-           slipRateMagnitude[ltsFace][pointIndex];
+  real x =
+      0.5 / drParameters.rsSr0 * std::exp(localStateVariable / localA) * localSlipRateMagnitude;
   return localA * misc::asinh(x);
+}
+
+real FastVelocityWeakeningLaw::updateMuDerivative(unsigned int ltsFace,
+                                                  unsigned int pointIndex,
+                                                  real localSlipRateMagnitude,
+                                                  real localStateVariable) {
+  real localA = a[ltsFace][pointIndex];
+  real c = 0.5 / drParameters.rsSr0 * std::exp(localStateVariable / localA);
+  return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
+}
+
+std::array<real, misc::numPaddedPoints> FastVelocityWeakeningLaw::resampleStateVar(
+    std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+  std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
+  std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
+  std::array<real, misc::numPaddedPoints> resampledStateVar = {0};
+  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    deltaStateVar[pointIndex] =
+        stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
+  }
+  dynamicRupture::kernel::resampleParameter resampleKrnl;
+  resampleKrnl.resampleM = init::resample::Values;
+  resampleKrnl.resamplePar = deltaStateVar.data();
+  resampleKrnl.resampledPar = resampledDeltaStateVar.data();
+  resampleKrnl.execute();
+
+  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    resampledStateVar[pointIndex] =
+        this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
+  }
+
+  return resampledStateVar;
+}
+
+void FastVelocityWeakeningLaw::executeIfNotConverged(
+    std::array<real, misc::numPaddedPoints> const& localStateVariable, unsigned ltsFace) {
+  [[maybe_unused]] real tmp = 0.5 / this->drParameters.rsSr0 *
+                              exp(localStateVariable[0] / a[ltsFace][0]) *
+                              this->slipRateMagnitude[ltsFace][0];
+  assert(!std::isnan(tmp) && "nonConvergence RS Newton");
 }
 
 void RateAndStateThermalPressurizationLaw::initializeTP(

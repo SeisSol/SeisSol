@@ -21,16 +21,17 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw> {
    * Analytic solution:
    * \f[\Theta(t) = - \Theta_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
    * -\frac{V}{L} \cdot t\right). \f]
+   * Note that we need double precision here, since single precision led to NaNs.
    * @param stateVarReference \f$ \Theta_0 \f$
    * @param timeIncrement \f$ t \f$
    * @param localSlipRate \f$ V \f$
    * @return \f$ \Theta(t) \f$
    */
-  real updateStateVariable(int pointIndex,
-                           unsigned int face,
-                           real stateVarReference,
-                           real timeIncrement,
-                           real localSlipRate);
+  double updateStateVariable(int pointIndex,
+                             unsigned int face,
+                             double stateVarReference,
+                             double timeIncrement,
+                             double localSlipRate);
 };
 
 } // namespace seissol::dr::friction_law
