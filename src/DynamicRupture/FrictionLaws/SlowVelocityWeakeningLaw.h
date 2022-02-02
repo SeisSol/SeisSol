@@ -19,6 +19,7 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {}
 
+  // Note that we need double precision here, since single precision led to NaNs.
   double updateStateVariable(int pointIndex,
                              unsigned int face,
                              double stateVarReference,
@@ -32,6 +33,7 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
    * Computes the friction coefficient from the state variable and slip rate
    * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Theta
    * / L)}{a} \right)\right).\f]
+   * Note that we need double precision here, since single precision led to NaNs.
    * @param localSlipRateMagnitude \f$ V \f$
    * @param localStateVariable \f$ \Theta \f$
    * @return \f$ \mu \f$
@@ -53,6 +55,7 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
    * Computes the derivative of the friction coefficient with respect to the slip rate.
    * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
    * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Theta / L)}{a} \right). \f]
+   * Note that we need double precision here, since single precision led to NaNs.
    * @param localSlipRateMagnitude \f$ V \f$
    * @param localStateVariable \f$ \Theta \f$
    * @return \f$ \mu \f$

@@ -354,6 +354,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                            std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
                            std::array<real, misc::numPaddedPoints>& slipRateTest) {
 
+    // Note that we need double precision here, since single precision led to NaNs.
     double muF[misc::numPaddedPoints], dMuF[misc::numPaddedPoints];
     double nr[misc::numPaddedPoints], dNr[misc::numPaddedPoints];
     // double AlmostZero = 1e-45;
