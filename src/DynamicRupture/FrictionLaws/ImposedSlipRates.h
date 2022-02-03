@@ -19,6 +19,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates> {
                           real fullUpdateTime);
 
   void updateFrictionAndSlip(FaultStresses& faultStresses,
+                             TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
                              unsigned& ltsFace,

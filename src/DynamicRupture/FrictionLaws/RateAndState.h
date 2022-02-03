@@ -41,6 +41,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   protected:
   public:
   void updateFrictionAndSlip(FaultStresses& faultStresses,
+                             TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
                              unsigned& ltsFace,
@@ -91,6 +92,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                   normalStress,
                                   absoluteShearStress,
                                   faultStresses,
+                                  tractionResults,
                                   timeIndex,
                                   ltsFace);
   }
@@ -252,6 +254,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                std::array<real, misc::numPaddedPoints> const& normalStress,
                                std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
                                FaultStresses& faultStresses,
+                               TractionResults& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
@@ -309,8 +312,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       }
 
       // Save traction for flux computation
-      faultStresses.xyTractionResult[timeIndex][pointIndex] = this->tractionXY[ltsFace][pointIndex];
-      faultStresses.xzTractionResult[timeIndex][pointIndex] = this->tractionXZ[ltsFace][pointIndex];
+      tractionResults.xyTraction[timeIndex][pointIndex] = this->tractionXY[ltsFace][pointIndex];
+      tractionResults.xzTraction[timeIndex][pointIndex] = this->tractionXZ[ltsFace][pointIndex];
 
       // update directional slip
       this->slip1[ltsFace][pointIndex] +=

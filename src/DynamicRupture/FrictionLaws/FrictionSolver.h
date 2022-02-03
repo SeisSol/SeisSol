@@ -7,18 +7,20 @@
 
 namespace seissol::dr::friction_law {
 /**
- * Struct that contains all input stresses and output stresses
- * IN: NormalStress, XYStress, XZStress (Godunov stresses computed by
- * precomputeStressFromQInterpolated) OUT: XYTractionResult, XZTractionResult
- * and NormalStress (used to compute resulting +/- sided stress results by
- * postcomputeImposedStateFromNewStress)
+ * Struct that contains all input stresses
  */
 struct FaultStresses {
-  real xyTractionResult[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xzTractionResult[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
   real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
   real xyStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
   real xzStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+};
+
+/**
+ * Struct that contains all traction results
+ */
+struct TractionResults {
+  real xyTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xzTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
 };
 
 /**
