@@ -83,11 +83,12 @@ Building SeisSol
 ::
 
   ##### module load for SeisSol
-  module load gcc/9 cmake python/3.6_intel
+  module load gcc/9 cmake python/3.8.8-extended
   module load libszip/2.1.1
   module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
-  module load netcdf-hdf5-all/4.6_hdf5-1.8-intel19-impi
+  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
   module load numactl
+  module load yaml-cpp/0.6.3-intel19
 
   ####### for pspamm.py
   export PATH=~/bin:$PATH
@@ -140,15 +141,16 @@ For that modules and compiler need to be switched:
 
 ::
 
-    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.8-gcc8-impi
+    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.10-gcc8-impi
     module unload intel-mpi intel
     module load intel-mpi/2019-gcc
-    module switch gcc gcc/9
+    module switch yaml-cpp yaml-cpp/0.6.3
     export CC=mpigcc
     export CXX=mpigxx
     export FC=mpifc
 
 Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
+easi (and all its dependencies) also needs to be build with gcc compilers.
 To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
 Running SeisSol
