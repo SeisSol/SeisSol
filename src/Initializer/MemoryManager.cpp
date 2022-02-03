@@ -771,6 +771,7 @@ bool seissol::initializers::requiresDisplacement(CellLocalInformation cellLocalI
   const auto faceType = cellLocalInformation.faceTypes[face];
   return faceType == FaceType::freeSurface
   || faceType == FaceType::freeSurfaceGravity
+  || faceType == FaceType::velocityInlet
   || isAtElasticAcousticInterface(material, face);
 }
 

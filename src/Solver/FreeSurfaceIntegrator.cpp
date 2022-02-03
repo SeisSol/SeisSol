@@ -298,6 +298,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         for (unsigned face = 0; face < 4; ++face) {
         if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
         || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+        || cellInformation[cell].faceTypes[face] == FaceType::velocityInlet
         || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
           ++numberOfFreeSurfaces;
         }

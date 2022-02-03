@@ -227,6 +227,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
       // TODO(Lukas) Maybe refactor - is nearly requiresDisplacement from MemoryManger
       if (faceType == FaceType::freeSurface
       || faceType == FaceType::freeSurfaceGravity
+      || faceType == FaceType::velocityInlet
       || isAtElasticAcousticInterface) {
         requiresDisplacement++;
       }

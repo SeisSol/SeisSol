@@ -39,6 +39,8 @@
  * Time Step width management in SeisSol.
  **/
 
+#include <chrono>
+
 #include "Parallel/MPI.h"
 
 #include "TimeManager.h"
