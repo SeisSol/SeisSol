@@ -83,6 +83,7 @@ Building SeisSol
 ::
 
   ##### module load for SeisSol
+  module load intel-mpi intel
   module load gcc/9 cmake python/3.8.8-extended
   module load libszip/2.1.1
   module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
