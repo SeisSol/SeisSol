@@ -53,7 +53,8 @@ def addKernels(generator, aderdg, matricesDir, targets):
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_quadrature_matrices_{}.json'.format(matricesDir, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  quadrule = "jacobi"
+  db = parseJSONMatrixFile(f'{matricesDir}/dr_{quadrule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
   db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
 
   # Determine matrices
