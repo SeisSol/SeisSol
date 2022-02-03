@@ -37,12 +37,22 @@ parser.add_argument(
     nargs=1,
     help="generate fault yaml file and write fault geometry (ts file). proj: proj4 string describing the projection.",
 )
+
+parser.add_argument(
+    "--PSRthreshold",
+    help="peak slip rate threshold (0-1) to determine onset time and duration of STF",
+    nargs=1,
+    metavar=("PSRthreshold"),
+    type=float,
+    default=[0.0],
+)
+
 args = parser.parse_args()
 
 p1 = FaultPlane()
 p1.init_from_srf(args.filename)
 p1.compute_time_array()
-p1.assess_STF_parameters()
+p1.assess_STF_parameters(args.PSRthreshold[0])
 prefix, ext = os.path.splitext(args.filename)
 prefix = os.path.basename(prefix)
 

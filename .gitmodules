@@ -13,9 +13,6 @@
 [submodule "submodules/scons-tools"]
 	path = submodules/scons-tools
 	url = ../../TUM-I5/scons-tools.git
-[submodule "submodules/easi"]
-	path = submodules/easi
-	url = ../../SeisSol/easi.git
 [submodule "submodules/yaml-cpp"]
 	path = submodules/yaml-cpp
 	url = ../../jbeder/yaml-cpp.git

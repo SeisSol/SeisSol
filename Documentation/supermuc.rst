@@ -16,14 +16,20 @@ Here, we described the procedure to set up such port forwarding.
 
 ::
 
-  Host supermuNG
+  Host supermucNG
      Hostname skx.supermuc.lrz.de
      User <Your Login>    
      RemoteForward ddddd github.com:22
 
 where ddddd is an arbitrary 5-digital port number.
+  
+2. Use the following command to login onto SuperMUC-NG:
 
-2. ssh supermucNG to login to supermuc. Then add the following lines to the ~/.ssh/config:
+::
+
+  ssh supermucNG 
+  
+Add the following lines to your ~/.ssh/config (on supermucNG):
 
 :: 
 
@@ -34,24 +40,30 @@ where ddddd is an arbitrary 5-digital port number.
     
 With ddddd the same port number as before.
 
-4. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
+3. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
 
 ::
 
   ssh-keygen -t rsa 
 
-5. Go to https://github.com/settings/ssh, add a new SSH key, pasting the public key you just created on supermuc  ~/.ssh/id_rsa.pub. 
-Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol including the submodules using:
-
+4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on supermucNG). You should now be able to clone SeisSol including the submodules using:
 
 ::
 
   git clone git@github.com:SeisSol/SeisSol.git
-  cd SeisSol
-  git submodule update --init
 
-Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
-If it works, you will see several lines of ‘cloning ….’.
+Pay attention to the change in the git address ('https://github.com/' is now replaced by 'git@github.com:'). 
+If it works, you will see several lines, for example: 
+
+::
+
+  Cloning into 'SeisSol'...
+  remote: Enumerating objects: 25806, done.
+  remote: Counting objects: 100% (4435/4435), done.
+  remote: Compressing objects: 100% (1820/1820), done.
+  remote: Total 25806 (delta 2972), reused 3710 (delta 2551), pack-reused 21371
+  Receiving objects: 100% (25806/25806), 110.50 MiB | 9.79 MiB/s, done.
+  Resolving deltas: 100% (19382/19382), done.
 
 
 Building SeisSol
@@ -198,3 +210,41 @@ Running SeisSol
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 
 
+Accessing PyPI
+--------------
+
+Many post-processing scripts of SeisSol require Python dependencies.
+We describe how to use pip on SuperMUC in the following.
+
+
+1. On your local machine in ~/.ssh/config add the following `RemoteForward` line:
+
+::
+
+    Host supermucNG
+        ...
+        RemoteForward ddddd localhost:8899
+
+where ddddd is an arbitrary port number with 5 digits.
+(This number should be different from port number used in other RemoteForward entries.)
+
+2. Install proxy.py on your local machine.
+
+::
+
+    pip install --upgrade --user proxy.py
+
+3. Start proxy.py on your local machine. (And keep it running.)
+
+
+::
+
+    ~/.local/bin/proxy --port 8899
+
+4. Login to SuperMUC with `ssh supermucNG`. Pip can be used with
+
+::
+
+    pip install <package name> --user --proxy localhost:ddddd
+
+where ddddd is your arbitrary port number.

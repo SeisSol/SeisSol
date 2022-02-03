@@ -62,6 +62,15 @@ message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
 
+set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
+                                src/generated_code/tensor.cpp
+                                src/generated_code/subroutine.cpp
+                                src/generated_code/gpulike_subroutine.cpp
+                                src/generated_code/tensor.h
+                                src/generated_code/init.cpp
+                                src/generated_code/init.h
+                                src/generated_code/kernel.h
+                                src/generated_code/kernel.cpp)
 
 add_custom_command(
   COMMAND
@@ -99,36 +108,30 @@ add_custom_command(
         generated_code/NodalBoundaryConditions.py
         generated_code/matrices/matrices_poroelastic.xml
     OUTPUT
-        src/generated_code/subroutine.h
-        src/generated_code/tensor.cpp
-        src/generated_code/subroutine.cpp
-        src/generated_code/gpulike_subroutine.cpp
-        src/generated_code/tensor.h
-        src/generated_code/init.cpp
-        src/generated_code/init.h
-        src/generated_code/kernel.h
-        src/generated_code/kernel.cpp
+        ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Codegen for tensor stuff."
        )
+
+add_custom_target(SeisSol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 
 find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
-target_link_libraries(SeisSol-lib PUBLIC SeisSol-gencode)
-
+# enforce code generation to run before any other target
+add_dependencies(SeisSol-lib SeisSol-codegen)
 if (WITH_GPU)
-  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
+  add_dependencies(SeisSol-device-lib SeisSol-codegen)
 endif()
 
 
 if(GemmTools_INCLUDE_DIRS)
-  target_include_directories(SeisSol-gencode PUBLIC ${GemmTools_INCLUDE_DIRS})
+  target_include_directories(SeisSol-lib PUBLIC ${GemmTools_INCLUDE_DIRS})
 endif()
 if(GemmTools_LIBRARIES)
-  target_link_libraries(SeisSol-gencode PUBLIC ${GemmTools_LIBRARIES})
+  target_link_libraries(SeisSol-lib PUBLIC ${GemmTools_LIBRARIES})
 endif()
 if(GemmTools_COMPILER_DEFINITIONS)
-  target_compile_definitions(SeisSol-gencode PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
+  target_compile_definitions(SeisSol-lib PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
 endif()
 
 # Find appropriate compiler flags based on the target computer architecture
@@ -138,8 +141,8 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(SeisSol-gencode PUBLIC ${HARDWARE_DEFINITIONS})
-target_compile_options(SeisSol-gencode PUBLIC ${CPU_ARCH_FLAGS})
+target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})
+target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
 
 target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL})
 target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
@@ -160,48 +163,9 @@ endif()
 # Libs
 include(ExternalProject)
 
-find_package(YAML-CPP 0.5.3 QUIET)
-if (YAML-CPP_FOUND)
-  target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-  target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
-else()
-  ExternalProject_Add(yaml-cpp-build
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DYAML_CPP_BUILD_TOOLS=OFF
-    -DYAML_CPP_BUILD_TESTS=OFF
-    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
-  )
-  add_dependencies(SeisSol-lib yaml-cpp-build)
-  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
-endif()
+find_package(easi 1.0.0 REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC easi::easi)
 
-if (USE_IMPALA_JIT_LLVM)
-  find_package(ImpalaJIT-LLVM 1.0 REQUIRED)
-  target_link_libraries(SeisSol-lib PRIVATE llvm::impalajit)
-else()
-  ExternalProject_Add(ImpalaJIT-build
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
-  )
-  add_dependencies(SeisSol-lib ImpalaJIT-build)
-  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
-endif()
-
-# todo: if parallelization == omp/hybrid
 if (OPENMP)
   find_package(OpenMP REQUIRED)
 #  target_link_libraries(SeisSol-gencode PRIVATE OpenMP::OpenMP_CXX)
@@ -288,7 +252,7 @@ endif()
 find_package(PkgConfig REQUIRED) 
 if (ASAGI)
   # todo warn if netcdf is off
-  pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
+  pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-lib PUBLIC USE_ASAGI)
   target_link_libraries(SeisSol-lib PUBLIC ${ASAGI_STATIC_LDFLAGS})
   target_include_directories(SeisSol-lib PUBLIC ${ASAGI_INCLUDE_DIRS})
@@ -323,6 +287,8 @@ if (WITH_GPU)
   target_include_directories(SeisSol-lib PUBLIC submodules/Device)
   target_link_libraries(SeisSol-lib PUBLIC device)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
+
+  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
 endif()
 
 if (INTEGRATE_QUANTITIES)
@@ -336,37 +302,31 @@ if (ADDRESS_SANITIZER_DEBUG)
 endif()
 
 
-# Note: we need to provide a support for Eigen backend
-#       for both gencode and SeisSol
+# Note: it is better to include `eigen3` `async` as
+# system headers because they emit lot's of warnings
+# from clang. Most of them are issues with respect
+# to overriden virtual methods
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-target_include_directories(SeisSol-gencode PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-)
-
-# Note: it is better to include `async` as system headers
-# because it emits lot's of warnings from clang.
-# Most of them are issues with respect to overriden
-# virtual methods
-target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async)
+find_package(yaml-cpp REQUIRED
+        PATHS ${CMAKE_CURRENT_BINARY_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
-    # todo: use reexport from easi?
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
-				   CONVERGENCE_ORDER=${ORDER}
-				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
-				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-				   ENABLE_MATRIX_PREFETCH
-				   )
+    CONVERGENCE_ORDER=${ORDER}
+	NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+	NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+	ENABLE_MATRIX_PREFETCH
+)
 
 # Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
@@ -413,21 +373,13 @@ else()
 endif()
 
 
-# Note: SeisSol-lib and SeisSol-gencode have cyclic dependencies
-# (e.g., libsxmm flop counters). Thus we add the to the rest of
-# the project though the interface with the following linking option
-add_library(SeisSol-lib-interface INTERFACE)
-target_link_libraries(SeisSol-lib-interface INTERFACE
-  "-Wl,--start-group" SeisSol-lib SeisSol-gencode "-Wl,--end-group"
-)
-
 add_executable(SeisSol-bin src/main.cpp)
-target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib-interface)
+target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
 # SeisSol proxy-core
 add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
-target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib-interface)
+target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
 
 if (PROXY_PYBINDING)
   if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -443,13 +395,13 @@ endif()
 
 # C/C++ proxy interface
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
-target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib-interface)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 
-find_package(likwid QUIET)
-if (likwid_FOUND)
-    target_compile_definitions(SeisSol-proxy PRIVATE LIKWID_PERFMON)
-    target_link_libraries(SeisSol-proxy PRIVATE likwid::likwid)
+if (LIKWID)
+  find_package(likwid REQUIRED)
+  target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
+  target_link_libraries(SeisSol-proxy-core PRIVATE likwid::likwid)
 endif()
 
 if (TESTING)
@@ -477,8 +429,9 @@ if (TESTING)
           src/tests/Numerical_aux/TestNumerical_aux.cpp
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
-          src/tests/SourceTerm/SourceTermTest.cpp
+          src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Pipeline/TestPipeline.cpp
+          src/tests/ResultWriter/TestResultWriter.cpp
           )
 
 
@@ -499,6 +452,11 @@ if (TESTING)
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
     COPYONLY
     )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
+    COPYONLY
+  )
 
   if (NETCDF)
     configure_file(
@@ -512,7 +470,7 @@ if (TESTING)
   add_executable(SeisSol-serial-test
             ${seissol_test_sources}
             src/tests/test_main.cpp)
-  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib-interface)
+  target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
   target_include_directories(SeisSol-serial-test PUBLIC external/)
   doctest_discover_tests(SeisSol-serial-test)
 

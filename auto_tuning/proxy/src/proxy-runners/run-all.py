@@ -14,7 +14,7 @@ import os
 
 
 parser = argparse.ArgumentParser()
-plotting_options = ['csv, json', 'matplotlib']
+plotting_options = ['csv', 'json', 'matplotlib']
 parser.add_argument('-c', '--cells', default=50000, type=int, help="num cells in a time cluster")
 parser.add_argument('-t', '--timesteps', default=30, type=int, help="num time steps/repeats")
 parser.add_argument('--output_type', choices=plotting_options, default='csv', help='format to save data')

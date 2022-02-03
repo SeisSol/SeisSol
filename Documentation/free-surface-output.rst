@@ -27,8 +27,8 @@ each subtriangle.
 variables
 ---------
 
-   | **u**, **v**, **w**: ground velocities, x y and z components
-   | **U**, **V**, **W**: ground displacements, x y and z components
+   | **v1**, **v2**, **v3**: ground velocities, x y and z components
+   | **u1**, **u2**, **u3**: ground displacements, x y and z components
 
 Additionally, the writer outputs a quantity called "locationFlag", which has the values
 0 and 1 when at the elastic or acoustic side of an elastic-acoustic interface.
