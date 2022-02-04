@@ -96,14 +96,25 @@ std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
     generateTriangleQuadrature(unsigned polyDegree) {
 
   // allocate data
-  unsigned numQuadraturePoints = polyDegree * polyDegree;
+  constexpr unsigned numQuadraturePoints = tensor::quadweights::Shape[0];
   std::shared_ptr<double[]> weights(new double[numQuadraturePoints],
                                     std::default_delete<double[]>());
   std::shared_ptr<double[]> points(new double[2 * numQuadraturePoints],
                                    std::default_delete<double[]>());
 
   // Generate triangle quadrature points and weights (Factory Method)
+  auto pointsView = init::quadpoints::view::create(const_cast<double*>(init::quadpoints::Values));
+  auto weightsView =
+      init::quadweights::view::create(const_cast<double*>(init::quadweights::Values));
+  auto* reshapedPoints = reshape<2>(&points[0]);
+  for (size_t i = 0; i < numQuadraturePoints; ++i) {
+    reshapedPoints[i][0] = pointsView(i, 0);
+    reshapedPoints[i][1] = pointsView(i, 1);
+    weights[i] = weightsView(i);
+  }
+
   seissol::quadrature::TriangleQuadrature(reshape<2>(&points[0]), &weights[0], polyDegree);
+
   return std::make_tuple(numQuadraturePoints, weights, points);
 }
 

@@ -100,7 +100,7 @@ add_custom_command(
         generated_code/anisotropic.py
         generated_code/SurfaceDisplacement.py
         generated_code/NodalBoundaryConditions.py
-        generated_code/matrices/matrices_poroelastic.xml
+        generated_code/matrices
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Codegen for tensor stuff."

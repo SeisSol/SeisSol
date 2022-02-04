@@ -107,4 +107,4 @@ def addKernels(generator, aderdg, matricesDir, targets):
                         nodalFluxPrefetch if target =='cpu' else None,
                         target=target)
 
-  return {db.resample}
+  return {db.resample, db.quadpoints, db.quadweights}

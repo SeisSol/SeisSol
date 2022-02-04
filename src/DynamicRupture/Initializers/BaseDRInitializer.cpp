@@ -108,7 +108,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     queryModel(faultParameterDB, faceIDs);
 
     // rotate initial stress to fault coordinate system
-    real(*initialStressInFaultCS)[misc::numPaddedPoints][6] = it->var(dynRup->initialStressInFaultCS);
+    real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
+        it->var(dynRup->initialStressInFaultCS);
     rotateStressToFaultCS(dynRup,
                           it,
                           initialStressInFaultCS,
@@ -158,7 +159,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*peakSlipRate)[misc::numPaddedPoints] = it->var(dynRup->peakSlipRate);
     real(*ruptureTime)[misc::numPaddedPoints] = it->var(dynRup->ruptureTime);
     real(*dynStressTime)[misc::numPaddedPoints] = it->var(dynRup->dynStressTime);
-    real(*accumulatedSlipMagnitude)[misc::numPaddedPoints] = it->var(dynRup->accumulatedSlipMagnitude);
+    real(*accumulatedSlipMagnitude)[misc::numPaddedPoints] =
+        it->var(dynRup->accumulatedSlipMagnitude);
     real(*slip1)[misc::numPaddedPoints] = it->var(dynRup->slip2);
     real(*slip2)[misc::numPaddedPoints] = it->var(dynRup->slip1);
     real(*slipRateMagnitude)[misc::numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
@@ -211,14 +213,7 @@ std::vector<unsigned>
 void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
                                    std::vector<unsigned> faceIDs) {
   // create a query and evaluate the model
-  double boundaryGaussPoints[numPaddedPoints][2] = {{0}};
-  double weights[numPaddedPoints] = {0};
-  quadrature::TriangleQuadrature(boundaryGaussPoints, weights, CONVERGENCE_ORDER + 1);
-  seissol::initializers::FaultGPGenerator queryGen(
-      seissol::SeisSol::main.meshReader(),
-      reinterpret_cast<double(*)[2]>(boundaryGaussPoints),
-      numPaddedPoints,
-      faceIDs);
+  seissol::initializers::FaultGPGenerator queryGen(seissol::SeisSol::main.meshReader(), faceIDs);
   faultParameterDB.evaluateModel(drParameters.faultFileName, queryGen);
 }
 
