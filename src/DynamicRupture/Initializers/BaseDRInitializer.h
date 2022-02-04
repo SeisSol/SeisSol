@@ -19,15 +19,6 @@ namespace seissol::dr::initializers {
 class BaseDRInitializer {
   protected:
   /**
-   * Number of quadrature points on an surface element
-   */
-  static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
-  /**
-   * Number of quadrature points on an surface element padded for vectorization
-   */
-  static constexpr int numPaddedPoints = init::QInterpolated::Stop[0];
-
-  /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
   DRParameters& drParameters;
@@ -108,13 +99,13 @@ class BaseDRInitializer {
    */
   void rotateStressToFaultCS(seissol::initializers::DynamicRupture* dynRup,
                              seissol::initializers::LTSTree::leaf_iterator& it,
-                             real (*stressInFaultCS)[numPaddedPoints][6],
-                             std::vector<std::array<real, numPaddedPoints>>& stressXX,
-                             std::vector<std::array<real, numPaddedPoints>>& stressYY,
-                             std::vector<std::array<real, numPaddedPoints>>& stressZZ,
-                             std::vector<std::array<real, numPaddedPoints>>& stressXY,
-                             std::vector<std::array<real, numPaddedPoints>>& stressYZ,
-                             std::vector<std::array<real, numPaddedPoints>>& stressXZ);
+                             real (*stressInFaultCS)[misc::numPaddedPoints][6],
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXX,
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressYY,
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressZZ,
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXY,
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressYZ,
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ);
 };
 
 } // namespace seissol::dr::initializers
