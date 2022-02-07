@@ -44,7 +44,9 @@ ci_builder_pre:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip master.zip
         - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
-        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git && mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && sudo make -j $(nproc) install && cd ..
+        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git &&
+          mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && 
+          sudo make -j $(nproc) install && cd ..
         
 ci_builder_build:
     stage: build
@@ -76,7 +78,21 @@ ci_builder_build:
                  mkdir -p $dirname && cd $dirname ;
                  pwd; 
                  CMAKE_PREFIX_PATH=~ ;
-                 cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM .. ;
+                 cmake ..
+                 -DNETCDF=OFF
+                 -DMETIS=ON
+                 -DCOMMTHREAD=ON
+                 -DASAGI=OFF
+                 -DHDF5=ON
+                 -DCMAKE_BUILD_TYPE=$build_type
+                 -DTESTING=ON
+                 -DLOG_LEVEL=warning
+                 -DLOG_LEVEL_MASTER=info
+                 -DHOST_ARCH=hsw
+                 -DPRECISION=$precision
+                 -DEQUATIONS=$equation
+                 -DNUMBER_OF_MECHANISMS=$mechanisms
+                 -DGEMM_TOOLS_LIST=LIBXSMM .. ;
                  make -j $(nproc);
                  cd .. ; 
              done; 

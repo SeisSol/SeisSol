@@ -1,6 +1,9 @@
-image:
-    name: ravilmobile/seissol-base:gcc-8_cuda-10
-    entrypoint: [""]
+default:
+    tags:
+        - atsccs68-docker-executor
+    image:
+        name: ravilmobile/seissol-base:gcc-8_cuda-10
+        entrypoint: [""]
 
 stages:
     - pre_build
@@ -10,8 +13,6 @@ stages:
 
 gpu_pre_build:
     stage: pre_build
-    tags:
-        - atsccs68-docker-executor
     allow_failure: false
     variables:
         GIT_STRATEGY: clone
@@ -23,9 +24,25 @@ gpu_pre_build:
         - echo "HOST arch.:" $HOST
         - echo "GPU model:" $GPU_MODEL
         - nvidia-smi
-        - sudo apt update && sudo apt install -yqq libyaml-cpp-dev
-        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git easi 
-        - mkdir -p easi/build && cd easi/build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ..  &&  make -j $(nproc) install && cd ../..
+        - mkdir ./self_usr
+        - git clone https://github.com/uphoffc/ImpalaJIT.git impalajit &&
+          mkdir -p impalajit/build && cd impalajit/build &&
+          cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
+          make -j $(nproc) install &&
+          cd ../..
+        - git clone --depth 1 --branch yaml-cpp-0.6.2 https://github.com/jbeder/yaml-cpp.git yaml-cpp &&
+          mkdir -p yaml-cpp/build && cd yaml-cpp/build &&
+          cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
+          make -j $(nproc) install &&
+          cd ../..
+        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git easi &&
+          mkdir -p easi/build && cd easi/build &&
+          cmake .. -DASAGI=OFF -DIMPALAJIT=ON -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
+          make -j $(nproc) install &&
+          cd ../..
+    artifacts:
+        paths:
+            - ./self_usr
 
 # gcc@9 is required to compile and run hipSYCL@0.9.1. It is based on llvm and emits nvptx code by itself.
 # gcc@8 is required for cuda@10.2
@@ -48,12 +65,13 @@ gpu_pre_build:
         . /etc/profile.d/rocm.sh ;
         export HIP_PLATFORM=nvidia ;
       fi ;
-
+    - ls -l ./self_usr/lib && ls -l ./self_usr/include
+    - export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:$PWD/self_usr;
+      export LIBRARY_PATH=$LIBRARY_PATH:$PWD/self_usr ;
+      export CPATH=$CPATH:$PWD/self_usr ;
 
 gpu_build:
     stage: build
-    tags:
-        -  atsccs68-docker-executor
     allow_failure: false
     needs:
         - job: gpu_pre_build
@@ -89,8 +107,6 @@ gpu_build:
 
 gpu_convergence_test:
     stage: test
-    tags:
-        -  atsccs68-docker-executor
     allow_failure: false
     needs:
         - job: gpu_build
@@ -124,8 +140,6 @@ gpu_convergence_test:
 
 gpu_performance_test:
     stage: performance_eval
-    tags:
-        -  atsccs68-docker-executor
     allow_failure: true
     needs:
         - job: gpu_convergence_test
