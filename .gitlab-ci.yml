@@ -108,7 +108,7 @@ gpu_pre_build:
     stage: pre_build
     tags:
         - atsccs68-docker-executor
-    allow_failure: true
+    allow_failure: false
     variables:
         GIT_STRATEGY: clone
     image:
@@ -121,6 +121,9 @@ gpu_pre_build:
         - echo "HOST arch.:" $HOST
         - echo "GPU model:" $GPU_MODEL
         - nvidia-smi
+        - sudo apt update && sudo apt install -yqq libyaml-cpp-dev
+        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git easi 
+        - mkdir -p easi/build && cd easi/build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ..  &&  make -j $(nproc) install && cd ../..
 
 # gcc@9 is required to compile and run hipSYCL@0.9.1. It is based on llvm and emits nvptx code by itself.
 # gcc@8 is required for cuda@10.2
