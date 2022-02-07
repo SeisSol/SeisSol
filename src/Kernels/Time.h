@@ -144,7 +144,9 @@ class seissol::kernels::Time : public TimeBase {
                                      real** timeEvaluated,
                                      size_t numElements);
 
-    void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+
+  unsigned int* getDerivativesOffsets();
 };
 
 #endif

@@ -263,6 +263,8 @@ class LinearADERDG(ADERDGBase):
                     self.I['kp'] <= power * dQ0['kp'],
                     target=target)
 
+      self.dQs = [dQ0]
+
       for i in range(1,self.order):
         derivativeSum = Add()
         if self.sourceMatrix():
@@ -273,6 +275,7 @@ class LinearADERDG(ADERDGBase):
         derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+        self.dQs.append(dQ)
 
         generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, target=target)
         generator.add(f'{name_prefix}derivativeTaylorExpansion({i})',

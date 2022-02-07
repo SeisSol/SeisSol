@@ -23,37 +23,16 @@ public:
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
                                                                   [[maybe_unused]] FaceType faceType,
                                                                   TimeKrnl& timeKrnl) {
-    const auto config = ode::ODESolverConfig(1.0); // Use default config
-    int numStages = ode::getNumberOfStages(config.solver);
     const auto numDofs = init::faceDisplacement::size() + init::averageNormalDisplacement::size();
+    long long hardwareFlops = 0;
+    long long nonZeroFlops = 0;
 
-    Eigen::MatrixXd a;
-    Eigen::VectorXd b;
-    Eigen::VectorXd c;
-    initializeRungeKuttaScheme(config.solver, numStages, a, b, c);
-
-    long long nonZeroFlopsTaylor, hardwareFlopsTaylor;
-    timeKrnl.flopsTaylorExpansion(nonZeroFlopsTaylor, hardwareFlopsTaylor);
-
-    const auto nonZeroFlopsFunctionEvaluation =
-        nonZeroFlopsTaylor +
-        kernel::projectToNodalBoundaryRotated::NonZeroFlops[face];
-    const auto hardwareFlopsFunctionEvaluation =
-        hardwareFlopsTaylor +
-        kernel::projectToNodalBoundaryRotated::HardwareFlops[face];
-
-    const auto nonZeroFlopsFunctionEvaluations = numStages * nonZeroFlopsFunctionEvaluation;
-    const auto hardwareFlopsFunctionEvaluations = numStages * hardwareFlopsFunctionEvaluation;
-
-    const auto intermediateStages = a.count();
-    const auto flopsRKStages = intermediateStages * numDofs * 2; // One mul to scale with a_{ij} \Delta t, one add
-    const auto flopsRKFinalValue = numStages * 2 * numDofs; // One mul to scale with b \Delta t, one add
-
-    const auto hardwareFlopsRK = flopsRKStages + flopsRKFinalValue;
-    const auto nonZeroFlopsRK = hardwareFlopsRK;
-
-    const auto nonZeroFlops = nonZeroFlopsFunctionEvaluations + nonZeroFlopsRK;
-    const auto hardwareFlops = hardwareFlopsFunctionEvaluations + hardwareFlopsRK;
+    // Note: This neglects roughly 10 * CONVERGENCE_ORDER * numNodes2D flops
+    // Before adjusting the range of the loop, check range of loop in computation!
+    for (int order = 1; order < CONVERGENCE_ORDER + 1; ++order) {
+      nonZeroFlops += kernel::projectDerivativeToNodalBoundaryRotated::nonZeroFlops(order - 1, face);
+      hardwareFlops += kernel::projectDerivativeToNodalBoundaryRotated::hardwareFlops(order - 1, face);
+    }
 
     return {nonZeroFlops, hardwareFlops};
   }
@@ -72,7 +51,14 @@ public:
                 FaceType faceType) {
     // This function does two things:
     // 1: Compute eta (for all three dimensions) at the end of the timestep
-    // 2: Compute the integral of eta in normal direction (called H) over the timestep
+    // 2: Compute the integral of eta in normal direction over the timestep
+    // We do this by building up the Taylor series of eta.
+    // Eta is defined by the ODE eta_t = u^R - 1/Z * (rho g eta - p^R)
+    // Compute coefficients by differentiating ODE recursively, e.g.:
+    // eta_tt = u^R_t - 1/Z * (rho eta_t g - p^R_t)
+    // and substituting the previous coefficient eta_t
+    // This implementation sums up the Taylor series directly without storing
+    // all coefficients.
 
    // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
@@ -96,17 +82,17 @@ public:
       }
     }
     static_assert(init::rotatedFaceDisplacement::Size == init::faceDisplacement::Size);
-    alignas(ALIGNMENT) real rotatedFaceDisplacement[init::rotatedFaceDisplacement::Size];
+    alignas(ALIGNMENT) real rotatedFaceDisplacementData[init::rotatedFaceDisplacement::Size];
 
     auto integratedDisplacementNodal = init::averageNormalDisplacement::view::create(integratedDisplacementNodalData);
-    auto displacementNodal = init::faceDisplacement::view::create(rotatedFaceDisplacement);
+    auto rotatedFaceDisplacement = init::faceDisplacement::view::create(rotatedFaceDisplacementData);
 
     // Rotate face displacement to face-normal coordinate system in which the computation is
     // more convenient.
     auto rotateFaceDisplacementKrnl = kernel::rotateFaceDisplacement();
     rotateFaceDisplacementKrnl.faceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
-    rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacement;
+    rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacementData;
     rotateFaceDisplacementKrnl.execute();
 
     // Temporary buffer to store dofs at some time t
@@ -118,47 +104,43 @@ public:
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     // Temporary buffer to store nodal face coefficients at some time t
-    // TODO(Lukas) We actually only need one coeff per node! -> std::array
-    alignas(ALIGNMENT) real prevCoefficientsStorage[tensor::INodal::size()];
-    auto prevCoefficients = init::INodal::view::create(prevCoefficientsStorage);
+    alignas(ALIGNMENT) std::array<real, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS> prevCoefficients;
 
     const double deltaT = timeStepWidth;
     const double deltaTInt = timeStepWidth;
-    // Initialize first component of series
-    //evaluated = eta_ic
-    //evaluated_int =  delta_t_int * eta_ic
 
+    // Initialize first component of Taylor series
     for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-      prevCoefficients(i,0) = displacementNodal(i, 0);
-      integratedDisplacementNodal(i) = deltaTInt * displacementNodal(i,0);
+      prevCoefficients[i] = rotatedFaceDisplacement(i, 0);
+      // This is clearly a zeroth order approximation of the integral!
+      integratedDisplacementNodal(i) = deltaTInt * rotatedFaceDisplacement(i, 0);
     }
 
     // Coefficients for Taylor series
     double factorEvaluated = 1;
     double factorInt = deltaTInt;
 
+    auto* derivativesOffsets = timeKernel.getDerivativesOffsets();
+    projectKernel.INodal = dofsFaceNodal.data();
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+      projectKernel.dQ(i) = derivatives + derivativesOffsets[i];
+    }
+
+    const double rho = materialData.local.rho;
+    const double g = getGravitationalAcceleration(); // [m/s^2]
+    const double Z = std::sqrt(materialData.local.lambda * rho) ;
+
     // Note: Probably need to increase CONVERGENCE_ORDER by 1 here!
     for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
-      // TODO(Lukas): Actually just picks out the nth coefficient...
       dofsVolumeInteriorModal.setZero();
       dofsFaceNodal.setZero();
-      timeKernel.computeDerivativeTaylorExpansion(startTime,
-                                        startTime,
-                                        derivatives,
-                                        dofsVolumeInteriorModal.data(),
-                                        order-1);
 
-      projectKernel.I = dofsVolumeInteriorModal.data();
-      projectKernel.INodal = dofsFaceNodal.data();
-      projectKernel.execute(faceIdx);
+      projectKernel.execute(order - 1, faceIdx);
 
       factorEvaluated *= deltaT / (1.0 * order);
       factorInt *= deltaTInt / (order + 1.0);
-      for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-        const double rho = materialData.local.rho;
-        const double g = getGravitationalAcceleration(); // [m/s^2]
-        const double Z = std::sqrt(materialData.local.lambda * rho) ;
 
+      for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         // Derivatives of interior variables
         constexpr int pIdx = 0;
         constexpr int uIdx = 6;
@@ -168,24 +150,20 @@ public:
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
 
-        const double prevCoeff = prevCoefficients(i, 0);
-        // TODO(Lukas) Check sign
-        const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoeff + pressureInside);
-        prevCoefficients(i,0) = curCoeff;
+        const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
+        prevCoefficients[i] = curCoeff;
 
-        displacementNodal(i,0) += factorEvaluated * curCoeff;
-        //TODO(Lukas) Check if Taylor series for displ is correct
-        displacementNodal(i,1) += factorEvaluated * vInside;
-        displacementNodal(i,2) += factorEvaluated * wInside;
+        rotatedFaceDisplacement(i, 0) += factorEvaluated * curCoeff;
+        rotatedFaceDisplacement(i, 1) += factorEvaluated * vInside;
+        rotatedFaceDisplacement(i, 2) += factorEvaluated * wInside;
 
         integratedDisplacementNodal(i) += factorInt * curCoeff;
       }
-
     }
 
     // Rotate face displacement back to global coordinate system which we use as storage
     // coordinate system
-    rotateFaceDisplacementKrnl.faceDisplacement = rotatedFaceDisplacement;
+    rotateFaceDisplacementKrnl.faceDisplacement = rotatedFaceDisplacementData;
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
     rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.execute();

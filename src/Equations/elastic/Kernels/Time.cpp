@@ -130,7 +130,8 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
-  projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
+
 #endif //USE_STP
 }
 
@@ -230,10 +231,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     for (unsigned face = 0; face < 4; ++face) {
       if (data.faceDisplacements[face] != nullptr
           && data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-        std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
+        //std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
         bc.evaluate(
             face,
-            projectRotatedKrnlPrototype,
+            projectDerivativeToNodalBoundaryRotated,
             data.boundaryMapping[face],
             data.faceDisplacements[face],
             tmp.nodalAvgDisplacements[face].data(),
@@ -561,4 +562,8 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
     nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }
+}
+
+unsigned int* seissol::kernels::Time::getDerivativesOffsets() {
+  return m_derivativesOffsets;
 }
