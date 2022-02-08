@@ -33,13 +33,10 @@ class FrictionSolver {
   public:
   virtual ~FrictionSolver(){};
 
-  virtual void
-      evaluate(seissol::initializers::Layer& layerData,
-               seissol::initializers::DynamicRupture* dynRup,
-               real (*qInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real (*qInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-               real fullUpdateTime,
-               double timeWeights[CONVERGENCE_ORDER]) = 0;
+  virtual void evaluate(seissol::initializers::Layer& layerData,
+                        seissol::initializers::DynamicRupture* dynRup,
+                        real fullUpdateTime,
+                        double timeWeights[CONVERGENCE_ORDER]) = 0;
 
   /**
    * compute the DeltaT from the current timePoints

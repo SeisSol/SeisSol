@@ -244,40 +244,40 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 }
 
 #ifndef ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
+void seissol::time_stepping::TimeCluster::computeDynamicRupture(seissol::initializers::Layer& layerData) {
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
-  DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
-  DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
-  real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
-  real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
-  //Todo: Fix warning
-  alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
+  DRGodunovData* godunovData = layerData.var(m_dynRup->godunovData);
+  real** timeDerivativePlus = layerData.var(m_dynRup->timeDerivativePlus);
+  real** timeDerivativeMinus = layerData.var(m_dynRup->timeDerivativeMinus);
+  auto *qInterpolatedPlus = layerData.var(m_dynRup->qInterpolatedPlus);
+  auto *qInterpolatedMinus = layerData.var(m_dynRup->qInterpolatedMinus);
 
   m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
+  #pragma omp parallel for schedule(static)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
+    m_dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
+                                                  m_globalDataOnHost,
+                                                  &godunovData[face],
+                                                  timeDerivativePlus[face],
+                                                  timeDerivativeMinus[face],
+                                                  qInterpolatedPlus[face],
+                                                  qInterpolatedMinus[face],
+                                                  timeDerivativePlus[prefetchFace],
+                                                  timeDerivativeMinus[prefetchFace]);
+  }
 
-    m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
-                                                    m_globalDataOnHost,
-                                                   &godunovData[face],
-                                                    timeDerivativePlus[face],
-                                                    timeDerivativeMinus[face],
-                                                    QInterpolatedPlus[face],
-                                                    QInterpolatedMinus[face],
-                                                    timeDerivativePlus[prefetchFace],
-                                                    timeDerivativeMinus[prefetchFace] );
-  } //End layerData.getNumberOfCells()-loop
-
-  //Todo: Why did Adrian move this out of the loop
-  m_FrictionSolver->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights);
+  m_FrictionSolver->evaluate(layerData,
+                             m_dynRup,
+                             m_fullUpdateTime,
+                             m_dynamicRuptureKernel.timeWeights);
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 }

@@ -43,6 +43,7 @@
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <generated_code/tensor.h>
+#include <DynamicRupture/Misc.h>
 
 namespace seissol {
   namespace initializers {
@@ -54,8 +55,8 @@ namespace seissol {
     struct LTS_RateAndStateFastVelocityWeakening;
     struct LTS_RateAndStateThermalPressurisation;
     struct LTS_ImposedSlipRates;
-  }
-}
+  } // namespace initializers
+} // namespace seissol
 
 #ifndef ACL_DEVICE
 #	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::Standard
@@ -69,9 +70,6 @@ namespace seissol {
 
 
 struct seissol::initializers::DynamicRupture {
-  //assert(init::QInterpolated::Start[0] == 0); ?
-protected:
-  static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
 public:
   virtual ~DynamicRupture() {}
   bool isFaultParameterizedByTraction;        //true if Traction T_n , T_s, T_d is stored in iniBulk_XX, iniShearXY, iniShearXZ
@@ -89,23 +87,25 @@ public:
   Variable<seissol::dr::ImpedancesAndEta>                           impAndEta;
   //size padded for vectorization
   //CS = coordinate system
-  Variable<real[numOfPointsPadded][6]> initialStressInFaultCS;
-  Variable<real[numOfPointsPadded][6]> nucleationStressInFaultCS;
-  Variable<real[ numOfPointsPadded ]> mu;
-  Variable<real[ numOfPointsPadded ]> accumulatedSlipMagnitude;
-  Variable<real[ numOfPointsPadded ]> slip1; // slip at given fault node along local direction 1
-  Variable<real[ numOfPointsPadded ]> slip2; // slip at given fault node along local direction 2
-  Variable<real[ numOfPointsPadded ]> slipRateMagnitude;
-  Variable<real[ numOfPointsPadded ]> slipRate1; // slip rate at given fault node along local direction 1
-  Variable<real[ numOfPointsPadded ]> slipRate2; // slip rate at given fault node along local direction 2
-  Variable<real[ numOfPointsPadded ]> ruptureTime;
-  Variable<real[ numOfPointsPadded ]> dynStressTime;
-  Variable<bool[ numOfPointsPadded ]> ruptureTimePending;
-  Variable<bool[ numOfPointsPadded ]> dynStressTimePending;
-  Variable<real[ numOfPointsPadded ]> peakSlipRate;
-  Variable<real[ numOfPointsPadded ]> tractionXY;
-  Variable<real[ numOfPointsPadded ]> tractionXZ;
+  Variable<real[dr::misc::numPaddedPoints][6]> initialStressInFaultCS;
+  Variable<real[dr::misc::numPaddedPoints][6]> nucleationStressInFaultCS;
+  Variable<real[dr::misc::numPaddedPoints]> mu;
+  Variable<real[dr::misc::numPaddedPoints]> accumulatedSlipMagnitude;
+  Variable<real[dr::misc::numPaddedPoints]> slip1; // slip at given fault node along local direction 1
+  Variable<real[dr::misc::numPaddedPoints]> slip2; // slip at given fault node along local direction 2
+  Variable<real[dr::misc::numPaddedPoints]> slipRateMagnitude;
+  Variable<real[dr::misc::numPaddedPoints]> slipRate1; // slip rate at given fault node along local direction 1
+  Variable<real[dr::misc::numPaddedPoints]> slipRate2; // slip rate at given fault node along local direction 2
+  Variable<real[dr::misc::numPaddedPoints]> ruptureTime;
+  Variable<real[dr::misc::numPaddedPoints]> dynStressTime;
+  Variable<bool[dr::misc::numPaddedPoints]> ruptureTimePending;
+  Variable<bool[dr::misc::numPaddedPoints]> dynStressTimePending;
+  Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
+  Variable<real[dr::misc::numPaddedPoints]> tractionXY;
+  Variable<real[dr::misc::numPaddedPoints]> tractionXZ;
   Variable<real> averagedSlip;
+  Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedPlus;
+  Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;
@@ -135,20 +135,23 @@ public:
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      ruptureTime,                    mask,                 1,      seissol::memory::Standard );
-    tree.addVar(ruptureTimePending, mask, 1, seissol::memory::Standard );
-    tree.addVar(dynStressTime, mask, 1, seissol::memory::Standard );
-    tree.addVar(dynStressTimePending, mask, 1, seissol::memory::Standard );
-    tree.addVar(mu, mask, 1, seissol::memory::Standard );
-    tree.addVar(accumulatedSlipMagnitude, mask, 1, seissol::memory::Standard );
-    tree.addVar(slip1, mask, 1, seissol::memory::Standard );
-    tree.addVar(slip2, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipRateMagnitude, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipRate1, mask, 1, seissol::memory::Standard );
-    tree.addVar(slipRate2, mask, 1, seissol::memory::Standard );
-    tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard );
-    tree.addVar(tractionXY, mask, 1, seissol::memory::Standard );
-    tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard );
-    tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard );
+
+    tree.addVar(ruptureTimePending, mask, 1, seissol::memory::Standard);
+    tree.addVar(dynStressTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(dynStressTimePending, mask, 1, seissol::memory::Standard);
+    tree.addVar(mu, mask, 1, seissol::memory::Standard);
+    tree.addVar(accumulatedSlipMagnitude, mask, 1, seissol::memory::Standard);
+    tree.addVar(slip1, mask, 1, seissol::memory::Standard);
+    tree.addVar(slip2, mask, 1, seissol::memory::Standard);
+    tree.addVar(slipRateMagnitude, mask, 1, seissol::memory::Standard);
+    tree.addVar(slipRate1, mask, 1, seissol::memory::Standard);
+    tree.addVar(slipRate2, mask, 1, seissol::memory::Standard);
+    tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard);
+    tree.addVar(tractionXY, mask, 1, seissol::memory::Standard);
+    tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard);
+    tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard);
+    tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, seissol::memory::Standard);
 
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
@@ -165,98 +168,98 @@ public:
 };
 
 struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initializers::DynamicRupture {
-    Variable<real[ numOfPointsPadded ]> dC;
-    Variable<real[ numOfPointsPadded ]> muS;
-    Variable<real[ numOfPointsPadded ]> muD;
-    Variable<real[ numOfPointsPadded ]> cohesion;
+    Variable<real[dr::misc::numPaddedPoints]> dC;
+    Variable<real[dr::misc::numPaddedPoints]> muS;
+    Variable<real[dr::misc::numPaddedPoints]> muD;
+    Variable<real[dr::misc::numPaddedPoints]> cohesion;
 
 
     virtual void addTo(initializers::LTSTree& tree) {
         seissol::initializers::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
-        tree.addVar(dC, mask, 1, seissol::memory::Standard );
-        tree.addVar(muS, mask, 1, seissol::memory::Standard );
-        tree.addVar(muD, mask, 1, seissol::memory::Standard );
-        tree.addVar(cohesion, mask,1, seissol::memory::Standard );
+        tree.addVar(dC, mask, 1, seissol::memory::Standard);
+        tree.addVar(muS, mask, 1, seissol::memory::Standard);
+        tree.addVar(muD, mask, 1, seissol::memory::Standard);
+        tree.addVar(cohesion, mask,1, seissol::memory::Standard);
     }
 };
 
 struct seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime : public seissol::initializers::LTS_LinearSlipWeakening {
-  Variable<real[ numOfPointsPadded ]>                   forcedRuptureTime;
-  Variable<real>                                        tn;
+  Variable<real[dr::misc::numPaddedPoints]> forcedRuptureTime;
+  Variable<real> tn;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_LinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      forcedRuptureTime,                mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
+    tree.addVar(forcedRuptureTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(tn, mask, 1, seissol::memory::Standard);
   }
 };
 
 struct seissol::initializers::LTS_LinearSlipWeakeningBimaterial : public seissol::initializers::LTS_LinearSlipWeakening {
-  Variable<real[ numOfPointsPadded ]>                   regularisedStrength;
+  Variable<real[dr::misc::numPaddedPoints]> regularisedStrength;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_LinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      regularisedStrength,                mask,                 1,      seissol::memory::Standard );
+    tree.addVar(regularisedStrength, mask, 1, seissol::memory::Standard);
   }
 };
 
 struct seissol::initializers::LTS_RateAndState : public seissol::initializers::DynamicRupture {
-  Variable<real[ numOfPointsPadded ]> rsA;
-  Variable<real[ numOfPointsPadded ]> rsSl0;
-  Variable<real[ numOfPointsPadded ]> stateVariable;
+  Variable<real[dr::misc::numPaddedPoints]> rsA;
+  Variable<real[dr::misc::numPaddedPoints]> rsSl0;
+  Variable<real[dr::misc::numPaddedPoints]> stateVariable;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rsA, mask, 1, seissol::memory::Standard );
-    tree.addVar(rsSl0, mask, 1, seissol::memory::Standard );
-    tree.addVar(stateVariable, mask, 1, seissol::memory::Standard );
+    tree.addVar(rsA, mask, 1, seissol::memory::Standard);
+    tree.addVar(rsSl0, mask, 1, seissol::memory::Standard);
+    tree.addVar(stateVariable, mask, 1, seissol::memory::Standard);
   }
 };
 
 
 struct seissol::initializers::LTS_RateAndStateFastVelocityWeakening : public seissol::initializers::LTS_RateAndState {
-  Variable<real[ numOfPointsPadded ]> rsSrW;
+  Variable<real[dr::misc::numPaddedPoints]> rsSrW;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndState::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rsSrW, mask, 1, seissol::memory::Standard );
+    tree.addVar(rsSrW, mask, 1, seissol::memory::Standard);
   }
 };
 
 struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public seissol::initializers::LTS_RateAndStateFastVelocityWeakening {
 
-  Variable<real[numOfPointsPadded]>                               temperature;  //this is TP[1] in fortran
-  Variable<real[numOfPointsPadded]>                               pressure;     //this is TP[2] in fortran
-  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      tpTheta;
-  Variable<real[numOfPointsPadded][seissol::dr::numberOfTPGridPoints]>      tpSigma;
-  Variable<real[numOfPointsPadded]>                               tpHalfWidthShearZone;
-  Variable<real[numOfPointsPadded]>                               alphaHy;
+  Variable<real[dr::misc::numPaddedPoints]> temperature;  //this is TP[1] in fortran
+  Variable<real[dr::misc::numPaddedPoints]> pressure;     //this is TP[2] in fortran
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::numberOfTPGridPoints]> tpTheta;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::numberOfTPGridPoints]> tpSigma;
+  Variable<real[dr::misc::numPaddedPoints]> tpHalfWidthShearZone;
+  Variable<real[dr::misc::numPaddedPoints]> alphaHy;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      temperature,                mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      pressure,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(tpTheta, mask, 1, seissol::memory::Standard );
-    tree.addVar(tpSigma, mask, 1, seissol::memory::Standard );
-    tree.addVar(tpHalfWidthShearZone, mask, 1, seissol::memory::Standard );
-    tree.addVar(      alphaHy,                    mask,                 1,      seissol::memory::Standard );
+    tree.addVar(temperature, mask, 1, seissol::memory::Standard);
+    tree.addVar(pressure, mask, 1, seissol::memory::Standard);
+    tree.addVar(tpTheta, mask, 1, seissol::memory::Standard);
+    tree.addVar(tpSigma, mask, 1, seissol::memory::Standard);
+    tree.addVar(tpHalfWidthShearZone, mask, 1, seissol::memory::Standard);
+    tree.addVar(alphaHy, mask, 1, seissol::memory::Standard);
   }
 };
 
 
 struct seissol::initializers::LTS_ImposedSlipRates : public seissol::initializers::DynamicRupture {
-  Variable<real[numOfPointsPadded][6]>                            nucleationStressInFaultCS;
+  Variable<real[dr::misc::numPaddedPoints][6]> nucleationStressInFaultCS;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      nucleationStressInFaultCS,  mask,                 1,      seissol::memory::Standard );
+    tree.addVar(nucleationStressInFaultCS, mask, 1, seissol::memory::Standard);
   }
 };
 
