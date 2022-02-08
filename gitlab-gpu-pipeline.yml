@@ -30,11 +30,6 @@ gpu_pre_build:
           cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
           make -j $(nproc) install &&
           cd ../..
-        - git clone --depth 1 --branch yaml-cpp-0.6.2 https://github.com/jbeder/yaml-cpp.git yaml-cpp &&
-          mkdir -p yaml-cpp/build && cd yaml-cpp/build &&
-          cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
-          make -j $(nproc) install &&
-          cd ../..
         - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git easi &&
           mkdir -p easi/build && cd easi/build &&
           cmake .. -DASAGI=OFF -DIMPALAJIT=ON -DCMAKE_INSTALL_PREFIX=../../self_usr -DCMAKE_CXX_FLAGS="-fPIC" &&
