@@ -106,23 +106,23 @@ class BaseFrictionLaw : public FrictionSolver {
 
     constexpr int numQuantities{9};
     using QInterpolatedShapeT = real(*)[CONVERGENCE_ORDER][numQuantities][misc::numPaddedPoints];
-    auto* qInterpolatedP = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
-    auto* qInterpolatedM = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
+    auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
+    auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
 
     FaultStresses faultStresses{};
-    for (unsigned o = 0; o < CONVERGENCE_ORDER; o++) {
+    for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
         faultStresses.normalStress[o][i] =
-            etaP * (qInterpolatedM[o][6][i] - qInterpolatedP[o][6][i] +
-                    qInterpolatedP[o][0][i] * invZp + qInterpolatedM[o][0][i] * invZpNeig);
+            etaP * (qIMinus[o][6][i] - qIPlus[o][6][i] + qIPlus[o][0][i] * invZp +
+                    qIMinus[o][0][i] * invZpNeig);
 
         faultStresses.xyStress[o][i] =
-            etaS * (qInterpolatedM[o][7][i] - qInterpolatedP[o][7][i] +
-                    qInterpolatedP[o][3][i] * invZs + qInterpolatedM[o][3][i] * invZsNeig);
+            etaS * (qIMinus[o][7][i] - qIPlus[o][7][i] + qIPlus[o][3][i] * invZs +
+                    qIMinus[o][3][i] * invZsNeig);
 
         faultStresses.xzStress[o][i] =
-            etaS * (qInterpolatedM[o][8][i] - qInterpolatedP[o][8][i] +
-                    qInterpolatedP[o][5][i] * invZs + qInterpolatedM[o][5][i] * invZsNeig);
+            etaS * (qIMinus[o][8][i] - qIPlus[o][8][i] + qIPlus[o][5][i] * invZs +
+                    qIMinus[o][5][i] * invZsNeig);
       }
     }
     return faultStresses;
@@ -142,35 +142,56 @@ class BaseFrictionLaw : public FrictionSolver {
     // set inputParam could be extendent for this (or create own function)
     // the kernel then could be a class attribute and following values are only set once
     //(but be careful of race conditions since this is computed in parallel for each face!!)
-    dynamicRupture::kernel::ImposedStateFromNewStress imposedStateFromNewStressKrnl;
-    imposedStateFromNewStressKrnl.select0 = init::select0::Values;
-    imposedStateFromNewStressKrnl.select3 = init::select3::Values;
-    imposedStateFromNewStressKrnl.select5 = init::select5::Values;
-    imposedStateFromNewStressKrnl.select6 = init::select6::Values;
-    imposedStateFromNewStressKrnl.select7 = init::select7::Values;
-    imposedStateFromNewStressKrnl.select8 = init::select8::Values;
-    imposedStateFromNewStressKrnl.inv_Zs = impAndEta[ltsFace].invZs;
-    imposedStateFromNewStressKrnl.inv_Zs_neig = impAndEta[ltsFace].invZsNeig;
-    imposedStateFromNewStressKrnl.inv_Zp = impAndEta[ltsFace].invZp;
-    imposedStateFromNewStressKrnl.inv_Zp_neig = impAndEta[ltsFace].invZpNeig;
 
     // set imposed state to zero
     for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
-      imposedStatePlus[ltsFace][i] = 0;
-      imposedStateMinus[ltsFace][i] = 0;
+      imposedStatePlus[ltsFace][i] = static_cast<real>(0.0);
+      imposedStateMinus[ltsFace][i] = static_cast<real>(0.0);
     }
-    imposedStateFromNewStressKrnl.imposedStatePlus = imposedStatePlus[ltsFace];
-    imposedStateFromNewStressKrnl.imposedStateMinus = imposedStateMinus[ltsFace];
 
-    for (unsigned j = 0; j < CONVERGENCE_ORDER; j++) {
-      imposedStateFromNewStressKrnl.NorStressGP = faultStresses.normalStress[j];
-      imposedStateFromNewStressKrnl.TractionGP_XY = tractionResults.xyTraction[j];
-      imposedStateFromNewStressKrnl.TractionGP_XZ = tractionResults.xzTraction[j];
-      imposedStateFromNewStressKrnl.timeWeights = timeWeights[j];
-      imposedStateFromNewStressKrnl.QInterpolatedMinus = qInterpolatedMinus[ltsFace][j];
-      imposedStateFromNewStressKrnl.QInterpolatedPlus = qInterpolatedPlus[ltsFace][j];
-      // Carsten Uphoff Thesis: EQ.: 4.60
-      imposedStateFromNewStressKrnl.execute();
+    auto invZs = impAndEta[ltsFace].invZs;
+    auto invZp = impAndEta[ltsFace].invZp;
+    auto invZsNeig = impAndEta[ltsFace].invZsNeig;
+    auto invZpNeig = impAndEta[ltsFace].invZpNeig;
+
+    constexpr int numQuantities{9};
+    using ImposedStateShapeT = real(*)[numQuantities][misc::numPaddedPoints];
+    auto* imposedStateP = (reinterpret_cast<ImposedStateShapeT>(imposedStatePlus))[ltsFace];
+    auto* imposedStateM = (reinterpret_cast<ImposedStateShapeT>(imposedStateMinus))[ltsFace];
+
+    using QInterpolatedShapeT = real(*)[CONVERGENCE_ORDER][numQuantities][misc::numPaddedPoints];
+    auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
+    auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
+
+    for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+      auto weight = timeWeights[o];
+
+#ifdef _OPENMP
+#pragma omp simd
+#endif
+      for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+        auto normalStress = faultStresses.normalStress[o][i];
+        auto xyTraction = tractionResults.xyTraction[o][i];
+        auto xzTraction = tractionResults.xzTraction[o][i];
+
+        imposedStateM[0][i] += weight * normalStress;
+        imposedStateM[3][i] += weight * xyTraction;
+        imposedStateM[5][i] += weight * xzTraction;
+        imposedStateM[6][i] +=
+            weight * (qIMinus[o][6][i] - invZpNeig * (normalStress - qIMinus[o][0][i]));
+        imposedStateM[7][i] +=
+            weight * (qIMinus[o][7][i] - invZsNeig * (xyTraction - qIMinus[o][3][i]));
+        imposedStateM[8][i] +=
+            weight * (qIMinus[o][8][i] - invZsNeig * (xzTraction - qIMinus[o][5][i]));
+
+        imposedStateP[0][i] += weight * normalStress;
+        imposedStateP[3][i] += weight * xyTraction;
+        imposedStateP[5][i] += weight * xzTraction;
+        imposedStateP[6][i] +=
+            weight * (qIPlus[o][6][i] + invZp * (normalStress - qIPlus[o][0][i]));
+        imposedStateP[7][i] += weight * (qIPlus[o][7][i] + invZs * (xyTraction - qIPlus[o][3][i]));
+        imposedStateP[8][i] += weight * (qIPlus[o][8][i] + invZs * (xzTraction - qIPlus[o][5][i]));
+      }
     }
   }
 
