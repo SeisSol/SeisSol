@@ -116,26 +116,6 @@ def addKernels(generator, aderdg, matricesDir, targets):
   select5Spp[5] = 1
   select5 = Tensor('select5', select5Spp.shape, select5Spp,)
 
-  NorStressFromQInterpolatedKernel = NorStressGP['i'] <= eta_p * \
-                                     ( \
-                                               select6['k'] * QInterpolatedMinus['ik'] - select6['k'] * QInterpolatedPlus['ik'] + \
-                                               inv_Zp * select0['k'] * QInterpolatedPlus['ik'] + inv_Zp_neig * select0['k'] * QInterpolatedMinus['ik'] \
-                                       )
-
-  XYStressFromQInterpolatedKernel = XYStressGP['i'] <= eta_s * \
-                                    ( \
-                                              select7['k'] * QInterpolatedMinus['ik'] - select7['k'] * QInterpolatedPlus['ik'] + \
-                                              inv_Zs * select3['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select3['k']  * QInterpolatedMinus['ik'] \
-                                      )
-
-  XZStressFromQInterpolatedKernel = XZStressGP['i'] <= eta_s * \
-                                    ( \
-                                              select8['k'] * QInterpolatedMinus['ik'] - select8['k'] * QInterpolatedPlus['ik'] + \
-                                              inv_Zs * select5['k'] * QInterpolatedPlus['ik'] +  inv_Zs_neig * select5['k']  * QInterpolatedMinus['ik'] \
-                                      )
-
-  generator.add('StressFromQInterpolated', [NorStressFromQInterpolatedKernel, XYStressFromQInterpolatedKernel, XZStressFromQInterpolatedKernel] )
-
   timeWeights = Scalar('timeWeights')
   TractionGP_XY = Tensor('TractionGP_XY', (numberOfPoints,))
   TractionGP_XZ = Tensor('TractionGP_XZ', (numberOfPoints,))

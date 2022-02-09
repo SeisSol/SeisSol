@@ -89,36 +89,41 @@ class BaseFrictionLaw : public FrictionSolver {
   FaultStresses precomputeStressFromQInterpolated(unsigned int ltsFace) {
 
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
-                  "Different number of quadrature points?");
+                  "different number of quadrature points in QInterpolated and resample");
 
-    FaultStresses faultStresses{};
     // this initialization of the kernel could be moved to the initializer,
     // since all inputs outside the j-loop are time independent
     // set inputParam could be extendent for this
     // the kernel then could be a class attribute (but be careful of race conditions since this is
     // computed in parallel!!)
-    dynamicRupture::kernel::StressFromQInterpolated stressFromQInterpolatedKrnl;
-    stressFromQInterpolatedKrnl.eta_p = impAndEta[ltsFace].etaP;
-    stressFromQInterpolatedKrnl.eta_s = impAndEta[ltsFace].etaS;
-    stressFromQInterpolatedKrnl.inv_Zp = impAndEta[ltsFace].invZp;
-    stressFromQInterpolatedKrnl.inv_Zs = impAndEta[ltsFace].invZs;
-    stressFromQInterpolatedKrnl.inv_Zp_neig = impAndEta[ltsFace].invZpNeig;
-    stressFromQInterpolatedKrnl.inv_Zs_neig = impAndEta[ltsFace].invZsNeig;
-    stressFromQInterpolatedKrnl.select0 = init::select0::Values;
-    stressFromQInterpolatedKrnl.select3 = init::select3::Values;
-    stressFromQInterpolatedKrnl.select5 = init::select5::Values;
-    stressFromQInterpolatedKrnl.select6 = init::select6::Values;
-    stressFromQInterpolatedKrnl.select7 = init::select7::Values;
-    stressFromQInterpolatedKrnl.select8 = init::select8::Values;
 
-    for (unsigned j = 0; j < CONVERGENCE_ORDER; j++) {
-      stressFromQInterpolatedKrnl.QInterpolatedMinus = qInterpolatedMinus[ltsFace][j];
-      stressFromQInterpolatedKrnl.QInterpolatedPlus = qInterpolatedPlus[ltsFace][j];
-      stressFromQInterpolatedKrnl.NorStressGP = faultStresses.normalStress[j];
-      stressFromQInterpolatedKrnl.XYStressGP = faultStresses.xyStress[j];
-      stressFromQInterpolatedKrnl.XZStressGP = faultStresses.xzStress[j];
-      // Carsten Uphoff Thesis: EQ.: 4.53
-      stressFromQInterpolatedKrnl.execute();
+    auto etaP = impAndEta[ltsFace].etaP;
+    auto etaS = impAndEta[ltsFace].etaS;
+    auto invZp = impAndEta[ltsFace].invZp;
+    auto invZs = impAndEta[ltsFace].invZs;
+    auto invZpNeig = impAndEta[ltsFace].invZpNeig;
+    auto invZsNeig = impAndEta[ltsFace].invZsNeig;
+
+    constexpr int numQuantities{9};
+    using QInterpolatedShapeT = real(*)[CONVERGENCE_ORDER][numQuantities][misc::numPaddedPoints];
+    auto* qInterpolatedP = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
+    auto* qInterpolatedM = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
+
+    FaultStresses faultStresses{};
+    for (unsigned o = 0; o < CONVERGENCE_ORDER; o++) {
+      for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+        faultStresses.normalStress[o][i] =
+            etaP * (qInterpolatedM[o][6][i] - qInterpolatedP[o][6][i] +
+                    qInterpolatedP[o][0][i] * invZp + qInterpolatedM[o][0][i] * invZpNeig);
+
+        faultStresses.xyStress[o][i] =
+            etaS * (qInterpolatedM[o][7][i] - qInterpolatedP[o][7][i] +
+                    qInterpolatedP[o][3][i] * invZs + qInterpolatedM[o][3][i] * invZsNeig);
+
+        faultStresses.xzStress[o][i] =
+            etaS * (qInterpolatedM[o][8][i] - qInterpolatedP[o][8][i] +
+                    qInterpolatedP[o][5][i] * invZs + qInterpolatedM[o][5][i] * invZsNeig);
+      }
     }
     return faultStresses;
   }
