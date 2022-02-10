@@ -147,9 +147,7 @@ gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
 gemm_generators = []
 
 for tool in gemm_tool_list:
-  if tool == 'LIBXSMM':
-      gemm_generators.append(LIBXSMM_JIT(arch))
-  elif hasattr(gemm_configuration, tool):
+  if hasattr(gemm_configuration, tool):
     specific_gemm_class = getattr(gemm_configuration, tool)
     gemm_generators.append(specific_gemm_class(arch))
   else:

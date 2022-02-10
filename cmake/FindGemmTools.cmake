@@ -32,8 +32,9 @@ string(REPLACE "," ";" _GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 
 foreach(component ${_GEMM_TOOLS_LIST})
     if ("${component}" STREQUAL "LIBXSMM")
-        # TODO(Lukas) Remove next line
         find_package(Libxsmm_executable REQUIRED)
+
+    elseif("${component}" STREQUAL "LIBXSMM_JIT")
         find_package(LIBXSMM REQUIRED)
         find_package(BLAS REQUIRED)
 
