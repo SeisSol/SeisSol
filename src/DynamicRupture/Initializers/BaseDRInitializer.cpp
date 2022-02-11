@@ -2,7 +2,6 @@
 
 #include "Initializer/ParameterDB.h"
 #include "Model/common.hpp"
-#include "Numerical_aux/Quadrature.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>

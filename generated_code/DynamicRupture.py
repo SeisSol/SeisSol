@@ -48,13 +48,12 @@ from multSim import OptionalDimTensor
 import numpy as np
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
-  numberOfPoints = (aderdg.order+1)**2
 
   clones = dict()
 
   # Load matrices
   db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
-  #db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
+  numberOfPoints = db.resample.shape()[0]
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation

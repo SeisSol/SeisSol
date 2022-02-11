@@ -48,6 +48,7 @@ module MeshReaderCBinding
     use QuadPoints_mod
 
     use iso_c_binding
+    use f_ftoc_bind_interoperability
 
     implicit none
 
@@ -184,7 +185,7 @@ contains
             endif
         endif
 
-        DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
+        call c_interoperability_numberOfTriangleQuadraturePoints(disc%galerkin%nbndgp)
         disc%Galerkin%nIntGP = (disc%Galerkin%nPoly+2)**3
 
         allocate(mesh%LocalVrtxType(nElements))
