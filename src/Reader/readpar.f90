@@ -1002,6 +1002,7 @@ CONTAINS
 
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
+           DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
            SELECT CASE(DISC%DynRup%BackgroundType)
            CASE(0)
              EQN%RS_sv0 = RS_sv0
@@ -1043,7 +1044,6 @@ CONTAINS
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
-             DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
                  logInfo0(*) 'Thermal pressurization assumed'
                  !physical
