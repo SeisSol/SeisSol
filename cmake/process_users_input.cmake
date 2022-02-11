@@ -62,7 +62,7 @@ set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
 set(DR_QUAD_RULE "jacobi" CACHE STRING "Dynamic quadrature rule: jacobi")
-set(DR_QUAD_RULE_OPTIONS jacobi)
+set(DR_QUAD_RULE_OPTIONS jacobi dunavant)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 
