@@ -22,9 +22,9 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(
     unsigned int ltsFace) {
   real resampledSlipRate[misc::numPaddedPoints];
   dynamicRupture::kernel::resampleParameter resampleKrnl;
-  resampleKrnl.resampleM = init::resample::Values;
-  resampleKrnl.resamplePar = slipRateMagnitude[ltsFace];
-  resampleKrnl.resampledPar = resampledSlipRate;
+  resampleKrnl.resample = init::resample::Values;
+  resampleKrnl.originalQ = slipRateMagnitude[ltsFace];
+  resampleKrnl.resampledQ = resampledSlipRate;
 
   // Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
   // the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on the

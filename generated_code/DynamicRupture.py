@@ -74,10 +74,10 @@ def addKernels(generator, aderdg, matricesDir, targets):
   rotationKernel = rotatedStress['i'] <= stressRotationMatrix['ij'] * initialStress['j']
   generator.add('rotateStressToFaultCS', rotationKernel )
 
-  resamplePar = Tensor('resamplePar', (numberOfPoints,))
-  resampledPar = Tensor('resampledPar', (numberOfPoints,))
-  resampleM = Tensor('resampleM', (numberOfPoints, numberOfPoints) )
-  resampleKernel = resampledPar['i'] <= resampleM['ij'] * resamplePar['j']
+
+  originalQ = Tensor('originalQ', (numberOfPoints,))
+  resampledQ = Tensor('resampledQ', (numberOfPoints,))
+  resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
   generator.add('resampleParameter', resampleKernel )
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])

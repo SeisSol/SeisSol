@@ -74,9 +74,9 @@ std::array<real, misc::numPaddedPoints> FastVelocityWeakeningLaw::resampleStateV
         stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
   }
   dynamicRupture::kernel::resampleParameter resampleKrnl;
-  resampleKrnl.resampleM = init::resample::Values;
-  resampleKrnl.resamplePar = deltaStateVar.data();
-  resampleKrnl.resampledPar = resampledDeltaStateVar.data();
+  resampleKrnl.resample = init::resample::Values;
+  resampleKrnl.originalQ = deltaStateVar.data();
+  resampleKrnl.resampledQ = resampledDeltaStateVar.data();
   resampleKrnl.execute();
 
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
