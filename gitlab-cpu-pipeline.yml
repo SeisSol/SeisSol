@@ -27,7 +27,7 @@ ci_builder_pre:
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
-        - wget -q https://github.com/hfp/libxsmm/archive/master.zip
+        - wget -q -O libxsmm-1.17.zip https://github.com/libxsmm/libxsmm/archive/refs/tags/1.17.zip
         - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
         - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
         - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
@@ -42,8 +42,8 @@ ci_builder_pre:
         - pip3 install sphinx_rtd_theme
         - tar -xzf netcdf-4.6.1.tar.gz
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
-        - unzip master.zip
-        - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+        - unzip libxsmm-1.17.zip
+        - cd libxsmm-1.17 && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
         - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git &&
           mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && 
           sudo make -j $(nproc) install && cd ..

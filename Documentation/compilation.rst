@@ -84,7 +84,7 @@ Installing Libxsmm
 
 .. code-block:: bash
 
-   git clone https://github.com/hfp/libxsmm
+   git clone --branch 1.17 https://github.com/hfp/libxsmm
    cd libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $HOME/bin
