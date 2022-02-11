@@ -47,15 +47,13 @@ from multSim import OptionalDimTensor
 #adrian numpy added:
 import numpy as np
 
-def addKernels(generator, aderdg, matricesDir, targets):
+def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   numberOfPoints = (aderdg.order+1)**2
 
   clones = dict()
 
   # Load matrices
-  quadrule = "jacobi"
-  drAlignStride = lambda name: False if name == "resample" else aderdg.alignStride(name)
-  db = parseJSONMatrixFile(f'{matricesDir}/dr_{quadrule}_matrices_{aderdg.order}.json', clones, alignStride=drAlignStride, transpose=aderdg.transpose)
+  db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
   #db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
 
   # Determine matrices
@@ -64,7 +62,7 @@ def addKernels(generator, aderdg, matricesDir, targets):
   TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
   flux_solver_spp = aderdg.flux_solver_spp()
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
-
+  
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
