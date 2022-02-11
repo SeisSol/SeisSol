@@ -10,6 +10,8 @@ namespace seissol::dr::initializers {
 void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                         seissol::initializers::LTSTree* dynRupTree,
                                         seissol::Interoperability* eInteroperability) {
+  logInfo() << "Initialize Fault, using a quadrature rule with "
+            << misc::numberOfBoundaryGaussPoints << " points.";
   seissol::initializers::FaultParameterDB faultParameterDB;
   dynRup->isFaultParameterizedByTraction =
       faultParameterDB.faultParameterizedByTraction(drParameters.faultFileName);
