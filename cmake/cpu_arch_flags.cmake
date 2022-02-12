@@ -32,7 +32,7 @@ function(get_arch_flags architecture compiler)
     # Skylake cpu architecture
     elseif ("${HOST_ARCH}" STREQUAL "skx")
         if (compiler STREQUAL "Intel")
-            set(CPU_ARCH_FLAGS "-xCORE-AVX512" "-fma" PARENT_SCOPE)
+            set(CPU_ARCH_FLAGS "-xCORE-AVX512" "-fma" "-qopt-zmm-usage=high" PARENT_SCOPE)
         elseif(compiler MATCHES "GNU|Clang")
             set(CPU_ARCH_FLAGS "-march=skylake-avx512" PARENT_SCOPE)
         endif()
