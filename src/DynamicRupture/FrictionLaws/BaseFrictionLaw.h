@@ -89,7 +89,7 @@ class BaseFrictionLaw : public FrictionSolver {
   FaultStresses precomputeStressFromQInterpolated(unsigned int ltsFace) {
 
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
-                  "different number of quadrature points in QInterpolated and resample");
+                  "Different number of quadrature points?");
 
     // this initialization of the kernel could be moved to the initializer,
     // since all inputs outside the j-loop are time independent
@@ -109,7 +109,7 @@ class BaseFrictionLaw : public FrictionSolver {
     auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
     auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
 
-    FaultStresses faultStresses{};
+    FaultStresses faultStresses __attribute__((aligned(32))){};
     for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
         faultStresses.normalStress[o][i] =
