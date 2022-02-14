@@ -315,8 +315,8 @@ void c_interoperability_numberOfTriangleQuadraturePoints(int* n) {
 
 void c_interoperability_triangleQuadratureRule(double* points, double* weights) {
   constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
-  auto pointsView = init::quadpoints::view::create(const_cast<double *>(init::quadpoints::Values));
-  auto weightsView = init::quadweights::view::create(const_cast<double *>(init::quadweights::Values));
+  auto pointsView = init::quadpoints::view::create(const_cast<real *>(init::quadpoints::Values));
+  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
   for (size_t i = 0; i < numberOfPoints; i++) {
     points[2*i] = pointsView(i, 0);
     points[2*i+1] = pointsView(i, 1);

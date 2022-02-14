@@ -103,9 +103,8 @@ std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
                                    std::default_delete<double[]>());
 
   // Generate triangle quadrature points and weights (Factory Method)
-  auto pointsView = init::quadpoints::view::create(const_cast<double*>(init::quadpoints::Values));
-  auto weightsView =
-      init::quadweights::view::create(const_cast<double*>(init::quadweights::Values));
+  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
+  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
   auto* reshapedPoints = reshape<2>(&points[0]);
   for (size_t i = 0; i < numQuadraturePoints; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);

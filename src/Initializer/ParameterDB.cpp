@@ -147,7 +147,7 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
   constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
-  auto pointsView = init::quadpoints::view::create(const_cast<double *>(init::quadpoints::Values));
+  auto pointsView = init::quadpoints::view::create(const_cast<real *>(init::quadpoints::Values));
   easi::Query query(numberOfPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
