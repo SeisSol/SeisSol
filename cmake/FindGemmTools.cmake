@@ -35,7 +35,7 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(Libxsmm_executable REQUIRED)
 
     elseif("${component}" STREQUAL "LIBXSMM_JIT")
-        find_package(LIBXSMM REQUIRED)
+        find_package(LIBXSMM 1.17 REQUIRED)
         find_package(BLAS REQUIRED)
 
     elseif ("${component}" STREQUAL "PSpaMM")
