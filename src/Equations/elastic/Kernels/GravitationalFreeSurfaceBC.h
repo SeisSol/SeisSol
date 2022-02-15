@@ -17,21 +17,30 @@ double getGravitationalAcceleration();
 
 class GravitationalFreeSurfaceBc {
 public:
-  GravitationalFreeSurfaceBc() { }
+  GravitationalFreeSurfaceBc() = default;
 
   template <typename TimeKrnl>
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
                                                                   [[maybe_unused]] FaceType faceType,
                                                                   TimeKrnl& timeKrnl) {
-    const auto numDofs = init::faceDisplacement::size() + init::averageNormalDisplacement::size();
     long long hardwareFlops = 0;
     long long nonZeroFlops = 0;
 
     // Note: This neglects roughly 10 * CONVERGENCE_ORDER * numNodes2D flops
     // Before adjusting the range of the loop, check range of loop in computation!
     for (int order = 1; order < CONVERGENCE_ORDER + 1; ++order) {
-      nonZeroFlops += kernel::projectDerivativeToNodalBoundaryRotated::nonZeroFlops(order - 1, face);
-      hardwareFlops += kernel::projectDerivativeToNodalBoundaryRotated::hardwareFlops(order - 1, face);
+#ifdef USE_ELASTIC
+      constexpr auto flopsPerQuadpoint =
+          4 + // Computing coefficient
+          6 + // Updating displacement
+          2; // Updating integral of displacement
+#else
+      constexpr auto flopsPerQuadpoint = 0;
+#endif
+      constexpr auto flopsUpdates = flopsPerQuadpoint * flopsPerQuadpoint;
+      
+      nonZeroFlops += kernel::projectDerivativeToNodalBoundaryRotated::nonZeroFlops(order - 1, face) + flopsUpdates;
+      hardwareFlops += kernel::projectDerivativeToNodalBoundaryRotated::hardwareFlops(order - 1, face) + flopsUpdates;
     }
 
     return {nonZeroFlops, hardwareFlops};
@@ -60,7 +69,7 @@ public:
     // This implementation sums up the Taylor series directly without storing
     // all coefficients.
 
-   // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
+    // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
     assert(boundaryMapping.TinvData != nullptr);
     assert(boundaryMapping.TData != nullptr);
@@ -104,7 +113,7 @@ public:
     auto dofsFaceNodal = init::INodal::view::create(dofsFaceNodalStorage);
 
     // Temporary buffer to store nodal face coefficients at some time t
-    alignas(ALIGNMENT) std::array<real, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS> prevCoefficients;
+    alignas(ALIGNMENT) std::array<real, nodal::tensor::nodes2D::Shape[0]> prevCoefficients;
 
     const double deltaT = timeStepWidth;
     const double deltaTInt = timeStepWidth;
@@ -142,6 +151,7 @@ public:
       factorEvaluated *= deltaT / (1.0 * order);
       factorInt *= deltaTInt / (order + 1.0);
 
+#pragma omp simd
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         // Derivatives of interior variables
         constexpr int pIdx = 0;
@@ -154,15 +164,19 @@ public:
 
 #ifdef USE_ELASTIC
         const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
+        // Basically uInside - C_1 * (c_2 * prevCoeff[i] + pressureInside)
+        // 2 add, 2 mul = 4 flops
 #else
         const double curCoeff = uInside;
 #endif
         prevCoefficients[i] = curCoeff;
 
+        // 2 * 3 = 6 flops for updating displacement
         rotatedFaceDisplacement(i, 0) += factorEvaluated * curCoeff;
         rotatedFaceDisplacement(i, 1) += factorEvaluated * vInside;
         rotatedFaceDisplacement(i, 2) += factorEvaluated * wInside;
 
+        // 2 flops for updating integral of displacement
         integratedDisplacementNodal(i) += factorInt * curCoeff;
       }
     }
