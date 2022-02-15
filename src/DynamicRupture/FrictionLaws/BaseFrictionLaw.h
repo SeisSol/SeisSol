@@ -104,8 +104,8 @@ class BaseFrictionLaw : public FrictionSolver {
     auto invZpNeig = impAndEta[ltsFace].invZpNeig;
     auto invZsNeig = impAndEta[ltsFace].invZsNeig;
 
-    constexpr int numQuantities{9};
-    using QInterpolatedShapeT = real(*)[CONVERGENCE_ORDER][numQuantities][misc::numPaddedPoints];
+    using QInterpolatedShapeT =
+        real(*)[CONVERGENCE_ORDER][misc::numQuantities][misc::numPaddedPoints];
     auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
     auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
 
@@ -154,12 +154,12 @@ class BaseFrictionLaw : public FrictionSolver {
     auto invZsNeig = impAndEta[ltsFace].invZsNeig;
     auto invZpNeig = impAndEta[ltsFace].invZpNeig;
 
-    constexpr int numQuantities{9};
-    using ImposedStateShapeT = real(*)[numQuantities][misc::numPaddedPoints];
+    using ImposedStateShapeT = real(*)[misc::numQuantities][misc::numPaddedPoints];
     auto* imposedStateP = (reinterpret_cast<ImposedStateShapeT>(imposedStatePlus))[ltsFace];
     auto* imposedStateM = (reinterpret_cast<ImposedStateShapeT>(imposedStateMinus))[ltsFace];
 
-    using QInterpolatedShapeT = real(*)[CONVERGENCE_ORDER][numQuantities][misc::numPaddedPoints];
+    using QInterpolatedShapeT =
+        real(*)[CONVERGENCE_ORDER][misc::numQuantities][misc::numPaddedPoints];
     auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
     auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
 

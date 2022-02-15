@@ -8,14 +8,23 @@
 #include "Kernels/precision.hpp"
 
 namespace seissol::dr::misc {
+// Note: this can be moved to yateto headers
+template <typename Tensor, int Dim>
+constexpr size_t dimSize() noexcept {
+  return Tensor::Stop[Dim] - Tensor::Start[Dim];
+}
+
 template <typename Tensor>
 constexpr size_t leadDim() noexcept {
-  return Tensor::Stop[0] - Tensor::Start[0];
+  return dimSize<Tensor, 0>();
 }
+
 /**
  * Number of gauss points padded to match the vector register length.
  */
 static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
+static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
+
 /**
  * Number of gauss points on an element surface.
  */
