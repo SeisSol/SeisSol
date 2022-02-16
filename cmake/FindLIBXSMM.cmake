@@ -9,6 +9,14 @@ find_library(LIBXSMM_LIBRARIES
         DOC "Path to libxsmm library"
         )
 
+find_library(LIBDL_LIBRARIES
+        NAMES dl
+        PATH_SUFFICES lib
+        DOC "Path to libdl library"
+        )
+
+list(APPEND LIBXSMM_LIBRARIES ${LIBDL_LIBRARIES})
+
 if (NOT(
         LIBXSMM_INCLUDE_DIRS STREQUAL "LIBXSMM_INCLUDE_DIRS-NOTFOUND" OR
         LIBXSMM_LIBARIES STREQUAL "LIBXSMM_LIBRARIES-NOTFOUND"))
