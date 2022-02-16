@@ -112,8 +112,6 @@ std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
     weights[i] = weightsView(i);
   }
 
-  seissol::quadrature::TriangleQuadrature(reshape<2>(&points[0]), &weights[0], polyDegree);
-
   return std::make_tuple(numQuadraturePoints, weights, points);
 }
 
