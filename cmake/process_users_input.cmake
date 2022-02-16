@@ -61,7 +61,7 @@ set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
-set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic quadrature rule")
+set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
