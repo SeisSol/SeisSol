@@ -231,7 +231,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     for (unsigned face = 0; face < 4; ++face) {
       if (data.faceDisplacements[face] != nullptr
           && data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-        //std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
         bc.evaluate(
             face,
             projectDerivativeToNodalBoundaryRotated,

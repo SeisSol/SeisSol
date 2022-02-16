@@ -19,32 +19,8 @@ class GravitationalFreeSurfaceBc {
 public:
   GravitationalFreeSurfaceBc() = default;
 
-  template <typename TimeKrnl>
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
-                                                                  [[maybe_unused]] FaceType faceType,
-                                                                  TimeKrnl& timeKrnl) {
-    long long hardwareFlops = 0;
-    long long nonZeroFlops = 0;
-
-    // Note: This neglects roughly 10 * CONVERGENCE_ORDER * numNodes2D flops
-    // Before adjusting the range of the loop, check range of loop in computation!
-    for (int order = 1; order < CONVERGENCE_ORDER + 1; ++order) {
-#ifdef USE_ELASTIC
-      constexpr auto flopsPerQuadpoint =
-          4 + // Computing coefficient
-          6 + // Updating displacement
-          2; // Updating integral of displacement
-#else
-      constexpr auto flopsPerQuadpoint = 0;
-#endif
-      constexpr auto flopsUpdates = flopsPerQuadpoint * flopsPerQuadpoint;
-      
-      nonZeroFlops += kernel::projectDerivativeToNodalBoundaryRotated::nonZeroFlops(order - 1, face) + flopsUpdates;
-      hardwareFlops += kernel::projectDerivativeToNodalBoundaryRotated::hardwareFlops(order - 1, face) + flopsUpdates;
-    }
-
-    return {nonZeroFlops, hardwareFlops};
-  }
+                                                                  [[maybe_unused]] FaceType faceType);
 
   template<typename TimeKrnl, typename MappingKrnl>
   void evaluate(unsigned faceIdx,
@@ -122,7 +98,7 @@ public:
     for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
       prevCoefficients[i] = rotatedFaceDisplacement(i, 0);
       // This is clearly a zeroth order approximation of the integral!
-      integratedDisplacementNodal(i) = deltaTInt * rotatedFaceDisplacement(i, 0);
+      integratedDisplacementNodal(i) = deltaTInt * rotatedFaceDisplacement(i, 0); // 1 FLOP
     }
 
     // Coefficients for Taylor series
