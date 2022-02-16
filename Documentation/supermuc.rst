@@ -22,8 +22,14 @@ Here, we described the procedure to set up such port forwarding.
      RemoteForward ddddd github.com:22
 
 where ddddd is an arbitrary 5-digital port number.
+  
+2. Use the following command to login onto SuperMUC-NG:
 
-2. ssh supermucNG to login to supermuc. Then add the following lines to the ~/.ssh/config:
+::
+
+  ssh supermucNG 
+  
+Add the following lines to your ~/.ssh/config (on supermucNG):
 
 :: 
 
@@ -34,24 +40,30 @@ where ddddd is an arbitrary 5-digital port number.
     
 With ddddd the same port number as before.
 
-4. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
+3. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
 
 ::
 
   ssh-keygen -t rsa 
 
-5. Go to https://github.com/settings/ssh, add a new SSH key, pasting the public key you just created on supermuc  ~/.ssh/id_rsa.pub. 
-Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol including the submodules using:
-
+4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on supermucNG). You should now be able to clone SeisSol including the submodules using:
 
 ::
 
   git clone git@github.com:SeisSol/SeisSol.git
-  cd SeisSol
-  git submodule update --init
 
-Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
-If it works, you will see several lines of ‘cloning ….’.
+Pay attention to the change in the git address ('https://github.com/' is now replaced by 'git@github.com:'). 
+If it works, you will see several lines, for example: 
+
+::
+
+  Cloning into 'SeisSol'...
+  remote: Enumerating objects: 25806, done.
+  remote: Counting objects: 100% (4435/4435), done.
+  remote: Compressing objects: 100% (1820/1820), done.
+  remote: Total 25806 (delta 2972), reused 3710 (delta 2551), pack-reused 21371
+  Receiving objects: 100% (25806/25806), 110.50 MiB | 9.79 MiB/s, done.
+  Resolving deltas: 100% (19382/19382), done.
 
 
 Building SeisSol
@@ -71,11 +83,13 @@ Building SeisSol
 ::
 
   ##### module load for SeisSol
-  module load gcc/9 cmake python/3.6_intel
+  module load intel-mpi intel
+  module load gcc/9 cmake python/3.8.8-extended
   module load libszip/2.1.1
   module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
-  module load netcdf-hdf5-all/4.6_hdf5-1.8-intel19-impi
+  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
   module load numactl
+  module load yaml-cpp/0.6.3-intel19
 
   ####### for pspamm.py
   export PATH=~/bin:$PATH
@@ -128,15 +142,16 @@ For that modules and compiler need to be switched:
 
 ::
 
-    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.8-gcc8-impi
+    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.10-gcc8-impi
     module unload intel-mpi intel
     module load intel-mpi/2019-gcc
-    module switch gcc gcc/9
+    module switch yaml-cpp yaml-cpp/0.6.3
     export CC=mpigcc
     export CXX=mpigxx
     export FC=mpifc
 
 Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
+easi (and all its dependencies) also needs to be build with gcc compilers.
 To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
 Running SeisSol

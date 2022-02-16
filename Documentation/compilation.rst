@@ -84,7 +84,7 @@ Installing Libxsmm
 
 .. code-block:: bash
 
-   git clone https://github.com/hfp/libxsmm
+   git clone --branch 1.17 https://github.com/hfp/libxsmm
    cd libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $HOME/bin
@@ -145,7 +145,7 @@ See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 Installing easi
 ---------------------------
-Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/index.html>`.
+Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 
 Compiling SeisSol
 -----------------

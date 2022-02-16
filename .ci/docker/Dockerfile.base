@@ -153,6 +153,14 @@ LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8' python3 ./setup.py i
 cd .. && rm -rf ./pybind11-${VERSION} ./v${VERSION}.tar.gz
 
 
+RUN export VERSION=0.6.2 && \
+git clone --depth 1 --branch yaml-cpp-${VERSION} https://github.com/jbeder/yaml-cpp.git yaml-cpp && \
+mkdir -p yaml-cpp/build && cd yaml-cpp/build && \
+cmake .. -DCMAKE_CXX_FLAGS="-fPIC" && \
+make -j4 && make install && \
+cd ../.. && rm -rf ./yaml-cpp
+
+
 # Clean-up
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* && rm -rf /tmp/*
 
