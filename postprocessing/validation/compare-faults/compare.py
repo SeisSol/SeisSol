@@ -42,10 +42,12 @@ def l2_difference(q_0, q_1):
 quantity_names = ["ASl", "Mud", "PSR", "P_n", "Pn0", "RT", "SRd", "SRs", "Sld", "Sls", "T_d", "T_s", "Td0", "Ts0", "Vr", "u_n"]
 errors = np.zeros((len(quantity_names)))
 
+last_index = fault.ndt
+assert(last_index == fault_ref.ndt)
 for i, q in enumerate(quantity_names):
     # extract quantity
-    quantity = fault.ReadData(q, 2)
-    quantity_ref = fault_ref.ReadData(q, 2)
+    quantity = fault.ReadData(q, last_index-1)
+    quantity_ref = fault_ref.ReadData(q, last_index-1)
     # compute error
     relative_error = l2_difference(quantity, quantity_ref) / l2_norm(quantity_ref)
     print(f"{q:3}: {relative_error}")
