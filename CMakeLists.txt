@@ -307,13 +307,21 @@ target_compile_definitions(SeisSol-lib PUBLIC
 )
 
 # Fortran compliler settings
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
+    # NOTE:
+    # 1. -Mpreprocess enables a C preprocessor macro
+    # 2. -Mfree specifies fortran free format
+    # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
+    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
+elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
 endif()
 
 # C++ compiler settings
@@ -328,8 +336,15 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
+
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    # NOTE:
+    # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
+    # 2. PGI-based compilers cannot disable warnings from includes of system libraries, -w disables all warnings
+    # 3. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 -w -DEIGEN_DONT_VECTORIZE=1")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
