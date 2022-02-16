@@ -555,7 +555,7 @@ CONTAINS
 
               !add transient nucleation stress to fault output
               IF ((EQN%FL.EQ.103) .OR. (EQN%FL.EQ.3) .OR. (EQN%FL.EQ.4)) THEN
-                 NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
+                 NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%InitialStressInFaultCS(iBndGP,:,iFace))
                  Tnuc = DISC%DynRup%t_0
                  Gnuc = Calc_SmoothStep(time, Tnuc)
                  NucleationStressLocalCS = MATMUL(rotmat, NucleationStressXYZ)*Gnuc
@@ -564,11 +564,11 @@ CONTAINS
               ENDIF
 
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4)+DISC%DynRup%DynRup_Constants(iOutPoints)%ts0 + NucleationStressLocalCS(4) !OutVars =9
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4) + NucleationStressLocalCS(4) !OutVars =9
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6)+DISC%DynRup%DynRup_Constants(iOutPoints)%td0 + NucleationStressLocalCS(6) !OutVars =10
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6) + NucleationStressLocalCS(6) !OutVars =10
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f + NucleationStressLocalCS(1)!OutVars =11
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP - P_f + NucleationStressLocalCS(1)!OutVars =11
           ENDIF
 
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
