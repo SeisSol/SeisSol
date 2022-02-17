@@ -493,7 +493,8 @@ int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
 std::vector<std::unordered_map<idx_t, int>>
 LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                           const std::vector<idx_t>&>& graph) {
-  static_assert(sizeof(idx_t) <= sizeof(MPI_LONG_LONG_INT));
+  // fails with intel compiler, mpi standard says use mpi size of
+  // static_assert(sizeof(idx_t) <= sizeof(MPI_LONG_LONG_INT));
 
   const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
   const std::vector<idx_t>& xadj = std::get<1>(graph);
