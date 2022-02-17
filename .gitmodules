@@ -28,7 +28,7 @@
 [submodule "Submod"]
 	url = https://github.com/username/ABC.git
 	branch = Development
-[submodule "submodules/eigen3"]
+[submodule "submodules/eigen"]
 	path = submodules/eigen
 	url = https://github.com/ThrudPrimrose/scorepeigen.git
 [submodule "submodules/PUML"]
