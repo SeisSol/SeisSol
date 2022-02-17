@@ -11,6 +11,13 @@ endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+  set(NVHPC_REQUIRED_VERSION "22.1.0")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS NVHPC_REQUIRED_VERSION)
+    message(FATAL_ERROR "NVHPC version ${NVHPC_REQUIRED_VERSION} or higher is required")
+  endif()
+endif()
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -340,11 +347,15 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    set(WARNINGS "--display_error_number --diag_suppress186")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.1")
+      set(WARNINGS "${WARNINGS} --diag_suppress1")
+    endif()
+
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
-    # 2. PGI-based compilers cannot disable warnings from includes of system libraries, -w disables all warnings
-    # 3. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 -w -DEIGEN_DONT_VECTORIZE=1")
+    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
