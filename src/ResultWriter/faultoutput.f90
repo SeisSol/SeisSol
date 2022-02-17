@@ -555,9 +555,7 @@ CONTAINS
 
               !add transient nucleation stress to fault output
               NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%InitialStressInFaultCS(iBndGP,:,iFace))
-              Tnuc = DISC%DynRup%t_0
-              Gnuc = Calc_SmoothStep(time, Tnuc)
-              NucleationStressLocalCS = MATMUL(rotmat, NucleationStressXYZ)*Gnuc
+              NucleationStressLocalCS = MATMUL(rotmat, NucleationStressXYZ)
 
               OutVars = OutVars + 1
               DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4) + NucleationStressLocalCS(4) !OutVars =9
