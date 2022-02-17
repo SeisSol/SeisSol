@@ -29,21 +29,22 @@ class Base {
 
     bool bothEnabled = generalParams.outputPointType == OutputType::AtPickpointAndElementwise;
     bool pointEnabled = generalParams.outputPointType == OutputType::AtPickpoint || bothEnabled;
-    bool elementwiseEnabled = generalParams.outputPointType == OutputType::Elementwise || bothEnabled;
+    bool elementwiseEnabled =
+        generalParams.outputPointType == OutputType::Elementwise || bothEnabled;
     if (pointEnabled) {
-      logInfo() << "Enable Dynamic Rupture Receiver Output";
+      logInfo() << "Enabling on-fault receiver output";
       ppOutputBuilder = std::make_unique<PickPointBuilder>();
       ppOutputBuilder->setMeshReader(&mesher);
       ppOutputBuilder->setParams(reader.getPickPointParams());
     }
     if (elementwiseEnabled) {
-      logInfo() << "Enable Dynamic Rupture 2D Fault Output";
+      logInfo() << "Enabling 2D fault output";
       ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
       ewOutputBuilder->setMeshReader(&mesher);
       ewOutputBuilder->setParams(reader.getElementwiseFaultParams());
     }
     if (!elementwiseEnabled && !pointEnabled) {
-      logInfo() << "No Dynamic Rupture Output enabled";
+      logInfo() << "No dynamic rupture output enabled";
     }
   }
   void setDrData(seissol::initializers::LTSTree* userDrTree,
