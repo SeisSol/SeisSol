@@ -122,7 +122,9 @@ cpu_tpv_run:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 101, 101-slip, 104]
+              #tpv: [5, 101, 101-slip, 104]
+              #only for testing
+              tpv: [5]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/7bits-register/precomputed-seissol.git
@@ -143,7 +145,7 @@ cpu_tpv_run:
             - output-*
 
 
-cpu_tpv_check:
+cpu_tpv_check_faultoutput:
     stage: check
     tags:
         - ci_testing_cc
@@ -157,7 +159,9 @@ cpu_tpv_check:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 101, 101-slip, 104]
+              #tpv: [5, 101, 101-slip, 104]
+              #only for testing
+              tpv: [5]
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -166,6 +170,30 @@ cpu_tpv_check:
         - pip3 install seissolxdmf
         - pip3 install h5py
         - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
+
+
+cpu_tpv_check_receivers:
+    stage: check
+    tags:
+        - ci_testing_cc
+    allow_failure: true
+    needs:
+        - job: cpu_tpv_run
+    variables:
+        epsilon: "0.05"
+    parallel:
+        matrix:
+            - precision: [double, single]
+              #tpv: [5, 101, 101-slip, 104]
+              #only for testing
+              tpv: [5]
+    script: 
+        - echo "check TPV{$tpv}"
+        - ls
+        - cd output-tpv{$tpv}-${precision}
+        - ls
+        - pip3 install pandas
+        - python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon}
 
 
 pages:
