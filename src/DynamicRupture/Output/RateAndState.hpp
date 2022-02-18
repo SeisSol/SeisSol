@@ -22,14 +22,14 @@ class RateAndState : public Base {
     real(*stateVar)[numGaussPoints2d] = layerData.var(concreteLts->stateVariable);
     real(*initialStressInFaultCS)[numGaussPoints2d][6] =
         layerData.var(concreteLts->initialStressInFaultCS);
-    using VectorOfArrays = std::vector<std::array<real, numGaussPoints2d>>;
+    using VectorOfArraysT = std::vector<std::array<real, numGaussPoints2d>>;
 
-    VectorOfArrays initialStressXX(layerData.getNumberOfCells());
-    VectorOfArrays initialStressYY(layerData.getNumberOfCells());
-    VectorOfArrays initialStressZZ(layerData.getNumberOfCells());
-    VectorOfArrays initialStressXY(layerData.getNumberOfCells());
-    VectorOfArrays initialStressXZ(layerData.getNumberOfCells());
-    VectorOfArrays initialStressYZ(layerData.getNumberOfCells());
+    VectorOfArraysT initialStressXX(layerData.getNumberOfCells());
+    VectorOfArraysT initialStressYY(layerData.getNumberOfCells());
+    VectorOfArraysT initialStressZZ(layerData.getNumberOfCells());
+    VectorOfArraysT initialStressXY(layerData.getNumberOfCells());
+    VectorOfArraysT initialStressXZ(layerData.getNumberOfCells());
+    VectorOfArraysT initialStressYZ(layerData.getNumberOfCells());
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)

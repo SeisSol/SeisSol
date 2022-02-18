@@ -23,17 +23,17 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     // read initial stress and nucleation stress
-    using VectorOfArrays = std::vector<std::array<real, misc::numPaddedPoints>>;
+    using VectorOfArraysT = std::vector<std::array<real, misc::numPaddedPoints>>;
 
-    auto addStressesToStorageMap = [&dynRup, &parameterToStorageMap, &it](VectorOfArrays& stressXX,
-                                                                          VectorOfArrays& stressYY,
-                                                                          VectorOfArrays& stressZZ,
-                                                                          VectorOfArrays& stressXY,
-                                                                          VectorOfArrays& stressYZ,
-                                                                          VectorOfArrays& stressXZ,
+    auto addStressesToStorageMap = [&dynRup, &parameterToStorageMap, &it](VectorOfArraysT& stressXX,
+                                                                          VectorOfArraysT& stressYY,
+                                                                          VectorOfArraysT& stressZZ,
+                                                                          VectorOfArraysT& stressXY,
+                                                                          VectorOfArraysT& stressYZ,
+                                                                          VectorOfArraysT& stressXZ,
                                                                           bool readNucleation) {
       // return pointer to first element
-      auto getRawData = [](VectorOfArrays& vectorOfArrays) {
+      auto getRawData = [](VectorOfArraysT& vectorOfArrays) {
         return vectorOfArrays.data()->data();
       };
       // fault can be either initialized by traction or by cartesian stress
@@ -71,12 +71,12 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
       }
     };
 
-    VectorOfArrays initialStressXX(it->getNumberOfCells());
-    VectorOfArrays initialStressYY(it->getNumberOfCells());
-    VectorOfArrays initialStressZZ(it->getNumberOfCells());
-    VectorOfArrays initialStressXY(it->getNumberOfCells());
-    VectorOfArrays initialStressXZ(it->getNumberOfCells());
-    VectorOfArrays initialStressYZ(it->getNumberOfCells());
+    VectorOfArraysT initialStressXX(it->getNumberOfCells());
+    VectorOfArraysT initialStressYY(it->getNumberOfCells());
+    VectorOfArraysT initialStressZZ(it->getNumberOfCells());
+    VectorOfArraysT initialStressXY(it->getNumberOfCells());
+    VectorOfArraysT initialStressXZ(it->getNumberOfCells());
+    VectorOfArraysT initialStressYZ(it->getNumberOfCells());
     addStressesToStorageMap(initialStressXX,
                             initialStressYY,
                             initialStressZZ,
@@ -84,12 +84,12 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                             initialStressYZ,
                             initialStressXZ,
                             false);
-    VectorOfArrays nucleationStressXX(it->getNumberOfCells());
-    VectorOfArrays nucleationStressYY(it->getNumberOfCells());
-    VectorOfArrays nucleationStressZZ(it->getNumberOfCells());
-    VectorOfArrays nucleationStressXY(it->getNumberOfCells());
-    VectorOfArrays nucleationStressXZ(it->getNumberOfCells());
-    VectorOfArrays nucleationStressYZ(it->getNumberOfCells());
+    VectorOfArraysT nucleationStressXX(it->getNumberOfCells());
+    VectorOfArraysT nucleationStressYY(it->getNumberOfCells());
+    VectorOfArraysT nucleationStressZZ(it->getNumberOfCells());
+    VectorOfArraysT nucleationStressXY(it->getNumberOfCells());
+    VectorOfArraysT nucleationStressXZ(it->getNumberOfCells());
+    VectorOfArraysT nucleationStressYZ(it->getNumberOfCells());
     addStressesToStorageMap(nucleationStressXX,
                             nucleationStressYY,
                             nucleationStressZZ,

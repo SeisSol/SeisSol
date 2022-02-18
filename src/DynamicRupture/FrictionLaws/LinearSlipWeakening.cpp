@@ -20,7 +20,7 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(
     std::array<real, misc::numPaddedPoints>& stateVariable,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  real resampledSlipRate[misc::numPaddedPoints] __attribute__((aligned(32))){};
+  alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints] {};
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resample = init::resample::Values;
   resampleKrnl.originalQ = slipRateMagnitude[ltsFace];
