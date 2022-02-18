@@ -38,7 +38,7 @@ def receiver_diff(args, i):
     sim_receiver = pd.read_csv(f"{args.output}/tpv-receiver-0000{i}-00000.dat", header=None, skiprows=5, sep="\s+")
     ref_receiver = pd.read_csv(f"{args.output_ref}/tpv-receiver-0000{i}-00000.dat", header=None, skiprows=5, sep="\s+")
     # both receivers must have the same time axis
-    assert(np.max(np.abs(sim_receiver[0] - ref_receiver[0])) < 1e-15)
+    assert(np.max(np.abs(sim_receiver[0] - ref_receiver[0])) < 1e-14)
     time = sim_receiver[0]
     difference = sim_receiver - ref_receiver
 
@@ -73,7 +73,7 @@ def faultreceiver_diff(args, i):
     ref_receiver = read_faultreceiver(ref_filename)
 
     # both receivers must have the same time axis
-    assert(np.max(np.abs(sim_receiver[0] - ref_receiver[0])) < 1e-15)
+    assert(np.max(np.abs(sim_receiver[0] - ref_receiver[0])) < 1e-14)
     time = sim_receiver[0]
     difference = sim_receiver - ref_receiver
 
