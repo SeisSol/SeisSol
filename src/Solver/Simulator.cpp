@@ -49,6 +49,7 @@
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "ResultWriter/AnalysisWriter.h"
+#include "ResultWriter/EnergyOutput.h"
 
 extern seissol::Interoperability e_interoperability;
 
@@ -153,5 +154,12 @@ void seissol::Simulator::simulate() {
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
   printFlops();
+
+  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+  auto ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
+  auto lts     = seissol::SeisSol::main.getMemoryManager().getLts();
+  auto* ltsLut = e_interoperability.getLtsLut();
+  seissol::writer::printPlasticMoment(meshReader, ltsTree, lts, ltsLut);
+
 
 }
