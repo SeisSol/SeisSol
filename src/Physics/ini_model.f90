@@ -131,15 +131,15 @@ CONTAINS
     ALLOCATE( DISC%Galerkin%WaveSpeed(MESH%nElem,EQN%nNonZeroEV) )
     DISC%Galerkin%WaveSpeed(:,:) = 0.
 
-    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char,\
-                                            EQN%Anelasticity,\
-                                            EQN%Plasticity,\
-                                            EQN%Anisotropy,\
-                                            EQN%Poroelasticity,\
-                                            MaterialVal,\
-                                            EQN%BulkFriction,\
-                                            EQN%PlastCo,\
-                                            EQN%IniStress,\
+    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char, &
+                                            EQN%Anelasticity, &
+                                            EQN%Plasticity, &
+                                            EQN%Anisotropy, &
+                                            EQN%Poroelasticity, &
+                                            MaterialVal, &
+                                            EQN%BulkFriction, &
+                                            EQN%PlastCo, &
+                                            EQN%IniStress, &
                                             DISC%Galerkin%WaveSpeed)
     
     ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem) )

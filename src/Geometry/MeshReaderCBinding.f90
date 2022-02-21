@@ -138,7 +138,7 @@ contains
 
         write(str, *) mpi%nCPU
         if (io%meshgenerator .eq. 'Gambit3D-fast') then
-            call read_mesh_gambitfast_c(mpi%myRank, trim(io%MeshFile) // c_null_char, \
+            call read_mesh_gambitfast_c(mpi%myRank, trim(io%MeshFile) // c_null_char, &
                 trim(io%MetisFile) // '.epart.' // trim(adjustl(str)) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
         elseif (io%meshgenerator .eq. 'Netcdf') then
 #ifdef PARALLEL
