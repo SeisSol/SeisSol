@@ -109,7 +109,7 @@ class BaseFrictionLaw : public FrictionSolver {
     auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
     auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
 
-    alignas(ALIGNMENT) FaultStresses faultStresses {};
+    alignas(ALIGNMENT) FaultStresses faultStresses{};
     for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
         faultStresses.normalStress[o][i] =
