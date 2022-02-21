@@ -18,9 +18,7 @@ parser.add_argument('--step', nargs=1, default=([1]), metavar=('step'), type=int
                     help='choose step size to skip receivers for faster computation (only works for numpy output)')
 
 parser.add_argument('--MP', nargs=1, metavar=('ncpu'), default=([1]),
-                    help='use np.pool to speed-up calculations and loading' ,type=int)
-                    # This can lead to an enconding error of multiprocessing, when the input arrays are too large
-                    # To avoid this use --serialLoading
+                    help='use np.pool to speed-up calculations' ,type=int)
         
 parser.add_argument('--maxFreq', nargs=1, default=([1.0]), metavar=('maxFreq'),
                     help='maximum fequency of the spectrum used for the corner frequency computation' ,type=float)
@@ -56,10 +54,11 @@ parser.add_argument('--outputprefix', default="data", type=str, metavar=('output
 parser.add_argument('--faultxdmf', default="input", type=str, metavar=('-fault.xdmf'), 
                     help='provide path+filename-fault.xdmf; only needed when the path differs from the -surface.xdmf file')
 
-parser.add_argument('--serialLoading',  dest='serialLoading', action='store_true' , default = False, 
-                    help='components are loaded in serial, while calculations can use more than 1 process')
+parser.add_argument('--parallelLoading',  dest='parallelLoading', action='store_true' , default = False, 
+                    help='load components in parallel (weak scaling)')
+                    # This can lead to an enconding error of multiprocessing, when the input arrays are too large
 
-parser.add_argument('--avgSWaveVelocity', nargs=1, default=([0.]), metavar=('avgSWaveVelocity'),
+parser.add_argument('--avgSWaveVelocity', nargs=1, metavar=('avgSWaveVelocity'),
                     help='provide an average S-wave velocity near the surface (otherwise it is approximated from P-arrivals)',
                     type=float)
 args = parser.parse_args()
@@ -88,34 +87,29 @@ def ReadSurfaceWithPool(chunk):
 def ReadFaultWithPool(chunk):
     return faultxdmf.ReadDataChunk(chunk[2], int(chunk[0]), int(chunk[1]))[timeIndicesFault[0]:timeIndicesFault[1]]
 
-def get_xyz_from_connect(geom, connect):
-    # Genrate an array with coordinates of triangle midpoints (same dimension as connect)
+def ComputeTriangleMidpoints(geom, connect):
+    """Genrates an array with coordinates of triangle midpoints (same dimension as connect)"""
     xyz = np.zeros_like(connect, dtype=float)
     xyz = (1./3.)*(geom[connect[:,0],:]+geom[connect[:,1],:]+geom[connect[:,2],:])   
     return xyz
 
 def CalculateSlipCentroid(faultxdmf, events=0):
-    xyz = get_xyz_from_connect(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
-    ASl = faultxdmf.ReadData("ASl", idt=lastTimeStep).T
     if events == 0:
         ASl = faultxdmf.ReadData("ASl", idt=lastTimeStep).T
-        xyzc = np.average(xyz, axis=0, weights=ASl)
     elif events == 1:
-        ASl = faultxdmf.ReadData("ASl", idt=int(lastTimeStep/2)).T
-        xyzc = np.average(xyz, axis=0, weights=ASl)    
+        ASl = faultxdmf.ReadData("ASl", idt=int(lastTimeStep/2)).T   
     else:
-        ASl = faultxdmf.ReadData("ASl", idt=lastTimeStep).T - faultxdmf.ReadData("ASl", idt=int(lastTimeStep/2)).T
-        xyzc = np.average(xyz, axis=0, weights=ASl)  
-    return xyzc
+        ASl = faultxdmf.ReadData("ASl", idt=lastTimeStep).T - faultxdmf.ReadData("ASl", idt=int(lastTimeStep/2)).T 
+    return np.average(faultxyz, axis=0, weights=ASl)
 
 def ComputeBackazimuth(xyz, centroid):
-    ba = np.arctan2(xyz[:,0]-centroid[0], xyz[:,1]-centroid[1]) * 180 / np.pi % 360
-    ba = np.where(ba < 180, ba+180, ba-180)
+    ba = np.arctan2(xyz[:,0]-centroid[0], xyz[:,1]-centroid[1]) % (2*np.pi)
+    ba = np.where(ba < np.pi, ba+np.pi, ba-np.pi)
     return ba
 
-def RotateToRadialTransversal(v, u, xyz, centroid):
+def RotateToRadialTransversal(u, v, xyz, centroid):
     ba = ComputeBackazimuth(xyz, centroid)
-    ba = np.radians(ba).reshape(-1,1)
+    ba = ba.reshape(-1,1)
     r = -u * np.sin(ba) - v * np.cos(ba)
     t = -u * np.cos(ba) + v * np.sin(ba)
     return r, t
@@ -135,6 +129,7 @@ def ComputeCornerFrequencyParallel(component, pphases, windowduration):
     return np.concatenate(result)        
 
 def ComputeCornerFrequencyArray(tuples):
+    # Needed for parallel computing of corner frequencies
     fc_arr = np.zeros(tuples[0].shape[0])
     for i in range(0, fc_arr.size):
         fc_arr[i] = ComputeSingleCornerFrequency(tuples[0][i], dt, pphase=tuples[1][i], 
@@ -142,6 +137,7 @@ def ComputeCornerFrequencyArray(tuples):
     return fc_arr
 
 def ComputeSingleCornerFrequency(velocity, dt, pphase=0, windowduration=0, endfreq=1.0):
+    """Preproccesing of a single waveform before calling fc_Qzero_gridsearch to determine the corner frequency"""
 
     # preprocessing (taper and padding)
     if windowduration != 0:
@@ -161,10 +157,12 @@ def ComputeSingleCornerFrequency(velocity, dt, pphase=0, windowduration=0, endfr
     newfreqs = np.arange(0.01, endfreq+0.005, 0.005)
     data = np.interp(newfreqs, freqs, data)
     
-    fc, q = fc_Qzero_gridsearch(data, newfreqs, misfit="SSM", n=2, fc_end=args.maxCornerFreq[0])
+    fc = fc_Qzero_gridsearch(data, newfreqs, misfit="SSM", n=2, fc_end=args.maxCornerFreq[0])[0]
     return fc
 
 def cut_window_and_pad(data, window_duration, dt, pphase=0, alpha=0.05):
+    """Cuts a tapered body wave window and pads remaining timesteps with zeros"""
+    
     window_len = int(window_duration / dt)
     ind1 = int(pphase / dt)
     
@@ -180,6 +178,8 @@ def cut_window_and_pad(data, window_duration, dt, pphase=0, alpha=0.05):
     return result
 
 def fc_Qzero_gridsearch(amplitude_tr, freq_tr, misfit="SSM", n=2, fc_end=0., q_dim=0):
+    """Determines the corner frequency of a displacement spectrum by performing a gridsearch 
+    to find the best fitting Brune-type spectrum"""
     
     misfit_types = ["RMS", "SSM"]
     if misfit not in misfit_types:
@@ -233,30 +233,35 @@ def complete_fft(tr, dt):
     return tr_fft, times_comp
 
 def ApproximateEventDurationAndHypocenter(slipRateThreshold=args.slipRateThreshold[0]):
-    # Calculates the derivative of ASl (probably faster than loading SR1 and SR2)
-    # and approximates event duration by multiplying dt with the number of timesteps,
-    # where maximum on-fault slip rate is above a threshold (slipRateThreshold)
-    if nprocs == 1 or args.serialLoading:
+    """Calculates the derivative of ASl (probably faster than loading SR1 and SR2)
+     and approximates event duration by multiplying dt with the number of timesteps,
+     where maximum on-fault slip rate is above a threshold (slipRateThreshold)"""
+    
+    if nprocs == 1 or not args.parallelLoading:
         ASl = faultxdmf.ReadData("ASl").T[::stepsize,timeIndicesFault[0]:timeIndicesFault[1]]
     else:
         ASl = LoadSingleComponentParallel("ASl", surfaceData=False)
-    duration = np.sum(np.where(np.amax((ASl[:,1:]-ASl[:,:-1])/dtFault, axis=0) > slipRateThreshold, 1, 0))*dtFault
-    slippingFault = np.where((ASl[:,1:]-ASl[:,:-1])/dtFault > slipRateThreshold, 1, 0)
+    ASR = np.gradient(ASl, dtFault, axis=1)
+    duration = np.sum(np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0))*dtFault
+    slippingFault = np.where(ASR > slipRateThreshold, 1, 0)
     indHypocenter = np.argmax(slippingFault[:,np.argmax(np.amax(slippingFault, axis=0))])
     hypocenter = faultxyz[indHypocenter,:]
     return duration, hypocenter
 
-def PickPPhases(trigger=0.001):                 # This function is only suited for synthetic data without noise
+def PickPPhases(trigger=0.001):
+    """Picks the P-wave arrival time for each receiver. This function is only suited for synthetic data without noise"""
+    
     data = np.sqrt(u**2 + v**2 + w**2)
     thresholds = np.amax(data, axis=1)*trigger  # trigger dictates the portion of the maximum ground velocity,
     thresholds = thresholds.reshape(-1,1)       # which needs to be reached to pick the p-phase
-    data = data / thresholds
-    ind = np.argmax(data>1, axis=1)
+    ind = np.argmax(data>thresholds, axis=1)
     t = ind*dt
     return np.transpose(np.vstack((ind,t))) # p-phase output: first column index and second column simulation time
 
 def SWaveDelay(xyz, pphase, hypocenter, centroid):
-    if args.avgSWaveVelocity[0] == 0.:
+    """Approximates the difference between P- and S-wave arrivals for each receiver"""
+    
+    if not args.avgSWaveVelocity:
         distance1 = np.linalg.norm((xyz - hypocenter), axis=1)
         swaveVelocity = np.mean(distance1 / pphase) / np.sqrt(3)
     else:
@@ -273,7 +278,7 @@ surfacexdmf = sx.seissolxdmf(args.filename)
 dt = surfacexdmf.ReadTimeStep()
 nElements = surfacexdmf.ReadNElements()
 stepsize = args.step[0]
-surfacexyz = get_xyz_from_connect(surfacexdmf.ReadGeometry(), surfacexdmf.ReadConnect())[::stepsize]
+surfacexyz = ComputeTriangleMidpoints(surfacexdmf.ReadGeometry(), surfacexdmf.ReadConnect())[::stepsize]
 
 if stepsize != 1 and args.output != "numpy":
     sys.exit("Xdmf output is not compatible with stepsize != 1")
@@ -290,10 +295,10 @@ nprocs  = args.MP[0]
 assert(nprocs<=cpu_count())
 print("Using "+str(nprocs)+" ranks")
 
-if args.serialLoading:
+if not args.parallelLoading:
     print("Serial loading of components...")
 
-if nprocs == 1 or args.serialLoading:
+if nprocs == 1 or not args.parallelLoading:
     u = surfacexdmf.ReadData('u').T[::stepsize,timeIndices[0]:timeIndices[1]]
     v = surfacexdmf.ReadData('v').T[::stepsize,timeIndices[0]:timeIndices[1]]
     w = surfacexdmf.ReadData('w').T[::stepsize,timeIndices[0]:timeIndices[1]]
@@ -307,23 +312,21 @@ stop1 = timeit.default_timer()
 print('Time to load data: ', stop1 - start)
 
 print("Preparing data...")
-if args.rotate:
+
+if args.rotate or args.bodywavewindow:
     if args.faultxdmf == "input":
-        faultxdmf = sx.seissolxdmf(args.filename[:-12]+"fault.xdmf")
-    else:
-        faultxdmf = sx.seissolxdmf(args.faultxdmf)
+        args.faultxdmf = args.filename[:-12]+"fault.xdmf"
+    faultxdmf = sx.seissolxdmf(args.faultxdmf)   
+    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
     lastTimeStep = faultxdmf.ReadNdt() - 1 
     slipCentroid = CalculateSlipCentroid(faultxdmf, events=args.events[0])
-    print("Calculated centroid: "+str(slipCentroid))
-    u, v = RotateToRadialTransversal(v, u, surfacexyz, slipCentroid)
+    print("Calculated centroid: "+str(slipCentroid))   
+
+if args.rotate:
+    u, v = RotateToRadialTransversal(u, v, surfacexyz, slipCentroid)
     
 if args.bodywavewindow:
     pPhases = PickPPhases(trigger=0.001)[:,1]
-    
-    if args.faultxdmf == "input":
-        faultxdmf = sx.seissolxdmf(args.filename[:-12]+"fault.xdmf")
-    else:
-        faultxdmf = sx.seissolxdmf(args.faultxdmf)
     dtFault = faultxdmf.ReadTimeStep()
     nElementsFault = faultxdmf.ReadNElements()
     if args.events[0] == 0:
@@ -332,7 +335,6 @@ if args.bodywavewindow:
         timeIndicesFault = [0, int(faultxdmf.ReadNdt()/2)]
     else:
         timeIndicesFault = [int(faultxdmf.ReadNdt()/2), faultxdmf.ReadNdt()]
-    faultxyz = get_xyz_from_connect(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())[::stepsize]
     eventDuration, hypocenter = ApproximateEventDurationAndHypocenter()
     print("Slip rate threshold: "+ str(args.slipRateThreshold[0]))
     print("Approximated event duration: " + str(eventDuration))
