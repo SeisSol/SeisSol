@@ -11,6 +11,13 @@ endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+  set(NVHPC_REQUIRED_VERSION "22.1.0")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS NVHPC_REQUIRED_VERSION)
+    message(FATAL_ERROR "NVHPC version ${NVHPC_REQUIRED_VERSION} or higher is required")
+  endif()
+endif()
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -307,13 +314,21 @@ target_compile_definitions(SeisSol-lib PUBLIC
 )
 
 # Fortran compliler settings
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
+    # NOTE:
+    # 1. -Mpreprocess enables a C preprocessor macro
+    # 2. -Mfree specifies fortran free format
+    # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
+    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
+elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
 endif()
 
 # C++ compiler settings
@@ -328,8 +343,19 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
+
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    set(WARNINGS "--display_error_number --diag_suppress186")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.1")
+      set(WARNINGS "${WARNINGS} --diag_suppress1")
+    endif()
+
+    # NOTE:
+    # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
+    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
