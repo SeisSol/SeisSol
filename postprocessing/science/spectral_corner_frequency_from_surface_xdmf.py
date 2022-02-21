@@ -88,7 +88,7 @@ def ReadFaultWithPool(chunk):
     return faultxdmf.ReadDataChunk(chunk[2], int(chunk[0]), int(chunk[1]))[timeIndicesFault[0]:timeIndicesFault[1]]
 
 def ComputeTriangleMidpoints(geom, connect):
-    """Genrates an array with coordinates of triangle midpoints (same dimension as connect)"""
+    """Generates an array with coordinates of triangle midpoints (same dimension as connect)"""
     xyz = np.zeros_like(connect, dtype=float)
     xyz = (1./3.)*(geom[connect[:,0],:]+geom[connect[:,1],:]+geom[connect[:,2],:])   
     return xyz
