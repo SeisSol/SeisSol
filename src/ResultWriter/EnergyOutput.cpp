@@ -8,7 +8,6 @@ void seissol::writer::printPlasticMoment(MeshReader const& i_meshReader,
   double plasticMomentLocal = 0.0;
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
-  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
   seissol::initializers::LayerMask ghostMask(Ghost);
   for (auto it = i_ltsTree->beginLeaf(ghostMask); it != i_ltsTree->endLeaf(); ++it) {
@@ -16,9 +15,8 @@ void seissol::writer::printPlasticMoment(MeshReader const& i_meshReader,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : plasticMomentLocal)
 #endif
-    for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
-      real* pstrainCell = pstrain[cell];
-      unsigned meshId = ltsToMesh[cell];
+    for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
+      real* pstrainCell = i_ltsLut->lookup(i_lts->pstrain, meshId);
       double volume = MeshTools::volume(elements[meshId], vertices);
       CellMaterialData& material = i_ltsLut->lookup(i_lts->material, meshId);
 #ifdef USE_ANISOTROPIC
@@ -26,10 +24,8 @@ void seissol::writer::printPlasticMoment(MeshReader const& i_meshReader,
 #else
       double mu = material.local.mu;
 #endif
-
       plasticMomentLocal += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
     }
-    ltsToMesh += it->getNumberOfCells();
   }
 
   int rank;
