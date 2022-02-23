@@ -1,4 +1,3 @@
-# Library settings:
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
 option(METIS "Use metis for partitioning" ON)
@@ -87,7 +86,8 @@ set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS}
 
 
 set(GEMM_TOOLS_LIST "auto" CACHE STRING "choose a gemm tool(s) for the code generator")
-set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
+set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
+        "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
