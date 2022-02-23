@@ -67,4 +67,4 @@ static xdmfwriter::BackendType backendType(char const* xdmfWriterBackend) {
 }
 }
 
-#endif // RESULTWRITER_COMMON_HPP_
+#endif

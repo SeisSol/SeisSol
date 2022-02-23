@@ -440,7 +440,7 @@ namespace seissol::kernels {
 #else
     assert(false && "no implementation provided");
     return 0;
-#endif // ACL_DEVICE
+#endif
   }
 
   void Plasticity::flopsPlasticity(long long &o_NonZeroFlopsCheck,

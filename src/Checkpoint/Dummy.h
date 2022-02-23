@@ -66,4 +66,4 @@ public:
 
 }
 
-#endif // CHECKPOINT_DUMMY_H
+#endif

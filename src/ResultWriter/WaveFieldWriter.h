@@ -250,4 +250,4 @@ public:
 
 }
 
-#endif // WAVE_FIELD_WRITER_H
+#endif

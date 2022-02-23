@@ -1002,7 +1002,7 @@ void seissol::Interoperability::initInitialConditions()
     const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
 
     m_iniConds.emplace_back(new physics::Ocean(mode, g));
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
+#endif
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }

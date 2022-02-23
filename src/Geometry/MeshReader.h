@@ -292,4 +292,4 @@ protected:
 	}
 };
 
-#endif // MESH_READER_H
+#endif

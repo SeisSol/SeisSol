@@ -49,7 +49,7 @@
 
 #ifdef USE_MPI
 #include "Checkpoint/MPIInfo.h"
-#endif // USE_MPI
+#endif
 
 bool seissol::checkpoint::h5::Wavefield::init(size_t headerSize, unsigned long numDofs, unsigned int groupSize)
 {
@@ -278,7 +278,7 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 #ifdef USE_MPI
 		MPIInfo info;
 		checkH5Err(H5Pset_fapl_mpio(h5plist, seissol::MPI::mpi.comm(), info.get()));
-#endif // USE_MPI
+#endif
 
 		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);
 		checkH5Err(h5file);

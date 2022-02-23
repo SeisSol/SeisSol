@@ -228,4 +228,4 @@ private:
 
 } // namespace seissol
 
-#endif //SEISSOL_GRAVIATIONALFREESURFACEBC_H
+#endif

@@ -80,4 +80,4 @@ namespace seissol::dr::pipeline {
   };
 }
 
-#endif //DR_TUNER_H
+#endif

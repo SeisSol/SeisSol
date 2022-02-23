@@ -209,7 +209,7 @@ CONTAINS
 
 #ifdef USE_MPI
     CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
-#endif // USE_MPI
+#endif
 
     ! output magnitude for dynamic rupture simulations
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO,DR_comm)

@@ -306,4 +306,4 @@ public:
 
 }
 
-#endif // SEISSOL_H
+#endif

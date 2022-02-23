@@ -11,7 +11,7 @@ endif()
 
 if(SCOREP_WORKAROUND)
   message(STATUS "Allowing multiple definitions for compiling with score-p wrappers")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}  -Wl,--allow-multiple-definition -Wl,--no-as-needed")
 endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)

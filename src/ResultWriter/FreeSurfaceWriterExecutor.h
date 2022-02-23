@@ -74,7 +74,7 @@ private:
 #ifdef USE_MPI
 	/** The MPI communicator for the writer */
 	MPI_Comm m_comm;
-#endif // USE_MPI
+#endif
 
 	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter;
   unsigned m_numVariables;
@@ -87,7 +87,7 @@ public:
 		:
 #ifdef USE_MPI
 		m_comm(MPI_COMM_NULL),
-#endif // USE_MPI
+#endif
 		m_xdmfWriter(0L),
 		m_numVariables(0) {}
 
@@ -121,7 +121,7 @@ public:
 			m_stopwatch.printTime("Time free surface writer backend:"
 #ifdef USE_MPI
 				, m_comm
-#endif // USE_MPI
+#endif
 			);
 		}
 
@@ -130,7 +130,7 @@ public:
 			MPI_Comm_free(&m_comm);
 			m_comm = MPI_COMM_NULL;
 		}
-#endif // USE_MPI
+#endif
 
 		delete m_xdmfWriter;
 		m_xdmfWriter = 0L;
@@ -145,4 +145,4 @@ private:
 
 }
 
-#endif // FREESURFACEWRITEREXECUTOR_H
+#endif

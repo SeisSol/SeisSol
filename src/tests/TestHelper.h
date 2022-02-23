@@ -95,4 +95,4 @@ inline doctest::String toString(const AbsApprox& in) {
 
 } // namespace seissol::unit_test
 
-#endif // SEISSOL_TESTHELPER_H
+#endif

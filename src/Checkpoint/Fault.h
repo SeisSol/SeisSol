@@ -94,14 +94,14 @@ public:
 		// Get the communicator (must be called by all ranks)
 		MPI_Comm comm;
 		MPI_Comm_split(seissol::MPI::mpi.comm(), (numSides == 0 ? MPI_UNDEFINED : 0), rank, &comm);
-#endif // USE_MPI
+#endif
 
 		if (numSides == 0)
 			return true;
 
 #ifdef USE_MPI
 		setComm(comm);
-#endif // USE_MPI
+#endif
 
 		// Compute sum and offset for this group
 		setGroupSumOffset(numSides, groupSize);
@@ -217,4 +217,4 @@ protected:
 
 }
 
-#endif // CHECKPOINT_FAULT_H
+#endif

@@ -60,4 +60,4 @@ namespace seissol {
 }
 
 
-#endif // MINISEISSOL_H_
+#endif

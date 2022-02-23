@@ -52,7 +52,7 @@
 #include "Checkpoint/CheckPoint.h"
 #ifdef USE_MPI
 #include "Checkpoint/MPIInfo.h"
-#endif // USE_MPI
+#endif
 #include "Initializer/preProcessorMacros.fpp"
 
 namespace seissol
@@ -181,7 +181,7 @@ protected:
 
 		MPIInfo info;
 		checkH5Err(H5Pset_fapl_mpio(h5plist, comm(), info.get()));
-#endif // USE_MPI
+#endif
 
 		// Turn of error printing
 		H5ErrHandler errHandler;
@@ -226,4 +226,4 @@ protected:
 
 }
 
-#endif // CHECKPOINT_H5_CHECK_POINT_H
+#endif

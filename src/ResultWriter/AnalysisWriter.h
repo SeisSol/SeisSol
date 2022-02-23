@@ -66,4 +66,4 @@ public:
 
 
 } // namespace seissol::writer
-#endif // ANALYSISWRITER_H
+#endif

@@ -79,4 +79,4 @@ public:
 
 }
 
-#endif // POST_PROCESSOR_H
+#endif

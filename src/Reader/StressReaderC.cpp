@@ -66,7 +66,7 @@ static unsigned long outside = 0;
 
 /** The stopwatch for timing */
 static Stopwatch stopwatch;
-#endif // USE_ASAGI
+#endif
 
 namespace seissol
 {
@@ -162,7 +162,7 @@ void open_stress_field(const char* file, int friction)
 	numStressVariables = stressReader.open(file, "stress", sparse
 #ifdef USE_MPI
 		, seissol::MPI::mpi.fault.comm()
-#endif // USE_MPI
+#endif
 	);
 	switch (numStressVariables) {
 	case 6:
@@ -175,7 +175,7 @@ void open_stress_field(const char* file, int friction)
 	numFrictionVariables = frictionReader.open(file, frictionVarName, sparse
 #ifdef USE_MPI
 		, seissol::MPI::mpi.fault.comm()
-#endif // USE_MPI
+#endif
 	);
 	if (numFrictionVariables == 0)
 		logInfo(rank) << "No friction data found, using default";
@@ -188,7 +188,7 @@ void open_stress_field(const char* file, int friction)
 
 #else // USE_ASAGI
 	logError() << "This version does not support ASAGI";
-#endif // USE_ASAGI
+#endif
 }
 
 /**
@@ -213,7 +213,7 @@ void read_stress(double x, double y, double z, double* stressValues, double* fri
 
 #else // USE_ASAGI
 	logError() << "This version does not support ASAGI";
-#endif // USE_ASAGI
+#endif
 }
 
 /**
@@ -231,7 +231,7 @@ void close_stress_field()
 		MPI_Reduce(MPI_IN_PLACE, &outside, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, seissol::MPI::mpi.fault.comm());
 	else
 		MPI_Reduce(&outside, 0L, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, seissol::MPI::mpi.fault.comm());
-#endif // USE_MPI
+#endif
 	if (outside > 0)
 		logWarning(rank) << "Found" << outside << "cells outside of the given stress field.";
 
@@ -244,7 +244,7 @@ void close_stress_field()
 	logInfo(rank) << "Initializing stress field. Done.";
 #else // USE_ASAGI
 	logError() << "This version does not support ASAGI";
-#endif // USE_ASAGI
+#endif
 }
 
 }

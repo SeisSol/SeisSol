@@ -266,7 +266,7 @@ public:
   const ConditionalBatchTableT& getCondBatchTable() const {
     return m_conditionalBatchTable;
   }
-#endif // ACL_DEVICE
+#endif
 };
 
 #endif

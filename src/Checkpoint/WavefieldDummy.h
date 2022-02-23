@@ -76,4 +76,4 @@ public:
 
 }
 
-#endif // CHECKPOINT_WAVEFIELD_DUMMY_H
+#endif

@@ -222,4 +222,4 @@ namespace seissol {
   };
 }
 
-#endif //GENERIC_PIPELINE_H
+#endif

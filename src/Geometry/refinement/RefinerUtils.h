@@ -278,4 +278,4 @@ public:
 } // namespace
 }
 
-#endif // _REFINER_UTILS_H_
+#endif

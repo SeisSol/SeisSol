@@ -711,7 +711,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells());
   device.api->popLastProfilingMark();
 }
-#endif // ACL_DEVICE
+#endif
 
 #ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
@@ -752,7 +752,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   device.api->popLastProfilingMark();
   m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells());
 }
-#endif // ACL_DEVICE
+#endif
 
 #ifdef USE_MPI
 bool seissol::time_stepping::TimeCluster::computeLocalCopy(){

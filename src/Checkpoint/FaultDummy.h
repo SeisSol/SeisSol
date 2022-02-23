@@ -76,4 +76,4 @@ public:
 
 }
 
-#endif // CHECKPOINT_FAULT_DUMMY_H
+#endif

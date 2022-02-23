@@ -99,4 +99,4 @@ public:
 
 }
 
-#endif // MPI_BASIC_H
+#endif

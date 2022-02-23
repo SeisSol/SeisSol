@@ -96,4 +96,4 @@ public:
 
 }
 
-#endif // CHECKPOINT_WAVEFIELDHEADER_H
+#endif
