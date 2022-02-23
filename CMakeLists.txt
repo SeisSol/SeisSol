@@ -302,12 +302,12 @@ if (ADDRESS_SANITIZER_DEBUG)
 endif()
 
 
-# Note: it is better to include `eigen3` `async` as
+# Note: it is better to include `eigen` `async` as
 # system headers because they emit lot's of warnings
 # from clang. Most of them are issues with respect
 # to overriden virtual methods
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
@@ -346,7 +346,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -lstdc++fs")
   add_link_options("-lstdc++fs")
 
   # Activate interprocedual optimization.
