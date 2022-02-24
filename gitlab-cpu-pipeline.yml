@@ -27,7 +27,7 @@ ci_builder_pre:
         - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule set-url submodules/fty https://github.com/ravil-mobile/fty.git
-        - git submodule update --quiet --init --recursive
+        - git submodule --quiet update --init --recursive
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
         - wget -q -O libxsmm-1.17.zip https://github.com/libxsmm/libxsmm/archive/refs/tags/1.17.zip
         - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
@@ -46,8 +46,10 @@ ci_builder_pre:
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip libxsmm-1.17.zip
         - cd libxsmm-1.17 && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
+        - git clone https://github.com/uphoffc/ImpalaJIT.git &&
+          mkdir impala_build && cd impala_build && cmake ../ImpalaJIT && sudo make -j $(nproc) install && cd ..
         - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git &&
-          mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && 
+          mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=ON ../easi && 
           sudo make -j $(nproc) install && cd ..
         
 ci_builder_build:
@@ -57,6 +59,7 @@ ci_builder_build:
     needs:
         - job: ci_builder_pre
     before_script:
+        - pwd
         - cat .git/config
     parallel:
         matrix:
@@ -65,7 +68,6 @@ ci_builder_build:
     script:
         - echo "now building"
         - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
-        - git submodule update --init --recursive
         - cmake --version
         - set -euo pipefail
         - export IFS=$'\n\t'
@@ -162,7 +164,7 @@ tpv_check_faultoutput:
         - ci_testing_cc
     allow_failure: false
     needs:
-        - job: cpu_tpv_run
+        - job: tpv_run
     variables:
         elastic_domain_file: "tpv.xdmf"
         fault_file: "tpv-fault.xdmf"
@@ -187,7 +189,7 @@ tpv_check_receivers:
         - ci_testing_cc
     allow_failure: true
     needs:
-        - job: cpu_tpv_run
+        - job: tpv_run
     variables:
         epsilon: "0.05"
     parallel:
