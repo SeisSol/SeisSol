@@ -21,7 +21,7 @@ Here, we described the procedure to set up such port forwarding.
      User <Your Login>    
      RemoteForward ddddd github.com:22
 
-where ddddd is an arbitrary 5-digital port number.
+where ddddd is an arbitrary 5-digital port number, smaller than 65535.
   
 2. Use the following command to login onto SuperMUC-NG:
 
