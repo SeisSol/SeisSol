@@ -15,7 +15,7 @@ The dataset for generating the Palu structural model is available `here <https:/
 Creating the topographic layer
 ------------------------------
 
-We create the topography from a netcdf file downloaded from https://www.gebco.net/
+We create the topography from a netcdf file downloaded from https://www.gebco.net/.
 The domain range from longitude 118.9 to 121.7 and from latitude -2.4 to 1.0.
 We then project the data (see :ref:`On the use of projections` for the choice of a projection), triangulate it, and export it as stl (list of triangles) using:
 

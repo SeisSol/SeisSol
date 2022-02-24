@@ -219,8 +219,8 @@ inputs = inputsi[irank]
 nElements_i = len(inputs)
 
 #This reads only the chunk of horizontal velocity data required by the rank
-u = sx.ReadDataChunk('u', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
-v = sx.ReadDataChunk('v', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
+u = sx.ReadDataChunk('v1', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
+v = sx.ReadDataChunk('v2', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
 
 u=np.transpose(u)
 v=np.transpose(v)
