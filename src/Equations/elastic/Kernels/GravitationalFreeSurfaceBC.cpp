@@ -18,7 +18,6 @@ GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType
   hardwareFlops += 1 * numberOfNodes;
   nonZeroFlops += 1 * numberOfNodes;
 
-  // Note: This neglects roughly 10 * CONVERGENCE_ORDER * numNodes2D flops
   // Before adjusting the range of the loop, check range of loop in computation!
   for (int order = 1; order < CONVERGENCE_ORDER + 1; ++order) {
 #ifdef USE_ELASTIC
