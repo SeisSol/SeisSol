@@ -99,7 +99,7 @@ Installing PSpaMM
 .. code-block:: bash
 
    git clone https://github.com/SeisSol/PSpaMM.git
-   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
+   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin/pspamm.py
 
 Installing GemmForge (for GPU)
 ------------------------------
