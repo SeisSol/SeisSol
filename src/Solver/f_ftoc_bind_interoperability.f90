@@ -410,6 +410,23 @@ module f_ftoc_bind_interoperability
       end subroutine
   end interface
 
+  interface c_interoperability_numberOfTriangleQuadraturePoints
+    subroutine c_interoperability_numberOfTriangleQuadraturePoints(n) bind ( C, name='c_interoperability_numberOfTriangleQuadraturePoints')
+      use iso_c_binding
+      implicit none
+      integer(kind=c_int), intent(out) :: n
+    end subroutine
+  end interface
+
+  interface c_interoperability_triangleQuadratureRule
+    subroutine c_interoperability_triangleQuadratureRule(points, weights) bind( C, name='c_interoperability_triangleQuadratureRule' )
+      use iso_c_binding
+      implicit none
+      real(kind=c_double), dimension(2,*) :: points
+      real(kind=c_double), dimension(*) :: weights
+    end subroutine
+  end interface
+
   interface
     real(kind=c_double) function c_interoperability_M2invDiagonal(no) bind( C, name='c_interoperability_M2invDiagonal' )
       use iso_c_binding, only: c_int, c_double

@@ -47,14 +47,13 @@ from multSim import OptionalDimTensor
 #adrian numpy added:
 import numpy as np
 
-def addKernels(generator, aderdg, matricesDir, targets):
-  numberOfPoints = (aderdg.order+1)**2
+def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_quadrature_matrices_{}.json'.format(matricesDir, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
-  db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
+  db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  numberOfPoints = db.resample.shape()[0]
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
@@ -62,7 +61,7 @@ def addKernels(generator, aderdg, matricesDir, targets):
   TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
   flux_solver_spp = aderdg.flux_solver_spp()
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
-
+  
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
@@ -72,10 +71,10 @@ def addKernels(generator, aderdg, matricesDir, targets):
   rotationKernel = rotatedStress['i'] <= stressRotationMatrix['ij'] * initialStress['j']
   generator.add('rotateStressToFaultCS', rotationKernel )
 
-  resamplePar = Tensor('resamplePar', (numberOfPoints,))
-  resampledPar = Tensor('resampledPar', (numberOfPoints,))
-  resampleM = Tensor('resampleM', (numberOfPoints, numberOfPoints) )
-  resampleKernel = resampledPar['i'] <= resampleM['ij'] * resamplePar['j']
+
+  originalQ = Tensor('originalQ', (numberOfPoints,))
+  resampledQ = Tensor('resampledQ', (numberOfPoints,))
+  resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
   generator.add('resampleParameter', resampleKernel )
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
@@ -106,4 +105,4 @@ def addKernels(generator, aderdg, matricesDir, targets):
                         nodalFluxPrefetch if target =='cpu' else None,
                         target=target)
 
-  return {db.resample}
+  return {db.resample, db.quadpoints, db.quadweights}

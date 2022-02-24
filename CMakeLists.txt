@@ -82,6 +82,7 @@ add_custom_command(
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
+     "--drQuadRule" ${DR_QUAD_RULE}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
         build-time-make-directory
@@ -100,7 +101,7 @@ add_custom_command(
         generated_code/anisotropic.py
         generated_code/SurfaceDisplacement.py
         generated_code/NodalBoundaryConditions.py
-        generated_code/matrices/matrices_poroelastic.xml
+        generated_code/matrices
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Codegen for tensor stuff."

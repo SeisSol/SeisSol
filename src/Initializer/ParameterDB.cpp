@@ -50,6 +50,7 @@
 #include "easi/YAMLParser.h"
 #include "easi/ResultAdapter.h"
 #include "Numerical_aux/Transformation.h"
+#include "DynamicRupture/Misc.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
@@ -145,7 +146,9 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
-  easi::Query query(m_numberOfPoints * m_faceIDs.size(), 3);
+  constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
+  auto pointsView = init::quadpoints::view::create(const_cast<real *>(init::quadpoints::Values));
+  easi::Query query(numberOfPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
@@ -166,9 +169,10 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
     for (unsigned v = 0; v < 4; ++v) {
       coords[v] = vertices[ elements[element].vertices[ v ] ].coords;
     }
-    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
+    for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3], xyz[3];
-      seissol::transformations::chiTau2XiEtaZeta(side, m_points[n], xiEtaZeta, sideOrientation);
+      double localPoints[2] = {pointsView(n,0), pointsView(n,1)};
+      seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       seissol::transformations::tetrahedronReferenceToGlobal(coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = xyz[dim];

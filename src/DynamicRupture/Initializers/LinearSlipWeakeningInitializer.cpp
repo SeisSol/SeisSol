@@ -14,18 +14,18 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    bool(*dynStressTimePending)[numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
+    bool(*dynStressTimePending)[misc::numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
     real* averagedSlip = it->var(concreteLts->averagedSlip);
-    real(*slipRate1)[numPaddedPoints] = it->var(concreteLts->slipRate1);
-    real(*slipRate2)[numPaddedPoints] = it->var(concreteLts->slipRate2);
-    real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
-    real(*muS)[numPaddedPoints] = it->var(concreteLts->muS);
+    real(*slipRate1)[misc::numPaddedPoints] = it->var(concreteLts->slipRate1);
+    real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
+    real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
+    real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
 
       // initialize padded elements for vectorization
-      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
+      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = drParameters.isDsOutputOn;
         slipRate1[ltsFace][pointIndex] = 0.0;
         slipRate2[ltsFace][pointIndex] = 0.0;
@@ -45,10 +45,10 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
-  real(*dC)[numPaddedPoints] = it->var(concreteLts->dC);
-  real(*muS)[numPaddedPoints] = it->var(concreteLts->muS);
-  real(*muD)[numPaddedPoints] = it->var(concreteLts->muD);
-  real(*cohesion)[numPaddedPoints] = it->var(concreteLts->cohesion);
+  real(*dC)[misc::numPaddedPoints] = it->var(concreteLts->dC);
+  real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
+  real(*muD)[misc::numPaddedPoints] = it->var(concreteLts->muD);
+  real(*cohesion)[misc::numPaddedPoints] = it->var(concreteLts->cohesion);
   parameterToStorageMap.insert({"d_c", (real*)dC});
   parameterToStorageMap.insert({"mu_s", (real*)muS});
   parameterToStorageMap.insert({"mu_d", (real*)muD});
@@ -79,7 +79,7 @@ void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
-  real(*forcedRuptureTime)[numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
+  real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
   parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
 }
 
@@ -95,16 +95,16 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
-    real(*regularisedStrength)[numPaddedPoints] = it->var(concreteLts->regularisedStrength);
-    real(*mu)[numPaddedPoints] = it->var(concreteLts->mu);
-    real(*initialStressInFaultCS)[numPaddedPoints][6] =
+    real(*regularisedStrength)[misc::numPaddedPoints] = it->var(concreteLts->regularisedStrength);
+    real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
+    real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(concreteLts->initialStressInFaultCS);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       const auto& drFaceInformation = it->var(dynRup->faceInformation);
       unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
       // unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
-      for (unsigned pointIndex = 0; pointIndex < numPaddedPoints; ++pointIndex) {
+      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         regularisedStrength[ltsFace][pointIndex] =
             mu[ltsFace][pointIndex] * initialStressInFaultCS[ltsFace][pointIndex][0];
       }

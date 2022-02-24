@@ -28,8 +28,7 @@ static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int numberOfBoundaryGaussPoints =
-    (CONVERGENCE_ORDER + 1) * (CONVERGENCE_ORDER + 1);
+static constexpr unsigned int numberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {

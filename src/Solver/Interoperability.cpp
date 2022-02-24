@@ -309,7 +309,22 @@ void c_interoperability_report_device_memory_status() {
     }
   }
 
-  double c_interoperability_M2invDiagonal(int no) {
+void c_interoperability_numberOfTriangleQuadraturePoints(int* n) {
+  *n = dr::misc::numberOfBoundaryGaussPoints;
+}
+
+void c_interoperability_triangleQuadratureRule(double* points, double* weights) {
+  constexpr size_t numberOfPoints = dr::misc::numberOfBoundaryGaussPoints;
+  auto pointsView = init::quadpoints::view::create(const_cast<real *>(init::quadpoints::Values));
+  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  for (size_t i = 0; i < numberOfPoints; i++) {
+    points[2*i] = pointsView(i, 0);
+    points[2*i+1] = pointsView(i, 1);
+    weights[i] = weightsView(i);
+  }
+}
+
+double c_interoperability_M2invDiagonal(int no) {
       assert(no >= 0 && no < static_cast<int>(seissol::tensor::M2inv::Shape[0]));
       auto M2inv = seissol::init::M2inv::view::create(
         const_cast<real*>(seissol::init::M2inv::Values));
