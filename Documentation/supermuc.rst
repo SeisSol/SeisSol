@@ -100,9 +100,9 @@ Building SeisSol
   export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
 
 
-3. Install libxsmm, PSpaMM and ASAGI
+3. Install libxsmm, PSpaMM, easi and ASAGI
 
-See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
+See :ref:`installing_libxsmm`, :ref:`installing_pspamm`, `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_ and :ref:`installing_ASAGI`. 
 Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
 The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 If you need to compile ASAGI, first clone ASAGI with:
