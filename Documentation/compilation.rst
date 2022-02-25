@@ -106,7 +106,7 @@ Instead of linking, you could also add the following line to your .bashrc:
 
 .. code-block:: bash
 
-   export PATH=<Your_Path_to_PSpaMM>/PSpaMM:$PATH
+   export PATH=<Your_Path_to_PSpaMM>:$PATH
 
 Installing GemmForge (for GPU)
 ------------------------------
