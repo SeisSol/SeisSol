@@ -9,8 +9,8 @@ from FaultPlane3D import FaultPlane
 import os.path
 
 parser = argparse.ArgumentParser(
-    description="Generate yaml and netCDF input file for fiction law 33/34" +\
-    "based on a (here upsampled) 3D kinematic model in the standard rupture " +\
+    description="Upscale and generate yaml and netCDF input file for fiction law 33/34" +\
+    "based on a 3D kinematic model in the standard rupture " +\
     "format .srf file"
 )
 
