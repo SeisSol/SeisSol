@@ -819,6 +819,10 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
           #Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
           strike_slip: return -strike_slip;
           dip_slip: return dip_slip;
+          rupture_onset: return 0.0;
+          tau_S: return 0.025/1.27; 
+          tau_R: return 0.1 - 2.*0.025/1.27;
+          rutpure_rise_time: return 0.1;
         """
         if not os.path.isdir('FL33'):
             os.mkdir('FL33')
