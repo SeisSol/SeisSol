@@ -173,7 +173,7 @@ CONTAINS
     call c_interoperability_report_device_memory_status()
 
     ! do the simulation
-    call c_interoperability_simulate( i_finalTime = disc%endTime );
+    call c_interoperability_simulate( i_finalTime = disc%endTime, i_plasticity = eqn%Plasticity)
     ! End time is currently the only supported abort criteria by GK
     time = disc%endTime
 !no generated kernel

@@ -265,8 +265,8 @@ extern "C" {
     e_interoperability.getNeighborDofsFromDerivatives( i_meshId, i_localFaceId, o_dofs );
   }
 
-  void c_interoperability_simulate( double i_finalTime ) {
-    e_interoperability.simulate( i_finalTime );
+  void c_interoperability_simulate( double i_finalTime, int i_plasticity ) {
+    e_interoperability.simulate( i_finalTime, i_plasticity );
   }
 
   void c_interoperability_finalizeIO() {
@@ -1057,8 +1057,9 @@ std::string seissol::Interoperability::getInitialConditionType() {
   return m_initialConditionType;
 }
 
-void seissol::Interoperability::simulate( double i_finalTime ) {
+void seissol::Interoperability::simulate( double i_finalTime, int i_plasticity ) {
   seissol::SeisSol::main.simulator().setFinalTime( i_finalTime );
+  seissol::SeisSol::main.simulator().setUsePlasticity( i_plasticity );
 
  seissol::SeisSol::main.simulator().simulate();
 }

@@ -56,6 +56,7 @@ extern seissol::Interoperability e_interoperability;
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
+  m_usePlasticity(  false ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
   m_loadCheckPoint( false ) {}
@@ -72,6 +73,10 @@ bool seissol::Simulator::checkPointingEnabled() {
 void seissol::Simulator::setFinalTime( double i_finalTime ) {
   assert( i_finalTime > 0 );
   m_finalTime = i_finalTime;
+}
+
+void seissol::Simulator::setUsePlasticity( int i_plasticity ) {
+  m_usePlasticity = i_plasticity==1 ? true : false;
 }
 
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {
@@ -155,11 +160,12 @@ void seissol::Simulator::simulate() {
 
   printFlops();
 
-  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
-  auto ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
-  auto lts     = seissol::SeisSol::main.getMemoryManager().getLts();
-  auto* ltsLut = e_interoperability.getLtsLut();
-  seissol::writer::printPlasticMoment(meshReader, ltsTree, lts, ltsLut);
-
+  if ( m_usePlasticity ) {
+    MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+    auto ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
+    auto lts     = seissol::SeisSol::main.getMemoryManager().getLts();
+    auto* ltsLut = e_interoperability.getLtsLut();
+    seissol::writer::printPlasticMoment(meshReader, ltsTree, lts, ltsLut);
+  }
 
 }
