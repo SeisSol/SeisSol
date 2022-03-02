@@ -111,7 +111,7 @@ private:
 #ifdef USE_MPI
 	/** The MPI communicator for the XDMF writer */
 	MPI_Comm m_comm;
-#endif // USE_MPI
+#endif
 
 	/** Stopwatch for the wave field backend */
 	Stopwatch m_stopwatch;
@@ -125,7 +125,7 @@ public:
 		  m_lowOutputFlags(0L)
 #ifdef USE_MPI
 		  , m_comm(MPI_COMM_NULL)
-#endif // USE_MPI
+#endif
 	{ }
 
 	/**
@@ -195,7 +195,7 @@ public:
 	if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
 		// Get the new rank
 		MPI_Comm_rank(m_comm, &rank);
-#endif // USE_MPI
+#endif
 
 		// Initialize the I/O handler and write the mesh
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
@@ -203,7 +203,7 @@ public:
 
 #ifdef USE_MPI
 		m_waveFieldWriter->setComm(m_comm);
-#endif // USE_MPI
+#endif
 
 		m_waveFieldWriter->init(variables, std::vector<const char*>(), true, true, true);
 		m_waveFieldWriter->setMesh(
@@ -247,7 +247,7 @@ public:
 
 #ifdef USE_MPI
 		m_lowWaveFieldWriter->setComm(m_comm);
-#endif // USE_MPI
+#endif
 
 			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
 			m_lowWaveFieldWriter->setMesh(
@@ -268,7 +268,7 @@ public:
 #ifdef USE_MPI
 	}
 	// End the if statement
-#endif // USE_MPI
+#endif
 	}
 
 	void setClusteringData(const unsigned *Clustering) {
@@ -280,7 +280,7 @@ public:
 #ifdef USE_MPI
 	// Execute this function only if m_waveFieldWriter is initialized
 		if (m_waveFieldWriter != 0L) {
-#endif // USE_MPI
+#endif
 		m_stopwatch.start();
 
 		// High order output
@@ -318,7 +318,7 @@ public:
 		m_stopwatch.pause();
 #ifdef USE_MPI
 		}
-#endif // USE_MPI
+#endif
 	}
 
 	void finalize()
@@ -327,7 +327,7 @@ public:
 			m_stopwatch.printTime("Time wave field writer backend:"
 #ifdef USE_MPI
 				, m_comm
-#endif // USE_MPI
+#endif
 			);
 		}
 
@@ -336,7 +336,7 @@ public:
 			MPI_Comm_free(&m_comm);
 			m_comm = MPI_COMM_NULL;
 		}
-#endif // USE_MPI
+#endif
 
 		delete m_waveFieldWriter;
 		m_waveFieldWriter = 0L;
@@ -354,4 +354,4 @@ public:
 
 }
 
-#endif // WAVE_FIELD_WRITER_EXECUTOR_H
+#endif

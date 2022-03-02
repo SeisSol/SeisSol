@@ -272,7 +272,7 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
         if( std::abs( m_timeStepping.synchronizationTime - (m_clusters[l_cluster]->m_fullUpdateTime + m_clusters[l_cluster]->timeStepWidth()) ) < l_timeTolerance ) {
           m_clusters[l_cluster]->m_sendLtsBuffers = true;
         }
-#endif // USE_MPI
+#endif
       }
   }
 }
@@ -449,7 +449,7 @@ void seissol::time_stepping::TimeManager::pollForCommunication() {
 #ifdef ACL_DEVICE
   // pthread should also get pinned to a dedicated device
   device::DeviceInstance::getInstance().api->setDevice(MPI::mpi.getDeviceID());
-#endif // ACL_DEVICE
+#endif
 
   //logInfo(0) << "Launching communication thread on OS core id:" << l_numberOfHWThreads;
 

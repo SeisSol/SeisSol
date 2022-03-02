@@ -217,4 +217,4 @@ private:
 
 }
 
-#endif // CHECKPOINT_MANAGER_H
+#endif

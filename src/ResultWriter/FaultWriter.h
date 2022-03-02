@@ -171,4 +171,4 @@ public:
 
 }
 
-#endif // FAULTWRITER_H
+#endif

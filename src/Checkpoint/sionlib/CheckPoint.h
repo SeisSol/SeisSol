@@ -44,7 +44,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
+#endif
 
 #include <errno.h>
 #include <string>
@@ -180,7 +180,7 @@ protected:
 
 #ifdef USE_MPI
 		MPI_Allreduce(MPI_IN_PLACE, &hasCheckpoint, 1, MPI_INT, MPI_LAND, comm());
-#endif // USE_MPI
+#endif
 
 		return hasCheckpoint;
 	}
@@ -201,7 +201,7 @@ protected:
 
 #ifdef USE_MPI // Make sure all processes see the folders
 		MPI_Barrier(comm());
-#endif // USE_MPI
+#endif
 	}
 
 	/**
@@ -312,4 +312,4 @@ protected:
 
 }
 
-#endif // CHECKPOINT_SIONLIB_CHECK_POINT_H
+#endif

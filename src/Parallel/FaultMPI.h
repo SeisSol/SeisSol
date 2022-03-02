@@ -49,7 +49,7 @@
 
 #include "FaultMPIBasic.h"
 
-#endif // USE_MPI
+#endif
 
 namespace seissol
 {
@@ -85,8 +85,8 @@ public:
 	}
 };
 
-#endif // USE_MPI
+#endif
 
 }
 
-#endif // FAULT_MPI_H
+#endif

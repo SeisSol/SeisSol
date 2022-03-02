@@ -69,7 +69,7 @@ public:
 		const int rank = seissol::MPI::mpi.rank();
 
 		if (rank == 0) {
-#endif // USE_MPI
+#endif
 
 			// Open the file and set the buffer
 			// This only done on rank 0 when running in parallel
@@ -99,8 +99,8 @@ public:
 
 			rdbuf()->pubsetbuf(&m_buffer[0], size);
 		}
-#endif // USE_MPI
+#endif
 	}
 };
 
-#endif // PARALLEL_ISTREAM_H
+#endif

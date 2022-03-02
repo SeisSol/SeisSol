@@ -46,7 +46,7 @@
 
 #include "Wavefield.h"
 
-#endif // USE_MPI
+#endif
 
 namespace seissol
 {
@@ -87,7 +87,7 @@ public:
 	void close();
 };
 
-#endif // USE_MPI
+#endif
 
 }
 
@@ -95,5 +95,5 @@ public:
 
 }
 
-#endif // CHECKPOINT_MPIO_WAVEFIELD_ASYNC_H
+#endif
 

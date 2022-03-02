@@ -44,8 +44,8 @@
 #include <netcdf.h>
 #ifdef USE_MPI
 #include <netcdf_par.h>
-#endif // USE_MPI
-#endif // USE_NETCDF
+#endif
+#endif
 
 #include "Numerical_aux/Statistics.h"
 

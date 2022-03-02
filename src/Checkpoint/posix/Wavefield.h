@@ -78,5 +78,5 @@ private:
 
 }
 
-#endif // CHECKPOINT_POSIX_WAVEFIELD_H
+#endif
 

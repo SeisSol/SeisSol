@@ -455,7 +455,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         if (plusLtsId != std::numeric_limits<unsigned>::max()) {
 #ifdef _OPENMP
 #pragma omp critical
-#endif // _OPENMP
+#endif
 {
           CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[ltsFace].plusSide ];
           mapping.side = faceInformation[ltsFace].plusSide;
@@ -467,7 +467,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         if (minusLtsId != std::numeric_limits<unsigned>::max()) {
 #ifdef _OPENMP
 #pragma omp critical
-#endif // _OPENMP
+#endif
 {
           CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[ltsFace].minusSide ];
           mapping.side = faceInformation[ltsFace].minusSide;
@@ -594,5 +594,5 @@ void seissol::initializers::copyCellMatricesToDevice(LTSTree*          ltsTree,
   device.api->copyTo(ltsTree->var(lts->neighIntegrationOnDevice),
                      ltsTree->var(lts->neighboringIntegration),
                      variableSizes[lts->neighboringIntegration.index]);
-#endif // ACL_DEVICE
+#endif
 }

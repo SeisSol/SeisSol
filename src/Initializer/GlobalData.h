@@ -46,7 +46,7 @@
 
 #ifdef ACL_DEVICE
 #include "device.h"
-#endif // ACL_DEVICE
+#endif
 
 namespace seissol {
   namespace initializers {

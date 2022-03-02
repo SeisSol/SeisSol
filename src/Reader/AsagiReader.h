@@ -116,7 +116,7 @@ private:
     if (err != ::asagi::Grid::SUCCESS)
       logError() << "Could not set ASAGI communicator:" << err;
 
-#endif // USE_MPI
+#endif
 
     if (AsagiModule::mpiMode() == MPI_COMM_THREAD)
       grid->setParam("MPI_COMMUNICATION", "THREAD");
@@ -168,7 +168,7 @@ private:
   //SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
   #pragma omp parallel shared(abort) num_threads(m_asagiThreads)
-#endif // _OPENMP
+#endif
   {
     ::asagi::Grid::Error err = grid->open(file);
     if (err != ::asagi::Grid::SUCCESS)
@@ -200,4 +200,4 @@ NUMACache_Mode AsagiReader::getNUMAMode()
 }
 }
 
-#endif // ASAGIREADER_H
+#endif

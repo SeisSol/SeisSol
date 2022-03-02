@@ -69,7 +69,7 @@ private:
 	std::ifstream m_mesh;
 #ifdef PARALLEL
 	std::ifstream m_partition;
-#endif // PARALLEL
+#endif
 
 	/** Seek positions */
 	size_t m_seekVertices;
@@ -83,7 +83,7 @@ public:
 		: MeshReader(rank), m_mesh(meshFile)
 #ifdef PARALLEL
 			, m_partition(partitionFile)
-#endif // PARALLEL
+#endif
 	{
 		// Files are readable?
 		if (!m_mesh)
@@ -91,7 +91,7 @@ public:
 #ifdef PARALLEL
 		if (!m_partition)
 			logError() << "Could not open partition file" << partitionFile;
-#endif // PARALLEL
+#endif
 
 		std::string line;
 
@@ -188,7 +188,7 @@ private:
 #ifdef PARALLEL
 		m_partition.clear();
 		m_partition.seekg(0);
-#endif // PARALLEL
+#endif
 		// Do not seek the mesh file, we should be at the correct position
 
 		int numPartitions = seissol::MPI::mpi.size();
@@ -244,7 +244,7 @@ private:
 
 #ifdef PARALLEL
 			m_partition >> std::ws;
-#endif // PARALLEL
+#endif
 		}
 
 		std::string line;
@@ -346,7 +346,7 @@ private:
 #ifdef PARALLEL
 		m_partition.clear();
 		m_partition.seekg(0);
-#endif // PARALLEL
+#endif
 		m_mesh.clear();
 		m_mesh.seekg(m_seekElements);
 
@@ -615,7 +615,7 @@ private:
 		m_partition >> rank;
 #else // PARALLEL
 		rank = 0;
-#endif // PARALLEL
+#endif
 		return rank;
 	}
 
@@ -628,4 +628,4 @@ private:
 	static const char* BOUNDARY_CONDITIONS;
 };
 
-#endif // GAMBIT_READER_H
+#endif

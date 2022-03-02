@@ -83,6 +83,6 @@ namespace seissol::initializers::recording {
 // Provide a dummy implementation for a pure CPU execution
 struct BatchTable {};
 } // namespace seissol::initializers::recording
-#endif // ACL_DEVICE
+#endif
 
-#endif // SEISSOL_POINTERSTABLE_HPP
+#endif

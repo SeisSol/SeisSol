@@ -46,7 +46,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
+#endif
 
 #include <cstdio>
 #include <string>
@@ -61,7 +61,7 @@
 #include "Initializer/preProcessorMacros.fpp"
 #include "Initializer/typedefs.hpp"
 
-#endif // USE_HDF
+#endif
 
 namespace seissol
 {
@@ -143,7 +143,7 @@ private:
 	static const unsigned long IDENTIFIER = 0x7A127;
 };
 
-#endif // USE_HDF
+#endif
 
 }
 
@@ -151,4 +151,4 @@ private:
 
 }
 
-#endif // CHECKPOINT_H5_FAULT_H
+#endif

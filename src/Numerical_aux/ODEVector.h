@@ -108,4 +108,4 @@ public:
 
 } // namespace seissol::ode
 
-#endif //SEISSOL_ODEVECTOR_H
+#endif

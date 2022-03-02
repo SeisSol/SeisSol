@@ -100,4 +100,4 @@ public:
 
 }
 
-#endif // CHECKPOINT_MPIINFO_H
+#endif

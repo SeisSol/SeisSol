@@ -100,4 +100,4 @@ std::unique_ptr<LtsWeights> getLtsWeightsImplementation(NodeWeightModelTypes nod
 
 } // namespace seissol::initializers::time_stepping
 
-#endif // SEISSOL_LTSWEIGHTSFACTORY_H
+#endif

@@ -167,4 +167,4 @@ public:
 
 }
 
-#endif // DYN_STRUCT_H
+#endif

@@ -60,13 +60,13 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 
 #ifdef USE_MPI
 	MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
-#endif // USE_MPI
+#endif
 
 	if (nCells > 0) {
 		int rank = 0;
 #ifdef USE_MPI
 		MPI_Comm_rank(m_comm, &rank);
-#endif // USE_MPI
+#endif
 
 		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
 		outputName += "-surface";
@@ -84,7 +84,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);
-#endif // USE_MPI
+#endif
 
 		m_xdmfWriter->init(variables, std::vector<const char*>());
 		m_xdmfWriter->setMesh(nCells,

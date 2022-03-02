@@ -473,4 +473,4 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   
   logInfo(rank) << ".. finished point source initialization.";
 }
-#endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
+#endif

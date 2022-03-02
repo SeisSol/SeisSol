@@ -87,4 +87,4 @@ namespace seissol::dr::pipeline {
 }
 
 
-#endif //DR_PIPELINE_H
+#endif

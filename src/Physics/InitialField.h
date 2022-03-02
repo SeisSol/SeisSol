@@ -133,4 +133,4 @@ namespace seissol {
   }
 }
 
-#endif // PHYSICS_INITIALFIELD_H
+#endif

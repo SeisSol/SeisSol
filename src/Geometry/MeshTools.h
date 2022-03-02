@@ -256,4 +256,4 @@ private:
 	}
 };
 
-#endif // MESH_TOOLS_H
+#endif

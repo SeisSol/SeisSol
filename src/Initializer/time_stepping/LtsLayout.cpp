@@ -194,7 +194,7 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
                MPI_STATUS_IGNORE );              // mpi status
 
   delete[] l_requests;
-#endif // USE_MPI
+#endif
 
   // free memory
   delete[] l_numberOfCopyCells;
@@ -372,7 +372,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
   MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
                l_requests,                       // array of requests
                MPI_STATUS_IGNORE );              // mpi status
-#endif // USE_MPI
+#endif
 
   /*
    * Replace the useless mpi-indices by the neighboring cell id
@@ -474,7 +474,7 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostData(
                MPI_STATUS_IGNORE );              // mpi status
 
   delete[] l_requests;
-#endif // USE_MPI
+#endif
 }
 
 void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClusterIds() {
@@ -700,7 +700,7 @@ void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( dou
   MPI_Allreduce( &l_localNumberOfCells, &l_globalNumberOfCells, 1, MPI_UNSIGNED, MPI_SUM, seissol::MPI::mpi.comm() );
 #else // USE_MPI
   l_globalNumberOfCells = l_localNumberOfCells;
-#endif // USE_MPI
+#endif
 
   // derive global "speedup"
 #ifdef USE_MPI
@@ -711,7 +711,7 @@ void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( dou
 #else // USE_MPI
   o_perCellTimeStepWidths = l_localPerCellSpeedup[0];
   o_clustering = l_localClusteringSpeedup[0];
-#endif // USE_MPI
+#endif
 
   o_perCellTimeStepWidths = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_perCellTimeStepWidths;
   o_clustering            = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_clustering;
@@ -1033,7 +1033,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
   MPI_Waitall( l_numberOfMpiRequests*2, // size
                l_requests,              // array of requests
                MPI_STATUS_IGNORE );     // mpi status
-#endif // USE_MPI
+#endif
 
   /*
    * Get cell ids of the ghost regions.
@@ -1146,7 +1146,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
 
   // free memory
   delete[] l_requests;
-#endif // USE_MPI
+#endif
 }
 
 void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClustering i_timeClustering,

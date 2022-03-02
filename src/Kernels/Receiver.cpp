@@ -113,7 +113,7 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
         for (auto quantity : m_quantities) {
           receiver.output.push_back(qAtPoint(quantity));
         }
-#endif //MULTITPLE_SIMULATIONS
+#endif
 
         receiverTime += m_samplingInterval;
       }
@@ -168,13 +168,13 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
           }
           receiver.output.push_back(qAtPoint(quantity));
         }
-#endif //MULTITPLE_SIMULATIONS
+#endif
 
         receiverTime += m_samplingInterval;
       }
     }
   }
   return receiverTime;
-#endif //USE_STP
+#endif
 }
 
