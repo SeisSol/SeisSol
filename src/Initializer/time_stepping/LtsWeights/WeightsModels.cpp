@@ -135,9 +135,6 @@ void EdgeWeightModel::setEdgeWeights(
   const std::vector<idx_t>& adjncy = std::get<2>(graph);
 
   const int rank = seissol::MPI::mpi.rank();
-  const int size = seissol::MPI::mpi.size();
-
-  assert(vrtxdist.size() == static_cast<size_t>(size + 1) && !xadj.empty() && !adjncy.empty());
 
   const size_t vertex_id_begin = vrtxdist[rank];
   // const size_t vertex_id_end = vrtxdist[rank + 1];

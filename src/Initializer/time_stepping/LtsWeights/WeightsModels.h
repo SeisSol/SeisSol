@@ -34,7 +34,7 @@ class EdgeWeightModel : public WeightModel {
   virtual ~EdgeWeightModel() noexcept {}
 };
 
-class ExponentialWeights : public NodeWeightModel {
+class ExponentialWeights final : public NodeWeightModel {
   public:
   explicit ExponentialWeights(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
   ~ExponentialWeights() noexcept override final {}
@@ -44,7 +44,7 @@ class ExponentialWeights : public NodeWeightModel {
   void setAllowedImbalances() override final;
 };
 
-class ExponentialBalancedWeights : public NodeWeightModel {
+class ExponentialBalancedWeights final : public NodeWeightModel {
   public:
   explicit ExponentialBalancedWeights(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
   ~ExponentialBalancedWeights() noexcept override final {}
@@ -54,7 +54,7 @@ class ExponentialBalancedWeights : public NodeWeightModel {
   void setAllowedImbalances() override final;
 };
 
-class EncodedBalancedWeights : public NodeWeightModel {
+class EncodedBalancedWeights final : public NodeWeightModel {
   public:
   explicit EncodedBalancedWeights(LtsWeights& ltsWeights) noexcept: NodeWeightModel(ltsWeights) {}
   ~EncodedBalancedWeights() noexcept override final {}
@@ -64,7 +64,7 @@ class EncodedBalancedWeights : public NodeWeightModel {
   void setAllowedImbalances() override final;
 };
 
-class Naive : public EdgeWeightModel {
+class Naive final : public EdgeWeightModel {
   public:
   Naive(LtsWeights& ltsWeights) : EdgeWeightModel(ltsWeights) {}
   ~Naive() override final {}
@@ -73,7 +73,7 @@ class Naive : public EdgeWeightModel {
                                  const std::vector<idx_t>&>& graph) override final;
 };
 
-class PenalizeBetweenClusters : public EdgeWeightModel {
+class PenalizeBetweenClusters final : public EdgeWeightModel {
   public:
   PenalizeBetweenClusters(LtsWeights& ltsWeights) noexcept : EdgeWeightModel(ltsWeights) {}
   ~PenalizeBetweenClusters() noexcept override final {}
@@ -82,7 +82,7 @@ class PenalizeBetweenClusters : public EdgeWeightModel {
                                  const std::vector<idx_t>&>& graph) override final;
 };
 
-class ApproximateCommunication : public EdgeWeightModel {
+class ApproximateCommunication final : public EdgeWeightModel {
   public:
   ApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunication() noexcept override final {}
