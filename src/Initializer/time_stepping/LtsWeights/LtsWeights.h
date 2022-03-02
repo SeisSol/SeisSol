@@ -97,7 +97,7 @@ class LtsWeights {
   public:
   LtsWeights(const LtsWeightsConfig& config) noexcept;
 
-  ~LtsWeights();
+  ~LtsWeights() noexcept;
   void computeNodeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
   void computeEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                      const std::vector<idx_t>&>& graph);
