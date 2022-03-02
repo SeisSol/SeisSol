@@ -31,20 +31,22 @@ class OutputBuilder {
     const auto& verticesInfo = meshReader->getVertices();
 
     for (const auto& point : outputData.receiverPoints) {
-      auto elementIndex = faultInfo[point.faultFaceIndex].element;
-      auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+      if (point.isInside) {
+        auto elementIndex = faultInfo[point.faultFaceIndex].element;
+        auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
-      const VrtxCoords* elemCoords[4]{};
-      const VrtxCoords* neighborElemCoords[4]{};
+        const VrtxCoords* elemCoords[4]{};
+        const VrtxCoords* neighborElemCoords[4]{};
 
-      for (int i = 0; i < 4; ++i) {
-        elemCoords[i] = &(verticesInfo[elementsInfo[elementIndex].vertices[i]].coords);
-        neighborElemCoords[i] =
-            &(verticesInfo[elementsInfo[neighborElementIndex].vertices[i]].coords);
+        for (int i = 0; i < 4; ++i) {
+          elemCoords[i] = &(verticesInfo[elementsInfo[elementIndex].vertices[i]].coords);
+          neighborElemCoords[i] =
+              &(verticesInfo[elementsInfo[neighborElementIndex].vertices[i]].coords);
+        }
+
+        outputData.basisFunctions.emplace_back(
+            getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
       }
-
-      outputData.basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
     }
   }
 

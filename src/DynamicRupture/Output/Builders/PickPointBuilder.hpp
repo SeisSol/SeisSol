@@ -95,7 +95,7 @@ class PickPointBuilder : public OutputBuilder {
         projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
         receiver.isInside = true;
-        receiver.faultFaceIndex = faultIndices[0];
+        receiver.faultFaceIndex = closest;
         receiver.localFaceSideId = faultItem.side;
         receiver.globalReceiverIndex = receiverId;
         receiver.elementIndex = meshId;
@@ -107,8 +107,8 @@ class PickPointBuilder : public OutputBuilder {
                                                           meshVertices[element.vertices[3]].coords,
                                                           receiver.global.getAsEigenVector());
         receiver.isInside = true;
-
       } else {
+        logInfo() << "pickpoint fault output: receiver (" << receiverId << ") is not inside";
         receiver.isInside = false;
       }
     }
