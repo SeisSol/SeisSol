@@ -102,7 +102,6 @@ class seissol::time_stepping::TimeManager {
     TimeStepping m_timeStepping;
 
     //! all local (copy & interior) LTS clusters, which are under control of this time manager
-    //std::vector<TimeCluster*> clusters;
     std::vector<std::unique_ptr<TimeCluster>> clusters;
     std::vector<TimeCluster*> highPrioClusters;
     std::vector<TimeCluster*> lowPrioClusters;
@@ -111,47 +110,12 @@ class seissol::time_stepping::TimeManager {
     std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers;
 
     //! all MPI (ghost) LTS clusters, which are under control of this time manager
-    //std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
     std::unique_ptr<AbstractCommunicationManager> communicationManager;
 
-    //! queue of clusters, which are allowed to update their copy layer locally
-    //std::list< TimeCluster* > m_localCopyQueue;
-
-    //! queue of clusters, which are allowed to update their interior locally
-    //std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_localInteriorQueue;
-
-    //! queue of clusters which are allowed to update their copy layer with the neighboring cells contribution
-    //std::list< TimeCluster* > m_neighboringCopyQueue;
-
-    //! queue of clusters which are allowed to update their interior with the neighboring cells contribution
-    //std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_neighboringInteriorQueue;
-    
     //! Stopwatch
     LoopStatistics m_loopStatistics;
     ActorStateStatisticsManager actorStateStatisticsManager;
     
-    /**
-     * Checks if the time stepping restrictions for this cluster and its neighbors changed.
-     * If this is true:
-     *  * The respectice queues are updated.
-     *  * The corresponding copy layer/interior is set eligible for an full update or prediction.
-     *  * In the case of a new prediction the next time step width is derived.
-     *  * Enables the reset of the time buffers if applicable.
-     *
-     * Sketch:
-     *   ________ ______ ________
-     *  |        |      |        |
-     *  | TC n-1 | TC n | TC n+1 |
-     *  |________|______|________|
-     *
-     * A time cluster with id n is a neighbor of time clusters n-1 and n+1.
-     * By performing a full time step update or providing a new time predicion in cluster n
-     * clusters n-1 or n or n+1 migh now be allowed to perform a full update or a new prediction.
-     *
-     * @param i_localClusterId local cluster id of the cluster, which changed its status.
-     **/
-    void updateClusterDependencies( unsigned int i_localClusterId );
-
   public:
     /**
      * Construct a new time manager.
@@ -168,12 +132,12 @@ class seissol::time_stepping::TimeManager {
      *
      * @param i_timeStepping time stepping scheme.
      * @param i_meshStructure mesh structure.
-     * @param i_memoryManager memory manager.
+     * @param memoryManager memory manager.
      * @param i_meshToClusters mapping from the mesh to the clusters.
      **/
     void addClusters(TimeStepping& i_timeStepping,
                      MeshStructure* i_meshStructure,
-                     initializers::MemoryManager& i_memoryManager,
+                     initializers::MemoryManager& memoryManager,
                      bool usePlasticity);
 
     /**
@@ -185,7 +149,7 @@ class seissol::time_stepping::TimeManager {
      * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).
      **/
     double getTimeTolerance();
-    
+
     /**
      * Distributes point sources pointers to clusters
      * 

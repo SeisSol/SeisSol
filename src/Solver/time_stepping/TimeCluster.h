@@ -115,6 +115,7 @@ namespace seissol {
 class seissol::time_stepping::TimeCluster : public seissol::time_stepping::AbstractTimeCluster
 {
 private:
+    // Last correction time of the neighboring cluster with higher dt
     double lastSubTime;
 
     void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -248,7 +249,6 @@ private:
      **/
     void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart );
 
-    // TODO(Lukas) Update with new changes in TimeCluster.cpp
     void computeLocalIntegrationFlops(seissol::initializers::Layer& layerData);
 #ifndef ACL_DEVICE
     template<bool usePlasticity>
@@ -395,7 +395,7 @@ public:
      **/
     TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
                 LayerType layerType, double maxTimeStepSize,
-                long timeStepRate, double timeTolerance, bool printProgress,
+                long timeStepRate, bool printProgress,
                 DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
                 seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
                 seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,

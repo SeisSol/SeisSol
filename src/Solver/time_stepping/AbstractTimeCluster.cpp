@@ -1,14 +1,16 @@
 #include <iostream>
-#include <Parallel/MPI.h>
-#include "Solver/time_stepping/AbstractTimeCluster.h"
+#include <cassert>
+
+#include "Parallel/MPI.h"
+#include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
 double AbstractTimeCluster::timeStepSize() const {
   return ct.timeStepSize(syncTime);
 }
 
-AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, long timeStepRate)
-    : timeTolerance(timeTolerance), timeStepRate(timeStepRate), numberOfTimeSteps(0),
+AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
+    : timeStepRate(timeStepRate), numberOfTimeSteps(0),
     lastStateChange(std::chrono::steady_clock::now()) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
@@ -74,7 +76,6 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       ct.predictionTime += timeStepSize();
 
       for (auto &neighbor : neighbors) {
-        // TODO(Lukas) Does this handle sync points correctly?
         // Maybe check also how many steps neighbor has to sync!
         const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
         const bool sendMessageSteps = justBeforeSync
@@ -92,7 +93,6 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       assert(state == ActorState::Corrected);
       logDebug(MPI::mpi.rank()) << "synced at " << syncTime
                                 << ", corrTIme =" << ct.correctionTime
-                                << ", time tolerence " << timeTolerance
                                 << " stepsSinceLastSync " << ct.stepsSinceLastSync
                                 << " stepsUntilLastSync " << ct.stepsSinceLastSync
                                 << std::endl;
@@ -109,7 +109,6 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
 
 ActResult AbstractTimeCluster::act() {
   ActResult result;
-  result.yield = true; // TODO(Lukas) Maybe add again
   auto stateBefore = state;
   auto nextAction = getNextLegalAction();
   unsafePerformAction(nextAction);
@@ -137,7 +136,6 @@ bool AbstractTimeCluster::processMessages() {
       processed = true;
       Message message = neighbor.inbox->pop();
       std::visit([&neighbor, this](auto&& msg) {
-        // TODO(Lukas) Add asserts to check if we're in the correct state.
         using T = std::decay_t<decltype(msg)>;
         if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
           assert(msg.time > neighbor.ct.predictionTime);
@@ -183,7 +181,6 @@ bool AbstractTimeCluster::mayCorrect() {
 
 
 bool AbstractTimeCluster::maySync() {
-    processMessages(); // TODO(Lukas) Do we actually need to do this here?
     return ct.stepsSinceLastSync >= ct.stepsUntilSync;
 }
 
@@ -225,16 +222,24 @@ void AbstractTimeCluster::reset() {
 
 }
 
-int AbstractTimeCluster::getPriority() const {
+ActorPriority AbstractTimeCluster::getPriority() const {
   return priority;
 }
 
-void AbstractTimeCluster::setPriority(int newPriority) {
+void AbstractTimeCluster::setPriority(ActorPriority newPriority) {
   this->priority = newPriority;
 }
 
 ActorState AbstractTimeCluster::getState() const {
   return state;
+}
+
+void AbstractTimeCluster::setPredictionTime(double time) {
+  ct.predictionTime = time;
+}
+
+void AbstractTimeCluster::setCorrectionTime(double time) {
+  ct.correctionTime = time;
 }
 
 }

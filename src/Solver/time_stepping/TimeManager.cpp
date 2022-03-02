@@ -65,7 +65,7 @@ seissol::time_stepping::TimeManager::~TimeManager() {
 
 void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
                                                       MeshStructure* i_meshStructure,
-                                                      initializers::MemoryManager& i_memoryManager,
+                                                      initializers::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
   std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
@@ -77,21 +77,17 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
-    MeshStructure* l_meshStructure = nullptr;
-    CompoundGlobalData l_globalData;
-
     // get memory layout of this cluster
-    std::tie(l_meshStructure, l_globalData) = i_memoryManager.getMemoryLayout(localClusterId);
+    auto [meshStructure, globalData] = memoryManager.getMemoryLayout(localClusterId);
 
     const unsigned int l_globalClusterId = m_timeStepping.clusterIds[localClusterId];
     // chop off at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
          static_cast<long>(l_globalClusterId));
-    const auto layerTypes = {Copy, Interior};
 
     // Dynamic rupture
-    auto& dynRupTree = i_memoryManager.getDynamicRuptureTree()->child(localClusterId);
+    auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
     const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
         dynRupTree.child(Copy).getNumberOfCells() +
@@ -99,7 +95,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
     auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells));
 
-    for (auto type : layerTypes) {
+    for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
@@ -111,15 +107,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           type,
           timeStepSize,
           timeStepRate,
-          getTimeTolerance(),
           printProgress,
           drScheduler.get(),
-          l_globalData,
-          &i_memoryManager.getLtsTree()->child(localClusterId).child(type),
+          globalData,
+          &memoryManager.getLtsTree()->child(localClusterId).child(type),
           &dynRupTree.child(Interior),
           &dynRupTree.child(Copy),
-          i_memoryManager.getLts(),
-          i_memoryManager.getDynamicRupture(),
+          memoryManager.getLts(),
+          memoryManager.getDynamicRupture(),
           &m_loopStatistics,
           &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
       );
@@ -128,10 +123,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     auto& copy = clusters[clusters.size() - 2];
 
     // Mark copy layers as higher priority layers.
-    constexpr int priorityLow = -1;
-    constexpr int priorityHigh = 42;
-    interior->setPriority(priorityLow);
-    copy->setPriority(priorityHigh);
+    interior->setPriority(ActorPriority::Low);
+    copy->setPriority(ActorPriority::High);
 
     // Copy/interior with same timestep are neighbors
     interior->connect(*copy);
@@ -155,14 +148,10 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
-    /*for (int otherGlobalClusterId = std::max(globalClusterId - 1, 0);
-         otherGlobalClusterId < std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters));
-         ++otherGlobalClusterId) {
-         */
     for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
-      const bool hasNeighborRegions = std::any_of(l_meshStructure->neighboringClusters,
-      l_meshStructure->neighboringClusters + l_meshStructure->numberOfRegions,
-      [otherGlobalClusterId](const auto& neighbor) {
+      const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
+                                                  meshStructure->neighboringClusters + meshStructure->numberOfRegions,
+                                                  [otherGlobalClusterId](const auto& neighbor) {
         return neighbor[1] == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
@@ -171,31 +160,29 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
         const auto otherTimeStepRate = ipow(2l, static_cast<long>(otherGlobalClusterId));
 
-        // TODO(Lukas) Should also pass own timeStepRate for checking whether to send etc
         ghostClusters.push_back(
           std::make_unique<GhostTimeCluster>(
               otherTimeStepSize,
               otherTimeStepRate,
-              getTimeTolerance(),
               globalClusterId,
               otherGlobalClusterId,
-              l_meshStructure)
+              meshStructure)
         );
         // Connect with previous copy layer.
-        ghostClusters.back()->connect(*clusters[clusters.size() - 2]);
+        ghostClusters.back()->connect(*copy);
       }
     }
 #endif
   }
 
   // Sort clusters by time step size in increasing order
-  // TODO(Lukas) Might opposite order be better?
   auto rateSorter = [](const auto& a, const auto& b) {
     return a->timeStepRate < b->timeStepRate;
   };
   std::sort(clusters.begin(), clusters.end(), rateSorter);
+
   for (const auto& cluster : clusters) {
-    if (cluster->getPriority() > 0) { // TODO(Lukas) Refactor, reuse constant/use enum
+    if (cluster->getPriority() == ActorPriority::High) {
       highPrioClusters.emplace_back(cluster.get());
     } else {
       lowPrioClusters.emplace_back(cluster.get());
@@ -232,7 +219,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   assert(m_timeStepping.synchronizationTime <= synchronizationTime);
 
   m_timeStepping.synchronizationTime = synchronizationTime;
-  logInfo(seissol::MPI::mpi.rank()) << " new sync time = " << synchronizationTime;
 
   for (auto& cluster : clusters) {
     cluster->updateSyncTime(synchronizationTime);
@@ -247,18 +233,29 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
+  // Move all clusters from RestartAfterSync to Corrected
+  // Does not involve any computations
+  for (auto& cluster : clusters) {
+    assert(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
+    cluster->act();
+    assert(cluster->getState() == ActorState::Corrected);
+  }
+
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
     communicationManager->progression();
+
     // Update all high priority clusters
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
       if (cluster->getNextLegalAction() == ActorAction::Predict) {
+        communicationManager->progression();
         cluster->act();
       }
     });
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
       if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
+        communicationManager->progression();
         cluster->act();
       }
     });
@@ -329,11 +326,10 @@ void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWr
 void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   assert( i_time >= 0 );
 
-  for(unsigned int l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
-    // TODO set initial times for checkpointing
-    //clusters[l_cluster]->m_predictionTime = i_time;
-    //clusters[l_cluster]->m_fullUpdateTime = i_time;
-    clusters[l_cluster]->m_receiverTime   = i_time;
+  for(auto & cluster : clusters) {
+    cluster->setPredictionTime(i_time);
+    cluster->setCorrectionTime(i_time);
+    cluster->m_receiverTime   = i_time;
   }
 }
 

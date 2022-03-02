@@ -18,14 +18,13 @@ class GhostTimeCluster : public AbstractTimeCluster {
   void sendCopyLayer();
   void receiveGhostLayer();
 
-  bool testQueue(std::list<MPI_Request*>& queue);
+  static bool testQueue(std::list<MPI_Request*>& queue);
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
 
  public:
   GhostTimeCluster(double maxTimeStepSize,
                    int timeStepRate,
-                   double timeTolerance,
                    int globalTimeClusterId,
                    int otherGlobalTimeClusterId,
                    const MeshStructure* meshStructure

@@ -87,7 +87,6 @@ void seissol::Simulator::simulate() {
   // Set start time (required for checkpointing)
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
 
-  // tolerance in time which is neglected
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
   // Copy initial dynamic rupture in order to ensure correct initial fault output

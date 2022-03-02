@@ -73,7 +73,7 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
   // Note: Easier than keeping one alive, and not that expensive.
   thread = std::thread([this](){
     // Pin this thread to the last core
-    // We compute the mask outside of the thread because otherwise
+    // We compute the mask outside the thread because otherwise
     // it confuses profilers and debuggers!
     pinning->pinToFreeCPUs();
     while(!shouldReset.load() && !isFinished.load()) {

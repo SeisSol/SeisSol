@@ -119,11 +119,10 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
 
 GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
                                    int timeStepRate,
-                                   double timeTolerance,
                                    int globalTimeClusterId,
                                    int otherGlobalTimeClusterId,
                                    const MeshStructure *meshStructure)
-    : AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate),
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {

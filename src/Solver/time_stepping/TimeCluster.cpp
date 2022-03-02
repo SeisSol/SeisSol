@@ -92,7 +92,7 @@ extern seissol::Interoperability e_interoperability;
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  bool usePlasticity,
                                                  LayerType layerType, double maxTimeStepSize,
-                                                 long timeStepRate, double timeTolerance, bool printProgress,
+                                                 long timeStepRate, bool printProgress,
                                                  DynamicRuptureScheduler *dynamicRuptureScheduler,
                                                  CompoundGlobalData i_globalData,
                                                  seissol::initializers::Layer *i_clusterData,
@@ -102,7 +102,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  seissol::initializers::DynamicRupture *i_dynRup,
                                                  LoopStatistics *i_loopStatistics,
                                                  ActorStateStatistics* actorStateStatistics) :
-    AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate),
+    AbstractTimeCluster(maxTimeStepSize, timeStepRate),
     // cluster ids
     usePlasticity(usePlasticity),
     m_globalDataOnHost( i_globalData.onHost ),
@@ -133,10 +133,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
         assert( m_globalDataOnDevice                   != nullptr );
     }
 
-  // default: no updates are allowed
-#ifdef USE_MPI
-  //m_sendLtsBuffers                = false;
-#endif
   // set timings to zero
   m_receiverTime                  = 0;
 
@@ -687,7 +683,6 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(seisso
 void seissol::time_stepping::TimeCluster::computeFlops() {
   computeLocalIntegrationFlops(*m_clusterData);
   computeNeighborIntegrationFlops(*m_clusterData);
-  // TODO(Lukas) Add flops for copy layer here!
   computeDynamicRuptureFlops(*dynRupInteriorData,
                              m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)],
                              m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
@@ -727,14 +722,12 @@ void TimeCluster::predict() {
           resetBuffers = false;
         }
   }
-  if (ct.stepsSinceLastSync == 0) resetBuffers = true;
   if (ct.stepsSinceLastSync == 0) {
-    assert(resetBuffers);
+    resetBuffers = true;
   }
 
   // These methods compute the receivers/sources for both interior and copy cluster
   // and are called in actors for both copy AND interior.
-  // TODO(Lukas) Make threadsafe later! (Concurrent copy/interior is unsafe due to shared state)
   writeReceivers();
   computeLocalIntegration(*m_clusterData, resetBuffers);
   computeSources();
@@ -745,6 +738,23 @@ void TimeCluster::predict() {
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
 
+  /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
+   * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time refers to the derivation of the surrounding time derivatives, which
+   * coincides with the last completed time step of the next cluster. The start/end of the time step is the start/end of this clusters time step relative to the zero point.
+   *   Example:
+   *                                              5 dt
+   *   |-----------------------------------------------------------------------------------------| <<< Time stepping of the next cluster (Cn) (5x larger than the current).
+   *   |                 |                 |                 |                 |                 |
+   *   |*****************|*****************|+++++++++++++++++|                 |                 | <<< Status of the current cluster.
+   *   |                 |                 |                 |                 |                 |
+   *   |-----------------|-----------------|-----------------|-----------------|-----------------| <<< Time stepping of the current cluster (Cc).
+   *   0                 dt               2dt               3dt               4dt               5dt
+   *
+   *   In the example above two clusters are illustrated: Cc and Cn. Cc is the current cluster under consideration and Cn the next cluster with respect to LTS terminology.
+   *   Cn is currently at time 0 and provided Cc with derivatives valid until 5dt. Cc updated already twice and did its last full update to reach 2dt (== subTimeStart). Next
+   *   computeNeighboringCopy is called to accomplish the next full update to reach 3dt (+++). Besides working on the buffers of own buffers and those of previous clusters,
+   *   Cc needs to evaluate the time prediction of Cn in the interval [2dt, 3dt].
+   */
   double subTimeStart = ct.correctionTime - lastSubTime;
 
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
@@ -773,7 +783,6 @@ void TimeCluster::correct() {
 
   // First cluster calls fault receiver output
   // TODO: Change from iteration based to time based
-  // TODO(Lukas): Watch out that we use correct timestepSize here
   // TODO(Lukas) Are we only calling this once?!
   if (m_clusterId == 0) {
     e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
