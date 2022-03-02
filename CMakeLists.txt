@@ -296,8 +296,8 @@ target_include_directories(SeisSol-lib SYSTEM PUBLIC
 )
 
 
-find_package(Eigen3 3.4.0 REQUIRED)
-target_include_directories(SeisSol-lib SYSTEM PUBLIC ${EIGEN3_INCLUDE_DIRS})
+find_package(Eigen3 3.4 REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen)
 
 find_package(yaml-cpp REQUIRED
         PATHS ${CMAKE_CURRENT_BINARY_DIR})
