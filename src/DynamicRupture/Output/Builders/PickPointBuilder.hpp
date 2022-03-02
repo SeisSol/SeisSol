@@ -108,7 +108,8 @@ class PickPointBuilder : public OutputBuilder {
                                                           receiver.global.getAsEigenVector());
         receiver.isInside = true;
       } else {
-        logInfo() << "pickpoint fault output: receiver (" << receiverId << ") is not inside";
+        logInfo() << "pickpoint fault output: receiver (" << receiverId << ") is not inside"
+                  << "of any element along the rupture surface";
         receiver.isInside = false;
       }
     }
@@ -124,8 +125,9 @@ class PickPointBuilder : public OutputBuilder {
     auto meshElements = meshReader->getElements();
     auto meshVertices = meshReader->getVertices();
 
-    std::vector<Vertex> faultVertices(4 * numFaultElements);
-    std::vector<Element> faultElements(numFaultElements);
+    constexpr int numSides{2};
+    std::vector<Vertex> faultVertices(4 * numFaultElements * numSides);
+    std::vector<Element> faultElements(numFaultElements * numSides);
 
     // note: an element can have multiple fault faces
     std::unordered_map<size_t, std::vector<size_t>> elementToFault{};
@@ -136,16 +138,21 @@ class PickPointBuilder : public OutputBuilder {
       // element copy done on purpose because we are recording
       // a new vertex array and thus we need to modify vertex indices
       // inside of each element
-      auto element = meshElements[faultItem.element];
+      std::array<Element*, numSides> elements{&meshElements[faultItem.element],
+                                              &meshElements[faultItem.neighborElement]};
+      for (int sideId = 0; sideId < numSides; ++sideId) {
+        auto& element = elements[sideId];
 
-      for (size_t vertexIdx{0}; vertexIdx < 4; ++vertexIdx) {
-        const size_t faultVertexIdx = vertexIdx + 4 * faultIdx;
-        faultVertices[faultVertexIdx] = meshVertices[element.vertices[vertexIdx]];
-        element.vertices[vertexIdx] = faultVertexIdx;
+        for (size_t vertexIdx{0}; vertexIdx < 4; ++vertexIdx) {
+          const size_t faultVertexIdx = vertexIdx + 4 * (sideId + numSides * faultIdx);
+          faultVertices[faultVertexIdx] = meshVertices[element->vertices[vertexIdx]];
+          element->vertices[vertexIdx] = faultVertexIdx;
+        }
+
+        faultElements[sideId + numSides * faultIdx] = *element;
       }
-
-      faultElements[faultIdx] = element;
       elementToFault[faultItem.element].push_back(faultIdx);
+      elementToFault[faultItem.neighborElement].push_back(faultIdx);
     }
 
     return std::make_tuple(faultVertices, faultElements, elementToFault);
