@@ -6,9 +6,8 @@ using namespace time_stepping;
 class MockTimeCluster : public time_stepping::AbstractTimeCluster {
 public:
   MockTimeCluster(double maxTimeStepSize,
-                  double timeTolerance,
                   long timeStepRate) :
-  AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate) { }
+  AbstractTimeCluster(maxTimeStepSize, timeStepRate) { }
 
   MAKE_MOCK0(start, void(void), override);
   MAKE_MOCK0(predict, void(void), override);
@@ -20,7 +19,7 @@ public:
 
 
 TEST_CASE("TimeCluster") {
-  auto cluster = MockTimeCluster(1.0, 1e-10, 1);
+  auto cluster = MockTimeCluster(1.0, 1);
   // TODO(Lukas) Maybe the following two functions should be bundled.
   cluster.updateSyncTime(10);
   cluster.reset();
@@ -51,8 +50,8 @@ TEST_CASE("GTS Timesteping works") {
   const auto numberOfIterations = 10;
   const double endTime = dt * numberOfIterations;
   const double tolerance = 1e-15;
-  auto cluster1 = MockTimeCluster(dt, tolerance, 1);
-  auto cluster2 = MockTimeCluster(dt, tolerance, 1);
+  auto cluster1 = MockTimeCluster(dt, 1);
+  auto cluster2 = MockTimeCluster(dt, 1);
   auto clusters = std::vector<MockTimeCluster*>{
     &cluster1,
     &cluster2,
@@ -118,8 +117,8 @@ TEST_CASE("LTS Timesteping works") {
   const auto numberOfIterations = 2;
   const double endTime = dt * numberOfIterations;
   const double tolerance = 1e-15;
-  auto cluster1 = MockTimeCluster(dt, tolerance, 1);
-  auto cluster2 = MockTimeCluster(2*dt, tolerance, 2);
+  auto cluster1 = MockTimeCluster(dt, 1);
+  auto cluster2 = MockTimeCluster(2*dt, 2);
   auto clusters = std::vector<MockTimeCluster*>{
       &cluster1,
       &cluster2,
