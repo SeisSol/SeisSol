@@ -220,70 +220,73 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
   size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
-    auto ltsMap = faceToLtsMap[outputData.receiverPoints[i].faultFaceIndex];
-    auto* const layer = ltsMap.first;
-    const auto ltsId = ltsMap.second;
+    if (outputData.receiverPoints[i].isInside) {
+      const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
+      assert(faceIndex != -1 && "receiver is not initialized");
+      auto ltsMap = faceToLtsMap[faceIndex];
+      auto* const layer = ltsMap.first;
+      const auto ltsId = ltsMap.second;
 
-    auto* mu = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->mu));
-    auto* rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->ruptureTime));
-    auto* slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->accumulatedSlipMagnitude));
-    auto* peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSlipRate));
+      auto* mu = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->mu));
+      auto* rt = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->ruptureTime));
+      auto* slip = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->accumulatedSlipMagnitude));
+      auto* peakSR = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->peakSlipRate));
 
-    const auto nearestGaussPoint = outputData.receiverPoints[i].nearestGpIndex;
-    const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
+      const auto nearestGaussPoint = outputData.receiverPoints[i].nearestGpIndex;
 
-    const auto* const normal = outputData.faultDirections[faceIndex].faceNormal;
-    const auto* const tangent1 = outputData.faultDirections[faceIndex].tangent1;
-    [[maybe_unused]] const auto* const tangent2 = outputData.faultDirections[faceIndex].tangent2;
-    auto* const strike = outputData.faultDirections[faceIndex].strike;
-    [[maybe_unused]] auto* const dip = outputData.faultDirections[faceIndex].dip;
+      const auto* const normal = outputData.faultDirections[faceIndex].faceNormal;
+      const auto* const tangent1 = outputData.faultDirections[faceIndex].tangent1;
+      [[maybe_unused]] const auto* const tangent2 = outputData.faultDirections[faceIndex].tangent2;
+      auto* const strike = outputData.faultDirections[faceIndex].strike;
+      [[maybe_unused]] auto* const dip = outputData.faultDirections[faceIndex].dip;
 
-    auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
-    if (frictionAndState.isActive) {
-      frictionAndState(ParamID::FrictionCoefficient, level, i) = mu[ltsId][nearestGaussPoint];
+      auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
+      if (frictionAndState.isActive) {
+        frictionAndState(ParamID::FrictionCoefficient, level, i) = mu[ltsId][nearestGaussPoint];
+      }
+
+      auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
+      if (ruptureTime.isActive) {
+        ruptureTime(level, i) = rt[ltsId][nearestGaussPoint];
+      }
+
+      auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
+      if (accumulatedSlip.isActive) {
+        accumulatedSlip(level, i) = slip[ltsId][nearestGaussPoint];
+      }
+
+      auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
+      if (peakSlipsRate.isActive) {
+        peakSlipsRate(level, i) = peakSR[ltsId][nearestGaussPoint];
+      }
+
+      auto& slipVectors = std::get<VariableID::Slip>(outputData.vars);
+      if (slipVectors.isActive) {
+        VrtxCoords crossProduct = {0.0, 0.0, 0.0};
+        MeshTools::cross(strike, tangent1, crossProduct);
+
+        double cos1 = MeshTools::dot(strike, tangent1);
+        double scalarProd = MeshTools::dot(crossProduct, normal);
+
+        // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
+        double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
+        sin1 = (scalarProd > 0) ? sin1 : -sin1;
+
+        auto* slip1 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip1));
+        auto* slip2 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip2));
+
+        slipVectors(DirectionID::Strike, level, i) =
+            cos1 * slip1[ltsId][nearestGaussPoint] - sin1 * slip2[ltsId][nearestGaussPoint];
+
+        slipVectors(DirectionID::Dip, level, i) =
+            sin1 * slip1[ltsId][nearestGaussPoint] + cos1 * slip2[ltsId][nearestGaussPoint];
+      }
     }
 
-    auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
-    if (ruptureTime.isActive) {
-      ruptureTime(level, i) = rt[ltsId][nearestGaussPoint];
+    if (type == OutputType::AtPickpoint) {
+      outputData.cachedTime[outputData.currentCacheLevel] = time;
+      outputData.currentCacheLevel += 1;
     }
-
-    auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
-    if (accumulatedSlip.isActive) {
-      accumulatedSlip(level, i) = slip[ltsId][nearestGaussPoint];
-    }
-
-    auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
-    if (peakSlipsRate.isActive) {
-      peakSlipsRate(level, i) = peakSR[ltsId][nearestGaussPoint];
-    }
-
-    auto& slipVectors = std::get<VariableID::Slip>(outputData.vars);
-    if (slipVectors.isActive) {
-      VrtxCoords crossProduct = {0.0, 0.0, 0.0};
-      MeshTools::cross(strike, tangent1, crossProduct);
-
-      double cos1 = MeshTools::dot(strike, tangent1);
-      double scalarProd = MeshTools::dot(crossProduct, normal);
-
-      // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
-      double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
-      sin1 = (scalarProd > 0) ? sin1 : -sin1;
-
-      auto* slip1 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip1));
-      auto* slip2 = reinterpret_cast<DrPaddedArrayT>(layer->var(dynRup->slip2));
-
-      slipVectors(DirectionID::Strike, level, i) =
-          cos1 * slip1[ltsId][nearestGaussPoint] - sin1 * slip2[ltsId][nearestGaussPoint];
-
-      slipVectors(DirectionID::Dip, level, i) =
-          sin1 * slip1[ltsId][nearestGaussPoint] + cos1 * slip2[ltsId][nearestGaussPoint];
-    }
-  }
-
-  if (type == OutputType::AtPickpoint) {
-    outputData.cachedTime[outputData.currentCacheLevel] = time;
-    outputData.currentCacheLevel += 1;
   }
 }
 
