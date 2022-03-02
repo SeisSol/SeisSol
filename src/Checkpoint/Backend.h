@@ -68,4 +68,4 @@ void createBackend(Backend backend, Wavefield* &waveField, Fault* &fault);
 
 }
 
-#endif
+#endif // CHECKPOINT_BACKEND_H

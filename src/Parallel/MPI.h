@@ -58,7 +58,7 @@
 #include <device.h>
 #endif  // ACL_DEVICE
 
-#endif
+#endif // USE_MPI
 
 namespace seissol
 {
@@ -81,7 +81,7 @@ private:
     int m_localRank{};
     int m_localSize{};
     int m_deviceId{};
-#endif
+#endif // ACL_DEVICE
 
 private:
 	MPI()
@@ -192,7 +192,7 @@ public:
 #endif
     }
     int getDeviceID() { return m_deviceId; }
-#endif
+#endif // ACL_DEVICE
 
 	/**
 	 * Initialize MPI
@@ -247,8 +247,8 @@ public:
 	static MPI mpi;
 };
 
-#endif
+#endif // USE_MPI
 
 }
 
-#endif
+#endif // MPI_H

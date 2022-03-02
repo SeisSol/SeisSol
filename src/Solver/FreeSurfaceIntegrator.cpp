@@ -116,7 +116,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, boundaryMapping, displacementDofs, side)
-#endif
+#endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
       real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
 
@@ -305,7 +305,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned numberOfFreeSurfaces = 0;
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
-#endif
+#endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {

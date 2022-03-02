@@ -80,4 +80,4 @@ public:
 
 }
 
-#endif
+#endif // FAULT_MPI_BASIC_H

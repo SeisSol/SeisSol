@@ -135,4 +135,4 @@ private:
 } // namespace initializers
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_RECORDERS_H

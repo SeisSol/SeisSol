@@ -15,4 +15,4 @@ using ConditionalBatchTableT =
 } // namespace initializers
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_CONDITIONALTABLE_HPP

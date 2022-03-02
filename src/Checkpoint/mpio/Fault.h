@@ -49,7 +49,7 @@
 #include "CheckPoint.h"
 #include "Checkpoint/Fault.h"
 
-#endif
+#endif // USE_MPI
 
 namespace seissol
 {
@@ -109,7 +109,7 @@ protected:
 	static const unsigned long IDENTIFIER = 0x7A849;
 };
 
-#endif
+#endif // USE_MPI
 
 }
 
@@ -117,4 +117,4 @@ protected:
 
 }
 
-#endif
+#endif // CHECKPOINT_MPIO_FAULT_H

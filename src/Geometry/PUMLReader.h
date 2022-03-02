@@ -46,7 +46,7 @@ namespace PUML
 {
 	class TETPUML;
 }
-#endif
+#endif // PUML_PUML_H
 
 namespace seissol {
   namespace initializers {
@@ -102,4 +102,4 @@ private:
 
 }
 
-#endif
+#endif // PUMLREADER_H

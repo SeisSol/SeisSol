@@ -306,7 +306,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
       csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
     }
-#endif
+#endif // USE_MPI
   }
 }
 } // namespace seissol::writer

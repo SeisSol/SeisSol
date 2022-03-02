@@ -43,7 +43,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif
+#endif // USE_MPI
 
 #include <cstdio>
 #include <string>
@@ -87,7 +87,7 @@ private:
 #ifdef USE_MPI
 	/** Communicator used for this checkpoint */
 	MPI_Comm m_comm;
-#endif
+#endif // USE_MPI
 
 	/** Next checkpoint should go to even or odd? */
 	int m_odd;
@@ -116,7 +116,7 @@ public:
 		  m_rank(0), m_partitions(1), // default for no MPI
 #ifdef USE_MPI
 		  m_comm(MPI_COMM_NULL),
-#endif
+#endif // USE_MPI
 		  m_odd(0), // Start with even checkpoint
 		  m_numTotalElems(0), m_fileOffset(0),
 		  m_groupSize(0), m_numGroupElems(0), m_groupOffset(0),
@@ -207,7 +207,7 @@ protected:
 		MPI_Comm_rank(m_comm, &m_rank);
 		MPI_Comm_size(m_comm, &m_partitions);
 	}
-#endif
+#endif // USE_MPI
 
 	/**
 	 * Compute the total number of elements and the local offset in the checkpoint file
@@ -221,7 +221,7 @@ protected:
 #ifdef USE_MPI
 		MPI_Allreduce(MPI_IN_PLACE, &m_numTotalElems, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm());
 		MPI_Scan(MPI_IN_PLACE, &m_fileOffset, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm());
-#endif
+#endif // USE_MPI
 		m_fileOffset -= numElems;
 	}
 
@@ -241,7 +241,7 @@ protected:
 			MPI_Scan(MPI_IN_PLACE, &m_groupOffset, 1, MPI_UNSIGNED_LONG, MPI_SUM, groupComm);
 
 			MPI_Comm_free(&groupComm);
-#endif
+#endif // USE_MPI
 		}
 
 		m_groupOffset -= numElems;
@@ -286,7 +286,7 @@ protected:
 #ifdef USE_MPI
 			// Make sure the file is moved before anyone create a new file
 			MPI_Barrier(m_comm);
-#endif
+#endif // USE_MPI
 		}
 	}
 
@@ -342,7 +342,7 @@ protected:
 	{
 		return m_comm;
 	}
-#endif
+#endif // USE_MPI
 
 	int odd() const
 	{
@@ -379,4 +379,4 @@ protected:
 
 }
 
-#endif
+#endif // CHECKPOINT_CHECK_POINT_H

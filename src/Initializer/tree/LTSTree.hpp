@@ -139,7 +139,7 @@ public:
     memoryInfo.memkind = memkind;
     scratchpadMemInfo.push_back(memoryInfo);
   }
-#endif
+#endif // ACL_DEVICE
   
   void allocateVariables() {
     m_vars = new void*[varInfo.size()];

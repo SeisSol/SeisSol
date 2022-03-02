@@ -113,7 +113,7 @@ MeshRefiner<T>::MeshRefiner(
     // Copy original vertices
 #ifdef _OPENMP
 	#pragma omp parallel for
-#endif
+#endif // _OPENMP
     for (unsigned int i = 0; i < kInVertexCount; i++) {
     	memcpy(&m_vertices[i*3], kVertices[i].coords, sizeof(double)*3);
     }
@@ -125,13 +125,13 @@ MeshRefiner<T>::MeshRefiner(
 #ifdef _OPENMP
     #pragma omp parallel
     {
-#endif
+#endif // _OPENMPI
     	Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
     	Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
         #pragma omp for schedule(static) nowait
-#endif
+#endif // _OPENMP
         for (size_t c = 0; c < kInCellCount; ++c)
         {
             // Build a Terahedron containing the coordinates of the vertices.
@@ -199,7 +199,7 @@ MeshRefiner<T>::MeshRefiner(
     // Copy original vertices
 #ifdef _OPENMP
 	#pragma omp parallel for
-#endif
+#endif // _OPENMP
     for (unsigned int i = 0; i < kInVertexCount; i++) {
     	memcpy(&m_vertices[i*3], kVertices[i]->coords, sizeof(double)*3);
     }
@@ -211,13 +211,13 @@ MeshRefiner<T>::MeshRefiner(
 #ifdef _OPENMP
     #pragma omp parallel shared(oldToNewVertexMap)
     {
-#endif
+#endif // _OPENMPI
     	Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
     	Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
         #pragma omp for schedule(static) nowait
-#endif
+#endif // _OPENMP
         for (size_t c = 0; c < kInCellCount; ++c)
         {
             // Build a Terahedron containing the coordinates of the vertices.
@@ -303,4 +303,4 @@ std::size_t MeshRefiner<T>::getNumVertices() const {
 } // namespace
 }
 
-#endif
+#endif // MESH_REFINER_H_

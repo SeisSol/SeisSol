@@ -147,7 +147,7 @@ public:
 	void printTime(const char* text
 #ifdef USE_MPI
 			, MPI_Comm comm = MPI_COMM_NULL
-#endif
+#endif // USE_MPI
 	 ) {
 		int rank = 0;
 		double avg = seconds(m_time);
@@ -174,14 +174,14 @@ public:
 			MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
 			MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 		}
-#endif
+#endif // USE_MPI
 
 		logInfo(rank) << text << avg
 #ifdef USE_MPI
 			<< "(min:" << utils::nospace << min << ", max: " << max << ')'
-#endif
+#endif // USE_MPI
 			;
 	}
 };
 
-#endif
+#endif // STOPWATCH_H

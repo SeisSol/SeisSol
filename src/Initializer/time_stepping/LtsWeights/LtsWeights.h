@@ -56,7 +56,7 @@
 namespace PUML {
 class TETPUML;
 }
-#endif
+#endif // PUML_PUML_H
 
 namespace seissol::initializers::time_stepping {
 struct LtsWeightsConfig {

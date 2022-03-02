@@ -387,7 +387,7 @@ private:
                                                               i_layerData,
                                                               l_cell,
                                                               dofs[l_cell] );
-#endif
+#endif // INTEGRATE_QUANTITIES
       }
 
       const long long nonZeroFlopsPlasticity = i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_nonZero[PlasticityYield];
@@ -397,7 +397,7 @@ private:
 
       return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
     }
-#endif
+#endif // ACL_DEVICE
 
     void computeLocalIntegrationFlops(unsigned numberOfCells,
                                       CellLocalInformation const* cellInformation,

@@ -293,7 +293,7 @@ int LtsWeights::enforceMaximumDifference() {
                   seissol::MPI::mpi.comm());
 #else
     globalNumberOfReductions = localNumberOfReductions;
-#endif
+#endif // USE_MPI
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;
@@ -309,7 +309,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 #ifdef USE_MPI
   std::unordered_map<int, std::vector<int>> rankToSharedFaces;
   std::unordered_map<int, int> localFaceIdToLocalCellId;
-#endif
+#endif // USE_MPI
 
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int timeCluster = m_clusterIds[cell];
@@ -344,7 +344,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
           rankToSharedFaces[face.shared()[0]].push_back(faceids[f]);
           localFaceIdToLocalCellId[faceids[f]] = cell;
         }
-#endif
+#endif // USE_MPI
       }
     }
     m_clusterIds[cell] = timeCluster;
@@ -410,7 +410,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     ++exchange;
   }
 
-#endif
+#endif // USE_MPI
 
   return numberOfReductions;
 }

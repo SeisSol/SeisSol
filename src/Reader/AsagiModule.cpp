@@ -40,7 +40,7 @@
 
 #ifdef _OPENMP
 #include <omp.h>
-#endif
+#endif // _OPENMP
 
 #include <string>
 
@@ -79,7 +79,7 @@ seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
 	return MPI_UNKNOWN;
 #else // USE_MPI
 	return MPI_OFF;
-#endif
+#endif // USE_MPI
 }
 
 int seissol::asagi::AsagiModule::getTotalThreads()
@@ -90,8 +90,8 @@ int seissol::asagi::AsagiModule::getTotalThreads()
 	totalThreads = omp_get_max_threads();
 #ifdef USE_COMM_THREAD
 	totalThreads++;
-#endif
-#endif
+#endif // USE_COMM_THREAD
+#endif // _OPENMP
 
 	return totalThreads;
 }

@@ -59,7 +59,7 @@
 
 #ifndef PUML_PUML_H
 namespace PUML {class TETPUML;}
-#endif
+#endif // PUML_PUML_H
 
 namespace easi {class Component;}
 

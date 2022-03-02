@@ -91,4 +91,4 @@ private:
 };
 }
 
-#endif
+#endif // MONITORING_LOOPSTATISTICS_H_

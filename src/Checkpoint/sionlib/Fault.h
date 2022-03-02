@@ -92,4 +92,4 @@ private:
 
 }
 
-#endif
+#endif // CHECKPOINT_SIONLIB_FAULT_H

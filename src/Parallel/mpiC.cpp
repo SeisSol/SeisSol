@@ -49,4 +49,4 @@ MPI_Fint getCommWorld()
 
 } // extern "C"
 
-#endif
+#endif // USE_MPI

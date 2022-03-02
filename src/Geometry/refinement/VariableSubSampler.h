@@ -149,4 +149,4 @@ void VariableSubsampler<T>::get(const real* inData,  const unsigned int* cellMap
 } // namespace
 }
 
-#endif
+#endif // VARIABLE_SUBSAMPLER_H_

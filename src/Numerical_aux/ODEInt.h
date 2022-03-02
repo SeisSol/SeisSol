@@ -103,4 +103,4 @@ public:
 
 } // namespace seissol::ode
 
-#endif
+#endif //SEISSOL_ODEINT_H

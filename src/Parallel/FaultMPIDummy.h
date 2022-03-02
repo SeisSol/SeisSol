@@ -60,4 +60,4 @@ public:
 
 }
 
-#endif
+#endif // FAULT_MPI_DUMMY_H

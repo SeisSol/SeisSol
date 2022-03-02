@@ -42,7 +42,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif
+#endif // USE_MPI
 
 #include "SeisSol.h"
 
@@ -84,7 +84,7 @@ public:
 		m_constCells = m_cells;
 #else // USE_MPI
 		m_constCells = cells;
-#endif
+#endif // USE_MPI
 	}
 
 	~AsyncCellIDs()
@@ -100,4 +100,4 @@ public:
 
 }
 
-#endif
+#endif // RESULTWRITER_ASYNCCELLIDS_H

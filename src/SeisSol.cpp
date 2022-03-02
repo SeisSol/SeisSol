@@ -48,7 +48,7 @@
 
 #ifdef _OPENMP
 #include <omp.h>
-#endif
+#endif // _OPENMP
 
 #include "utils/args.h"
 
@@ -69,7 +69,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 	// Check if we need threadsafe MPI
 #ifdef USE_COMM_THREAD
 	MPI::mpi.requireThreadsafe();
-#endif
+#endif // USE_COMM_THREAD
 	if (async::Config::mode() != async::SYNC)
 		MPI::mpi.requireThreadsafe();
 
@@ -118,7 +118,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
   }
 #endif
 #endif
-#endif
+#endif // _OPENMP
 
 #ifdef ACL_DEVICE
   device::DeviceInstance &device = device::DeviceInstance::getInstance();

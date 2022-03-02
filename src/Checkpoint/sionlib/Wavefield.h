@@ -78,5 +78,5 @@ private:
 
 }
 
-#endif
+#endif // CHECKPOINT_SIONLIB_WAVEFIELD_H
 

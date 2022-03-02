@@ -122,4 +122,4 @@ public:
   bool enabled() const { return m_enabled; }
 };
 
-#endif
+#endif // FREE_SURFACE_INTEGRATOR_H

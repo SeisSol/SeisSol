@@ -5,4 +5,4 @@
 
 #ifndef VERSION_STRING
 #define VERSION_STRING "@PACKAGE_GIT_VERSION@";
-#endif
+#endif // VERSION_STRING

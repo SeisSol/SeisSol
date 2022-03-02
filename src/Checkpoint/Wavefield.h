@@ -120,12 +120,12 @@ public:
 	{
 #ifndef USE_ASYNC_MPI
 		assert(groupSize == 1);
-#endif
+#endif // USE_ASYNC_MPI
 
 #ifdef USE_MPI
 		// Setup rank, partitions, ...
 		setComm(seissol::MPI::mpi.comm());
-#endif
+#endif // USE_MPI
 
 		logInfo(rank()) << "Initializing check pointing";
 
@@ -154,7 +154,7 @@ public:
 				numDofsFile = numDofs + (numGroupDofsFile - numGroupElems());
 			}
 		}
-#endif
+#endif // USE_MPI
 
 		// Compute total number of cells and local offset
 		setSumOffset(numDofsFile);
@@ -164,7 +164,7 @@ public:
 		m_totalIterations = m_iterations;
 #ifdef USE_MPI
 		MPI_Allreduce(MPI_IN_PLACE, &m_totalIterations, 1, MPI_UNSIGNED, MPI_MAX, comm());
-#endif
+#endif // USE_MPI
 
 		return false;
 	}
@@ -260,4 +260,4 @@ protected:
 
 }
 
-#endif
+#endif // CHECKPOINT_WAVEFIELD_H

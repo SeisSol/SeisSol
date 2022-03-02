@@ -94,4 +94,4 @@ typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator!(const T 
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 
-#endif
+#endif // SEISSOL_CONDITION_HPP

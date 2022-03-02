@@ -117,7 +117,7 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 	const_cells = cells;
 #else // USE_MPI
 	const_cells = meshRefiner->getCellData();
-#endif
+#endif // USE_MPI
   return const_cells;
 }
 
@@ -393,7 +393,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 #ifdef USE_MPI
 	delete [] const_cells;
 	delete [] const_lowCells;
-#endif
+#endif // USE_MPI
 
 	// Save dof/map pointer
 	m_dofs = dofs;
@@ -460,7 +460,7 @@ void seissol::writer::WaveFieldWriter::write(double time)
 
 #ifdef _OPENMP
 			#pragma omp parallel for schedule(static)
-#endif
+#endif // _OPENMP
 			for (unsigned int j = 0; j < m_numLowCells; j++)
 				managedBuffer[j] = m_integrals[m_map[j]
 						* m_numIntegratedVariables + nextId];

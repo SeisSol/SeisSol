@@ -2,4 +2,4 @@
 
 #ifdef USE_POROELASTIC
 #include "STP.t.h"
-#endif
+#endif // USE_POROELASTIC

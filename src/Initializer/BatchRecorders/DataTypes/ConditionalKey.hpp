@@ -47,4 +47,4 @@ template <> struct ConditionalHash<ConditionalKey> {
 } // namespace recording
 } // namespace initializers
 
-#endif
+#endif // SEISSOL_CONDITIONALKEY_HPP

@@ -152,5 +152,5 @@ inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::c
     }
   }
 } //namespace seissol::eigenvalues
-#endif
-#endif
+#endif //USE_POROELASTIC
+#endif //EIGENVALUES_H

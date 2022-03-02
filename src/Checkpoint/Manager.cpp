@@ -103,7 +103,7 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		// Make sure all ranks think the same about the existing checkpoint
 #ifdef USE_MPI
 		MPI_Allreduce(MPI_IN_PLACE, &exists, 1, MPI_INT, MPI_LAND, seissol::MPI::mpi.comm());
-#endif
+#endif // USE_MPI
 
 		// Load checkpoint?
 		if (exists) {

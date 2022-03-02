@@ -170,4 +170,4 @@ public:
 
 }
 
-#endif
+#endif // CHECKPOINT_MANAGER_EXECUTOR_H

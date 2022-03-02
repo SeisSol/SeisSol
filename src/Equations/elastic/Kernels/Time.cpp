@@ -131,7 +131,7 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
   projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-#endif
+#endif //USE_STP
 }
 
 void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
@@ -247,7 +247,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     }
   }
-#endif
+#endif //USE_STP
 }
 
 void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,

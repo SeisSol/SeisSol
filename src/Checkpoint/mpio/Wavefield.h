@@ -50,7 +50,7 @@
 #include "Checkpoint/Wavefield.h"
 #include "Checkpoint/DynStruct.h"
 
-#endif
+#endif // USE_MPI
 
 namespace seissol
 {
@@ -108,7 +108,7 @@ protected:
 	static const unsigned long IDENTIFIER = 0x7A3B4;
 };
 
-#endif
+#endif // USE_MPI
 
 }
 
@@ -116,5 +116,5 @@ protected:
 
 }
 
-#endif
+#endif // CHECKPOINT_MPIO_WAVEFIELD_H
 

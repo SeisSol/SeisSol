@@ -164,4 +164,4 @@ std::array<double, D> gradDubinerP(std::array<unsigned, D> const& i,
 } // namespace functions
 } // namespace seissol
 
-#endif
+#endif // FUNCTIONS_20201026_H

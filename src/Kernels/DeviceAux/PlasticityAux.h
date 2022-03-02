@@ -66,4 +66,4 @@ void updateQEtaNodal(real **QEtaNodalPtrs,
 } // namespace seissol
 
 
-#endif
+#endif // SEISSOL_DEVICEAUX_PLASTICITY_H

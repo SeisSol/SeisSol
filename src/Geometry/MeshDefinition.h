@@ -127,4 +127,4 @@ struct MPINeighbor {
 	std::vector<MPINeighborElement> elements;
 };
 
-#endif
+#endif // MESH_DEFINITION_H

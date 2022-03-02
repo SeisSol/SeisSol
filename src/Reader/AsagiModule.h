@@ -119,7 +119,7 @@ public:
 #ifdef USE_MPI
 		// TODO check if ASAGI is required for model setup
 		::asagi::Grid::startCommThread();
-#endif
+#endif // USE_MPI
 	}
 
 	/**
@@ -130,7 +130,7 @@ public:
 #ifdef USE_MPI
 		// TODO check if ASAGI is required for model setup
 		::asagi::Grid::stopCommThread();
-#endif
+#endif // USE_MPI
 	}
 
 	static AsagiModule& getInstance() {
@@ -178,6 +178,6 @@ private:
 
 }
 
-#endif
+#endif // USE_ASAGI
 
-#endif
+#endif // ASAGI_MODULE_H

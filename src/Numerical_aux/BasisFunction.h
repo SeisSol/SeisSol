@@ -267,4 +267,4 @@ T TimeBasisFunctionGenerator<T>::operator()(unsigned int i) const {
 } // namespace basisFunction
 } //namespace seissol
 
-#endif
+#endif // BASIS_FUNCTION_H

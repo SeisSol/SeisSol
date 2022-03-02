@@ -118,7 +118,7 @@ namespace seissol::initializers {
                                      init::kDivMT::size(transposedStiffness),
                                      device.api->getDefaultStream());
       }
-#endif
+#endif // ACL_DEVICE
     }
     void OnDevice::initSpecificGlobalData(GlobalData& globalData,
                                           memory::ManagedAllocator& allocator,
@@ -136,7 +136,7 @@ namespace seissol::initializers {
       copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM>(plasticityStressReplication,
                                                                                     globalData.replicateStresses,
                                                                                     alignment);
-#endif
+#endif // ACL_DEVICE
     }
 
     real* OnDevice::DeviceCopyPolicy::copy(real const* first, real const* last, real*& mem) {

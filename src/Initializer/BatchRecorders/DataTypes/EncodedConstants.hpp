@@ -87,4 +87,4 @@ enum struct ExchangeInfo : size_t {
 } // namespace initializers
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_ENCODINGCONSTANTS_HPP

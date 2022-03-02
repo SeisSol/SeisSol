@@ -86,7 +86,7 @@
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
 #include <Solver/Pipeline/DrPipeline.h>
-#endif
+#endif //ACL_DEVICE
 
 void seissol::initializers::MemoryManager::initialize()
 {
@@ -140,7 +140,7 @@ void seissol::initializers::MemoryManager::deriveLayerLayouts() {
   m_numberOfCopyRegionBuffers      = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
   m_numberOfCopyDerivatives        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
   m_numberOfCopyRegionDerivatives  = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
-#endif
+#endif // USE_MPI
 
   m_numberOfInteriorBuffers        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
   m_numberOfInteriorDerivatives    = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
@@ -162,7 +162,7 @@ void seissol::initializers::MemoryManager::deriveLayerLayouts() {
     m_numberOfCopyRegionBuffers[        tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
     m_numberOfCopyDerivatives[          tc] = 0;
     m_numberOfCopyRegionDerivatives[    tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
-#endif
+#endif // USE_MPI
 
     m_numberOfInteriorBuffers[          tc]       = 0;
     m_numberOfInteriorDerivatives[      tc]       = 0;
@@ -210,7 +210,7 @@ void seissol::initializers::MemoryManager::deriveLayerLayouts() {
       m_numberOfCopyBuffers[      tc ]  += m_numberOfCopyRegionBuffers[      tc][l_region];
       m_numberOfCopyDerivatives[  tc ]  += m_numberOfCopyRegionDerivatives[  tc][l_region];
     }
-#endif
+#endif // USE_MPI
 
     // iterate over all cells of this clusters interior
     for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfInteriorCells; l_cell++ ) {
@@ -510,7 +510,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     unsigned numberOfBoundaryFaces = 0;
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
-#endif
+#endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
@@ -646,7 +646,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket)
-#endif
+#endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (displacements[cell][face] != nullptr) {
@@ -687,7 +687,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
       l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
       l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
-#endif
+#endif // USE_MPI
     l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
 
@@ -772,7 +772,7 @@ void seissol::initializers::MemoryManager::recordExecutionPaths(bool usePlastici
     drRecorder.record(m_dynRup, *it);
   }
 }
-#endif
+#endif // ACL_DEVICE
 
 bool seissol::initializers::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {

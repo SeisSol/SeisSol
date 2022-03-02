@@ -100,4 +100,4 @@ public:
 
 
 
-#endif
+#endif // TRIANGLE_REFINER_H

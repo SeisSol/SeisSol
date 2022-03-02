@@ -200,4 +200,4 @@ protected:
 
 }
 
-#endif
+#endif // MODULE_H

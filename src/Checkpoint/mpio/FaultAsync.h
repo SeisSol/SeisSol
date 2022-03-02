@@ -46,7 +46,7 @@
 
 #include "Fault.h"
 
-#endif
+#endif // USE_MPI
 
 namespace seissol
 {
@@ -88,7 +88,7 @@ public:
 	void close();
 };
 
-#endif
+#endif // USE_MPI
 
 }
 
@@ -96,5 +96,5 @@ public:
 
 }
 
-#endif
+#endif // CHECKPOINT_MPIO_FAULT_ASYNC_H
 

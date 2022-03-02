@@ -46,7 +46,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif
+#endif // USE_MPI
 
 
 #include <string>
@@ -59,7 +59,7 @@
 #include "Checkpoint/Wavefield.h"
 #include "Initializer/typedefs.hpp"
 
-#endif
+#endif // USE_HDF
 
 namespace seissol
 {
@@ -136,7 +136,7 @@ private:
 	static const unsigned long IDENTIFIER = 0x7A93F;
 };
 
-#endif
+#endif // USE_HDF
 
 }
 
@@ -144,5 +144,5 @@ private:
 
 }
 
-#endif
+#endif // CHECKPOINT_H5_WAVEFIELD_H
 

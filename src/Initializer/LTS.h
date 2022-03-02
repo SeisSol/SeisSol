@@ -73,7 +73,7 @@
 #	define MEMKIND_DOFS     seissol::memory::DeviceUnifiedMemory
 #	define MEMKIND_TIMEDOFS seissol::memory::DeviceUnifiedMemory
 # define MEMKIND_UNIFIED  seissol::memory::DeviceUnifiedMemory
-#endif
+#endif // ACL_DEVICE
 
 namespace seissol {
   namespace initializers {

@@ -56,9 +56,9 @@
 #include <netcdf.h>
 #ifdef USE_MPI
 #include <netcdf_par.h>
-#endif
+#endif // USE_MPI
 
-#endif
+#endif // NETCDF_PASSIVE
 
 #include "MeshReader.h"
 #include "Initializer/preProcessorMacros.fpp"
@@ -93,12 +93,12 @@ public:
 #else // NETCDF_PASSIVE
 			MPI_Comm_rank(commMaster, &masterRank);
 			checkNcError(nc_open_par(meshFile, NC_NETCDF4 | NC_MPIIO, commMaster, MPI_INFO_NULL, &ncFile));
-#endif
+#endif // NETCDF_PASSIVE
 		}
 #else // USE_MPI
 		masterRank = rank; // = 0;
 		checkNcError(nc_open(meshFile, NC_NETCDF4, &ncFile));
-#endif
+#endif // USE_MPI
 
 		size_t bndSize = -1;
 		size_t bndElemSize = -1;
@@ -142,7 +142,7 @@ public:
 			int ncDimBndElem;
 			checkNcError(nc_inq_dimid(ncFile, "boundary_elements", &ncDimBndElem));
 			checkNcError(nc_inq_dimlen(ncFile, ncDimBndElem, &bndElemSize));
-#endif
+#endif // NETCDF_PASSIVE
 		}
 
 #ifdef USE_MPI
@@ -151,7 +151,7 @@ public:
 		MPI_Bcast(buf, 2, MPI_UNSIGNED_LONG, 0, seissol::MPI::mpi.comm());
 		bndSize = buf[0];
 		bndElemSize = buf[1];
-#endif
+#endif // USE_MPI
 
 		if (masterRank >= 0) {
 #ifdef NETCDF_PASSIVE
@@ -225,7 +225,7 @@ public:
 					MPI_Send(&size, 1, MPI_INT, i+rank, 0, seissol::MPI::mpi.comm());
 #else // USE_MPI
 					assert(false);
-#endif
+#endif // USE_MPI
 				}
 
 				maxSize = std::max(maxSize, size);
@@ -239,7 +239,7 @@ public:
 			maxSize = sizes[0];
 #else // USE_MPI
 			assert(false);
-#endif
+#endif // USE_MPI
 		}
 
 #ifdef USE_MPI
@@ -247,7 +247,7 @@ public:
 		int iHasGroup = hasGroup;
 		MPI_Bcast(&iHasGroup, 1, MPI_INT, 0, seissol::MPI::mpi.comm());
 		hasGroup = iHasGroup != 0;
-#endif
+#endif // USE_MPI
 
 		m_elements.resize(sizes[0]);
 
@@ -297,10 +297,10 @@ public:
 					MPI_Send(elemMaterial, sizes[i], MPI_INT, i+rank ,0 , seissol::MPI::mpi.comm());
 #else // USE_MPI
 					assert(false);
-#endif
+#endif // USE_MPI
 				}
 			}
-#endif
+#endif // NETCDF_PASSIVE
 		} else {
 #ifdef USE_MPI
 			MPI_Recv(elemVertices, 4*sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
@@ -313,7 +313,7 @@ public:
 			MPI_Recv(elemMaterial, sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 #else // USE_MPI
 			assert(false);
-#endif
+#endif // USE_MPI
 		}
 
 		// Copy buffers to elements
@@ -357,19 +357,19 @@ public:
 					MPI_Send(&size, 1, MPI_INT, i+rank, 0, seissol::MPI::mpi.comm());
 #else // USE_MPI
 					assert(false);
-#endif
+#endif // USE_MPI
 				}
 
 				maxSize = std::max(maxSize,size);
 			}
-#endif
+#endif // NETCDF_PASSIVE
 		} else {
 #ifdef USE_MPI
 			MPI_Recv(sizes, 1, MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 			maxSize = sizes[0];
 #else // USE_MPI
 			assert(false);
-#endif
+#endif // USE_MPi
 		}
 
 		m_vertices.resize(sizes[0]);
@@ -396,16 +396,16 @@ public:
 					MPI_Send(vrtxCoords, 3*sizes[i], MPI_DOUBLE, i+rank, 0, seissol::MPI::mpi.comm());
 #else // USE_MPI
 					assert(false);
-#endif
+#endif // USE_MPI
 				}
 			}
-#endif
+#endif // NETCDF_PASSIVE
 		} else {
 #ifdef USE_MPI
 			MPI_Recv(vrtxCoords, 3*sizes[0], MPI_DOUBLE, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 #else // USE_MPI
 			assert(false);
-#endif
+#endif // USE_MPI
 		}
 
 //		SCOREP_USER_REGION_END( r_read_vertices )
@@ -434,16 +434,16 @@ public:
 					MPI_Send(&size, 1, MPI_INT, i+rank, 0, seissol::MPI::mpi.comm());
 #else // USE_MPI
 					assert(false);
-#endif
+#endif // USE_MPI
 				}
 			}
-#endif
+#endif // NETCDF_PASSIVE
 		} else {
 #ifdef USE_MPI
 			MPI_Recv(sizes, 1, MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 #else // USE_MPI
 			assert(false);
-#endif
+#endif // USE_MPI
 		}
 
 
@@ -487,11 +487,11 @@ public:
 							MPI_Send(bndElemLocalIds, elemSize, MPI_INT, j+rank, 0, seissol::MPI::mpi.comm());
 #else // USE_MPI
 							assert(false);
-#endif
+#endif // USE_MPI
 						}
 					}
 				}
-#endif
+#endif // NETCDF_PASSIVE
 			} else {
 				if (i < sizes[0]) {
 #ifdef USE_MPI
@@ -505,7 +505,7 @@ public:
 					addMPINeighbor(i, bndRank, elemSize, bndElemLocalIds);
 #else // USE_MPI
 					assert(false);
-#endif
+#endif // USE_MPI
 				}
 			}
 		}
@@ -524,8 +524,8 @@ public:
 			checkNcError(nc_close(ncFile));
 #ifdef USE_MPI
 			MPI_Comm_free(&commMaster);
-#endif
-#endif
+#endif // USE_MPI
+#endif // NETCDF_PASSIVE
 		}
 
 		// Recompute additional information
@@ -578,8 +578,8 @@ private:
 		checkNcError(nc_var_par_access(ncFile, ncVar, NC_COLLECTIVE));
 #else // NETCDF_PASSIVE
 		assert(false);
-#endif
-#endif
+#endif // NETCDF_PASSIVE
+#endif // USE_MPI
 	}
 
 	static void checkNcError(int error)
@@ -587,10 +587,10 @@ private:
 #ifndef NETCDF_PASSIVE
 		if (error != NC_NOERR)
 			logError() << "Error while reading netCDF file:" << nc_strerror(error);
-#endif
+#endif // NETCDF_PASSIVE
 	}
 };
 
-#endif
+#endif // USE_NETCDF
 
-#endif
+#endif // NETCDF_READER_H

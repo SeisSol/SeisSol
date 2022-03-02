@@ -130,4 +130,4 @@ public:
 
 }
 
-#endif
+#endif // FREESURFACEWRITER_H

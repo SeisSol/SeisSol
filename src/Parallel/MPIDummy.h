@@ -94,4 +94,4 @@ public:
 
 }
 
-#endif
+#endif // MPI_DUMMY_H

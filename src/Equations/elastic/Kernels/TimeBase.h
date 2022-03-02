@@ -75,7 +75,7 @@
 
 #ifdef ACL_DEVICE
 #include <device.h>
-#endif
+#endif // ACL_DEVICE
 
 namespace seissol {
   namespace kernels {

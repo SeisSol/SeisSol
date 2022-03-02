@@ -43,7 +43,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif
+#endif // USE_MPI
 
 #include <cassert>
 #include <cstring>
@@ -149,7 +149,7 @@ protected:
 
 #ifdef USE_MPI
 		MPI_Allreduce(MPI_IN_PLACE, &hasCheckpoint, 1, MPI_INT, MPI_LAND, comm());
-#endif
+#endif // USE_MPI
 
 		return hasCheckpoint;
 	}
@@ -231,7 +231,7 @@ protected:
 #ifdef USE_MPI
 		// Make sure all processes see the folders
 		MPI_Barrier(comm());
-#endif
+#endif // USE_MPI
 
 		int oflags = O_WRONLY | O_CREAT;
 		if (utils::Env::get<int>("SEISSOL_CHECKPOINT_DIRECT", 0)) {
@@ -335,4 +335,4 @@ protected:
 
 }
 
-#endif
+#endif // CHECKPOINT_POSIX_CHECK_POINT_H

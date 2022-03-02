@@ -70,7 +70,7 @@ public:
 #ifdef USE_MPI
 		seissol::MPI::mpi.setComm(commWorld());
 		// TODO Update fault communicator (not really sure how we can do this at this point)
-#endif
+#endif // USE_MPI
 
 		return dispatch();
 	}
@@ -83,7 +83,7 @@ public:
 #ifdef USE_MPI
 		// Reset the MPI communicator
 		seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
-#endif
+#endif // USE_MPI
 	}
 };
 
@@ -91,4 +91,4 @@ public:
 
 }
 
-#endif
+#endif // ASYNCIO_H

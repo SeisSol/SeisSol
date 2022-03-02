@@ -54,4 +54,4 @@ void seissol::FaultMPI::init(bool hasFault)
 	}
 }
 
-#endif
+#endif // USE_MPI

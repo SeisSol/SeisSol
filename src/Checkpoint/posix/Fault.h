@@ -91,4 +91,4 @@ private:
 
 }
 
-#endif
+#endif // CHECKPOINT_POSIX_FAULT_H

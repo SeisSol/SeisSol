@@ -51,7 +51,7 @@
 #ifdef USE_SIONLIB
 #include "sionlib/Fault.h"
 #include "sionlib/Wavefield.h"
-#endif
+#endif // USE_SIONLIB
 
 void seissol::checkpoint::createBackend(Backend backend, Wavefield* &waveField, Fault* &fault)
 {
@@ -80,7 +80,7 @@ void seissol::checkpoint::createBackend(Backend backend, Wavefield* &waveField, 
 #else //USE_SIONLIB
 		logError() << "SIONlib checkpoint backend unsupported";
 		break;
-#endif
+#endif //USE_SIONLIB
 	default:
 		logError() << "Unsupported checkpoint backend";
 	}

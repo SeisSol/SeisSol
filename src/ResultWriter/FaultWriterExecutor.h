@@ -42,7 +42,7 @@
 
 #ifdef USE_MPI
 #include <mpi.h>
-#endif
+#endif // USE_MPI
 
 #include "xdmfwriter/XdmfWriter.h"
 #include "async/ExecInfo.h"
@@ -85,7 +85,7 @@ private:
 #ifdef USE_MPI
 	/** The MPI communicator for the writer */
 	MPI_Comm m_comm;
-#endif
+#endif // USE_MPI
 
 	/** The number of variables that should be written */
 	unsigned int m_numVariables;
@@ -98,7 +98,7 @@ public:
 		: m_xdmfWriter(0L),
 #ifdef USE_MPI
 		m_comm(MPI_COMM_NULL),
-#endif
+#endif // USE_MPI
 		m_numVariables(0)
 	{
 	}
@@ -131,7 +131,7 @@ public:
 			m_stopwatch.printTime("Time fault writer backend:"
 #ifdef USE_MPI
 				, m_comm
-#endif
+#endif // USE_MPI
 			);
 		}
 
@@ -140,7 +140,7 @@ public:
 			MPI_Comm_free(&m_comm);
 			m_comm = MPI_COMM_NULL;
 		}
-#endif
+#endif // USE_MPI
 
 		delete m_xdmfWriter;
 		m_xdmfWriter = 0L;
@@ -155,4 +155,4 @@ private:
 
 }
 
-#endif
+#endif // FAULTWRITEREXECUTOR_H

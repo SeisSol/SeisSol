@@ -65,4 +65,4 @@ struct PlasticityData {
   real mufactor;
 };
 
-#endif
+#endif //SEISSOL_BASICTYPEDEFS_HPP

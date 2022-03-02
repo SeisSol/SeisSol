@@ -47,10 +47,10 @@
 #include "GambitReader.h"
 #ifdef USE_NETCDF
 #include "NetcdfReader.h"
-#endif
+#endif // USE_NETCDF
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 #include "PUMLReader.h"
-#endif
+#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
@@ -283,7 +283,7 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 
 #else  // USE_NETCDF
   logError() << "netCDF not supported";
-#endif
+#endif // USE_NETCDF
 }
 
 void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool hasFault,
@@ -352,6 +352,6 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
 
 #else  // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
   logError() << "PUML is currently only supported for MPI";
-#endif
+#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 }
 }
