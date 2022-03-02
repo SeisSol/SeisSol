@@ -242,4 +242,8 @@ void AbstractTimeCluster::setCorrectionTime(double time) {
   ct.correctionTime = time;
 }
 
+long AbstractTimeCluster::getTimeStepRate() {
+  return timeStepRate;
+}
+
 }

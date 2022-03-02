@@ -24,7 +24,6 @@ void GhostTimeCluster::sendCopyLayer(){
 } void GhostTimeCluster::receiveGhostLayer(){
   SCOREP_USER_REGION( "receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
   assert(ct.predictionTime > lastSendTime);
-  lastReceiveTime = ct.predictionTime;
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId) ) {
       MPI_Irecv(meshStructure->ghostRegions[region],
@@ -131,7 +130,6 @@ void GhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
   assert(testForGhostLayerReceives());
   lastSendTime = -1;
-  lastReceiveTime = -1;
 }
 
   void GhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {

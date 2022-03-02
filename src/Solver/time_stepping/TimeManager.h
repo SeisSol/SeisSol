@@ -91,7 +91,7 @@ class seissol::time_stepping::TimeManager {
      **/
     struct clusterCompare {
       bool operator()( const TimeCluster* l_first, const TimeCluster* l_second ) {
-        return l_first->m_globalClusterId > l_second->m_globalClusterId;
+        return l_first->getGlobalClusterId() > l_second->getGlobalClusterId();
       }
     };
 

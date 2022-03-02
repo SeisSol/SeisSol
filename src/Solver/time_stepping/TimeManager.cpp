@@ -177,7 +177,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
-    return a->timeStepRate < b->timeStepRate;
+    return a->getTimeStepRate() < b->getTimeStepRate();
   };
   std::sort(clusters.begin(), clusters.end(), rateSorter);
 
@@ -308,9 +308,9 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
     std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources) {
   for (auto& cluster : clusters) {
     cluster->setPointSources(
-        clusterMappings[cluster->layerType][cluster->m_clusterId].cellToSources,
-        clusterMappings[cluster->layerType][cluster->m_clusterId].numberOfMappings,
-        &(pointSources[cluster->layerType][cluster->m_clusterId])
+        clusterMappings[cluster->getLayerType()][cluster->getLayerType()].cellToSources,
+        clusterMappings[cluster->getLayerType()][cluster->getLayerType()].numberOfMappings,
+        &(pointSources[cluster->getLayerType()][cluster->getClusterId()])
         );
   }
 }
@@ -318,8 +318,8 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
 void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
 {
   for (auto& cluster : clusters) {
-    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->m_clusterId,
-                                                               cluster->layerType));
+    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->getClusterId(),
+                                                               cluster->getLayerType()));
   }
 }
 
@@ -329,7 +329,7 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   for(auto & cluster : clusters) {
     cluster->setPredictionTime(i_time);
     cluster->setCorrectionTime(i_time);
-    cluster->m_receiverTime   = i_time;
+    cluster->setReceiverTime(i_time);
   }
 }
 

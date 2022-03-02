@@ -18,6 +18,8 @@ public:
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
   virtual void reset(double newSyncTime);
 
+  virtual ~AbstractCommunicationManager() = default;
+
 protected:
   explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);
   bool poll();

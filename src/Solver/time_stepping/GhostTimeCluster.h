@@ -15,21 +15,14 @@ class GhostTimeCluster : public AbstractTimeCluster {
   std::list<MPI_Request*> sendQueue;
   std::list<MPI_Request*> receiveQueue;
 
+  double lastSendTime = -1.0;
+
   void sendCopyLayer();
   void receiveGhostLayer();
 
   static bool testQueue(std::list<MPI_Request*>& queue);
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
-
- public:
-  GhostTimeCluster(double maxTimeStepSize,
-                   int timeStepRate,
-                   int globalTimeClusterId,
-                   int otherGlobalTimeClusterId,
-                   const MeshStructure* meshStructure
-  );
-  ActResult act() override;
 
   void start() override;
   void predict() override;
@@ -39,11 +32,17 @@ class GhostTimeCluster : public AbstractTimeCluster {
   bool maySync() override;
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void reset() override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
-  double lastSendTime = -1.0;
-  double lastReceiveTime = -1.0;
+ public:
+  GhostTimeCluster(double maxTimeStepSize,
+                   int timeStepRate,
+                   int globalTimeClusterId,
+                   int otherGlobalTimeClusterId,
+                   const MeshStructure* meshStructure
+  );
+  void reset() override;
+  ActResult act() override;
 
 };
 

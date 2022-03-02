@@ -830,4 +830,20 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
   }
 
 }
+
+unsigned int TimeCluster::getClusterId() const {
+  return m_clusterId;
+}
+
+unsigned int TimeCluster::getGlobalClusterId() const {
+  return m_globalClusterId;
+}
+
+LayerType TimeCluster::getLayerType() const {
+  return layerType;
+}
+void TimeCluster::setReceiverTime(double receiverTime) {
+  m_receiverTime = receiverTime;
+}
+
 }

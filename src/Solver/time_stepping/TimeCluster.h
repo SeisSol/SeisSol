@@ -367,87 +367,86 @@ private:
       m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;
     }
 
+  const LayerType layerType;
+  //! time of the next receiver output
+  double m_receiverTime;
+
+  //! print status every 100th timestep
+  bool printProgress;
+  //! cluster id on this rank
+  const unsigned int m_clusterId;
+
+  //! global cluster cluster id
+  const unsigned int m_globalClusterId;
+
+  DynamicRuptureScheduler* dynamicRuptureScheduler;
+
+  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
+
 public:
-    ActResult act() override;
-    const LayerType layerType;
+  ActResult act() override;
 
-    //! time of the next receiver output
-    double m_receiverTime;
+  /**
+   * Constructs a new LTS cluster.
+   *
+   * @param i_clusterId id of this cluster with respect to the current rank.
+   * @param i_globalClusterId global id of this cluster.
+   * @param usePlasticity true if using plasticity
+   * @param i_timeKernel time integration kernel.
+   * @param i_volumeKernel volume integration kernel.
+   * @param i_boundaryKernel boundary integration kernel.
+   * @param i_copyCellInformation cell information in the copy layer.
+   * @param i_interiorCellInformation cell information in the interior.
+   * @param i_globalData global data.
+   * @param i_copyCellData cell data in the copy layer.
+   * @param i_interiorCellData cell data in the interior.
+   * @param i_cells degrees of freedom, time buffers, time derivatives.
+   **/
+  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
+              LayerType layerType, double maxTimeStepSize,
+              long timeStepRate, bool printProgress,
+              DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
+              seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
+              seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
+              seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics,
+              ActorStateStatistics* actorStateStatistics);
 
-    //! print status every 100th timestep
-    bool printProgress;
+  /**
+   * Destructor of a LTS cluster.
+   * TODO: Currently prints only statistics in debug mode.
+   **/
+  ~TimeCluster() override;
 
-    /**
-     * Constructs a new LTS cluster.
-     *
-     * @param i_clusterId id of this cluster with respect to the current rank.
-     * @param i_globalClusterId global id of this cluster.
-     * @param usePlasticity true if using plasticity
-     * @param i_timeKernel time integration kernel.
-     * @param i_volumeKernel volume integration kernel.
-     * @param i_boundaryKernel boundary integration kernel.
-     * @param i_copyCellInformation cell information in the copy layer.
-     * @param i_interiorCellInformation cell information in the interior.
-     * @param i_globalData global data.
-     * @param i_copyCellData cell data in the copy layer.
-     * @param i_interiorCellData cell data in the interior.
-     * @param i_cells degrees of freedom, time buffers, time derivatives.
-     **/
-    TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
-                LayerType layerType, double maxTimeStepSize,
-                long timeStepRate, bool printProgress,
-                DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
-                seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
-                seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
-                seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics,
-                ActorStateStatistics* actorStateStatistics);
+  /**
+   * Sets the pointer to the cluster's point sources
+   *
+   * @param i_cellToPointSources Contains mappings of 1 cell offset to m point sources
+   * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
+   * @param i_pointSources pointer to all point sources used on this cluster
+   */
+  void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
+                        unsigned i_numberOfCellToPointSourcesMappings,
+                        sourceterm::PointSources const* i_pointSources );
 
-    /**
-     * Destructor of a LTS cluster.
-     * TODO: Currently prints only statistics in debug mode.
-     **/
-    ~TimeCluster() override;
+  void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
+    m_receiverCluster = receiverCluster;
+  }
 
-    /**
-     * Adds a source to the cluster.
-     *
-     * @param i_meshId mesh id of the point of interest.
-     **/
-    void addSource( unsigned int i_meshId );
-    
-    /**
-     * Sets the pointer to the cluster's point sources
-     * 
-     * @param i_cellToPointSources Contains mappings of 1 cell offset to m point sources
-     * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
-     * @param i_pointSources pointer to all point sources used on this cluster
-     */
-    void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
-                          unsigned i_numberOfCellToPointSourcesMappings,
-                          sourceterm::PointSources const* i_pointSources );
+  /**
+   * Set Tv constant for plasticity.
+   */
+  void setTv(double tv) {
+    m_tv = tv;
+    updateRelaxTime();
+  }
 
-    void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
-      m_receiverCluster = receiverCluster;
-    }
 
-    /**
-     * Set Tv constant for plasticity.
-     */
-    void setTv(double tv) {
-      m_tv = tv;
-      updateRelaxTime();
-    }
+  void reset() override;
 
-    //! cluster id on this rank
-    const unsigned int m_clusterId;
-
-    //! global cluster cluster id
-    const unsigned int m_globalClusterId;
-
-    DynamicRuptureScheduler* dynamicRuptureScheduler;
-
-    void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
-    void reset() override;
+  [[nodiscard]] unsigned int getClusterId() const;
+  [[nodiscard]] unsigned int getGlobalClusterId() const;
+  [[nodiscard]] LayerType getLayerType() const;
+  void setReceiverTime(double receiverTime);
 };
 
 #endif
