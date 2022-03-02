@@ -46,12 +46,10 @@ example on SuperMuc
 
 .. code-block:: bash
 
-   module load mpi.intel/2019
-   module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
-   module load hdf5/1.8.21-impi-cxx-frt-threadsafe
-   module load intel/19
+   module load intel intel-mpi
+   module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
    module load gcc/9
-   module load cmake/3.14.4
+   module load cmake/3.16.5
 
 -  get the repository
 
@@ -68,25 +66,16 @@ Then you can clone the project with
 .. code-block:: bash
 
    git clone git@github.com:TUM-I5/ASAGI.git
+   git submodule update --init
 
-followed by running ``fix_submodules`` to clone and set up the submodules.
-
--  set compiler options:
-
-.. code-block:: bash
-
-   export FC=mpif90
-   export CXX=mpiCC
-   export CC=mpicc
 
 -  install:
 
 .. code-block:: bash
 
-   mkdir build
-   cd build
+   mkdir build && cd build
    export CMAKE_PREFIX_PATH=$NETCDF_BASE
-   cmake ../ -DCMAKE_INSTALL_PREFIX=<path_to_ASAGI>/build
+   cmake FC=mpif90 CXX=mpiCC CC=mpicc .. -DCMAKE_INSTALL_PREFIX=$(pwd)/build
    make -j8
    make install
 

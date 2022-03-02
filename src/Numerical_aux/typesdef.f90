@@ -689,7 +689,7 @@ MODULE TypesDef
      REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
      REAL                                   :: L                                !< reference length of prakash-cliff regularization
      REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
-     INTEGER                                :: thermalPress                     !< thermal pressurization switch
+     INTEGER                                :: thermalPress = 0                 !< thermal pressurization switch
      REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
      REAL, ALLOCATABLE                      :: alpha_hy(:,:)                    !< spatial dependent hydraulic diffusion parameter for TP
      REAL                                   :: rho_c                            !< heat capacity for TP
