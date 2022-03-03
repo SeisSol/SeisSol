@@ -10,10 +10,11 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw> {
+template <typename TPMethod>
+class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<SlipLaw>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
   /**
    * Integrates the state variable ODE in time
@@ -32,7 +33,11 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw> {
                              unsigned int face,
                              double stateVarReference,
                              double timeIncrement,
-                             double localSlipRate);
+                             double localSlipRate) {
+    double localSl0 = this->sl0[face][pointIndex];
+    double exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
+    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
+  }
 };
 
 } // namespace seissol::dr::friction_law

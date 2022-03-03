@@ -9,8 +9,8 @@ namespace seissol::dr::friction_law {
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
-template <class Derived>
-class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
+template <class Derived, class TPMethod>
+class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
   // Attributes
   // CS = coordinate system
@@ -21,6 +21,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   real (*a)[misc::numPaddedPoints];
   real (*sl0)[misc::numPaddedPoints];
   real (*stateVariable)[misc::numPaddedPoints];
+
+  TPMethod tpMethod;
 
   // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   // as a consequence, the SR is affected the AlmostZero value when too small
@@ -36,7 +38,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   const unsigned int numberStateVariableUpdates = 2;
   const double newtonTolerance = 1e-8;
 
-  using BaseFrictionLaw<RateAndStateBase<Derived>>::BaseFrictionLaw;
+  using BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw;
 
   protected:
   public:
@@ -48,11 +50,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                              unsigned& timeIndex) {
     bool hasConverged = false;
 
-    // TODO: only allocate fluidPressure if we actually need it, i.e. when thermal pressurisation is
-    // turned on.
-    std::array<real, misc::numPaddedPoints> fluidPressure{0};
-    // compute initial thermal pressure (ony for FL103 TP)
-    static_cast<Derived*>(this)->setInitialFluidPressureHook(fluidPressure, ltsFace);
+    tpMethod.setInitialFluidPressure(ltsFace);
     // compute initial slip rate and reference values
     std::array<real, misc::numPaddedPoints> localSlipRate{0};
     std::array<real, misc::numPaddedPoints> stateVarReference{0};
@@ -60,17 +58,23 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     std::array<real, misc::numPaddedPoints> absoluteShearStress{0};
     std::tie(absoluteShearStress, normalStress, stateVarReference, localSlipRate) =
         static_cast<Derived*>(this)->calcInitialVariables(
-            faultStresses, stateVariableBuffer, fluidPressure, timeIndex, ltsFace);
+            faultStresses, stateVariableBuffer, tpMethod, timeIndex, ltsFace);
 
     // compute pressure from thermal pressurization (only FL103 TP)
-    // Todo: Enable TP again
-    // static_cast<Derived*>(this)->hookCalcP_f(fluidPressure, faultStresses, false, timeIndex,
-    // ltsFace); compute slip rates by solving non-linear system of equations (with newton)
+    tpMethod.calcFluidPressure(faultStresses,
+                               this->initialStressInFaultCS,
+                               this->mu,
+                               this->slipRateMagnitude,
+                               this->deltaT[timeIndex],
+                               false,
+                               timeIndex,
+                               ltsFace);
+    // compute slip rates by solving non-linear system of equations (with newton)
     this->updateStateVariableIterative(hasConverged,
                                        stateVarReference,
                                        localSlipRate,
                                        stateVariableBuffer,
-                                       fluidPressure,
+                                       tpMethod,
                                        normalStress,
                                        absoluteShearStress,
                                        faultStresses,
@@ -82,10 +86,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
     }
     // compute final thermal pressure for FL103TP
-    // Todo: Enable TP again
-    // static_cast<Derived*>(this)->hookCalcP_f(fluidPressure, faultStresses, true, timeIndex,
-    // ltsFace); compute final slip rates and traction from median value of the iterative solution
-    // and initial guess
+    tpMethod.calcFluidPressure(faultStresses,
+                               this->initialStressInFaultCS,
+                               this->mu,
+                               this->slipRateMagnitude,
+                               this->deltaT[timeIndex],
+                               false,
+                               timeIndex,
+                               ltsFace);
+    // compute final slip rates and traction from median value of the iterative solution and initial
+    // guess
     this->calcSlipRateAndTraction(stateVarReference,
                                   localSlipRate,
                                   stateVariableBuffer,
@@ -128,6 +138,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
   /*
    * compute time increments (Gnuc)
@@ -164,7 +175,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
              std::array<real, misc::numPaddedPoints>>
       calcInitialVariables(FaultStresses const& faultStresses,
                            std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                           std::array<real, misc::numPaddedPoints> const& fluidPressure,
+                           TPMethod const& tpMethod,
                            unsigned int timeIndex,
                            unsigned int ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
@@ -187,7 +198,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
                                               this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              fluidPressure[pointIndex]);
+                                              tpMethod.fluidPressure(pointIndex));
 
       // The following process is adapted from that described by Kaneko et al. (2008)
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
@@ -204,7 +215,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       std::array<real, misc::numPaddedPoints> const& stateVarReference,
       std::array<real, misc::numPaddedPoints>& localSlipRate,
       std::array<real, misc::numPaddedPoints>& localStateVariable,
-      std::array<real, misc::numPaddedPoints> const& fluidPressure,
+      TPMethod& tpMethod,
       std::array<real, misc::numPaddedPoints> const& normalStress,
       std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
       FaultStresses const& faultStresses,
@@ -221,6 +232,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                                              stateVarReference[pointIndex],
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
+        tpMethod.calcFluidPressure(faultStresses,
+                                   this->initialStressInFaultCS,
+                                   this->mu,
+                                   this->slipRateMagnitude,
+                                   this->deltaT[timeIndex],
+                                   false,
+                                   timeIndex,
+                                   ltsFace);
       }
 
       // solve for new slip rate, applying the Newton-Raphson algorithm
@@ -337,19 +356,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       }
     }
   }
-
-  void setInitialFluidPressureHook(std::array<real, misc::numPaddedPoints>& fluidPressure,
-                                   unsigned int ltsFace) {
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      fluidPressure[pointIndex] = 0.0;
-    }
-  }
-
-  void calcFluidPressureHook(std::array<real, misc::numPaddedPoints>& fluidPressure,
-                             FaultStresses& faultStresses,
-                             bool saveTmpInTP,
-                             unsigned int timeIndex,
-                             unsigned int ltsFace) {}
 
   bool IterativelyInvertSR(unsigned int ltsFace,
                            std::array<real, misc::numPaddedPoints> const& localStateVariable,

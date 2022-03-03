@@ -1255,8 +1255,8 @@ void seissol::Interoperability::getDynRupFL_3(
 }
 
 void seissol::Interoperability::getDynRupTP(
-    real TP_grid[seissol::dr::numberOfTPGridPoints],
-    real TP_DFinv[seissol::dr::numberOfTPGridPoints]) {
+    real TP_grid[seissol::dr::misc::numberOfTPGridPoints],
+    real TP_DFinv[seissol::dr::misc::numberOfTPGridPoints]) {
 
   f_interoperability_getDynRupTP(m_domain, &TP_grid[0], &TP_DFinv[0]);
 }

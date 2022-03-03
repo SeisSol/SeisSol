@@ -7,10 +7,11 @@ namespace seissol::dr::friction_law {
 /**
  * This class was not tested and compared to the Fortran FL4.
  */
-template <class Derived>
-class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived>> {
+template <class Derived, class TPMethod>
+class SlowVelocityWeakeningLaw
+    : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SlowVelocityWeakeningLaw>::RateAndStateBase;
+  using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes

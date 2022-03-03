@@ -123,6 +123,7 @@ src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
 src/DynamicRupture/FrictionLaws/NoFault.cpp
 src/DynamicRupture/FrictionLaws/SlipLaw.cpp
 src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
+src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
 src/DynamicRupture/Initializers/BaseDRInitializer.cpp
 src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp

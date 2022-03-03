@@ -25,6 +25,8 @@ constexpr size_t leadDim() noexcept {
 static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
 static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
 
+static constexpr size_t numberOfTPGridPoints = 60;
+
 /**
  * Number of gauss points on an element surface.
  */

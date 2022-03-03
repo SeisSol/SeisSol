@@ -235,8 +235,8 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public sei
 
   Variable<real[dr::misc::numPaddedPoints]> temperature;  //this is TP[1] in fortran
   Variable<real[dr::misc::numPaddedPoints]> pressure;     //this is TP[2] in fortran
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::numberOfTPGridPoints]> tpTheta;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::numberOfTPGridPoints]> tpSigma;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> tpTheta;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> tpSigma;
   Variable<real[dr::misc::numPaddedPoints]> tpHalfWidthShearZone;
   Variable<real[dr::misc::numPaddedPoints]> alphaHy;
 

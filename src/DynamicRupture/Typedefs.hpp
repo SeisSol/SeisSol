@@ -2,6 +2,7 @@
 #define DR_TYPEDEFS
 
 #include "Kernels/precision.hpp"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr {
 
@@ -30,7 +31,23 @@ struct ImpedancesAndEta {
   real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
 };
 
-constexpr unsigned int numberOfTPGridPoints = 60;
+/**
+ * Struct that contains all input stresses
+ */
+struct FaultStresses {
+  real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xyStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xzStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+};
+
+/**
+ * Struct that contains all traction results
+ */
+struct TractionResults {
+  real xyTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real xzTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+};
+
 } // namespace seissol::dr
 
 #endif
