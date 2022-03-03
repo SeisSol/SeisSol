@@ -38,7 +38,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   const unsigned int numberStateVariableUpdates = 2;
   const double newtonTolerance = 1e-8;
 
-  using BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw;
+  RateAndStateBase(DRParameters& drParameters)
+      : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
+        tpMethod(TPMethod(drParameters)) {}
 
   protected:
   public:

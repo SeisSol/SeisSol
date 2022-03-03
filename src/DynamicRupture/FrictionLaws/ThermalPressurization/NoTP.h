@@ -4,6 +4,8 @@
 namespace seissol::dr::friction_law {
 class NoTP {
   public:
+  NoTP(DRParameters& drParameters){};
+
   /**
    * Initialize local attributes (used in initializer class respectively)
    */

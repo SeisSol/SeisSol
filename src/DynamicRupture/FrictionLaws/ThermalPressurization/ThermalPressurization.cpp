@@ -64,13 +64,12 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
                                                          unsigned int pointIndex,
                                                          unsigned int timeIndex,
                                                          unsigned int ltsFace) {
-  std::cout << "Hello" << std::endl;
   real localTemperature = 0.0;
   real localPressure = 0.0;
 
   real tauV = faultStrength[pointIndex] * slipRateMagnitude;
-  real lambdaPrime = drParameters->tpLambda * drParameters->alphaTh /
-                     (alphaHy[ltsFace][pointIndex] - drParameters->alphaTh);
+  real lambdaPrime = drParameters.tpLambda * drParameters.alphaTh /
+                     (alphaHy[ltsFace][pointIndex] - drParameters.alphaTh);
 
   real tmp[misc::numberOfTPGridPoints]{};
   real omegaTheta[misc::numberOfTPGridPoints]{};
@@ -87,7 +86,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     // temperature
     thetaCurrent[tpGridPointIndex] =
         thetaTmp[tpGridPointIndex] *
-        std::exp(-drParameters->alphaTh * deltaT * tmp[tpGridPointIndex]);
+        std::exp(-drParameters.alphaTh * deltaT * tmp[tpGridPointIndex]);
     // pore pressure + lambda'*temp
     sigmaCurrent[tpGridPointIndex] =
         sigmaTmp[tpGridPointIndex] *
@@ -95,14 +94,14 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // 2. Add current contribution and get new temperature
     omegaTheta[tpGridPointIndex] = heatSource(
-        tmp[tpGridPointIndex], drParameters->alphaTh, deltaT, tpGridPointIndex, timeIndex);
+        tmp[tpGridPointIndex], drParameters.alphaTh, deltaT, tpGridPointIndex, timeIndex);
     thetaTmp[tpGridPointIndex] =
-        thetaCurrent[tpGridPointIndex] + (tauV / drParameters->rhoC) * omegaTheta[tpGridPointIndex];
+        thetaCurrent[tpGridPointIndex] + (tauV / drParameters.rhoC) * omegaTheta[tpGridPointIndex];
     omegaSigma[tpGridPointIndex] = heatSource(
         tmp[tpGridPointIndex], alphaHy[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
     sigmaTmp[tpGridPointIndex] =
-        sigmaCurrent[tpGridPointIndex] + ((drParameters->tpLambda + lambdaPrime) * tauV) /
-                                             (drParameters->rhoC) * omegaSigma[tpGridPointIndex];
+        sigmaCurrent[tpGridPointIndex] + ((drParameters.tpLambda + lambdaPrime) * tauV) /
+                                             (drParameters.rhoC) * omegaSigma[tpGridPointIndex];
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution
@@ -116,8 +115,8 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   localPressure = localPressure - lambdaPrime * localTemperature;
 
   // Temp and pore pressure change at single GP on the fault + initial values
-  temperature[ltsFace][pointIndex] = localTemperature + drParameters->initialTemperature;
-  pressure[ltsFace][pointIndex] = -localPressure + drParameters->initialPressure;
+  temperature[ltsFace][pointIndex] = localTemperature + drParameters.initialTemperature;
+  pressure[ltsFace][pointIndex] = -localPressure + drParameters.initialPressure;
 }
 
 /**

@@ -105,16 +105,17 @@ Products ImposedSlipRatesFactory::produce() {
 
 Products RateAndStateFastVelocityWeakeningFactory::produce() {
   if (drParameters.isThermalPressureOn) {
-    return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
-            std::make_unique<initializers::RateAndStateInitializer>(drParameters),
-            std::make_unique<
-                friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
-                drParameters),
-            std::make_unique<output::RateAndState>()};
+    return {
+        std::make_unique<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
+        std::make_unique<initializers::RateAndStateThermalPressurisationInitializer>(drParameters),
+        std::make_unique<
+            friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
+            drParameters),
+        std::make_unique<output::RateAndState>()};
   } else {
     return {
-        std::make_unique<seissol::initializers::LTS_RateAndState>(),
-        std::make_unique<initializers::RateAndStateInitializer>(drParameters),
+        std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
+        std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
         std::make_unique<friction_law::FastVelocityWeakeningLaw<friction_law::NoTP>>(drParameters),
         std::make_unique<output::RateAndState>()};
   }

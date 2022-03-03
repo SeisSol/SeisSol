@@ -1,20 +1,18 @@
 #ifndef SEISSOL_THERMALPRESSURIZATION_H
 #define SEISSOL_THERMALPRESSURIZATION_H
 
-#include "Kernels/precision.hpp"
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/Parameters.h"
+#include "Initializer/DynamicRupture.h"
+#include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
 class ThermalPressurization {
   public:
-  ThermalPressurization() : drParameters(nullptr){};
-  ThermalPressurization(std::shared_ptr<DRParameters> drParameters)
-      : drParameters(std::move(drParameters)){};
+  ThermalPressurization(DRParameters& drParameters) : drParameters(drParameters){};
 
   private:
-  std::shared_ptr<DRParameters> drParameters;
+  DRParameters& drParameters;
 
   protected:
   real (*temperature)[misc::numPaddedPoints];

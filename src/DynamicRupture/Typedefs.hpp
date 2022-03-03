@@ -1,8 +1,8 @@
 #ifndef DR_TYPEDEFS
 #define DR_TYPEDEFS
 
-#include "Kernels/precision.hpp"
 #include "DynamicRupture/Misc.h"
+#include "Kernels/precision.hpp"
 
 namespace seissol::dr {
 
