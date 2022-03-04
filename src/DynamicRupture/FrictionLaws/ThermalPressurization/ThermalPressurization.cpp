@@ -71,37 +71,31 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   real lambdaPrime = drParameters.tpLambda * drParameters.alphaTh /
                      (alphaHy[ltsFace][pointIndex] - drParameters.alphaTh);
 
-  real tmp[misc::numberOfTPGridPoints]{};
-  real omegaTheta[misc::numberOfTPGridPoints]{};
-  real omegaSigma[misc::numberOfTPGridPoints]{};
-  real thetaCurrent[misc::numberOfTPGridPoints]{};
-  real sigmaCurrent[misc::numberOfTPGridPoints]{};
+#pragma omp simd
   for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w
-    tmp[tpGridPointIndex] =
-        misc::power<2>(tpGrid[tpGridPointIndex] / tpHalfWidthShearZone[ltsFace][pointIndex]);
+    real tmp = misc::power<2>(tpGrid[tpGridPointIndex] / tpHalfWidthShearZone[ltsFace][pointIndex]);
 
     // 1. Calculate diffusion of the field at previous timestep
     // temperature
-    thetaCurrent[tpGridPointIndex] =
-        thetaTmp[tpGridPointIndex] *
-        std::exp(-drParameters.alphaTh * deltaT * tmp[tpGridPointIndex]);
+    real thetaCurrent = thetaTmp[tpGridPointIndex] *
+        std::exp(-drParameters.alphaTh * deltaT * tmp);
     // pore pressure + lambda'*temp
-    sigmaCurrent[tpGridPointIndex] =
-        sigmaTmp[tpGridPointIndex] *
-        std::exp(-alphaHy[ltsFace][pointIndex] * deltaT * tmp[tpGridPointIndex]);
+    real sigmaCurrent = sigmaTmp[tpGridPointIndex] *
+        std::exp(-alphaHy[ltsFace][pointIndex] * deltaT * tmp);
 
     // 2. Add current contribution and get new temperature
-    omegaTheta[tpGridPointIndex] = heatSource(
-        tmp[tpGridPointIndex], drParameters.alphaTh, deltaT, tpGridPointIndex, timeIndex);
+    real omegaTheta = heatSource(
+        tmp, drParameters.alphaTh, deltaT, tpGridPointIndex, timeIndex);
     thetaTmp[tpGridPointIndex] =
-        thetaCurrent[tpGridPointIndex] + (tauV / drParameters.rhoC) * omegaTheta[tpGridPointIndex];
-    omegaSigma[tpGridPointIndex] = heatSource(
-        tmp[tpGridPointIndex], alphaHy[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
+        thetaCurrent + (tauV / drParameters.rhoC) * omegaTheta;
+
+    real omegaSigma = heatSource(
+        tmp, alphaHy[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
     sigmaTmp[tpGridPointIndex] =
-        sigmaCurrent[tpGridPointIndex] + ((drParameters.tpLambda + lambdaPrime) * tauV) /
-                                             (drParameters.rhoC) * omegaSigma[tpGridPointIndex];
+        sigmaCurrent + ((drParameters.tpLambda + lambdaPrime) * tauV) /
+                                             (drParameters.rhoC) * omegaSigma;
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution

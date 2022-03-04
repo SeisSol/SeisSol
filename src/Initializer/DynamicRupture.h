@@ -243,12 +243,12 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public sei
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(temperature, mask, 1, seissol::memory::Standard);
-    tree.addVar(pressure, mask, 1, seissol::memory::Standard);
-    tree.addVar(tpTheta, mask, 1, seissol::memory::Standard);
-    tree.addVar(tpSigma, mask, 1, seissol::memory::Standard);
-    tree.addVar(tpHalfWidthShearZone, mask, 1, seissol::memory::Standard);
-    tree.addVar(alphaHy, mask, 1, seissol::memory::Standard);
+    tree.addVar(temperature, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(pressure, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(tpTheta, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(tpSigma, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(tpHalfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(alphaHy, mask, ALIGNMENT, seissol::memory::Standard);
   }
 };
 
