@@ -70,6 +70,6 @@ class ThermalPressurization {
 
   real fluidPressure(unsigned int pointIndex) const { return localPressure[pointIndex]; }
 };
-}; // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law
 
 #endif // SEISSOL_THERMALPRESSURIZATION_H

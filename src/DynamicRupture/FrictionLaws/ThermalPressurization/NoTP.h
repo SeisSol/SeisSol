@@ -53,6 +53,6 @@ class NoTP {
   real fluidPressure(unsigned pointIndex) const { return 0; };
 };
 
-}; // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law
 
 #endif // SEISSOL_NOTP_H
