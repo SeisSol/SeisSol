@@ -234,15 +234,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                              stateVarReference[pointIndex],
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
-        tpMethod.calcFluidPressure(faultStresses,
-                                   this->initialStressInFaultCS,
-                                   this->mu,
-                                   this->slipRateMagnitude,
-                                   this->deltaT[timeIndex],
-                                   false,
-                                   timeIndex,
-                                   ltsFace);
       }
+      tpMethod.calcFluidPressure(faultStresses,
+                                 this->initialStressInFaultCS,
+                                 this->mu,
+                                 this->slipRateMagnitude,
+                                 this->deltaT[timeIndex],
+                                 false,
+                                 timeIndex,
+                                 ltsFace);
 
       // solve for new slip rate, applying the Newton-Raphson algorithm
       // effective normal stress including initial stresses and pore fluid pressure
