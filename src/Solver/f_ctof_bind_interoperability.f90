@@ -531,6 +531,37 @@ module f_ctof_bind_interoperability
       l_domain%DISC%DynRup%output_Strength(:,i_face) = l_strength(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
     end subroutine
 
+    subroutine f_interoperability_setFrictionOutputThermalPressurization(i_domain, i_face, i_fluidPressure, i_fluidTemperature)&
+        bind (c, name='f_interoperability_setFrictionOutputThermalPressurization')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      INTEGER     :: i ,j, k
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer                                :: nSide , nBndGP
+      integer(kind=c_int), value             :: i_face
+      type(c_ptr), value                     :: i_fluidPressure
+      type(c_ptr), value                     :: i_fluidTemperature
+      REAL_TYPE, pointer                     :: l_fluidPressure(:)
+      REAL_TYPE, pointer                     :: l_fluidTemperature(:)
+
+      !integer :: nSide
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain,             l_domain)
+      nSide = l_domain%MESH%Fault%nSide
+      nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+      call c_f_pointer( i_fluidPressure, l_fluidPressure, [nBndGP])
+      call c_f_pointer( i_fluidTemperature, l_fluidTemperature, [nBndGP])
+      !copy to output
+
+      l_domain%DISC%DynRup%TP(:,i_face,2) = l_fluidPressure(:)
+      l_domain%DISC%DynRup%TP(:,i_face,1) = l_fluidTemperature(:)
+    end subroutine
+
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutputInitialStress(i_domain, iFace, i_InitialStressInFaultCS, i_bulkXX, i_bulkYY, i_bulkZZ, i_shearXY, i_shearYZ, i_shearXZ) bind (c, name='f_interoperability_setFrictionOutputInitialStress')
       use iso_c_binding

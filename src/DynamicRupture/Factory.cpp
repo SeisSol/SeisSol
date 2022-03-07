@@ -57,7 +57,7 @@ Products RateAndStateAgingFactory::produce() {
         std::make_unique<seissol::initializers::LTS_RateAndState>(),
         std::make_unique<initializers::RateAndStateInitializer>(drParameters),
         std::make_unique<friction_law::AgingLaw<friction_law::ThermalPressurization>>(drParameters),
-        std::make_unique<output::RateAndState>()};
+        std::make_unique<output::RateAndStateThermalPressurisation>()};
   } else {
     return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
@@ -72,7 +72,7 @@ Products RateAndStateSlipFactory::produce() {
         std::make_unique<seissol::initializers::LTS_RateAndState>(),
         std::make_unique<initializers::RateAndStateInitializer>(drParameters),
         std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(drParameters),
-        std::make_unique<output::RateAndState>()};
+        std::make_unique<output::RateAndStateThermalPressurisation>()};
   } else {
     return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
@@ -111,7 +111,7 @@ Products RateAndStateFastVelocityWeakeningFactory::produce() {
         std::make_unique<
             friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
             drParameters),
-        std::make_unique<output::RateAndState>()};
+        std::make_unique<output::RateAndStateThermalPressurisation>()};
   } else {
     return {
         std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),

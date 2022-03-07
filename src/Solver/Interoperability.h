@@ -477,6 +477,11 @@ class seissol::Interoperability {
                                            real  (*strength)[init::QInterpolated::Stop[0]]
   );
 
+  void copyFrictionOutputToFortranThermalPressurization(unsigned ltsFace, unsigned meshFace,
+                                           real  (*fluidPressure)[dr::misc::numPaddedPoints],
+                                           real  (*fluidTemperature)[dr::misc::numPaddedPoints]
+  );
+
   void copyFrictionOutputToFortranInitialStressInFaultCS(unsigned ltsFace, unsigned meshFace,
                                                          real  (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
                                                          std::vector<std::array<real, init::QInterpolated::Stop[0]>>& iniBulkXX,

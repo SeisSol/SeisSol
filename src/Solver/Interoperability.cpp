@@ -408,7 +408,9 @@ double c_interoperability_M2invDiagonal(int no) {
 
   extern void f_interoperability_setFrictionOutputStrength(void*  i_domain, int i_face, real* strength);
 
-  extern void f_interoperability_setFrictionOutputInitialStress(void*  i_domain,
+extern void f_interoperability_setFrictionOutputThermalPressurization(void*  i_domain, int i_face, real* fluidPressure, real* fluidTemperature);
+
+extern void f_interoperability_setFrictionOutputInitialStress(void*  i_domain,
                                                                 int i_face,
                                                                 real* i_initialStressInFaultCS,
                                                                 real* i_bulkXX,
@@ -1316,6 +1318,16 @@ void seissol::Interoperability::copyFrictionOutputToFortranStrength(
 
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
+}
+
+void seissol::Interoperability::copyFrictionOutputToFortranThermalPressurization(
+    unsigned int ltsFace,
+    unsigned int meshFace,
+    real (*fluidPressure)[dr::misc::numPaddedPoints],
+    real (*fluidTemperature)[dr::misc::numPaddedPoints]) {
+
+    int fFace = meshFace + 1;
+  f_interoperability_setFrictionOutputThermalPressurization(m_domain, fFace, &fluidPressure[ltsFace][0], &fluidTemperature[ltsFace][0]);
 }
 
 void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(
