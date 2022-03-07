@@ -12,7 +12,7 @@ In order to run SeisSol, you need to first install:
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.10), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
+-  CMake (>3.10) for the compilation of SeisSol
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -77,6 +77,21 @@ Installing netCDF
   make install
   cd ..
 
+.. _installing_eigen3:
+
+Installing Eigen3
+-----------------
+
+.. code-block:: bash
+
+   wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+   tar -xf eigen-3.4.0.tar.gz
+   cd eigen-3.4.0
+   mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=~
+   make install
+   cd ../..
+
 .. _installing_libxsmm:
 
 Installing Libxsmm
@@ -84,7 +99,7 @@ Installing Libxsmm
 
 .. code-block:: bash
 
-   git clone https://github.com/hfp/libxsmm
+   git clone --branch 1.17 https://github.com/hfp/libxsmm
    cd libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $HOME/bin
@@ -99,7 +114,14 @@ Installing PSpaMM
 .. code-block:: bash
 
    git clone https://github.com/SeisSol/PSpaMM.git
-   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
+   # make sure $HOME/bin exists or create it with "mkdir ~/bin"
+   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin/pspamm.py
+   
+Instead of linking, you could also add the following line to your .bashrc:
+
+.. code-block:: bash
+
+   export PATH=<Your_Path_to_PSpaMM>:$PATH
 
 Installing GemmForge (for GPU)
 ------------------------------
@@ -142,6 +164,10 @@ Installing ASAGI (Optional)
 See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 .. _compiling-seissol:
+
+Installing easi
+---------------------------
+Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 
 Compiling SeisSol
 -----------------

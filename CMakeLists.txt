@@ -11,6 +11,13 @@ endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+  set(NVHPC_REQUIRED_VERSION "22.1.0")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS NVHPC_REQUIRED_VERSION)
+    message(FATAL_ERROR "NVHPC version ${NVHPC_REQUIRED_VERSION} or higher is required")
+  endif()
+endif()
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -158,48 +165,9 @@ endif()
 # Libs
 include(ExternalProject)
 
-find_package(YAML-CPP 0.5.3 QUIET)
-if (YAML-CPP_FOUND)
-  target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-  target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
-else()
-  ExternalProject_Add(yaml-cpp-build
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DYAML_CPP_BUILD_TOOLS=OFF
-    -DYAML_CPP_BUILD_TESTS=OFF
-    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
-  )
-  add_dependencies(SeisSol-lib yaml-cpp-build)
-  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
-endif()
+find_package(easi 1.0.0 REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC easi::easi)
 
-if (USE_IMPALA_JIT_LLVM)
-  find_package(ImpalaJIT-LLVM 1.0 REQUIRED)
-  target_link_libraries(SeisSol-lib PRIVATE llvm::impalajit)
-else()
-  ExternalProject_Add(ImpalaJIT-build
-    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
-    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    -DCMAKE_CXX_FLAGS=${EXTRA_CXX_FLAGS}
-  )
-  add_dependencies(SeisSol-lib ImpalaJIT-build)
-  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
-endif()
-
-# todo: if parallelization == omp/hybrid
 if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
@@ -269,7 +237,7 @@ endif()
 find_package(PkgConfig REQUIRED) 
 if (ASAGI)
   # todo warn if netcdf is off
-  pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
+  pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-lib PUBLIC USE_ASAGI)
   target_link_libraries(SeisSol-lib PUBLIC ${ASAGI_STATIC_LDFLAGS})
   target_include_directories(SeisSol-lib PUBLIC ${ASAGI_INCLUDE_DIRS})
@@ -319,21 +287,25 @@ if (ADDRESS_SANITIZER_DEBUG)
 endif()
 
 
-# Note: it is better to include `eigen3` `async` as
+# Note: it is better to include `async` as
 # system headers because they emit lot's of warnings
 # from clang. Most of them are issues with respect
 # to overriden virtual methods
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
+
+
+find_package(Eigen3 3.4 REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen)
+
+find_package(yaml-cpp REQUIRED
+        PATHS ${CMAKE_CURRENT_BINARY_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-    # todo: use reexport from easi?
-    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
@@ -345,13 +317,21 @@ target_compile_definitions(SeisSol-lib PUBLIC
 )
 
 # Fortran compliler settings
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
+    # NOTE:
+    # 1. -Mpreprocess enables a C preprocessor macro
+    # 2. -Mfree specifies fortran free format
+    # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
+    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
+elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
+  target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
 endif()
 
 # C++ compiler settings
@@ -366,8 +346,19 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
+
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    set(WARNINGS "--display_error_number --diag_suppress186")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.1")
+      set(WARNINGS "${WARNINGS} --diag_suppress1")
+    endif()
+
+    # NOTE:
+    # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
+    # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
 endif()
 
 find_package(FILESYSTEM REQUIRED)

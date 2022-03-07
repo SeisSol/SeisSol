@@ -425,9 +425,9 @@ CONTAINS
     iSide = 0
 
     materialVal = OptionalFields%BackgroundValue(iElem,:)
-    call c_interoperability_setMaterial( i_elem = iElem,                                         \
-                                         i_side = iSide,                                         \
-                                         i_materialVal = materialVal,                            \
+    call c_interoperability_setMaterial( i_elem = iElem,                                         &
+                                         i_side = iSide,                                         &
+                                         i_materialVal = materialVal,                            &
                                          i_numMaterialVals = EQN%nBackgroundVar                  )
 
     do iSide = 1,4
@@ -444,9 +444,9 @@ CONTAINS
               materialVal = OptionalFields%BackgroundValue(iElem,:)
           END SELECT
       ENDIF
-      call c_interoperability_setMaterial( i_elem = iElem,                        \
-                                           i_side = iSide,                        \
-                                           i_materialVal = materialVal,       \
+      call c_interoperability_setMaterial( i_elem = iElem,                        &
+                                           i_side = iSide,                        &
+                                           i_materialVal = materialVal,           &
                                            i_numMaterialVals = EQN%nBackgroundVar )
 
     enddo
@@ -905,11 +905,11 @@ CONTAINS
         
            ! initialize loading in C
            oneRankedShaped_iniloading = pack( l_initialLoading, .true. )
-           call c_interoperability_setInitialLoading( i_meshId = iElem, \
+           call c_interoperability_setInitialLoading( i_meshId = iElem, &
                                                       i_initialLoading = oneRankedShaped_iniloading)
 
            !initialize parameters in C
-           call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
+           call c_interoperability_setPlasticParameters( i_meshId            = iElem, &
                                                          i_plasticParameters = l_plasticParameters )
 
        END IF
