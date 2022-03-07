@@ -1256,13 +1256,6 @@ void seissol::Interoperability::getDynRupFL_3(
                                    &i_RS_sr0[ltsFace]);
 }
 
-void seissol::Interoperability::getDynRupTP(
-    real TP_grid[seissol::dr::misc::numberOfTPGridPoints],
-    real TP_DFinv[seissol::dr::misc::numberOfTPGridPoints]) {
-
-  f_interoperability_getDynRupTP(m_domain, &TP_grid[0], &TP_DFinv[0]);
-}
-
 void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
     unsigned ltsFace, unsigned meshFace,
     real  (*slip)[dr::misc::numPaddedPoints],

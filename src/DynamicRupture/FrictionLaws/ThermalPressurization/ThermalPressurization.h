@@ -1,12 +1,38 @@
 #ifndef SEISSOL_THERMALPRESSURIZATION_H
 #define SEISSOL_THERMALPRESSURIZATION_H
 
+#include <array>
+
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/precision.hpp"
 
 namespace seissol::dr::friction_law {
+
+template <size_t N>
+struct GridPoints : std::array<real, N> {
+  constexpr GridPoints() {
+    for (size_t i = 0; i < N; ++i) {
+      this->at(i) =
+          misc::tpMaxWavenumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
+    }
+  }
+};
+
+template <size_t N>
+struct InverseFourierCoefficients : std::array<real, N> {
+  constexpr InverseFourierCoefficients() {
+    GridPoints<N> localGridPoints;
+    this->front() = std::sqrt(2 / M_PI) * localGridPoints.front() * (1 + 0.5 * misc::tpLogDz);
+    this->back() = std::sqrt(2 / M_PI) * localGridPoints.back() * (1 + 0.5 * misc::tpLogDz);
+
+    for (size_t i = 0; i < N; ++i) {
+      this->at(i) = std::sqrt(2 / M_PI) * localGridPoints.at(i) * misc::tpLogDz;
+    }
+  }
+};
+
 class ThermalPressurization {
   public:
   ThermalPressurization(DRParameters& drParameters) : drParameters(drParameters){};
@@ -22,9 +48,6 @@ class ThermalPressurization {
   real (*tpSigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
   real (*tpHalfWidthShearZone)[misc::numPaddedPoints];
   real (*alphaHy)[misc::numPaddedPoints];
-
-  real tpGrid[misc::numberOfTPGridPoints];
-  real tpDFinv[misc::numberOfTPGridPoints];
 
   real faultStrength[misc::numPaddedPoints];
   real thetaTmp[misc::numberOfTPGridPoints];

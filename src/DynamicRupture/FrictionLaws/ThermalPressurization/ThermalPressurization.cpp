@@ -1,6 +1,11 @@
 #include "ThermalPressurization.h"
 
 namespace seissol::dr::friction_law {
+
+static constexpr GridPoints<misc::numberOfTPGridPoints> tpGridPoints;
+static constexpr InverseFourierCoefficients<misc::numberOfTPGridPoints>
+    tpInverseFourierCoefficients;
+
 void ThermalPressurization::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                                seissol::initializers::DynamicRupture* dynRup,
                                                real fullUpdateTime) {
@@ -75,7 +80,8 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w
-    real tmp = misc::power<2>(tpGrid[tpGridPointIndex] / tpHalfWidthShearZone[ltsFace][pointIndex]);
+    real tmp = misc::power<2>(tpGridPoints.at(tpGridPointIndex) /
+                              tpHalfWidthShearZone[ltsFace][pointIndex]);
 
     // 1. Calculate diffusion of the field at previous timestep
     // temperature
@@ -95,9 +101,11 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution
-    localTemperature += (tpDFinv[tpGridPointIndex] / tpHalfWidthShearZone[ltsFace][pointIndex]) *
+    localTemperature += (tpInverseFourierCoefficients[tpGridPointIndex] /
+                         tpHalfWidthShearZone[ltsFace][pointIndex]) *
                         thetaTmp[tpGridPointIndex];
-    localPressure += (tpDFinv[tpGridPointIndex] / tpHalfWidthShearZone[ltsFace][pointIndex]) *
+    localPressure += (tpInverseFourierCoefficients[tpGridPointIndex] /
+                      tpHalfWidthShearZone[ltsFace][pointIndex]) *
                      sigmaTmp[tpGridPointIndex];
   }
   // Update pore pressure change (sigma = pore pressure + lambda'*temp)
@@ -124,7 +132,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 real ThermalPressurization::heatSource(
     real tmp, real alpha, real deltaT, unsigned int tpGridPointIndex, unsigned int timeIndex) {
   return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
-         std::exp(-0.5 * misc::power<2>(tpGrid[tpGridPointIndex])) *
+         std::exp(-0.5 * misc::power<2>(tpGridPoints.at(tpGridPointIndex))) *
          (1.0 - exp(-alpha * deltaT * tmp));
 }
 } // namespace seissol::dr::friction_law

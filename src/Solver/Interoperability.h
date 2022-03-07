@@ -427,16 +427,6 @@ class seissol::Interoperability {
                                               real *i_RS_sl0,
                                               real *i_RS_sr0);
 
-  /**
-   * get initial values from fortran
-   * for FL103 Thermal Pressure (TP)
-   *
-   *
-   * @param TP_grid     grid for TP
-   * @param TP_DFinv    inverse Fourier coefficients
-   **/
-  void getDynRupTP(real TP_grid[seissol::dr::misc::numberOfTPGridPoints], real TP_DFinv[seissol::dr::misc::numberOfTPGridPoints]);
-
   void copyFrictionOutputInitialStressInFaultCS(unsigned numberOfCells, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
 
   /**

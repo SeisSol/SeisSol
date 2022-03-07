@@ -25,7 +25,13 @@ constexpr size_t leadDim() noexcept {
 static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
 static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
 
-static constexpr size_t numberOfTPGridPoints = 60;
+/**
+ * Constants for Thermal Pressurization
+ */
+// was 60
+static constexpr size_t numberOfTPGridPoints = 16;
+static constexpr real tpLogDz = 0.3;
+static constexpr real tpMaxWavenumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.

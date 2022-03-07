@@ -344,33 +344,6 @@ module f_ctof_bind_interoperability
 
     end subroutine
 
-
-    subroutine f_interoperability_getDynRupTP(i_domain, i_TP_grid, i_TP_DFinv) bind (c, name='f_interoperability_getDynRupTP')
-      use iso_c_binding
-      use typesDef
-      use f_ftoc_bind_interoperability
-      implicit none
-
-      integer                                :: TP_grid_nz
-      integer                                :: i_numberOfPoints, iFace
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-      type(c_ptr), value                     :: i_TP_grid
-      REAL_TYPE, pointer                     :: l_TP_grid(:)
-      type(c_ptr), value                     :: i_TP_DFinv
-      REAL_TYPE, pointer                     :: l_TP_DFinv(:)
-
-      call c_f_pointer( i_domain,             l_domain)
-      TP_grid_nz = l_domain%DISC%DynRup%TP_grid_nz
-      i_numberOfPoints = l_domain%DISC%Galerkin%nBndGP
-
-      call c_f_pointer( i_TP_grid,       l_TP_grid , [TP_grid_nz])
-      call c_f_pointer( i_TP_DFinv,      l_TP_DFinv, [TP_grid_nz])
-
-      l_TP_grid(:)   = l_domain%DISC%DynRup%TP_grid(:)
-      l_TP_DFinv(:)  = l_domain%DISC%DynRup%TP_DFinv(:)
-    end subroutine
-
     subroutine f_interoperability_setFrictionOutputGeneral(i_domain, i_face, &
               i_slip, i_slipStrike, i_slipDip, i_ruptureTime, i_dynStressTime,&
               i_PeakSlipRate, i_tractionXY, i_tractionXZ)&
