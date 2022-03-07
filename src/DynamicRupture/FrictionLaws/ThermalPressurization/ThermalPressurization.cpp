@@ -79,23 +79,19 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // 1. Calculate diffusion of the field at previous timestep
     // temperature
-    real thetaCurrent = thetaTmp[tpGridPointIndex] *
-        std::exp(-drParameters.alphaTh * deltaT * tmp);
+    real thetaCurrent = thetaTmp[tpGridPointIndex] * std::exp(-drParameters.alphaTh * deltaT * tmp);
     // pore pressure + lambda'*temp
-    real sigmaCurrent = sigmaTmp[tpGridPointIndex] *
-        std::exp(-alphaHy[ltsFace][pointIndex] * deltaT * tmp);
+    real sigmaCurrent =
+        sigmaTmp[tpGridPointIndex] * std::exp(-alphaHy[ltsFace][pointIndex] * deltaT * tmp);
 
     // 2. Add current contribution and get new temperature
-    real omegaTheta = heatSource(
-        tmp, drParameters.alphaTh, deltaT, tpGridPointIndex, timeIndex);
-    thetaTmp[tpGridPointIndex] =
-        thetaCurrent + (tauV / drParameters.rhoC) * omegaTheta;
+    real omegaTheta = heatSource(tmp, drParameters.alphaTh, deltaT, tpGridPointIndex, timeIndex);
+    thetaTmp[tpGridPointIndex] = thetaCurrent + (tauV / drParameters.rhoC) * omegaTheta;
 
-    real omegaSigma = heatSource(
-        tmp, alphaHy[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
-    sigmaTmp[tpGridPointIndex] =
-        sigmaCurrent + ((drParameters.tpLambda + lambdaPrime) * tauV) /
-                                             (drParameters.rhoC) * omegaSigma;
+    real omegaSigma =
+        heatSource(tmp, alphaHy[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
+    sigmaTmp[tpGridPointIndex] = sigmaCurrent + ((drParameters.tpLambda + lambdaPrime) * tauV) /
+                                                    (drParameters.rhoC) * omegaSigma;
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution

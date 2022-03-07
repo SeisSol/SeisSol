@@ -14,7 +14,8 @@ class RateAndStateThermalPressurisation : public RateAndState {
                    seissol::Interoperability& eInteroperability) override {
     RateAndState::tiePointers(layerData, dynRup, eInteroperability);
 
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurisation*>(dynRup);
+    auto* concreteLts =
+        dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurisation*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real(*fluidPressure)[misc::numPaddedPoints] = layerData.var(concreteLts->pressure);
@@ -25,7 +26,8 @@ class RateAndStateThermalPressurisation : public RateAndState {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-      eInteroperability.copyFrictionOutputToFortranThermalPressurization(ltsFace, meshFace, fluidPressure, fluidTemperature);
+      eInteroperability.copyFrictionOutputToFortranThermalPressurization(
+          ltsFace, meshFace, fluidPressure, fluidTemperature);
     }
   }
 };
