@@ -6,7 +6,7 @@ void ThermalPressurization::copyLtsTreeToLocal(seissol::initializers::Layer& lay
                                                real fullUpdateTime) {
   // maybe change later to const_cast?
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurisation*>(dynRup);
+      dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   tpTheta = layerData.var(concreteLts->tpTheta);

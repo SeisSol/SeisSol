@@ -53,7 +53,7 @@ namespace seissol {
     struct LTS_LinearSlipWeakeningBimaterial;
     struct LTS_RateAndState;
     struct LTS_RateAndStateFastVelocityWeakening;
-    struct LTS_RateAndStateThermalPressurisation;
+    struct LTS_RateAndStateThermalPressurization;
     struct LTS_ImposedSlipRates;
   } // namespace initializers
 } // namespace seissol
@@ -231,7 +231,7 @@ struct seissol::initializers::LTS_RateAndStateFastVelocityWeakening : public sei
   }
 };
 
-struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public seissol::initializers::LTS_RateAndStateFastVelocityWeakening {
+struct seissol::initializers::LTS_RateAndStateThermalPressurization : public seissol::initializers::LTS_RateAndStateFastVelocityWeakening {
 
   Variable<real[dr::misc::numPaddedPoints]> temperature;  //this is TP[1] in fortran
   Variable<real[dr::misc::numPaddedPoints]> pressure;     //this is TP[2] in fortran

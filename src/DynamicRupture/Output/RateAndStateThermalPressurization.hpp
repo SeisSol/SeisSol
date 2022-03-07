@@ -4,7 +4,7 @@
 #include "DynamicRupture/Output/Base.hpp"
 
 namespace seissol::dr::output {
-class RateAndStateThermalPressurisation : public RateAndState {
+class RateAndStateThermalPressurization : public RateAndState {
   public:
   using RateAndState::postCompute;
   using RateAndState::RateAndState;
@@ -15,7 +15,7 @@ class RateAndStateThermalPressurisation : public RateAndState {
     RateAndState::tiePointers(layerData, dynRup, eInteroperability);
 
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurisation*>(dynRup);
+        dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurization*>(dynRup);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real(*fluidPressure)[misc::numPaddedPoints] = layerData.var(concreteLts->pressure);

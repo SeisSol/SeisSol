@@ -83,7 +83,7 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rsInitialSlipRate2);
     initializers::updateIfExists(yamlParams, "mu_w", drParameters.muW);
 
-    // Thermal Pressurisation parameters
+    // Thermal Pressurization parameters
     initializers::updateIfExists(yamlParams, "alpha_th", drParameters.alphaTh);
     initializers::updateIfExists(yamlParams, "rho_c", drParameters.rhoC);
     initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.tpLambda);

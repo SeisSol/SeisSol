@@ -57,7 +57,7 @@ Products RateAndStateAgingFactory::produce() {
         std::make_unique<seissol::initializers::LTS_RateAndState>(),
         std::make_unique<initializers::RateAndStateInitializer>(drParameters),
         std::make_unique<friction_law::AgingLaw<friction_law::ThermalPressurization>>(drParameters),
-        std::make_unique<output::RateAndStateThermalPressurisation>()};
+        std::make_unique<output::RateAndStateThermalPressurization>()};
   } else {
     return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
@@ -72,7 +72,7 @@ Products RateAndStateSlipFactory::produce() {
         std::make_unique<seissol::initializers::LTS_RateAndState>(),
         std::make_unique<initializers::RateAndStateInitializer>(drParameters),
         std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(drParameters),
-        std::make_unique<output::RateAndStateThermalPressurisation>()};
+        std::make_unique<output::RateAndStateThermalPressurization>()};
   } else {
     return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
@@ -106,12 +106,12 @@ Products ImposedSlipRatesFactory::produce() {
 Products RateAndStateFastVelocityWeakeningFactory::produce() {
   if (drParameters.isThermalPressureOn) {
     return {
-        std::make_unique<seissol::initializers::LTS_RateAndStateThermalPressurisation>(),
-        std::make_unique<initializers::RateAndStateThermalPressurisationInitializer>(drParameters),
+        std::make_unique<seissol::initializers::LTS_RateAndStateThermalPressurization>(),
+        std::make_unique<initializers::RateAndStateThermalPressurizationInitializer>(drParameters),
         std::make_unique<
             friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
             drParameters),
-        std::make_unique<output::RateAndStateThermalPressurisation>()};
+        std::make_unique<output::RateAndStateThermalPressurization>()};
   } else {
     return {
         std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),

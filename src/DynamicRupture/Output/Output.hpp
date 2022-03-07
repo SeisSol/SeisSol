@@ -6,6 +6,6 @@
 #include "DynamicRupture/Output/LinearSlipWeakeningBimaterial.hpp"
 #include "DynamicRupture/Output/NoFault.hpp"
 #include "DynamicRupture/Output/RateAndState.hpp"
-#include "DynamicRupture/Output/RateAndStateThermalPressurisation.hpp"
+#include "DynamicRupture/Output/RateAndStateThermalPressurization.hpp"
 
 #endif // SEISSOL_DR_OUTPUT_HPP

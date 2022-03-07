@@ -104,9 +104,9 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
 
 /**
  * Derived initializer class for FastVelocityWeakening friction law with additional thermal
- * pressurisation
+ * pressurization
  */
-class RateAndStateThermalPressurisationInitializer : public RateAndStateFastVelocityInitializer {
+class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelocityInitializer {
   public:
   using RateAndStateFastVelocityInitializer::RateAndStateFastVelocityInitializer;
 

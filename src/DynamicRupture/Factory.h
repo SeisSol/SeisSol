@@ -76,11 +76,6 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   virtual Products produce() override;
 };
 
-class RateAndStateThermalPressurisationFactory : public AbstractFactory {
-  using AbstractFactory::AbstractFactory;
-  virtual Products produce() override;
-};
-
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
     getFactory(dr::DRParameters& dynRupParameter);
 
