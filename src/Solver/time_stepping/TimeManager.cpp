@@ -99,7 +99,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
-      const bool printProgress = (localClusterId == 0) && (type == Interior);
+      const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           l_globalClusterId,
