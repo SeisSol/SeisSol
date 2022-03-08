@@ -771,6 +771,7 @@ void TimeCluster::correct() {
       computeDynamicRupture(*dynRupCopyData);
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)];
+      dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
     }
 
   }
@@ -782,11 +783,15 @@ void TimeCluster::correct() {
   g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRNeighbor)];
 
   // First cluster calls fault receiver output
+  // Call fault output only if both interior and copy parts of DR were computed
   // TODO: Change from iteration based to time based
-  // TODO(Lukas) Are we only calling this once?!
-  if (m_clusterId == 0) {
+  if (m_clusterId == 0
+      && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
     e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+    dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
+
+
 
   // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();

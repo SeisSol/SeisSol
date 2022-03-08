@@ -76,7 +76,7 @@ struct ClusterTimes {
   [[nodiscard]] double timeStepSize(double syncTime) const;
 
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
-          double newSyncTime) const;
+                                               double newSyncTime) const;
 
 };
 
@@ -91,6 +91,8 @@ struct NeighborCluster {
 
 class DynamicRuptureScheduler {
   long lastCorrectionStepsInterior = -1;
+  long lastCorrectionStepsCopy = -1;
+  long lastFaultOutput = -1;
   long numberOfDynamicRuptureFaces;
 
 public:
@@ -98,7 +100,13 @@ public:
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
 
+  [[nodiscard]] bool mayComputeFaultOutput(long curCorrectionSteps) const;
+
   void setLastCorrectionStepsInterior(long steps);
+
+  void setLastCorrectionStepsCopy(long steps);
+
+  void setLastFaultOutput(long steps);
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 };

@@ -152,7 +152,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
                                                   meshStructure->neighboringClusters + meshStructure->numberOfRegions,
                                                   [otherGlobalClusterId](const auto& neighbor) {
-        return neighbor[1] == otherGlobalClusterId;
+        return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
           assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));

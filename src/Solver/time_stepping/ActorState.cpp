@@ -84,8 +84,22 @@ bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const 
   return curCorrectionSteps > lastCorrectionStepsInterior;
 }
 
+bool DynamicRuptureScheduler::mayComputeFaultOutput(long curCorrectionSteps) const {
+  return curCorrectionSteps == lastCorrectionStepsInterior
+         && curCorrectionSteps == lastCorrectionStepsCopy
+         && curCorrectionSteps > lastFaultOutput;
+}
+
 void DynamicRuptureScheduler::setLastCorrectionStepsInterior(long steps) {
   lastCorrectionStepsInterior = steps;
+}
+
+void DynamicRuptureScheduler::setLastCorrectionStepsCopy(long steps) {
+  lastCorrectionStepsCopy = steps;
+}
+
+void DynamicRuptureScheduler::setLastFaultOutput(long steps) {
+  lastFaultOutput = steps;
 }
 
 bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
