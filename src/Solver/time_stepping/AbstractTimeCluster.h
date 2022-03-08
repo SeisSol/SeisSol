@@ -35,7 +35,6 @@ protected:
   virtual bool processMessages();
   virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
-  virtual void reset();
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
 
@@ -59,6 +58,7 @@ public:
 
   [[nodiscard]] ActorState getState() const;
   [[nodiscard]] bool synced() const;
+  virtual void reset();
 
   void setPredictionTime(double time);
   void setCorrectionTime(double time);
