@@ -14,10 +14,11 @@ class Base {
   public:
   virtual ~Base() = default;
 
-  void setInputParam(const YAML::Node& inputData, const MeshReader& mesher) {
+  void setInputParam(const YAML::Node& inputData, MeshReader& userMesher) {
     using namespace initializers;
 
     ParametersInitializer reader(inputData);
+    mesher = &userMesher;
     generalParams = reader.getDrGeneralParams();
 
     // adjust general output parameters
@@ -34,23 +35,30 @@ class Base {
     if (pointEnabled) {
       logInfo() << "Enabling on-fault receiver output";
       ppOutputBuilder = std::make_unique<PickPointBuilder>();
-      ppOutputBuilder->setMeshReader(&mesher);
+      ppOutputBuilder->setMeshReader(&userMesher);
       ppOutputBuilder->setParams(reader.getPickPointParams());
     }
     if (elementwiseEnabled) {
       logInfo() << "Enabling 2D fault output";
       ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
-      ewOutputBuilder->setMeshReader(&mesher);
+      ewOutputBuilder->setMeshReader(&userMesher);
       ewOutputBuilder->setParams(reader.getElementwiseFaultParams());
     }
     if (!elementwiseEnabled && !pointEnabled) {
       logInfo() << "No dynamic rupture output enabled";
     }
   }
-  void setDrData(seissol::initializers::LTSTree* userDrTree,
-                 seissol::initializers::DynamicRupture* drDescription) {
+
+  void setLtsData(seissol::initializers::LTSTree* userWpTree,
+                  seissol::initializers::LTS* userWpDescr,
+                  seissol::initializers::Lut* userWpLut,
+                  seissol::initializers::LTSTree* userDrTree,
+                  seissol::initializers::DynamicRupture* userDrDescr) {
+    wpTree = userWpTree;
+    wpDescr = userWpDescr;
+    wpLut = userWpLut;
     drTree = userDrTree;
-    dynRup = drDescription;
+    drDescr = userDrDescr;
   }
 
   void init();
@@ -64,9 +72,18 @@ class Base {
                            seissol::initializers::DynamicRupture* description,
                            seissol::Interoperability& eInteroperability);
 
-  virtual void postCompute(seissol::initializers::DynamicRupture& dynRup) = 0;
+  virtual void postCompute(seissol::initializers::DynamicRupture& drDescr) = 0;
 
   protected:
+  void getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side);
+  void computeLocalStresses();
+  virtual real computeLocalStrength() = 0;
+  virtual real computePf() { return 0.0; }
+  void computeLocalTraction(real strength);
+  virtual void computeSlipAndRate(std::array<real, 6>&, std::array<real, 6>&);
+  virtual void outputSpecifics(OutputData& data, size_t level, size_t receiverIdx) {}
+  real computeRuptureVelocity();
+
   void initElementwiseOutput();
   void initPickpointOutput();
 
@@ -78,13 +95,51 @@ class Base {
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
 
+  seissol::initializers::LTS* wpDescr{nullptr};
+  seissol::initializers::LTSTree* wpTree{nullptr};
+  seissol::initializers::Lut* wpLut{nullptr};
+
   seissol::initializers::LTSTree* drTree{nullptr};
-  seissol::initializers::DynamicRupture* dynRup{nullptr};
+  seissol::initializers::DynamicRupture* drDescr{nullptr};
+
+  MeshReader* mesher{nullptr};
 
   std::vector<std::pair<seissol::initializers::Layer*, size_t>> faceToLtsMap{};
   size_t iterationStep{0};
-
   static constexpr double timeMargin{1.005};
+
+  struct LocalInfo {
+    seissol::initializers::Layer* layer{};
+    size_t ltsId{};
+    int nearestGpIndex{};
+
+    real pf{};
+    real mu{};
+    real sXY{};
+    real sXZ{};
+    real p0{};
+
+    real p{};
+    real u{};
+    real yyStress{};
+    real zzStress{};
+    real xyStress{};
+    real xzStress{};
+    real yzStress{};
+    real tracEla{};
+
+    real xyTraction{};
+    real xzTraction{};
+
+    real srS{};
+    real srD{};
+
+    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
+    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+
+    model::IsotropicWaveSpeeds* waveSpeedsPlus{};
+    model::IsotropicWaveSpeeds* waveSpeedsMinus{};
+  } local{};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_BASE_HPP

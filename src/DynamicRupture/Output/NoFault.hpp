@@ -8,14 +8,16 @@ namespace seissol::dr::output {
 class NoFault : public Base {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, dynRup, eInteroperability);
+    Base::tiePointers(layerData, drDescr, eInteroperability);
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
     // do nothing
   }
+
+  real computeLocalStrength() override { return 0.0; }
 };
 } // namespace seissol::dr::output
 

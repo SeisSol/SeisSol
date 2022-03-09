@@ -44,6 +44,7 @@ from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
+from copy import deepcopy
 #adrian numpy added:
 import numpy as np
 
@@ -69,8 +70,11 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   initialStress = Tensor("initialStress", (6, ))
   rotatedStress = Tensor("rotatedStress", (6, ))
   rotationKernel = rotatedStress['i'] <= stressRotationMatrix['ij'] * initialStress['j']
-  generator.add('rotateStressToFaultCS', rotationKernel )
+  generator.add('rotateStressToFaultCS', rotationKernel)
 
+  reducedFaceAlignedMatrix = Tensor("reducedFaceAlignedMatrix", (6, 6))
+  generator.add('rotateInitStress',
+                rotatedStress['k'] <= stressRotationMatrix['ki'] * reducedFaceAlignedMatrix['ij'] * initialStress['j'])
 
   originalQ = Tensor('originalQ', (numberOfPoints,))
   resampledQ = Tensor('resampledQ', (numberOfPoints,))
@@ -81,6 +85,14 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   fluxScale = Scalar('fluxScale')
   generator.add('rotateFluxMatrix', fluxSolver['qp'] <= fluxScale * aderdg.starMatrix(0)['qk'] * aderdg.T['pk'])
+
+  numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  numberOfQuantities = aderdg.numberOfQuantities()
+  basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
+  QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
+
+  generator.add('computeFaceAlignedValues',
+                QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
 
   def interpolateQGenerator(i,h):
     return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']

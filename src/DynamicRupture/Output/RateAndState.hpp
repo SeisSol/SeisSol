@@ -7,11 +7,11 @@ namespace seissol::dr::output {
 class RateAndState : public Base {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, dynRup, eInteroperability);
+    Base::tiePointers(layerData, drDescr, eInteroperability);
 
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(drDescr);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
@@ -51,8 +51,13 @@ class RateAndState : public Base {
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
     // do nothing
+  }
+
+  protected:
+  real computeLocalStrength() override {
+    return -1.0 * local.mu * std::min(local.p + local.p0 - local.pf, static_cast<real>(0.0));
   }
 };
 } // namespace seissol::dr::output

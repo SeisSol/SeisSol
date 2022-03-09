@@ -830,7 +830,11 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   // TODO: switch m_dynRup to shared or weak pointer
   if (m_dynRupParameter.isDynamicRuptureEnabled) {
     m_DROutput->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
-    m_DROutput->setDrData(&m_dynRupTree, m_dynRup.get());
+    m_DROutput->setLtsData(&m_ltsTree,
+                           &m_lts,
+                           e_interoperability.getLtsLut(),
+                           &m_dynRupTree,
+                           m_dynRup.get());
     m_DROutput->init();
   }
 }

@@ -7,12 +7,12 @@ namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    LinearSlipWeakening::tiePointers(layerData, dynRup, eInteroperability);
+    LinearSlipWeakening::tiePointers(layerData, drDescr, eInteroperability);
 
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
+        dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(drDescr);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     constexpr auto size = init::QInterpolated::Stop[0];
@@ -27,7 +27,7 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
     // do nothing
   }
 };

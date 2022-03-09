@@ -7,11 +7,11 @@ namespace seissol::dr::output {
 class LinearSlipWeakening : public Base {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, dynRup, eInteroperability);
+    Base::tiePointers(layerData, drDescr, eInteroperability);
 
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(drDescr);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
@@ -30,8 +30,18 @@ class LinearSlipWeakening : public Base {
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
+  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
     // do nothing
+  }
+
+  protected:
+  real computeLocalStrength() override {
+    using DrLtsDescrT = seissol::initializers::LTS_LinearSlipWeakening;
+    auto* cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
+    auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
+
+    return -1.0 * local.mu * std::min(local.p + local.p0 - local.pf, static_cast<real>(0.0)) -
+           cohesion;
   }
 };
 } // namespace seissol::dr::output
