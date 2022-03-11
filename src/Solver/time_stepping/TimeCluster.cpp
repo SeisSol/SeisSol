@@ -986,8 +986,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(
       if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
         GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
-                                                             cellInformation[cell].faceTypes[face],
-                                                             m_timeKernel);
+                                                             cellInformation[cell].faceTypes[face]);
         nonZeroFlops += nonZeroFlopsDisplacement;
         hardwareFlops += hardwareFlopsDisplacement;
       }
