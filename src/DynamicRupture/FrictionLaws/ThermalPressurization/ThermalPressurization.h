@@ -24,12 +24,12 @@ template <size_t N>
 struct InverseFourierCoefficients : std::array<real, N> {
   constexpr InverseFourierCoefficients() {
     GridPoints<N> localGridPoints;
-    this->front() = std::sqrt(2 / M_PI) * localGridPoints.front() * (1 + 0.5 * misc::tpLogDz);
-    this->back() = std::sqrt(2 / M_PI) * localGridPoints.back() * (1 + 0.5 * misc::tpLogDz);
 
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 1; i < N - 1; ++i) {
       this->at(i) = std::sqrt(2 / M_PI) * localGridPoints.at(i) * misc::tpLogDz;
     }
+    this->at(0) = std::sqrt(2 / M_PI) * localGridPoints.front() * (1 + misc::tpLogDz);
+    this->at(N - 1) = std::sqrt(2 / M_PI) * localGridPoints.back() * 0.5 * misc::tpLogDz;
   }
 };
 
