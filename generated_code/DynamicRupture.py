@@ -38,10 +38,12 @@
 # @section DESCRIPTION
 #
 
+import numpy as np
 from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
+from yateto.memory import CSCMemoryLayout
 
 def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   if dynamicRuptureMethod == 'quadrature':
@@ -94,5 +96,40 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
                         nodalFluxGenerator,
                         nodalFluxPrefetch if target =='cpu' else None,
                         target=target)
+
+  # Energy output
+  # Minus and plus refer to the original implementation of Christian Pelties,
+  # where the normal points from the plus side to the minus side
+  QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3))
+  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3))
+  absoluteSlipInterpolated = Tensor('absoluteSlipInterpolated', (numberOfPoints,))
+  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3))
+  frictionalEnergy = Tensor('frictionalEnergy', ())
+  timeWeight = Scalar('timeWeight')
+  spaceWeights = Tensor('spaceWeights', (numberOfPoints,))
+
+  selectTractionSpp = np.zeros((aderdg.numberOfQuantities(), 3), dtype=bool)
+  selectTractionSpp[0,0] = True
+  selectTractionSpp[3,1] = True
+  selectTractionSpp[5,2] = True
+  tractionPlusMatrix = Tensor('tractionPlusMatrix', selectTractionSpp.shape, selectTractionSpp, CSCMemoryLayout)
+  tractionMinusMatrix = Tensor('tractionMinusMatrix', selectTractionSpp.shape, selectTractionSpp, CSCMemoryLayout)
+
+  computeSlipRateInterpolated = slipRateInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.selectVelocity['qp'] - QInterpolatedPlus['kq'] * aderdg.selectVelocity['qp']
+  generator.add('computeSlipRateInterpolated', computeSlipRateInterpolated)
+
+  computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * tractionPlusMatrix['qp']
+  generator.add('computeTractionInterpolated', computeTractionInterpolated)
+
+  addSlipRateInterpolated = slipInterpolated['kp'] <= slipInterpolated['kp'] + timeWeight * slipRateInterpolated['kp']
+  generator.add('addSlipRateInterpolated', addSlipRateInterpolated)
+
+  squareSlipRateInterpolated = absoluteSlipInterpolated['k'] <= slipRateInterpolated['kp'] * slipRateInterpolated['kp']
+  generator.add('squareSlipRateInterpolated', squareSlipRateInterpolated)
+
+  computeFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
+  generator.add('computeFrictionalEnergy', computeFrictionalEnergy)
 
   return {db.resample}

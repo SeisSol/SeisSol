@@ -65,6 +65,7 @@ src/ResultWriter/FaultWriterExecutor.cpp
 src/ResultWriter/FaultWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
+src/ResultWriter/EnergyOutput.cpp
 
 # Fortran:
 src/Geometry/allocate_mesh.f90
