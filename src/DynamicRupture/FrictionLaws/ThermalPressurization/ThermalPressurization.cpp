@@ -40,23 +40,23 @@ void ThermalPressurization::calcFluidPressure(
     faultStrength[pointIndex] =
         -mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), normalStress);
 
-    for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
-         tpGridPointIndex++) {
-      // save original values as they are overwritten updateTemperatureAndPressure
-      thetaTmp[tpGridPointIndex] = tpTheta[ltsFace][pointIndex][tpGridPointIndex];
-      sigmaTmp[tpGridPointIndex] = tpSigma[ltsFace][pointIndex][tpGridPointIndex];
-    }
+    //for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
+    //     tpGridPointIndex++) {
+    //  // save original values as they are overwritten updateTemperatureAndPressure
+    //  thetaTmp[tpGridPointIndex] = tpTheta[ltsFace][pointIndex][tpGridPointIndex];
+    //  sigmaTmp[tpGridPointIndex] = tpSigma[ltsFace][pointIndex][tpGridPointIndex];
+    //}
     //! use Theta/Sigma from last call in this update, dt/2 and new SR from NS
     updateTemperatureAndPressure(
         slipRateMagnitude[ltsFace][pointIndex], deltaT, pointIndex, timeIndex, ltsFace);
 
-    if (saveTmpInTP) {
-      for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
-           tpGridPointIndex++) {
-        tpTheta[ltsFace][pointIndex][tpGridPointIndex] = thetaTmp[tpGridPointIndex];
-        tpSigma[ltsFace][pointIndex][tpGridPointIndex] = sigmaTmp[tpGridPointIndex];
-      }
-    }
+    //if (saveTmpInTP) {
+    //  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
+    //       tpGridPointIndex++) {
+    //    tpTheta[ltsFace][pointIndex][tpGridPointIndex] = thetaTmp[tpGridPointIndex];
+    //    tpSigma[ltsFace][pointIndex][tpGridPointIndex] = sigmaTmp[tpGridPointIndex];
+    //  }
+    //}
   }
 }
 
@@ -81,28 +81,28 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // 1. Calculate diffusion of the field at previous timestep
     // temperature
-    real thetaCurrent = thetaTmp[tpGridPointIndex] * std::exp(-drParameters.alphaTh * deltaT * tmp);
+    real thetaCurrent = tpTheta[ltsFace][pointIndex][tpGridPointIndex] * std::exp(-drParameters.alphaTh * deltaT * tmp);
     // pore pressure + lambda'*temp
     real sigmaCurrent =
-        sigmaTmp[tpGridPointIndex] * std::exp(-alphaHy[ltsFace][pointIndex] * deltaT * tmp);
+        tpSigma[ltsFace][pointIndex][tpGridPointIndex] * std::exp(-alphaHy[ltsFace][pointIndex] * deltaT * tmp);
 
     // 2. Add current contribution and get new temperature
     real omegaTheta = heatSource(tmp, drParameters.alphaTh, deltaT, tpGridPointIndex, timeIndex);
-    thetaTmp[tpGridPointIndex] = thetaCurrent + (tauV / drParameters.rhoC) * omegaTheta;
+    tpTheta[ltsFace][pointIndex][tpGridPointIndex] = thetaCurrent + (tauV / drParameters.rhoC) * omegaTheta;
 
     real omegaSigma =
         heatSource(tmp, alphaHy[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
-    sigmaTmp[tpGridPointIndex] = sigmaCurrent + ((drParameters.tpLambda + lambdaPrime) * tauV) /
+    tpSigma[ltsFace][pointIndex][tpGridPointIndex] = sigmaCurrent + ((drParameters.tpLambda + lambdaPrime) * tauV) /
                                                     (drParameters.rhoC) * omegaSigma;
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution
     temperatureUpdate += (tpInverseFourierCoefficients[tpGridPointIndex] /
                          tpHalfWidthShearZone[ltsFace][pointIndex]) *
-                        thetaTmp[tpGridPointIndex];
+                        tpTheta[ltsFace][pointIndex][tpGridPointIndex];
     pressureUpdate += (tpInverseFourierCoefficients[tpGridPointIndex] /
                       tpHalfWidthShearZone[ltsFace][pointIndex]) *
-                     sigmaTmp[tpGridPointIndex];
+                     tpSigma[ltsFace][pointIndex][tpGridPointIndex];
   }
   // Update pore pressure change (sigma = pore pressure + lambda'*temp)
   // In the BIEM code (Lapusta) they use T without initial value

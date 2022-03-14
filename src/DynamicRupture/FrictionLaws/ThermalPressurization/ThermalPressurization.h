@@ -47,10 +47,7 @@ class ThermalPressurization {
   real (*tpSigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
   real (*tpHalfWidthShearZone)[misc::numPaddedPoints];
   real (*alphaHy)[misc::numPaddedPoints];
-
   real faultStrength[misc::numPaddedPoints];
-  real thetaTmp[misc::numberOfTPGridPoints];
-  real sigmaTmp[misc::numberOfTPGridPoints];
 
   public:
   /**
