@@ -221,7 +221,7 @@ void Base::getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side) {
   // get DOFs from 0th derivatives
   real* derivatives{nullptr};
   auto ltsSetup = wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup;
-  if ((ltsSetup >> 9) % 2 == 0) {
+  if ((ltsSetup >> 9) % 2 == 1) {
     derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
   } else {
     wpLut->lookup(wpDescr->faceNeighbors, meshId)[0];
