@@ -21,9 +21,6 @@ void ThermalPressurization::copyLtsTreeToLocal(seissol::initializers::Layer& lay
 }
 
 void ThermalPressurization::setInitialFluidPressure(unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    localPressure[pointIndex] = pressure[ltsFace][pointIndex];
-  }
 }
 
 void ThermalPressurization::calcFluidPressure(
@@ -39,7 +36,7 @@ void ThermalPressurization::calcFluidPressure(
 
     // compute fault strength
     auto normalStress = faultStresses.normalStress[timeIndex][pointIndex] +
-                        initialStressInFaultCS[ltsFace][pointIndex][0] - localPressure[pointIndex];
+                        initialStressInFaultCS[ltsFace][pointIndex][0] - pressure[ltsFace][pointIndex];
     faultStrength[pointIndex] =
         -mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), normalStress);
 
@@ -53,7 +50,6 @@ void ThermalPressurization::calcFluidPressure(
     updateTemperatureAndPressure(
         slipRateMagnitude[ltsFace][pointIndex], deltaT, pointIndex, timeIndex, ltsFace);
 
-    localPressure[pointIndex] = pressure[ltsFace][pointIndex];
     if (saveTmpInTP) {
       for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
            tpGridPointIndex++) {
@@ -69,8 +65,8 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
                                                          unsigned int pointIndex,
                                                          unsigned int timeIndex,
                                                          unsigned int ltsFace) {
-  real localTemperature = 0.0;
-  real localPressure = 0.0;
+  real temperatureUpdate = 0.0;
+  real pressureUpdate = 0.0;
 
   real tauV = faultStrength[pointIndex] * slipRateMagnitude;
   real lambdaPrime = drParameters.tpLambda * drParameters.alphaTh /
@@ -101,20 +97,20 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution
-    localTemperature += (tpInverseFourierCoefficients[tpGridPointIndex] /
+    temperatureUpdate += (tpInverseFourierCoefficients[tpGridPointIndex] /
                          tpHalfWidthShearZone[ltsFace][pointIndex]) *
                         thetaTmp[tpGridPointIndex];
-    localPressure += (tpInverseFourierCoefficients[tpGridPointIndex] /
+    pressureUpdate += (tpInverseFourierCoefficients[tpGridPointIndex] /
                       tpHalfWidthShearZone[ltsFace][pointIndex]) *
                      sigmaTmp[tpGridPointIndex];
   }
   // Update pore pressure change (sigma = pore pressure + lambda'*temp)
   // In the BIEM code (Lapusta) they use T without initial value
-  localPressure = localPressure - lambdaPrime * localTemperature;
+  pressureUpdate = pressureUpdate - lambdaPrime * temperatureUpdate;
 
   // Temp and pore pressure change at single GP on the fault + initial values
-  temperature[ltsFace][pointIndex] = localTemperature + drParameters.initialTemperature;
-  pressure[ltsFace][pointIndex] = -localPressure + drParameters.initialPressure;
+  temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters.initialTemperature;
+  pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters.initialPressure;
 }
 
 /**
@@ -131,8 +127,9 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
  */
 real ThermalPressurization::heatSource(
     real tmp, real alpha, real deltaT, unsigned int tpGridPointIndex, unsigned int timeIndex) {
-  return 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
-         std::exp(-0.5 * misc::power<2>(tpGridPoints.at(tpGridPointIndex))) *
-         (1.0 - exp(-alpha * deltaT * tmp));
+  real value = 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
+               std::exp(-0.5 * misc::power<2>(tpGridPoints.at(tpGridPointIndex))) *
+               (1.0 - exp(-alpha * deltaT * tmp));
+  return value;
 }
 } // namespace seissol::dr::friction_law

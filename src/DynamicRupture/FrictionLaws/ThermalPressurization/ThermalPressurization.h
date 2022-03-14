@@ -43,7 +43,6 @@ class ThermalPressurization {
   protected:
   real (*temperature)[misc::numPaddedPoints];
   real (*pressure)[misc::numPaddedPoints];
-  real localPressure[misc::numPaddedPoints];
   real (*tpTheta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
   real (*tpSigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
   real (*tpHalfWidthShearZone)[misc::numPaddedPoints];
@@ -91,7 +90,7 @@ class ThermalPressurization {
   real heatSource(
       real tmp, real alpha, real deltaT, unsigned int tpGridPointIndex, unsigned int timeIndex);
 
-  real fluidPressure(unsigned int pointIndex) const { return localPressure[pointIndex]; }
+  real fluidPressure(unsigned int pointIndex, unsigned int ltsFace) const { return pressure[ltsFace][pointIndex]; }
 };
 } // namespace seissol::dr::friction_law
 
