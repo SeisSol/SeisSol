@@ -37,10 +37,11 @@
 #
 # @section DESCRIPTION
 #
-  
+import numpy as np
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
-
+from yateto import Tensor
 from aderdg import LinearADERDG
+from yateto.memory import CSCMemoryLayout
 
 class ElasticADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
@@ -53,6 +54,10 @@ class ElasticADERDG(LinearADERDG):
     )
 
     memoryLayoutFromFile(memLayout, self.db, clones)
+
+    selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
+    selectVelocitySpp[6:9,0:3] = np.eye(3)
+    self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
   def numberOfQuantities(self):
     return 9

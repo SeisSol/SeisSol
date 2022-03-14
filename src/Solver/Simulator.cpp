@@ -156,6 +156,11 @@ void seissol::Simulator::simulate() {
 
   seissol::SeisSol::main.timeManager().printComputationTime();
 
+  auto globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  auto dynRup     = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+  auto dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
+  seissol::writer::printEnergies(globalData.onHost, dynRup, dynRupTree);
+
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
   printFlops();
