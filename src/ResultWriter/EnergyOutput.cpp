@@ -3,42 +3,29 @@
 #include <Kernels/DynamicRupture.h>
 #include <Numerical_aux/Quadrature.h>
 
-void seissol::writer::printPlasticMoment(MeshReader const& i_meshReader,
+real seissol::writer::computePlasticMoment(MeshReader const& i_meshReader,
                                          seissol::initializers::LTSTree* i_ltsTree,
                                          seissol::initializers::LTS* i_lts,
                                          seissol::initializers::Lut* i_ltsLut) {
-  double plasticMomentLocal = 0.0;
+  real plasticMoment = 0.0;
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) reduction(+ : plasticMomentLocal)
+#pragma omp parallel for schedule(static) reduction(+ : plasticMoment)
 #endif
   for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
     real* pstrainCell = i_ltsLut->lookup(i_lts->pstrain, meshId);
-    double volume = MeshTools::volume(elements[meshId], vertices);
+    real volume = MeshTools::volume(elements[meshId], vertices);
     CellMaterialData& material = i_ltsLut->lookup(i_lts->material, meshId);
 #ifdef USE_ANISOTROPIC
-    double mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
+    real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
 #else
-    double mu = material.local.mu;
+    real mu = material.local.mu;
 #endif
-    plasticMomentLocal += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+    plasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
   }
-
-  int rank;
-  double plasticMomentGlobal = 0.0;
-#ifdef USE_MPI
-  MPI_Comm_rank(MPI::mpi.comm(), &rank);
-  MPI_Reduce(&plasticMomentLocal, &plasticMomentGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
-#else
-  rank = 0;
-  plasticMomentGlobal = plasticMomentLocal;
-#endif
-
-  if (rank == 0) {
-    logInfo(rank) << "Total plastic moment:" << plasticMomentGlobal;
-  }
+  return plasticMoment;
 }
 
 real seissol::writer::computeStaticWork(  GlobalData const*           global,
@@ -93,10 +80,17 @@ real seissol::writer::computeStaticWork(  GlobalData const*           global,
 
 void seissol::writer::printEnergies(  GlobalData const*                       global,
                                       seissol::initializers::DynamicRupture*  dynRup,
-                                      seissol::initializers::LTSTree*         dynRupTree)
+                                      seissol::initializers::LTSTree*         dynRupTree,
+                                      MeshReader const&                       i_meshReader,
+                                      seissol::initializers::LTSTree*         i_ltsTree,
+                                      seissol::initializers::LTS*             i_lts,
+                                      seissol::initializers::Lut*             i_ltsLut,
+                                      bool                                    usePlasticity) 
+
 {
   double totalWorkLocal = 0.0;
   double staticWorkLocal = 0.0;
+  double plasticMomentLocal = 0.0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
@@ -121,23 +115,31 @@ void seissol::writer::printEnergies(  GlobalData const*                       gl
       }
     }
   }
-
+  if (usePlasticity) {
+    plasticMomentLocal = computePlasticMoment(i_meshReader, i_ltsTree, i_lts, i_ltsLut);
+  }
   int rank;
   double totalWorkGlobal = 0.0;
   double staticWorkGlobal = 0.0;
+  double plasticMomentGlobal = 0.0; 
 #ifdef USE_MPI
   MPI_Comm_rank(MPI::mpi.comm(), &rank);
   MPI_Reduce(&totalWorkLocal, &totalWorkGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
   MPI_Reduce(&staticWorkLocal, &staticWorkGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
+  MPI_Reduce(&plasticMomentLocal, &plasticMomentGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
 #else
   rank = 0;
   totalWorkGlobal = totalWorkLocal;
   staticWorkGlobal = staticWorkLocal;
+  plasticMomentGlobal = plasticMomentLocal;
 #endif
 
   if (rank == 0) {
     logInfo(rank) << "Total work:" << totalWorkGlobal;
     logInfo(rank) << "Static work:" << staticWorkGlobal;
     logInfo(rank) << "Radiated energy:" << totalWorkGlobal - staticWorkGlobal;
+    if (usePlasticity) {
+       logInfo(rank) << "Total plastic moment:" << plasticMomentGlobal;
+    }
   }
 }

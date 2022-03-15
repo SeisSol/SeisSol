@@ -53,7 +53,7 @@ namespace seissol
 namespace writer
 {
 
-void printPlasticMoment(MeshReader const& i_meshReader, seissol::initializers::LTSTree* i_ltsTree,
+real computePlasticMoment(MeshReader const& i_meshReader, seissol::initializers::LTSTree* i_ltsTree,
                         seissol::initializers::LTS* i_lts, seissol::initializers::Lut* i_ltsLut);
 
 real computeStaticWork( GlobalData const*           global,
@@ -63,9 +63,16 @@ real computeStaticWork( GlobalData const*           global,
                         DRGodunovData const&        godunovData,
                         real                        slip[seissol::tensor::slipInterpolated::size()] );
 
-void printEnergies( GlobalData const*             global,
-                    initializers::DynamicRupture* dynRup,
-                    initializers::LTSTree*        dynRupTree );
+void printEnergies(  GlobalData const*                       global,
+                                      seissol::initializers::DynamicRupture*  dynRup,
+                                      seissol::initializers::LTSTree*         dynRupTree,
+                                      MeshReader const&                       i_meshReader,
+                                      seissol::initializers::LTSTree*         i_ltsTree,
+                                      seissol::initializers::LTS*             i_lts,
+                                      seissol::initializers::Lut*             i_ltsLut,
+                                      bool                                    usePlasticity);
+
+
 
 }
 } // namespace seissol
