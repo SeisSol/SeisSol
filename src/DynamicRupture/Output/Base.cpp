@@ -5,8 +5,7 @@
 #include "ResultWriter/common.hpp"
 #include "SeisSol.h"
 #include "generated_code/tensor.h"
-#include "Model/common.hpp"
-#include "../../../build/src/generated_code/kernel.h"
+#include "generated_code/kernel.h"
 #include <filesystem>
 #include <fstream>
 #include <type_traits>
@@ -224,13 +223,11 @@ void Base::getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side) {
   if ((ltsSetup >> 9) % 2 == 1) {
     derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
   } else {
-    wpLut->lookup(wpDescr->faceNeighbors, meshId)[0];
     derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   }
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofsPlus[0]);
 }
 
-using PaddedArrayT = real (*)[misc::numPaddedPoints];
 void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double time) {
 
   size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
@@ -258,11 +255,6 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       real dofsMinus[tensor::Q::size()]{};
       getDofs(dofsMinus, faultInfo.neighborElement, faultInfo.neighborSide);
 
-      auto* rt = reinterpret_cast<PaddedArrayT>(local.layer->var(drDescr->ruptureTime));
-      auto* slip =
-          reinterpret_cast<PaddedArrayT>(local.layer->var(drDescr->accumulatedSlipMagnitude));
-      auto* peakSR = reinterpret_cast<PaddedArrayT>(local.layer->var(drDescr->peakSlipRate));
-
       auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
       auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
@@ -274,23 +266,15 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
       const auto* const normal = outputData.faultDirections[i].faceNormal;
       const auto* const tangent1 = outputData.faultDirections[i].tangent1;
-      const auto* const tangent2 = outputData.faultDirections[i].tangent2;
+      [[maybe_unused]] const auto* const tangent2 = outputData.faultDirections[i].tangent2;
       auto* const strike = outputData.faultDirections[i].strike;
-      [[maybe_unused]] auto* const dip = outputData.faultDirections[i].dip;
-
-      real faceAlignedToGlbData[seissol::tensor::T::size()]{};
-      real glbToFaceAlignedData[seissol::tensor::Tinv::size()]{};
-      auto faceAlignedToGlb = init::T::view::create(faceAlignedToGlbData);
-      auto glbToFaceAligned = init::Tinv::view::create(glbToFaceAlignedData);
-
-      seissol::model::getFaceRotationMatrix(
-          normal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
+      [[maybe_unused]] const auto* dip = outputData.faultDirections[i].dip;
 
       auto* phiPlusSide = outputData.basisFunctions[i].plusSide.data();
       auto* phiMinusSide = outputData.basisFunctions[i].minusSide.data();
 
       seissol::dynamicRupture::kernel::computeFaceAlignedValues kernel;
-      kernel.Tinv = glbToFaceAligned.data();
+      kernel.Tinv = outputData.glbToFaceAlignedData[i].data();
 
       kernel.Q = dofsPlus;
       kernel.basisFunctionsAtPoint = phiPlusSide;
@@ -306,46 +290,49 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       real strength = this->computeLocalStrength();
       this->computeLocalTraction(strength);
 
-      // TODO: TracMat, LocMat
       seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-      real stressSaceAlignedToGlbData[seissol::tensor::stressRotationMatrix::size()]{};
-      auto stressSaceAlignedToGlb = init::stressRotationMatrix::view::create(stressSaceAlignedToGlbData);
-      for (size_t ii = 0; ii < 6; ++ii) {
-        for (size_t jj = 0; jj < 6; ++jj ) {
-          stressSaceAlignedToGlb(ii, jj) = faceAlignedToGlb(ii, jj);
-        }
-      }
-      alignAlongDipAndStrikeKernel.stressRotationMatrix = outputData.glbToDipStrikeAligned[i].data();
-      alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = stressSaceAlignedToGlb.data();
+      alignAlongDipAndStrikeKernel.stressRotationMatrix =
+          outputData.stressGlbToDipStrikeAligned[i].data();
+      alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+          outputData.stressFaceAlignedToGlb[i].data();
 
+      std::array<real, 6> tmpVector{};
+      tmpVector[0] = local.p;
+      tmpVector[1] = local.yyStress;
+      tmpVector[2] = local.zzStress;
+      tmpVector[3] = local.xyTraction;
+      tmpVector[4] = local.yzStress;
+      tmpVector[5] = local.xzTraction;
+
+      alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
       std::array<real, 6> rotatedTraction{};
-      std::array<real, 6> tmp{local.p,
-                              local.yyStress,
-                              local.zzStress,
-                              local.xyTraction,
-                              local.yzStress,
-                              local.xzTraction};
-
-      alignAlongDipAndStrikeKernel.initialStress = tmp.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedTraction.data();
       alignAlongDipAndStrikeKernel.execute();
 
-      tmp = std::array<real, 6>{
-          local.p, local.yyStress, local.zzStress, local.xyStress, local.yzStress, local.xzStress};
+      tmpVector[0] = local.p;
+      tmpVector[1] = local.yyStress;
+      tmpVector[2] = local.zzStress;
+      tmpVector[3] = local.xyStress;
+      tmpVector[4] = local.yzStress;
+      tmpVector[5] = local.xzStress;
 
+      alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
       std::array<real, 6> rotatedLocalStress{};
-      alignAlongDipAndStrikeKernel.initialStress = tmp.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedLocalStress.data();
       alignAlongDipAndStrikeKernel.execute();
 
-      this->computeSlipAndRate(rotatedTraction, rotatedLocalStress);
+      if (generalParams.slipRateOutputType) {
+        this->computeSlipAndRate(rotatedTraction, rotatedLocalStress);
+      } else {
+        this->computeSlipAndRate(tangent1, tangent2, strike, dip);
+      }
 
       auto& slipRate = std::get<VariableID::SlipRate>(outputData.vars);
       if (slipRate.isActive) {
         slipRate(DirectionID::Strike, level, i) = local.srS;
         slipRate(DirectionID::Dip, level, i) = local.srD;
       }
-      // TransientTractions
+
       auto& transientTractions = std::get<VariableID::TransientTractions>(outputData.vars);
       if (transientTractions.isActive) {
         transientTractions(DirectionID::Strike, level, i) = rotatedTraction[3];
@@ -360,18 +347,18 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
       auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
       if (ruptureTime.isActive) {
+        auto* rt = local.layer->var(drDescr->ruptureTime);
         ruptureTime(level, i) = rt[local.ltsId][local.nearestGpIndex];
       }
 
       auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData.vars);
       if (normalVelocity.isActive) {
         normalVelocity(level, i) = local.u;
-        //normalVelocity(level, i) = local.xzTraction;
-        //normalVelocity(level, i) = local.nearestGpIndex + 1;
       }
 
       auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
       if (accumulatedSlip.isActive) {
+        auto* slip = local.layer->var(drDescr->accumulatedSlipMagnitude);
         accumulatedSlip(level, i) = slip[local.ltsId][local.nearestGpIndex];
       }
 
@@ -394,13 +381,13 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
       auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
       if (peakSlipsRate.isActive) {
+        auto* peakSR = local.layer->var(drDescr->peakSlipRate);
         peakSlipsRate(level, i) = peakSR[local.ltsId][local.nearestGpIndex];
       }
 
-      // DynamicStressTime
       auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData.vars);
       if (dynamicStressTime.isActive) {
-        auto *dynStressTime = (local.layer->var(drDescr->dynStressTime));
+        auto* dynStressTime = (local.layer->var(drDescr->dynStressTime));
         dynamicStressTime(level, i) = dynStressTime[local.ltsId][local.nearestGpIndex];
       }
 
@@ -416,8 +403,8 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
         double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
         sin1 = (scalarProd > 0) ? sin1 : -sin1;
 
-        auto* slip1 = reinterpret_cast<PaddedArrayT>(local.layer->var(drDescr->slip1));
-        auto* slip2 = reinterpret_cast<PaddedArrayT>(local.layer->var(drDescr->slip2));
+        auto* slip1 = local.layer->var(drDescr->slip1);
+        auto* slip2 = local.layer->var(drDescr->slip2);
 
         slipVectors(DirectionID::Strike, level, i) =
             cos1 * slip1[local.ltsId][local.nearestGpIndex] -
@@ -501,8 +488,27 @@ void Base::computeSlipAndRate(std::array<real, 6>& rotatedTraction,
       -(1.0 / sFactorPlus + 1.0 / sFactorMinus) * (rotatedTraction[5] - rotatedLocalStress[5]);
 }
 
+void Base::computeSlipAndRate(const double* tangent1,
+                              const double* tangent2,
+                              const double* strike,
+                              const double* dip) {
+  local.srS = static_cast<real>(0.0);
+  local.srD = static_cast<real>(0.0);
+
+  for (size_t i = 0; i < 3; ++i) {
+    real factorMinus = (local.faceAlignedValuesMinus[7] * tangent1[i] +
+                        local.faceAlignedValuesMinus[8] * tangent2[i]);
+
+    real factorPlus = (local.faceAlignedValuesPlus[7] * tangent1[i] +
+                       local.faceAlignedValuesPlus[8] * tangent2[i]);
+
+    local.srS += factorMinus * strike[i] - factorPlus * strike[i];
+    local.srD += factorMinus * dip[i] - factorPlus * dip[i];
+  }
+}
+
 real Base::computeRuptureVelocity() {
-  auto *ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
+  auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
   real ruptureVelocity = 0.0;
 
   bool computeRuptureVelocity{true};
@@ -530,7 +536,6 @@ real Base::computeRuptureVelocity() {
       j1 = j1 - 1;
     }
     nearestGpIndex = (i1 - 1) * (nPoly + 2) + j1;
-
   }
 
   return ruptureVelocity;

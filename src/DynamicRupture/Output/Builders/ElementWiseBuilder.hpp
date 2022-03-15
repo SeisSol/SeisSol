@@ -80,10 +80,6 @@ class ElementWiseBuilder : public OutputBuilder {
 
   void initConstrains() {}
 
-  void evaluateInitialStressInFaultCS() {
-    // Compute initialStressInFaultCS
-  }
-
   inline const static size_t maxAllowedCacheLevel = 1;
 
   private:

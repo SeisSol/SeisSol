@@ -26,10 +26,6 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
       eInteroperability.copyFrictionOutputToFortranStrength(ltsFace, meshFace, regularisedStrength);
     }
   }
-
-  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
-    // do nothing
-  }
 };
 } // namespace seissol::dr::output
 

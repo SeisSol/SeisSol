@@ -13,10 +13,6 @@ class NoFault : public Base {
     Base::tiePointers(layerData, drDescr, eInteroperability);
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
-    // do nothing
-  }
-
   real computeLocalStrength() override { return 0.0; }
 };
 } // namespace seissol::dr::output

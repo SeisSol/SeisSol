@@ -30,10 +30,6 @@ class LinearSlipWeakening : public Base {
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
-    // do nothing
-  }
-
   protected:
   real computeLocalStrength() override {
     using DrLtsDescrT = seissol::initializers::LTS_LinearSlipWeakening;

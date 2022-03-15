@@ -51,10 +51,6 @@ class RateAndState : public Base {
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& drDescr) override {
-    // do nothing
-  }
-
   protected:
   real computeLocalStrength() override {
     return -1.0 * local.mu * std::min(local.p + local.p0 - local.pf, static_cast<real>(0.0));

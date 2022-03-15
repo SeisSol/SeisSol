@@ -6,6 +6,7 @@
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.hpp"
+#include "Model/common.hpp"
 #include "Numerical_aux/Transformation.h"
 #include "Parallel/MPI.h"
 
@@ -74,19 +75,38 @@ class OutputBuilder {
     // allocate Rotation Matrices
     // Note: several receiver can share the same rotation matrix
     size_t nReceiverPoints = outputData.receiverPoints.size();
-    outputData.glbToDipStrikeAligned.resize(nReceiverPoints);
+    outputData.stressGlbToDipStrikeAligned.resize(nReceiverPoints);
+    outputData.stressFaceAlignedToGlb.resize(nReceiverPoints);
+    outputData.faceAlignedToGlbData.resize(nReceiverPoints);
+    outputData.glbToFaceAlignedData.resize(nReceiverPoints);
 
     // init Rotation Matrices
     for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
       const auto* const faceNormal = outputData.faultDirections[receiverId].faceNormal;
       auto* const strike = outputData.faultDirections[receiverId].strike;
       auto* const dip = outputData.faultDirections[receiverId].dip;
+      const auto* const tangent1 = outputData.faultDirections[receiverId].tangent1;
+      const auto* const tangent2 = outputData.faultDirections[receiverId].tangent2;
 
-      std::vector<real> rotationMatrix(36, 0.0);
-      RotationMatrixViewT rotationMatrixView(const_cast<real*>(rotationMatrix.data()), {6, 6});
+      {
+        auto* memorySpace = outputData.stressGlbToDipStrikeAligned[receiverId].data();
+        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+        inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
+      }
+      {
+        auto* memorySpace = outputData.stressFaceAlignedToGlb[receiverId].data();
+        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+        symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
+      }
+      {
+        auto faceAlignedToGlb =
+            init::T::view::create(outputData.faceAlignedToGlbData[receiverId].data());
+        auto glbToFaceAligned =
+            init::Tinv::view::create(outputData.glbToFaceAlignedData[receiverId].data());
 
-      symmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
-      outputData.glbToDipStrikeAligned[receiverId] = std::move(rotationMatrix);
+        seissol::model::getFaceRotationMatrix(
+            faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
+      }
     }
   }
 

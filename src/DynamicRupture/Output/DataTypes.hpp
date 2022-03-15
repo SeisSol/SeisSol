@@ -3,6 +3,7 @@
 
 #include "Geometry.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "generated_code/tensor.h"
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -152,9 +153,11 @@ struct OutputData {
   output::DrVarsT vars;
   std::vector<PlusMinusBasisFunctionsT> basisFunctions;
   std::vector<ReceiverPointT> receiverPoints;
-  std::vector<std::vector<real>> glbToDipStrikeAligned;
+  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>> stressGlbToDipStrikeAligned;
+  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>> stressFaceAlignedToGlb;
+  std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
+  std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
   std::vector<FaultDirectionsT> faultDirections{};
-  std::vector<IntialTraction> intialTractions;
   std::vector<double> cachedTime{};
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};

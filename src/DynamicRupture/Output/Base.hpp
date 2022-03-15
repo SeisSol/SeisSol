@@ -72,8 +72,6 @@ class Base {
                            seissol::initializers::DynamicRupture* description,
                            seissol::Interoperability& eInteroperability);
 
-  virtual void postCompute(seissol::initializers::DynamicRupture& drDescr) = 0;
-
   protected:
   void getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses();
@@ -81,6 +79,11 @@ class Base {
   virtual real computePf() { return 0.0; }
   void computeLocalTraction(real strength);
   virtual void computeSlipAndRate(std::array<real, 6>&, std::array<real, 6>&);
+  void computeSlipAndRate(const double* tangent1,
+                          const double* tangent2,
+                          const double* strike,
+                          const double* dip);
+
   virtual void outputSpecifics(OutputData& data, size_t level, size_t receiverIdx) {}
   real computeRuptureVelocity();
 
