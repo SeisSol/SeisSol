@@ -349,7 +349,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                  context.QInterpolatedMinusOnHost[upperStageOffset + face],
                                                  context.imposedStatePlusOnHost[lowerStageOffset + face],
                                                  context.imposedStateMinusOnHost[lowerStageOffset + face],
-                                                 cluster->m_fullUpdateTime,
+                                                 cluster->ct.correctionTime,
                                                  cluster->m_dynamicRuptureKernel.timePoints,
                                                  cluster->m_dynamicRuptureKernel.timeWeights,
                                                  context.waveSpeedsPlus[begin + face],
@@ -397,7 +397,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     device.api->resetCircularStreamCounter();
   }
-  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
+  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
+
   device.api->popLastProfilingMark();
 }
 #endif
@@ -513,7 +514,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
 }
 #else // ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart ) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initializers::Layer& i_layerData, bool resetBuffers ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
@@ -523,7 +524,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   ConditionalBatchTableT& table = i_layerData.getCondBatchTable();
   kernels::LocalTmp tmp;
 
-  m_timeKernel.computeBatchedAder(m_timeStepWidth, tmp, table);
+  m_timeKernel.computeBatchedAder(timeStepSize(), tmp, table);
   m_localKernel.computeBatchedIntegral(table, tmp);
   auto defaultStream = device.api->getDefaultStream();
 
@@ -550,7 +551,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   if (table.find(key) != table.end()) {
     BatchTable &entry = table[key];
 
-    if (m_resetLtsBuffers) {
+    if (resetBuffers) {
       device.algorithms.streamBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
                                           (entry.content[*EntityId::Buffers])->getPointers(),
                                           tensor::I::Size,
@@ -567,7 +568,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   }
 
   device.api->synchDevice();
-  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells());
+  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+
   device.api->popLastProfilingMark();
 }
 #endif // ACL_DEVICE
