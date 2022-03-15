@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2018, SeisSol Group
@@ -47,34 +48,31 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Lut.hpp>
 
+namespace seissol {
+namespace writer {
 
-namespace seissol
-{
-namespace writer
-{
+real computePlasticMoment(MeshReader const& i_meshReader,
+                          seissol::initializers::LTSTree* i_ltsTree,
+                          seissol::initializers::LTS* i_lts,
+                          seissol::initializers::Lut* i_ltsLut);
 
-real computePlasticMoment(MeshReader const& i_meshReader, seissol::initializers::LTSTree* i_ltsTree,
-                        seissol::initializers::LTS* i_lts, seissol::initializers::Lut* i_ltsLut);
+real computeStaticWork(GlobalData const* global,
+                       real* degreesOfFreedomPlus,
+                       real* degreesOfFreedomMinus,
+                       DRFaceInformation const& faceInfo,
+                       DRGodunovData const& godunovData,
+                       real slip[seissol::tensor::slipInterpolated::size()]);
 
-real computeStaticWork( GlobalData const*           global,
-                        real*                       degreesOfFreedomPlus,
-                        real*                       degreesOfFreedomMinus,
-                        DRFaceInformation const&    faceInfo,
-                        DRGodunovData const&        godunovData,
-                        real                        slip[seissol::tensor::slipInterpolated::size()] );
+void printEnergies(GlobalData const* global,
+                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::LTSTree* dynRupTree,
+                   MeshReader const& i_meshReader,
+                   seissol::initializers::LTSTree* i_ltsTree,
+                   seissol::initializers::LTS* i_lts,
+                   seissol::initializers::Lut* i_ltsLut,
+                   bool usePlasticity);
 
-void printEnergies(  GlobalData const*                       global,
-                                      seissol::initializers::DynamicRupture*  dynRup,
-                                      seissol::initializers::LTSTree*         dynRupTree,
-                                      MeshReader const&                       i_meshReader,
-                                      seissol::initializers::LTSTree*         i_ltsTree,
-                                      seissol::initializers::LTS*             i_lts,
-                                      seissol::initializers::Lut*             i_ltsLut,
-                                      bool                                    usePlasticity);
-
-
-
-}
+} // namespace writer
 } // namespace seissol
 
 #endif // ENERGYOUTPUT_H
