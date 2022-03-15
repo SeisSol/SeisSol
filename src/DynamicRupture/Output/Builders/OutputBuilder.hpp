@@ -74,7 +74,7 @@ class OutputBuilder {
     // allocate Rotation Matrices
     // Note: several receiver can share the same rotation matrix
     size_t nReceiverPoints = outputData.receiverPoints.size();
-    outputData.rotationMatrices.resize(nReceiverPoints);
+    outputData.glbToDipStrikeAligned.resize(nReceiverPoints);
 
     // init Rotation Matrices
     for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
@@ -86,7 +86,7 @@ class OutputBuilder {
       RotationMatrixViewT rotationMatrixView(const_cast<real*>(rotationMatrix.data()), {6, 6});
 
       symmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
-      outputData.rotationMatrices[receiverId] = std::move(rotationMatrix);
+      outputData.glbToDipStrikeAligned[receiverId] = std::move(rotationMatrix);
     }
   }
 

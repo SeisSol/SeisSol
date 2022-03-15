@@ -278,19 +278,19 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       auto* const strike = outputData.faultDirections[i].strike;
       [[maybe_unused]] auto* const dip = outputData.faultDirections[i].dip;
 
-      real tData[seissol::tensor::T::size()]{};
-      real tInvData[seissol::tensor::Tinv::size()]{};
-      auto rotationMatrix = init::T::view::create(tData);
-      auto invRotationMatrix = init::Tinv::view::create(tInvData);
+      real faceAlignedToGlbData[seissol::tensor::T::size()]{};
+      real glbToFaceAlignedData[seissol::tensor::Tinv::size()]{};
+      auto faceAlignedToGlb = init::T::view::create(faceAlignedToGlbData);
+      auto glbToFaceAligned = init::Tinv::view::create(glbToFaceAlignedData);
 
       seissol::model::getFaceRotationMatrix(
-          normal, tangent1, tangent2, rotationMatrix, invRotationMatrix);
+          normal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
 
       auto* phiPlusSide = outputData.basisFunctions[i].plusSide.data();
       auto* phiMinusSide = outputData.basisFunctions[i].minusSide.data();
 
       seissol::dynamicRupture::kernel::computeFaceAlignedValues kernel;
-      kernel.Tinv = invRotationMatrix.data();
+      kernel.Tinv = glbToFaceAligned.data();
 
       kernel.Q = dofsPlus;
       kernel.basisFunctionsAtPoint = phiPlusSide;
@@ -307,8 +307,16 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
       this->computeLocalTraction(strength);
 
       // TODO: TracMat, LocMat
-      seissol::dynamicRupture::kernel::rotateStressToFaultCS rotateKernel;
-      rotateKernel.stressRotationMatrix = outputData.rotationMatrices[i].data();
+      seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+      real stressSaceAlignedToGlbData[seissol::tensor::stressRotationMatrix::size()]{};
+      auto stressSaceAlignedToGlb = init::stressRotationMatrix::view::create(stressSaceAlignedToGlbData);
+      for (size_t ii = 0; ii < 6; ++ii) {
+        for (size_t jj = 0; jj < 6; ++jj ) {
+          stressSaceAlignedToGlb(ii, jj) = faceAlignedToGlb(ii, jj);
+        }
+      }
+      alignAlongDipAndStrikeKernel.stressRotationMatrix = outputData.glbToDipStrikeAligned[i].data();
+      alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = stressSaceAlignedToGlb.data();
 
       std::array<real, 6> rotatedTraction{};
       std::array<real, 6> tmp{local.p,
@@ -318,17 +326,17 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
                               local.yzStress,
                               local.xzTraction};
 
-      rotateKernel.initialStress = tmp.data();
-      rotateKernel.rotatedStress = rotatedTraction.data();
-      rotateKernel.execute();
+      alignAlongDipAndStrikeKernel.initialStress = tmp.data();
+      alignAlongDipAndStrikeKernel.rotatedStress = rotatedTraction.data();
+      alignAlongDipAndStrikeKernel.execute();
 
       tmp = std::array<real, 6>{
           local.p, local.yyStress, local.zzStress, local.xyStress, local.yzStress, local.xzStress};
 
       std::array<real, 6> rotatedLocalStress{};
-      rotateKernel.initialStress = tmp.data();
-      rotateKernel.rotatedStress = rotatedLocalStress.data();
-      rotateKernel.execute();
+      alignAlongDipAndStrikeKernel.initialStress = tmp.data();
+      alignAlongDipAndStrikeKernel.rotatedStress = rotatedLocalStress.data();
+      alignAlongDipAndStrikeKernel.execute();
 
       this->computeSlipAndRate(rotatedTraction, rotatedLocalStress);
 
@@ -357,8 +365,8 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
       auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData.vars);
       if (normalVelocity.isActive) {
-        //normalVelocity(level, i) = local.u;
-        normalVelocity(level, i) = local.xzTraction;
+        normalVelocity(level, i) = local.u;
+        //normalVelocity(level, i) = local.xzTraction;
         //normalVelocity(level, i) = local.nearestGpIndex + 1;
       }
 
@@ -369,18 +377,10 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
       auto& totalTractions = std::get<VariableID::TotalTractions>(outputData.vars);
       if (totalTractions.isActive) {
-        real stressTData[tensor::reducedFaceAlignedMatrix::size()]{};
-        auto reducedRotationMatrix = init::reducedFaceAlignedMatrix::view::create(stressTData);
-        rotationMatrix.copyToView(reducedRotationMatrix);
-
-        seissol::dynamicRupture::kernel::rotateInitStress rotateInitStressKernel;
-        rotateInitStressKernel.initialStress = initStress;
-        rotateInitStressKernel.reducedFaceAlignedMatrix = reducedRotationMatrix.data();
-        rotateInitStressKernel.stressRotationMatrix = outputData.rotationMatrices[i].data();
-
         std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
-        rotateInitStressKernel.rotatedStress = rotatedInitStress.data();
-        rotateInitStressKernel.execute();
+        alignAlongDipAndStrikeKernel.initialStress = initStress;
+        alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
+        alignAlongDipAndStrikeKernel.execute();
 
         totalTractions(DirectionID::Strike, level, i) = rotatedTraction[3] + rotatedInitStress[3];
         totalTractions(DirectionID::Dip, level, i) = rotatedTraction[5] + rotatedInitStress[5];
@@ -470,7 +470,7 @@ void Base::computeLocalStresses() {
 
   local.yyStress = local.faceAlignedValuesPlus[1] + missingSigmaValues;
   local.zzStress = local.faceAlignedValuesPlus[2] + missingSigmaValues;
-  local.yzStress = local.faceAlignedValuesPlus[5];
+  local.yzStress = local.faceAlignedValuesPlus[4];
 
   local.tracEla =
       std::sqrt(std::pow(local.sXY + local.xyStress, 2) + std::pow(local.sXZ + local.xzStress, 2));

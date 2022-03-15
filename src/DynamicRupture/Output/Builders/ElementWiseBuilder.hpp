@@ -53,28 +53,24 @@ class ElementWiseBuilder : public OutputBuilder {
       auto elementIndex = faultInfo[faceIndex].element;
       const auto& element = elementsInfo[elementIndex];
 
-      // TODO: check whether we need this if-statement
-      if (elementIndex > 0) {
-
-        // store coords of vertices of the current ELEMENT
-        std::array<const double*, 4> elementVerticesCoords{};
-        for (int elementVertexId = 0; elementVertexId < 4; ++elementVertexId) {
-          auto globalVertexId = element.vertices[elementVertexId];
-          elementVerticesCoords[elementVertexId] = verticesInfo[globalVertexId].coords;
-        }
-
-        auto localFaceSideId = faultInfo[faceIndex].side;
-
-        // init reference coordinates of the fault face
-        ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
-
-        // init global coordinates of the fault face
-        ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
-
-        faultRefiner->refineAndAccumulate(
-            {elementwiseParams.refinement, static_cast<int>(faceIndex), localFaceSideId},
-            std::make_pair(globalFace, referenceFace));
+      // store coords of vertices of the current ELEMENT
+      std::array<const double*, 4> elementVerticesCoords{};
+      for (int elementVertexId = 0; elementVertexId < 4; ++elementVertexId) {
+        auto globalVertexId = element.vertices[elementVertexId];
+        elementVerticesCoords[elementVertexId] = verticesInfo[globalVertexId].coords;
       }
+
+      auto localFaceSideId = faultInfo[faceIndex].side;
+
+      // init reference coordinates of the fault face
+      ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
+
+      // init global coordinates of the fault face
+      ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
+
+      faultRefiner->refineAndAccumulate(
+          {elementwiseParams.refinement, static_cast<int>(faceIndex), localFaceSideId},
+          std::make_pair(globalFace, referenceFace));
     }
 
     // retrieve all receivers from a fault face refiner

@@ -152,7 +152,7 @@ struct OutputData {
   output::DrVarsT vars;
   std::vector<PlusMinusBasisFunctionsT> basisFunctions;
   std::vector<ReceiverPointT> receiverPoints;
-  std::vector<std::vector<real>> rotationMatrices;
+  std::vector<std::vector<real>> glbToDipStrikeAligned;
   std::vector<FaultDirectionsT> faultDirections{};
   std::vector<IntialTraction> intialTractions;
   std::vector<double> cachedTime{};
