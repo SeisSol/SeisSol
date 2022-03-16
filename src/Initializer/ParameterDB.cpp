@@ -80,6 +80,39 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
   return query;
 }
 
+easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
+  std::vector<Element> const& elements = m_meshReader.getElements();
+  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
+  
+  // Generate query with subpoints
+  easi::Query query(5 * elements.size(), 3);
+  for (unsigned elem = 0; elem < 5 * elements.size(); ++elem) {
+    if (elem % 5 != 4) {
+      // Use vertices of each element
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        query.x(elem,dim) = vertices[ elements[elem / 5].vertices[elem % 5] ].coords[dim];
+      }
+    }
+    else {
+      // Compute barycentre for each element
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        query.x(elem,dim) = vertices[ elements[elem / 5].vertices[0] ].coords[dim];
+      }
+      for (unsigned vertex = 1; vertex < 4; ++vertex) {
+        for (unsigned dim = 0; dim < 3; ++dim) {
+          query.x(elem,dim) += vertices[ elements[elem / 5].vertices[vertex] ].coords[dim];
+        }
+      }
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        query.x(elem,dim) *= 0.25;
+      }
+    }
+    // Group
+    query.group(elem) = elements[elem / 5].material;
+  }
+  return query;
+}
+
 #ifdef USE_HDF
 easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() const {
   std::vector<PUML::TETPUML::cell_t> const& cells = m_mesh.cells();
@@ -250,11 +283,11 @@ namespace seissol {
     void MaterialParameterDB<T>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
       easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
-
+      
       easi::ArrayOfStructsAdapter<T> adapter(m_materials->data());
       addBindingPoints(adapter);
-      model->evaluate(query, adapter); 
-      
+      model->evaluate(query, adapter);
+
       delete model;
     }
     
