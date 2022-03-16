@@ -41,12 +41,9 @@ real seissol::writer::computeStaticWork(GlobalData const* global,
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  real QInterpolatedPlus[tensor::QInterpolatedPlus::size()]
-      __attribute__((aligned(PAGESIZE_STACK)));
-  real QInterpolatedMinus[tensor::QInterpolatedMinus::size()]
-      __attribute__((aligned(PAGESIZE_STACK)));
-  real tractionInterpolated[tensor::tractionInterpolated::size()]
-      __attribute__((aligned(ALIGNMENT)));
+  real QInterpolatedPlus[tensor::QInterpolatedPlus::size()] alignas(PAGESIZE_STACK);
+  real QInterpolatedMinus[tensor::QInterpolatedMinus::size()] alignas(PAGESIZE_STACK);
+  real tractionInterpolated[tensor::tractionInterpolated::size()] alignas(ALIGNMENT);
 
   krnl.QInterpolated = QInterpolatedPlus;
   krnl.Q = degreesOfFreedomPlus;
@@ -87,9 +84,7 @@ void seissol::writer::printEnergies(GlobalData const* global,
                                     seissol::initializers::LTSTree* i_ltsTree,
                                     seissol::initializers::LTS* i_lts,
                                     seissol::initializers::Lut* i_ltsLut,
-                                    bool usePlasticity)
-
-{
+                                    bool usePlasticity) {
   double totalWorkLocal = 0.0;
   double staticWorkLocal = 0.0;
   double plasticMomentLocal = 0.0;

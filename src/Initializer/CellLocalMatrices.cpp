@@ -565,7 +565,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea = 1.e99;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
         surfaceArea = plusSurfaceArea;
