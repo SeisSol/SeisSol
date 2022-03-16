@@ -93,6 +93,14 @@ private:
   MeshReader const& m_meshReader;
 };
 
+class seissol::initializers::ElementAverageGenerator : public seissol::initializers::QueryGenerator {
+public:
+  explicit ElementAverageGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
+  virtual easi::Query generate() const;
+private:
+  MeshReader const& m_meshReader;
+};
+
 #ifdef USE_HDF
 class seissol::initializers::ElementBarycentreGeneratorPUML : public seissol::initializers::QueryGenerator {
 public:
