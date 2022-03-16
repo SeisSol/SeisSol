@@ -308,8 +308,16 @@ namespace seissol {
         unsigned numPoints = query.numPoints();
         model->evaluate(query, adapter);
 
-        for(unsigned i = 0; i < numPoints; i++) {
-          m_materials->at(i) = seissol::model::AnisotropicMaterial(elasticMaterials[i]);
+        // Store sum of 5 consecutive material values in elasticMaterials[0,5,10,...]
+        for (unsigned i = 0; i < numPoints; i++) {
+          if (i % 5) {
+            elasticMaterials[i - (i % 5)] += elasticMaterials[i];
+          }
+        }
+        // Compute and store mean values in m_materials
+        for (unsigned i = 0; i < numPoints / 5; i++) {
+          elasticMaterials[5 * i] *= 0.2;
+          m_materials->at(i) = seissol::model::AnisotropicMaterial(elasticMaterials[5 * i]);
         }
       }
       else {
