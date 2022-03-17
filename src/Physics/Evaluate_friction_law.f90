@@ -921,7 +921,7 @@ MODULE Eval_friction_law_mod
          P      = LocP+P_0
          ShTest = SQRT((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))**2 + (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))**2)
          !
-         SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
+         SV0=max(1e-8,LocSV)    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
          ! The following process is adapted from that described by Kaneko et al. (2008)
          !
