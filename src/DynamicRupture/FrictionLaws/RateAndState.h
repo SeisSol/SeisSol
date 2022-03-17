@@ -218,7 +218,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       std::array<real, misc::numPaddedPoints>& localSlipRate,
       std::array<real, misc::numPaddedPoints>& localStateVariable,
       TPMethod& tpMethod,
-      std::array<real, misc::numPaddedPoints> const& normalStress,
+      std::array<real, misc::numPaddedPoints>& normalStress,
       std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
       FaultStresses const& faultStresses,
       unsigned int timeIndex,
@@ -244,6 +244,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                  timeIndex,
                                  ltsFace);
 
+      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+        normalStress[pointIndex] = std::min(static_cast<real>(0.0),
+                                            faultStresses.normalStress[timeIndex][pointIndex] +
+                                            this->initialStressInFaultCS[ltsFace][pointIndex][0] -
+                                            tpMethod.fluidPressure(ltsFace, pointIndex));
+      }
       // solve for new slip rate, applying the Newton-Raphson algorithm
       // effective normal stress including initial stresses and pore fluid pressure
       hasConverged = this->IterativelyInvertSR(

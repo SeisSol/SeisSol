@@ -84,9 +84,9 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlParams, "mu_w", drParameters.muW);
 
     // Thermal Pressurization parameters
-    initializers::updateIfExists(yamlParams, "thermalDiffusivity", drParameters.thermalDiffusivity);
-    initializers::updateIfExists(yamlParams, "heatCapacity", drParameters.heatCapacity);
-    initializers::updateIfExists(yamlParams, "porePressureChange", drParameters.porePressureChange);
+    initializers::updateIfExists(yamlParams, "alpha_th", drParameters.thermalDiffusivity);
+    initializers::updateIfExists(yamlParams, "rho_c", drParameters.heatCapacity);
+    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.porePressureChange);
     initializers::updateIfExists(yamlParams, "initemp", drParameters.initialTemperature);
     initializers::updateIfExists(yamlParams, "inipressure", drParameters.initialPressure);
 
