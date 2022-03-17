@@ -55,6 +55,8 @@
 #endif
 #include "utils/logger.h"
 
+#define MATERIAL_SR 4
+
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
@@ -84,31 +86,39 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
   
+  // Generate subpoints in reference tetrahedron
+  std::vector<std::array<double, 3>> subpoints{};
+  for (double x = 0; x <= 1; x += 1.0 / MATERIAL_SR) {
+    for (double y = 0; y <= 1 - x; y += 1.0 / MATERIAL_SR) {
+      subpoints.push_back({x,y,0});
+    }
+  }
+  unsigned baseSize = subpoints.size();
+  for (double z = 1.0 / MATERIAL_SR; z <= 1; z += 1.0 / MATERIAL_SR) {
+    for (unsigned i = 0; i < baseSize; ++i) {
+      double x = subpoints.at(i).at(0);
+      double y = subpoints.at(i).at(1);
+      if (z <= 1 - x - y) {
+        subpoints.push_back({x,y,z});
+      }
+    }
+  }
+
   // Generate query with subpoints
-  easi::Query query(5 * elements.size(), 3);
-  for (unsigned elem = 0; elem < 5 * elements.size(); ++elem) {
-    if (elem % 5 != 4) {
-      // Use vertices of each element
+  easi::Query query(elements.size() * subpoints.size(), 3);
+
+  // Transform subpoints to global coordinates for all elements
+  for (unsigned elem = 0; elem < elements.size(); ++elem) {
+    for (unsigned i = 0; i < subpoints.size(); ++i) {
+      std::array<double, 3> xyz{};
+      seissol::transformations::tetrahedronReferenceToGlobal(vertices[ elements[elem].vertices[0] ].coords, vertices[ elements[elem].vertices[1] ].coords,
+        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, subpoints.at(i).data(), xyz.data());
       for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem,dim) = vertices[ elements[elem / 5].vertices[elem % 5] ].coords[dim];
+        query.x(elem * subpoints.size() + i,dim) = xyz[dim];
       }
+      // Group
+      query.group(elem * subpoints.size() + i) = elements[elem].material;
     }
-    else {
-      // Compute barycentre for each element
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem,dim) = vertices[ elements[elem / 5].vertices[0] ].coords[dim];
-      }
-      for (unsigned vertex = 1; vertex < 4; ++vertex) {
-        for (unsigned dim = 0; dim < 3; ++dim) {
-          query.x(elem,dim) += vertices[ elements[elem / 5].vertices[vertex] ].coords[dim];
-        }
-      }
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem,dim) *= 0.25;
-      }
-    }
-    // Group
-    query.group(elem) = elements[elem / 5].material;
   }
   return query;
 }
