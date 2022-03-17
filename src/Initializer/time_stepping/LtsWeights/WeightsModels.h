@@ -9,7 +9,7 @@ namespace seissol::initializers::time_stepping {
 class ExponentialWeights : public LtsWeights {
 public:
   explicit ExponentialWeights(const LtsWeightsConfig &config) : LtsWeights(config) {}
-  ~ExponentialWeights() override = default;
+  virtual ~ExponentialWeights() override = default;
 
 protected:
   int evaluateNumberOfConstraints() final { return 1; }
@@ -22,7 +22,7 @@ class ExponentialBalancedWeights : public LtsWeights {
 public:
   explicit ExponentialBalancedWeights(const LtsWeightsConfig &config) : LtsWeights(config) {
   }
-  ~ExponentialBalancedWeights() override = default;
+  virtual ~ExponentialBalancedWeights() override = default;
 
 protected:
   int evaluateNumberOfConstraints() final { return 2; }
@@ -35,7 +35,7 @@ class EncodedBalancedWeights : public LtsWeights {
 public:
   explicit EncodedBalancedWeights(const LtsWeightsConfig &config) : LtsWeights(config) {
   }
-  ~EncodedBalancedWeights() override = default;
+  virtual ~EncodedBalancedWeights() override = default;
 
 protected:
   int evaluateNumberOfConstraints() final;
