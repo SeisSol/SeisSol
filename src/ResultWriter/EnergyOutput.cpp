@@ -14,10 +14,10 @@ real seissol::writer::computePlasticMoment(MeshReader const& i_meshReader,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : plasticMoment)
 #endif
-  for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
-    real* pstrainCell = i_ltsLut->lookup(i_lts->pstrain, meshId);
-    real volume = MeshTools::volume(elements[meshId], vertices);
-    CellMaterialData& material = i_ltsLut->lookup(i_lts->material, meshId);
+  for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
+    real* pstrainCell = i_ltsLut->lookup(i_lts->pstrain, elementId);
+    real volume = MeshTools::volume(elements[elementId], vertices);
+    CellMaterialData& material = i_ltsLut->lookup(i_lts->material, elementId);
 #ifdef USE_ANISOTROPIC
     real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
 #else
@@ -65,16 +65,16 @@ real seissol::writer::computeStaticWork(GlobalData const* global,
   trKrnl.tractionInterpolated = tractionInterpolated;
   trKrnl.execute();
 
-  real staticWork = 0.0;
-  dynamicRupture::kernel::computeFrictionalEnergy feKrnl;
+  real staticFrictionalWork = 0.0;
+  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
   feKrnl.slipRateInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = &staticWork;
+  feKrnl.frictionalEnergy = &staticFrictionalWork;
   feKrnl.timeWeight = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
-  return staticWork;
+  return staticFrictionalWork;
 }
 
 void seissol::writer::printEnergies(GlobalData const* global,
@@ -85,8 +85,8 @@ void seissol::writer::printEnergies(GlobalData const* global,
                                     seissol::initializers::LTS* i_lts,
                                     seissol::initializers::Lut* i_ltsLut,
                                     bool usePlasticity) {
-  double totalWorkLocal = 0.0;
-  double staticWorkLocal = 0.0;
+  double totalFrictionalWorkLocal = 0.0;
+  double staticFrictionalWorkLocal = 0.0;
   double plasticMomentLocal = 0.0;
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
@@ -98,17 +98,17 @@ void seissol::writer::printEnergies(GlobalData const* global,
     DROutput* drOutput = it->var(dynRup->drOutput);
 
 #ifdef _OPENMP
-#pragma omp parallel for reduction(+ : totalWorkLocal) reduction(+ : staticWorkLocal)
+#pragma omp parallel for reduction(+ : totalFrictionalWorkLocal) reduction(+ : staticFrictionalWorkLocal)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        totalWorkLocal += drOutput[i].frictionalEnergy;
-        staticWorkLocal += computeStaticWork(global,
-                                             timeDerivativePlus[i],
-                                             timeDerivativeMinus[i],
-                                             faceInformation[i],
-                                             godunovData[i],
-                                             drOutput[i].slip);
+        totalFrictionalWorkLocal += drOutput[i].frictionalEnergy;
+        staticFrictionalWorkLocal += computeStaticWork(global,
+                                                       timeDerivativePlus[i],
+                                                       timeDerivativeMinus[i],
+                                                       faceInformation[i],
+                                                       godunovData[i],
+                                                       drOutput[i].slip);
       }
     }
   }
@@ -116,25 +116,37 @@ void seissol::writer::printEnergies(GlobalData const* global,
     plasticMomentLocal = computePlasticMoment(i_meshReader, i_ltsTree, i_lts, i_ltsLut);
   }
   int rank;
-  double totalWorkGlobal = 0.0;
-  double staticWorkGlobal = 0.0;
+  double totalFrictionalWorkGlobal = 0.0;
+  double staticFrictionalWorkGlobal = 0.0;
   double plasticMomentGlobal = 0.0;
 #ifdef USE_MPI
   MPI_Comm_rank(MPI::mpi.comm(), &rank);
-  MPI_Reduce(&totalWorkLocal, &totalWorkGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
-  MPI_Reduce(&staticWorkLocal, &staticWorkGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
+  MPI_Reduce(&totalFrictionalWorkLocal,
+             &totalFrictionalWorkGlobal,
+             1,
+             MPI_DOUBLE,
+             MPI_SUM,
+             0,
+             MPI::mpi.comm());
+  MPI_Reduce(&staticFrictionalWorkLocal,
+             &staticFrictionalWorkGlobal,
+             1,
+             MPI_DOUBLE,
+             MPI_SUM,
+             0,
+             MPI::mpi.comm());
   MPI_Reduce(&plasticMomentLocal, &plasticMomentGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
 #else
   rank = 0;
-  totalWorkGlobal = totalWorkLocal;
-  staticWorkGlobal = staticWorkLocal;
+  totalFrictionalWorkGlobal = totalFrictionalWorkLocal;
+  staticFrictionalWorkGlobal = staticFrictionalWorkLocal;
   plasticMomentGlobal = plasticMomentLocal;
 #endif
 
   if (rank == 0) {
-    logInfo(rank) << "Total work:" << totalWorkGlobal;
-    logInfo(rank) << "Static work:" << staticWorkGlobal;
-    logInfo(rank) << "Radiated energy:" << totalWorkGlobal - staticWorkGlobal;
+    logInfo(rank) << "Total frictional work:" << totalFrictionalWorkGlobal;
+    logInfo(rank) << "Static frictional work:" << staticFrictionalWorkGlobal;
+    logInfo(rank) << "Radiated energy:" << totalFrictionalWorkGlobal - staticFrictionalWorkGlobal;
     if (usePlasticity) {
       logInfo(rank) << "Total plastic moment:" << plasticMomentGlobal;
     }

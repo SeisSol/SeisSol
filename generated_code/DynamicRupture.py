@@ -43,7 +43,6 @@ from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
-from yateto.memory import CSCMemoryLayout
 
 def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   if dynamicRuptureMethod == 'quadrature':
@@ -110,26 +109,16 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   timeWeight = Scalar('timeWeight')
   spaceWeights = Tensor('spaceWeights', (numberOfPoints,))
 
-  selectTractionSpp = np.zeros((aderdg.numberOfQuantities(), 3), dtype=bool)
-  selectTractionSpp[0,0] = True
-  selectTractionSpp[3,1] = True
-  selectTractionSpp[5,2] = True
-  tractionPlusMatrix = Tensor('tractionPlusMatrix', selectTractionSpp.shape, selectTractionSpp, CSCMemoryLayout)
-  tractionMinusMatrix = Tensor('tractionMinusMatrix', selectTractionSpp.shape, selectTractionSpp, CSCMemoryLayout)
-
   computeSlipRateInterpolated = slipRateInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.selectVelocity['qp'] - QInterpolatedPlus['kq'] * aderdg.selectVelocity['qp']
   generator.add('computeSlipRateInterpolated', computeSlipRateInterpolated)
 
-  computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * tractionPlusMatrix['qp']
+  computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
 
-  addSlipRateInterpolated = slipInterpolated['kp'] <= slipInterpolated['kp'] + timeWeight * slipRateInterpolated['kp']
-  generator.add('addSlipRateInterpolated', addSlipRateInterpolated)
+  accumulateSlipInterpolated = slipInterpolated['kp'] <= slipInterpolated['kp'] + timeWeight * slipRateInterpolated['kp']
+  generator.add('accumulateSlipInterpolated', accumulateSlipInterpolated)
 
-  squareSlipRateInterpolated = absoluteSlipInterpolated['k'] <= slipRateInterpolated['kp'] * slipRateInterpolated['kp']
-  generator.add('squareSlipRateInterpolated', squareSlipRateInterpolated)
-
-  computeFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
-  generator.add('computeFrictionalEnergy', computeFrictionalEnergy)
+  accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
+  generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
 
   return {db.resample}

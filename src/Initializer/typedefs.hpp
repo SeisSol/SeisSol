@@ -432,7 +432,6 @@ struct DRGodunovData {
 
 struct DROutput {
   real slip[seissol::tensor::slipInterpolated::size()];
-  real absoluteSlip[seissol::tensor::absoluteSlipInterpolated::size()];
   real frictionalEnergy;
 };
 

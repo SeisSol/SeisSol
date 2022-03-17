@@ -5,7 +5,6 @@ import numpy as np
 from yateto import Tensor, Scalar
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.memory import CSCMemoryLayout
 
 from aderdg import LinearADERDG
 from multSim import OptionalDimTensor
@@ -26,10 +25,6 @@ class PoroelasticADERDG(LinearADERDG):
     self.db.update( parseJSONMatrixFile('{}/stp_{}.json'.format(matricesDir, order), clones) )
 
     memoryLayoutFromFile(memLayout, self.db, clones)
-
-    selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
-    selectVelocitySpp[6:9,0:3] = np.eye(3)
-    self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
   def numberOfQuantities(self):
     return 13 
