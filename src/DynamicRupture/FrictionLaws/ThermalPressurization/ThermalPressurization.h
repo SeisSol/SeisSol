@@ -43,10 +43,13 @@ class ThermalPressurization {
   protected:
   real (*temperature)[misc::numPaddedPoints];
   real (*pressure)[misc::numPaddedPoints];
-  real (*tpTheta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*tpSigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*tpHalfWidthShearZone)[misc::numPaddedPoints];
-  real (*alphaHy)[misc::numPaddedPoints];
+  real (*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*halfWidthShearZone)[misc::numPaddedPoints];
+  real (*hydraulicDiffusivity)[misc::numPaddedPoints];
+
   real faultStrength[misc::numPaddedPoints];
 
   public:

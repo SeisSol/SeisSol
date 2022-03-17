@@ -119,7 +119,7 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
 
   protected:
   /**
-   * Adds the additional parameters TP_halfWidthShearZone and alphaHy
+   * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,

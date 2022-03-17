@@ -93,7 +93,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                this->mu,
                                this->slipRateMagnitude,
                                this->deltaT[timeIndex],
-                               false,
+                               true,
                                timeIndex,
                                ltsFace);
     // compute final slip rates and traction from median value of the iterative solution and initial

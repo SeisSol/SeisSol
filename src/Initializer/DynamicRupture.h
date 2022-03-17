@@ -235,20 +235,24 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurization : public sei
 
   Variable<real[dr::misc::numPaddedPoints]> temperature;  //this is TP[1] in fortran
   Variable<real[dr::misc::numPaddedPoints]> pressure;     //this is TP[2] in fortran
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> tpTheta;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> tpSigma;
-  Variable<real[dr::misc::numPaddedPoints]> tpHalfWidthShearZone;
-  Variable<real[dr::misc::numPaddedPoints]> alphaHy;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> theta;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigma;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> thetaTmpBuffer;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigmaTmpBuffer;
+  Variable<real[dr::misc::numPaddedPoints]>halfWidthShearZone;
+  Variable<real[dr::misc::numPaddedPoints]> hydraulicDiffusivity;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(temperature, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(pressure, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(tpTheta, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(tpSigma, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(tpHalfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(alphaHy, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(theta, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(sigma, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(thetaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(sigmaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(halfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(hydraulicDiffusivity, mask, ALIGNMENT, seissol::memory::Standard);
   }
 };
 
