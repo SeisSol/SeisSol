@@ -61,16 +61,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::tie(absoluteShearStress, normalStress, stateVarReference, localSlipRate) =
         static_cast<Derived*>(this)->calcInitialVariables(
             faultStresses, stateVariableBuffer, tpMethod, timeIndex, ltsFace);
-
-    // compute pressure from thermal pressurization (only FL103 TP)
-    tpMethod.calcFluidPressure(faultStresses,
-                               this->initialStressInFaultCS,
-                               this->mu,
-                               this->slipRateMagnitude,
-                               this->deltaT[timeIndex],
-                               false,
-                               timeIndex,
-                               ltsFace);
     // compute slip rates by solving non-linear system of equations (with newton)
     this->updateStateVariableIterative(hasConverged,
                                        stateVarReference,
@@ -87,7 +77,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     if (!hasConverged) {
       static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
     }
-    // compute final thermal pressure for FL103TP
+    // compute final thermal pressure and normalStress
     tpMethod.calcFluidPressure(faultStresses,
                                this->initialStressInFaultCS,
                                this->mu,
@@ -96,6 +86,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                true,
                                timeIndex,
                                ltsFace);
+    updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
     // compute final slip rates and traction from median value of the iterative solution and initial
     // guess
     this->calcSlipRateAndTraction(stateVarReference,
@@ -189,6 +180,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::array<real, misc::numPaddedPoints> normalStress;
     std::array<real, misc::numPaddedPoints> temporarySlipRate;
 
+    updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
@@ -197,10 +189,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                            faultStresses.xzStress[timeIndex][pointIndex];
       absoluteShearStress[pointIndex] = misc::magnitude(totalStressXY, totalStressXZ);
 
-      normalStress[pointIndex] = std::min(static_cast<real>(0.0),
-                                          faultStresses.normalStress[timeIndex][pointIndex] +
-                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              tpMethod.fluidPressure(ltsFace, pointIndex));
 
       // The following process is adapted from that described by Kaneko et al. (2008)
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
@@ -244,12 +232,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                  timeIndex,
                                  ltsFace);
 
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-        normalStress[pointIndex] = std::min(static_cast<real>(0.0),
-                                            faultStresses.normalStress[timeIndex][pointIndex] +
-                                            this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                            tpMethod.fluidPressure(ltsFace, pointIndex));
-      }
+      updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
+
       // solve for new slip rate, applying the Newton-Raphson algorithm
       // effective normal stress including initial stresses and pore fluid pressure
       hasConverged = this->IterativelyInvertSR(
@@ -436,6 +420,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       }
     }
     return hasConverged;
+  }
+
+  void updateNormalStress(std::array<double, misc::numPaddedPoints>& normalStress, FaultStresses const& faultStresses, TPMethod tpMethod, size_t timeIndex, size_t ltsFace) {
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+      normalStress[pointIndex] = std::min(static_cast<real>(0.0),
+                                          faultStresses.normalStress[timeIndex][pointIndex] +
+                                          this->initialStressInFaultCS[ltsFace][pointIndex][0] -
+                                          tpMethod.fluidPressure(ltsFace, pointIndex));
+    }
   }
 };
 
