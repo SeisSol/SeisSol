@@ -18,6 +18,7 @@ void ThermalPressurization::copyLtsTreeToLocal(seissol::initializers::Layer& lay
   sigma = layerData.var(concreteLts->sigma);
   thetaTmpBuffer = layerData.var(concreteLts->thetaTmpBuffer);
   sigmaTmpBuffer = layerData.var(concreteLts->sigmaTmpBuffer);
+  faultStrength = layerData.var(concreteLts->faultStrength);
   halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone);
   hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity);
 }
@@ -39,7 +40,7 @@ void ThermalPressurization::calcFluidPressure(
     // compute fault strength
     auto normalStress = faultStresses.normalStress[timeIndex][pointIndex] +
                         initialStressInFaultCS[ltsFace][pointIndex][0] - pressure[ltsFace][pointIndex];
-    faultStrength[pointIndex] =
+    faultStrength[ltsFace][pointIndex] =
         -mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), normalStress);
 
     std::copy(&theta[ltsFace][pointIndex][0], &theta[ltsFace][pointIndex][misc::numberOfTPGridPoints], &thetaTmpBuffer[ltsFace][pointIndex][0]);
@@ -62,7 +63,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   real temperatureUpdate = 0.0;
   real pressureUpdate = 0.0;
 
-  real tauV = faultStrength[pointIndex] * slipRateMagnitude;
+  real tauV = faultStrength[ltsFace][pointIndex] * slipRateMagnitude;
   real lambdaPrime = drParameters.porePressureChange * drParameters.thermalDiffusivity /
                      (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters.thermalDiffusivity);
 

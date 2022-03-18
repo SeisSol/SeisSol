@@ -239,6 +239,7 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurization : public sei
   Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigma;
   Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> thetaTmpBuffer;
   Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigmaTmpBuffer;
+  Variable<real[dr::misc::numPaddedPoints]> faultStrength;
   Variable<real[dr::misc::numPaddedPoints]>halfWidthShearZone;
   Variable<real[dr::misc::numPaddedPoints]> hydraulicDiffusivity;
 
@@ -251,6 +252,7 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurization : public sei
     tree.addVar(sigma, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(thetaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(sigmaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(faultStrength, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(halfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(hydraulicDiffusivity, mask, ALIGNMENT, seissol::memory::Standard);
   }
