@@ -11,26 +11,40 @@
 namespace seissol::dr::friction_law {
 
 template <size_t N>
-struct GridPoints : std::array<real, N> {
-  constexpr GridPoints() {
+class GridPoints {
+  public: 
+  GridPoints() {
     for (size_t i = 0; i < N; ++i) {
-      this->at(i) =
+      values.at(i) =
           misc::tpMaxWavenumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
     }
   }
+  real at(size_t i) const {
+    return values.at(i);
+  };
+
+  private:
+    std::array<real, N> values{};
 };
 
 template <size_t N>
-struct InverseFourierCoefficients : std::array<real, N> {
+class InverseFourierCoefficients {
+  public:
   constexpr InverseFourierCoefficients() {
     GridPoints<N> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
-      this->at(i) = std::sqrt(2 / M_PI) * localGridPoints.at(i) * misc::tpLogDz;
+      values.at(i) = std::sqrt(2 / M_PI) * localGridPoints.at(i) * misc::tpLogDz;
     }
-    this->at(0) = std::sqrt(2 / M_PI) * localGridPoints.front() * (1 + misc::tpLogDz);
-    this->at(N - 1) = std::sqrt(2 / M_PI) * localGridPoints.back() * 0.5 * misc::tpLogDz;
+    values.at(0) = std::sqrt(2 / M_PI) * localGridPoints.at(0) * (1 + misc::tpLogDz);
+    values.at(N - 1) = std::sqrt(2 / M_PI) * localGridPoints.at(N-1) * 0.5 * misc::tpLogDz;
   }
+  real at(size_t i) const {
+    return values.at(i);
+  };
+
+  private:
+    std::array<real, N> values{};
 };
 
 class ThermalPressurization {

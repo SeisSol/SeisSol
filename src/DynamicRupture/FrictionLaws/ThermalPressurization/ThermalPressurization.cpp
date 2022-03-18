@@ -2,8 +2,8 @@
 
 namespace seissol::dr::friction_law {
 
-static constexpr GridPoints<misc::numberOfTPGridPoints> tpGridPoints;
-static constexpr InverseFourierCoefficients<misc::numberOfTPGridPoints>
+static const GridPoints<misc::numberOfTPGridPoints> tpGridPoints;
+static const InverseFourierCoefficients<misc::numberOfTPGridPoints>
     tpInverseFourierCoefficients;
 
 void ThermalPressurization::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
@@ -91,10 +91,10 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
     // fourier coefficients new contribution
-    temperatureUpdate += (tpInverseFourierCoefficients[tpGridPointIndex] /
+    temperatureUpdate += (tpInverseFourierCoefficients.at(tpGridPointIndex) /
                           halfWidthShearZone[ltsFace][pointIndex]) *
                          thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
-    pressureUpdate += (tpInverseFourierCoefficients[tpGridPointIndex] /
+    pressureUpdate += (tpInverseFourierCoefficients.at(tpGridPointIndex) /
                        halfWidthShearZone[ltsFace][pointIndex]) *
                       sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
   }
