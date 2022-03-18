@@ -104,12 +104,9 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = sigmaDiffusion + sigmaGeneration;
 
     // Recover temperature and pressure using inverse Fourier transformation from the new contribution
-    temperatureUpdate += (tpInverseFourierCoefficients.at(tpGridPointIndex) /
-                          halfWidthShearZone[ltsFace][pointIndex]) *
-                         thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
-    pressureUpdate += (tpInverseFourierCoefficients.at(tpGridPointIndex) /
-                       halfWidthShearZone[ltsFace][pointIndex]) *
-                      sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
+    real scaledInverseFourierCoefficient = tpInverseFourierCoefficients.at(tpGridPointIndex) / halfWidthShearZone[ltsFace][pointIndex];
+    temperatureUpdate += scaledInverseFourierCoefficient * thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
+    pressureUpdate += scaledInverseFourierCoefficient * sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
   }
   // Update pore pressure change: sigma = pore pressure + lambda' * temperature
   pressureUpdate = pressureUpdate - lambdaPrime * temperatureUpdate;
