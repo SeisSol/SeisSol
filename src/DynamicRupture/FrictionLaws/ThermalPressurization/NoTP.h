@@ -15,7 +15,7 @@ class NoTP {
   void calcFluidPressure(FaultStresses const& faultStresses,
                          real (*initialStressInFaultCS)[misc::numPaddedPoints][6],
                          real (*mu)[misc::numPaddedPoints],
-                         real (*slipRateMagnitude)[misc::numPaddedPoints],
+                         std::array<real, misc::numPaddedPoints>&,
                          real deltaT,
                          bool saveTmpInTP,
                          unsigned int timeIndex,

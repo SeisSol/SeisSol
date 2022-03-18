@@ -30,7 +30,7 @@ void ThermalPressurization::calcFluidPressure(
     const FaultStresses& faultStresses,
     real (*initialStressInFaultCS)[misc::numPaddedPoints][6],
     real (*mu)[misc::numPaddedPoints],
-    real (*slipRateMagnitude)[misc::numPaddedPoints],
+    std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
     real deltaT,
     bool saveTmpInTP,
     unsigned int timeIndex,
@@ -48,7 +48,7 @@ void ThermalPressurization::calcFluidPressure(
 
     // use Theta/Sigma from last call in this update, dt/2 and new SR from NS
     updateTemperatureAndPressure(
-        slipRateMagnitude[ltsFace][pointIndex], deltaT, pointIndex, timeIndex, ltsFace);
+        slipRateMagnitude[pointIndex], deltaT, pointIndex, timeIndex, ltsFace);
 
     if (saveTmpInTP) {
       std::copy(&thetaTmpBuffer[ltsFace][pointIndex][0], &thetaTmpBuffer[ltsFace][pointIndex][misc::numberOfTPGridPoints], &theta[ltsFace][pointIndex][0]);
