@@ -41,9 +41,9 @@ real seissol::writer::computeStaticWork(GlobalData const* global,
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  real QInterpolatedPlus[tensor::QInterpolatedPlus::size()] alignas(PAGESIZE_STACK);
-  real QInterpolatedMinus[tensor::QInterpolatedMinus::size()] alignas(PAGESIZE_STACK);
-  real tractionInterpolated[tensor::tractionInterpolated::size()] alignas(ALIGNMENT);
+  alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
+  alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
+  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
 
   krnl.QInterpolated = QInterpolatedPlus;
   krnl.Q = degreesOfFreedomPlus;

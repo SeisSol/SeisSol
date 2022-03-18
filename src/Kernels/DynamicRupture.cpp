@@ -134,11 +134,11 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
-  real degreesOfFreedomPlus[tensor::Q::size()] alignas(PAGESIZE_STACK);
-  real degreesOfFreedomMinus[tensor::Q::size()] alignas(PAGESIZE_STACK);
+  alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
+  alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
 
-  real slipRateInterpolated[tensor::slipRateInterpolated::size()] alignas(ALIGNMENT);
-  real tractionInterpolated[tensor::tractionInterpolated::size()] alignas(ALIGNMENT);
+  alignas(ALIGNMENT) real slipRateInterpolated[tensor::slipRateInterpolated::size()];
+  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
 
   dynamicRupture::kernel::computeSlipRateInterpolated srKrnl;
   srKrnl.selectVelocity = init::selectVelocity::Values;
