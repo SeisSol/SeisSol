@@ -44,6 +44,7 @@ void ThermalPressurization::calcFluidPressure(
         -mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), normalStress);
 
     std::copy(&theta[ltsFace][pointIndex][0], &theta[ltsFace][pointIndex][misc::numberOfTPGridPoints], &thetaTmpBuffer[ltsFace][pointIndex][0]);
+    std::copy(&sigma[ltsFace][pointIndex][0], &sigma[ltsFace][pointIndex][misc::numberOfTPGridPoints], &sigmaTmpBuffer[ltsFace][pointIndex][0]);
 
     //! use Theta/Sigma from last call in this update, dt/2 and new SR from NS
     updateTemperatureAndPressure(
@@ -51,6 +52,7 @@ void ThermalPressurization::calcFluidPressure(
 
     if (saveTmpInTP) {
       std::copy(&thetaTmpBuffer[ltsFace][pointIndex][0], &thetaTmpBuffer[ltsFace][pointIndex][misc::numberOfTPGridPoints], &theta[ltsFace][pointIndex][0]);
+      std::copy(&sigmaTmpBuffer[ltsFace][pointIndex][0], &sigmaTmpBuffer[ltsFace][pointIndex][misc::numberOfTPGridPoints], &sigma[ltsFace][pointIndex][0]);
     }
   }
 }
@@ -77,7 +79,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     // 1. Calculate diffusion of the field at previous timestep
     // temperature
     real thetaCurrent = thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * std::exp(-drParameters.thermalDiffusivity * deltaT * tmp);
-    // pore pressure + lambda'*temp
+    // pore pressuredeltaT + lambda'*temp
     real sigmaCurrent =
         sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * tmp);
 

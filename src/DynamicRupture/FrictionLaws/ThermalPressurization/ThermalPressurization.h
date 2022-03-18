@@ -103,7 +103,9 @@ class ThermalPressurization {
   real heatSource(
       real tmp, real alpha, real deltaT, unsigned int tpGridPointIndex, unsigned int timeIndex);
 
-  real fluidPressure(unsigned int pointIndex, unsigned int ltsFace) const { return pressure[ltsFace][pointIndex]; }
+  real fluidPressure(unsigned int pointIndex, unsigned int ltsFace) const {
+    return pressure[ltsFace][pointIndex];
+  }
 };
 } // namespace seissol::dr::friction_law
 
