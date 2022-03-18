@@ -300,6 +300,45 @@ namespace seissol {
 
       delete model;
     }
+
+    template<>
+    void MaterialParameterDB<seissol::model::ElasticMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
+      easi::Component* model = loadEasiModel(fileName);
+      easi::Query query = queryGen.generate();
+
+      std::vector<seissol::model::ElasticMaterial> elasticMaterials(query.numPoints());
+      easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> adapter(elasticMaterials.data());
+      MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(adapter);
+      unsigned numPoints = query.numPoints();
+      model->evaluate(query, adapter);
+
+      // Calculate number of points per element
+      unsigned pointsPerElem = 0;
+      for (unsigned i = MATERIAL_SR + 1; i > 0; --i) {
+        pointsPerElem += i;
+      }
+      unsigned baseSize = pointsPerElem;
+      for (unsigned i = MATERIAL_SR + 1; i > 0; --i) {
+        baseSize -= i;
+        pointsPerElem += baseSize;
+      }
+      // Calculate sum of consecutive material values for each element
+      for (unsigned i = 0; i < numPoints; ++i) {
+        if (i % pointsPerElem) {
+          elasticMaterials[i - (i % pointsPerElem)].rho += elasticMaterials[i].rho;
+          elasticMaterials[i - (i % pointsPerElem)].mu += elasticMaterials[i].mu;
+          elasticMaterials[i - (i % pointsPerElem)].lambda += elasticMaterials[i].lambda;
+        }
+      }
+      // Compute and store mean values in m_materials
+      for (unsigned i = 0; i < numPoints / pointsPerElem; ++i) {
+        elasticMaterials[pointsPerElem * i].rho /= pointsPerElem;
+        elasticMaterials[pointsPerElem * i].mu /= pointsPerElem;
+        elasticMaterials[pointsPerElem * i].lambda /= pointsPerElem;
+
+        m_materials->at(i) = seissol::model::ElasticMaterial(elasticMaterials[pointsPerElem * i]);
+      }
+    }
     
     template<>
     void MaterialParameterDB<seissol::model::AnisotropicMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
@@ -318,16 +357,8 @@ namespace seissol {
         unsigned numPoints = query.numPoints();
         model->evaluate(query, adapter);
 
-        // Store sum of 5 consecutive material values in elasticMaterials[0,5,10,...]
-        for (unsigned i = 0; i < numPoints; i++) {
-          if (i % 5) {
-            elasticMaterials[i - (i % 5)] += elasticMaterials[i];
-          }
-        }
-        // Compute and store mean values in m_materials
-        for (unsigned i = 0; i < numPoints / 5; i++) {
-          elasticMaterials[5 * i] *= 0.2;
-          m_materials->at(i) = seissol::model::AnisotropicMaterial(elasticMaterials[5 * i]);
+        for(unsigned i = 0; i < numPoints; i++) {
+          m_materials->at(i) = seissol::model::AnisotropicMaterial(elasticMaterials[i]);
         }
       }
       else {
