@@ -100,8 +100,7 @@ class ThermalPressurization {
                                     unsigned int timeIndex,
                                     unsigned int ltsFace);
 
-  real heatSource(
-      real tmp, real alpha, real deltaT, unsigned int tpGridPointIndex, unsigned int timeIndex);
+  real heatSource(double tauV, unsigned int tpGridPointIndex);
 
   real fluidPressure(unsigned int pointIndex, unsigned int ltsFace) const {
     return pressure[ltsFace][pointIndex];

@@ -46,7 +46,7 @@ void ThermalPressurization::calcFluidPressure(
     std::copy(&theta[ltsFace][pointIndex][0], &theta[ltsFace][pointIndex][misc::numberOfTPGridPoints], &thetaTmpBuffer[ltsFace][pointIndex][0]);
     std::copy(&sigma[ltsFace][pointIndex][0], &sigma[ltsFace][pointIndex][misc::numberOfTPGridPoints], &sigmaTmpBuffer[ltsFace][pointIndex][0]);
 
-    //! use Theta/Sigma from last call in this update, dt/2 and new SR from NS
+    // use Theta/Sigma from last call in this update, dt/2 and new SR from NS
     updateTemperatureAndPressure(
         slipRateMagnitude[ltsFace][pointIndex], deltaT, pointIndex, timeIndex, ltsFace);
 
@@ -57,6 +57,14 @@ void ThermalPressurization::calcFluidPressure(
   }
 }
 
+/**
+ * We implement the time stepping algorithm, described in Noda&Lapusta (2010) eq. 10 for pressure and temperature in the frequency domain
+ * @param slipRateMagnitude
+ * @param deltaT
+ * @param pointIndex
+ * @param timeIndex
+ * @param ltsFace
+ */
 void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
                                                          real deltaT,
                                                          unsigned int pointIndex,
@@ -76,24 +84,26 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     real tmp = misc::power<2>(tpGridPoints.at(tpGridPointIndex) /
                               halfWidthShearZone[ltsFace][pointIndex]);
 
-    // 1. Calculate diffusion of the field at previous timestep
-    // temperature
-    real thetaCurrent = thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * std::exp(-drParameters.thermalDiffusivity * deltaT * tmp);
-    // pore pressuredeltaT + lambda'*temp
-    real sigmaCurrent =
-        sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * tmp);
+    // This is exp(-A dt) in equation (10)
+    real expTheta = std::exp(-drParameters.thermalDiffusivity * deltaT * tmp);
+    real expSigma = std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * tmp);
 
-    // 2. Add current contribution and get new temperature
-    real omegaTheta = heatSource(tmp, drParameters.thermalDiffusivity, deltaT, tpGridPointIndex, timeIndex);
-    thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = thetaCurrent + (tauV / drParameters.heatCapacity) * omegaTheta;
+    // Temperature and pressure diffusion in spectral domain over timestep
+    // This is + F(t) exp(-A dt) in equation (10)
+    real thetaDiffusion = thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * expTheta;
+    real sigmaDiffusion = sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * expSigma;
 
-    real omegaSigma =
-        heatSource(tmp, hydraulicDiffusivity[ltsFace][pointIndex], deltaT, tpGridPointIndex, timeIndex);
-    sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = sigmaCurrent + ((drParameters.porePressureChange + lambdaPrime) * tauV) /
-                                                                           (drParameters.heatCapacity) * omegaSigma;
+    // Heat generation during timestep
+    // This is B/A * (1 - exp(-A dt)) in equation (10)
+    real omega = heatSource(tauV, tpGridPointIndex);
+    real thetaGeneration = omega / (drParameters.heatCapacity * tmp * drParameters.thermalDiffusivity) * (1.0 - expTheta);
+    real sigmaGeneration = omega * (drParameters.porePressureChange + lambdaPrime) / (drParameters.heatCapacity * tmp * hydraulicDiffusivity[ltsFace][pointIndex]) * (1.0 - expSigma);
 
-    // 3. Recover temperature and pressure using inverse Fourier transformation with the calculated
-    // fourier coefficients new contribution
+    // Sum both contributions up
+    thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = thetaDiffusion + thetaGeneration;
+    sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = sigmaDiffusion + sigmaGeneration;
+
+    // Recover temperature and pressure using inverse Fourier transformation from the new contribution
     temperatureUpdate += (tpInverseFourierCoefficients.at(tpGridPointIndex) /
                           halfWidthShearZone[ltsFace][pointIndex]) *
                          thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
@@ -101,32 +111,21 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
                        halfWidthShearZone[ltsFace][pointIndex]) *
                       sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
   }
-  // Update pore pressure change (sigma = pore pressure + lambda'*temp)
-  // In the BIEM code (Lapusta) they use T without initial value
+  // Update pore pressure change: sigma = pore pressure + lambda' * temperature
   pressureUpdate = pressureUpdate - lambdaPrime * temperatureUpdate;
 
-  // Temp and pore pressure change at single GP on the fault + initial values
+  // Temperature and pore pressure change at single GP on the fault + initial values
   temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters.initialTemperature;
   pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters.initialPressure;
 }
 
 /**
- * Original function in spatial domain:
- * \f[\omega = \frac{1}{w \sqrt{2\pi}}\cdot
- * \exp\left(-\frac{1}{2}\cdot\left(\frac{z}{h}\right)^2\right) \f] Function in the wavenumber
- * domain including additional factors in front of the heat source function \f[ \omega =
- * \frac{1}{\alpha\cdot k^2 \cdot \sqrt{2\pi}}\cdot \exp\left(-\frac{1}{2}\cdot \left(k
- * h\right)^2\right)\cdot\left(1-\exp\left(-\alpha\cdot dt\cdot
- * \left(\frac{k}{h}\right)^2\right)\right) \f] inserting \f$\frac{k}{h}\f$ (scaled) for \f$k\f$
- * cancels out \f$h\f$fluid.
- * @param tmp \f$\left(k/h\right)^2\f$
- * @param alpha \f$\alpha\f$
+ * Implement Noda&Lapusta (2010) eq. (13)
  */
-real ThermalPressurization::heatSource(
-    real tmp, real alpha, real deltaT, unsigned int tpGridPointIndex, unsigned int timeIndex) {
-  real value = 1.0 / (alpha * tmp * (sqrt(2.0 * M_PI))) *
-               std::exp(-0.5 * misc::power<2>(tpGridPoints.at(tpGridPointIndex))) *
-               (1.0 - exp(-alpha * deltaT * tmp));
-  return value;
+real ThermalPressurization::heatSource(double tauV, unsigned int tpGridPointIndex) {
+  real factor = tauV / std::sqrt(2.0 * M_PI);
+  real heatGeneration = std::exp(-0.5 * misc::power<2>(tpGridPoints.at(tpGridPointIndex)));
+
+  return heatGeneration * factor;
 }
 } // namespace seissol::dr::friction_law
