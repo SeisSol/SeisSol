@@ -12,7 +12,7 @@ In order to run SeisSol, you need to first install:
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.10), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
+-  CMake (>3.10) for the compilation of SeisSol
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -84,7 +84,7 @@ Installing Libxsmm
 
 .. code-block:: bash
 
-   git clone https://github.com/hfp/libxsmm
+   git clone --branch 1.17 https://github.com/hfp/libxsmm
    cd libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $HOME/bin
@@ -142,6 +142,10 @@ Installing ASAGI (Optional)
 See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 .. _compiling-seissol:
+
+Installing easi
+---------------------------
+Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 
 Compiling SeisSol
 -----------------

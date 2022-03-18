@@ -318,11 +318,11 @@ CONTAINS
           rho             = MaterialVal(iElem,1)
           !
           if( iElem == 0 ) then
-            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iNeighbor, \
-                                                                    i_faceId = iLocalNeighborSide, \
+            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iNeighbor, &
+                                                                    i_faceId = iLocalNeighborSide, &
                                                                     o_dofs   = dofiElem_ptr )
           else
-            call c_interoperability_getDofsFromDerivatives( i_meshId = iElem, \
+            call c_interoperability_getDofsFromDerivatives( i_meshId = iElem, &
                                                             o_dofs   = DOFiElem_ptr)
           endif
 
@@ -331,8 +331,8 @@ CONTAINS
             ! The neighbor element belongs to a different MPI domain
             iObject  = MESH%ELEM%BoundaryToObject(iSide,iElem)
             MPIIndex = MESH%ELEM%MPINumber(iSide,iElem)
-            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iElem, \
-                                                                    i_faceId = iSide, \
+            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iElem, &
+                                                                    i_faceId = iSide, &
                                                                     o_dofs   = DOFiNeigh_ptr )
 
             ! Bimaterial case only possible for elastic isotropic materials
@@ -345,7 +345,7 @@ CONTAINS
             w_speed_neig(3) = w_speed_neig(2)
           ELSE
             ! normal case: iNeighbor present in local domain
-            call c_interoperability_getDofsFromDerivatives( i_meshId = iNeighbor, \
+            call c_interoperability_getDofsFromDerivatives( i_meshId = iNeighbor, &
                                                             o_dofs   = DOFiNeigh_ptr )
             w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,:)
             rho_neig        = MaterialVal(iNeighbor,1)
