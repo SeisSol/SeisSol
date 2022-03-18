@@ -67,6 +67,7 @@ namespace seissol {
   namespace initializers {
     class QueryGenerator;
     class ElementBarycentreGenerator;
+    class ElementAverageGenerator;
     class ElementBarycentreGeneratorPUML;
     class FaultBarycentreGenerator;
     class FaultGPGenerator;
