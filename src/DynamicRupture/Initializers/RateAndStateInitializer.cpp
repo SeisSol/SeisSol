@@ -137,10 +137,8 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
        ++it) {
     real(*temperature)[misc::numPaddedPoints] = it->var(concreteLts->temperature);
     real(*pressure)[misc::numPaddedPoints] = it->var(concreteLts->pressure);
-    real(*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints] =
-        it->var(concreteLts->theta);
-    real(*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints] =
-        it->var(concreteLts->sigma);
+    real(*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints] = it->var(concreteLts->theta);
+    real(*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints] = it->var(concreteLts->sigma);
     real(*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints] =
         it->var(concreteLts->thetaTmpBuffer);
     real(*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints] =

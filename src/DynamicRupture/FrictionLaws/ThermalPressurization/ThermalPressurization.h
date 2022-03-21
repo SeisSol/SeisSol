@@ -12,19 +12,17 @@ namespace seissol::dr::friction_law {
 
 template <size_t N>
 class GridPoints {
-  public: 
+  public:
   GridPoints() {
     for (size_t i = 0; i < N; ++i) {
       values.at(i) =
           misc::tpMaxWavenumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
     }
   }
-  real at(size_t i) const {
-    return values.at(i);
-  };
+  real at(size_t i) const { return values.at(i); };
 
   private:
-    std::array<real, N> values{};
+  std::array<real, N> values{};
 };
 
 template <size_t N>
@@ -37,14 +35,12 @@ class InverseFourierCoefficients {
       values.at(i) = std::sqrt(2 / M_PI) * localGridPoints.at(i) * misc::tpLogDz;
     }
     values.at(0) = std::sqrt(2 / M_PI) * localGridPoints.at(0) * (1 + misc::tpLogDz);
-    values.at(N - 1) = std::sqrt(2 / M_PI) * localGridPoints.at(N-1) * 0.5 * misc::tpLogDz;
+    values.at(N - 1) = std::sqrt(2 / M_PI) * localGridPoints.at(N - 1) * 0.5 * misc::tpLogDz;
   }
-  real at(size_t i) const {
-    return values.at(i);
-  };
+  real at(size_t i) const { return values.at(i); };
 
   private:
-    std::array<real, N> values{};
+  std::array<real, N> values{};
 };
 
 class ThermalPressurization {

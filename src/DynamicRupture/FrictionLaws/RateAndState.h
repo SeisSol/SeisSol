@@ -78,13 +78,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
     }
     // compute final thermal pressure and normalStress
-    tpMethod.calcFluidPressure(normalStress,
-                               this->mu,
-                               localSlipRate,
-                               this->deltaT[timeIndex],
-                               true,
-                               timeIndex,
-                               ltsFace);
+    tpMethod.calcFluidPressure(
+        normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, timeIndex, ltsFace);
     updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
     // compute final slip rates and traction from median value of the iterative solution and initial
     // guess
@@ -187,7 +182,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
                            faultStresses.xzStress[timeIndex][pointIndex];
       absoluteShearStress[pointIndex] = misc::magnitude(totalStressXY, totalStressXZ);
-
 
       // The following process is adapted from that described by Kaneko et al. (2008)
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
@@ -420,12 +414,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     return hasConverged;
   }
 
-  void updateNormalStress(std::array<double, misc::numPaddedPoints>& normalStress, FaultStresses const& faultStresses, TPMethod tpMethod, size_t timeIndex, size_t ltsFace) {
+  void updateNormalStress(std::array<double, misc::numPaddedPoints>& normalStress,
+                          FaultStresses const& faultStresses,
+                          TPMethod tpMethod,
+                          size_t timeIndex,
+                          size_t ltsFace) {
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
-                                          this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                          tpMethod.fluidPressure(ltsFace, pointIndex));
+                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] -
+                                              tpMethod.fluidPressure(ltsFace, pointIndex));
     }
   }
 };

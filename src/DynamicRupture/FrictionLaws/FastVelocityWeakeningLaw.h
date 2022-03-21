@@ -126,8 +126,9 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      resampledStateVar[pointIndex] = std::max(static_cast<real>(0.0),
-          this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex]);
+      resampledStateVar[pointIndex] =
+          std::max(static_cast<real>(0.0),
+                   this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex]);
     }
 
     return resampledStateVar;
