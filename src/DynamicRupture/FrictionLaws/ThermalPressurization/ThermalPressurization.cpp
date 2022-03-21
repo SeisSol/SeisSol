@@ -85,7 +85,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w
     real tmp =
-        misc::power<2>(tpGridPoints.at(tpGridPointIndex) / halfWidthShearZone[ltsFace][pointIndex]);
+        misc::power<2>(tpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
     // This is exp(-A dt) in equation (10)
     real expTheta = std::exp(-drParameters.thermalDiffusivity * deltaT * tmp);
@@ -114,7 +114,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     // Recover temperature and pressure using inverse Fourier transformation from the new
     // contribution
     real scaledInverseFourierCoefficient =
-        tpInverseFourierCoefficients.at(tpGridPointIndex) / halfWidthShearZone[ltsFace][pointIndex];
+        tpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
     temperatureUpdate +=
         scaledInverseFourierCoefficient * thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
     pressureUpdate +=
@@ -131,9 +131,10 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 /**
  * Implement Noda&Lapusta (2010) eq. (13)
  */
+#pragma omp declare simd
 real ThermalPressurization::heatSource(double tauV, unsigned int tpGridPointIndex) {
   real factor = tauV / std::sqrt(2.0 * M_PI);
-  real heatGeneration = std::exp(-0.5 * misc::power<2>(tpGridPoints.at(tpGridPointIndex)));
+  real heatGeneration = std::exp(-0.5 * misc::power<2>(tpGridPoints[tpGridPointIndex]));
 
   return heatGeneration * factor;
 }

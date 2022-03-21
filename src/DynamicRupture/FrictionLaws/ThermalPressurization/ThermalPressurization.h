@@ -15,14 +15,14 @@ class GridPoints {
   public:
   GridPoints() {
     for (size_t i = 0; i < N; ++i) {
-      values.at(i) =
+      values[i] =
           misc::tpMaxWavenumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
     }
   }
-  real at(size_t i) const { return values.at(i); };
+  real const& operator[](size_t i) const { return values[i]; };
 
   private:
-  std::array<real, N> values{};
+  real values[N]{0};
 };
 
 template <size_t N>
@@ -32,15 +32,15 @@ class InverseFourierCoefficients {
     GridPoints<N> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
-      values.at(i) = std::sqrt(2 / M_PI) * localGridPoints.at(i) * misc::tpLogDz;
+      values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::tpLogDz;
     }
-    values.at(0) = std::sqrt(2 / M_PI) * localGridPoints.at(0) * (1 + misc::tpLogDz);
-    values.at(N - 1) = std::sqrt(2 / M_PI) * localGridPoints.at(N - 1) * 0.5 * misc::tpLogDz;
+    values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::tpLogDz);
+    values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::tpLogDz;
   }
-  real at(size_t i) const { return values.at(i); };
+  real const& operator[](size_t i) const { return values[i]; };
 
   private:
-  std::array<real, N> values{};
+  real values[N]{0};
 };
 
 class ThermalPressurization {
