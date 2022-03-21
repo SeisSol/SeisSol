@@ -82,8 +82,7 @@ class ThermalPressurization {
    * compute thermal pressure according to Noda and Lapusta 2010
    * bool saveTmpInTP is used to save final thermal pressure values for theta and sigma
    */
-  void calcFluidPressure(FaultStresses const& faultStresses,
-                         real (*initialStressInFaultCS)[misc::numPaddedPoints][6],
+  void calcFluidPressure(std::array<real, misc::numPaddedPoints> const& normalStress,
                          real (*mu)[misc::numPaddedPoints],
                          std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
                          real deltaT,

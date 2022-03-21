@@ -78,8 +78,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
     }
     // compute final thermal pressure and normalStress
-    tpMethod.calcFluidPressure(faultStresses,
-                               this->initialStressInFaultCS,
+    tpMethod.calcFluidPressure(normalStress,
                                this->mu,
                                localSlipRate,
                                this->deltaT[timeIndex],
@@ -223,8 +222,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
-      tpMethod.calcFluidPressure(faultStresses,
-                                 this->initialStressInFaultCS,
+      tpMethod.calcFluidPressure(normalStress,
                                  this->mu,
                                  localSlipRate,
                                  this->deltaT[timeIndex],

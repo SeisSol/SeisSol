@@ -27,8 +27,7 @@ void ThermalPressurization::setInitialFluidPressure(unsigned int ltsFace) {
 }
 
 void ThermalPressurization::calcFluidPressure(
-    const FaultStresses& faultStresses,
-    real (*initialStressInFaultCS)[misc::numPaddedPoints][6],
+    std::array<real, misc::numPaddedPoints> const& normalStress,
     real (*mu)[misc::numPaddedPoints],
     std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
     real deltaT,
@@ -38,10 +37,8 @@ void ThermalPressurization::calcFluidPressure(
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 
     // compute fault strength
-    auto normalStress = faultStresses.normalStress[timeIndex][pointIndex] +
-                        initialStressInFaultCS[ltsFace][pointIndex][0] - pressure[ltsFace][pointIndex];
     faultStrength[ltsFace][pointIndex] =
-        -mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), normalStress);
+        -mu[ltsFace][pointIndex] * normalStress[pointIndex];
 
     std::copy(&theta[ltsFace][pointIndex][0], &theta[ltsFace][pointIndex][misc::numberOfTPGridPoints], &thetaTmpBuffer[ltsFace][pointIndex][0]);
     std::copy(&sigma[ltsFace][pointIndex][0], &sigma[ltsFace][pointIndex][misc::numberOfTPGridPoints], &sigmaTmpBuffer[ltsFace][pointIndex][0]);

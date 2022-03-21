@@ -12,8 +12,7 @@ class NoTP {
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {}
 
-  void calcFluidPressure(FaultStresses const& faultStresses,
-                         real (*initialStressInFaultCS)[misc::numPaddedPoints][6],
+  void calcFluidPressure(std::array<real, misc::numPaddedPoints>&,
                          real (*mu)[misc::numPaddedPoints],
                          std::array<real, misc::numPaddedPoints>&,
                          real deltaT,
