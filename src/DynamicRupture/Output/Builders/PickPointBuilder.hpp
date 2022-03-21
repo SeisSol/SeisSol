@@ -22,11 +22,7 @@ class PickPointBuilder : public OutputBuilder {
     initOutputVariables(pickpointParams.outputMask);
     initRotationMatrices();
     initBasisFunctions();
-
-    // findElementsContainingPoints();
-    // initPointsIndices();
-    // projectPointsToFaces();
-    // findClosestGpPoint();
+    initJacobian2dMatrices();
     outputData.isActive = true;
   }
 

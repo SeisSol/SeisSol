@@ -123,6 +123,48 @@ class OutputBuilder {
     misc::forEach(outputData.vars, allocateVariables);
   }
 
+  void initJacobian2dMatrices() {
+    const auto& faultInfo = meshReader->getFault();
+    const auto& verticesInfo = meshReader->getVertices();
+    const auto& elementsInfo = meshReader->getElements();
+
+    size_t nReceiverPoints = outputData.receiverPoints.size();
+    outputData.jacobianT2d.resize(nReceiverPoints);
+
+    for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
+      assert(outputData.receiverPoints[receiverId].elementIndex != -1);
+
+      auto side = outputData.receiverPoints[receiverId].localFaceSideId;
+      auto elementIndex = outputData.receiverPoints[receiverId].elementIndex;
+
+      const auto& element = elementsInfo[elementIndex];
+      auto face = getGlobalTriangle(side, element, verticesInfo);
+
+      VrtxCoords xab, xac;
+      {
+        constexpr size_t x{0}, y{1}, z{2};
+        xab[x] = face.p2[x] - face.p1[x];
+        xab[y] = face.p2[y] - face.p1[y];
+        xab[z] = face.p2[z] - face.p1[z];
+
+        xac[x] = face.p3[x] - face.p1[x];
+        xac[y] = face.p3[y] - face.p1[y];
+        xac[z] = face.p3[z] - face.p1[z];
+      }
+
+      auto faultIndex = outputData.receiverPoints[receiverId].faultFaceIndex;
+      auto* tangent1 = faultInfo[faultIndex].tangent1;
+      auto* tangent2 = faultInfo[faultIndex].tangent2;
+
+      Eigen::Matrix<real, 2, 2> matrix;
+      matrix(0, 0) = MeshTools::dot(tangent1, xab);
+      matrix(0, 1) = MeshTools::dot(tangent2, xab);
+      matrix(1, 0) = MeshTools::dot(tangent1, xac);
+      matrix(1, 1) = MeshTools::dot(tangent2, xac);
+      outputData.jacobianT2d[receiverId] = matrix.inverse();
+    }
+  }
+
   protected:
   const MeshReader* meshReader{};
   OutputData outputData;

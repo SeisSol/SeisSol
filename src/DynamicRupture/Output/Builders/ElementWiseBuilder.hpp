@@ -23,6 +23,7 @@ class ElementWiseBuilder : public OutputBuilder {
     initFaultDirections();
     initRotationMatrices();
     initBasisFunctions();
+    initJacobian2dMatrices();
     outputData.isActive = true;
   }
 
@@ -68,9 +69,11 @@ class ElementWiseBuilder : public OutputBuilder {
       // init global coordinates of the fault face
       ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
 
-      faultRefiner->refineAndAccumulate(
-          {elementwiseParams.refinement, static_cast<int>(faceIndex), localFaceSideId},
-          std::make_pair(globalFace, referenceFace));
+      faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
+                                         static_cast<int>(faceIndex),
+                                         localFaceSideId,
+                                         faultInfo[faceIndex].element},
+                                        std::make_pair(globalFace, referenceFace));
     }
 
     // retrieve all receivers from a fault face refiner

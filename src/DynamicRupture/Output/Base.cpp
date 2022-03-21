@@ -49,7 +49,6 @@ std::string Base::constructPickpointReceiverFileName(const int receiverGlobalInd
 
 void Base::initElementwiseOutput() {
   ewOutputBuilder->init();
-
   const auto& receiverPoints = ewOutputBuilder->outputData.receiverPoints;
   auto cellConnectivity = getCellConnectivity(receiverPoints);
   auto vertices = getAllVertices(receiverPoints);
@@ -327,6 +326,8 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
         this->computeSlipAndRate(tangent1, tangent2, strike, dip);
       }
 
+      adjustRotatedTractionAndStresses(rotatedTraction, rotatedLocalStress);
+
       auto& slipRate = std::get<VariableID::SlipRate>(outputData.vars);
       if (slipRate.isActive) {
         slipRate(DirectionID::Strike, level, i) = local.srS;
@@ -376,7 +377,8 @@ void Base::calcFaultOutput(const OutputType type, OutputData& outputData, double
 
       auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData.vars);
       if (ruptureVelocity.isActive) {
-        ruptureVelocity(level, i) = this->computeRuptureVelocity();
+        auto& jacobiT2d = outputData.jacobianT2d[i];
+        ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d);
       }
 
       auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
@@ -507,35 +509,81 @@ void Base::computeSlipAndRate(const double* tangent1,
   }
 }
 
-real Base::computeRuptureVelocity() {
+int Base::getClosestInternalGp(int nearestGpIndex, int nPoly) {
+  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
+  int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
+  if (i1 == 1) {
+    i1 = i1 + 1;
+  } else if (i1 == (nPoly + 2)) {
+    i1 = i1 - 1;
+  }
+
+  if (j1 == 1) {
+    j1 = j1 + 1;
+  } else if (j1 == (nPoly + 2)) {
+    j1 = j1 - 1;
+  }
+  return (i1 - 1) * (nPoly + 2) + j1;
+}
+
+real Base::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
   auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
   real ruptureVelocity = 0.0;
 
-  bool computeRuptureVelocity{true};
+  bool needsUpdate{true};
   for (size_t point = 0; point < tensor::QInterpolated::Shape[0]; ++point) {
     if (ruptureTime[point] == 0.0) {
-      computeRuptureVelocity = false;
+      needsUpdate = false;
     }
   }
 
-  if (computeRuptureVelocity) {
+  if (needsUpdate) {
+    constexpr int numPoly = CONVERGENCE_ORDER - 1;
+    constexpr int numDegFr2d = (numPoly + 1) * (numPoly + 2) / 2;
+    std::array<real, numDegFr2d> projectedRT{};
+    projectedRT.fill(0.0);
 
-    int nPoly = CONVERGENCE_ORDER - 1;
-    auto nearestGpIndex = local.nearestGpIndex;
-    int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
-    int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
-    if (i1 == 1) {
-      i1 = i1 + 1;
-    } else if (i1 == (nPoly + 2)) {
-      i1 = i1 - 1;
+    std::array<real, 2 * numDegFr2d> phiAtPoint{};
+    phiAtPoint.fill(0.0);
+
+    auto chiTau2dPoints =
+        init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
+    auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+
+    auto* rt = local.layer->var(drDescr->ruptureTime);
+    for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
+      real chi = chiTau2dPoints(jBndGP, 0);
+      real tau = chiTau2dPoints(jBndGP, 1);
+      computeTriDubinerPolynomials(phiAtPoint.data(), chi, tau, numPoly);
+
+      for (size_t d = 0; d < numDegFr2d; ++d) {
+        projectedRT[d] += weights(jBndGP) * rt[local.ltsId][jBndGP] * phiAtPoint[d];
+      }
     }
 
-    if (j1 == 1) {
-      j1 = j1 + 1;
-    } else if (j1 == (nPoly + 2)) {
-      j1 = j1 - 1;
+    auto m2inv =
+        seissol::init::M2inv::view::create(const_cast<real*>(seissol::init::M2inv::Values));
+    for (size_t d = 0; d < numDegFr2d; ++d) {
+      projectedRT[d] *= m2inv(d, d);
     }
-    nearestGpIndex = (i1 - 1) * (nPoly + 2) + j1;
+
+    auto nearestGpIndex = getClosestInternalGp(local.nearestGpIndex, numPoly);
+    real chi = chiTau2dPoints(nearestGpIndex, 0);
+    real tau = chiTau2dPoints(nearestGpIndex, 1);
+
+    computeGradTriDubinerPolynomials(phiAtPoint.data(), chi, tau, numPoly);
+
+    real dTdChi{0.0};
+    real dTdTau{0.0};
+    for (size_t d = 0; d < numDegFr2d; ++d) {
+      dTdChi += projectedRT[d] * phiAtPoint[2 * d];
+      dTdTau += projectedRT[d] * phiAtPoint[2 * d + 1];
+    }
+    real dTdX = jacobiT2d(0, 0) * dTdChi + jacobiT2d(0, 1) * dTdTau;
+    real dTdY = jacobiT2d(1, 0) * dTdChi + jacobiT2d(1, 1) * dTdTau;
+
+    real slowness = std::sqrt(dTdX * dTdX + dTdY * dTdY);
+    ruptureVelocity = (slowness == 0.0) ? 0.0 : 1.0 / slowness;
   }
 
   return ruptureVelocity;

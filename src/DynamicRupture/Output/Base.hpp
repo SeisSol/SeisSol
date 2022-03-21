@@ -84,8 +84,13 @@ class Base {
                           const double* strike,
                           const double* dip);
 
+  virtual void adjustRotatedTractionAndStresses(std::array<real, 6>& rotatedTraction,
+                                                std::array<real, 6>& rotatedLocalStress){};
+
+  int getClosestInternalGp(int nearestGpIndex, int nPoly);
+
   virtual void outputSpecifics(OutputData& data, size_t level, size_t receiverIdx) {}
-  real computeRuptureVelocity();
+  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
 
   void initElementwiseOutput();
   void initPickpointOutput();
