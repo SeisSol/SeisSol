@@ -21,7 +21,7 @@ Here, we described the procedure to set up such port forwarding.
      User <Your Login>    
      RemoteForward ddddd github.com:22
 
-where ddddd is an arbitrary 5-digital port number.
+where ddddd is an arbitrary 5-digital port number, smaller than 65535.
   
 2. Use the following command to login onto SuperMUC-NG:
 
@@ -100,9 +100,9 @@ Building SeisSol
   export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
 
 
-3. Install libxsmm, PSpaMM and ASAGI
+3. Install libxsmm, PSpaMM, easi and ASAGI
 
-See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
+See :ref:`installing_libxsmm`, :ref:`installing_pspamm`, `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_ and :ref:`installing_ASAGI`. 
 Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
 The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 If you need to compile ASAGI, first clone ASAGI with:
@@ -134,7 +134,7 @@ set compiler options, run cmake, and compile with:
 ::
 
    mkdir build-release && cd build-release
-   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
    make -j 48
 
 Note that to use sanitzer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
@@ -208,7 +208,7 @@ Running SeisSol
   export ASYNC_BUFFER_ALIGNMENT=8388608
   source /etc/profile.d/modules.sh
 
-  echo $SLURM_NTASKS
+  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS 'cpus_per_task:' $SLURM_CPUS_PER_TASK
   ulimit -Ss 2097152
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 

@@ -77,6 +77,21 @@ Installing netCDF
   make install
   cd ..
 
+.. _installing_eigen3:
+
+Installing Eigen3
+-----------------
+
+.. code-block:: bash
+
+   wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+   tar -xf eigen-3.4.0.tar.gz
+   cd eigen-3.4.0
+   mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=~
+   make install
+   cd ../..
+
 .. _installing_libxsmm:
 
 Installing Libxsmm
@@ -99,7 +114,14 @@ Installing PSpaMM
 .. code-block:: bash
 
    git clone https://github.com/SeisSol/PSpaMM.git
-   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
+   # make sure $HOME/bin exists or create it with "mkdir ~/bin"
+   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin/pspamm.py
+   
+Instead of linking, you could also add the following line to your .bashrc:
+
+.. code-block:: bash
+
+   export PATH=<Your_Path_to_PSpaMM>:$PATH
 
 Installing GemmForge (for GPU)
 ------------------------------
