@@ -427,7 +427,7 @@ MODULE Eval_friction_law_mod
       Strength = -DISC%DynRup%cohesion(:,iFace) - DISC%DynRup%Mu(:,iFace) * MIN(P,ZERO)      
       ShTest = SQRT((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))**2 + (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))**2)
 
-      LocSR = max(0d0, (ShTest - Strength) / eta)
+      LocSR = max(0.0, (ShTest - Strength) / eta)
       LocSR1 = LocSR * (EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
       LocSR2 = LocSR * (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
       LocTracXY = XYStressGP(:,iTimeGP) - eta * LocSR1
@@ -444,7 +444,7 @@ MODULE Eval_friction_law_mod
       tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
       
      ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-     f1=dmin1(ABS(DISC%DynRup%Slip(:,iFace))/DISC%DynRup%D_C(:,iFace),1d0)    
+     f1=min(ABS(DISC%DynRup%Slip(:,iFace))/DISC%DynRup%D_C(:,iFace),1.0)    
 
      IF(EQN%FL.EQ.16) THEN 
         IF (t_0.eq.0) THEN
@@ -454,13 +454,13 @@ MODULE Eval_friction_law_mod
             f2=0.
          end where
         ELSE
-           f2=dmax1(0d0,dmin1((tn-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
+           f2=dmax1(0.0,min((tn-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1.0))
         ENDIF
      ELSE !no forced time rupture
         f2=0.
      ENDIF
 
-     DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace)-DISC%DynRup%Mu_D(:,iFace))*dmax1(f1,f2)
+     DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace)-DISC%DynRup%Mu_D(:,iFace))*max(f1,f2)
 
      ! instantaneous healing
      IF (DISC%DynRup%inst_healing == 1) THEN
