@@ -21,22 +21,22 @@ parser.add_argument('--MP', nargs=1, metavar=('ncpu'), default=([1]),
                     help='use np.pool to speed-up calculations' ,type=int)
         
 parser.add_argument('--maxFreq', nargs=1, default=([1.0]), metavar=('maxFreq'),
-                    help='maximum fequency of the spectrum used for the corner frequency computation' ,type=float)
+                    help='maximum frequency of the spectrum used for the corner frequency computation' ,type=float)
                     # maxFreq that should be sufficiently resolved by the simulation
     
-parser.add_argument('--maxCornerFreq', nargs=1, default=([0.]), metavar=('maxCornerFreq'),
+parser.add_argument('--maxCornerFreq', nargs=1, metavar=('maxCornerFreq'),
                     help='maximum possible corner frequency (default = maxFreq)' ,type=float)
                     # Should be specified to reduce computational costs, if the maximum expected corner frequency is
                     # significantly less than maxFreq
         
-parser.add_argument('--output', choices=["numpy","xdmf", "both"], default="both", 
+parser.add_argument('--output', choices=["numpy","xdmf","both"], default="both", 
                     help='choose the output format')
 
 parser.add_argument('--bodywavewindow',  dest='bodywavewindow', action='store_true' , default = False, 
                     help='cuts out a body wave window before performing the fft to mitigate the impact of surface waves')
                     # -fault.xdmf file needed (within the same directory as -surface.xdmf or arg --faultxdmf needed)
     
-parser.add_argument('--slipRateThreshold', nargs=1, default=([0.2]), metavar=('slipRateThreshold'),
+parser.add_argument('--slipRateThreshold', nargs=1, default=([0.1]), metavar=('slipRateThreshold'),
                     help='slip rate threshold that is used to approximate event duration and hypocenter location' ,type=float)
                     # only needed when --bodywavewindow is active
     
@@ -51,7 +51,7 @@ parser.add_argument('--rotate',  dest='rotate', action='store_true' , default = 
 parser.add_argument('--outputprefix', default="data", type=str, metavar=('outputprefix'), 
                     help='provide an outputprefix')
 
-parser.add_argument('--faultxdmf', default="input", type=str, metavar=('-fault.xdmf'), 
+parser.add_argument('--faultxdmf', type=str, metavar=('-fault.xdmf'), 
                     help='provide path+filename-fault.xdmf; only needed when the path differs from the -surface.xdmf file')
 
 parser.add_argument('--parallelLoading',  dest='parallelLoading', action='store_true' , default = False, 
@@ -61,6 +61,9 @@ parser.add_argument('--parallelLoading',  dest='parallelLoading', action='store_
 parser.add_argument('--avgSWaveVelocity', nargs=1, metavar=('avgSWaveVelocity'),
                     help='provide an average S-wave velocity near the surface (otherwise it is approximated from P-arrivals)',
                     type=float)
+
+parser.add_argument('--oldVelocityVariables', dest='oldVelocityVariables', action='store_true' , default = False, 
+                    help='for data with SeisSols old surface velocity variables name convention (uvw)') 
 args = parser.parse_args()
 
 def LoadSingleComponentParallel(component, surfaceData=True):
@@ -94,12 +97,9 @@ def ComputeTriangleMidpoints(geom, connect):
     return xyz
 
 def CalculateSlipCentroid(faultxdmf, events=0):
-    if events == 0:
-        ASl = faultxdmf.ReadData("ASl", idt=lastTimeStep).T
-    elif events == 1:
-        ASl = faultxdmf.ReadData("ASl", idt=int(lastTimeStep/2)).T   
-    else:
-        ASl = faultxdmf.ReadData("ASl", idt=lastTimeStep).T - faultxdmf.ReadData("ASl", idt=int(lastTimeStep/2)).T 
+    ASl = faultxdmf.ReadData("ASl", idt=timeIndicesFault[1]-1).T
+    if timeIndicesFault[0]!=0:
+        ASl -= faultxdmf.ReadData("ASl", idt=timeIndicesFault[0]).T
     return np.average(faultxyz, axis=0, weights=ASl)
 
 def ComputeBackazimuth(xyz, centroid):
@@ -115,57 +115,60 @@ def RotateToRadialTransversal(u, v, xyz, centroid):
     return r, t
 
 def ComputeCornerFrequencyParallel(component, pphases, windowduration):
-    chunk_inds = np.int_(np.linspace(0, component.shape[0], nprocs+1))
+    chunk_inds = np.linspace(0, component.shape[0], nprocs+1, dtype=int)
     chunks = []
     for i in range(nprocs):
-        chunks.append([component[chunk_inds[i]:chunk_inds[i+1]], pphases[chunk_inds[i]:chunk_inds[i+1]], 
-                     windowduration[chunk_inds[i]:chunk_inds[i+1]]])
-    chunks = [tuple(i) for i in chunks]  
+        chunks.append((component[chunk_inds[i]:chunk_inds[i+1]], pphases[chunk_inds[i]:chunk_inds[i+1]], 
+                     windowduration[chunk_inds[i]:chunk_inds[i+1]]))
        
     p = Pool(nprocs)
-    result = p.map(ComputeCornerFrequencyArray, chunks)
+    result = p.map(ComputeCornerFrequency, chunks)
     p.close()
     p.join()
     return np.concatenate(result)        
 
-def ComputeCornerFrequencyArray(tuples):
-    # Needed for parallel computing of corner frequencies
-    fc_arr = np.zeros(tuples[0].shape[0])
-    for i in range(0, fc_arr.size):
-        fc_arr[i] = ComputeSingleCornerFrequency(tuples[0][i], dt, pphase=tuples[1][i], 
-                                                 windowduration=tuples[2][i], endfreq=args.maxFreq[0])
-    return fc_arr
 
-def ComputeSingleCornerFrequency(velocity, dt, pphase=0, windowduration=0, endfreq=1.0):
+def ComputeCornerFrequency(tuples):
     """Preproccesing of a single waveform before calling fc_Qzero_gridsearch to determine the corner frequency"""
+    
+    fc_arr = np.zeros(tuples[0].shape[0])
+    endfreq=args.maxFreq[0]
+    
+    for i in range(0, fc_arr.size):
+        
+        velocity = tuples[0][i]
+        windowduration = tuples[2][i] * 1.1     # add 10% to not lose information due to the taper
+        pphase = tuples[1][i]
+    
+        # preprocessing (taper and padding)
+        if windowduration != 0:
+            data = cut_window_and_pad(velocity, windowduration, dt, pphase=pphase, alpha=0.05)
+        else:
+            taper = sp.signal.tukey(velocity.shape[0], alpha=0.05, sym=True)
+            data = velocity * taper
 
-    # preprocessing (taper and padding)
-    if windowduration != 0:
-        data = cut_window_and_pad(velocity, windowduration, dt, pphase=pphase, alpha=0.05)
-    else:
-        data = velocity
-    
-    # fourier transform and down trimming to maxFreq
-    data, freqs = complete_fft(data, dt)
-    maxFreqIndices = int(np.argwhere(freqs > endfreq)[1])
-    data = data[1:maxFreqIndices]
-    freqs = freqs[1:maxFreqIndices]
-    
-    # integrate within the frequency domain and convert to amplitude spectrum
-    data = np.abs(data*(1/(1j*2*np.pi*freqs)))
-    
-    newfreqs = np.arange(0.01, endfreq+0.005, 0.005)
-    data = np.interp(newfreqs, freqs, data)
-    
-    fc = fc_Qzero_gridsearch(data, newfreqs, misfit="SSM", n=2, fc_end=args.maxCornerFreq[0])[0]
-    return fc
+        # fourier transform and down trimming to maxFreq
+        data, freqs = complete_fft(data, dt)
+        maxFreqIndices = int(np.argwhere(freqs > endfreq)[1])
+        data = data[1:maxFreqIndices]
+        freqs = freqs[1:maxFreqIndices]
+
+        # integrate within the frequency domain and convert to amplitude spectrum
+        data = np.abs(data*(1/(1j*2*np.pi*freqs)))
+
+        newfreqs = np.arange(0.01, endfreq+0.005, 0.005)
+        data = np.interp(newfreqs, freqs, data)
+
+        fc_arr[i] = fc_Qzero_gridsearch(data, newfreqs, misfit="SSM", n=2, 
+                                 fc_end = 0 if not args.maxCornerFreq else args.maxCornerFreq[0])[0]
+    return fc_arr
 
 def cut_window_and_pad(data, window_duration, dt, pphase=0, alpha=0.05):
     """Cuts a tapered body wave window and pads remaining timesteps with zeros"""
     
     window_len = int(window_duration / dt)
-    ind1 = int(pphase / dt)
-    
+    ind1 = np.max([int(pphase / dt - 0.025 * window_len), 0])
+  
     if window_len + ind1 >= data.shape[0]:
         window_len = data.shape[0] - ind1
     
@@ -232,17 +235,19 @@ def complete_fft(tr, dt):
     times_comp = np.fft.rfftfreq(tr.shape[0],dt)
     return tr_fft, times_comp
 
-def ApproximateEventDurationAndHypocenter(slipRateThreshold=args.slipRateThreshold[0]):
+def ApproximateEventDurationAndHypocenter():
     """Calculates the derivative of ASl (probably faster than loading SR1 and SR2)
      and approximates event duration by multiplying dt with the number of timesteps,
      where maximum on-fault slip rate is above a threshold (slipRateThreshold)"""
     
+    slipRateThreshold=args.slipRateThreshold[0]
     if nprocs == 1 or not args.parallelLoading:
         ASl = faultxdmf.ReadData("ASl").T[::stepsize,timeIndicesFault[0]:timeIndicesFault[1]]
     else:
         ASl = LoadSingleComponentParallel("ASl", surfaceData=False)
     ASR = np.gradient(ASl, dtFault, axis=1)
-    duration = np.sum(np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0))*dtFault
+    slippingElement = np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0)
+    duration = slippingElement[np.argmax(slippingElement):-np.argmax(np.flip(slippingElement))].size * dtFault
     slippingFault = np.where(ASR > slipRateThreshold, 1, 0)
     indHypocenter = np.argmax(slippingFault[:,np.argmax(np.amax(slippingFault, axis=0))])
     hypocenter = faultxyz[indHypocenter,:]
@@ -258,7 +263,7 @@ def PickPPhases(trigger=0.001):
     t = ind*dt
     return np.transpose(np.vstack((ind,t))) # p-phase output: first column index and second column simulation time
 
-def SWaveDelay(xyz, pphase, hypocenter, centroid):
+def compute_P2S_window_duration(xyz, pphase, hypocenter, centroid):
     """Approximates the difference between P- and S-wave arrivals for each receiver"""
     
     if not args.avgSWaveVelocity:
@@ -268,8 +273,16 @@ def SWaveDelay(xyz, pphase, hypocenter, centroid):
         swaveVelocity = args.avgSWaveVelocity[0]
     print("Average S-wave velocity near the surface: "+str(swaveVelocity))
     distance2 = np.linalg.norm((xyz - centroid), axis=1)
-    swaveDelay = distance2 / (swaveVelocity * (np.sqrt(3) - 1))
+    swaveDelay = distance2 / swaveVelocity * (1-1/np.sqrt(3))
     return swaveDelay
+
+def GetTimeIndices(xdmfFile):
+    if args.events[0] == 0:
+        return [0, xdmfFile.ReadNdt()]
+    elif args.events[0] == 1:
+        return [0, int(xdmfFile.ReadNdt()/2)]
+    else:
+        return [int(xdmfFile.ReadNdt()/2), xdmfFile.ReadNdt()]
 
 start = timeit.default_timer()
 
@@ -283,13 +296,7 @@ surfacexyz = ComputeTriangleMidpoints(surfacexdmf.ReadGeometry(), surfacexdmf.Re
 if stepsize != 1 and args.output != "numpy":
     sys.exit("Xdmf output is not compatible with stepsize != 1")
 
-if args.events[0] == 0:
-    timeIndices = [0, surfacexdmf.ReadNdt()]
-elif args.events[0] == 1:
-    timeIndices = [0, int(surfacexdmf.ReadNdt()/2)]
-else:
-    timeIndices = [int(surfacexdmf.ReadNdt()/2), surfacexdmf.ReadNdt()]
-
+timeIndices = GetTimeIndices(surfacexdmf)
 
 nprocs  = args.MP[0]
 assert(nprocs<=cpu_count())
@@ -297,15 +304,17 @@ print("Using "+str(nprocs)+" ranks")
 
 if not args.parallelLoading:
     print("Serial loading of components...")
-
+    
+surfaceVariables = ['u', 'v', 'w'] if args.oldVelocityVariables else ['v1', 'v2', 'v3']
+    
 if nprocs == 1 or not args.parallelLoading:
-    u = surfacexdmf.ReadData('u').T[::stepsize,timeIndices[0]:timeIndices[1]]
-    v = surfacexdmf.ReadData('v').T[::stepsize,timeIndices[0]:timeIndices[1]]
-    w = surfacexdmf.ReadData('w').T[::stepsize,timeIndices[0]:timeIndices[1]]
+    u = surfacexdmf.ReadData(surfaceVariables[0]).T[::stepsize,timeIndices[0]:timeIndices[1]]
+    v = surfacexdmf.ReadData(surfaceVariables[1]).T[::stepsize,timeIndices[0]:timeIndices[1]]
+    w = surfacexdmf.ReadData(surfaceVariables[2]).T[::stepsize,timeIndices[0]:timeIndices[1]]
 else:
-    u = LoadSingleComponentParallel('u')
-    v = LoadSingleComponentParallel('v')
-    w = LoadSingleComponentParallel('w')
+    u = LoadSingleComponentParallel(surfaceVariables[0])
+    v = LoadSingleComponentParallel(surfaceVariables[1])
+    w = LoadSingleComponentParallel(surfaceVariables[2])
 print("Shape of components: "+str(u.shape))    
 
 stop1 = timeit.default_timer()
@@ -314,11 +323,11 @@ print('Time to load data: ', stop1 - start)
 print("Preparing data...")
 
 if args.rotate or args.bodywavewindow:
-    if args.faultxdmf == "input":
+    if not args.faultxdmf:
         args.faultxdmf = args.filename[:-12]+"fault.xdmf"
-    faultxdmf = sx.seissolxdmf(args.faultxdmf)   
+    faultxdmf = sx.seissolxdmf(args.faultxdmf)  
+    timeIndicesFault = GetTimeIndices(faultxdmf)
     faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
-    lastTimeStep = faultxdmf.ReadNdt() - 1 
     slipCentroid = CalculateSlipCentroid(faultxdmf, events=args.events[0])
     print("Calculated centroid: "+str(slipCentroid))   
 
@@ -329,17 +338,11 @@ if args.bodywavewindow:
     pPhases = PickPPhases(trigger=0.001)[:,1]
     dtFault = faultxdmf.ReadTimeStep()
     nElementsFault = faultxdmf.ReadNElements()
-    if args.events[0] == 0:
-        timeIndicesFault = [0, faultxdmf.ReadNdt()]
-    elif args.events[0] == 1:
-        timeIndicesFault = [0, int(faultxdmf.ReadNdt()/2)]
-    else:
-        timeIndicesFault = [int(faultxdmf.ReadNdt()/2), faultxdmf.ReadNdt()]
     eventDuration, hypocenter = ApproximateEventDurationAndHypocenter()
     print("Slip rate threshold: "+ str(args.slipRateThreshold[0]))
     print("Approximated event duration: " + str(eventDuration))
     print("Approximated hypocenter: " + str(hypocenter))
-    windowDuration = SWaveDelay(surfacexyz, pPhases, hypocenter, slipCentroid) + eventDuration
+    windowDuration = compute_P2S_window_duration(surfacexyz, pPhases, hypocenter, slipCentroid) + eventDuration
     print("Mean body wave window duration: "+str(np.mean(windowDuration)))
 else:
     pPhases = np.zeros(nElements)[::stepsize]
@@ -361,7 +364,7 @@ print('Time to compute corner frequencies: ', stop3 - stop2)
 
 
 print("Saving output...")
-output_strings = ["fc_radial", "fc_transversal", "fc_vertical"] if args.rotate else ["fc_u", "fc_v", "fc_w"]
+output_strings = ["fc_radial", "fc_transversal", "fc_vertical"] if args.rotate else ["fc_v1", "fc_v2", "fc_v3"]
 prefix = args.outputprefix
     
 if args.output == "numpy" or args.output == "both":
