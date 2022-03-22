@@ -105,13 +105,13 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
                                            i_memoryManager.getFrictionLaw(),
-                                           i_memoryManager.getDROutput(),
+                                           i_memoryManager.getFaultOutputManager(),
                                            &m_loopStatistics )
                         );
   }
 }
 
-void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::Base* faultOutputManager) {
+void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
   m_faultOutputManager = faultOutputManager;
 }
 

@@ -108,7 +108,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
                                                   seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-                                                  dr::output::Base* i_DrOutput,
+                                                  dr::output::OutputManager* i_faultOutputManager,
                                                   LoopStatistics* i_loopStatistics ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
@@ -123,8 +123,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int i_clusterId,
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
  m_dynRup(                  i_dynRup                   ),
- m_FrictionSolver(          i_FrictionSolver            ),
- m_DrOutput(                i_DrOutput                 ),
+ m_FrictionSolver(          i_FrictionSolver           ),
+ m_faultOutputManager(      i_faultOutputManager       ),
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
@@ -955,7 +955,7 @@ void seissol::time_stepping::TimeCluster::updateFaultOutput() {
   layers[0] = &(m_dynRupClusterData->child<Interior>());
 #endif
   for (auto layer : layers) {
-      m_DrOutput->tiePointers(*layer, m_dynRup, e_interoperability);
+      m_faultOutputManager->tiePointers(*layer, m_dynRup, e_interoperability);
   }
 }
 

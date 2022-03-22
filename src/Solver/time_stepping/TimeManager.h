@@ -101,7 +101,7 @@ class seissol::time_stepping::TimeManager {
     LoopStatistics m_loopStatistics;
 
     //! c++ impl. of dynamic rupture output
-    dr::output::Base* m_faultOutputManager{};
+    dr::output::OutputManager* m_faultOutputManager{};
 
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
@@ -151,7 +151,7 @@ class seissol::time_stepping::TimeManager {
                      initializers::MemoryManager& i_memoryManager,
                      bool usePlasticity);
 
-    void setFaultOutputManager(seissol::dr::output::Base* faultOutputManager);
+    void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
 
     /**
      * Starts the communication thread.

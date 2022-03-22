@@ -5,31 +5,26 @@
 #include "OutputBuilder.hpp"
 
 namespace seissol::dr::output {
-class Base;
-
 class ElementWiseBuilder : public OutputBuilder {
   public:
-  friend Base;
-
   ~ElementWiseBuilder() override = default;
-
   void setParams(const ElementwiseFaultParamsT& params) { elementwiseParams = params; }
-
-  void init() override {
+  void build(OutputData* ewOutputData) override {
+    outputData = ewOutputData;
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData.receiverPoints);
+    assignNearestGaussianPoints(outputData->receiverPoints);
     initTimeCaching();
-    initOutputVariables(this->elementwiseParams.outputMask);
+    initOutputVariables(elementwiseParams.outputMask);
     initFaultDirections();
     initRotationMatrices();
     initBasisFunctions();
     initJacobian2dMatrices();
-    outputData.isActive = true;
+    outputData->isActive = true;
   }
 
   void initTimeCaching() override {
-    outputData.maxCacheLevel = ElementWiseBuilder::maxAllowedCacheLevel;
-    outputData.currentCacheLevel = 0;
+    outputData->maxCacheLevel = ElementWiseBuilder::maxAllowedCacheLevel;
+    outputData->currentCacheLevel = 0;
   }
 
   void initReceiverLocations() {
@@ -77,7 +72,7 @@ class ElementWiseBuilder : public OutputBuilder {
     }
 
     // retrieve all receivers from a fault face refiner
-    outputData.receiverPoints = faultRefiner->moveAllReceiverPoints();
+    outputData->receiverPoints = faultRefiner->moveAllReceiverPoints();
     faultRefiner.reset(nullptr);
   }
 

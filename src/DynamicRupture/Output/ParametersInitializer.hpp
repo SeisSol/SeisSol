@@ -3,6 +3,7 @@
 
 #include "DataTypes.hpp"
 #include "FaultRefiner/FaultRefiners.hpp"
+#include "Initializer/InputAux.hpp"
 #include <utils/logger.h>
 #include <yaml-cpp/yaml.h>
 

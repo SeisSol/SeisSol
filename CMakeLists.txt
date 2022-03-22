@@ -300,6 +300,9 @@ if (ADDRESS_SANITIZER_DEBUG)
   )
 endif()
 
+find_package(yaml-cpp 0.6.2 REQUIRED)
+target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
 
 # Note: it is better to include `eigen3` `async` as
 # system headers because they emit lot's of warnings
@@ -309,9 +312,6 @@ target_include_directories(SeisSol-lib SYSTEM PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
-
-find_package(yaml-cpp REQUIRED
-        PATHS ${CMAKE_CURRENT_BINARY_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src

@@ -13,12 +13,8 @@
 namespace seissol::dr::output {
 class OutputBuilder {
   public:
-  virtual ~OutputBuilder() {
-    auto deallocateVars = [](auto& var, int) { var.releaseData(); };
-    misc::forEach(outputData.vars, deallocateVars);
-  }
-
-  virtual void init() = 0;
+  virtual ~OutputBuilder() = default;
+  virtual void build(OutputData* outputData) = 0;
   virtual void initTimeCaching() = 0;
 
   void setMeshReader(const MeshReader* reader) {
@@ -31,7 +27,7 @@ class OutputBuilder {
     const auto& elementsInfo = meshReader->getElements();
     const auto& verticesInfo = meshReader->getVertices();
 
-    for (const auto& point : outputData.receiverPoints) {
+    for (const auto& point : outputData->receiverPoints) {
       if (point.isInside) {
         auto elementIndex = faultInfo[point.faultFaceIndex].element;
         auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
@@ -45,26 +41,26 @@ class OutputBuilder {
               &(verticesInfo[elementsInfo[neighborElementIndex].vertices[i]].coords);
         }
 
-        outputData.basisFunctions.emplace_back(
+        outputData->basisFunctions.emplace_back(
             getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
       }
     }
   }
 
   void initFaultDirections() {
-    size_t nReceiverPoints = outputData.receiverPoints.size();
-    outputData.faultDirections.resize(nReceiverPoints);
+    size_t nReceiverPoints = outputData->receiverPoints.size();
+    outputData->faultDirections.resize(nReceiverPoints);
     const auto& faultInfo = meshReader->getFault();
 
     for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-      size_t globalIndex = outputData.receiverPoints[receiverId].faultFaceIndex;
+      size_t globalIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
 
-      outputData.faultDirections[receiverId].faceNormal = faultInfo[globalIndex].normal;
-      outputData.faultDirections[receiverId].tangent1 = faultInfo[globalIndex].tangent1;
-      outputData.faultDirections[receiverId].tangent2 = faultInfo[globalIndex].tangent2;
-      misc::computeStrikeAndDipVectors(outputData.faultDirections[receiverId].faceNormal,
-                                       outputData.faultDirections[receiverId].strike,
-                                       outputData.faultDirections[receiverId].dip);
+      outputData->faultDirections[receiverId].faceNormal = faultInfo[globalIndex].normal;
+      outputData->faultDirections[receiverId].tangent1 = faultInfo[globalIndex].tangent1;
+      outputData->faultDirections[receiverId].tangent2 = faultInfo[globalIndex].tangent2;
+      computeStrikeAndDipVectors(outputData->faultDirections[receiverId].faceNormal,
+                                 outputData->faultDirections[receiverId].strike,
+                                 outputData->faultDirections[receiverId].dip);
     }
   }
 
@@ -74,35 +70,35 @@ class OutputBuilder {
 
     // allocate Rotation Matrices
     // Note: several receiver can share the same rotation matrix
-    size_t nReceiverPoints = outputData.receiverPoints.size();
-    outputData.stressGlbToDipStrikeAligned.resize(nReceiverPoints);
-    outputData.stressFaceAlignedToGlb.resize(nReceiverPoints);
-    outputData.faceAlignedToGlbData.resize(nReceiverPoints);
-    outputData.glbToFaceAlignedData.resize(nReceiverPoints);
+    size_t nReceiverPoints = outputData->receiverPoints.size();
+    outputData->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
+    outputData->stressFaceAlignedToGlb.resize(nReceiverPoints);
+    outputData->faceAlignedToGlbData.resize(nReceiverPoints);
+    outputData->glbToFaceAlignedData.resize(nReceiverPoints);
 
     // init Rotation Matrices
     for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-      const auto* const faceNormal = outputData.faultDirections[receiverId].faceNormal;
-      auto* const strike = outputData.faultDirections[receiverId].strike;
-      auto* const dip = outputData.faultDirections[receiverId].dip;
-      const auto* const tangent1 = outputData.faultDirections[receiverId].tangent1;
-      const auto* const tangent2 = outputData.faultDirections[receiverId].tangent2;
+      const auto* const faceNormal = outputData->faultDirections[receiverId].faceNormal;
+      auto* const strike = outputData->faultDirections[receiverId].strike;
+      auto* const dip = outputData->faultDirections[receiverId].dip;
+      const auto* const tangent1 = outputData->faultDirections[receiverId].tangent1;
+      const auto* const tangent2 = outputData->faultDirections[receiverId].tangent2;
 
       {
-        auto* memorySpace = outputData.stressGlbToDipStrikeAligned[receiverId].data();
+        auto* memorySpace = outputData->stressGlbToDipStrikeAligned[receiverId].data();
         RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
         inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
       }
       {
-        auto* memorySpace = outputData.stressFaceAlignedToGlb[receiverId].data();
+        auto* memorySpace = outputData->stressFaceAlignedToGlb[receiverId].data();
         RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
         symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
       }
       {
         auto faceAlignedToGlb =
-            init::T::view::create(outputData.faceAlignedToGlbData[receiverId].data());
+            init::T::view::create(outputData->faceAlignedToGlbData[receiverId].data());
         auto glbToFaceAligned =
-            init::Tinv::view::create(outputData.glbToFaceAlignedData[receiverId].data());
+            init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
 
         seissol::model::getFaceRotationMatrix(
             faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
@@ -114,13 +110,13 @@ class OutputBuilder {
     auto assignMask = [&outputMask](auto& var, int receiverId) {
       var.isActive = outputMask[receiverId];
     };
-    misc::forEach(outputData.vars, assignMask);
+    misc::forEach(outputData->vars, assignMask);
 
     auto allocateVariables = [this](auto& var, int) {
-      var.maxCacheLevel = outputData.maxCacheLevel;
-      var.allocateData(this->outputData.receiverPoints.size());
+      var.maxCacheLevel = outputData->maxCacheLevel;
+      var.allocateData(this->outputData->receiverPoints.size());
     };
-    misc::forEach(outputData.vars, allocateVariables);
+    misc::forEach(outputData->vars, allocateVariables);
   }
 
   void initJacobian2dMatrices() {
@@ -128,14 +124,14 @@ class OutputBuilder {
     const auto& verticesInfo = meshReader->getVertices();
     const auto& elementsInfo = meshReader->getElements();
 
-    size_t nReceiverPoints = outputData.receiverPoints.size();
-    outputData.jacobianT2d.resize(nReceiverPoints);
+    size_t nReceiverPoints = outputData->receiverPoints.size();
+    outputData->jacobianT2d.resize(nReceiverPoints);
 
     for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-      assert(outputData.receiverPoints[receiverId].elementIndex != -1);
+      assert(outputData->receiverPoints[receiverId].elementIndex != -1);
 
-      auto side = outputData.receiverPoints[receiverId].localFaceSideId;
-      auto elementIndex = outputData.receiverPoints[receiverId].elementIndex;
+      auto side = outputData->receiverPoints[receiverId].localFaceSideId;
+      auto elementIndex = outputData->receiverPoints[receiverId].elementIndex;
 
       const auto& element = elementsInfo[elementIndex];
       auto face = getGlobalTriangle(side, element, verticesInfo);
@@ -152,7 +148,7 @@ class OutputBuilder {
         xac[z] = face.p3[z] - face.p1[z];
       }
 
-      auto faultIndex = outputData.receiverPoints[receiverId].faultFaceIndex;
+      auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
       auto* tangent1 = faultInfo[faultIndex].tangent1;
       auto* tangent2 = faultInfo[faultIndex].tangent2;
 
@@ -161,13 +157,13 @@ class OutputBuilder {
       matrix(0, 1) = MeshTools::dot(tangent2, xab);
       matrix(1, 0) = MeshTools::dot(tangent1, xac);
       matrix(1, 1) = MeshTools::dot(tangent2, xac);
-      outputData.jacobianT2d[receiverId] = matrix.inverse();
+      outputData->jacobianT2d[receiverId] = matrix.inverse();
     }
   }
 
   protected:
   const MeshReader* meshReader{};
-  OutputData outputData;
+  OutputData* outputData;
   int localRank{-1};
 };
 } // namespace seissol::dr::output

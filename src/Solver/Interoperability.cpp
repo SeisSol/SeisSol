@@ -563,7 +563,7 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
 }
 
 void seissol::Interoperability::bindFaultOutputManager() {
-  auto faultOutputManager = seissol::SeisSol::main.getMemoryManager().getDROutput();
+  auto *faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
   seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
@@ -842,7 +842,7 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            m_timeStepping );
 
   memoryManager.readFrictionData(this);
-  seissol::SeisSol::main.getMemoryManager().getDROutput()->initFaceToLtsMap();
+  seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 
   // TODO (Ravil and Sebastian): discuss and remove this comment (dr/cpp)
   //memoryManager.getDRInitializer()->initializeFrictionMatrices(

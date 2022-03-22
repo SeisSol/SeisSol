@@ -169,7 +169,7 @@ private:
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
     dr::friction_law::FrictionSolver* m_FrictionSolver;
-    dr::output::Base* m_DrOutput;
+    dr::output::OutputManager* m_faultOutputManager;
 
   //! time step width of the performed time step.
     double m_timeStepWidth;
@@ -505,7 +505,7 @@ private:
                  seissol::initializers::LTS* i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
                  seissol::dr::friction_law::FrictionSolver* i_FrictionLaw,
-                 dr::output::Base* i_DrOutput,
+                 dr::output::OutputManager* i_faultOutputManager,
                  LoopStatistics* i_loopStatistics );
 
     /**

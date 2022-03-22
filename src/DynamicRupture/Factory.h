@@ -15,7 +15,7 @@ struct Products {
   std::unique_ptr<seissol::initializers::DynamicRupture> ltsTree;
   std::unique_ptr<seissol::dr::initializers::BaseDRInitializer> initializer;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
-  std::unique_ptr<seissol::dr::output::Base> output;
+  std::unique_ptr<seissol::dr::output::OutputManager> output;
 };
 
 class AbstractFactory {

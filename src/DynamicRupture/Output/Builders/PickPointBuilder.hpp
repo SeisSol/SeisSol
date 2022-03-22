@@ -7,23 +7,20 @@
 namespace seissol::dr::output {
 class PickPointBuilder : public OutputBuilder {
   public:
-  friend Base;
-
   ~PickPointBuilder() override = default;
-
   void setParams(const PickpointParamsT& params) { pickpointParams = params; }
-
-  void init() override {
+  void build(OutputData* ppOutputData) override {
+    outputData = ppOutputData;
     readCoordsFromFile();
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData.receiverPoints);
+    assignNearestGaussianPoints(outputData->receiverPoints);
     initTimeCaching();
     initFaultDirections();
     initOutputVariables(pickpointParams.outputMask);
     initRotationMatrices();
     initBasisFunctions();
     initJacobian2dMatrices();
-    outputData.isActive = true;
+    outputData->isActive = true;
   }
 
   void readCoordsFromFile() {
@@ -41,18 +38,18 @@ class PickPointBuilder : public OutputBuilder {
         point.global.coords[i] = coords[i];
       }
 
-      outputData.receiverPoints.push_back(point);
+      outputData->receiverPoints.push_back(point);
     }
   }
 
   void initReceiverLocations() {
-    const auto numReceiverPoints = outputData.receiverPoints.size();
+    const auto numReceiverPoints = outputData->receiverPoints.size();
 
     // findMeshIds expects a vector of eigenPoints.
     // Therefore, we need to convert
     std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
-      auto& receiverPoint = outputData.receiverPoints[receiverId];
+      auto& receiverPoint = outputData->receiverPoints[receiverId];
       eigenPoints[receiverId] = receiverPoint.global.getAsEigenVector();
     }
 
@@ -77,7 +74,7 @@ class PickPointBuilder : public OutputBuilder {
 
     const auto& fault = meshReader->getFault();
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
-      auto& receiver = outputData.receiverPoints[receiverId];
+      auto& receiver = outputData->receiverPoints[receiverId];
 
       if (static_cast<bool>(contained[receiverId])) {
         auto meshId = meshIds[receiverId];
@@ -186,9 +183,9 @@ class PickPointBuilder : public OutputBuilder {
   }
 
   void initTimeCaching() override {
-    outputData.maxCacheLevel = pickpointParams.maxPickStore;
-    outputData.cachedTime.resize(outputData.maxCacheLevel, 0.0);
-    outputData.currentCacheLevel = 0;
+    outputData->maxCacheLevel = pickpointParams.maxPickStore;
+    outputData->cachedTime.resize(outputData->maxCacheLevel, 0.0);
+    outputData->currentCacheLevel = 0;
   }
 
   private:
