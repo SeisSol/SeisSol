@@ -414,7 +414,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     return hasConverged;
   }
 
-  void updateNormalStress(std::array<double, misc::numPaddedPoints>& normalStress,
+  void updateNormalStress(std::array<real, misc::numPaddedPoints>& normalStress,
                           FaultStresses const& faultStresses,
                           TPMethod tpMethod,
                           size_t timeIndex,
