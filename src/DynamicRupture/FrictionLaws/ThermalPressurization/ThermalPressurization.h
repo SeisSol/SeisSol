@@ -97,7 +97,7 @@ class ThermalPressurization {
 
   real heatSource(double tauV, unsigned int tpGridPointIndex);
 
-  real fluidPressure(unsigned int pointIndex, unsigned int ltsFace) const {
+  real fluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
     return pressure[ltsFace][pointIndex];
   }
 };
