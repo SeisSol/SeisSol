@@ -11,7 +11,12 @@ endif()
 
 if(SCOREP_WORKAROUND)
   message(STATUS "Allowing multiple definitions for compiling with score-p wrappers")
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC -DPIC -finstrument-functions-exclude-file-list=intrin.h")
+  enable_language(CUDA)
 endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
@@ -224,6 +229,8 @@ if (NUMA_AWARE_PINNING)
   target_include_directories(SeisSol-lib SYSTEM PUBLIC ${NUMA_INCLUDE_DIR})
   target_link_libraries(SeisSol-lib PUBLIC ${NUMA_LIBRARY})
 endif()
+
+target_link_options(SeisSol-lib PUBLIC "-Wl,--no-as-needed")
 
 #set(HDF5_PREFER_PARALLEL True)
 if (NETCDF)
