@@ -45,6 +45,7 @@
 #include "PUML/PUML.h"
 #include "PUML/Downward.h"
 #endif
+#include <cmath>
 #include "ParameterDB.h"
 
 #include "easi/YAMLParser.h"
@@ -55,7 +56,7 @@
 #endif
 #include "utils/logger.h"
 
-#define MATERIAL_SR 4
+#define QUAD_DEG 2
 
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
@@ -86,38 +87,27 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
   
-  // Generate subpoints in reference tetrahedron
-  std::vector<std::array<double, 3>> subpoints{};
-  for (double x = 0; x <= 1; x += 1.0 / MATERIAL_SR) {
-    for (double y = 0; y <= 1 - x; y += 1.0 / MATERIAL_SR) {
-      subpoints.push_back({x,y,0});
-    }
-  }
-  unsigned baseSize = subpoints.size();
-  for (double z = 1.0 / MATERIAL_SR; z <= 1; z += 1.0 / MATERIAL_SR) {
-    for (unsigned i = 0; i < baseSize; ++i) {
-      double x = subpoints.at(i).at(0);
-      double y = subpoints.at(i).at(1);
-      if (z <= 1 - x - y) {
-        subpoints.push_back({x,y,z});
-      }
-    }
-  }
+  // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
+  constexpr auto numQuadPoints = pow(QUAD_DEG, 3);
+  std::array<std::array<double, 3>, numQuadPoints> quadraturePoints{};
+  std::array<double, numQuadPoints> quadratureWeights{};
 
-  // Generate query with subpoints
-  easi::Query query(elements.size() * subpoints.size(), 3);
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints.data(), quadratureWeights.data(), QUAD_DEG);
+
+  // Generate query using subpoints
+  easi::Query query(elements.size() * numQuadPoints, 3);
 
   // Transform subpoints to global coordinates for all elements
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (unsigned i = 0; i < subpoints.size(); ++i) {
+    for (unsigned i = 0; i < numQuadPoints; ++i) {
       std::array<double, 3> xyz{};
       seissol::transformations::tetrahedronReferenceToGlobal(vertices[ elements[elem].vertices[0] ].coords, vertices[ elements[elem].vertices[1] ].coords,
-        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, subpoints.at(i).data(), xyz.data());
+        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, quadraturePoints.at(i).data(), xyz.data());
       for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem * subpoints.size() + i,dim) = xyz[dim];
+        query.x(elem * numQuadPoints + i,dim) = xyz[dim];
       }
       // Group
-      query.group(elem * subpoints.size() + i) = elements[elem].material;
+      query.group(elem * numQuadPoints + i) = elements[elem].material;
     }
   }
   return query;
@@ -312,31 +302,36 @@ namespace seissol {
       unsigned numPoints = query.numPoints();
       model->evaluate(query, adapter);
 
-      // Calculate number of points per element
-      unsigned pointsPerElem = 0;
-      for (unsigned i = MATERIAL_SR + 1; i > 0; --i) {
-        pointsPerElem += i;
-      }
-      unsigned baseSize = pointsPerElem;
-      for (unsigned i = MATERIAL_SR + 1; i > 0; --i) {
-        baseSize -= i;
-        pointsPerElem += baseSize;
-      }
-      // Calculate sum of consecutive material values for each element
-      for (unsigned i = 0; i < numPoints; ++i) {
-        if (i % pointsPerElem) {
-          elasticMaterials[i - (i % pointsPerElem)].rho += elasticMaterials[i].rho;
-          elasticMaterials[i - (i % pointsPerElem)].mu += elasticMaterials[i].mu;
-          elasticMaterials[i - (i % pointsPerElem)].lambda += elasticMaterials[i].lambda;
-        }
-      }
-      // Compute and store mean values in m_materials
-      for (unsigned i = 0; i < numPoints / pointsPerElem; ++i) {
-        elasticMaterials[pointsPerElem * i].rho /= pointsPerElem;
-        elasticMaterials[pointsPerElem * i].mu /= pointsPerElem;
-        elasticMaterials[pointsPerElem * i].lambda /= pointsPerElem;
+      // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
+      constexpr auto numQuadPoints = pow(QUAD_DEG, 3);
+      constexpr auto numElems = numPoints / numQuadPoints;
+      std::array<std::array<double, 3>, numQuadPoints> quadraturePoints{};
+      std::array<double, numQuadPoints> quadratureWeights{};
 
-        m_materials->at(i) = seissol::model::ElasticMaterial(elasticMaterials[pointsPerElem * i]);
+      seissol::quadrature::TetrahedronQuadrature(quadraturePoints.data(), quadratureWeights.data(), QUAD_DEG);
+
+      // Approximate volume integrals
+      std::array<seissol::model::ElasticMaterial, numElems> materialsMean{};
+      std::array<double, numElems> vERatioMean{};
+
+      for (unsigned i = 0; i < numPoints; ++i) {
+        materialsMean[i / numQuadPoints].rho += elasticMaterials[i].rho * quadratureWeights[i % numQuadPoints];
+        materialsMean[i / numQuadPoints].mu += 1 / elasticMaterials[i].mu * quadratureWeights[i % numQuadPoints];
+        // Integrate quotients of Poisson ratio and elastic modulus
+        vERatioMean[i / numQuadPoints] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadratureWeights[i % numQuadPoints];
+      }
+      // Obtain parameter mean values
+      for (unsigned i = 0; i < numElems; ++i) {
+        materialsMean[i].rho /= 1; // TODO volume
+        materialsMean[i].mu /= 1; // TODO volume
+        materialsMean[i].mu = 1 / materialsMean[i].mu;
+
+        vERatioMean[i] /= 1; // TODO volume
+        materialsMean[i].lambda = (2 * vERatioMean[i] * materialsMean[i].mu + 4 * pow(materialsMean[i].mu, 2)) / (1 - 3 * materialsMean[i].mu);
+      }
+      // Store mean values in m_materials
+      for (unsigned i = 0; i < numElems; ++i) {
+        m_materials->at(i) = seissol::model::ElasticMaterial(materialsMean[i]);
       }
     }
     
