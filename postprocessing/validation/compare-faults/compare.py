@@ -3,6 +3,8 @@ import numpy as np
 import seissolxdmf as sx
 import sys
 
+print(sx.__version__)
+
 parser = argparse.ArgumentParser(description='Compare two faults.')
 parser.add_argument('fault', type=str)
 parser.add_argument('fault_ref', type=str)

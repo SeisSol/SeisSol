@@ -172,13 +172,13 @@ tpv_check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 101, 101-slip, 104]
+              tpv: [5, 101, 101-slip, 104, 105]
     script: 
         - echo "check TPV{$tpv}"
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - pip3 install seissolxdmf>=0.1.0
+        - pip3 install --upgrade --force-reinstall seissolxdmf>=0.1.0
         - pip3 install h5py
         - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
