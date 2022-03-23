@@ -61,6 +61,9 @@
 namespace PUML {class TETPUML;}
 #endif // PUML_PUML_H
 
+#define QUAD_DEG 2
+#define NUM_QUADPOINTS (QUAD_DEG * QUAD_DEG * QUAD_DEG)
+
 namespace easi {class Component;}
 
 namespace seissol {
@@ -96,10 +99,15 @@ private:
 
 class seissol::initializers::ElementAverageGenerator : public seissol::initializers::QueryGenerator {
 public:
-  explicit ElementAverageGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
+  explicit ElementAverageGenerator(MeshReader const& meshReader) : m_meshReader(meshReader), m_elemVolumes{}, m_quadratureWeights{} {}
   virtual easi::Query generate() const;
+  double tetrahedronVolume(double const v0[3], double const v1[3], double const v2[3], double const v3[3]);
+  std::vector<double> getElemVolumes() const { return m_elemVolumes; };
+  std::array<double, NUM_QUADPOINTS> getQuadratureWeights() const { return m_quadratureWeights; };
 private:
   MeshReader const& m_meshReader;
+  std::vector<double> m_elemVolumes;
+  std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
 };
 
 #ifdef USE_HDF

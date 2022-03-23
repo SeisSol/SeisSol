@@ -50,13 +50,12 @@
 
 #include "easi/YAMLParser.h"
 #include "easi/ResultAdapter.h"
+#include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
 #include "utils/logger.h"
-
-#define QUAD_DEG 2
 
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
@@ -88,29 +87,32 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
   
   // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
-  constexpr auto numQuadPoints = pow(QUAD_DEG, 3);
-  std::array<std::array<double, 3>, numQuadPoints> quadraturePoints{};
-  std::array<double, numQuadPoints> quadratureWeights{};
-
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints.data(), quadratureWeights.data(), QUAD_DEG);
+  double quadraturePoints[NUM_QUADPOINTS][3];
+  double quadratureWeights[NUM_QUADPOINTS];
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QUAD_DEG);
+  std::copy(std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
 
   // Generate query using subpoints
-  easi::Query query(elements.size() * numQuadPoints, 3);
-
+  easi::Query query(elements.size() * NUM_QUADPOINTS, 3);
+  
   // Transform subpoints to global coordinates for all elements
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (unsigned i = 0; i < numQuadPoints; ++i) {
+    for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
       std::array<double, 3> xyz{};
       seissol::transformations::tetrahedronReferenceToGlobal(vertices[ elements[elem].vertices[0] ].coords, vertices[ elements[elem].vertices[1] ].coords,
-        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, quadraturePoints.at(i).data(), xyz.data());
+        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, quadraturePoints[i], xyz.data());
       for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem * numQuadPoints + i,dim) = xyz[dim];
+        query.x(elem * NUM_QUADPOINTS + i,dim) = xyz[dim];
       }
       // Group
-      query.group(elem * numQuadPoints + i) = elements[elem].material;
+      query.group(elem * NUM_QUADPOINTS + i) = elements[elem].material;
     }
   }
   return query;
+}
+
+double seissol::initializers::ElementAverageGenerator::tetrahedronVolume(double const v0[3], double const v1[3], double const v2[3], double const v3[3]) {
+  return 0.0;
 }
 
 #ifdef USE_HDF
@@ -299,40 +301,37 @@ namespace seissol {
       std::vector<seissol::model::ElasticMaterial> elasticMaterials(query.numPoints());
       easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> adapter(elasticMaterials.data());
       MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(adapter);
-      unsigned numPoints = query.numPoints();
       model->evaluate(query, adapter);
 
-      // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
-      constexpr auto numQuadPoints = pow(QUAD_DEG, 3);
-      constexpr auto numElems = numPoints / numQuadPoints;
-      std::array<std::array<double, 3>, numQuadPoints> quadraturePoints{};
-      std::array<double, numQuadPoints> quadratureWeights{};
+      if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
+        const unsigned numPoints = query.numPoints();
+        const unsigned numElems = numPoints / NUM_QUADPOINTS;
+        // Approximate volume integrals
+        std::array<double, NUM_QUADPOINTS> quadratureWeights{ gen->getQuadratureWeights() };
+        std::vector<seissol::model::ElasticMaterial> materialsMean(numElems);
+        std::vector<double> vERatioMean(numElems);
 
-      seissol::quadrature::TetrahedronQuadrature(quadraturePoints.data(), quadratureWeights.data(), QUAD_DEG);
+        for (unsigned i = 0; i < numPoints; ++i) {
+          materialsMean[i / NUM_QUADPOINTS].rho += elasticMaterials[i].rho * quadratureWeights[i % NUM_QUADPOINTS];
+          materialsMean[i / NUM_QUADPOINTS].mu += 1 / elasticMaterials[i].mu * quadratureWeights[i % NUM_QUADPOINTS];
+          // Integrate quotients of Poisson ratio and elastic modulus
+          vERatioMean[i / NUM_QUADPOINTS] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadratureWeights[i % NUM_QUADPOINTS];
+        }
+        // Obtain parameter mean values and store them in m_materials
+        std::vector<double> elemVolumes{ gen->getElemVolumes() };
+        for (unsigned i = 0; i < numElems; ++i) {
+          materialsMean[i].rho /= elemVolumes[i];
+          materialsMean[i].mu /= elemVolumes[i];
+          materialsMean[i].mu = 1 / materialsMean[i].mu;
 
-      // Approximate volume integrals
-      std::array<seissol::model::ElasticMaterial, numElems> materialsMean{};
-      std::array<double, numElems> vERatioMean{};
+          vERatioMean[i] /= elemVolumes[i];
+          materialsMean[i].lambda = (4 * pow(materialsMean[i].mu, 2) * vERatioMean[i]) / (1 - 6 * materialsMean[i].mu * vERatioMean[i]);
 
-      for (unsigned i = 0; i < numPoints; ++i) {
-        materialsMean[i / numQuadPoints].rho += elasticMaterials[i].rho * quadratureWeights[i % numQuadPoints];
-        materialsMean[i / numQuadPoints].mu += 1 / elasticMaterials[i].mu * quadratureWeights[i % numQuadPoints];
-        // Integrate quotients of Poisson ratio and elastic modulus
-        vERatioMean[i / numQuadPoints] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadratureWeights[i % numQuadPoints];
+          m_materials->at(i) = seissol::model::ElasticMaterial(materialsMean[i]);
+        } 
       }
-      // Obtain parameter mean values
-      for (unsigned i = 0; i < numElems; ++i) {
-        materialsMean[i].rho /= 1; // TODO volume
-        materialsMean[i].mu /= 1; // TODO volume
-        materialsMean[i].mu = 1 / materialsMean[i].mu;
 
-        vERatioMean[i] /= 1; // TODO volume
-        materialsMean[i].lambda = (2 * vERatioMean[i] * materialsMean[i].mu + 4 * pow(materialsMean[i].mu, 2)) / (1 - 3 * materialsMean[i].mu);
-      }
-      // Store mean values in m_materials
-      for (unsigned i = 0; i < numElems; ++i) {
-        m_materials->at(i) = seissol::model::ElasticMaterial(materialsMean[i]);
-      }
+      delete model;
     }
     
     template<>
