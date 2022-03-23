@@ -24,57 +24,44 @@ export PYTHONPATH=$PYTHONPATH:'$(pwd)
 
 Here is a proposed workflow for installing openquake:
 ```
-#Clone the repository
-git clone https://github.com/gem/oq-engine.git
-#Use pip to install and specify dir_to_install with --target
-#This step requires python 3.6 and some other packages
-pip install -r oq-engine/requirements-py36-linux64.txt -r oq-engine/requirements-extra-py36-linux64.txt --target dir_to_install
-#add the oq-engine to your pythonpath
-export PYTHONPATH=$PYTHONPATH:/dir_to_qo-engine/
+pip install -r https://raw.githubusercontent.com/gem/oq-engine/master/requirements-py38-linux64.txt openquake.engine
+pip install openquake.engine
 ```
+On SupermucNG, see https://seissol.readthedocs.io/en/latest/supermuc.html#accessing-pypi for using pip.
+
 The installation on other operating system that Linux is documented here:
-https://github.com/gem/oq-engine/blob/master/doc/installing/development.md
+https://github.com/gem/oq-engine/tree/master/doc/installing
 
 You can test the installation by running an example:
 
 ```
-oq-engine --run dir_to_oq-engine/demos/hazard/AreaSourceClassicalPSHA/job.ini
-#alternative
 oq engine --help
+#alternative
+git clone https://github.com/gem/oq-engine.git --depth 1
+oq run oq-engine/demos/hazard/AreaSourceClassicalPSHA/job.ini
 ```
 Then the latest gmpe-smtk can be cloned and added to the pythonpath as previously described.
 
 ## Installing other python modules
 
-Depending on your system, you may need to install missing python modules, e.g. for mpi4py (if running the script on multiple ranks). This can be done e.g. through anaconda, using:
-
+Simply use:
 ```
-conda install -c anaconda mpi4py
+pip install -r requirements.txt
 ```
-On a machine without internet, this can be done through pip. First download the module on a computer with access to internet (example for module lxml):
-
-```
-pip download lxml
-```
-
-then transfer the \*.whl to the cluster. and install the module using:
-```
-pip install --user lxml-4.4.1-cp36-cp36m-manylinux1_x86_64.whl
-```
-
+If not root, use ``--user``.
 
 # Running the script
  
 All the available option for running the script can be displayed using:
 
 ```
-python ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py -h
+python3 ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py -h
 ```
 
 A typical example for running the script on a desktop can be:
 ```
-python ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py --MP 4 prefix-surface.xdmf --noMPI
+python3 ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py --MP 4 prefix-surface.xdmf --noMPI
 ```
-(assuming a 4 cores processors).
+(assuming a 4 cores processor).
 
-The script can also be used on a high performance cluster, see SupermucNGCommandFileComputeGroundMotions.sh for an example of a job file on supermugNG.
+The script can also be used on a high performance cluster, see SupermucNGCommandFileComputeGroundMotions.sh for an example of a job file on supermucNG.
