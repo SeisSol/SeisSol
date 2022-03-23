@@ -52,7 +52,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                              unsigned& timeIndex) {
     bool hasConverged = false;
 
-    tpMethod.setInitialFluidPressure(ltsFace);
     // compute initial slip rate and reference values
     std::array<real, misc::numPaddedPoints> localSlipRate{0};
     std::array<real, misc::numPaddedPoints> stateVarReference{0};

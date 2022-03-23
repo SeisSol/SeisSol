@@ -6,15 +6,13 @@ class NoTP {
   public:
   NoTP(DRParameters& drParameters){};
 
-  void setInitialFluidPressure(unsigned ltsFace) {}
-
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {}
 
-  void calcFluidPressure(std::array<real, misc::numPaddedPoints>&,
+  void calcFluidPressure(std::array<real, misc::numPaddedPoints>& normalStress,
                          real (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints>&,
+                         std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          unsigned int timeIndex,
