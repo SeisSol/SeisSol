@@ -5,8 +5,11 @@ void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerDat
                                           seissol::initializers::DynamicRupture* dynRup,
                                           real fullUpdateTime) {
   auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
-  nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
-  averagedSlip = layerData.var(concreteLts->averagedSlip);
+  strikeSlip = layerData.var(concreteLts->strikeSlip);
+  dipSlip = layerData.var(concreteLts->dipSlip);
+  onsetTime = layerData.var(concreteLts->onsetTime);
+  tauS = layerData.var(concreteLts->tauS);
+  tauR = layerData.var(concreteLts->tauR);
 }
 
 void ImposedSlipRates::updateFrictionAndSlip(
@@ -16,35 +19,36 @@ void ImposedSlipRates::updateFrictionAndSlip(
     std::array<real, misc::numPaddedPoints>& strengthBuffer,
     unsigned& ltsFace,
     unsigned& timeIndex) {
-  real timeInc = deltaT[timeIndex];
-  real tn = mFullUpdateTime;
+  real timeIncrement = deltaT[timeIndex];
+  real currentTime = mFullUpdateTime;
   for (unsigned i = 0; i <= timeIndex; i++) {
-    tn += deltaT[i];
+    currentTime += deltaT[i];
   }
-  real gNuc = this->calcSmoothStepIncrement(tn, timeInc) / timeInc;
 
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    //! EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
+    // TODO: FL34 with Gauss
+    // real gNuc = this->calcSmoothStepIncrement(tn, timeInc) / timeInc;
+    real stfEvaluated = regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
+                                         tauS[ltsFace][pointIndex],
+                                         tauR[ltsFace][pointIndex]);
+
     tractionResults.traction1[timeIndex][pointIndex] =
         faultStresses.traction1[timeIndex][pointIndex] -
-        this->impAndEta[ltsFace].etaS * this->nucleationStressInFaultCS[ltsFace][pointIndex][0] *
-            gNuc;
+        this->impAndEta[ltsFace].etaS * strikeSlip[ltsFace][pointIndex] * stfEvaluated;
     tractionResults.traction2[timeIndex][pointIndex] =
         faultStresses.traction2[timeIndex][pointIndex] -
-        this->impAndEta[ltsFace].etaS * this->nucleationStressInFaultCS[ltsFace][pointIndex][1] *
-            gNuc;
-    this->slipRate1[ltsFace][pointIndex] =
-        this->nucleationStressInFaultCS[ltsFace][pointIndex][0] * gNuc;
-    this->slipRate2[ltsFace][pointIndex] =
-        this->nucleationStressInFaultCS[ltsFace][pointIndex][1] * gNuc;
+        this->impAndEta[ltsFace].etaS * dipSlip[ltsFace][pointIndex] * stfEvaluated;
+
+    this->slipRate1[ltsFace][pointIndex] = this->strikeSlip[ltsFace][pointIndex] * stfEvaluated;
+    this->slipRate2[ltsFace][pointIndex] = dipSlip[ltsFace][pointIndex] * stfEvaluated;
     this->slipRateMagnitude[ltsFace][pointIndex] =
         misc::magnitude(this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
 
-    //! Update slip
-    this->slip1[ltsFace][pointIndex] += this->slipRate1[ltsFace][pointIndex] * timeInc;
-    this->slip2[ltsFace][pointIndex] += this->slipRate2[ltsFace][pointIndex] * timeInc;
+    // Update slip
+    this->slip1[ltsFace][pointIndex] += this->slipRate1[ltsFace][pointIndex] * timeIncrement;
+    this->slip2[ltsFace][pointIndex] += this->slipRate2[ltsFace][pointIndex] * timeIncrement;
     this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
-        this->slipRateMagnitude[ltsFace][pointIndex] * timeInc;
+        this->slipRateMagnitude[ltsFace][pointIndex] * timeIncrement;
 
     this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
     this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
