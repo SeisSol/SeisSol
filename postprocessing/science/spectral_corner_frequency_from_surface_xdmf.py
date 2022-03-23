@@ -93,11 +93,10 @@ def ComputeTriangleMidpoints(geom, connect):
     xyz = (1./3.)*(geom[connect[:,0],:]+geom[connect[:,1],:]+geom[connect[:,2],:])   
     return xyz
 
-def CalculateSlipCentroid(faultxdmf, events=0):
+def CalculateSlipCentroid(faultxdmf, faultxyz):
     ASl = faultxdmf.ReadData("ASl", idt=timeIndicesFault[1]-1).T
     if timeIndicesFault[0]!=0:
-        ASl -= faultxdmf.ReadData("ASl", idt=timeIndicesFault[0]).T
-    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())    
+        ASl -= faultxdmf.ReadData("ASl", idt=timeIndicesFault[0]).T   
     return np.average(faultxyz, axis=0, weights=ASl)
 
 def ComputeBackazimuth(xyz, centroid):
@@ -232,12 +231,11 @@ def complete_fft(tr, dt):
     times_comp = np.fft.rfftfreq(tr.shape[0],dt)
     return tr_fft, times_comp
 
-def ApproximateEventDurationAndHypocenter():
+def ApproximateEventDurationAndHypocenter(faultxdmf, faultxyz):
     """Calculates the derivative of ASl (probably faster than loading SR1 and SR2)
      and approximates event duration by multiplying dt with the number of timesteps,
      where maximum on-fault slip rate is above a threshold (slipRateThreshold)"""
     
-    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
     slipRateThreshold=args.slipRateThreshold[0]
     if nprocs == 1 or not args.parallelLoading:
         ASl = faultxdmf.ReadData("ASl").T[::stepsize,timeIndicesFault[0]:timeIndicesFault[1]]
@@ -323,9 +321,10 @@ print("Preparing data...")
 if args.rotate or args.bodyWaveWindow:
     if not args.faultXdmf:
         args.faultXdmf = args.filename[:-12]+"fault.xdmf"
-    faultxdmf = sx.seissolxdmf(args.faultXdmf)  
+    faultxdmf = sx.seissolxdmf(args.faultXdmf) 
+    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
     timeIndicesFault = GetTimeIndices(faultxdmf)
-    slipCentroid = CalculateSlipCentroid(faultxdmf, events=args.events[0])
+    slipCentroid = CalculateSlipCentroid(faultxdmf, faultxyz)
     print("Calculated centroid: "+str(slipCentroid))   
 
 if args.rotate:
@@ -335,7 +334,7 @@ if args.bodyWaveWindow:
     pPhases = PickPPhases(trigger=0.001)[:,1]
     dtFault = faultxdmf.ReadTimeStep()
     nElementsFault = faultxdmf.ReadNElements()
-    eventDuration, hypocenter = ApproximateEventDurationAndHypocenter()
+    eventDuration, hypocenter = ApproximateEventDurationAndHypocenter(faultxdmf, faultxyz)
     print("Slip rate threshold: "+ str(args.slipRateThreshold[0]))
     print("Approximated event duration: " + str(eventDuration))
     print("Approximated hypocenter: " + str(hypocenter))
