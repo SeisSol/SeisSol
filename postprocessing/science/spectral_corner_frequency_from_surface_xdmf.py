@@ -97,6 +97,7 @@ def CalculateSlipCentroid(faultxdmf, events=0):
     ASl = faultxdmf.ReadData("ASl", idt=timeIndicesFault[1]-1).T
     if timeIndicesFault[0]!=0:
         ASl -= faultxdmf.ReadData("ASl", idt=timeIndicesFault[0]).T
+    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())    
     return np.average(faultxyz, axis=0, weights=ASl)
 
 def ComputeBackazimuth(xyz, centroid):
@@ -236,6 +237,7 @@ def ApproximateEventDurationAndHypocenter():
      and approximates event duration by multiplying dt with the number of timesteps,
      where maximum on-fault slip rate is above a threshold (slipRateThreshold)"""
     
+    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
     slipRateThreshold=args.slipRateThreshold[0]
     if nprocs == 1 or not args.parallelLoading:
         ASl = faultxdmf.ReadData("ASl").T[::stepsize,timeIndicesFault[0]:timeIndicesFault[1]]
@@ -323,7 +325,6 @@ if args.rotate or args.bodyWaveWindow:
         args.faultXdmf = args.filename[:-12]+"fault.xdmf"
     faultxdmf = sx.seissolxdmf(args.faultXdmf)  
     timeIndicesFault = GetTimeIndices(faultxdmf)
-    faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
     slipCentroid = CalculateSlipCentroid(faultxdmf, events=args.events[0])
     print("Calculated centroid: "+str(slipCentroid))   
 
