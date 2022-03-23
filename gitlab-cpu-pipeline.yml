@@ -42,6 +42,8 @@ ci_builder_pre:
         - pip3 install setuptools
         - pip3 install sphinx
         - pip3 install sphinx_rtd_theme
+        - pip3 install 'seissolxdmf>=0.1.0'
+        - pip3 install h5py
         - tar -xzf netcdf-4.6.1.tar.gz
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip libxsmm-1.17.zip
@@ -178,8 +180,6 @@ tpv_check_faultoutput:
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - pip3 install --upgrade --force-reinstall seissolxdmf>=0.1.0
-        - pip3 install h5py
         - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
 
