@@ -260,12 +260,20 @@ struct seissol::initializers::LTS_RateAndStateThermalPressurization : public sei
 
 
 struct seissol::initializers::LTS_ImposedSlipRates : public seissol::initializers::DynamicRupture {
-  Variable<real[dr::misc::numPaddedPoints][6]> nucleationStressInFaultCS;
+  Variable<real[dr::misc::numPaddedPoints]> strikeSlip;
+  Variable<real[dr::misc::numPaddedPoints]> dipSlip;
+  Variable<real[dr::misc::numPaddedPoints]> onsetTime;
+  Variable<real[dr::misc::numPaddedPoints]> tauS;
+  Variable<real[dr::misc::numPaddedPoints]> tauR;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(nucleationStressInFaultCS, mask, 1, seissol::memory::Standard);
+    tree.addVar(strikeSlip, mask, 1, seissol::memory::Standard);
+    tree.addVar(dipSlip, mask, 1, seissol::memory::Standard);
+    tree.addVar(onsetTime, mask, 1, seissol::memory::Standard);
+    tree.addVar(tauS, mask, 1, seissol::memory::Standard);
+    tree.addVar(tauR, mask, 1, seissol::memory::Standard);
   }
 };
 

@@ -59,7 +59,6 @@ class BaseDRInitializer {
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
-  private:
   /**
    * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
    * @param dynRup pointer to the respective dynamic rupture datastructure
@@ -71,6 +70,27 @@ class BaseDRInitializer {
                            seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
+   * Initialize all other variables:
+   * ruptureTimePending
+   * peakSlipRate
+   * ruptureTime
+   * dynStressTime
+   * accumulatedSlipMagnitude
+   * slip1
+   * slip2
+   * slipRateMagnitude
+   * tractionXY
+   * tractionXZ
+   * @param dynRup pointer to the respective dynamic rupture datastructure
+   * @param it reference to an LTSTree leaf_iterator
+   * @param e_interoperability pointer to the interoperability instance, can be removed once we do
+   * not need to store values in the Fortran parts
+   */
+  void initializeOtherVariables(seissol::initializers::DynamicRupture* dynRup,
+                                seissol::initializers::LTSInternalNode::leaf_iterator& it,
+                                Interoperability* eInteroperability);
+
+  /**
    * Reads the parameters from the easi file
    * @param faultParameterDB reference to a FaultParameterDB, which manages easi
    * @param faceIDs faceIDs of the cells which are to be read
@@ -78,6 +98,7 @@ class BaseDRInitializer {
   void queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
                   std::vector<unsigned> faceIDs);
 
+  private:
   /**
    * Rotates the stress tensor a fault aligned coordinate system
    * @param dynRup pointer to the respective dynamic rupture datastructure

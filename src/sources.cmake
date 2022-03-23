@@ -125,7 +125,7 @@ src/DynamicRupture/FrictionLaws/SlipLaw.cpp
 src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
 src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
 src/DynamicRupture/Initializers/BaseDRInitializer.cpp
-src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
+src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
 

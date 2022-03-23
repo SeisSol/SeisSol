@@ -2,7 +2,7 @@
 #define SEISSOL_INITIALIZERS_H
 
 #include "BaseDRInitializer.h"
-#include "ImposedSlipInitializer.h"
+#include "ImposedSlipRatesInitializer.h"
 #include "LinearSlipWeakeningInitializer.h"
 #include "NoFaultInitializer.h"
 #include "RateAndStateInitializer.h"
