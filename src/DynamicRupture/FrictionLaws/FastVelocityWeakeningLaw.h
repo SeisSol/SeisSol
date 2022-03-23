@@ -27,15 +27,15 @@ class FastVelocityWeakeningLaw
 
   /**
    * Integrates the state variable ODE in time
-   * \f[\frac{\partial \Theta}{\partial t} = - \frac{V}{L}\left(\Theta - \Theta_{ss}(V) \right)\f]
-   * with steady state variable \f$\Theta_{ss}\f$.
+   * \f[\frac{\partial \Psi}{\partial t} = - \frac{V}{L}\left(\Psi - \Psi_{ss}(V) \right)\f]
+   * with steady state variable \f$\Psi_{ss}\f$.
    * Assume \f$V\f$ is constant through the time interval, then the analytic solution is:
-   * \f[ \Theta(t) = \Theta_0 \exp\left( -\frac{V}{L} t \right) + \Theta_{ss} \left( 1 - \exp\left(
+   * \f[ \Psi(t) = \Psi_0 \exp\left( -\frac{V}{L} t \right) + \Psi_{ss} \left( 1 - \exp\left(
    * - \frac{V}{L} t\right) \right).\f]
-   * @param stateVarReference \f$ \Theta_0 \f$
+   * @param stateVarReference \f$ \Psi_0 \f$
    * @param timeIncrement \f$ t \f$
    * @param localSlipRate \f$ V \f$
-   * @return \f$ \Theta(t) \f$
+   * @return \f$ \Psi(t) \f$
    */
   real updateStateVariable(unsigned int pointIndex,
                            unsigned int face,
@@ -72,9 +72,9 @@ class FastVelocityWeakeningLaw
   /**
    * Computes the friction coefficient from the state variable and slip rate
    * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp
-   * \left(\frac{\Theta}{a}\right)\right). \f]
+   * \left(\frac{\Psi}{a}\right)\right). \f]
    * @param localSlipRateMagnitude \f$ V \f$
-   * @param localStateVariable \f$ \Theta \f$
+   * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
   real updateMu(unsigned int ltsFace,
@@ -92,9 +92,9 @@ class FastVelocityWeakeningLaw
   /**
    * Computes the derivative of the friction coefficient with respect to the slip rate.
    * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{ (VC)^2 + 1} \text{ with } C =
-   * \frac{1}{2V_0} \cdot \exp \left(\frac{\Theta}{a}\right)\right).\f]
+   * \frac{1}{2V_0} \cdot \exp \left(\frac{\Psi}{a}\right)\right).\f]
    * @param localSlipRateMagnitude \f$ V \f$
-   * @param localStateVariable \f$ \Theta \f$
+   * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
   real updateMuDerivative(unsigned int ltsFace,
