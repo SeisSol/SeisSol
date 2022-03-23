@@ -32,13 +32,13 @@ parser.add_argument('--maxCornerFreq', nargs=1, metavar=('maxCornerFreq'),
 parser.add_argument('--output', choices=["numpy","xdmf","both"], default="both", 
                     help='choose the output format')
 
-parser.add_argument('--bodywavewindow',  dest='bodywavewindow', action='store_true' , default = False, 
+parser.add_argument('--bodyWaveWindow',  dest='bodyWaveWindow', action='store_true' , default = False, 
                     help='cuts out a body wave window before performing the fft to mitigate the impact of surface waves')
                     # -fault.xdmf file needed (within the same directory as -surface.xdmf or arg --faultxdmf needed)
     
 parser.add_argument('--slipRateThreshold', nargs=1, default=([0.1]), metavar=('slipRateThreshold'),
                     help='slip rate threshold that is used to approximate event duration and hypocenter location' ,type=float)
-                    # only needed when --bodywavewindow is active
+                    # only needed when --bodyWaveWindow is active
     
 parser.add_argument('--events', nargs=1, choices=[0,1,2], default=([0]), 
                     help='0: xdmf file contains just one event; 1: process the first of two events; 2: process the second of two events' ,type=int) 
@@ -51,7 +51,7 @@ parser.add_argument('--rotate',  dest='rotate', action='store_true' , default = 
 parser.add_argument('--outputprefix', default="data", type=str, metavar=('outputprefix'), 
                     help='provide an outputprefix')
 
-parser.add_argument('--faultxdmf', type=str, metavar=('-fault.xdmf'), 
+parser.add_argument('--faultXdmf', type=str, metavar=('-fault.xdmf'), 
                     help='provide path+filename-fault.xdmf; only needed when the path differs from the -surface.xdmf file')
 
 parser.add_argument('--parallelLoading',  dest='parallelLoading', action='store_true' , default = False, 
@@ -61,9 +61,6 @@ parser.add_argument('--parallelLoading',  dest='parallelLoading', action='store_
 parser.add_argument('--avgSWaveVelocity', nargs=1, metavar=('avgSWaveVelocity'),
                     help='provide an average S-wave velocity near the surface (otherwise it is approximated from P-arrivals)',
                     type=float)
-
-parser.add_argument('--oldVelocityVariables', dest='oldVelocityVariables', action='store_true' , default = False, 
-                    help='for data with SeisSols old surface velocity variables name convention (uvw)') 
 args = parser.parse_args()
 
 def LoadSingleComponentParallel(component, surfaceData=True):
@@ -136,7 +133,7 @@ def ComputeCornerFrequency(tuples):
     for i in range(0, fc_arr.size):
         
         velocity = tuples[0][i]
-        windowduration = tuples[2][i] * 1.1     # add 10% to not lose information due to the taper
+        windowduration = tuples[2][i] * 1.05     # add 5% to not lose information due to the taper
         pphase = tuples[1][i]
     
         # preprocessing (taper and padding)
@@ -244,7 +241,7 @@ def ApproximateEventDurationAndHypocenter():
         ASl = faultxdmf.ReadData("ASl").T[::stepsize,timeIndicesFault[0]:timeIndicesFault[1]]
     else:
         ASl = LoadSingleComponentParallel("ASl", surfaceData=False)
-    ASR = np.gradient(ASl, dtFault, axis=1)
+    ASR = np.abs(np.gradient(ASl, dtFault, axis=1))
     slippingElement = np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0)
     duration = slippingElement[np.argmax(slippingElement):-np.argmax(np.flip(slippingElement))].size * dtFault
     slippingFault = np.where(ASR > slipRateThreshold, 1, 0)
@@ -299,12 +296,12 @@ timeIndices = GetTimeIndices(surfacexdmf)
 
 nprocs  = args.MP[0]
 assert(nprocs<=cpu_count())
-print("Using "+str(nprocs)+" ranks")
+print(f"Using {nprocs} ranks")
 
 if not args.parallelLoading:
     print("Serial loading of components...")
     
-surfaceVariables = ['u', 'v', 'w'] if args.oldVelocityVariables else ['v1', 'v2', 'v3']
+surfaceVariables = ['u', 'v', 'w'] if 'u' in surfacexdmf.ReadAvailableDataFields() else ['v1', 'v2', 'v3']
     
 if nprocs == 1 or not args.parallelLoading:
     u = surfacexdmf.ReadData(surfaceVariables[0]).T[::stepsize,timeIndices[0]:timeIndices[1]]
@@ -321,10 +318,10 @@ print('Time to load data: ', stop1 - start)
 
 print("Preparing data...")
 
-if args.rotate or args.bodywavewindow:
-    if not args.faultxdmf:
-        args.faultxdmf = args.filename[:-12]+"fault.xdmf"
-    faultxdmf = sx.seissolxdmf(args.faultxdmf)  
+if args.rotate or args.bodyWaveWindow:
+    if not args.faultXdmf:
+        args.faultXdmf = args.filename[:-12]+"fault.xdmf"
+    faultxdmf = sx.seissolxdmf(args.faultXdmf)  
     timeIndicesFault = GetTimeIndices(faultxdmf)
     faultxyz = ComputeTriangleMidpoints(faultxdmf.ReadGeometry(), faultxdmf.ReadConnect())
     slipCentroid = CalculateSlipCentroid(faultxdmf, events=args.events[0])
@@ -333,7 +330,7 @@ if args.rotate or args.bodywavewindow:
 if args.rotate:
     u, v = RotateToRadialTransversal(u, v, surfacexyz, slipCentroid)
     
-if args.bodywavewindow:
+if args.bodyWaveWindow:
     pPhases = PickPPhases(trigger=0.001)[:,1]
     dtFault = faultxdmf.ReadTimeStep()
     nElementsFault = faultxdmf.ReadNElements()
