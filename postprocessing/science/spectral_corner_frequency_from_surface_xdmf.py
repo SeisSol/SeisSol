@@ -103,8 +103,7 @@ def CalculateSlipCentroid(faultxdmf, events=0):
     return np.average(faultxyz, axis=0, weights=ASl)
 
 def ComputeBackazimuth(xyz, centroid):
-    ba = np.arctan2(xyz[:,0]-centroid[0], xyz[:,1]-centroid[1]) % (2*np.pi)
-    ba = np.where(ba < np.pi, ba+np.pi, ba-np.pi)
+    ba = np.arctan2(xyz[:,0]-centroid[0], xyz[:,1]-centroid[1]) + np.pi
     return ba
 
 def RotateToRadialTransversal(u, v, xyz, centroid):
