@@ -1,6 +1,8 @@
 #include "ImposedSlipRatesInitializer.h"
 
 #include <utils/logger.h>
+#include "Model/common.hpp"
+#include "SeisSol.h"
 
 namespace seissol::dr::initializers {
 void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
@@ -36,6 +38,8 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
     const auto faceIDs = getFaceIDsInIterator(dynRup, it);
     queryModel(faultParameterDB, faceIDs);
 
+    rotateSlipToFaultCS(dynRup, it, strikeSlip, dipSlip);
+
     real(*nucleationStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
     real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
@@ -58,6 +62,34 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
         tauS[ltsFace][pointIndex] = std::max(static_cast<real>(0.0), tauS[ltsFace][pointIndex]);
         tauR[ltsFace][pointIndex] = std::max(tauR[ltsFace][pointIndex], tauS[ltsFace][pointIndex]);
       }
+    }
+  }
+}
+void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSTree::leaf_iterator& it,
+    real (*strikeSlip)[misc::numPaddedPoints],
+    real (*dipSlip)[misc::numPaddedPoints]) {
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    const auto& drFaceInformation = it->var(dynRup->faceInformation);
+    unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
+
+    VrtxCoords strikeVector{};
+    VrtxCoords dipVector{};
+    misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
+
+    // cos^2 can be greater than 1 because of rounding errors
+    real cos = std::min(static_cast<real>(1.0), MeshTools::dot(strikeVector, fault.tangent1));
+    VrtxCoords crossProduct{};
+    MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
+    real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
+    real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      real tmpStrikeSlip = strikeSlip[ltsFace][pointIndex];
+      real tmpDipSlip = dipSlip[ltsFace][pointIndex];
+      strikeSlip[ltsFace][pointIndex] = cos * tmpStrikeSlip + sin * tmpDipSlip;
+      dipSlip[ltsFace][pointIndex] = -sin * tmpStrikeSlip + cos * tmpDipSlip;
     }
   }
 }

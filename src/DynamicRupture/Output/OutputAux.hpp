@@ -21,8 +21,6 @@ ExtTriangle getGlobalTriangle(int localSideId,
                               const Element& element,
                               const std::vector<Vertex>& verticesInfo);
 
-void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
-
 ExtVrtxCoords getMidTrianglePoint(const ExtTriangle& triangle);
 
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);

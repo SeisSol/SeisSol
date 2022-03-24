@@ -4,6 +4,7 @@
 #include <cmath>
 #include <generated_code/init.h>
 #include <stdexcept>
+#include "Geometry/MeshDefinition.h"
 
 #include "Kernels/precision.hpp"
 
@@ -81,6 +82,15 @@ real magnitude(real x, real y);
  * @return asinh(x)
  */
 double asinh(double x);
+
+/**
+ * Create strike and dip unit vectors give a fault normal vector
+ * Note: equations are explained in documentation -> left-lateral-right-lateral-normal-reverse
+ * @param normal
+ * @param strike
+ * @param dip
+ */
+void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
 } // namespace seissol::dr::misc
 
 #endif // SEISSOL_DR_MISC_H

@@ -30,9 +30,10 @@ void ImposedSlipRates::updateFrictionAndSlip(
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     // TODO: FL34 with Gauss
     // real gNuc = this->calcSmoothStepIncrement(tn, timeInc) / timeInc;
-    real stfEvaluated = regularizedYoffe::regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
-                                         tauS[ltsFace][pointIndex],
-                                         tauR[ltsFace][pointIndex]);
+    real stfEvaluated =
+        regularizedYoffe::regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
+                                           tauS[ltsFace][pointIndex],
+                                           tauR[ltsFace][pointIndex]);
 
     tractionResults.traction1[timeIndex][pointIndex] =
         faultStresses.traction1[timeIndex][pointIndex] -
@@ -42,7 +43,7 @@ void ImposedSlipRates::updateFrictionAndSlip(
         this->impAndEta[ltsFace].etaS * dipSlip[ltsFace][pointIndex] * stfEvaluated;
 
     this->slipRate1[ltsFace][pointIndex] = this->strikeSlip[ltsFace][pointIndex] * stfEvaluated;
-    this->slipRate2[ltsFace][pointIndex] = dipSlip[ltsFace][pointIndex] * stfEvaluated;
+    this->slipRate2[ltsFace][pointIndex] = this->dipSlip[ltsFace][pointIndex] * stfEvaluated;
     this->slipRateMagnitude[ltsFace][pointIndex] =
         misc::magnitude(this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
 

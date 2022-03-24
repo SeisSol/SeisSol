@@ -2,6 +2,7 @@
 #define SEISSOL_GEOMETRY_T_H
 
 #include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Misc.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Transformation.h"
 #include "Initializer/PointMapper.h"
@@ -156,7 +157,7 @@ TEST_CASE("DR Geometry") {
     VrtxCoords testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
     VrtxCoords testStrike{0.0, 0.0, 0.0};
     VrtxCoords testDip{0.0, 0.0, 0.0};
-    computeStrikeAndDipVectors(testNormal, testStrike, testDip);
+    misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
 
     // compute expected Strike results
     Eigen::Vector3d e3(0.0, 0.0, -1.0);

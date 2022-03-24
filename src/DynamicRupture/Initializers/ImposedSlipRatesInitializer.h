@@ -21,6 +21,12 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                seissol::initializers::LTSTree* dynRupTree,
                                seissol::Interoperability* eInteroperability);
+
+  private:
+  void rotateSlipToFaultCS(seissol::initializers::DynamicRupture* dynRup,
+                           seissol::initializers::LTSTree::leaf_iterator& it,
+                           real (*strikeSlip)[misc::numPaddedPoints],
+                           real (*dipSlip)[misc::numPaddedPoints]);
 };
 } // namespace seissol::dr::initializers
 
