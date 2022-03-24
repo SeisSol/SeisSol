@@ -1,5 +1,7 @@
 #include "ImposedSlipRates.h"
 
+#include "Numerical_aux/RegularizedYoffe.h"
+
 namespace seissol::dr::friction_law {
 void ImposedSlipRates::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                           seissol::initializers::DynamicRupture* dynRup,
@@ -28,7 +30,7 @@ void ImposedSlipRates::updateFrictionAndSlip(
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     // TODO: FL34 with Gauss
     // real gNuc = this->calcSmoothStepIncrement(tn, timeInc) / timeInc;
-    real stfEvaluated = regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
+    real stfEvaluated = regularizedYoffe::regularizedYoffe(currentTime - onsetTime[ltsFace][pointIndex],
                                          tauS[ltsFace][pointIndex],
                                          tauR[ltsFace][pointIndex]);
 
@@ -60,4 +62,5 @@ void ImposedSlipRates::preHook(std::array<real, misc::numPaddedPoints>& stateVar
 void ImposedSlipRates::postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                                 unsigned ltsFace) {}
 void ImposedSlipRates::saveDynamicStressOutput(unsigned int ltsFace) {}
+
 } // namespace seissol::dr::friction_law

@@ -31,21 +31,6 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates> {
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace);
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace);
   void saveDynamicStressOutput(unsigned int ltsFace);
-
-  private:
-  /**
-   * Implementation of the regularized Yoffe function * defined in Appendix of Tinti et al. (2005)
-   */
-  real regularizedYoffe(real time, real tauS, real tauR);
-  /**
-   * c1 to c6 are analytical functions * used for building the regularized Yoffe function
-   */
-  real c1(real time, real tauS, real tauR);
-  real c2(real time, real tauS, real tauR);
-  real c3(real time, real tauS, real tauR);
-  real c4(real time, real tauS, real tauR);
-  real c5(real time, real tauS, real tauR);
-  real c6(real time, real tauS, real tauR);
 };
 
 } // namespace seissol::dr::friction_law
