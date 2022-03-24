@@ -82,15 +82,24 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
   return query;
 }
 
+seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshReader const& meshReader)
+  : m_meshReader(meshReader), m_elemVolumes{}
+  {
+    // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
+    double quadraturePoints[NUM_QUADPOINTS][3];
+    double quadratureWeights[NUM_QUADPOINTS];
+    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QUAD_DEG);
+    // Initialize const class members with results
+    std::copy(std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
+    for (int i = 0; i < NUM_QUADPOINTS; ++i) {
+      std::copy(std::begin(quadraturePoints[i]), std::end(quadraturePoints[i]), std::begin(m_quadraturePoints.at(i)));
+    }
+    // TODO: Calculate element volumes
+  }
+
 easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
-  
-  // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
-  double quadraturePoints[NUM_QUADPOINTS][3];
-  double quadratureWeights[NUM_QUADPOINTS];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QUAD_DEG);
-  std::copy(std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
 
   // Generate query using subpoints
   easi::Query query(elements.size() * NUM_QUADPOINTS, 3);
@@ -100,7 +109,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
       std::array<double, 3> xyz{};
       seissol::transformations::tetrahedronReferenceToGlobal(vertices[ elements[elem].vertices[0] ].coords, vertices[ elements[elem].vertices[1] ].coords,
-        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, quadraturePoints[i], xyz.data());
+        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, m_quadraturePoints.at(i).data(), xyz.data());
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(elem * NUM_QUADPOINTS + i,dim) = xyz[dim];
       }

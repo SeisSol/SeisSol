@@ -99,7 +99,7 @@ private:
 
 class seissol::initializers::ElementAverageGenerator : public seissol::initializers::QueryGenerator {
 public:
-  explicit ElementAverageGenerator(MeshReader const& meshReader) : m_meshReader(meshReader), m_elemVolumes{}, m_quadratureWeights{} {}
+  explicit ElementAverageGenerator(MeshReader const& meshReader);
   virtual easi::Query generate() const;
   double tetrahedronVolume(double const v0[3], double const v1[3], double const v2[3], double const v3[3]);
   std::vector<double> getElemVolumes() const { return m_elemVolumes; };
@@ -108,6 +108,7 @@ private:
   MeshReader const& m_meshReader;
   std::vector<double> m_elemVolumes;
   std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
+  std::array<std::array<double,3>, NUM_QUADPOINTS> m_quadraturePoints;
 };
 
 #ifdef USE_HDF
