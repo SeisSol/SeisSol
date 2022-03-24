@@ -223,11 +223,11 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
       }
       this->outputSpecifics(outputData, level, i);
     }
+  }
 
-    if (type == OutputType::AtPickpoint) {
-      outputData.cachedTime[outputData.currentCacheLevel] = time;
-      outputData.currentCacheLevel += 1;
-    }
+  if (type == OutputType::AtPickpoint) {
+    outputData.cachedTime[outputData.currentCacheLevel] = time;
+    outputData.currentCacheLevel += 1;
   }
 }
 

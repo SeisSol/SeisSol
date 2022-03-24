@@ -166,6 +166,7 @@ struct OutputData {
 
 struct GeoOutputData {
   std::vector<double> surfaceAreas{};
+  std::vector<double> lambda{};
 };
 } // namespace seissol::dr
 

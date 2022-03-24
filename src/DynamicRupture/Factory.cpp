@@ -65,12 +65,12 @@ Products RateAndStateAgingFactory::produce() {
         std::make_unique<seissol::initializers::LTS_RateAndState>(),
         std::make_unique<initializers::RateAndStateInitializer>(drParameters),
         std::make_unique<friction_law::AgingLaw<friction_law::ThermalPressurization>>(drParameters),
-        std::make_unique<output::RateAndStateThermalPressurization>()};
+        std::make_unique<output::OutputManager>(new output::RateAndStateThermalPressurization)};
   } else {
     return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
             std::make_unique<friction_law::AgingLaw<friction_law::NoTP>>(drParameters),
-          std::make_unique<output::OutputManager>(new output::RateAndState)};
+            std::make_unique<output::OutputManager>(new output::RateAndState)};
   }
 }
 
@@ -80,12 +80,12 @@ Products RateAndStateSlipFactory::produce() {
         std::make_unique<seissol::initializers::LTS_RateAndState>(),
         std::make_unique<initializers::RateAndStateInitializer>(drParameters),
         std::make_unique<friction_law::SlipLaw<friction_law::ThermalPressurization>>(drParameters),
-        std::make_unique<output::RateAndStateThermalPressurization>()};
+        std::make_unique<output::OutputManager>(new output::RateAndStateThermalPressurization)};
   } else {
     return {std::make_unique<seissol::initializers::LTS_RateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
             std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters),
-          std::make_unique<output::OutputManager>(new output::RateAndState)};
+            std::make_unique<output::OutputManager>(new output::RateAndState)};
   }
 }
 
@@ -115,6 +115,7 @@ Products ImposedSlipRatesGaussianFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_ImposedSlipRatesGaussian>(),
           std::make_unique<initializers::ImposedSlipRatesGaussianInitializer>(drParameters),
           std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(drParameters),
+          std::make_unique<output::OutputManager>(new output::ImposedSlipRates)};
 }
 
 Products RateAndStateFastVelocityWeakeningFactory::produce() {
@@ -125,13 +126,13 @@ Products RateAndStateFastVelocityWeakeningFactory::produce() {
         std::make_unique<
             friction_law::FastVelocityWeakeningLaw<friction_law::ThermalPressurization>>(
             drParameters),
-        std::make_unique<output::RateAndStateThermalPressurization>()};
+        std::make_unique<output::OutputManager>(new output::RateAndStateThermalPressurization)};
   } else {
     return {
         std::make_unique<seissol::initializers::LTS_RateAndStateFastVelocityWeakening>(),
         std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
         std::make_unique<friction_law::FastVelocityWeakeningLaw<friction_law::NoTP>>(drParameters),
-          std::make_unique<output::OutputManager>(new output::RateAndState)};
+        std::make_unique<output::OutputManager>(new output::RateAndState)};
   }
 }
 } // namespace seissol::dr::factory

@@ -81,8 +81,9 @@ extern "C" {
     e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity);
   }
 
-  void c_interoperability_bindFaultOutputManager() {
-    e_interoperability.bindFaultOutputManager();
+
+  void c_interoperability_initFaultOutputManager() {
+    e_interoperability.initFaultOutputManager();
   }
 
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
@@ -544,8 +545,6 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
                                                          m_meshStructure,
                                                          m_ltsTree->var(m_lts->cellInformation) );
-
-
 }
 
 void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
@@ -566,7 +565,9 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
 
-void seissol::Interoperability::bindFaultOutputManager() {
+void seissol::Interoperability::initFaultOutputManager() {
+  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager();
+
   auto *faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
   seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
 }

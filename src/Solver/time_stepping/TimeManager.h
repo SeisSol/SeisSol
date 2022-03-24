@@ -103,6 +103,8 @@ class seissol::time_stepping::TimeManager {
     //! c++ impl. of dynamic rupture output
     dr::output::OutputManager* m_faultOutputManager{};
 
+    double lastPrintTime{0.0};
+
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
      * If this is true:

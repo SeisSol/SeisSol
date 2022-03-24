@@ -129,8 +129,11 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
 
-  const auto numFaultElements = meshReader->getFault().size();
-  integratedOutput.setLtsData(drDescr, numFaultElements);
+  if (geoOutputBuilder) {
+    const auto numFaultElements = meshReader->getFault().size();
+    integratedOutput.setLtsData(drDescr, numFaultElements);
+    geoOutputBuilder->setLtsData(wpTree, wpDescr, wpLut);
+  }
 }
 
 void OutputManager::initElementwiseOutput() {
@@ -222,6 +225,14 @@ void OutputManager::initMomentRateOutput() {
   std::string fileName{};
   fileName = buildMPIFileName(generalParams.outputFilePrefix, "new-EnF_t");
   os_support::backupFile(fileName, "dat");
+  fileName += ".dat";
+  std::ofstream file(fileName, std::ios_base::app);
+  if (file.is_open()) {
+    file << "#time\tMomentRate\n";
+  } else {
+    logError() << "cannot open " << fileName;
+  }
+  file.close();
 }
 
 void OutputManager::initMagnitudeOutput() {
@@ -231,7 +242,7 @@ void OutputManager::initMagnitudeOutput() {
 
 void OutputManager::initGeoOutput() {
   geoOutputBuilder->setMeshReader(meshReader);
-  geoOutputBuilder->build(geoOutputData);
+  geoOutputBuilder->build(&geoOutputData);
 }
 
 void OutputManager::init() {
@@ -268,7 +279,10 @@ void OutputManager::initFaceToLtsMap() {
     }
   }
   impl->setFaceToLtsMap(&faceToLtsMap);
-  integratedOutput.setFaceToLtsMap(&faceToLtsMap);
+
+  if (geoOutputBuilder) {
+    integratedOutput.setFaceToLtsMap(&faceToLtsMap);
+  }
 }
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
@@ -344,12 +358,12 @@ void OutputManager::writeMagnitude() {
   if (drTree && generalParams.isMagnitudeOutputOn) {
     auto magnitude = integratedOutput.getMagnitude(geoOutputData);
 
-    double magnitudeSum{};
+    long double magnitudeSum{};
     int localRank{0};
 #ifdef USE_MPI
     localRank = MPI::mpi.rank();
     MPI::mpi.comm();
-    MPI_Reduce(&magnitude, &magnitudeSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
+    MPI_Reduce(&magnitude, &magnitudeSum, 1, MPI_LONG_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
 #else
     magnitudeSum = magnitude;
 #endif
@@ -363,16 +377,15 @@ void OutputManager::writeMagnitude() {
       std::ofstream file(fileName, std::ios_base::app);
       if (file.is_open()) {
         file << magnitudeSum << std::endl;
-        file.close();
       } else {
         logError() << "cannot open " << fileName;
       }
+      file.close();
     }
   }
 }
 
 void OutputManager::writeMomentRate(double time, double dt) {
-  // energy_rate_output
   if (drTree && generalParams.isEnergyRateOutputOn) {
     const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
     const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
@@ -385,10 +398,10 @@ void OutputManager::writeMomentRate(double time, double dt) {
       std::ofstream file(fileName, std::ios_base::app);
       if (file.is_open()) {
         file << makeFormatted(time) << '\t' << makeFormatted(momentRate) << '\n';
-        file.close();
       } else {
         logError() << "cannot open " << fileName;
       }
+      file.close();
     }
   }
 }

@@ -294,15 +294,20 @@ void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady(const 
     // if the first (leading) cluster has been fully updated (both copy and interior layers)
     if ((!firstCluster->m_updatable.neighboringInterior) && (!firstCluster->m_updatable.neighboringCopy)) {
 
-      // iterate over all clusters and update faults
-      for (auto *cluster: this->m_clusters) {
-        cluster->updateFaultOutput();
-      }
+      double printTime = firstCluster->m_previousFullUpdateTime;
+      if (printTime != this->lastPrintTime) {
+        // iterate over all clusters and update faults
+        for (auto *cluster: this->m_clusters) {
+          cluster->updateFaultOutput();
+        }
 
-      e_interoperability.faultOutput(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
-      m_faultOutputManager->writePickpointOutput(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
-      m_faultOutputManager->writeMomentRate(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
-      m_faultOutputManager->incrementIteration();
+        e_interoperability.faultOutput(printTime, firstCluster->timeStepWidth());
+        m_faultOutputManager->writePickpointOutput(printTime, firstCluster->timeStepWidth());
+        m_faultOutputManager->writeMomentRate(printTime, firstCluster->timeStepWidth());
+        m_faultOutputManager->incrementIteration();
+
+        this->lastPrintTime = printTime;
+      }
     }
   }
 }
