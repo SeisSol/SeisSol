@@ -83,7 +83,7 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
 }
 
 seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshReader const& meshReader)
-  : m_meshReader(meshReader), m_elemVolumes{}
+  : m_meshReader(meshReader)
   {
     // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
     double quadraturePoints[NUM_QUADPOINTS][3];
@@ -94,7 +94,8 @@ seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshRead
     for (int i = 0; i < NUM_QUADPOINTS; ++i) {
       std::copy(std::begin(quadraturePoints[i]), std::end(quadraturePoints[i]), std::begin(m_quadraturePoints.at(i)));
     }
-    // TODO: Calculate element volumes
+    // Initialize element volumes
+    m_elemVolumes = elementVolumes();
   }
 
 easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
@@ -120,8 +121,32 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   return query;
 }
 
-double seissol::initializers::ElementAverageGenerator::tetrahedronVolume(double const v0[3], double const v1[3], double const v2[3], double const v3[3]) {
-  return 0.0;
+std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolumes() {
+  std::vector<Element> const& elements = m_meshReader.getElements();
+  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
+  std::vector<double> elemVolumes(elements.size());
+  std::array<double, 3> a{};
+  std::array<double, 3> b{};
+  std::array<double, 3> c{};
+  std::array<double, 3> bxc{};
+
+  // Compute tetrahedron volumes as 1/6 * |triple product|
+  for (unsigned elem = 0; elem < elements.size(); ++elem) {
+    for (int i = 0; i < 3; ++i) {
+      a[i] = vertices[ elements[elem].vertices[1] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
+      b[i] = vertices[ elements[elem].vertices[2] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
+      c[i] = vertices[ elements[elem].vertices[3] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
+    }
+    bxc[0] = b[2] * c[3] - b[3] * c[2];
+    bxc[1] = b[3] * c[1] - b[1] * c[3];
+    bxc[2] = b[1] * c[2] - b[2] * c[1];
+    for (int i = 0; i < 3; ++i) {
+      elemVolumes[elem] += a[i] * bxc[i];
+    }
+    elemVolumes[elem] = abs(elemVolumes[elem]) / 6;
+  }
+
+  return elemVolumes;
 }
 
 #ifdef USE_HDF
@@ -315,6 +340,7 @@ namespace seissol {
       if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
         const unsigned numPoints = query.numPoints();
         const unsigned numElems = numPoints / NUM_QUADPOINTS;
+        
         // Approximate volume integrals
         std::array<double, NUM_QUADPOINTS> quadratureWeights{ gen->getQuadratureWeights() };
         std::vector<seissol::model::ElasticMaterial> materialsMean(numElems);
@@ -326,6 +352,7 @@ namespace seissol {
           // Integrate quotients of Poisson ratio and elastic modulus
           vERatioMean[i / NUM_QUADPOINTS] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadratureWeights[i % NUM_QUADPOINTS];
         }
+
         // Obtain parameter mean values and store them in m_materials
         std::vector<double> elemVolumes{ gen->getElemVolumes() };
         for (unsigned i = 0; i < numElems; ++i) {

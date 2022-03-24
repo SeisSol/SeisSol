@@ -101,7 +101,7 @@ class seissol::initializers::ElementAverageGenerator : public seissol::initializ
 public:
   explicit ElementAverageGenerator(MeshReader const& meshReader);
   virtual easi::Query generate() const;
-  double tetrahedronVolume(double const v0[3], double const v1[3], double const v2[3], double const v3[3]);
+  std::vector<double> elementVolumes();
   std::vector<double> getElemVolumes() const { return m_elemVolumes; };
   std::array<double, NUM_QUADPOINTS> getQuadratureWeights() const { return m_quadratureWeights; };
 private:
