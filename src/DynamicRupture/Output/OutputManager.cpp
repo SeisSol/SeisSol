@@ -1,5 +1,5 @@
-#include "OutputManager.hpp"
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/OutputManager.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include "SeisSol.h"
 #include "ResultWriter/common.hpp"
 #include <filesystem>
@@ -32,6 +32,45 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildInType<T, U> obj) {
 }
 
 namespace seissol::dr::output {
+std::string buildFileName(std::string namePrefix,
+                          std::string nameSuffix,
+                          std::string fileExtension = std::string()) {
+  std::stringstream fileName;
+  fileName << namePrefix << '-' << nameSuffix;
+  if (fileExtension.empty()) {
+    return fileName.str();
+  } else {
+    fileName << '.' << fileExtension;
+    return fileName.str();
+  }
+}
+
+std::string buildMPIFileName(std::string namePrefix,
+                             std::string nameSuffix,
+                             std::string fileExtension = std::string()) {
+#ifdef PARALLEL
+  std::stringstream suffix;
+  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
+  return buildFileName(namePrefix, suffix.str(), fileExtension);
+#else
+  return buildFileName(namePrefix, nameSuffix, fileExtension);
+#endif
+}
+
+std::string buildIndexedMPIFileName(std::string namePrefix,
+                                    int index,
+                                    std::string nameSuffix,
+                                    std::string fileExtension = std::string()) {
+  std::stringstream suffix;
+#ifdef PARALLEL
+  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
+         << makeFormatted<int, WideFormat>(MPI::mpi.rank());
+#else
+  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
+#endif
+  return buildFileName(namePrefix, suffix.str(), fileExtension);
+}
+
 OutputManager::~OutputManager() {
   auto deallocateVars = [](auto& var, int) { var.releaseData(); };
   misc::forEach(ppOutputData.vars, deallocateVars);
@@ -40,6 +79,7 @@ OutputManager::~OutputManager() {
 
 void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userMesher) {
   using namespace initializers;
+  meshReader = &userMesher;
 
   ParametersInitializer reader(inputData);
   impl->setMeshReader(&userMesher);
@@ -72,25 +112,25 @@ void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userM
   if (!elementwiseEnabled && !pointEnabled) {
     logInfo() << "No dynamic rupture output enabled";
   }
+  if (generalParams.isEnergyRateOutputOn || generalParams.isMagnitudeOutputOn) {
+    geoOutputBuilder = std::make_unique<GeometryBuilder>();
+  }
 }
 
-void OutputManager::setLtsData(seissol::initializers::LTSTree* wpTree,
-                               seissol::initializers::LTS* wpDescr,
-                               seissol::initializers::Lut* wpLut,
-                               seissol::initializers::LTSTree* drTree,
-                               seissol::initializers::DynamicRupture* drDescr) {
+void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
+                               seissol::initializers::LTS* userWpDescr,
+                               seissol::initializers::Lut* userWpLut,
+                               seissol::initializers::LTSTree* userDrTree,
+                               seissol::initializers::DynamicRupture* userDrDescr) {
+  wpDescr = userWpDescr;
+  wpTree = userWpTree;
+  wpLut = userWpLut;
+  drTree = userDrTree;
+  drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
-}
 
-std::string OutputManager::constructPickpointReceiverFileName(const int receiverGlobalIndex) const {
-  std::stringstream fileName;
-  fileName << generalParams.outputFilePrefix << "-new-faultreceiver-"
-           << makeFormatted<int, WideFormat>(receiverGlobalIndex);
-#ifdef PARALLEL
-  fileName << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
-#endif
-  fileName << ".dat";
-  return fileName.str();
+  const auto numFaultElements = meshReader->getFault().size();
+  integratedOutput.setLtsData(drDescr, numFaultElements);
 }
 
 void OutputManager::initElementwiseOutput() {
@@ -150,9 +190,13 @@ void OutputManager::initPickpointOutput() {
   auto& outputData = ppOutputData;
   for (const auto& receiver : outputData.receiverPoints) {
     const size_t globalIndex = receiver.globalReceiverIndex;
-    auto fileName = constructPickpointReceiverFileName(globalIndex);
-    if (!std::filesystem::exists(fileName)) {
 
+    auto fileName =
+        buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "new-faultreceiver");
+    os_support::backupFile(fileName, "dat");
+    fileName += ".dat";
+
+    if (!std::filesystem::exists(fileName)) {
       std::ofstream file(fileName, std::ios_base::out);
       if (file.is_open()) {
         std::stringstream title;
@@ -174,6 +218,22 @@ void OutputManager::initPickpointOutput() {
   }
 }
 
+void OutputManager::initMomentRateOutput() {
+  std::string fileName{};
+  fileName = buildMPIFileName(generalParams.outputFilePrefix, "new-EnF_t");
+  os_support::backupFile(fileName, "dat");
+}
+
+void OutputManager::initMagnitudeOutput() {
+  auto fileName = buildFileName(generalParams.outputFilePrefix, "new-MAG");
+  os_support::backupFile(fileName, "dat");
+}
+
+void OutputManager::initGeoOutput() {
+  geoOutputBuilder->setMeshReader(meshReader);
+  geoOutputBuilder->build(geoOutputData);
+}
+
 void OutputManager::init() {
   if (ewOutputBuilder) {
     initElementwiseOutput();
@@ -181,9 +241,35 @@ void OutputManager::init() {
   if (ppOutputBuilder) {
     initPickpointOutput();
   }
+  if (geoOutputBuilder) {
+    initGeoOutput();
+
+    if (generalParams.isMagnitudeOutputOn) {
+      initMagnitudeOutput();
+    }
+
+    if (generalParams.isEnergyRateOutputOn) {
+      initMomentRateOutput();
+    }
+  }
 }
 
-void OutputManager::initFaceToLtsMap() { impl->initFaceToLtsMap(); }
+void OutputManager::initFaceToLtsMap() {
+  if (drTree) {
+    faceToLtsMap.resize(drTree->getNumberOfCells(Ghost));
+    for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
+         it != drTree->endLeaf();
+         ++it) {
+
+      DRFaceInformation* faceInformation = it->var(drDescr->faceInformation);
+      for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
+      }
+    }
+  }
+  impl->setFaceToLtsMap(&faceToLtsMap);
+  integratedOutput.setFaceToLtsMap(&faceToLtsMap);
+}
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
   bool isFirstStep = iterationStep == 0;
@@ -194,7 +280,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   const int printTimeInterval = this->pickpointParams.printTimeInterval;
   const bool isOutputIteration = iterationStep % printTimeInterval == 0;
 
-  return ppOutputBuilder && (isFirstStep || isOutputIteration || isCloseToTimeOut);
+  return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
 void OutputManager::writePickpointOutput(double time, double dt) {
@@ -224,8 +310,10 @@ void OutputManager::writePickpointOutput(double time, double dt) {
             data << '\n';
           }
 
-          auto fileName = constructPickpointReceiverFileName(
-              outputData.receiverPoints[pointId].globalReceiverIndex);
+          auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex;
+          auto fileName = buildIndexedMPIFileName(
+              generalParams.outputFilePrefix, globalIndex, "new-faultreceiver", "dat");
+
           std::ofstream file(fileName, std::ios_base::app);
           if (file.is_open()) {
             file << data.str();
@@ -237,7 +325,6 @@ void OutputManager::writePickpointOutput(double time, double dt) {
         outputData.currentCacheLevel = 0;
       }
     }
-    iterationStep += 1;
   }
 }
 
@@ -251,5 +338,58 @@ void OutputManager::tiePointers(seissol::initializers::Layer& layerData,
                                 seissol::initializers::DynamicRupture* description,
                                 seissol::Interoperability& eInteroperability) {
   impl->tiePointers(layerData, description, eInteroperability);
+}
+
+void OutputManager::writeMagnitude() {
+  if (drTree && generalParams.isMagnitudeOutputOn) {
+    auto magnitude = integratedOutput.getMagnitude(geoOutputData);
+
+    double magnitudeSum{};
+    int localRank{0};
+#ifdef USE_MPI
+    localRank = MPI::mpi.rank();
+    MPI::mpi.comm();
+    MPI_Reduce(&magnitude, &magnitudeSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
+#else
+    magnitudeSum = magnitude;
+#endif
+
+    if (localRank == 0) {
+      real base{6.07};
+      logInfo() << "seismic moment " << magnitudeSum << " Mw "
+                << (2. / 3.) * std::log10(magnitudeSum) - base;
+
+      auto fileName = buildFileName(generalParams.outputFilePrefix, "new-MAG", "dat");
+      std::ofstream file(fileName, std::ios_base::app);
+      if (file.is_open()) {
+        file << magnitudeSum << std::endl;
+        file.close();
+      } else {
+        logError() << "cannot open " << fileName;
+      }
+    }
+  }
+}
+
+void OutputManager::writeMomentRate(double time, double dt) {
+  // energy_rate_output
+  if (drTree && generalParams.isEnergyRateOutputOn) {
+    const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
+    const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
+    const bool isReady = (iterationStep % generalParams.energyRatePrintTimeInterval) == 0;
+
+    if (isReady || isCloseToTimeOut) {
+      auto momentRate = integratedOutput.getMomentRate(geoOutputData);
+
+      auto fileName = buildMPIFileName(generalParams.outputFilePrefix, "new-EnF_t", "dat");
+      std::ofstream file(fileName, std::ios_base::app);
+      if (file.is_open()) {
+        file << makeFormatted(time) << '\t' << makeFormatted(momentRate) << '\n';
+        file.close();
+      } else {
+        logError() << "cannot open " << fileName;
+      }
+    }
+  }
 }
 } // namespace seissol::dr::output

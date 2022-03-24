@@ -1,16 +1,16 @@
 #ifndef SEISSOL_DR_OUTPUT_NO_FAULT_HPP
 #define SEISSOL_DR_OUTPUT_NO_FAULT_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include <Solver/Interoperability.h>
 
 namespace seissol::dr::output {
-class NoFault : public Base {
+class NoFault : public ReceiverBasedOutput {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, drDescr, eInteroperability);
+    ReceiverBasedOutput::tiePointers(layerData, drDescr, eInteroperability);
   }
 
   real computeLocalStrength() override { return 0.0; }

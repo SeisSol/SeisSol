@@ -1,15 +1,15 @@
 #ifndef SEISSOL_DR_OUTPUT_RS_HPP
 #define SEISSOL_DR_OUTPUT_RS_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class RateAndState : public Base {
+class RateAndState : public ReceiverBasedOutput {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, drDescr, eInteroperability);
+    ReceiverBasedOutput::tiePointers(layerData, drDescr, eInteroperability);
 
     auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(drDescr);
 

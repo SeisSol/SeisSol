@@ -15,12 +15,14 @@ class OutputBuilder {
   public:
   virtual ~OutputBuilder() = default;
   virtual void build(OutputData* outputData) = 0;
-  virtual void initTimeCaching() = 0;
 
   void setMeshReader(const MeshReader* reader) {
     meshReader = reader;
     localRank = MPI::mpi.rank();
   }
+
+  protected:
+  virtual void initTimeCaching() = 0;
 
   void initBasisFunctions() {
     const auto& faultInfo = meshReader->getFault();

@@ -91,7 +91,6 @@ struct ReceiverPointT {
   int globalReceiverIndex{-1};  // receiver index of global list
   bool isInside{};              // If a point is inside the mesh or not
   int nearestGpIndex{-1};
-  double distanceToNearestGp{std::numeric_limits<double>::max()};
 };
 using ReceiverPointsT = std::vector<ReceiverPointT>;
 

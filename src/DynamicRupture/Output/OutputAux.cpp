@@ -5,6 +5,10 @@
 #include "Numerical_aux/Transformation.h"
 #include <Eigen/Dense>
 #include <limits>
+#include <unordered_map>
+#include <iomanip>
+#include <filesystem>
+#include <ctime>
 
 namespace seissol::dr {
 
@@ -139,7 +143,6 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
     std::tie(nearestPoint, shortestDistance) =
         getNearestFacePoint(targetPoint2D, trianglePoints2D, numPoints);
     geoPoint.nearestGpIndex = nearestPoint;
-    geoPoint.distanceToNearestGp = shortestDistance;
   }
 }
 
@@ -217,6 +220,17 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT
   return cells;
 }
 
+real computeTriangleArea(ExtTriangle& triangle) {
+  auto p1 = triangle.p1.getAsEigenVector();
+  auto p2 = triangle.p2.getAsEigenVector();
+  auto p3 = triangle.p3.getAsEigenVector();
+
+  auto vector1 = p2 - p1;
+  auto vector2 = p3 - p1;
+  auto normal = vector1.cross(vector2);
+  return 0.5 * normal.norm();
+}
+
 void computeTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly) {
   assert(numPoly > 0);
   unsigned idx = 0;
@@ -240,3 +254,29 @@ void computeGradTriDubinerPolynomials(double* phis, double xi, double eta, int n
   }
 }
 } // namespace seissol::dr
+
+namespace seissol::dr::os_support {
+std::string getTimeStamp() {
+  std::time_t time = std::time(nullptr);
+  std::tm tm = *std::localtime(&time);
+
+  std::stringstream timeStamp;
+  timeStamp << std::put_time(&tm, "%F_%T");
+  return timeStamp.str();
+}
+
+void backupFile(std::string fileName, std::string fileExtension) {
+  std::stringstream fullName;
+  fullName << fileName << '.' << fileExtension;
+  std::filesystem::path path(fullName.str());
+  std::filesystem::directory_entry entry(path);
+
+  if (entry.exists()) {
+    auto stamp = getTimeStamp();
+    std::stringstream backupFileName;
+    backupFileName << fileName << ".bak_" << stamp << '.' << fileExtension;
+    std::filesystem::path copyPath(backupFileName.str());
+    std::filesystem::rename(path, copyPath);
+  }
+}
+} // namespace seissol::dr::os_support

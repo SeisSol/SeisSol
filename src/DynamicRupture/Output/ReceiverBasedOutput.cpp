@@ -1,4 +1,4 @@
-#include "Base.hpp"
+#include "ReceiverBasedOutput.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include "generated_code/tensor.h"
@@ -6,11 +6,11 @@
 #include <unordered_map>
 
 namespace seissol::dr::output {
-void Base::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                      seissol::initializers::LTS* userWpDescr,
-                      seissol::initializers::Lut* userWpLut,
-                      seissol::initializers::LTSTree* userDrTree,
-                      seissol::initializers::DynamicRupture* userDrDescr) {
+void ReceiverBasedOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
+                                     seissol::initializers::LTS* userWpDescr,
+                                     seissol::initializers::Lut* userWpLut,
+                                     seissol::initializers::LTSTree* userDrTree,
+                                     seissol::initializers::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;
@@ -18,22 +18,7 @@ void Base::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drDescr = userDrDescr;
 }
 
-void Base::initFaceToLtsMap() {
-  if (drTree) {
-    faceToLtsMap.resize(drTree->getNumberOfCells(Ghost));
-    for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-         it != drTree->endLeaf();
-         ++it) {
-
-      DRFaceInformation* faceInformation = it->var(drDescr->faceInformation);
-      for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
-      }
-    }
-  }
-}
-
-void Base::getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side) {
+void ReceiverBasedOutput::getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side) {
   // get DOFs from 0th derivatives
   real* derivatives{nullptr};
   auto ltsSetup = wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup;
@@ -45,13 +30,13 @@ void Base::getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side) {
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofsPlus[0]);
 }
 
-void Base::calcFaultOutput(const OutputType type,
-                           OutputData& outputData,
-                           const GeneralParamsT& generalParams,
-                           double time) {
+void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
+                                          OutputData& outputData,
+                                          const GeneralParamsT& generalParams,
+                                          double time) {
 
   size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
-  auto faultInfos = mesher->getFault();
+  auto faultInfos = meshReader->getFault();
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
     if (outputData.receiverPoints[i].isInside) {
@@ -59,7 +44,7 @@ void Base::calcFaultOutput(const OutputType type,
       assert(faceIndex != -1 && "receiver is not initialized");
       local = LocalInfo{};
 
-      auto ltsMap = faceToLtsMap[faceIndex];
+      auto ltsMap = (*faceToLtsMap)[faceIndex];
       local.layer = ltsMap.first;
       local.ltsId = ltsMap.second;
       local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
@@ -246,32 +231,26 @@ void Base::calcFaultOutput(const OutputType type,
   }
 }
 
-void Base::computeLocalStresses() {
-  real pFactorPlus = local.waveSpeedsPlus->pWaveVelocity * local.waveSpeedsPlus->density;
-  real pFactorMinus = local.waveSpeedsMinus->pWaveVelocity * local.waveSpeedsMinus->density;
-
-  real sFactorPlus = local.waveSpeedsPlus->sWaveVelocity * local.waveSpeedsPlus->density;
-  real sFactorMinus = local.waveSpeedsMinus->sWaveVelocity * local.waveSpeedsMinus->density;
-
-  real norDivisor = 1.0 / (pFactorMinus + pFactorPlus);
-  real shearDivisor = 1.0 / (sFactorMinus + sFactorPlus);
-  real uVelDivisor = 1.0 / (pFactorPlus);
+void ReceiverBasedOutput::computeLocalStresses() {
+  auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+  real norDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
+  real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
   auto diff = [this](int i) {
     return this->local.faceAlignedValuesMinus[i] - this->local.faceAlignedValuesPlus[i];
   };
 
   local.xyStress = local.faceAlignedValuesPlus[3] +
-                   ((diff(3) + sFactorMinus * diff(7)) * sFactorPlus) * shearDivisor;
+                   ((diff(3) + impAndEta.zsNeig * diff(7)) * impAndEta.zs) * shearDivisor;
 
   local.xzStress = local.faceAlignedValuesPlus[5] +
-                   ((diff(5) + sFactorMinus * diff(8)) * sFactorPlus) * shearDivisor;
+                   ((diff(5) + impAndEta.zsNeig * diff(8)) * impAndEta.zs) * shearDivisor;
 
   local.p = local.faceAlignedValuesPlus[0] +
-            ((diff(0) + pFactorMinus * diff(6)) * pFactorPlus) * norDivisor;
+            ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * norDivisor;
 
   local.u =
-      local.faceAlignedValuesPlus[6] + (local.p - local.faceAlignedValuesPlus[0]) * uVelDivisor;
+      local.faceAlignedValuesPlus[6] + (local.p - local.faceAlignedValuesPlus[0]) * impAndEta.invZp;
 
   real missingSigmaValues = (local.p - local.faceAlignedValuesPlus[0]);
   missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
@@ -286,7 +265,7 @@ void Base::computeLocalStresses() {
       std::sqrt(std::pow(local.sXY + local.xyStress, 2) + std::pow(local.sXZ + local.xzStress, 2));
 }
 
-void Base::computeLocalTraction(real strength) {
+void ReceiverBasedOutput::computeLocalTraction(real strength) {
   if (local.tracEla > std::abs(strength)) {
     local.xyTraction = ((local.sXY + local.xyStress) / local.tracEla) * strength;
     local.xzTraction = ((local.sXZ + local.xzStress) / local.tracEla) * strength;
@@ -300,21 +279,18 @@ void Base::computeLocalTraction(real strength) {
   }
 }
 
-void Base::computeSlipAndRate(std::array<real, 6>& rotatedTraction,
-                              std::array<real, 6>& rotatedLocalStress) {
-  real sFactorPlus = local.waveSpeedsPlus->sWaveVelocity * local.waveSpeedsPlus->density;
-  real sFactorMinus = local.waveSpeedsMinus->sWaveVelocity * local.waveSpeedsMinus->density;
+void ReceiverBasedOutput::computeSlipAndRate(std::array<real, 6>& rotatedTraction,
+                                             std::array<real, 6>& rotatedLocalStress) {
 
-  local.srS =
-      -(1.0 / sFactorPlus + 1.0 / sFactorMinus) * (rotatedTraction[3] - rotatedLocalStress[3]);
-  local.srD =
-      -(1.0 / sFactorPlus + 1.0 / sFactorMinus) * (rotatedTraction[5] - rotatedLocalStress[5]);
+  auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+  local.srS = -impAndEta.invEtaS * (rotatedTraction[3] - rotatedLocalStress[3]);
+  local.srD = -impAndEta.invEtaS * (rotatedTraction[5] - rotatedLocalStress[5]);
 }
 
-void Base::computeSlipAndRate(const double* tangent1,
-                              const double* tangent2,
-                              const double* strike,
-                              const double* dip) {
+void ReceiverBasedOutput::computeSlipAndRate(const double* tangent1,
+                                             const double* tangent2,
+                                             const double* strike,
+                                             const double* dip) {
   local.srS = static_cast<real>(0.0);
   local.srD = static_cast<real>(0.0);
 
@@ -330,7 +306,7 @@ void Base::computeSlipAndRate(const double* tangent1,
   }
 }
 
-int Base::getClosestInternalGp(int nearestGpIndex, int nPoly) {
+int ReceiverBasedOutput::getClosestInternalGp(int nearestGpIndex, int nPoly) {
   int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
   int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
   if (i1 == 1) {
@@ -347,12 +323,12 @@ int Base::getClosestInternalGp(int nearestGpIndex, int nPoly) {
   return (i1 - 1) * (nPoly + 2) + j1;
 }
 
-real Base::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
+real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
   auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
-  for (size_t point = 0; point < tensor::QInterpolated::Shape[0]; ++point) {
+  for (size_t point = 0; point < misc::numberOfBoundaryGaussPoints; ++point) {
     if (ruptureTime[point] == 0.0) {
       needsUpdate = false;
     }
@@ -361,10 +337,10 @@ real Base::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
   if (needsUpdate) {
     constexpr int numPoly = CONVERGENCE_ORDER - 1;
     constexpr int numDegFr2d = (numPoly + 1) * (numPoly + 2) / 2;
-    std::array<real, numDegFr2d> projectedRT{};
+    std::array<double, numDegFr2d> projectedRT{};
     projectedRT.fill(0.0);
 
-    std::array<real, 2 * numDegFr2d> phiAtPoint{};
+    std::array<double, 2 * numDegFr2d> phiAtPoint{};
     phiAtPoint.fill(0.0);
 
     auto chiTau2dPoints =
@@ -410,9 +386,9 @@ real Base::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
   return ruptureVelocity;
 }
 
-void Base::tiePointers(seissol::initializers::Layer& layerData,
-                       seissol::initializers::DynamicRupture* description,
-                       seissol::Interoperability& eInteroperability) {
+void ReceiverBasedOutput::tiePointers(seissol::initializers::Layer& layerData,
+                                      seissol::initializers::DynamicRupture* description,
+                                      seissol::Interoperability& eInteroperability) {
   constexpr auto size = init::QInterpolated::Stop[0];
   real(*accumulatedSlipMagnitude)[size] = layerData.var(description->accumulatedSlipMagnitude);
   real(*slip1)[size] = layerData.var(description->slip1);

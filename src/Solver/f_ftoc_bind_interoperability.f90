@@ -434,4 +434,11 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), intent(in), value  :: no
     end function
   end interface
+
+  interface c_interoperability_write_fault_magnitude
+    subroutine c_interoperability_write_fault_magnitude() bind ( C, name='c_interoperability_write_fault_magnitude')
+      use iso_c_binding
+      implicit none
+    end subroutine
+  end interface
 end module

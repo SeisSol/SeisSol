@@ -1,7 +1,7 @@
 #ifndef SEISSOL_DR_OUTPUT_LSW_BIMATERIAL_HPP
 #define SEISSOL_DR_OUTPUT_LSW_BIMATERIAL_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {

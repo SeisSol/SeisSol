@@ -1,15 +1,15 @@
 #ifndef SEISSOL_DR_OUTPUT_LSW_HPP
 #define SEISSOL_DR_OUTPUT_LSW_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class LinearSlipWeakening : public Base {
+class LinearSlipWeakening : public ReceiverBasedOutput {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, drDescr, eInteroperability);
+    ReceiverBasedOutput::tiePointers(layerData, drDescr, eInteroperability);
 
     auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(drDescr);
 

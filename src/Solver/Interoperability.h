@@ -509,6 +509,11 @@ class seissol::Interoperability {
    void reportDeviceMemoryStatus();
 
    /**
+    * write fault magnitude
+    */
+   void writeFaultMagnitude();
+
+   /**
     * Deallocates memory manager
     */
    void deallocateMemoryManager();

@@ -23,6 +23,7 @@ class PickPointBuilder : public OutputBuilder {
     outputData->isActive = true;
   }
 
+  protected:
   void readCoordsFromFile() {
     using namespace seissol::initializers;
     StringsT content = FileProcessor::getFileAsStrings(pickpointParams.ppFileName);
@@ -102,7 +103,7 @@ class PickPointBuilder : public OutputBuilder {
         receiver.isInside = true;
       } else {
         logInfo() << "pickpoint fault output: receiver (" << receiverId << ") is not inside"
-                  << "of any element along the rupture surface";
+                  << " any element along the rupture surface";
         receiver.isInside = false;
       }
     }

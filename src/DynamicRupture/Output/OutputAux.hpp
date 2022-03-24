@@ -48,6 +48,8 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
 
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT& receiverPoints);
 
+real computeTriangleArea(ExtTriangle& triangle);
+
 void computeTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly);
 void computeGradTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly);
 
@@ -62,5 +64,10 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
   return intMask;
 }
 } // namespace seissol::dr
+
+namespace seissol::dr::os_support {
+std::string getTimeStamp();
+void backupFile(std::string fileName, std::string fileExtension);
+} // namespace seissol::dr::os_support
 
 #endif // SEISSOL_DR_OUTPUT_AUX_HPP

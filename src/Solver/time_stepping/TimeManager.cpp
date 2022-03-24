@@ -295,12 +295,14 @@ void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady(const 
     if ((!firstCluster->m_updatable.neighboringInterior) && (!firstCluster->m_updatable.neighboringCopy)) {
 
       // iterate over all clusters and update faults
-      for (auto cluster: this->m_clusters) {
+      for (auto *cluster: this->m_clusters) {
         cluster->updateFaultOutput();
       }
 
       e_interoperability.faultOutput(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
       m_faultOutputManager->writePickpointOutput(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
+      m_faultOutputManager->writeMomentRate(firstCluster->m_previousFullUpdateTime, firstCluster->timeStepWidth());
+      m_faultOutputManager->incrementIteration();
     }
   }
 }

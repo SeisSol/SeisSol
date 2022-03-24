@@ -22,6 +22,7 @@ class ElementWiseBuilder : public OutputBuilder {
     outputData->isActive = true;
   }
 
+  protected:
   void initTimeCaching() override {
     outputData->maxCacheLevel = ElementWiseBuilder::maxAllowedCacheLevel;
     outputData->currentCacheLevel = 0;
@@ -37,7 +38,7 @@ class ElementWiseBuilder : public OutputBuilder {
     logInfo(localRank) << "CPP: Initialising Fault output. "
                        << "Number of sub-triangles: " << numSubTriangles;
 
-    // get arrays of elements and vertices from the mesher
+    // get arrays of elements and vertices from the meshReader
     const auto& faultInfo = meshReader->getFault();
     const auto& elementsInfo = meshReader->getElements();
     const auto& verticesInfo = meshReader->getVertices();
@@ -45,7 +46,7 @@ class ElementWiseBuilder : public OutputBuilder {
     // iterate through each fault side
     for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
 
-      // get a Global Element ID for the current fault face
+      // get a global element ID for the current fault face
       auto elementIndex = faultInfo[faceIndex].element;
       const auto& element = elementsInfo[elementIndex];
 

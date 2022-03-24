@@ -109,7 +109,7 @@ struct GeneralParamsT {
   bool isMagnitudeOutputOn{false};
   bool isEnergyRateOutputOn{false};
   bool isThermalPressurizationOn{false};
-  int energyRatePrintTimeInterval{30};
+  int energyRatePrintTimeInterval{50};
   bool isRfTimeOn{false};
   bool faultOutputFlag{false};
   std::string outputFilePrefix{"data"};
@@ -135,6 +135,9 @@ struct ElementwiseFaultParamsT {
   RefinerType refinementStrategy{RefinerType::Quad};
   int refinement{2};
 };
+
+using FaceToLtsMapT = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
+
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
@@ -142,13 +145,6 @@ struct PlusMinusBasisFunctionsT {
   std::vector<real> plusSide;
   std::vector<real> minusSide;
 };
-
-struct IntialTraction {
-  real p0{0.0};
-  real ts0{0.0};
-  real td0{0.0};
-};
-using ConstantsT = std::vector<IntialTraction>;
 
 struct OutputData {
   output::DrVarsT vars;
@@ -166,6 +162,10 @@ struct OutputData {
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
+};
+
+struct GeoOutputData {
+  std::vector<double> surfaceAreas{};
 };
 } // namespace seissol::dr
 

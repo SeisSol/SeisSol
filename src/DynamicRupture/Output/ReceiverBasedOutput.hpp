@@ -9,9 +9,9 @@
 #include "Solver/Interoperability.h"
 
 namespace seissol::dr::output {
-class Base {
+class ReceiverBasedOutput {
   public:
-  virtual ~Base() = default;
+  virtual ~ReceiverBasedOutput() = default;
 
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -19,8 +19,8 @@ class Base {
                   seissol::initializers::LTSTree* userDrTree,
                   seissol::initializers::DynamicRupture* userDrDescr);
 
-  void setMeshReader(MeshReader* meshReader) { mesher = meshReader; }
-  void initFaceToLtsMap();
+  void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
+  void setFaceToLtsMap(FaceToLtsMapT* map) { faceToLtsMap = map; }
   virtual void tiePointers(seissol::initializers::Layer& layerData,
                            seissol::initializers::DynamicRupture* description,
                            seissol::Interoperability& eInteroperability);
@@ -46,19 +46,16 @@ class Base {
 
   int getClosestInternalGp(int nearestGpIndex, int nPoly);
 
-  virtual void outputSpecifics(OutputData& data, size_t level, size_t receiverIdx) {}
+  virtual void outputSpecifics(OutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
 
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};
   seissol::initializers::Lut* wpLut{nullptr};
-
   seissol::initializers::LTSTree* drTree{nullptr};
   seissol::initializers::DynamicRupture* drDescr{nullptr};
-
-  MeshReader* mesher{nullptr};
-
-  std::vector<std::pair<seissol::initializers::Layer*, size_t>> faceToLtsMap{};
+  MeshReader* meshReader{nullptr};
+  FaceToLtsMapT* faceToLtsMap{nullptr};
 
   struct LocalInfo {
     seissol::initializers::Layer* layer{};
