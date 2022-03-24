@@ -28,8 +28,7 @@ static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated
 /**
  * Constants for Thermal Pressurization
  */
-// was 60
-static constexpr size_t numberOfTPGridPoints = 16;
+static constexpr size_t numberOfTPGridPoints = 60;
 static constexpr real tpLogDz = 0.3;
 static constexpr real tpMaxWavenumber = 10.0;
 
