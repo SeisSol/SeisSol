@@ -20,7 +20,7 @@ class GridPoints {
   GridPoints() {
     for (size_t i = 0; i < N; ++i) {
       values[i] =
-          misc::tpMaxWavenumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
+          misc::tpMaxWaveNumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
     }
   }
   real const& operator[](size_t i) const { return values[i]; };
@@ -102,21 +102,6 @@ class ThermalPressurization {
   public:
   ThermalPressurization(DRParameters& drParameters) : drParameters(drParameters){};
 
-  private:
-  DRParameters& drParameters;
-
-  protected:
-  real (*temperature)[misc::numPaddedPoints];
-  real (*pressure)[misc::numPaddedPoints];
-  real (*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*halfWidthShearZone)[misc::numPaddedPoints];
-  real (*hydraulicDiffusivity)[misc::numPaddedPoints];
-  real (*faultStrength)[misc::numPaddedPoints];
-
-  public:
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
@@ -140,7 +125,20 @@ class ThermalPressurization {
     return pressure[ltsFace][pointIndex];
   }
 
+  protected:
+  real (*temperature)[misc::numPaddedPoints];
+  real (*pressure)[misc::numPaddedPoints];
+  real (*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
+  real (*halfWidthShearZone)[misc::numPaddedPoints];
+  real (*hydraulicDiffusivity)[misc::numPaddedPoints];
+  real (*faultStrength)[misc::numPaddedPoints];
+
   private:
+  DRParameters& drParameters;
+
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one GausPoint
    */

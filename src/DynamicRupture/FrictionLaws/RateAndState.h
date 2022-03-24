@@ -26,7 +26,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
   // as a consequence, the SR is affected the AlmostZero value when too small
-  const real almostZero = 1e-45;
+  static constexpr real almostZero = 1e-45;
 
   /**
    * Parameters of the optimisation loops

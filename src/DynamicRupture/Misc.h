@@ -30,7 +30,7 @@ static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated
  */
 static constexpr size_t numberOfTPGridPoints = 60;
 static constexpr real tpLogDz = 0.3;
-static constexpr real tpMaxWavenumber = 10.0;
+static constexpr real tpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.

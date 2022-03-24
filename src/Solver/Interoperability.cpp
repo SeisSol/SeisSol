@@ -408,9 +408,12 @@ double c_interoperability_M2invDiagonal(int no) {
 
   extern void f_interoperability_setFrictionOutputStrength(void*  i_domain, int i_face, real* strength);
 
-extern void f_interoperability_setFrictionOutputThermalPressurization(void*  i_domain, int i_face, real* fluidPressure, real* fluidTemperature);
-
-extern void f_interoperability_setFrictionOutputInitialStress(void*  i_domain,
+  extern void f_interoperability_setFrictionOutputThermalPressurization(void*  i_domain, 
+                                                                        int i_face, 
+                                                                        real* fluidPressure, 
+                                                                        real* fluidTemperature);
+  
+  extern void f_interoperability_setFrictionOutputInitialStress(void*  i_domain,
                                                                 int i_face,
                                                                 real* i_initialStressInFaultCS,
                                                                 real* i_bulkXX,
