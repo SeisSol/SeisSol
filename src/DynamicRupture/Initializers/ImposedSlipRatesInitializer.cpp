@@ -63,6 +63,8 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
         tauR[ltsFace][pointIndex] = std::max(tauR[ltsFace][pointIndex], tauS[ltsFace][pointIndex]);
       }
     }
+
+    initializeOtherVariables(dynRup, it, eInteroperability);
   }
 }
 void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
