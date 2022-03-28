@@ -8,6 +8,7 @@ We use scripts from https://github.com/SeisSol/Meshing. To best follow this tuto
 
     export PATH=$PATH:~/SeisSol/Meshing/creating_geometric_models
 
+Please consider running `git pull` in SeisSol/Meshing to pull the latest version of the scripts, if the repository is not newly cloned.
 
 Creating topography and boxes
 -------------------------------
@@ -17,22 +18,22 @@ First, we download topography and bathymetry data from GEBCO
 
 - Note that we downsample the topography data by a factor 2 for dealing with a reasonable size dataset in this tutorial.
 - Note also that we use a custom transverse Mercator roughly centered at the domain center.
-- With the option ``--change_zero_elevation 0.5``, we move the nodes with zero elevation to 0.5m. This avoids having to intersect locally coplanar surfaces.
+- With the option ``--change_zero_elevation 1.0``, we move the nodes with zero elevation to 1.0 m. This avoids having to intersect locally coplanar surfaces.
 - With the option ``--smooth 100``, we smooth the topography data which fall in the range :math:`\pm` 100 m. This facilitates the intersection of the sea surface with the topography and allows a smoother coastline (which can else have a saw-tooth shape due to rounded elevation data, stored as integers in Gebco files).
 
 .. code-block:: bash
 
     myproj='+proj=tmerc +datum=WGS84 +k=0.9996 +lon_0=26.25 +lat_0=37.75'
-    topofile='data/gebco_2021_n39.5_s36.0_w23.5_e29.0.nc'
-    create_surface_from_rectilinear_grid.py $topofile tmp/topo.ts --proj "$myproj" --sub 2 --smooth 100 --change_zero_elevation 0.5
+    topofile='gebco_2021_n39.5_s36.0_w23.5_e29.0.nc'
+    create_surface_from_rectilinear_grid.py $topofile topo.ts --proj "$myproj" --sub 2 --smooth 100 --change_zero_elevation 1.0
 
 
 Next, we generate a mesh of 2 boxes, one for definig the water-layer and the other for defining the domain region.
 
 .. code-block:: bash
 
-    generate_box.py tmp/box_water_layer.stl --hdim " -40e3" 93e3 " -10e3" 53.0e3 --zdim " -10e3" 0 --meshSize 800.
-    generate_box.py --proj "$myproj" --rangeFromTopo $topofile tmp/box_domain.stl --zdim " -200e3" 10e3 --shrink 0.9
+    generate_box.py box_water_layer.stl --hdim " -40e3" 93e3 " -10e3" 53.0e3 --zdim " -10e3" 0 --meshSize 800.
+    generate_box.py --proj "$myproj" --rangeFromTopo $topofile box_domain.stl --zdim " -200e3" 10e3 --shrink 0.9
 
 
 Intersecting topography and sea-surface
