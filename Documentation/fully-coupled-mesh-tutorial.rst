@@ -9,6 +9,8 @@ We use scripts from https://github.com/SeisSol/Meshing. To best follow this tuto
     export PATH=$PATH:~/SeisSol/Meshing/creating_geometric_models
 
 Please consider running `git pull` in SeisSol/Meshing to pull the latest version of the scripts, if the repository is not newly cloned.
+You may also install required python modules with `pip install -r requirements.txt`.
+
 
 Creating topography and boxes
 -------------------------------
