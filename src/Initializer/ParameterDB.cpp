@@ -340,21 +340,22 @@ namespace seissol {
       if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
         const unsigned numPoints = query.numPoints();
         const unsigned numElems = numPoints / NUM_QUADPOINTS;
-        
-        // Approximate volume integrals
         std::array<double, NUM_QUADPOINTS> quadratureWeights{ gen->getQuadratureWeights() };
+        std::vector<double> elemVolumes{ gen->getElemVolumes() };
         std::vector<seissol::model::ElasticMaterial> materialsMean(numElems);
         std::vector<double> vERatioMean(numElems);
 
+        // Approximate volume integrals
         for (unsigned i = 0; i < numPoints; ++i) {
-          materialsMean[i / NUM_QUADPOINTS].rho += elasticMaterials[i].rho * quadratureWeights[i % NUM_QUADPOINTS];
-          materialsMean[i / NUM_QUADPOINTS].mu += 1 / elasticMaterials[i].mu * quadratureWeights[i % NUM_QUADPOINTS];
+          // Scale up quadrature weights by (element volume / reference volume)
+          double quadWeight = 6 * elemVolumes[i / NUM_QUADPOINTS] * quadratureWeights[i % NUM_QUADPOINTS];
+          materialsMean[i / NUM_QUADPOINTS].rho += elasticMaterials[i].rho * quadWeight;
+          materialsMean[i / NUM_QUADPOINTS].mu += 1 / elasticMaterials[i].mu * quadWeight;
           // Integrate quotients of Poisson ratio and elastic modulus
-          vERatioMean[i / NUM_QUADPOINTS] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadratureWeights[i % NUM_QUADPOINTS];
+          vERatioMean[i / NUM_QUADPOINTS] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadWeight;
         }
 
         // Obtain parameter mean values and store them in m_materials
-        std::vector<double> elemVolumes{ gen->getElemVolumes() };
         for (unsigned i = 0; i < numElems; ++i) {
           materialsMean[i].rho /= elemVolumes[i];
           materialsMean[i].mu /= elemVolumes[i];
