@@ -23,13 +23,22 @@ real computeStaticWork(GlobalData const* global,
                        DRGodunovData const& godunovData,
                        real slip[seissol::tensor::slipInterpolated::size()]);
 
+void printDynamicRuptureEnergies(GlobalData const* global,
+                                 seissol::initializers::DynamicRupture* dynRup,
+                                 seissol::initializers::LTSTree* dynRupTree,
+                                 MeshReader const& i_meshReader,
+                                 seissol::initializers::LTSTree* i_ltsTree,
+                                 seissol::initializers::LTS* i_lts,
+                                 seissol::initializers::Lut* i_ltsLut,
+                                 bool usePlasticity);
+
 void printEnergies(GlobalData const* global,
                    seissol::initializers::DynamicRupture* dynRup,
                    seissol::initializers::LTSTree* dynRupTree,
-                   MeshReader const& i_meshReader,
-                   seissol::initializers::LTSTree* i_ltsTree,
-                   seissol::initializers::LTS* i_lts,
-                   seissol::initializers::Lut* i_ltsLut,
+                   MeshReader const& meshReader,
+                   seissol::initializers::LTSTree* ltsTree,
+                   seissol::initializers::LTS* lts,
+                   seissol::initializers::Lut* ltsLut,
                    bool usePlasticity);
 
 } // namespace writer

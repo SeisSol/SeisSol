@@ -2,6 +2,7 @@
 #include <Kernels/DynamicRupture.h>
 #include <Numerical_aux/Quadrature.h>
 #include <Parallel/MPI.h>
+#include "SeisSol.h"
 
 real seissol::writer::computePlasticMoment(MeshReader const& i_meshReader,
                                            seissol::initializers::LTSTree* i_ltsTree,
@@ -77,14 +78,13 @@ real seissol::writer::computeStaticWork(GlobalData const* global,
   return staticFrictionalWork;
 }
 
-void seissol::writer::printEnergies(GlobalData const* global,
-                                    seissol::initializers::DynamicRupture* dynRup,
-                                    seissol::initializers::LTSTree* dynRupTree,
-                                    MeshReader const& i_meshReader,
-                                    seissol::initializers::LTSTree* i_ltsTree,
-                                    seissol::initializers::LTS* i_lts,
-                                    seissol::initializers::Lut* i_ltsLut,
-                                    bool usePlasticity) {
+void seissol::writer::printDynamicRuptureEnergies(const GlobalData* global,
+                                                  seissol::initializers::DynamicRupture* dynRup,
+                                                  seissol::initializers::LTSTree* dynRupTree,
+                                                  const MeshReader& i_meshReader,
+                                                  seissol::initializers::LTSTree* i_ltsTree,
+                                                  seissol::initializers::LTS* i_lts,
+                                                  seissol::initializers::Lut* i_ltsLut, bool usePlasticity) {
   double totalFrictionalWorkLocal = 0.0;
   double staticFrictionalWorkLocal = 0.0;
   double plasticMomentLocal = 0.0;
@@ -151,4 +151,162 @@ void seissol::writer::printEnergies(GlobalData const* global,
       logInfo(rank) << "Total plastic moment:" << plasticMomentGlobal;
     }
   }
+}
+
+void seissol::writer::printEnergies(const GlobalData* global, seissol::initializers::DynamicRupture* dynRup,
+                                    seissol::initializers::LTSTree* dynRupTree, const MeshReader& meshReader,
+                                    seissol::initializers::LTSTree* ltsTree, seissol::initializers::LTS* lts,
+                                    seissol::initializers::Lut* ltsLut, bool usePlasticity) {
+  double totalGravitationalEnergyLocal = 0.0;
+  double totalAcousticEnergyLocal = 0.0;
+  double totalAcousticKineticEnergyLocal = 0.0;
+  double totalElasticEnergyLocal = 0.0;
+  double totalElasticKineticEnergyLocal = 0.0;
+
+  std::vector<Element> const& elements = meshReader.getElements();
+  std::vector<Vertex> const& vertices = meshReader.getVertices();
+
+#ifdef _OPENMP
+#pragma omp parallel for default(none) schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
+#endif
+  for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
+#ifdef USE_ELASTIC
+    real volume = MeshTools::volume(elements[elementId], vertices);
+    CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
+    auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
+    auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
+
+    // Stuff below stolen from AnalysisWriter
+    // TODO(Lukas) Refactor
+    constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+    constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+
+    double quadraturePoints[numQuadPoints][3];
+    double quadratureWeights[numQuadPoints];
+    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
+    std::vector<std::array<double, 3>> quadraturePointsXyz(numQuadPoints);
+
+    // Needed to weight the integral.
+    const auto jacobiDet = 6 * volume;
+    // Compute global position of quadrature points.
+    double const* elementCoords[4];
+    for (unsigned v = 0; v < 4; ++v) {
+      elementCoords[v] = vertices[elements[elementId].vertices[ v ] ].coords;
+    }
+    for (unsigned int i = 0; i < numQuadPoints; ++i) {
+      seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
+    }
+
+    alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
+    auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+    // Evaluate numerical solution at quad. nodes
+    kernel::evalAtQP krnl;
+    krnl.evalAtQP = global->evalAtQPMatrix;
+    krnl.dofsQP = numericalSolutionData;
+    krnl.Q = ltsLut->lookup(lts->dofs, elementId);
+    krnl.execute();
+
+#ifdef MULTIPLE_SIMULATIONS
+    auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+#else
+    auto numSub = numericalSolution;
+#endif
+    for (size_t qp = 0; qp < numQuadPoints; ++qp) {
+      constexpr int uIdx = 6;
+      const auto curWeight = jacobiDet * quadratureWeights[qp];
+      const auto rho = material.local.rho;
+
+      const auto u = numSub(qp, uIdx + 0);
+      const auto v = numSub(qp, uIdx + 1);
+      const auto w = numSub(qp, uIdx + 2);
+      const double curKineticEnergy = 0.5 * rho * (
+          u * u + v * v + w * w
+      );
+
+      if (std::abs(material.local.mu) < 10e-14 ) {
+        // Acoustic
+        constexpr int pIdx = 0;
+        const auto K = material.local.lambda;
+        const auto p = numSub(qp, pIdx);
+
+        totalAcousticEnergyLocal += 0.5 * curWeight * K * p * p;
+        totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
+      } else {
+        // Elastic
+        totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
+        auto getStressIndex = [](int i, int j) {
+          auto lookup = std::array<std::array<int,3>,3>{{
+              { 0, 3, 5 },
+              { 3, 1, 4 },
+              { 5, 4, 2 }
+          }};
+          return lookup[i][j];
+        };
+        auto getStress = [&](int i, int j) {
+          return numSub(qp, getStressIndex(i,j));
+        };
+
+        const auto lambda = material.local.lambda;
+        const auto mu = material.local.mu;
+        const auto dilation = getStress(0,0) + getStress(1,1) + getStress(2,2);
+        auto computeStrain = [&](int i, int j) {
+          double strain = 0.0;
+          const auto factor = -1.0 * (lambda) / (2 * mu * (3 * lambda + 2 * mu));
+          if (i == j) {
+            strain += factor * dilation;
+          }
+          strain += 1.0 / (2.0 * mu) * getStress(i, j);
+          return strain;
+        };
+        double curElasticEnergy = 0.0;
+        for (int i = 0; i < 3; ++i) {
+          for (int j = 0; j < 3; ++j) {
+            curElasticEnergy +=
+                getStress(i, j) * computeStrain(i, j);
+          }
+        }
+        totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
+
+      }
+    }
+
+
+
+
+      // Compute gravitational energy
+    // TODO(Lukas) Fix computation of gravitational energy
+    for (int face = 0; face < 4; ++face) {
+      const auto surface = MeshTools::surface(elements[elementId], face, vertices);
+      if (cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
+        const auto rho = material.local.rho;
+        const auto g = SeisSol::main.getGravitationSetup().acceleration;
+
+        const auto curFaceDisplacements = faceDisplacements[face];
+        // TODO(Lukas) Quadrature!
+        //const auto displ = curFaceDisplacements[0];
+        //totalGravitationalEnergyLocal += 0.5 * surface * rho * g * displ * displ;
+      }
+    }
+#endif
+  }
+
+
+  const auto rank = MPI::mpi.rank();
+
+  auto totalGravitationalEnergyGlobal = totalGravitationalEnergyLocal;
+  //logInfo(rank) << "Total gravitational energy:" << totalGravitationalEnergyGlobal;
+  logInfo(rank) << "Total acoustic kinetic energy:" << totalAcousticKineticEnergyLocal;
+  logInfo(rank) << "Total acoustic energy:" << totalAcousticEnergyLocal;
+  logInfo(rank) << "Total elastic kinetic energy:" << totalElasticKineticEnergyLocal;
+  logInfo(rank) << "Total elastic strain energy:" << totalElasticEnergyLocal;
+
+  return;
+  printDynamicRuptureEnergies(global,
+                              dynRup,
+                              dynRupTree,
+                              meshReader,
+                              ltsTree,
+                              lts,
+                              ltsLut,
+                              usePlasticity);
 }
