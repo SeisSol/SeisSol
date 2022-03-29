@@ -192,31 +192,6 @@ class BaseFrictionLaw : public FrictionSolver {
       }
     }
   }
-
-  /**
-   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
-   */
-  real calcSmoothStepIncrement(real currentTime, real dt) {
-    real gNuc = calcSmoothStep(currentTime);
-    real prevTime = currentTime - dt;
-    gNuc = gNuc - calcSmoothStep(prevTime);
-    return gNuc;
-  }
-
-  /**
-   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
-   */
-  real calcSmoothStep(real currentTime) {
-    if (currentTime <= 0) {
-      return 0.0;
-    } else if (currentTime < drParameters.t0) {
-      return std::exp(misc::power<2>(currentTime - drParameters.t0) /
-                      (currentTime * (currentTime - 2.0 * drParameters.t0)));
-    } else {
-      return 1.0;
-    }
-  }
-
   /**
    * output rupture front, saves update time of the rupture front
    * rupture front is the first registered change in slip rates that exceeds 0.001

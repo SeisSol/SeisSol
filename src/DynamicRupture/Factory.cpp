@@ -10,8 +10,10 @@ std::unique_ptr<AbstractFactory> getFactory(dr::DRParameters& drParameters) {
   switch (drParameters.frictionLawType) {
   case FrictionLawType::NoFault:
     return std::make_unique<NoFaultFactory>(drParameters);
-  case FrictionLawType::ImposedSlipRates:
-    return std::make_unique<ImposedSlipRatesFactory>(drParameters);
+  case FrictionLawType::ImposedSlipRatesYoffe:
+    return std::make_unique<ImposedSlipRatesYoffeFactory>(drParameters);
+  case FrictionLawType::ImposedSlipRatesGaussian:
+    return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters);
   case FrictionLawType::LinearSlipWeakening:
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters);
   case FrictionLawType::LinearSlipWeakeningForcedRuptureTime:
@@ -96,10 +98,17 @@ Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
       std::make_unique<output::LinearSlipWeakening>()};
 }
 
-Products ImposedSlipRatesFactory::produce() {
-  return {std::make_unique<seissol::initializers::LTS_ImposedSlipRates>(),
-          std::make_unique<initializers::ImposedSlipRatesInitializer>(drParameters),
-          std::make_unique<friction_law::ImposedSlipRates>(drParameters),
+Products ImposedSlipRatesYoffeFactory::produce() {
+  return {std::make_unique<seissol::initializers::LTS_ImposedSlipRatesYoffe>(),
+          std::make_unique<initializers::ImposedSlipRatesYoffeInitializer>(drParameters),
+          std::make_unique<friction_law::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters),
+          std::make_unique<output::ImposedSlipRates>()};
+}
+
+Products ImposedSlipRatesGaussianFactory::produce() {
+  return {std::make_unique<seissol::initializers::LTS_ImposedSlipRatesGaussian>(),
+          std::make_unique<initializers::ImposedSlipRatesGaussianInitializer>(drParameters),
+          std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(drParameters),
           std::make_unique<output::ImposedSlipRates>()};
 }
 

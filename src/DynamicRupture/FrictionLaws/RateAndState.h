@@ -3,6 +3,7 @@
 
 #include "BaseFrictionLaw.h"
 #include "Solver/Interoperability.h"
+#include "Numerical_aux/GaussianNucleationFunction.h"
 
 namespace seissol::dr::friction_law {
 // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
@@ -144,7 +145,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
       dt += this->deltaT[timeIndex];
     }
-    gNuc = this->calcSmoothStepIncrement(this->mFullUpdateTime, dt);
+    gNuc = seissol::gaussianNucleationFunction::smoothStepIncrement(
+        this->mFullUpdateTime, dt, this->drParameters.t0);
   }
 
   /*

@@ -23,13 +23,13 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
     real(*strikeSlip)[misc::numPaddedPoints] = it->var(concreteLts->strikeSlip);
     real(*dipSlip)[misc::numPaddedPoints] = it->var(concreteLts->dipSlip);
     real(*onsetTime)[misc::numPaddedPoints] = it->var(concreteLts->onsetTime);
-    real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
-    real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
+
     parameterToStorageMap.insert({"strike_slip", (real*)strikeSlip});
     parameterToStorageMap.insert({"dip_slip", (real*)dipSlip});
     parameterToStorageMap.insert({"rupture_onset", (real*)onsetTime});
-    parameterToStorageMap.insert({"tau_S", (real*)tauS});
-    parameterToStorageMap.insert({"tau_R", (real*)tauR});
+
+    // get additional parameters (for derived friction laws)
+    addAdditionalParameters(parameterToStorageMap, dynRup, it);
 
     // read parameters from yaml file
     for (const auto& parameterStoragePair : parameterToStorageMap) {
@@ -55,14 +55,7 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
       }
     }
 
-    // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
-    // can happen due to ASAGI interpolation)
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        tauS[ltsFace][pointIndex] = std::max(static_cast<real>(0.0), tauS[ltsFace][pointIndex]);
-        tauR[ltsFace][pointIndex] = std::max(tauR[ltsFace][pointIndex], tauS[ltsFace][pointIndex]);
-      }
-    }
+    ensureCorrectness(dynRup, it);
 
     initializeOtherVariables(dynRup, it, eInteroperability);
   }
@@ -94,5 +87,47 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
       dipSlip[ltsFace][pointIndex] = -sin * tmpStrikeSlip + cos * tmpDipSlip;
     }
   }
+}
+
+void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe*>(dynRup);
+  real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
+  real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
+  parameterToStorageMap.insert({"tau_S", (real*)tauS});
+  parameterToStorageMap.insert({"tau_R", (real*)tauR});
+}
+
+void ImposedSlipRatesInitializer::ensureCorrectness(
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+  // do nothing
+}
+
+void ImposedSlipRatesYoffeInitializer::ensureCorrectness(
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe*>(dynRup);
+  real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
+  real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
+  // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
+  // can happen due to ASAGI interpolation)
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      tauS[ltsFace][pointIndex] = std::max(static_cast<real>(0.0), tauS[ltsFace][pointIndex]);
+      tauR[ltsFace][pointIndex] = std::max(tauR[ltsFace][pointIndex], tauS[ltsFace][pointIndex]);
+    }
+  }
+}
+
+void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
+    std::unordered_map<std::string, real*>& parameterToStorageMap,
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
+  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesGaussian*>(dynRup);
+  real(*riseTime)[misc::numPaddedPoints] = it->var(concreteLts->riseTime);
+  parameterToStorageMap.insert({"rupture_rise_time", (real*)riseTime});
 }
 } // namespace seissol::dr::initializers
