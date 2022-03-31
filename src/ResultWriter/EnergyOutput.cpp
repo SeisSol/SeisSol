@@ -176,26 +176,20 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    // Stuff below stolen from AnalysisWriter
-    // TODO(Lukas) Refactor
     constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
-    constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+    constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
-    double quadraturePoints[numQuadPoints][3];
-    double quadratureWeights[numQuadPoints];
-    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
-    std::vector<std::array<double, 3>> quadraturePointsXyz(numQuadPoints);
+    double quadraturePointsTet[numQuadraturePointsTet][3];
+    double quadratureWeightsTet[numQuadraturePointsTet];
+    seissol::quadrature::TetrahedronQuadrature(quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
+
+    constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
+    double quadraturePointsTri[numQuadraturePointsTri][2];
+    double quadratureWeightsTri[numQuadraturePointsTri];
+    seissol::quadrature::TriangleQuadrature(quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
 
     // Needed to weight the integral.
     const auto jacobiDet = 6 * volume;
-    // Compute global position of quadrature points.
-    double const* elementCoords[4];
-    for (unsigned v = 0; v < 4; ++v) {
-      elementCoords[v] = vertices[elements[elementId].vertices[ v ] ].coords;
-    }
-    for (unsigned int i = 0; i < numQuadPoints; ++i) {
-      seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
-    }
 
     alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
     auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
@@ -211,9 +205,9 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
 #else
     auto numSub = numericalSolution;
 #endif
-    for (size_t qp = 0; qp < numQuadPoints; ++qp) {
+    for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
       constexpr int uIdx = 6;
-      const auto curWeight = jacobiDet * quadratureWeights[qp];
+      const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
       const auto rho = material.local.rho;
 
       const auto u = numSub(qp, uIdx + 0);
@@ -266,25 +260,48 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
           }
         }
         totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
-
       }
     }
 
-
-
-
-      // Compute gravitational energy
-    // TODO(Lukas) Fix computation of gravitational energy
+    auto boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
+    // Compute gravitational energy
     for (int face = 0; face < 4; ++face) {
-      const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-      if (cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-        const auto rho = material.local.rho;
-        const auto g = SeisSol::main.getGravitationSetup().acceleration;
+      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) continue;
 
-        const auto curFaceDisplacements = faceDisplacements[face];
-        // TODO(Lukas) Quadrature!
-        //const auto displ = curFaceDisplacements[0];
-        //totalGravitationalEnergyLocal += 0.5 * surface * rho * g * displ * displ;
+      auto& boundaryMapping = boundaryMappings[face];
+      // Setup for rotation copied from GravitationalFreeSurfaceBC.h
+      // TODO(Lukas) Refactor?
+      auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+      alignas(ALIGNMENT) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+
+      auto rotateDisplacementToFaceNormal = init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+        }
+      }
+
+      // Evaluate data at quadrature points and rotate to face-normal coordinates
+      alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size> displQuadData{};
+      const auto curFaceDisplacementsData = faceDisplacements[face];
+      seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
+      evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
+      evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
+      evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
+      evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
+      evalKrnl.execute();
+
+      // Perform quadrature
+      const auto surface = MeshTools::surface(elements[elementId], face, vertices);
+      const auto rho = material.local.rho;
+      const auto g = SeisSol::main.getGravitationSetup().acceleration;
+
+      auto rotatedFaceDisplacement = init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
+      for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+        const auto displ = rotatedFaceDisplacement(i, 0);
+        const auto curEnergy = 0.5 * rho * g * displ * displ;
+        const auto curWeight = 2 * surface * quadratureWeightsTri[i];
+        totalGravitationalEnergyLocal += curWeight * curEnergy;
       }
     }
 #endif
@@ -294,7 +311,7 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
   const auto rank = MPI::mpi.rank();
 
   auto totalGravitationalEnergyGlobal = totalGravitationalEnergyLocal;
-  //logInfo(rank) << "Total gravitational energy:" << totalGravitationalEnergyGlobal;
+  logInfo(rank) << "Total gravitational energy:" << totalGravitationalEnergyGlobal;
   logInfo(rank) << "Total acoustic kinetic energy:" << totalAcousticKineticEnergyLocal;
   logInfo(rank) << "Total acoustic energy:" << totalAcousticEnergyLocal;
   logInfo(rank) << "Total elastic kinetic energy:" << totalElasticKineticEnergyLocal;
