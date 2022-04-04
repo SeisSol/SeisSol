@@ -351,10 +351,11 @@ module f_ftoc_bind_interoperability
   end interface
 
   interface c_interoperability_simulate
-    subroutine c_interoperability_simulate( i_finalTime ) bind( C, name='c_interoperability_simulate' )
-      use iso_c_binding, only: c_double
+    subroutine c_interoperability_simulate( i_finalTime, i_plasticity ) bind( C, name='c_interoperability_simulate' )
+      use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), value :: i_finalTime
+      integer(kind=c_int), value :: i_plasticity
     end subroutine
   end interface
 

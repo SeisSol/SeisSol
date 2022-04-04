@@ -386,8 +386,9 @@ class seissol::Interoperability {
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
+    * @param i_plasticity=1 if plasticity is on
     **/
-   void simulate( double i_finalTime );
+   void simulate( double i_finalTime, int i_plasticity );
 
    /**
     * Finalizes I/O

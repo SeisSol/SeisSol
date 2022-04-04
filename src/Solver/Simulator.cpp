@@ -49,12 +49,14 @@
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "ResultWriter/AnalysisWriter.h"
+#include "ResultWriter/EnergyOutput.h"
 
 extern seissol::Interoperability e_interoperability;
 
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
+  m_usePlasticity(  false ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
   m_loadCheckPoint( false ) {}
@@ -71,6 +73,10 @@ bool seissol::Simulator::checkPointingEnabled() {
 void seissol::Simulator::setFinalTime( double i_finalTime ) {
   assert( i_finalTime > 0 );
   m_finalTime = i_finalTime;
+}
+
+void seissol::Simulator::setUsePlasticity( int i_plasticity ) {
+  m_usePlasticity = i_plasticity==1 ? true : false;
 }
 
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {
@@ -150,8 +156,17 @@ void seissol::Simulator::simulate() {
 
   seissol::SeisSol::main.timeManager().printComputationTime();
 
+  auto globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  auto dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+  auto dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
+  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+  auto ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
+  auto lts = seissol::SeisSol::main.getMemoryManager().getLts();
+  auto* ltsLut = e_interoperability.getLtsLut();
+  seissol::writer::printEnergies(
+      globalData.onHost, dynRup, dynRupTree, meshReader, ltsTree, lts, ltsLut, m_usePlasticity);
+
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
   printFlops();
-
 }
