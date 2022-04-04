@@ -74,7 +74,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
 #ifdef _OPENMP
-  #pragma omp parallel
+  //#pragma omp parallel
   {
 #endif
   real iniCondData[tensor::iniCond::size()] __attribute__((aligned(ALIGNMENT))) = {};
@@ -90,7 +90,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
 #ifdef _OPENMP
-  #pragma omp for schedule(static)
+  //#pragma omp for schedule(static)
 #endif
   for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
     double const* elementCoords[4];

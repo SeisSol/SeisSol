@@ -96,7 +96,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     auto analyticalL2Local = ErrorArray_t{0.0};
     auto analyticalLInfLocal = ErrorArray_t{-1.0};
 
-#ifdef _OPENMP
+#ifndef _OPENMP
     const int numThreads = omp_get_max_threads();
 #else
     const int numThreads = 1;
@@ -119,7 +119,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     alignas(ALIGNMENT) real analyticalSolutionData[numQuadPoints*numberOfQuantities];
 #ifdef _OPENMP
     // Note: Adding default(none) leads error when using gcc-8
-#pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
+//#pragma omp parallel for shared(elements, vertices, iniFields, quadraturePoints, globalData, errsLInfLocal, simulationTime, ltsLut, lts, sim, quadratureWeights, elemsLInfLocal, errsL2Local, errsL1Local, analyticalsL1Local, analyticalsL2Local, analyticalsLInfLocal) firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
     for (std::size_t meshId = 0; meshId < elements.size(); ++meshId) {
 #ifdef _OPENMP
