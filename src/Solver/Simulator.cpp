@@ -123,17 +123,6 @@ void seissol::Simulator::simulate() {
     if (upcomingTime < m_currentTime + l_timeTolerance)
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
 
-    // TODO(Lukas) Move after update, just for testing
-    auto globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
-    auto dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
-    auto dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
-    MeshReader& meshReader = seissol::SeisSol::main.meshReader();
-    auto ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
-    auto lts = seissol::SeisSol::main.getMemoryManager().getLts();
-    auto* ltsLut = e_interoperability.getLtsLut();
-    seissol::writer::printEnergies(
-        globalData.onHost, dynRup, dynRupTree, meshReader, ltsTree, lts, ltsLut, m_usePlasticity);
-
     // update the DOFs
     seissol::SeisSol::main.timeManager().advanceInTime( upcomingTime );
 
