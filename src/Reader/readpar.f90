@@ -2775,7 +2775,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           ENDIF
       END IF
 
-    IO%OutputGroups = pack(OutputGroups, OutputGroups >= 0)
+      IO%OutputGroups = pack(OutputGroups, OutputGroups >= 0)
 
 	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !

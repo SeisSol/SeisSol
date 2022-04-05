@@ -381,7 +381,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 			m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
 		}
 
-		m_elements[i].material = material[i];
+		m_elements[i].group = material[i];
 	}
 
 	// Exchange ghost layer information and generate neighbor list

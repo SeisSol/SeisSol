@@ -79,7 +79,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	DynStruct::Component<int> m_timestepComp;
 
 	/** False if entire region is to be written */
-	bool m_extractRegion;
+	bool isExtractRegionEnabled;
 
 	/** The asynchronous executor */
 	WaveFieldWriterExecutor m_executor;
@@ -150,13 +150,13 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 public:
 	WaveFieldWriter()
 		: m_enabled(false),
-		  m_extractRegion(false),
-		  m_numVariables(0),
-		  m_outputFlags(0L),
-		  m_lowOutputFlags(0L),
-		  m_numCells(0), m_numLowCells(0),
-		  m_dofs(0L), m_pstrain(0L), m_integrals(0L),
-		  m_map(0L)
+      isExtractRegionEnabled(false),
+      m_numVariables(0),
+      m_outputFlags(0L),
+      m_lowOutputFlags(0L),
+      m_numCells(0), m_numLowCells(0),
+      m_dofs(0L), m_pstrain(0L), m_integrals(0L),
+      m_map(0L)
 	{
 	}
 
@@ -232,7 +232,7 @@ public:
 		m_outputFlags = 0L;
 		delete [] m_lowOutputFlags;
 		m_lowOutputFlags = 0L;
-		if (m_extractRegion) {
+		if (isExtractRegionEnabled) {
 			delete [] m_map;
 			m_map = 0L;
 		}

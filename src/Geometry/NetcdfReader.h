@@ -258,7 +258,7 @@ public:
 		ElemBoundaries* elemBoundaries = new ElemBoundaries[maxSize];
 		ElemNeighborRanks* elemNeighborRanks = new ElemNeighborRanks[maxSize];
 		ElemMPIIndices* elemMPIIndices = new ElemMPIIndices[maxSize];
-		ElemMaterial* elemMaterial = new ElemMaterial[maxSize];
+		ElemGroup* elemMaterial = new ElemGroup[maxSize];
 
 //		SCOREP_USER_REGION_DEFINE( r_read_elements )
 //		SCOREP_USER_REGION_BEGIN( r_read_elements, "read_elements", SCOREP_USER_REGION_TYPE_COMMON )
@@ -327,7 +327,7 @@ public:
 			memcpy(m_elements[i].boundaries, &elemBoundaries[i], sizeof(ElemBoundaries));
 			memcpy(m_elements[i].neighborRanks, &elemNeighborRanks[i], sizeof(ElemNeighborRanks));
 			memcpy(m_elements[i].mpiIndices, &elemMPIIndices[i], sizeof(ElemMPIIndices));
-			m_elements[i].material = elemMaterial[i];
+			m_elements[i].group = elemMaterial[i];
 		}
 
 //		SCOREP_USER_REGION_END( r_read_elements )

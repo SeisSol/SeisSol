@@ -69,7 +69,7 @@ OutputGroups
 ------------------
 
 Similar to the previous parameter, OutputGroups can be used to whitelist a set of
-mesh groups (as specified in the xdmf mesh file) that are included in the wavefieldoutput.
+mesh groups (as specified in the xdmf mesh file) that are included in the wavefield output.
 Cells whose group is not mentioned are not included in the output.
 This feature works with OutputRegionBounds, only cells that satisfy both criteria are included.
 It looks like this:

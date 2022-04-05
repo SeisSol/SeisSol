@@ -130,7 +130,7 @@ std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClust
 
 	size_t kSubCellsPerCell = static_cast<size_t> (meshRefiner->getkSubCellsPerCell());
 	for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
-		if (m_extractRegion) {
+		if (isExtractRegionEnabled) {
 			refinedClusteringData[j] = LtsClusteringData.data()[newToOldCellMap[static_cast<size_t> (j/kSubCellsPerCell)]];
 		} else {
 			refinedClusteringData[j] = LtsClusteringData.data()[static_cast<size_t> (j/kSubCellsPerCell)];
@@ -208,21 +208,22 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	refinement::MeshRefiner<double>* meshRefiner = nullptr;
 
 	// If at least one of the outputRegionBounds is non-zero then extract.
-	// Otherwise use the entire region.
-	// m_extractRegion = true  : Extract region
-	// m_extractRegion = false : Entire region
-	const bool extractBox = outputRegionBounds[0] != 0.0
-	        || outputRegionBounds[1] != 0.0
-	        || outputRegionBounds[2] != 0.0
-	        || outputRegionBounds[3] != 0.0
-	        || outputRegionBounds[4] != 0.0
-	        || outputRegionBounds[5] != 0.0;
+	const bool isExtractBoxEnabled = outputRegionBounds[0] != 0.0
+                                   || outputRegionBounds[1] != 0.0
+                                   || outputRegionBounds[2] != 0.0
+                                   || outputRegionBounds[3] != 0.0
+                                   || outputRegionBounds[4] != 0.0
+                                   || outputRegionBounds[5] != 0.0;
 
-	const bool extractGroup = !outputGroups.empty();
-    m_extractRegion = extractBox || extractGroup;
+  // If at least one group is explicitly enabled, extract
+  const bool isExtractGroupEnabled = !outputGroups.empty();
 
-    if (m_extractRegion) {
-		const std::vector<Element>& allElements = meshReader.getElements();
+  isExtractRegionEnabled = isExtractBoxEnabled || isExtractGroupEnabled;
+  // isExtractRegionEnabled = true  : Extract region
+  // isExtractRegionEnabled = false : Entire region
+
+  if (isExtractRegionEnabled) {
+    const std::vector<Element>& allElements = meshReader.getElements();
 		const std::vector<Vertex>& allVertices = meshReader.getVertices();
 
 		// m_map will store a new map from new cell index to dof index
@@ -232,15 +233,14 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 		// Extract elements based on the specified group or region
 		for (size_t i = 0; i < numElems; i++) {
-		    // Note: For some reason, an alternative name for groupId is material.
-		    const auto groupId = allElements[i].material;
+      const auto groupId = allElements[i].group;
 			// Store the current number of elements to check if new was added
-			const bool isInRegion = !extractBox
+			const bool isInRegion = !isExtractBoxEnabled
 			        || vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords)
 			        || vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[1]].coords)
 			        || vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords)
 			        || vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords);
-			const bool isInGroup = !extractGroup || outputGroups.count(groupId) > 0; // TODO(Lukas) Implement this.
+			const bool isInGroup = !isExtractGroupEnabled || outputGroups.count(groupId) > 0;
 			if (isInRegion && isInGroup) {
 				// Assign the new map
 				size_t iNew = subElements.size();
@@ -260,25 +260,25 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 		subVertices.resize(oldToNewVertexMap.size());
 
-		for (auto & it : oldToNewVertexMap) {
-            subVertices.at(it.second) = &allVertices[it.first];
+    for (auto & it : oldToNewVertexMap) {
+      subVertices.at(it.second) = &allVertices[it.first];
 		}
 
 		numElems = subElements.size();
 		numVerts = subVertices.size();
 
 		meshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
-			oldToNewVertexMap, *tetRefiner);
-    } else {
-        meshRefiner = new refinement::MeshRefiner<double>(meshReader, *tetRefiner);
-		m_map = map;
-	}
+                                                      oldToNewVertexMap, *tetRefiner);
+  } else {
+    meshRefiner = new refinement::MeshRefiner<double>(meshReader, *tetRefiner);
+    m_map = map;
+  }
 
-    if (numElems == 0) {
-        logError() << "All cells are excluded in the WaveFieldWriter.";
-    }
+  if (numElems == 0) {
+    logError() << "WaveFieldWriter: All elements have been filtered out (OutputRegionBounds and OutputGroups).";
+  }
 
-	logInfo(rank) << "Refinement class initialized";
+  logInfo(rank) << "Refinement class initialized";
 	logDebug() << "Cells : "
 			<< numElems << "refined-to ->"
 			<< meshRefiner->getNumCells();
@@ -336,7 +336,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		refinement::IdentityRefiner<double> lowTetRefiner;
 
 		// Mesh refiner
-		if (m_extractRegion) {
+		if (isExtractRegionEnabled) {
 			pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
 				oldToNewVertexMap, lowTetRefiner);
 		} else {
