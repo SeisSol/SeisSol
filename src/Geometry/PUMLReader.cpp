@@ -315,7 +315,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	const std::vector<PUML::TETPUML::face_t> &faces = puml.faces();
 	const std::vector<PUML::TETPUML::vertex_t> &vertices = puml.vertices();
 
-	const int* material = puml.cellData(0);
+	const int* group = puml.cellData(0);
 	const int* boundaryCond = puml.cellData(1);
 
 	std::unordered_map<int, std::vector<unsigned int> > neighborInfo; // List of shared local face ids
@@ -381,7 +381,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 			m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
 		}
 
-		m_elements[i].group = material[i];
+		m_elements[i].group = group[i];
 	}
 
 	// Exchange ghost layer information and generate neighbor list
