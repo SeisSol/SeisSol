@@ -174,10 +174,9 @@ void EnergyOutput::printEnergies() {
     seissol::quadrature::TetrahedronQuadrature(quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
 
     constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
-    //double quadraturePointsTri[numQuadraturePointsTri][2];
-    //double quadratureWeightsTri[numQuadraturePointsTri];
-    //seissol::quadrature::TriangleQuadrature(quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
-    double quadratureWeightsTri[numQuadraturePointsTri] = {0.00033759, 0.00072924, 0.0009955 , 0.0010897 , 0.0009955 , 0.00072924, 0.00033759, 0.00177449, 0.00383313, 0.00523267, 0.00572779, 0.00523267, 0.00383313, 0.00177449, 0.00429791, 0.00928408, 0.01267384, 0.01387305, 0.01267384, 0.00928408, 0.00429791, 0.00693554, 0.01498173, 0.02045178, 0.02238695, 0.02045178, 0.01498173, 0.00693554, 0.0082476 , 0.01781596, 0.02432084, 0.0266221 , 0.02432084, 0.01781596, 0.0082476 , 0.00715464, 0.01545502, 0.02109788, 0.02309418, 0.02109788, 0.01545502, 0.00715464, 0.00362347, 0.00782719, 0.01068501, 0.01169604, 0.01068501, 0.00782719, 0.00362347};
+    double quadraturePointsTri[numQuadraturePointsTri][2];
+    double quadratureWeightsTri[numQuadraturePointsTri];
+    seissol::quadrature::TriangleQuadrature(quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
 
     // Needed to weight the integral.
     const auto jacobiDet = 6 * volume;
