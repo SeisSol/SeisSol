@@ -74,7 +74,12 @@ set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
                                 src/generated_code/kernel.h
                                 src/generated_code/kernel.cpp)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+if(PROXY_PYBINDING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+else()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
 
 add_custom_command(
   COMMAND
