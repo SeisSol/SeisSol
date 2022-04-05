@@ -950,6 +950,19 @@ void seissol::Interoperability::initializeIO(
   );
   seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
 
+  auto& energyOutput = seissol::SeisSol::main.energyOutput();
+  auto* dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+  auto* dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
+  energyOutput.init(m_globalData,
+                    dynRup,
+                    dynRupTree,
+                    &seissol::SeisSol::main.meshReader(),
+                    m_ltsTree,
+                    m_lts,
+                    &m_ltsLut,
+                    true, // TODO(Lukas) Set use plasticity
+                    0.05); // TODO(Lukas) Set interval from config
+
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)
 

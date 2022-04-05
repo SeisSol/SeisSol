@@ -4,21 +4,20 @@
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
 
-real seissol::writer::computePlasticMoment(MeshReader const& i_meshReader,
-                                           seissol::initializers::LTSTree* i_ltsTree,
-                                           seissol::initializers::LTS* i_lts,
-                                           seissol::initializers::Lut* i_ltsLut) {
+namespace seissol::writer {
+
+real EnergyOutput::computePlasticMoment() {
   real plasticMoment = 0.0;
-  std::vector<Element> const& elements = i_meshReader.getElements();
-  std::vector<Vertex> const& vertices = i_meshReader.getVertices();
+  std::vector<Element> const& elements = meshReader->getElements();
+  std::vector<Vertex> const& vertices = meshReader->getVertices();
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : plasticMoment)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
-    real* pstrainCell = i_ltsLut->lookup(i_lts->pstrain, elementId);
+    real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
     real volume = MeshTools::volume(elements[elementId], vertices);
-    CellMaterialData& material = i_ltsLut->lookup(i_lts->material, elementId);
+    CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
 #ifdef USE_ANISOTROPIC
     real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
 #else
@@ -29,12 +28,11 @@ real seissol::writer::computePlasticMoment(MeshReader const& i_meshReader,
   return plasticMoment;
 }
 
-real seissol::writer::computeStaticWork(GlobalData const* global,
-                                        real* degreesOfFreedomPlus,
-                                        real* degreesOfFreedomMinus,
-                                        DRFaceInformation const& faceInfo,
-                                        DRGodunovData const& godunovData,
-                                        real slip[seissol::tensor::slipInterpolated::size()]) {
+real EnergyOutput::computeStaticWork( real* degreesOfFreedomPlus,
+                                      real* degreesOfFreedomMinus,
+                                      DRFaceInformation const& faceInfo,
+                                      DRGodunovData const& godunovData,
+                                      real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -78,13 +76,7 @@ real seissol::writer::computeStaticWork(GlobalData const* global,
   return staticFrictionalWork;
 }
 
-void seissol::writer::printDynamicRuptureEnergies(const GlobalData* global,
-                                                  seissol::initializers::DynamicRupture* dynRup,
-                                                  seissol::initializers::LTSTree* dynRupTree,
-                                                  const MeshReader& i_meshReader,
-                                                  seissol::initializers::LTSTree* i_ltsTree,
-                                                  seissol::initializers::LTS* i_lts,
-                                                  seissol::initializers::Lut* i_ltsLut, bool usePlasticity) {
+void EnergyOutput::printDynamicRuptureEnergies() {
   double totalFrictionalWorkLocal = 0.0;
   double staticFrictionalWorkLocal = 0.0;
   double plasticMomentLocal = 0.0;
@@ -103,8 +95,7 @@ void seissol::writer::printDynamicRuptureEnergies(const GlobalData* global,
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
         totalFrictionalWorkLocal += drOutput[i].frictionalEnergy;
-        staticFrictionalWorkLocal += computeStaticWork(global,
-                                                       timeDerivativePlus[i],
+        staticFrictionalWorkLocal += computeStaticWork(timeDerivativePlus[i],
                                                        timeDerivativeMinus[i],
                                                        faceInformation[i],
                                                        godunovData[i],
@@ -113,7 +104,7 @@ void seissol::writer::printDynamicRuptureEnergies(const GlobalData* global,
     }
   }
   if (usePlasticity) {
-    plasticMomentLocal = computePlasticMoment(i_meshReader, i_ltsTree, i_lts, i_ltsLut);
+    plasticMomentLocal = computePlasticMoment();
   }
   int rank;
   double totalFrictionalWorkGlobal = 0.0;
@@ -153,21 +144,20 @@ void seissol::writer::printDynamicRuptureEnergies(const GlobalData* global,
   }
 }
 
-void seissol::writer::printEnergies(const GlobalData* global, seissol::initializers::DynamicRupture* dynRup,
-                                    seissol::initializers::LTSTree* dynRupTree, const MeshReader& meshReader,
-                                    seissol::initializers::LTSTree* ltsTree, seissol::initializers::LTS* lts,
-                                    seissol::initializers::Lut* ltsLut, bool usePlasticity) {
+void EnergyOutput::printEnergies() {
   double totalGravitationalEnergyLocal = 0.0;
   double totalAcousticEnergyLocal = 0.0;
   double totalAcousticKineticEnergyLocal = 0.0;
   double totalElasticEnergyLocal = 0.0;
   double totalElasticKineticEnergyLocal = 0.0;
 
-  std::vector<Element> const& elements = meshReader.getElements();
-  std::vector<Vertex> const& vertices = meshReader.getVertices();
+  std::vector<Element> const& elements = meshReader->getElements();
+  std::vector<Vertex> const& vertices = meshReader->getVertices();
+
+  int numberOfFacesReached = 0;
 
 #ifdef _OPENMP
-#pragma omp parallel for default(none) schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
+#pragma omp parallel for default(none) schedule(static) reduction(+ : numberOfFacesReached, totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
 #ifdef USE_ELASTIC
@@ -184,9 +174,10 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
     seissol::quadrature::TetrahedronQuadrature(quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
 
     constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
-    double quadraturePointsTri[numQuadraturePointsTri][2];
-    double quadratureWeightsTri[numQuadraturePointsTri];
-    seissol::quadrature::TriangleQuadrature(quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
+    //double quadraturePointsTri[numQuadraturePointsTri][2];
+    //double quadratureWeightsTri[numQuadraturePointsTri];
+    //seissol::quadrature::TriangleQuadrature(quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
+    double quadratureWeightsTri[numQuadraturePointsTri] = {0.00033759, 0.00072924, 0.0009955 , 0.0010897 , 0.0009955 , 0.00072924, 0.00033759, 0.00177449, 0.00383313, 0.00523267, 0.00572779, 0.00523267, 0.00383313, 0.00177449, 0.00429791, 0.00928408, 0.01267384, 0.01387305, 0.01267384, 0.00928408, 0.00429791, 0.00693554, 0.01498173, 0.02045178, 0.02238695, 0.02045178, 0.01498173, 0.00693554, 0.0082476 , 0.01781596, 0.02432084, 0.0266221 , 0.02432084, 0.01781596, 0.0082476 , 0.00715464, 0.01545502, 0.02109788, 0.02309418, 0.02109788, 0.01545502, 0.00715464, 0.00362347, 0.00782719, 0.01068501, 0.01169604, 0.01068501, 0.00782719, 0.00362347};
 
     // Needed to weight the integral.
     const auto jacobiDet = 6 * volume;
@@ -263,10 +254,11 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
       }
     }
 
-    auto boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
+    auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
     // Compute gravitational energy
     for (int face = 0; face < 4; ++face) {
       if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) continue;
+      numberOfFacesReached++;
 
       auto& boundaryMapping = boundaryMappings[face];
       // Setup for rotation copied from GravitationalFreeSurfaceBC.h
@@ -278,12 +270,15 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
           rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+          //logInfo() << i << j << Tinv(i+6,j+6);
+          //rotateDisplacementToFaceNormal(i, j) = i == j;
         }
       }
+      //std::abort();
 
       // Evaluate data at quadrature points and rotate to face-normal coordinates
       alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size> displQuadData{};
-      const auto curFaceDisplacementsData = faceDisplacements[face];
+      const auto* curFaceDisplacementsData = faceDisplacements[face];
       seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
       evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
       evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
@@ -296,9 +291,11 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
       const auto rho = material.local.rho;
       const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
+      static_assert(numQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
       auto rotatedFaceDisplacement = init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
       for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
         const auto displ = rotatedFaceDisplacement(i, 0);
+        //const auto displ = rotatedFaceDisplacement(i, 2);
         const auto curEnergy = 0.5 * rho * g * displ * displ;
         const auto curWeight = 2 * surface * quadratureWeightsTri[i];
         totalGravitationalEnergyLocal += curWeight * curEnergy;
@@ -311,6 +308,7 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
   const auto rank = MPI::mpi.rank();
 
   auto totalGravitationalEnergyGlobal = totalGravitationalEnergyLocal;
+  logInfo(rank) << "Touched" << numberOfFacesReached << "faces";
   logInfo(rank) << "Total gravitational energy:" << totalGravitationalEnergyGlobal;
   logInfo(rank) << "Total acoustic kinetic energy:" << totalAcousticKineticEnergyLocal;
   logInfo(rank) << "Total acoustic energy:" << totalAcousticEnergyLocal;
@@ -318,12 +316,7 @@ void seissol::writer::printEnergies(const GlobalData* global, seissol::initializ
   logInfo(rank) << "Total elastic strain energy:" << totalElasticEnergyLocal;
 
   return;
-  printDynamicRuptureEnergies(global,
-                              dynRup,
-                              dynRupTree,
-                              meshReader,
-                              ltsTree,
-                              lts,
-                              ltsLut,
-                              usePlasticity);
+  printDynamicRuptureEnergies();
 }
+
+} // namespace seissol::writer
