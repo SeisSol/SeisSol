@@ -28,11 +28,11 @@ real EnergyOutput::computePlasticMoment() {
   return plasticMoment;
 }
 
-real EnergyOutput::computeStaticWork( real* degreesOfFreedomPlus,
-                                      real* degreesOfFreedomMinus,
-                                      DRFaceInformation const& faceInfo,
-                                      DRGodunovData const& godunovData,
-                                      real slip[seissol::tensor::slipInterpolated::size()]) {
+real EnergyOutput::computeStaticWork(real* degreesOfFreedomPlus,
+                                     real* degreesOfFreedomMinus,
+                                     DRFaceInformation const& faceInfo,
+                                     DRGodunovData const& godunovData,
+                                     real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -76,10 +76,10 @@ real EnergyOutput::computeStaticWork( real* degreesOfFreedomPlus,
   return staticFrictionalWork;
 }
 
-void EnergyOutput::printDynamicRuptureEnergies() {
-  double totalFrictionalWorkLocal = 0.0;
-  double staticFrictionalWorkLocal = 0.0;
-  double plasticMomentLocal = 0.0;
+void EnergyOutput::computeDynamicRuptureEnergies() {
+  double& totalFrictionalWork = energiesStorage.totalFrictionalWork();
+  double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
+  double& plasticMoment = energiesStorage.plasticMoment();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
     /// (We'd need to send the dofs over the network in order to fix this.)
@@ -90,66 +90,38 @@ void EnergyOutput::printDynamicRuptureEnergies() {
     DROutput* drOutput = it->var(dynRup->drOutput);
 
 #ifdef _OPENMP
-#pragma omp parallel for reduction(+ : totalFrictionalWorkLocal) reduction(+ : staticFrictionalWorkLocal)
+#pragma omp parallel for reduction(+ : totalFrictionalWork) reduction(+ : staticFrictionalWork)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        totalFrictionalWorkLocal += drOutput[i].frictionalEnergy;
-        staticFrictionalWorkLocal += computeStaticWork(timeDerivativePlus[i],
-                                                       timeDerivativeMinus[i],
-                                                       faceInformation[i],
-                                                       godunovData[i],
-                                                       drOutput[i].slip);
+        totalFrictionalWork += drOutput[i].frictionalEnergy;
+        staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
+                                                  timeDerivativeMinus[i],
+                                                  faceInformation[i],
+                                                  godunovData[i],
+                                                  drOutput[i].slip);
       }
     }
   }
   if (usePlasticity) {
-    plasticMomentLocal = computePlasticMoment();
+    plasticMoment = computePlasticMoment();
   }
-  int rank;
   double totalFrictionalWorkGlobal = 0.0;
   double staticFrictionalWorkGlobal = 0.0;
   double plasticMomentGlobal = 0.0;
-#ifdef USE_MPI
-  MPI_Comm_rank(MPI::mpi.comm(), &rank);
-  MPI_Reduce(&totalFrictionalWorkLocal,
-             &totalFrictionalWorkGlobal,
-             1,
-             MPI_DOUBLE,
-             MPI_SUM,
-             0,
-             MPI::mpi.comm());
-  MPI_Reduce(&staticFrictionalWorkLocal,
-             &staticFrictionalWorkGlobal,
-             1,
-             MPI_DOUBLE,
-             MPI_SUM,
-             0,
-             MPI::mpi.comm());
-  MPI_Reduce(&plasticMomentLocal, &plasticMomentGlobal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
-#else
-  rank = 0;
-  totalFrictionalWorkGlobal = totalFrictionalWorkLocal;
-  staticFrictionalWorkGlobal = staticFrictionalWorkLocal;
-  plasticMomentGlobal = plasticMomentLocal;
-#endif
 
-  if (rank == 0) {
-    logInfo(rank) << "Total frictional work:" << totalFrictionalWorkGlobal;
-    logInfo(rank) << "Static frictional work:" << staticFrictionalWorkGlobal;
-    logInfo(rank) << "Radiated energy:" << totalFrictionalWorkGlobal - staticFrictionalWorkGlobal;
-    if (usePlasticity) {
-      logInfo(rank) << "Total plastic moment:" << plasticMomentGlobal;
-    }
-  }
+
+
 }
 
-void EnergyOutput::printEnergies() {
-  double totalGravitationalEnergyLocal = 0.0;
-  double totalAcousticEnergyLocal = 0.0;
-  double totalAcousticKineticEnergyLocal = 0.0;
-  double totalElasticEnergyLocal = 0.0;
-  double totalElasticKineticEnergyLocal = 0.0;
+void EnergyOutput::computeEnergies() {
+  energiesStorage.energies.fill(0.0);
+
+  auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
+  auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
+  auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
+  auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
 
   std::vector<Element> const& elements = meshReader->getElements();
   std::vector<Vertex> const& vertices = meshReader->getVertices();
@@ -293,6 +265,7 @@ void EnergyOutput::printEnergies() {
       static_assert(numQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
       auto rotatedFaceDisplacement = init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
       for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+        // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for derivation.
         const auto displ = rotatedFaceDisplacement(i, 0);
         //const auto displ = rotatedFaceDisplacement(i, 2);
         const auto curEnergy = 0.5 * rho * g * displ * displ;
@@ -303,19 +276,54 @@ void EnergyOutput::printEnergies() {
 #endif
   }
 
+  computeDynamicRuptureEnergies();
+}
 
+void EnergyOutput::reduceEnergies() {
+#ifdef USE_MPI
+  const auto rank = MPI::mpi.rank();
+  const auto& comm = MPI::mpi.comm();
+
+  if (rank == 0) {
+    MPI_Reduce(MPI_IN_PLACE,
+               energiesStorage.energies.data(),
+               energiesStorage.energies.size(),
+               MPI_DOUBLE,
+               MPI_SUM,
+               0,
+               comm);
+  } else {
+    MPI_Reduce(energiesStorage.energies.data(),
+               energiesStorage.energies.data(),
+               energiesStorage.energies.size(),
+               MPI_DOUBLE,
+               MPI_SUM,
+               0,
+               comm);
+  }
+#endif
+}
+
+void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
 
-  auto totalGravitationalEnergyGlobal = totalGravitationalEnergyLocal;
-  logInfo(rank) << "Touched" << numberOfFacesReached << "faces";
-  logInfo(rank) << "Total gravitational energy:" << totalGravitationalEnergyGlobal;
-  logInfo(rank) << "Total acoustic kinetic energy:" << totalAcousticKineticEnergyLocal;
-  logInfo(rank) << "Total acoustic energy:" << totalAcousticEnergyLocal;
-  logInfo(rank) << "Total elastic kinetic energy:" << totalElasticKineticEnergyLocal;
-  logInfo(rank) << "Total elastic strain energy:" << totalElasticEnergyLocal;
+  logInfo(rank) << "Total gravitational energy:" << energiesStorage.gravitationalEnergy();
+  logInfo(rank) << "Total acoustic kinetic energy:" << energiesStorage.acousticKineticEnergy();
+  logInfo(rank) << "Total acoustic energy:" << energiesStorage.acousticEnergy();
+  logInfo(rank) << "Total elastic kinetic energy:" << energiesStorage.elasticKineticEnergy();
+  logInfo(rank) << "Total elastic strain energy:" << energiesStorage.elasticEnergy();
 
-  return;
-  printDynamicRuptureEnergies();
+  if (rank == 0) {
+    const auto totalFrictionalWork = energiesStorage.totalFrictionalWork();
+    const auto staticFrictionalWork = energiesStorage.staticFrictionalWork();
+    const auto radiatedEnergy = totalFrictionalWork - staticFrictionalWork;
+    logInfo(rank) << "Total frictional work:" << totalFrictionalWork;
+    logInfo(rank) << "Static frictional work:" << staticFrictionalWork;
+    logInfo(rank) << "Radiated energy:" << radiatedEnergy;
+    if (usePlasticity) {
+      logInfo(rank) << "Total plastic moment:" << energiesStorage.plasticMoment();
+    }
+  }
 }
 
 } // namespace seissol::writer

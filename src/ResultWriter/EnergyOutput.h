@@ -13,6 +13,44 @@
 
 namespace seissol::writer {
 
+struct EnergiesStorage {
+  std::array<double, 8> energies{};
+
+  double& gravitationalEnergy() {
+    return energies[0];
+  }
+
+  double& acousticEnergy() {
+    return energies[1];
+  }
+
+  double& acousticKineticEnergy() {
+    return energies[2];
+  }
+
+  double& elasticEnergy() {
+    return energies[3];
+  }
+
+  double& elasticKineticEnergy() {
+    return energies[4];
+  }
+
+  double& totalFrictionalWork() {
+    return energies[5];
+  }
+
+  double& staticFrictionalWork() {
+    return energies[6];
+  }
+
+  double& plasticMoment() {
+    return energies[7];
+  }
+
+
+};
+
 class EnergyOutput : public Module {
 public:
   void init(
@@ -42,6 +80,8 @@ public:
 
   void syncPoint(double time) override {
     logInfo() << "Energies at time" << time;
+    computeEnergies();
+    reduceEnergies();
     printEnergies();
   }
 
@@ -55,7 +95,11 @@ private:
                          DRGodunovData const& godunovData,
                          real slip[seissol::tensor::slipInterpolated::size()]);
 
-  void printDynamicRuptureEnergies();
+  void computeDynamicRuptureEnergies();
+
+  void computeEnergies();
+
+  void reduceEnergies();
 
   void printEnergies();
 
@@ -67,6 +111,8 @@ private:
   seissol::initializers::LTS* lts;
   seissol::initializers::Lut* ltsLut;
   bool usePlasticity;
+
+  EnergiesStorage energiesStorage{};
 };
 
 } // namespace seissol::writer
