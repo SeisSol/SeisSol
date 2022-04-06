@@ -43,6 +43,9 @@ extern "C" {
   void fortran_main();
 }
 
+#include "Solver/time_stepping/CommunicationTracker.h"
+#include <iostream>
+
 int main(int argc, char* argv[])
 {
 	EPIK_TRACER("SeisSol");
@@ -55,6 +58,11 @@ int main(int argc, char* argv[])
 	if (runSeisSol)
 		fortran_main();
 
+	std::string stats = communication_stats();
+	std::cout << stats << std::endl;
+
 	// Finalize SeisSol
 	seissol::SeisSol::main.finalize();
+
+
 }

@@ -30,6 +30,10 @@ class EdgeWeightModel : public WeightModel {
   void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph,
                       std::function<int(idx_t, idx_t)>& factor);
+                      
+  void setBalancedMessagingWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph);
+
 
   virtual ~EdgeWeightModel() noexcept {}
 };
@@ -50,6 +54,16 @@ class ExponentialBalancedWeights final : public NodeWeightModel {
   ~ExponentialBalancedWeights() noexcept override final {}
 
   int evaluateNumberOfConstraints() const override final { return 2; }
+  void setVertexWeights() override final;
+  void setAllowedImbalances() override final;
+};
+
+class ExponentialBalancedWeightsWithBalancedMessaging final : public NodeWeightModel {
+  public:
+  explicit ExponentialBalancedWeightsWithBalancedMessaging(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
+  ~ExponentialBalancedWeightsWithBalancedMessaging() noexcept override final {}
+
+  int evaluateNumberOfConstraints() const override final;
   void setVertexWeights() override final;
   void setAllowedImbalances() override final;
 };
@@ -86,6 +100,15 @@ class ApproximateCommunication final : public EdgeWeightModel {
   public:
   ApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunication() noexcept override final {}
+
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph) override final;
+};
+
+class ApproximateCommunicationWithBalancedMessaging final : public EdgeWeightModel {
+  public:
+  ApproximateCommunicationWithBalancedMessaging(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ~ApproximateCommunicationWithBalancedMessaging() noexcept override final {}
 
   void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph) override final;

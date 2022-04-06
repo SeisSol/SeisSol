@@ -82,7 +82,7 @@
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Monitoring/FlopCounter.hpp>
-
+#include <Solver/time_stepping/CommunicationTracker.h>
 #include <cassert>
 #include <cstring>
 
@@ -452,6 +452,11 @@ void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
     // continue only if the cluster qualifies for communication
     if( m_resetLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
       // post receive request
+      int size = 0;
+      MPI_Type_size(MPI_C_REAL, &size);
+      size *= (m_meshStructure->ghostRegionSizes[l_region]);
+      track_recv(size);
+
       MPI_Irecv(   m_meshStructure->ghostRegions[l_region],                // initial address
                    m_meshStructure->ghostRegionSizes[l_region],            // number of elements in the receive buffer
                    MPI_C_REAL,                                               // datatype of each receive buffer element
@@ -475,6 +480,12 @@ void seissol::time_stepping::TimeCluster::sendCopyLayer(){
    */
   for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
     if( m_sendLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
+      int size = 0;
+      MPI_Type_size(MPI_C_REAL, &size);
+      size *= (m_meshStructure->copyRegionSizes[l_region]);
+      track_send(size);
+      
+      
       // post send request
       MPI_Isend(   m_meshStructure->copyRegions[l_region],              // initial address
                    m_meshStructure->copyRegionSizes[l_region],          // number of elements in the send buffer
@@ -508,6 +519,7 @@ bool seissol::time_stepping::TimeCluster::testForGhostLayerReceives(){
     int l_mpiStatus = 0;
 
     // check if the receive is complete
+    track_test();
     MPI_Test( *l_receive, &l_mpiStatus, MPI_STATUS_IGNORE );
 
     // remove from list of pending receives if completed
@@ -537,6 +549,7 @@ bool seissol::time_stepping::TimeCluster::testForCopyLayerSends(){
     int l_mpiStatus = 0;
 
     // check if the send is complete
+    track_test();
     MPI_Test( *l_send, &l_mpiStatus, MPI_STATUS_IGNORE );
 
     // remove from list of pending sends if completed
@@ -1081,6 +1094,7 @@ void seissol::time_stepping::TimeCluster::pollForCopyLayerSends(){
     int l_mpiStatus = 0;
 
     // check if the send is complete
+    track_test();
     MPI_Test( *l_send, &l_mpiStatus, MPI_STATUS_IGNORE );
 
     // remove from list of pending sends if completed
@@ -1100,6 +1114,7 @@ void seissol::time_stepping::TimeCluster::pollForGhostLayerReceives(){
     int l_mpiStatus = 0;
 
     // check if the receive is complete
+    track_test();
     MPI_Test( *l_receive, &l_mpiStatus, MPI_STATUS_IGNORE );
 
     // remove from list of pending receives if completed

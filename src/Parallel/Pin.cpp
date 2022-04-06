@@ -45,6 +45,7 @@
 #include <sstream>
 #include <set>
 #include "Parallel/MPI.h"
+#include <string>
 
 #ifdef USE_NUMA_AWARE_PINNING
 #include "numa.h"

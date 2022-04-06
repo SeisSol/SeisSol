@@ -25,6 +25,7 @@ src/Solver/Interoperability.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
+src/Solver/time_stepping/CommunicationTracker.cpp
 src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
