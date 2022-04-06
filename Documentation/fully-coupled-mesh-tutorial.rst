@@ -34,18 +34,18 @@ Next, we generate a mesh of 2 boxes, one for definig the water-layer and the oth
 
 .. code-block:: bash
 
-    generate_box.py box_water_layer.stl --hdim " -40e3" 93e3 " -10e3" 53.0e3 --zdim " -10e3" 0 --meshSize 800.
+    generate_box.py box_water_layer.stl --hdim " -40e3" 93e3 " -10e3" 53.0e3 --zdim " -10e3" 0 --meshSize 600.
     generate_box.py --proj "$myproj" --rangeFromTopo $topofile box_domain.stl --zdim " -200e3" 10e3 --shrink 0.9
 
 
 Intersecting topography and sea-surface
 ----------------------------------------
 
-Then we load `box_water_layer.stl` and `topo.ts` into SimModeler (in 2 steps, to be able to tick ``Find edges by face normals`` only for the box, not for the topography surface).
+Then we load `box_water_layer.stl` and `topo.ts` into SimModeler (``Import Discrete Data``, select both files (press Shift), and unclick all options except  ``Find edges by face normals``, with ``Normal Angle`` 80, a value high enough to detect the box, but not creating new faces in the topography surface).
 
 We then do ``Unions Parts`` (Tolerance 0.1, smaller than the ``change_zero_elevation`` parameter) with Parts topo and box_water_layer.
-This leads to the creation of 3 regions.
-
+This leads to the creation of 3 regions and 1 face.
+Region 3 is the solid below the sea-floor, region 4 is the larger ocean region, and region 5 is the small dark green water region.
 
 .. figure:: LatexFigures/Samos_intersected.png
    :alt: Three-regions model obtained after intersecting bathymetry and water-layer box.
@@ -54,25 +54,18 @@ This leads to the creation of 3 regions.
 
    Three-regions model obtained after intersecting bathymetry and water-layer box.
 
-
-The next step is to delete regions 4 and 5. Use ``Discrete->Delete`` add regions 4 and 5 and untick ``Delete Disconnected``.
-(If we tick ``Delete Disconnected`` the sea-floor below the small green region 4 will be removed).
+The next step is to delete regions 3 and 5 (note that region number may differ). Use ``Discrete->Delete`` add regions 3, and press ``Ok``.
+Then Use ``Discrete->Delete`` add regions 5, this time unticking ``Delete Disconnected``.
+(If we tick ``Delete Disconnected`` the sea-floor below regions 5 will be removed, leaving a hole in the topography).
 Finally, we delete all surfaces except the 2 surfaces defining the topography.
 
-At this point, the model only has 1 region and 2 surfaces (that can be merged with ``Discrete->Combine Face``).
+At this point, the model only has 1 region and 2 surfaces (that can be merged with ``Discrete->Combine Faces``).
 We can double-check the quality of the intersections with ``Prepare->Remove Small features``.
 Here the shortest edge in the model is 139 m, which is large enough.
 If this was not the case, small edges can be identified, and the associated node of the not yet intersected topography moved (with ``Discrete->Deform Face``).
 Then the full workflow described above needs to be followed again with the updated topography (and hopefully the short edge have been suppressed).
 
-
-The final step consists of loading `domain_box.stl` and intersecting it with the current model.
-Unfortunately, here this step fails with the following error:
-``Error: Code: 604 String: edge 72 has tangent faces at point (61781.436490285792, 3066.1427893521077, -2.2204460492502381e-16)``
-To overcome this problem we manually move a node of the initial topography close to the location of the error with ``Discrete->Deform Face``.
-Specifically, we moved the node of coordinates ``61827.6 3236.89 -2.55828`` to ``61827.6 3236.89 -10``, and we rerun the full workflow described above with the new topography.
-
-Then, `domain_box.stl` and the model can be intersected without problem.
+The final step consists of loading `domain_box.stl` and intersecting it with the current model (Actually this intersection currently fails).
 We then clean the model of the upper part of domain_box and of the part of the topography outside the domain box.
 The model obtained has 2 regions.
 
@@ -83,6 +76,17 @@ The model obtained has 2 regions.
    :align: center
 
    Two-regions model of the Eastern Aegean Sea area, including water layer.
+
+Dealing with union errors
+----------------------------
+
+Unfortunately, unions may fail.
+At best, a descriptive error is issued by SimModeler, e.g.:
+``Error: Code: 604 String: edge 72 has tangent faces at point (61781.436490285792, 3066.1427893521077, -2.2204460492502381e-16)``
+In this case, we can overcome the problem by manually moving a node of one of the surfaces intersected close to the location of the error with ``Discrete->Deform Face``.
+The error ``Error: Code: 60 String: General error`` may also be raised, for which there is currently no obvious work-around, except trying to changing the mesh size or the dimension of one of the intersected objects.
+Hopefully, these error messages will be improved in the future.
+
 
 Enforcing minimum depth on seafloor surface
 -----------------------------------------------
