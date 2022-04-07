@@ -80,6 +80,10 @@ std::unique_ptr<LtsWeights> getLtsWeightsImplementation(NodeWeightModelTypes nod
     nwm = new ExponentialBalancedWeightsWithBalancedMessaging(*lts.get());
     break;
   }
+  case NodeWeightModelTypes::ExponentialBalancedWeightsWithMessageCount: {
+    nwm = new ExponentialBalancedWeightsWithMessageCount(*lts.get());
+    break;
+  }
   default: {
     break;
   }
