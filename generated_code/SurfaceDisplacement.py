@@ -105,7 +105,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
   generator.add("rotateFaceDisplacementsAndEvaluateAtQuadratureNodes",
                 rotatedFaceDisplacementAtQuadratureNodes['in'] <=
                 aderdg.V2nTo2JacobiQuad['ij'] * \
-              rotatedFaceDisplacement['jp'] * displacementRotationMatrix['pn']
+              rotatedFaceDisplacement['jp'] * displacementRotationMatrix['np']
                 )
 
   if 'gpu' in targets:

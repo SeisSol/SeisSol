@@ -12,7 +12,7 @@ real EnergyOutput::computePlasticMoment() {
   std::vector<Vertex> const& vertices = meshReader->getVertices();
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) reduction(+ : plasticMoment)
+#pragma omp parallel for schedule(static) reduction(+ : plasticMoment) default(none) shared(elements, vertices)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
@@ -28,11 +28,11 @@ real EnergyOutput::computePlasticMoment() {
   return plasticMoment;
 }
 
-real EnergyOutput::computeStaticWork(real* degreesOfFreedomPlus,
-                                     real* degreesOfFreedomMinus,
-                                     DRFaceInformation const& faceInfo,
-                                     DRGodunovData const& godunovData,
-                                     real slip[seissol::tensor::slipInterpolated::size()]) {
+real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
+                                     const real* degreesOfFreedomMinus,
+                                     const DRFaceInformation& faceInfo,
+                                     const DRGodunovData& godunovData,
+                                     const real slip[seissol::tensor::slipInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -90,7 +90,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     DROutput* drOutput = it->var(dynRup->drOutput);
 
 #ifdef _OPENMP
-#pragma omp parallel for reduction(+ : totalFrictionalWork) reduction(+ : staticFrictionalWork)
+#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork) default(none) shared(it, drOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -106,12 +106,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   if (usePlasticity) {
     plasticMoment = computePlasticMoment();
   }
-  double totalFrictionalWorkGlobal = 0.0;
-  double staticFrictionalWorkGlobal = 0.0;
-  double plasticMomentGlobal = 0.0;
-
-
-
 }
 
 void EnergyOutput::computeEnergies() {
@@ -232,8 +226,6 @@ void EnergyOutput::computeEnergies() {
       numberOfFacesReached++;
 
       auto& boundaryMapping = boundaryMappings[face];
-      // Setup for rotation copied from GravitationalFreeSurfaceBC.h
-      // TODO(Lukas) Refactor?
       auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
       alignas(ALIGNMENT) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
@@ -241,13 +233,9 @@ void EnergyOutput::computeEnergies() {
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
           rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
-          //logInfo() << i << j << Tinv(i+6,j+6);
-          //rotateDisplacementToFaceNormal(i, j) = i == j;
         }
       }
-      //std::abort();
 
-      // Evaluate data at quadrature points and rotate to face-normal coordinates
       alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size> displQuadData{};
       const auto* curFaceDisplacementsData = faceDisplacements[face];
       seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
@@ -267,7 +255,6 @@ void EnergyOutput::computeEnergies() {
       for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
         // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for derivation.
         const auto displ = rotatedFaceDisplacement(i, 0);
-        //const auto displ = rotatedFaceDisplacement(i, 2);
         const auto curEnergy = 0.5 * rho * g * displ * displ;
         const auto curWeight = 2 * surface * quadratureWeightsTri[i];
         totalGravitationalEnergyLocal += curWeight * curEnergy;
@@ -284,10 +271,11 @@ void EnergyOutput::reduceEnergies() {
   const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
 
+  const auto count = static_cast<int>(energiesStorage.energies.size());
   if (rank == 0) {
     MPI_Reduce(MPI_IN_PLACE,
                energiesStorage.energies.data(),
-               energiesStorage.energies.size(),
+               count,
                MPI_DOUBLE,
                MPI_SUM,
                0,
@@ -295,7 +283,7 @@ void EnergyOutput::reduceEnergies() {
   } else {
     MPI_Reduce(energiesStorage.energies.data(),
                energiesStorage.energies.data(),
-               energiesStorage.energies.size(),
+               count,
                MPI_DOUBLE,
                MPI_SUM,
                0,
