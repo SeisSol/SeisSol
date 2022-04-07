@@ -34,6 +34,9 @@ class EdgeWeightModel : public WeightModel {
   void setBalancedMessagingWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph);
 
+  void setBalancedMessageCount(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph,
+                                 std::function<int(idx_t, idx_t)>& factor);
 
   virtual ~EdgeWeightModel() noexcept {}
 };
@@ -64,6 +67,16 @@ class ExponentialBalancedWeightsWithBalancedMessaging final : public NodeWeightM
   ~ExponentialBalancedWeightsWithBalancedMessaging() noexcept override final {}
 
   int evaluateNumberOfConstraints() const override final;
+  void setVertexWeights() override final;
+  void setAllowedImbalances() override final;
+};
+
+class ExponentialBalancedWeightsWithMessageCount final : public NodeWeightModel {
+  public:
+  explicit ExponentialBalancedWeightsWithMessageCount(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
+  ~ExponentialBalancedWeightsWithMessageCount() noexcept override final {}
+
+  int evaluateNumberOfConstraints() const override final { return 3; }
   void setVertexWeights() override final;
   void setAllowedImbalances() override final;
 };
@@ -109,6 +122,24 @@ class ApproximateCommunicationWithBalancedMessaging final : public EdgeWeightMod
   public:
   ApproximateCommunicationWithBalancedMessaging(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunicationWithBalancedMessaging() noexcept override final {}
+
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph) override final;
+};
+
+class ApproximateCommunicationWithMessageCount final : public EdgeWeightModel {
+  public:
+  ApproximateCommunicationWithMessageCount(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ~ApproximateCommunicationWithMessageCount() noexcept override final {}
+
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph) override final;
+};
+
+class ClusterDifference final : public EdgeWeightModel {
+  public:
+  ClusterDifference(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ~ClusterDifference() noexcept override final {}
 
   void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph) override final;

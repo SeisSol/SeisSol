@@ -14,6 +14,7 @@ enum class NodeWeightModelTypes : int {
   ExponentialBalancedWeights,
   EncodedBalancedWeights,
   ExponentialBalancedWeightsWithBalancedMessaging,
+  ExponentialBalancedWeightsWithMessageCount,
   Count
 };
 
@@ -22,6 +23,8 @@ enum class EdgeWeightModelTypes : int {
   PenalizeBetweenClusters,
   ApproximateCommunication,
   ApproximateCommunicationWithBalancedMessaging,
+  ClusterDifference,
+  ApproximateCommunicationWithMessageCount,
   Count
 };
 
@@ -97,6 +100,15 @@ std::unique_ptr<LtsWeights> getLtsWeightsImplementation(NodeWeightModelTypes nod
   }
   case EdgeWeightModelTypes::ApproximateCommunicationWithBalancedMessaging: {
     ewm = new ApproximateCommunicationWithBalancedMessaging(*lts.get());
+    break;
+  }
+  case EdgeWeightModelTypes::ClusterDifference: {
+    ewm = new ClusterDifference(*lts.get());
+    break;
+  }
+  case EdgeWeightModelTypes::ApproximateCommunicationWithMessageCount:
+  {
+    ewm = new ApproximateCommunicationWithMessageCount(*lts.get());
     break;
   }
   default: {
