@@ -99,13 +99,14 @@ class ADERDGBase(ABC):
     self.db.update(
       parseXMLMatrixFile("{}/nodal/V2mTo2JacobiQuad_{}.xml".format(
         matricesDir,
-        self.order
+        self.order,
+        alignStride=self.alignStride
       ))
     )
 
 
     self.V2nTo2JacobiQuad = tensor_from_constant_expression('V2nTo2JacobiQuad', self.db.V2mTo2JacobiQuad['ik'] * \
-                                                             self.db.V2nTo2m['kj'],
+                                                             self.db.V2nTo2mCorrect['kj'],
                                                              target_indices='ij')
 
     self.INodal = OptionalDimTensor('INodal',

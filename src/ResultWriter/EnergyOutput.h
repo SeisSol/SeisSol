@@ -89,11 +89,11 @@ private:
   real computePlasticMoment();
 
   real computeStaticWork(
-                         real* degreesOfFreedomPlus,
-                         real* degreesOfFreedomMinus,
+                         const real* degreesOfFreedomPlus,
+                         const real* degreesOfFreedomMinus,
                          DRFaceInformation const& faceInfo,
                          DRGodunovData const& godunovData,
-                         real slip[seissol::tensor::slipInterpolated::size()]);
+                         const real slip[seissol::tensor::slipInterpolated::size()]);
 
   void computeDynamicRuptureEnergies();
 
