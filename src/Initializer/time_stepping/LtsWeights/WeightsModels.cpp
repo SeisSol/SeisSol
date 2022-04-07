@@ -99,9 +99,6 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
 
   constexpr double mediumLtsMemoryImbalance{1.05};
   m_imbalances[1] = mediumLtsMemoryImbalance;
-
-  constexpr double mediumLtsMCImbalance{1.01};
-  m_imbalances[2] = mediumLtsMCImbalance;
 }
 
 void ExponentialBalancedWeightsWithMessageCount::setAllowedImbalances() {
@@ -116,6 +113,9 @@ void ExponentialBalancedWeightsWithMessageCount::setAllowedImbalances() {
 
   constexpr double mediumLtsMemoryImbalance{1.05};
   m_imbalances[1] = mediumLtsMemoryImbalance;
+
+  constexpr double mediumLtsMCImbalance{1.01};
+  m_imbalances[2] = mediumLtsMCImbalance;
 }
 
 
