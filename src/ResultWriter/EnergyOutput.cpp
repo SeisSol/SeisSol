@@ -197,10 +197,10 @@ void EnergyOutput::computeEnergies() {
   std::vector<Element> const& elements = meshReader->getElements();
   std::vector<Vertex> const& vertices = meshReader->getVertices();
 
-  int numberOfFacesReached = 0;
+  const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
 #ifdef _OPENMP
-#pragma omp parallel for default(none) schedule(static) reduction(+ : numberOfFacesReached, totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
+#pragma omp parallel for default(none) schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(g, elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
 #ifdef USE_ELASTIC
@@ -294,7 +294,6 @@ void EnergyOutput::computeEnergies() {
     for (int face = 0; face < 4; ++face) {
       if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
         continue;
-      numberOfFacesReached++;
 
       auto& boundaryMapping = boundaryMappings[face];
       auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
@@ -322,7 +321,6 @@ void EnergyOutput::computeEnergies() {
       // Perform quadrature
       const auto surface = MeshTools::surface(elements[elementId], face, vertices);
       const auto rho = material.local.rho;
-      const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
       static_assert(numQuadraturePointsTri ==
                     init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
