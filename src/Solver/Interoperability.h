@@ -45,6 +45,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
@@ -293,6 +294,7 @@ class seissol::Interoperability {
 			double* slip, double* slip1, double* slip2, double* state, double* strength,
 			int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
 			double* outputRegionBounds,
+			const std::unordered_set<int>& outputGroups,
 			double freeSurfaceInterval, const char* freeSurfaceFilename,
       const char* xdmfWriterBackend,
       const char* receiverFileName,
@@ -386,8 +388,9 @@ class seissol::Interoperability {
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
+    * @param i_plasticity=1 if plasticity is on
     **/
-   void simulate( double i_finalTime );
+   void simulate( double i_finalTime, int i_plasticity );
 
    /**
     * Finalizes I/O
