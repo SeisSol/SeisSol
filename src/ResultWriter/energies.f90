@@ -186,9 +186,9 @@ CONTAINS
 
     ! update picktime
     IF (IO%pickDtType .EQ. 2) THEN !timestep-wise output
-        localpicktime = localpicktime + IO%pickdt_energy * dt
+        localpicktime = localpicktime
     ELSE !time-wise output
-        localpicktime = localpicktime + IO%pickdt_energy
+        localpicktime = localpicktime
     ENDIF
 
 

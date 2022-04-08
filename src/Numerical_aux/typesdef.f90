@@ -1110,8 +1110,6 @@ MODULE TypesDef
      REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
-     REAL                                   :: pickdt_energy                    !< Time increment for energy time series
-     INTEGER                                :: energy_output_on
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
      INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level
@@ -1144,6 +1142,9 @@ MODULE TypesDef
      real                                   :: SurfaceOutputInterval
      real                                   :: ReceiverOutputInterval
      character(len=64)                      :: xdmfWriterBackend                !< Check point backend
+     logical                                :: isEnergyTerminalOutputEnabled    !< Whether energy output should be written to terminal
+     real                                   :: EnergyOutputInterval
+
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------

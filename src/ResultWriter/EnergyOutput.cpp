@@ -6,6 +6,82 @@
 
 namespace seissol::writer {
 
+double& EnergiesStorage::gravitationalEnergy() { return energies[0]; }
+
+double& EnergiesStorage::acousticEnergy() { return energies[1]; }
+
+double& EnergiesStorage::acousticKineticEnergy() { return energies[2]; }
+
+double& EnergiesStorage::elasticEnergy() { return energies[3]; }
+
+double& EnergiesStorage::elasticKineticEnergy() { return energies[4]; }
+
+double& EnergiesStorage::totalFrictionalWork() { return energies[5]; }
+
+double& EnergiesStorage::staticFrictionalWork() { return energies[6]; }
+
+double& EnergiesStorage::plasticMoment() { return energies[7]; }
+
+void EnergyOutput::init(GlobalData* newGlobal,
+                        seissol::initializers::DynamicRupture* newDynRup,
+                        seissol::initializers::LTSTree* newDynRuptTree,
+                        MeshReader* newMeshReader,
+                        seissol::initializers::LTSTree* newLtsTree,
+                        seissol::initializers::LTS* newLts,
+                        seissol::initializers::Lut* newLtsLut,
+                        bool newIsPlasticityEnabled,
+                        bool newIsTerminalOutputEnabled,
+                        const std::string& outputFileNamePrefix,
+                        double newSyncPointInterval) {
+  if (newSyncPointInterval > 0) {
+    isEnabled = true;
+  } else {
+    return;
+  }
+  const auto rank = MPI::mpi.rank();
+  logInfo(rank) << "Initializing energy output.";
+
+  isFileOutputEnabled = rank == 0;
+  isTerminalOutputEnabled = newIsTerminalOutputEnabled && (rank == 0);
+  outputFileName = outputFileNamePrefix + "_energy.csv";
+
+  global = newGlobal;
+  dynRup = newDynRup;
+  dynRupTree = newDynRuptTree;
+  meshReader = newMeshReader;
+  ltsTree = newLtsTree;
+  lts = newLts;
+  ltsLut = newLtsLut;
+
+  isPlasticityEnabled = newIsPlasticityEnabled;
+
+  Modules::registerHook(*this, SIMULATION_START);
+  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  setSyncInterval(newSyncPointInterval);
+}
+
+void EnergyOutput::syncPoint(double time) {
+  assert(isEnabled);
+  logInfo() << "Writing energy output at time" << time;
+  computeEnergies();
+  reduceEnergies();
+  if (isTerminalOutputEnabled) {
+    printEnergies();
+  }
+  if (isFileOutputEnabled) {
+    writeEnergies(time);
+  }
+  logInfo() << "Writing energy output at time" << time << "Done.";
+}
+
+void EnergyOutput::simulationStart() {
+  if (isFileOutputEnabled) {
+    out.open(outputFileName);
+    writeHeader();
+  }
+  syncPoint(0.0);
+}
+
 real EnergyOutput::computePlasticMoment() {
   real plasticMoment = 0.0;
   std::vector<Element> const& elements = meshReader->getElements();
@@ -103,7 +179,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       }
     }
   }
-  if (usePlasticity) {
+  if (isPlasticityEnabled) {
     plasticMoment = computePlasticMoment();
   }
 }
@@ -132,17 +208,19 @@ void EnergyOutput::computeEnergies() {
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+    constexpr auto quadPolyDegree = CONVERGENCE_ORDER + 1;
     constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
     double quadraturePointsTet[numQuadraturePointsTet][3];
     double quadratureWeightsTet[numQuadraturePointsTet];
-    seissol::quadrature::TetrahedronQuadrature(quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
+    seissol::quadrature::TetrahedronQuadrature(
+        quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
 
     constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
     double quadraturePointsTri[numQuadraturePointsTri][2];
     double quadratureWeightsTri[numQuadraturePointsTri];
-    seissol::quadrature::TriangleQuadrature(quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
+    seissol::quadrature::TriangleQuadrature(
+        quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
 
     // Needed to weight the integral.
     const auto jacobiDet = 6 * volume;
@@ -169,11 +247,9 @@ void EnergyOutput::computeEnergies() {
       const auto u = numSub(qp, uIdx + 0);
       const auto v = numSub(qp, uIdx + 1);
       const auto w = numSub(qp, uIdx + 2);
-      const double curKineticEnergy = 0.5 * rho * (
-          u * u + v * v + w * w
-      );
+      const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
 
-      if (std::abs(material.local.mu) < 10e-14 ) {
+      if (std::abs(material.local.mu) < 10e-14) {
         // Acoustic
         constexpr int pIdx = 0;
         const auto K = material.local.lambda;
@@ -185,20 +261,14 @@ void EnergyOutput::computeEnergies() {
         // Elastic
         totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
         auto getStressIndex = [](int i, int j) {
-          auto lookup = std::array<std::array<int,3>,3>{{
-              { 0, 3, 5 },
-              { 3, 1, 4 },
-              { 5, 4, 2 }
-          }};
+          auto lookup = std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
-        auto getStress = [&](int i, int j) {
-          return numSub(qp, getStressIndex(i,j));
-        };
+        auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
         const auto lambda = material.local.lambda;
         const auto mu = material.local.mu;
-        const auto dilation = getStress(0,0) + getStress(1,1) + getStress(2,2);
+        const auto dilation = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
         auto computeStrain = [&](int i, int j) {
           double strain = 0.0;
           const auto factor = -1.0 * (lambda) / (2 * mu * (3 * lambda + 2 * mu));
@@ -211,8 +281,7 @@ void EnergyOutput::computeEnergies() {
         double curElasticEnergy = 0.0;
         for (int i = 0; i < 3; ++i) {
           for (int j = 0; j < 3; ++j) {
-            curElasticEnergy +=
-                getStress(i, j) * computeStrain(i, j);
+            curElasticEnergy += getStress(i, j) * computeStrain(i, j);
           }
         }
         totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
@@ -222,21 +291,25 @@ void EnergyOutput::computeEnergies() {
     auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
     // Compute gravitational energy
     for (int face = 0; face < 4; ++face) {
-      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) continue;
+      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
+        continue;
       numberOfFacesReached++;
 
       auto& boundaryMapping = boundaryMappings[face];
       auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-      alignas(ALIGNMENT) real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+      alignas(ALIGNMENT)
+          real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
-      auto rotateDisplacementToFaceNormal = init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
+      auto rotateDisplacementToFaceNormal =
+          init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
           rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
         }
       }
 
-      alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size> displQuadData{};
+      alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+          displQuadData{};
       const auto* curFaceDisplacementsData = faceDisplacements[face];
       seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
       evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
@@ -250,10 +323,13 @@ void EnergyOutput::computeEnergies() {
       const auto rho = material.local.rho;
       const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
-      static_assert(numQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
-      auto rotatedFaceDisplacement = init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
+      static_assert(numQuadraturePointsTri ==
+                    init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
+      auto rotatedFaceDisplacement =
+          init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
       for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
-        // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for derivation.
+        // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
+        // derivation.
         const auto displ = rotatedFaceDisplacement(i, 0);
         const auto curEnergy = 0.5 * rho * g * displ * displ;
         const auto curWeight = 2 * surface * quadratureWeightsTri[i];
@@ -273,13 +349,7 @@ void EnergyOutput::reduceEnergies() {
 
   const auto count = static_cast<int>(energiesStorage.energies.size());
   if (rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE,
-               energiesStorage.energies.data(),
-               count,
-               MPI_DOUBLE,
-               MPI_SUM,
-               0,
-               comm);
+    MPI_Reduce(MPI_IN_PLACE, energiesStorage.energies.data(), count, MPI_DOUBLE, MPI_SUM, 0, comm);
   } else {
     MPI_Reduce(energiesStorage.energies.data(),
                energiesStorage.energies.data(),
@@ -308,10 +378,31 @@ void EnergyOutput::printEnergies() {
     logInfo(rank) << "Total frictional work:" << totalFrictionalWork;
     logInfo(rank) << "Static frictional work:" << staticFrictionalWork;
     logInfo(rank) << "Radiated energy:" << radiatedEnergy;
-    if (usePlasticity) {
+    if (isPlasticityEnabled) {
       logInfo(rank) << "Total plastic moment:" << energiesStorage.plasticMoment();
     }
   }
+}
+
+void EnergyOutput::writeHeader() {
+  out << "time,"
+      << "gravitational_energy,"
+      << "acoustic_energy,"
+      << "acoustic_kinetic_energy,"
+      << "elastic_energy,"
+      << "elastic_kinetic_energy,"
+      << "total_frictional_work,"
+      << "static_frictional_work,"
+      << "plastic_moment" << std::endl;
+}
+
+void EnergyOutput::writeEnergies(double time) {
+  const auto rank = MPI::mpi.rank();
+  out << time << "," << energiesStorage.gravitationalEnergy() << ","
+      << energiesStorage.acousticEnergy() << "," << energiesStorage.acousticKineticEnergy() << ","
+      << energiesStorage.elasticEnergy() << "," << energiesStorage.elasticKineticEnergy() << ","
+      << energiesStorage.totalFrictionalWork() << "," << energiesStorage.staticFrictionalWork()
+      << "," << energiesStorage.plasticMoment() << std::endl;
 }
 
 } // namespace seissol::writer

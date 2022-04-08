@@ -2595,8 +2595,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
-      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, &
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement,  IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
+      REAL                             :: TimeInterval, pickdt, Interval, checkPointInterval, &
                                           OutputRegionBounds(1:6), SurfaceOutputInterval, &
                                           ReceiverOutputInterval
       INTEGER :: OutputGroups(100) ! Larger buffer than necessary (probably)
@@ -2614,14 +2614,20 @@ ALLOCATE( SpacePositionx(nDirac), &
       !!
       character(LEN=64)                :: checkPointBackend
       character(LEN=64)                :: xdmfWriterBackend
+      INTEGER                          :: EnergyOutput
+      INTEGER                          :: EnergyTerminalOutput
+      real                             :: EnergyOutputInterval
+
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, &
                                                 FaultOutputFlag, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, OutputGroups, IntegrationMask, &
+                                                checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
-                                                ReceiverOutputInterval, nRecordPoints
-    !------------------------------------------------------------------------
+                                                ReceiverOutputInterval, nRecordPoints, &
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval
+
+              !------------------------------------------------------------------------
     !
       logInfo(*) '<--------------------------------------------------------->'
       logInfo(*) '<  O U T P U T                                            >'
@@ -2636,8 +2642,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       Refinement = 0
       pickdt = 0.1
       pickDtType = 1
-      energy_output_on = 0
-      pickdt_energy = 1.0
       OutputRegionBounds(:) = 0.0
       outputGroups(:) = -1
       RFileName = ''
@@ -2657,8 +2661,12 @@ ALLOCATE( SpacePositionx(nDirac), &
       ReceiverOutputInterval = 1.0e99
       iPlasticityMask(1:6) = 0
       iPlasticityMask(7) = 1
-      !
+
+      EnergyOutput = 0
+      EnergyTerminalOutput = 0
+      EnergyOutputInterval = -1.0
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
+
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "Output")
     ENDIF
@@ -2937,13 +2945,17 @@ ALLOCATE( SpacePositionx(nDirac), &
             call exit(134)
          ENDSELECT
 
-       ! energy output on = 1, off =0
-       IO%energy_output_on = energy_output_on
-
-       IF(IO%energy_output_on .EQ. 1) THEN
-            logWarning0(*) 'Energy output currently only working with classic version. Turning it off.'
-            IO%energy_output_on = 0
-       ENDIF
+        if (EnergyOutput == 1) then
+            if (EnergyOutputInterval < 0) then
+                ! no interval specified -> write only at end of sim
+                EnergyOutputInterval = 1e99
+            end if
+        else
+            ! Negative output interval -> Output disabled
+            IO%EnergyOutputInterval = -1.0
+        end if
+        IO%isEnergyTerminalOutputEnabled = EnergyTerminalOutput == 1
+        IO%energyOutputInterval = EnergyOutputInterval
 
       IF(EQN%DR.NE.0) THEN
           IO%FaultOutputFlag = FaultOutputFlag
