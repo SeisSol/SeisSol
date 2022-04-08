@@ -1,6 +1,11 @@
 #ifndef ENERGYOUTPUT_H
 #define ENERGYOUTPUT_H
 
+#include <array>
+#include <string>
+#include <fstream>
+#include <iostream>
+
 #include <Initializer/typedefs.hpp>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/LTSTree.hpp>
@@ -16,80 +21,45 @@ namespace seissol::writer {
 struct EnergiesStorage {
   std::array<double, 8> energies{};
 
-  double& gravitationalEnergy() {
-    return energies[0];
-  }
+  double& gravitationalEnergy();
 
-  double& acousticEnergy() {
-    return energies[1];
-  }
+  double& acousticEnergy();
 
-  double& acousticKineticEnergy() {
-    return energies[2];
-  }
+  double& acousticKineticEnergy();
 
-  double& elasticEnergy() {
-    return energies[3];
-  }
+  double& elasticEnergy();
 
-  double& elasticKineticEnergy() {
-    return energies[4];
-  }
+  double& elasticKineticEnergy();
 
-  double& totalFrictionalWork() {
-    return energies[5];
-  }
+  double& totalFrictionalWork();
 
-  double& staticFrictionalWork() {
-    return energies[6];
-  }
+  double& staticFrictionalWork();
 
-  double& plasticMoment() {
-    return energies[7];
-  }
-
-
+  double& plasticMoment();
 };
 
 class EnergyOutput : public Module {
-public:
-  void init(
-      GlobalData* newGlobal,
-      seissol::initializers::DynamicRupture* newDynRup,
-      seissol::initializers::LTSTree* newDynRuptTree,
-      MeshReader* newMeshReader,
-      seissol::initializers::LTSTree* newLtsTree,
-      seissol::initializers::LTS* newLts,
-      seissol::initializers::Lut* newLtsLut,
-      bool newUsePlasticity,
-      double newSyncPointInterval) {
+  public:
+  void init(GlobalData* newGlobal,
+            seissol::initializers::DynamicRupture* newDynRup,
+            seissol::initializers::LTSTree* newDynRuptTree,
+            MeshReader* newMeshReader,
+            seissol::initializers::LTSTree* newLtsTree,
+            seissol::initializers::LTS* newLts,
+            seissol::initializers::Lut* newLtsLut,
+            bool newIsPlasticityEnabled,
+            bool newIsTerminalOutputEnabled,
+            const std::string& outputFileNamePrefix,
+            double newSyncPointInterval);
 
-    global = newGlobal;
-    dynRup = newDynRup;
-    dynRupTree = newDynRuptTree;
-    meshReader = newMeshReader;
-    ltsTree = newLtsTree;
-    lts = newLts;
-    ltsLut = newLtsLut;
-    usePlasticity = newUsePlasticity;
+  void syncPoint(double time) override;
 
-    Modules::registerHook(*this, SIMULATION_START);
-    Modules::registerHook(*this, SYNCHRONIZATION_POINT);
-    setSyncInterval(newSyncPointInterval);
-  }
+  void simulationStart() override;
 
-  void syncPoint(double time) override {
-    logInfo() << "Energies at time" << time;
-    computeEnergies();
-    reduceEnergies();
-    printEnergies();
-  }
-
-private:
+  private:
   real computePlasticMoment();
 
-  real computeStaticWork(
-                         const real* degreesOfFreedomPlus,
+  real computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
                          DRFaceInformation const& faceInfo,
                          DRGodunovData const& godunovData,
@@ -103,14 +73,25 @@ private:
 
   void printEnergies();
 
-  const GlobalData* global;
-  seissol::initializers::DynamicRupture* dynRup;
-  seissol::initializers::LTSTree* dynRupTree;
-  MeshReader* meshReader;
-  seissol::initializers::LTSTree* ltsTree;
-  seissol::initializers::LTS* lts;
-  seissol::initializers::Lut* ltsLut;
-  bool usePlasticity;
+  void writeHeader();
+
+  void writeEnergies(double time);
+
+  bool isEnabled = false;
+  bool isTerminalOutputEnabled = false;
+  bool isFileOutputEnabled = false;
+  bool isPlasticityEnabled = false;
+
+  std::string outputFileName;
+  std::ofstream out;
+
+  const GlobalData* global = nullptr;
+  seissol::initializers::DynamicRupture* dynRup = nullptr;
+  seissol::initializers::LTSTree* dynRupTree = nullptr;
+  MeshReader* meshReader = nullptr;
+  seissol::initializers::LTSTree* ltsTree = nullptr;
+  seissol::initializers::LTS* lts = nullptr;
+  seissol::initializers::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
 };
