@@ -564,7 +564,8 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  //seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  seissol::initializers::ElementAverageGenerator queryGen(seissol::SeisSol::main.meshReader());
   auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
     waveSpeeds[pos] = material->getMaxWaveSpeed();
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();

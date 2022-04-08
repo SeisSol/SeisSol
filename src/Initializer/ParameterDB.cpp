@@ -48,6 +48,7 @@
 #include <cmath>
 #include "ParameterDB.h"
 
+#include "SeisSol.h"
 #include "easi/YAMLParser.h"
 #include "easi/ResultAdapter.h"
 #include "Numerical_aux/Quadrature.h"
@@ -144,6 +145,10 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
       elemVolumes[elem] += a[i] * bxc[i];
     }
     elemVolumes[elem] = abs(elemVolumes[elem]) / 6;
+
+    if (!elemVolumes[elem]) {
+      elemVolumes[elem] = 1;
+    }
   }
 
   return elemVolumes;
@@ -365,7 +370,41 @@ namespace seissol {
           materialsMean[i].lambda = (4 * pow(materialsMean[i].mu, 2) * vERatioMean[i]) / (1 - 6 * materialsMean[i].mu * vERatioMean[i]);
 
           m_materials->at(i) = seissol::model::ElasticMaterial(materialsMean[i]);
-        } 
+        }
+        logInfo() << "Elastic evaluate called for ElementAverageGenerator";
+        // Debugging comparison to barycentered parameter values
+        ElementBarycentreGenerator baryGen(seissol::SeisSol::main.meshReader());
+        easi::Query baryQuery = baryGen.generate();
+
+        std::vector<seissol::model::ElasticMaterial> baryMaterials(baryQuery.numPoints());
+        easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> baryAdapter(baryMaterials.data());
+        MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(baryAdapter);
+        model->evaluate(baryQuery, baryAdapter);
+
+        for (unsigned i = 0; i < numElems; ++i) {
+          m_materials->at(i) = seissol::model::ElasticMaterial(baryMaterials[i]);
+        }
+
+        for (unsigned i = 0; i < numElems; ++i) {
+          double diff = std::fabs(materialsMean[i].rho - baryMaterials[i].rho);
+          if (diff > 1E-6) {
+            logInfo() << "Element " << i << " rho difference from bary is " << diff;
+          }
+          diff = std::fabs(materialsMean[i].mu - baryMaterials[i].mu);
+          if (diff > 1E-6) {
+            logInfo() << "Element " << i << " mu difference from bary is " << diff;
+          }
+          diff = std::fabs(materialsMean[i].lambda - baryMaterials[i].lambda);
+          if (diff > 1E-6) {
+            logInfo() << "Element " << i << " lambda difference from bary is " << diff;
+          }
+        }
+      } else {
+        unsigned numPoints = query.numPoints();
+        for(unsigned i = 0; i < numPoints; ++i) {
+          m_materials->at(i) = seissol::model::ElasticMaterial(elasticMaterials[i]);
+        }
+        logInfo() << "Elastic evaluate called for other generator";
       }
 
       delete model;
