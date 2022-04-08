@@ -62,7 +62,8 @@ void EnergyOutput::init(GlobalData* newGlobal,
 
 void EnergyOutput::syncPoint(double time) {
   assert(isEnabled);
-  logInfo() << "Writing energy output at time" << time;
+  const auto rank = MPI::mpi.rank();
+  logInfo(rank) << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
   if (isTerminalOutputEnabled) {
@@ -71,7 +72,7 @@ void EnergyOutput::syncPoint(double time) {
   if (isFileOutputEnabled) {
     writeEnergies(time);
   }
-  logInfo() << "Writing energy output at time" << time << "Done.";
+  logInfo(rank) << "Writing energy output at time" << time << "Done.";
 }
 
 void EnergyOutput::simulationStart() {
@@ -365,13 +366,13 @@ void EnergyOutput::reduceEnergies() {
 void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
 
-  logInfo(rank) << "Total gravitational energy:" << energiesStorage.gravitationalEnergy();
-  logInfo(rank) << "Total acoustic kinetic energy:" << energiesStorage.acousticKineticEnergy();
-  logInfo(rank) << "Total acoustic energy:" << energiesStorage.acousticEnergy();
-  logInfo(rank) << "Total elastic kinetic energy:" << energiesStorage.elasticKineticEnergy();
-  logInfo(rank) << "Total elastic strain energy:" << energiesStorage.elasticEnergy();
-
   if (rank == 0) {
+    logInfo(rank) << "Total gravitational energy:" << energiesStorage.gravitationalEnergy();
+    logInfo(rank) << "Total acoustic kinetic energy:" << energiesStorage.acousticKineticEnergy();
+    logInfo(rank) << "Total acoustic energy:" << energiesStorage.acousticEnergy();
+    logInfo(rank) << "Total elastic kinetic energy:" << energiesStorage.elasticKineticEnergy();
+    logInfo(rank) << "Total elastic strain energy:" << energiesStorage.elasticEnergy();
+
     const auto totalFrictionalWork = energiesStorage.totalFrictionalWork();
     const auto staticFrictionalWork = energiesStorage.staticFrictionalWork();
     const auto radiatedEnergy = totalFrictionalWork - staticFrictionalWork;
