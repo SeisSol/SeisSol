@@ -199,8 +199,9 @@ void EnergyOutput::computeEnergies() {
 
   const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
+  // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids it
 #ifdef _OPENMP
-#pragma omp parallel for default(none) schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(g, elements, vertices, lts, ltsLut, global)
+#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
 #ifdef USE_ELASTIC
