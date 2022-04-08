@@ -177,9 +177,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                           faultStresses.xyStress[timeIndex][pointIndex];
+                           faultStresses.lockedTraction1[timeIndex][pointIndex];
       real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                           faultStresses.xzStress[timeIndex][pointIndex];
+                           faultStresses.lockedTraction2[timeIndex][pointIndex];
       absoluteShearStress[pointIndex] = misc::magnitude(totalStressXY, totalStressXZ);
 
       // The following process is adapted from that described by Kaneko et al. (2008)
@@ -277,9 +277,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
       real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                           faultStresses.xyStress[timeIndex][pointIndex];
+                           faultStresses.lockedTraction1[timeIndex][pointIndex];
       real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                           faultStresses.xzStress[timeIndex][pointIndex];
+                           faultStresses.lockedTraction2[timeIndex][pointIndex];
       // update stress change
       this->tractionXY[ltsFace][pointIndex] =
           (totalStressXY / absoluteShearStress[pointIndex]) * strength -
@@ -296,12 +296,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       // Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate
       // caused by a free surface!)
-      this->slipRate1[ltsFace][pointIndex] =
-          -this->impAndEta[ltsFace].invEtaS *
-          (this->tractionXY[ltsFace][pointIndex] - faultStresses.xyStress[timeIndex][pointIndex]);
-      this->slipRate2[ltsFace][pointIndex] =
-          -this->impAndEta[ltsFace].invEtaS *
-          (this->tractionXZ[ltsFace][pointIndex] - faultStresses.xzStress[timeIndex][pointIndex]);
+      this->slipRate1[ltsFace][pointIndex] = -this->impAndEta[ltsFace].invEtaS *
+                                             (this->tractionXY[ltsFace][pointIndex] -
+                                              faultStresses.lockedTraction1[timeIndex][pointIndex]);
+      this->slipRate2[ltsFace][pointIndex] = -this->impAndEta[ltsFace].invEtaS *
+                                             (this->tractionXZ[ltsFace][pointIndex] -
+                                              faultStresses.lockedTraction2[timeIndex][pointIndex]);
 
       // TU 07.07.16: correct slipRate1 and slipRate2 to avoid numerical errors
       real locSlipRateMagnitude = misc::magnitude(this->slipRate1[ltsFace][pointIndex],
@@ -314,8 +314,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       }
 
       // Save traction for flux computation
-      tractionResults.xyTraction[timeIndex][pointIndex] = this->tractionXY[ltsFace][pointIndex];
-      tractionResults.xzTraction[timeIndex][pointIndex] = this->tractionXZ[ltsFace][pointIndex];
+      tractionResults.updatedTraction1[timeIndex][pointIndex] =
+          this->tractionXY[ltsFace][pointIndex];
+      tractionResults.updatedTraction2[timeIndex][pointIndex] =
+          this->tractionXZ[ltsFace][pointIndex];
 
       // update directional slip
       this->slip1[ltsFace][pointIndex] +=

@@ -11,10 +11,10 @@ void NoFault::updateFrictionAndSlip(FaultStresses& faultStresses,
                                     unsigned& ltsFace,
                                     unsigned& timeIndex) {
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    tractionResults.xyTraction[timeIndex][pointIndex] =
-        faultStresses.xyStress[timeIndex][pointIndex];
-    tractionResults.xzTraction[timeIndex][pointIndex] =
-        faultStresses.xzStress[timeIndex][pointIndex];
+    tractionResults.updatedTraction1[timeIndex][pointIndex] =
+        faultStresses.lockedTraction1[timeIndex][pointIndex];
+    tractionResults.updatedTraction2[timeIndex][pointIndex] =
+        faultStresses.lockedTraction2[timeIndex][pointIndex];
   }
 }
 void NoFault::preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,

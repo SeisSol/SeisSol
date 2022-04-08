@@ -116,11 +116,11 @@ class BaseFrictionLaw : public FrictionSolver {
             etaP * (qIMinus[o][6][i] - qIPlus[o][6][i] + qIPlus[o][0][i] * invZp +
                     qIMinus[o][0][i] * invZpNeig);
 
-        faultStresses.xyStress[o][i] =
+        faultStresses.lockedTraction1[o][i] =
             etaS * (qIMinus[o][7][i] - qIPlus[o][7][i] + qIPlus[o][3][i] * invZs +
                     qIMinus[o][3][i] * invZsNeig);
 
-        faultStresses.xzStress[o][i] =
+        faultStresses.lockedTraction2[o][i] =
             etaS * (qIMinus[o][8][i] - qIPlus[o][8][i] + qIPlus[o][5][i] * invZs +
                     qIMinus[o][5][i] * invZsNeig);
       }
@@ -171,8 +171,8 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
         auto normalStress = faultStresses.normalStress[o][i];
-        auto xyTraction = tractionResults.xyTraction[o][i];
-        auto xzTraction = tractionResults.xzTraction[o][i];
+        auto xyTraction = tractionResults.updatedTraction1[o][i];
+        auto xzTraction = tractionResults.updatedTraction2[o][i];
 
         imposedStateM[0][i] += weight * normalStress;
         imposedStateM[3][i] += weight * xyTraction;

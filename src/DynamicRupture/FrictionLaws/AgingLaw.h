@@ -18,7 +18,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
 
   /**
    * Integrates the state variable ODE in time
-   * \f[ \frac{\partial \Psi}{\partial t} = 1 - \frac{V}{L} \Psi. \f]
+   * \f[ \frac{\partial \Psi}{\partial t} = 1 - \frac{V}{L} \Psi \f]
    * Analytic solution:
    * \f[\Psi(t) = - \Psi_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
    * -\frac{V}{L} \cdot t\right). \f]

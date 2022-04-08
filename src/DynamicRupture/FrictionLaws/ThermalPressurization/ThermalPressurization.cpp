@@ -4,7 +4,7 @@ namespace seissol::dr::friction_law {
 
 static const GridPoints<misc::numberOfTPGridPoints> tpGridPoints;
 static const InverseFourierCoefficients<misc::numberOfTPGridPoints> tpInverseFourierCoefficients;
-static const HeatSource<misc::numberOfTPGridPoints> heatSource;
+static const GaussianHeatSource<misc::numberOfTPGridPoints> heatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                                seissol::initializers::DynamicRupture* dynRup,
@@ -68,7 +68,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   real pressureUpdate = 0.0;
 
   real tauV = faultStrength[ltsFace][pointIndex] * slipRateMagnitude;
-  real lambdaPrime = drParameters.porePressureChange * drParameters.thermalDiffusivity /
+  real lambdaPrime = drParameters.undrainedTPResponse * drParameters.thermalDiffusivity /
                      (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters.thermalDiffusivity);
 
 #pragma omp simd
@@ -76,12 +76,13 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w
     // \hat{l} / w
-    real tmp =
+    real squaredNormalizedTPGrid =
         misc::power<2>(tpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
     // This is exp(-A dt) in equation (10)
-    real expTheta = std::exp(-drParameters.thermalDiffusivity * deltaT * tmp);
-    real expSigma = std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * tmp);
+    real expTheta = std::exp(-drParameters.thermalDiffusivity * deltaT * squaredNormalizedTPGrid);
+    real expSigma =
+        std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * squaredNormalizedTPGrid);
 
     // Temperature and pressure diffusion in spectral domain over timestep
     // This is + F(t) exp(-A dt) in equation (10)
@@ -90,15 +91,16 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // Heat generation during timestep
     // This is B/A * (1 - exp(-A dt)) in equation (10)
-    // heatSource stores \exp(-\hat{l}^2 / 2)
+    // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
     real omega = tauV * heatSource[tpGridPointIndex];
-    real thetaGeneration = omega /
-                           (drParameters.heatCapacity * tmp * drParameters.thermalDiffusivity) *
-                           (1.0 - expTheta);
-    real sigmaGeneration =
-        omega * (drParameters.porePressureChange + lambdaPrime) /
-        (drParameters.heatCapacity * tmp * hydraulicDiffusivity[ltsFace][pointIndex]) *
-        (1.0 - expSigma);
+    real thetaGeneration =
+        omega /
+        (drParameters.heatCapacity * squaredNormalizedTPGrid * drParameters.thermalDiffusivity) *
+        (1.0 - expTheta);
+    real sigmaGeneration = omega * (drParameters.undrainedTPResponse + lambdaPrime) /
+                           (drParameters.heatCapacity * squaredNormalizedTPGrid *
+                            hydraulicDiffusivity[ltsFace][pointIndex]) *
+                           (1.0 - expSigma);
 
     // Sum both contributions up
     thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = thetaDiffusion + thetaGeneration;

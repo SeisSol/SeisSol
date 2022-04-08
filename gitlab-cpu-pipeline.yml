@@ -43,7 +43,6 @@ ci_builder_pre:
         - pip3 install sphinx
         - pip3 install sphinx_rtd_theme
         - pip3 install 'seissolxdmf>=0.1.0'
-        - pip3 install h5py
         - tar -xzf netcdf-4.6.1.tar.gz
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip libxsmm-1.17.zip

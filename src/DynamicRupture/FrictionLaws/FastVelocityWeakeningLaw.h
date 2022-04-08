@@ -55,10 +55,10 @@ class FastVelocityWeakeningLaw
         muW + (lowVelocityFriction - muW) /
                   std::pow(1.0 + misc::power<8>(localSlipRate / localSrW), 1.0 / 8.0);
     // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
-    real steadyStateStateVariable = localA * log(2.0 * this->drParameters.rsSr0 / localSlipRate *
-                                                 (exp(steadyStateFrictionCoefficient / localA) -
-                                                  exp(-steadyStateFrictionCoefficient / localA)) /
-                                                 2.0);
+    real steadyStateStateVariable =
+        localA * std::log(this->drParameters.rsSr0 / localSlipRate *
+                          (std::exp(steadyStateFrictionCoefficient / localA) -
+                           std::exp(-steadyStateFrictionCoefficient / localA)));
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
@@ -103,7 +103,7 @@ class FastVelocityWeakeningLaw
                           real localStateVariable) {
     real localA = this->a[ltsFace][pointIndex];
     real c = 0.5 / this->drParameters.rsSr0 * std::exp(localStateVariable / localA);
-    return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
+    return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1.0);
   }
 
   /**

@@ -54,9 +54,9 @@ class InverseFourierCoefficients {
  * Stores the heat generation (without tauV) \f$\exp\left(\hat{l}^2/2\right) / \sqrt{2 \pi}\f$.
  */
 template <size_t N>
-class HeatSource {
+class GaussianHeatSource {
   public:
-  constexpr HeatSource() {
+  constexpr GaussianHeatSource() {
     GridPoints<N> localGridPoints;
     real factor = 1 / std::sqrt(2.0 * M_PI);
 

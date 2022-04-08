@@ -39,7 +39,7 @@ struct DRParameters {
   real muW{0.0};
   real thermalDiffusivity{0.0};
   real heatCapacity{0.0};
-  real porePressureChange{0.0};
+  real undrainedTPResponse{0.0};
   real initialTemperature{0.0};
   real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
@@ -86,7 +86,7 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     // Thermal Pressurization parameters
     initializers::updateIfExists(yamlParams, "alpha_th", drParameters.thermalDiffusivity);
     initializers::updateIfExists(yamlParams, "rho_c", drParameters.heatCapacity);
-    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.porePressureChange);
+    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.undrainedTPResponse);
     initializers::updateIfExists(yamlParams, "initemp", drParameters.initialTemperature);
     initializers::updateIfExists(yamlParams, "inipressure", drParameters.initialPressure);
 

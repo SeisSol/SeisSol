@@ -36,16 +36,16 @@ struct ImpedancesAndEta {
  */
 struct FaultStresses {
   real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xyStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xzStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real lockedTraction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real lockedTraction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
 };
 
 /**
  * Struct that contains all traction results
  */
 struct TractionResults {
-  real xyTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xzTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real updatedTraction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real updatedTraction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
 };
 
 } // namespace seissol::dr
