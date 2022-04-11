@@ -99,6 +99,7 @@ Characteristics of the SeisSol simulation software are:
   simmodelerCAD-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
   generating-a-megathrust-geometry
+  fully-coupled-mesh-tutorial
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad

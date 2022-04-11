@@ -35,7 +35,7 @@ Travelling wave
 Impose one period of a sinusoidal planar wave as initial condition, see for example the video below.
 There, we impose a P wave travelling to the left. The wave speed at the top and bottom is :math:`2 m/s` and :math:`2.83 m/s` in the middle.
 
-.. figure:: LatexFigures/travelling.gif
+.. figure:: LatexFigures/travelling.*
    :alt: Travelling wave GIF
    :width: 9.00000cm
 
