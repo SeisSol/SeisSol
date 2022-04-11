@@ -257,7 +257,8 @@ void EnergyOutput::computeEnergies() {
         const auto K = material.local.lambda;
         const auto p = numSub(qp, pIdx);
 
-        totalAcousticEnergyLocal += 0.5 * curWeight * K * p * p;
+        const double curAcousticEnergy = (p * p) / ( 2 * K);
+        totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
       } else {
         // Elastic
