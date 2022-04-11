@@ -42,6 +42,8 @@ public:
   [[nodiscard]] bool checkIfFinished() const override;
   void reset(double newSyncTime) override;
 
+  ~ThreadedCommunicationManager() override;
+
 private:
   std::thread thread;
   std::atomic<bool> shouldReset;

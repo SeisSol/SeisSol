@@ -82,5 +82,11 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
   });
 }
 
+seissol::time_stepping::ThreadedCommunicationManager::~ThreadedCommunicationManager() {
+  if (thread.joinable()) {
+    thread.join();
+  }
+}
+
 
 
