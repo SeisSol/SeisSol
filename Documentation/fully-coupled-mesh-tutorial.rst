@@ -22,7 +22,8 @@ First, we download topography and bathymetry data from GEBCO
 - Note that we downsample the topography data by a factor 2 for dealing with a reasonable size dataset in this tutorial.
 - Note also that we use a custom transverse Mercator roughly centered at the domain center.
 - With the option ``--change_zero_elevation 1.0``, we move the nodes with zero elevation to 1.0 m. This avoids having to intersect locally coplanar surfaces.
-- With the option ``--smooth 100``, we smooth the topography data which fall in the range :math:`\pm` 100 m. This facilitates the intersection of the sea surface with the topography and allows a smoother coastline (which can else have a saw-tooth shape due to rounded elevation data, stored as integers in Gebco files).
+- With the option ``--smooth 100``, we replace the elevation of topography nodes with z coordinates in the range :math:`\pm` 100 m by spatially smoothed (using a 2D Gaussian kernel) values.
+This facilitates the intersection of the sea surface with the topography and allows a smoother coastline (which can else have a saw-tooth shape due to rounded elevation data, stored as integers in Gebco files).
 
 .. code-block:: bash
 
@@ -67,7 +68,7 @@ The next step consists of loading `domain_box.stl` and intersecting it with the 
 The union is done with SimModeler11.0-220403-dev (as it fails with SimModeler10.0).
 We then clean the model of the upper part of domain_box, the part of the topography outside the domain box, and the smaller water layer region.
 The sea floor below the removed smaller water layer region can be merged with ``Discrete->Combine Faces``).
-The model obtained has 2 regions.
+The obtained model has 2 regions.
 
 
 .. figure:: LatexFigures/Samos_2regions.png
