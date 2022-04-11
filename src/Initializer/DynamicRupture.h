@@ -62,12 +62,12 @@ namespace seissol {
 
 #ifndef ACL_DEVICE
 #	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::Standard
-#	define MEMKIND_Q_INTERPOLATED seissol::memory::Standard
 #	define MEMKIND_IMPOSED_STATE seissol::memory::Standard
+#       define MEMKIND_STANDARD seissol::memory::Standard
 #else
 #	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::DeviceUnifiedMemory
-#	define MEMKIND_Q_INTERPOLATED seissol::memory::PinnedMemory
-#	define MEMKIND_IMPOSED_STATE seissol::memory::DeviceGlobalMemory
+#	define MEMKIND_IMPOSED_STATE seissol::memory::DeviceUnifiedMemory
+#       define MEMKIND_STANDARD seissol::memory::DeviceUnifiedMemory
 #endif
 
 
@@ -112,13 +112,6 @@ public:
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;
   ScratchpadMemory                        idofsMinusOnDevice;
-  ScratchpadMemory                        QInterpolatedPlusOnDevice;
-  ScratchpadMemory                        QInterpolatedMinusOnDevice;
-
-  ScratchpadMemory                        QInterpolatedPlusOnHost;
-  ScratchpadMemory                        QInterpolatedMinusOnHost;
-  ScratchpadMemory                        imposedStatePlusOnHost;
-  ScratchpadMemory                        imposedStateMinusOnHost;
 #endif
 
   virtual void addTo(LTSTree& tree) {
@@ -131,40 +124,33 @@ public:
     tree.addVar(          fluxSolverPlus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         fluxSolverMinus,             mask,                 1,      MEMKIND_NEIGHBOUR_INTEGRATION );
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      impAndEta,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      ruptureTime,                    mask,                 1,      seissol::memory::Standard );
+    tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      ruptureTime,                    mask,                 1,      MEMKIND_STANDARD );
 
-    tree.addVar(ruptureTimePending, mask, 1, seissol::memory::Standard);
-    tree.addVar(dynStressTime, mask, 1, seissol::memory::Standard);
-    tree.addVar(dynStressTimePending, mask, 1, seissol::memory::Standard);
-    tree.addVar(mu, mask, 1, seissol::memory::Standard);
-    tree.addVar(accumulatedSlipMagnitude, mask, 1, seissol::memory::Standard);
-    tree.addVar(slip1, mask, 1, seissol::memory::Standard);
-    tree.addVar(slip2, mask, 1, seissol::memory::Standard);
-    tree.addVar(slipRateMagnitude, mask, 1, seissol::memory::Standard);
-    tree.addVar(slipRate1, mask, 1, seissol::memory::Standard);
-    tree.addVar(slipRate2, mask, 1, seissol::memory::Standard);
-    tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard);
+    tree.addVar(ruptureTimePending, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(dynStressTime, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(dynStressTimePending, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(mu, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(accumulatedSlipMagnitude, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slip1, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slip2, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slipRateMagnitude, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slipRate1, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(slipRate2, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(peakSlipRate, mask, 1, MEMKIND_STANDARD);
     tree.addVar(traction1, mask, 1, seissol::memory::Standard);
     tree.addVar(traction2, mask, 1, seissol::memory::Standard);
-    tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard);
-    tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(averagedSlip, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, MEMKIND_STANDARD);
 
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(  idofsMinusOnDevice,             1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  QInterpolatedPlusOnDevice,      1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  QInterpolatedMinusOnDevice,     1,      seissol::memory::DeviceGlobalMemory);
-
-    tree.addScratchpadMemory(  QInterpolatedPlusOnHost,         1,      seissol::memory::PinnedMemory);
-    tree.addScratchpadMemory(  QInterpolatedMinusOnHost,        1,      seissol::memory::PinnedMemory);
-    tree.addScratchpadMemory(  imposedStatePlusOnHost,          1,      seissol::memory::PinnedMemory);
-    tree.addScratchpadMemory(  imposedStateMinusOnHost,         1,      seissol::memory::PinnedMemory);
 #endif
   }
 };

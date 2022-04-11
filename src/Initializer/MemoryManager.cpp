@@ -464,22 +464,11 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
-  constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size() * sizeof(real);
-  constexpr size_t imposedStateSize = tensor::QInterpolated::size() * sizeof(real);
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto layer = m_dynRupTree.beginLeaf(); layer != m_dynRupTree.endLeaf(); ++layer) {
     const auto layerSize = layer->getNumberOfCells();
-    layer->setScratchpadSize(m_dynRup->QInterpolatedPlusOnDevice, QInterpolatedSize * layerSize);
-    layer->setScratchpadSize(m_dynRup->QInterpolatedMinusOnDevice, QInterpolatedSize * layerSize);
     layer->setScratchpadSize(m_dynRup->idofsPlusOnDevice, idofsSize * layerSize);
     layer->setScratchpadSize(m_dynRup->idofsMinusOnDevice, idofsSize * layerSize);
-
-    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
-    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
-    layer->setScratchpadSize(m_dynRup->QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup->QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup->imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
-    layer->setScratchpadSize(m_dynRup->imposedStateMinusOnHost, LowerStageFactor *  imposedStateSize);
   }
   m_dynRupTree.allocateScratchPads();
 #endif

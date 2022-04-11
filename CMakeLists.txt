@@ -348,7 +348,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     set(WARNINGS "--display_error_number --diag_suppress186")
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.1")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
       set(WARNINGS "${WARNINGS} --diag_suppress1")
     endif()
 
