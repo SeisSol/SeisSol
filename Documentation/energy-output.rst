@@ -17,7 +17,7 @@ The energy output computes the energy of the simulation. It is divided into mult
     - Elastic kinetic energy 
         :math:`\int_{\Omega_e} \frac{1}{2} \rho v^2 \,\mathbf{dx}`, with :math:`\rho` the density and :math:`v` the velocity.
     - Elastic energy 
-        :math:`\int_{\Omega_e} \frac{1}{2} \sigma_{ij} c_{ijkl} \sigma_{kl} \,\mathbf{dx}`, with  :math:`\sigma_{ij}` the stress tensor and :math:`c_{ijkl}` the elastic moduli tensor relating stress and strain. It reduces for isotropic materials to :math:`\int_{\Omega_e} \frac{1}{2\mu} (\sigma_{ij} \sigma_{ij} -\frac{\lambda}{3\lambda+2\mu} \sigma_{kk}^2)\,\mathbf{dx}`, with :math:`\lambda` and :math:`\mu` the Lame coefficients.
+        :math:`\int_{\Omega_e} \frac{1}{2} \epsilon_{ij} \sigma_{kl} \,\mathbf{dx}`, with  :math:`\epsilon_{ij}` the strain tensor and :math:`\sigma_{ij}` the stress tensor. It reduces for isotropic materials to :math:`\int_{\Omega_e} \frac{1}{2\mu} (\sigma_{ij} \sigma_{ij} -\frac{\lambda}{3\lambda+2\mu} \sigma_{kk}^2)\,\mathbf{dx}`, with :math:`\lambda` and :math:`\mu` the Lame coefficients.
 - Earthquake source energy
     - Total frictional work 
         :math:`\int_{0}^{t_f} \int_{\Sigma} \frac{1}{2} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{u}(t) \,\mathbf{dx}dt` with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t)` the shear traction change, and :math:`\Delta\mathbf{u}(t)` the fault slip, and :math:`t_f` the end time of the simulation.
