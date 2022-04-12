@@ -125,7 +125,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
 std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolumes() {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
-  std::vector<double> elemVolumes(elements.size());
+  std::vector<double> elemVolumes(elements.size(), 0.0);
   std::array<double, 3> a{};
   std::array<double, 3> b{};
   std::array<double, 3> c{};
@@ -138,16 +138,16 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
       b[i] = vertices[ elements[elem].vertices[2] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
       c[i] = vertices[ elements[elem].vertices[3] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
     }
-    bxc[0] = b[2] * c[3] - b[3] * c[2];
-    bxc[1] = b[3] * c[1] - b[1] * c[3];
-    bxc[2] = b[1] * c[2] - b[2] * c[1];
+    bxc[0] = b[1] * c[2] - b[2] * c[1];
+    bxc[1] = b[2] * c[0] - b[0] * c[2];
+    bxc[2] = b[0] * c[1] - b[1] * c[0];
     for (int i = 0; i < 3; ++i) {
       elemVolumes[elem] += a[i] * bxc[i];
     }
     elemVolumes[elem] = abs(elemVolumes[elem]) / 6;
 
     if (!elemVolumes[elem]) {
-      elemVolumes[elem] = 1;
+      logError() << "ElementAverageGenerator: Tetrahedron volume was 0.";
     }
   }
 
