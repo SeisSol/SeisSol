@@ -83,13 +83,14 @@ Building SeisSol
 ::
 
   ##### module load for SeisSol
-  module load intel-mpi intel
-  module load gcc/9 cmake python/3.8.8-extended
+  module load gcc
+  module load cmake/3.21.4
+  module load python/3.8.11-extended
   module load libszip/2.1.1
-  module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
-  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
-  module load numactl
-  module load yaml-cpp/0.6.3-intel19
+  module load parmetis/4.0.3-intel21-impi-i64-r32 metis/5.1.0-intel21-i64-r64
+  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel21-impi
+  module load numactl/2.0.14-intel21
+  module load yaml-cpp/0.7.0-intel21
 
   ####### for pspamm.py
   export PATH=~/bin:$PATH
