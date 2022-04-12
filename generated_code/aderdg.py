@@ -97,14 +97,12 @@ class ADERDGBase(ABC):
                           namespace='nodal')
     )
     self.db.update(
-      parseXMLMatrixFile("{}/nodal/gravitational_energy_matrices_{}.xml".format(
-        matricesDir,
-        self.order,
-        alignStride=self.alignStride
-      ))
+      parseXMLMatrixFile(f"{matricesDir}/nodal/gravitational_energy_matrices_{self.order}.xml",
+                         alignStride=self.alignStride)
     )
 
 
+    # Note: MV2nTo2m is Vandermonde matrix from nodal to modal representation WITHOUT mass matrix factor
     self.V2nTo2JacobiQuad = tensor_from_constant_expression('V2nTo2JacobiQuad', self.db.V2mTo2JacobiQuad['ik'] * \
                                                              self.db.MV2nTo2m['kj'],
                                                              target_indices='ij')
