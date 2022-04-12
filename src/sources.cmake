@@ -130,6 +130,9 @@ src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
 
+src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
+src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp
+
 src/DynamicRupture/Output/Base.cpp
 src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
 src/DynamicRupture/Output/OutputAux.cpp
