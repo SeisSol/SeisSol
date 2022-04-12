@@ -143,10 +143,11 @@ For that modules and compiler need to be switched:
 
 ::
 
-    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.10-gcc8-impi
-    module unload intel-mpi intel
-    module load intel-mpi/2019-gcc
-    module switch yaml-cpp yaml-cpp/0.6.3
+    module load parmetis/4.0.3-gcc11-impi-i64-r32 metis/5.1.0-gcc11-i64-r64
+    module load netcdf-hdf5-all/4.7_hdf5-1.10-gcc11-impi
+    module load numactl/2.0.14-gcc11
+    module load yaml-cpp/0.7.0
+
     export CC=mpigcc
     export CXX=mpigxx
     export FC=mpifc
