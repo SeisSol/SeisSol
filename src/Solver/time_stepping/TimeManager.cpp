@@ -242,48 +242,68 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   }
 
   bool finished = false; // Is true, once all clusters reached next sync point
-  while (!finished) {
-    finished = true;
-    communicationManager->progression();
+#pragma omp parallel
+  {
+#pragma omp single
+    while (!finished) {
+      finished = true;
+      communicationManager->progression();
 
-    // Update all high priority clusters
-    std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-      if (cluster->getNextLegalAction() == ActorAction::Predict) {
-        communicationManager->progression();
-        cluster->act();
-      }
-    });
-    std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
-        communicationManager->progression();
-        cluster->act();
-      }
-    });
+      // Update all high priority clusters
+      std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+        if (cluster->getNextLegalAction() == ActorAction::Predict) {
+          communicationManager->progression();
+//#pragma omp task
+          cluster->act();
+        }
+      });
 
-    // Update one low priority cluster
-    if (auto predictable = std::find_if(
-          lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
-            return c->getNextLegalAction() == ActorAction::Predict;
-          }
-      );
-        predictable != lowPrioClusters.end()) {
-      (*predictable)->act();
-    } else {
+#pragma omp taskwait
+
+      std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+        if (cluster->getNextLegalAction() != ActorAction::Predict &&
+            cluster->getNextLegalAction() != ActorAction::Nothing) {
+          communicationManager->progression();
+//#pragma omp task
+          cluster->act();
+        }
+      });
+
+      // Taskwait needed here because right now becuase DR is not threadsafe
+      // between copy and interior clusters.
+#pragma omp taskwait
+
+      // Update one low priority cluster
+      if (auto predictable = std::find_if(
+            lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
+              return c->getNextLegalAction() == ActorAction::Predict;
+            }
+        );
+          predictable != lowPrioClusters.end()) {
+#pragma omp task
+        (*predictable)->act();
+      } else {
+      }
+      if (auto correctable = std::find_if(
+            lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
+              return c->getNextLegalAction() != ActorAction::Predict && c->getNextLegalAction() != ActorAction::Nothing;
+            }
+        );
+          correctable != lowPrioClusters.end()) {
+#pragma omp task
+        (*correctable)->act();
+      } else {
+      }
+      finished = std::all_of(clusters.begin(), clusters.end(),
+                             [](auto& c) {
+                               return c->synced();
+                             });
+      finished &= communicationManager->checkIfFinished();
+
+      // Taskwait needed because we otherwise can schedule same cluster twice
+      // leading to segfaults. Can be fixed with mutex.
+#pragma omp taskwait
     }
-    if (auto correctable = std::find_if(
-          lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
-            return c->getNextLegalAction() != ActorAction::Predict && c->getNextLegalAction() != ActorAction::Nothing;
-          }
-      );
-        correctable != lowPrioClusters.end()) {
-      (*correctable)->act();
-    } else {
-    }
-    finished = std::all_of(clusters.begin(), clusters.end(),
-                           [](auto& c) {
-      return c->synced();
-    });
-    finished &= communicationManager->checkIfFinished();
   }
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();

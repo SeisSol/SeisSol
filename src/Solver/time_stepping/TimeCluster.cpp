@@ -184,6 +184,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   if (m_numberOfCellToPointSourcesMappings != 0) {
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
+  //#pragma omp taskloop
 #endif
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
       unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
@@ -239,6 +240,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
+  //#pragma omp taskloop private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
@@ -445,7 +447,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   kernels::LocalTmp tmp{};
 
 #ifdef _OPENMP
-  #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer, tmp) schedule(static)
+#pragma omp taskloop private(l_bufferPointer, l_integrationBuffer, tmp) default(shared)
 #endif
   for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
     auto data = loader.entry(l_cell);
