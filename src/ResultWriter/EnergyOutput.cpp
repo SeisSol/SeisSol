@@ -204,7 +204,7 @@ void EnergyOutput::computeEnergies() {
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
-#ifdef USE_ELASTIC
+#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
     real volume = MeshTools::volume(elements[elementId], vertices);
     CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
@@ -271,12 +271,12 @@ void EnergyOutput::computeEnergies() {
 
         const auto lambda = material.local.lambda;
         const auto mu = material.local.mu;
-        const auto dilation = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
+        const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
         auto computeStrain = [&](int i, int j) {
           double strain = 0.0;
-          const auto factor = -1.0 * (lambda) / (2 * mu * (3 * lambda + 2 * mu));
+          const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
           if (i == j) {
-            strain += factor * dilation;
+            strain += factor * sumUniaxialStresses;
           }
           strain += 1.0 / (2.0 * mu) * getStress(i, j);
           return strain;
@@ -297,6 +297,8 @@ void EnergyOutput::computeEnergies() {
       if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
         continue;
 
+      // Displacements are stored in face-aligned coordinate system.
+      // We need to rotate it to the global coordinate system.
       auto& boundaryMapping = boundaryMappings[face];
       auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
       alignas(ALIGNMENT)
@@ -333,7 +335,7 @@ void EnergyOutput::computeEnergies() {
         // derivation.
         const auto displ = rotatedFaceDisplacement(i, 0);
         const auto curEnergy = 0.5 * rho * g * displ * displ;
-        const auto curWeight = 2 * surface * quadratureWeightsTri[i];
+        const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
         totalGravitationalEnergyLocal += curWeight * curEnergy;
       }
     }
