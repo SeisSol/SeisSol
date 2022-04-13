@@ -9,12 +9,15 @@ namespace seissol::dr::friction_law {
 // as a consequence, the SR is affected the AlmostZero value when too small
 // For double precision 1e-45 is a chosen by trial and error. For single precision, this value is
 // too small, so we use 1e-35
-template <typename T>
-constexpr real almostZero = std::numeric_limits<T>::min();
-template <>
-constexpr real almostZero<double> = 1e-45;
-template <>
-constexpr real almostZero<float> = 1e-35;
+constexpr real almostZero() {
+  if constexpr (std::is_same<real, double>()) {
+    return 1e-45;
+  } else if constexpr (std::is_same<real, float>()) {
+    return 1e-35;
+  } else {
+    return std::numeric_limits<real>::min();
+  }
+}
 
 /**
  * General implementation of a rate and state solver
@@ -193,7 +196,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
       this->slipRateMagnitude[ltsFace][pointIndex] =
-          std::max(almostZero<real>, this->slipRateMagnitude[ltsFace][pointIndex]);
+          std::max(almostZero(), this->slipRateMagnitude[ltsFace][pointIndex]);
       temporarySlipRate[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     } // End of pointIndex-loop
     return {absoluteShearStress, normalStress, stateVarZero, temporarySlipRate};
@@ -416,7 +419,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         real tmp3 = nr[pointIndex] / dNr[pointIndex];
 
         // update slipRateTest
-        slipRateTest[pointIndex] = std::max(almostZero<real>, slipRateTest[pointIndex] - tmp3);
+        slipRateTest[pointIndex] = std::max(almostZero(), slipRateTest[pointIndex] - tmp3);
       }
     }
     return hasConverged;
