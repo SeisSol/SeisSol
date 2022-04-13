@@ -168,11 +168,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
     DROutput* drOutput = it->var(dynRup->drOutput);
-    seissol::model::IsotropicWaveSpeeds*          waveSpeedsPlus            = it->var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*          waveSpeedsMinus            = it->var(dynRup->waveSpeedsMinus);
+    seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
 #ifdef _OPENMP
-#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus) 
+#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -183,15 +183,18 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                   godunovData[i],
                                                   drOutput[i].slip);
 
-       real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity * waveSpeedsPlus[i].sWaveVelocity;
-       real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity * waveSpeedsMinus[i].sWaveVelocity;
-       real mu = 2.0 * muPlus * muMinus / ( muPlus + muMinus );
-       real seismicMomentIncrease = 0.0;
-    for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::size(); ++k) {
-        seismicMomentIncrease += drOutput[i].accumulatedSlip[k];
-    }
-    seismicMomentIncrease *=  0.5 * godunovData[i].doubledSurfaceArea * mu / seissol::tensor::squaredNormSlipRateInterpolated::size();
-    seismicMoment +=  seismicMomentIncrease;
+        real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
+                      waveSpeedsPlus[i].sWaveVelocity;
+        real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
+                       waveSpeedsMinus[i].sWaveVelocity;
+        real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+        real seismicMomentIncrease = 0.0;
+        for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::size(); ++k) {
+          seismicMomentIncrease += drOutput[i].accumulatedSlip[k];
+        }
+        seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
+                                 seissol::tensor::squaredNormSlipRateInterpolated::size();
+        seismicMoment += seismicMomentIncrease;
       }
     }
   }
@@ -214,7 +217,8 @@ void EnergyOutput::computeEnergies() {
 
   const auto g = SeisSol::main.getGravitationSetup().acceleration;
 
-  // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids it
+  // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
+  // it
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
 #endif
@@ -272,7 +276,7 @@ void EnergyOutput::computeEnergies() {
         const auto K = material.local.lambda;
         const auto p = numSub(qp, pIdx);
 
-        const double curAcousticEnergy = (p * p) / ( 2 * K);
+        const double curAcousticEnergy = (p * p) / (2 * K);
         totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
       } else {
@@ -396,9 +400,13 @@ void EnergyOutput::printEnergies() {
     logInfo(rank) << "Total frictional work:" << totalFrictionalWork;
     logInfo(rank) << "Static frictional work:" << staticFrictionalWork;
     logInfo(rank) << "Radiated energy:" << radiatedEnergy;
-    logInfo(rank) << "seismic moment:" << energiesStorage.seismicMoment() << " Mw:"<< 2.0/3.0*std::log10(energiesStorage.seismicMoment())-6.07;
+    logInfo(rank) << "seismic moment:" << energiesStorage.seismicMoment()
+                  << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
     if (isPlasticityEnabled) {
-      logInfo(rank) << "Total plastic moment:" << energiesStorage.plasticMoment() << "equivalent Mw:"<< 2.0/3.0*std::log10(energiesStorage.plasticMoment())-6.07;;
+      logInfo(rank) << "Total plastic moment:" << energiesStorage.plasticMoment()
+                    << "equivalent Mw:"
+                    << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07;
+      ;
     }
   }
 }
@@ -422,7 +430,8 @@ void EnergyOutput::writeEnergies(double time) {
       << energiesStorage.acousticEnergy() << "," << energiesStorage.acousticKineticEnergy() << ","
       << energiesStorage.elasticEnergy() << "," << energiesStorage.elasticKineticEnergy() << ","
       << energiesStorage.totalFrictionalWork() << "," << energiesStorage.staticFrictionalWork()
-      << "," << energiesStorage.seismicMoment() << "," << energiesStorage.plasticMoment() << std::endl;
+      << "," << energiesStorage.seismicMoment() << "," << energiesStorage.plasticMoment()
+      << std::endl;
 }
 
 } // namespace seissol::writer
