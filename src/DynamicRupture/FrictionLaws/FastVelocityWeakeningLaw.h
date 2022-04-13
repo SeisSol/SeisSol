@@ -57,7 +57,7 @@ class FastVelocityWeakeningLaw
     // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
     // Need double precision here, otherwise this will evaluate to infinity
     real steadyStateStateVariable =
-        localA * std::log(this->drParameters.rsSr0 / static_cast<double>(localSlipRate) *
+        localA * std::log(this->drParameters.rsSr0 / localSlipRate *
                           (std::exp(steadyStateFrictionCoefficient / localA) -
                            std::exp(-steadyStateFrictionCoefficient / localA)));
 
