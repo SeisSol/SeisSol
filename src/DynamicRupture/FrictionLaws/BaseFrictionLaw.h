@@ -6,7 +6,6 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
-#include "DynamicRupture/FrictionLaws/CommonFrictionLawImpl.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -14,9 +13,9 @@ namespace seissol::dr::friction_law {
  * Actual friction law is plugged in via CRTP.
  */
 template <typename Derived>
-class BaseFrictionLaw : public CommonFrictionLawImpl {
+class BaseFrictionLaw : public FrictionSolver {
   public:
-  BaseFrictionLaw(dr::DRParameters& drParameters) : CommonFrictionLawImpl(drParameters){};
+  BaseFrictionLaw(dr::DRParameters& drParameters) : FrictionSolver(drParameters){};
 
   /**
    * evaluates the current friction model

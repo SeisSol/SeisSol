@@ -130,9 +130,6 @@ src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
 
-src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
-src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp
-
 src/DynamicRupture/Output/Base.cpp
 src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
 src/DynamicRupture/Output/OutputAux.cpp
@@ -142,6 +139,18 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
+
+if (WITH_GPU)
+  add_library(SeisSol-omp-offloaded SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
+else()
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
+endif()
 
 target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)

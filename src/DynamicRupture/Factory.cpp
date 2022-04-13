@@ -49,7 +49,11 @@ Products NoFaultFactory::produce() {
 Products LinearSlipWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
           std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
+#ifndef ACL_DEVICE
           std::make_unique<friction_law::LinearSlipWeakeningLaw>(drParameters),
+#else
+          std::make_unique<friction_law::gpu::LinearSlipWeakeningLaw>(drParameters),
+#endif
           std::make_unique<output::LinearSlipWeakening>()};
 }
 
@@ -94,7 +98,11 @@ Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
   return {
       std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
       std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
+#ifndef ACL_DEVICE
       std::make_unique<friction_law::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
+#else
+      std::make_unique<friction_law::gpu::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
+#endif
       std::make_unique<output::LinearSlipWeakening>()};
 }
 
