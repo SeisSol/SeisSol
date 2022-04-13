@@ -138,6 +138,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
 
   alignas(ALIGNMENT) real slipRateInterpolated[tensor::slipRateInterpolated::size()];
+  alignas(ALIGNMENT) real squaredNormSlipRateInterpolated[tensor::squaredNormSlipRateInterpolated::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
 
   dynamicRupture::kernel::computeSlipRateInterpolated srKrnl;
@@ -150,6 +151,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   dynamicRupture::kernel::accumulateSlipInterpolated addKrnl;
   addKrnl.slipInterpolated = drOutput->slip;
   addKrnl.slipRateInterpolated = slipRateInterpolated;
+
+  dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated sqKrnl;
+  sqKrnl.squaredNormSlipRateInterpolated = squaredNormSlipRateInterpolated;
+  sqKrnl.slipRateInterpolated = slipRateInterpolated;
 
   dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
   feKrnl.slipRateInterpolated = slipRateInterpolated;
@@ -190,6 +195,11 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
     addKrnl.timeWeight = timeWeights[timeInterval];
     addKrnl.execute();
+
+    sqKrnl.execute();
+    for (unsigned i = 0; i < tensor::squaredNormSlipRateInterpolated::size(); ++i) {
+      drOutput->accumulatedSlip[i] += timeWeights[timeInterval] * std::sqrt(squaredNormSlipRateInterpolated[i]);
+    }
 
     feKrnl.timeWeight = - timeWeights[timeInterval] * godunovData->doubledSurfaceArea;
     feKrnl.execute();
@@ -307,6 +317,11 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
 
   o_nonZeroFlops += dynamicRupture::kernel::computeTractionInterpolated::NonZeroFlops;
   o_hardwareFlops += dynamicRupture::kernel::computeTractionInterpolated::HardwareFlops;
+
+  o_nonZeroFlops += dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated::NonZeroFlops;
+  o_hardwareFlops += dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated::HardwareFlops;
+  o_nonZeroFlops += 2*tensor::squaredNormSlipRateInterpolated::size();
+  o_hardwareFlops += 2*tensor::squaredNormSlipRateInterpolated::size();
 
   o_nonZeroFlops += dynamicRupture::kernel::accumulateFrictionalEnergy::NonZeroFlops;
   o_hardwareFlops += dynamicRupture::kernel::accumulateFrictionalEnergy::HardwareFlops;
