@@ -308,8 +308,8 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
     std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources) {
   for (auto& cluster : clusters) {
     cluster->setPointSources(
-        clusterMappings[cluster->getLayerType()][cluster->getLayerType()].cellToSources,
-        clusterMappings[cluster->getLayerType()][cluster->getLayerType()].numberOfMappings,
+        clusterMappings[cluster->getLayerType()][cluster->getClusterId()].cellToSources,
+        clusterMappings[cluster->getLayerType()][cluster->getClusterId()].numberOfMappings,
         &(pointSources[cluster->getLayerType()][cluster->getClusterId()])
         );
   }
