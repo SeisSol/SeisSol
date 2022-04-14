@@ -139,7 +139,10 @@ Additionally, one can install *chainforge* GEMM generator which can result in be
    pip3 install https://github.com/ravil-mobile/chainforge.git
 
 
-Installing ParMetis (Optional: PUML mesh format)
+
+.. _installing_parmetis:
+
+Installing ParMetis
 ------------------------------------------------
 
 .. code-block:: bash
