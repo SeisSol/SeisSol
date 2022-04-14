@@ -281,7 +281,7 @@ struct seissol::initializers::LTS_ImposedSlipRatesYoffe : public seissol::initia
   Variable<real[dr::misc::numPaddedPoints]> tauR;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DynamicRupture::addTo(tree);
+    seissol::initializers::LTS_ImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(tauS, mask, 1, seissol::memory::Standard);
     tree.addVar(tauR, mask, 1, seissol::memory::Standard);
@@ -293,7 +293,7 @@ struct seissol::initializers::LTS_ImposedSlipRatesGaussian : public seissol::ini
   Variable<real[dr::misc::numPaddedPoints]> riseTime;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DynamicRupture::addTo(tree);
+    seissol::initializers::LTS_ImposedSlipRates::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(riseTime, mask, 1, seissol::memory::Standard);
   }
