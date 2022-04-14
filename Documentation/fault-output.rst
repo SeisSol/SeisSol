@@ -116,25 +116,12 @@ SeisSol paraview files (XDMF/Hdf5 or XDMF/binary files, describing the fault out
 Additional Ascii output
 -----------------------
 
-Final seismic moment and energy rate (moment rate and frictional energy rate) outputs
-can be enabled in the DynamicRupture namelist.
-The rupture front can also be outputted at every gauss points by
-enabling RF_output_on.
+The rupture front can be outputted at every gauss points by enabling RF_output_on.
 
 .. code-block:: Fortran
 
   &DynamicRupture
-  magnitude_output_on = 1
-  energy_rate_output_on =1
   RF_output_on = 0
   /
 
-Because each MPI rank writes its own ASCII file, output files need to be merged in a postprocessing step.
-The energy rate outputs are combined using `this
-script <https://github.com/Thomas-Ulrich/SeisSol/blob/master/postprocessing/science/concatenate_EnF_t.py>`__
-(use -h for all available options).
-
-Because of the high sampling rate of the energy rate output (outputted for each simulated time step), these ASCII files can easily become large. Writing these files may impact scalability. 
-Postprocessing these files may also be time-consuming.
-Therefore, we recommend deriving the moment rate function from the Paraview fault output if this output is sufficiently sampled.
-Similarly, the Paraview fault output can be used for the rupture time instead of the ASCII output.
+We nevertheless recommand using the Paraview fault output for vizualizing the rupture time instead of this ASCII output.

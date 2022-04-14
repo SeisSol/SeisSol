@@ -23,6 +23,8 @@ The energy output computes the energy of the simulation. It is divided into mult
         :math:`\int_{0}^{t_f} \int_{\Sigma} \frac{1}{2} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{u}(t) \,\mathbf{dx}dt` with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t)` the shear traction change, and :math:`\Delta\mathbf{u}(t)` the fault slip, and :math:`t_f` the end time of the simulation.
     - Static frictional work 
         :math:`\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}`.
+- Seismic moment
+        :math:`\int_{\Sigma} \frac{1}{2} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
 - Plastic moment 
     :math:`\int_{\Omega_e} \mu \eta  \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and \eta a scalar quantity measuring the accumulated material damage.
 

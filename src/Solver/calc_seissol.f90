@@ -62,11 +62,8 @@ CONTAINS
     USE calc_deltaT_mod
 #ifdef HDF
     USE receiver_hdf_mod
-#else
-    USE energies_output_mod
 #endif
     USE ini_SeisSol_mod
-    USE magnitude_output_mod
     USE output_rupturefront_mod
     USE COMMON_operators_mod
 #ifdef PARALLEL
@@ -211,8 +208,6 @@ CONTAINS
     CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
 #endif /* USE_MPI */
 
-    ! output magnitude for dynamic rupture simulations
-    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO,DR_comm)
     ! output GP-wise RF in extra files
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO, BND)
 
