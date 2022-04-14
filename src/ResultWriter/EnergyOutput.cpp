@@ -388,24 +388,47 @@ void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
 
   if (rank == 0) {
-    logInfo(rank) << "Total gravitational energy:" << energiesStorage.gravitationalEnergy();
-    logInfo(rank) << "Total acoustic kinetic energy:" << energiesStorage.acousticKineticEnergy();
-    logInfo(rank) << "Total acoustic energy:" << energiesStorage.acousticEnergy();
-    logInfo(rank) << "Total elastic kinetic energy:" << energiesStorage.elasticKineticEnergy();
-    logInfo(rank) << "Total elastic strain energy:" << energiesStorage.elasticEnergy();
-
+    const auto totalAcousticEnergy =
+        energiesStorage.acousticKineticEnergy() + energiesStorage.acousticEnergy();
+    const auto totalElasticEnergy =
+        energiesStorage.elasticKineticEnergy() + energiesStorage.elasticEnergy();
+    const auto ratioElasticKinematic =
+        100.0 * energiesStorage.elasticKineticEnergy() / totalElasticEnergy;
+    const auto ratioElasticPotential = 100.0 * energiesStorage.elasticEnergy() / totalElasticEnergy;
+    const auto ratioAcousticKinematic =
+        100.0 * energiesStorage.acousticKineticEnergy() / totalAcousticEnergy;
+    const auto ratioAcousticPotential =
+        100.0 * energiesStorage.acousticEnergy() / totalAcousticEnergy;
     const auto totalFrictionalWork = energiesStorage.totalFrictionalWork();
     const auto staticFrictionalWork = energiesStorage.staticFrictionalWork();
     const auto radiatedEnergy = totalFrictionalWork - staticFrictionalWork;
-    logInfo(rank) << "Total frictional work:" << totalFrictionalWork;
-    logInfo(rank) << "Static frictional work:" << staticFrictionalWork;
-    logInfo(rank) << "Radiated energy:" << radiatedEnergy;
-    logInfo(rank) << "seismic moment:" << energiesStorage.seismicMoment()
-                  << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
-    if (isPlasticityEnabled) {
-      logInfo(rank) << "Total plastic moment:" << energiesStorage.plasticMoment()
-                    << "equivalent Mw:"
-                    << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07;
+    const auto ratioFrictionalStatic = 100.0 * staticFrictionalWork / totalFrictionalWork;
+    const auto ratioFrictionalRadiated = 100.0 * radiatedEnergy / totalFrictionalWork;
+    const auto ratioPlasticMoment =
+        100.0 * energiesStorage.plasticMoment() /
+        (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
+    if (totalElasticEnergy) {
+      logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+                    << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+    }
+    if (totalAcousticEnergy) {
+      logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
+                    << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
+    }
+    if (energiesStorage.gravitationalEnergy()) {
+      logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
+    }
+    if (totalFrictionalWork) {
+      logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
+                    << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
+      logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
+                    << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
+    }
+    if (energiesStorage.plasticMoment()) {
+      logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
+                    << energiesStorage.plasticMoment() << " ,"
+                    << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
+                    << ratioPlasticMoment;
       ;
     }
   }
