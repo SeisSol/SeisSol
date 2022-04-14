@@ -61,6 +61,7 @@
 namespace PUML {class TETPUML;}
 #endif // PUML_PUML_H
 
+// Tetrahedron quadrature degree for homogenization of material parameters
 #define QUAD_DEG 2
 #define NUM_QUADPOINTS (QUAD_DEG * QUAD_DEG * QUAD_DEG)
 

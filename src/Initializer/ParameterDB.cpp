@@ -349,15 +349,15 @@ namespace seissol {
     void MaterialParameterDB<seissol::model::ElasticMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
       easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
+      const unsigned numPoints = query.numPoints();
 
-      std::vector<seissol::model::ElasticMaterial> elasticMaterials(query.numPoints());
+      std::vector<seissol::model::ElasticMaterial> elasticMaterials(numPoints);
       easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> adapter(elasticMaterials.data());
       MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(adapter);
       model->evaluate(query, adapter);
 
       // Only use homogenization when ElementAverageGenerator has been supplied
       if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
-        const unsigned numPoints = query.numPoints();
         const unsigned numElems = numPoints / NUM_QUADPOINTS;
         std::array<double, NUM_QUADPOINTS> quadratureWeights{ gen->getQuadratureWeights() };
         std::vector<double> elemVolumes{ gen->getElemVolumes() };
@@ -399,12 +399,13 @@ namespace seissol {
         model->evaluate(baryQuery, baryAdapter);
 
         for (unsigned i = 0; i < 1000; ++i) {
-          logInfo() << "Element " << i << " homogenized rho: " << materialsMean[i].rho << ", mu: " << materialsMean[i].mu << ", lambda: " << materialsMean[i].lambda;
-          logInfo() << "Element " << i << " barycenter  rho: " << baryMaterials[i].rho << ", mu: " << baryMaterials[i].mu << ", lambda: " << baryMaterials[i].lambda;
+          if (fabs(materialsMean[i].rho - baryMaterials[i].rho) > 0.1) {
+            logInfo() << "Element " << i << " homogenized rho: " << materialsMean[i].rho << ", mu: " << materialsMean[i].mu << ", lambda: " << materialsMean[i].lambda;
+            logInfo() << "Element " << i << " barycenter  rho: " << baryMaterials[i].rho << ", mu: " << baryMaterials[i].mu << ", lambda: " << baryMaterials[i].lambda;
+          }
         }
       } else {
         // Usual behavior without homogenization
-        unsigned numPoints = query.numPoints();
         for (unsigned i = 0; i < numPoints; ++i) {
           m_materials->at(i) = seissol::model::ElasticMaterial(elasticMaterials[i]);
         }
