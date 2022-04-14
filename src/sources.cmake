@@ -119,6 +119,7 @@ src/DynamicRupture/FrictionLaws/AgingLaw.cpp
 src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
 src/DynamicRupture/FrictionLaws/FastVelocityWeakeningLaw.cpp
 src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
+src/DynamicRupture/FrictionLaws/STF.cpp
 src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
 src/DynamicRupture/FrictionLaws/NoFault.cpp
 src/DynamicRupture/FrictionLaws/SlipLaw.cpp
