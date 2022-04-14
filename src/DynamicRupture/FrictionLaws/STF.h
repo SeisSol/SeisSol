@@ -47,8 +47,8 @@ class GaussianSTF {
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) {
     return gaussianNucleationFunction::smoothStepIncrement(currentTime -
                                                                onsetTime[ltsFace][pointIndex],
-                                                           riseTime[ltsFace][pointIndex],
-                                                           timeIncrement) /
+                                                           timeIncrement,
+                                                           riseTime[ltsFace][pointIndex]) /
            timeIncrement;
   }
 };
