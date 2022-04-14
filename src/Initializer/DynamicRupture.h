@@ -101,8 +101,8 @@ public:
   Variable<bool[dr::misc::numPaddedPoints]> ruptureTimePending;
   Variable<bool[dr::misc::numPaddedPoints]> dynStressTimePending;
   Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
-  Variable<real[dr::misc::numPaddedPoints]> tractionXY;
-  Variable<real[dr::misc::numPaddedPoints]> tractionXZ;
+  Variable<real[dr::misc::numPaddedPoints]> traction1;
+  Variable<real[dr::misc::numPaddedPoints]> traction2;
   Variable<real> averagedSlip;
   Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedPlus;
   Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedMinus;
@@ -147,8 +147,8 @@ public:
     tree.addVar(slipRate1, mask, 1, seissol::memory::Standard);
     tree.addVar(slipRate2, mask, 1, seissol::memory::Standard);
     tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard);
-    tree.addVar(tractionXY, mask, 1, seissol::memory::Standard);
-    tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard);
+    tree.addVar(traction1, mask, 1, seissol::memory::Standard);
+    tree.addVar(traction2, mask, 1, seissol::memory::Standard);
     tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard);
     tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, seissol::memory::Standard);

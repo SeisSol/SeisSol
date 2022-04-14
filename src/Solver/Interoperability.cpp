@@ -394,8 +394,8 @@ double c_interoperability_M2invDiagonal(int no) {
                                                           real* i_ruptureTime,
                                                           real* i_dynStressTime,
                                                           real* i_peakSlipRate,
-                                                          real* i_tractionXY,
-                                                          real* i_tractionXZ);
+                                                          real* i_traction1,
+                                                          real* i_traction2);
 
   extern void f_interoperability_setFrictionOutputSpecific(void*  i_domain,
                                                            int i_face,
@@ -1267,8 +1267,8 @@ void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
     real  (*ruptureTime)[dr::misc::numPaddedPoints],
     real  (*dynStressTime)[dr::misc::numPaddedPoints],
     real  (*peakSlipRate)[dr::misc::numPaddedPoints],
-    real  (*tractionXY)[dr::misc::numPaddedPoints],
-    real  (*tractionXZ)[dr::misc::numPaddedPoints]) {
+    real  (*traction1)[dr::misc::numPaddedPoints],
+    real  (*traction2)[dr::misc::numPaddedPoints]) {
 
     int fFace = meshFace + 1;
     f_interoperability_setFrictionOutputGeneral(m_domain, fFace,
@@ -1278,8 +1278,8 @@ void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
                                                 &ruptureTime[ltsFace][0],
                                                 &dynStressTime[ltsFace][0],
                                                 &peakSlipRate[ltsFace][0],
-                                                &tractionXY[ltsFace][0],
-                                                &tractionXZ[ltsFace][0]);
+                                                &traction1[ltsFace][0],
+                                                &traction2[ltsFace][0]);
 }
 
 void seissol::Interoperability::copyFrictionOutputToFortranSpecific(

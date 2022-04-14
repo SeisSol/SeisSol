@@ -5,8 +5,7 @@
 
 namespace seissol::dr::friction_law {
 /**
- * No friction computation
- * input stress XYStressGP, XZStressGP equals output XYTractionResultGP, XZTractionResultGP
+ * No friction computation input stress equals output
  */
 class NoFault : public BaseFrictionLaw<NoFault> {
   public:

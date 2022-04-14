@@ -346,7 +346,7 @@ module f_ctof_bind_interoperability
 
     subroutine f_interoperability_setFrictionOutputGeneral(i_domain, i_face, &
               i_slip, i_slipStrike, i_slipDip, i_ruptureTime, i_dynStressTime,&
-              i_PeakSlipRate, i_tractionXY, i_tractionXZ)&
+              i_PeakSlipRate, i_traction1, i_traction2)&
         bind (c, name='f_interoperability_setFrictionOutputGeneral')
         use iso_c_binding
         use typesDef
@@ -372,10 +372,10 @@ module f_ctof_bind_interoperability
         REAL_TYPE, pointer                     :: l_dynStressTime(:)
         type(c_ptr), value                     :: i_PeakSlipRate
         REAL_TYPE, pointer                     :: l_PeakSlipRate(:)
-        type(c_ptr), value                     :: i_tractionXY
-        REAL_TYPE, pointer                     :: l_tractionXY(:)
-        type(c_ptr), value                     :: i_tractionXZ
-        REAL_TYPE, pointer                     :: l_tractionXZ(:)
+        type(c_ptr), value                     :: i_traction1
+        REAL_TYPE, pointer                     :: l_traction1(:)
+        type(c_ptr), value                     :: i_traction2
+        REAL_TYPE, pointer                     :: l_traction2(:)
 
         ! convert c to fortran pointers
         call c_f_pointer( i_domain,             l_domain)
@@ -388,8 +388,8 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_ruptureTime, l_ruptureTime, [nBndGP])
         call c_f_pointer( i_dynStressTime, l_dynStressTime, [nBndGP])
         call c_f_pointer( i_PeakslipRate, l_PeakslipRate, [nBndGP])
-        call c_f_pointer( i_tractionXY, l_tractionXY, [nBndGP])
-        call c_f_pointer( i_tractionXZ, l_tractionXZ, [nBndGP])
+        call c_f_pointer( i_traction1, l_traction1, [nBndGP])
+        call c_f_pointer( i_traction2, l_traction2, [nBndGP])
 
         !copy to output
         l_domain%DISC%DynRup%output_Slip(:,i_face)                  = l_slip(:)
@@ -399,8 +399,8 @@ module f_ctof_bind_interoperability
         l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStressTime(:)
         l_domain%DISC%DynRup%rupture_time(:,i_face)                 = l_ruptureTime(:)
         l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSlipRate(:)
-        l_domain%DISC%DynRup%TracXY(:,i_face)                       = l_tractionXY(:)
-        l_domain%DISC%DynRup%TracXZ(:,i_face)                       = l_tractionXZ(:)
+        l_domain%DISC%DynRup%TracXY(:,i_face)                       = l_traction1(:)
+        l_domain%DISC%DynRup%TracXZ(:,i_face)                       = l_traction2(:)
     end subroutine
 
     subroutine f_interoperability_setFrictionOutputSpecific(i_domain, i_face, &

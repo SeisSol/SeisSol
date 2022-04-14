@@ -33,19 +33,22 @@ struct ImpedancesAndEta {
 
 /**
  * Struct that contains all input stresses
+ * normalStress in direction of the face normal, traction1, traction2 in the direction of the
+ * respective tangential vectors
  */
 struct FaultStresses {
   real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real lockedTraction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real lockedTraction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real traction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real traction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
 };
 
 /**
  * Struct that contains all traction results
+ * traction1, traction2 in the direction of the respective tangential vectors
  */
 struct TractionResults {
-  real updatedTraction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real updatedTraction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real traction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
+  real traction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
 };
 
 } // namespace seissol::dr

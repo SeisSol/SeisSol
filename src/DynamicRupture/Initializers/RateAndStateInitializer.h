@@ -36,8 +36,8 @@ class RateAndStateInitializer : public BaseDRInitializer {
    * \log\left(\frac{sr_{ini}}{sr_0}\right)}{b}\right) \f] \f[ \mu = a \cdot \sinh^{-1}\left(
    * \frac{rs_{ini}}{2 \cdot sr_0} \cdot \exp\left(\frac{f_0 + b * log\left(\frac{sr_0 \cdot
    * \psi}{sl_0}\right)}{a}\right) \right) \f]
-   * @param tractionXY \f$ \tau_{XY} \f$
-   * @param tractionXZ \f$ \tau_{XZ} \f$
+   * @param traction1 \f$ \tau_{XY} \f$
+   * @param traction2 \f$ \tau_{XZ} \f$
    * @param pressure \f$ p \f$
    * @param rs_a \f$ a \f$
    * @param rs_b \f$ b \f$
@@ -47,8 +47,8 @@ class RateAndStateInitializer : public BaseDRInitializer {
    * @param initialSlipRate \f$ rs_{ini} \f$
    * @return \f$ \left( \psi, \mu \right) \f$
    */
-  virtual std::pair<real, real> computeInitialStateAndFriction(real tractionXY,
-                                                               real tractionXZ,
+  virtual std::pair<real, real> computeInitialStateAndFriction(real traction1,
+                                                               real traction2,
                                                                real pressure,
                                                                real rsA,
                                                                real rsB,
@@ -80,8 +80,8 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
   \sinh\left(\left|\frac{\mathbf{\tau}}{(a \cdot p)}\right|\right)\right); \f] \f[ \mu = a \cdot
   \sinh^{-1}\left(\frac{sr_{ini}}{2 \cdot sr_0} \cdot \exp\left(\frac{\psi}{a}\right)\right); \f]
    * Computes the initial stateVariable and frictionCoefficient
-   * @param tractionXY \f$ \tau_{XY} \f$
-   * @param tractionXZ \f$ \tau_{XZ} \f$
+   * @param traction1 \f$ \tau_{XY} \f$
+   * @param traction2 \f$ \tau_{XZ} \f$
    * @param pressure \f$ p \f$
    * @param rs_a \f$ a \f$
    * @param rs_b \f$ b \f$
@@ -91,8 +91,8 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    * @param initialSlipRate \f$ rs_{ini} \f$
    * @return \f$ \left( \psi, \mu \right) \f$
    */
-  virtual std::pair<real, real> computeInitialStateAndFriction(real tractionXY,
-                                                               real tractionXZ,
+  virtual std::pair<real, real> computeInitialStateAndFriction(real traction1,
+                                                               real traction2,
                                                                real pressure,
                                                                real rsA,
                                                                real rsB,

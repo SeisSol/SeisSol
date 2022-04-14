@@ -442,8 +442,8 @@ class seissol::Interoperability {
                                           real  (*ruptureTime)[init::QInterpolated::Stop[0]],
                                           real  (*dynStressTime)[init::QInterpolated::Stop[0]],
                                           real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
-                                          real  (*tractionXY)[init::QInterpolated::Stop[0]],
-                                          real  (*tractionXZ)[init::QInterpolated::Stop[0]]
+                                          real  (*traction1)[init::QInterpolated::Stop[0]],
+                                          real  (*traction2)[init::QInterpolated::Stop[0]]
   );
 
   /**

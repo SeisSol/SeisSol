@@ -60,8 +60,8 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
 }
 
 std::pair<real, real>
-    RateAndStateInitializer::computeInitialStateAndFriction(real tractionXY,
-                                                            real tractionXZ,
+    RateAndStateInitializer::computeInitialStateAndFriction(real traction1,
+                                                            real traction2,
                                                             real pressure,
                                                             real rsA,
                                                             real rsB,
@@ -69,7 +69,7 @@ std::pair<real, real>
                                                             real rsSr0,
                                                             real rsF0,
                                                             real initialSlipRate) {
-  real absoluteTraction = misc::magnitude(tractionXY, tractionXZ);
+  real absoluteTraction = misc::magnitude(traction1, traction2);
   real tmp = std::abs(absoluteTraction / (rsA * pressure));
   real stateVariable = rsSl0 / rsSr0 *
                        std::exp((rsA * std::log(std::exp(tmp) - std::exp(-tmp)) - rsF0 -
@@ -93,8 +93,8 @@ void RateAndStateInitializer::addAdditionalParameters(
 }
 
 std::pair<real, real>
-    RateAndStateFastVelocityInitializer::computeInitialStateAndFriction(real tractionXY,
-                                                                        real tractionXZ,
+    RateAndStateFastVelocityInitializer::computeInitialStateAndFriction(real traction1,
+                                                                        real traction2,
                                                                         real pressure,
                                                                         real rsA,
                                                                         real rsB,
@@ -102,7 +102,7 @@ std::pair<real, real>
                                                                         real rsSr0,
                                                                         real rsF0,
                                                                         real initialSlipRate) {
-  real absoluteTraction = misc::magnitude(tractionXY, tractionXZ);
+  real absoluteTraction = misc::magnitude(traction1, traction2);
   real tmp = std::abs(absoluteTraction / (rsA * pressure));
   real stateVariable =
       rsA * std::log(2.0 * rsSr0 / initialSlipRate * (std::exp(tmp) - std::exp(-tmp)) / 2.0);

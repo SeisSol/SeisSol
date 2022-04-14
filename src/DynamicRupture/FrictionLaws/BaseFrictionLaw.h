@@ -33,8 +33,8 @@ class BaseFrictionLaw : public FrictionSolver {
   real (*ruptureTime)[misc::numPaddedPoints];
   bool (*ruptureTimePending)[misc::numPaddedPoints];
   real (*peakSlipRate)[misc::numPaddedPoints];
-  real (*tractionXY)[misc::numPaddedPoints];
-  real (*tractionXZ)[misc::numPaddedPoints];
+  real (*traction1)[misc::numPaddedPoints];
+  real (*traction2)[misc::numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 
@@ -63,8 +63,8 @@ class BaseFrictionLaw : public FrictionSolver {
     ruptureTime = layerData.var(dynRup->ruptureTime);
     ruptureTimePending = layerData.var(dynRup->ruptureTimePending);
     peakSlipRate = layerData.var(dynRup->peakSlipRate);
-    tractionXY = layerData.var(dynRup->tractionXY);
-    tractionXZ = layerData.var(dynRup->tractionXZ);
+    traction1 = layerData.var(dynRup->traction1);
+    traction2 = layerData.var(dynRup->traction2);
     imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
     imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
     mFullUpdateTime = fullUpdateTime;
@@ -83,8 +83,8 @@ class BaseFrictionLaw : public FrictionSolver {
    * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
    * @param ltsFace: current fault face to be evaluated
    * @returns
-   * NormalStress XYStress, XZStress at the 2d face quadrature nodes evaluated at the time
-   * quadrature points
+   * NormalStress and traction in tangetial directions at the 2D face quadrature nodes evaluated at
+   * the time quadrature points
    */
   FaultStresses precomputeStressFromQInterpolated(unsigned int ltsFace) {
 
@@ -116,11 +116,11 @@ class BaseFrictionLaw : public FrictionSolver {
             etaP * (qIMinus[o][6][i] - qIPlus[o][6][i] + qIPlus[o][0][i] * invZp +
                     qIMinus[o][0][i] * invZpNeig);
 
-        faultStresses.lockedTraction1[o][i] =
+        faultStresses.traction1[o][i] =
             etaS * (qIMinus[o][7][i] - qIPlus[o][7][i] + qIPlus[o][3][i] * invZs +
                     qIMinus[o][3][i] * invZsNeig);
 
-        faultStresses.lockedTraction2[o][i] =
+        faultStresses.traction2[o][i] =
             etaS * (qIMinus[o][8][i] - qIPlus[o][8][i] + qIPlus[o][5][i] * invZs +
                     qIMinus[o][5][i] * invZsNeig);
       }
@@ -131,8 +131,6 @@ class BaseFrictionLaw : public FrictionSolver {
   /**
    * Integrate over all Time points with the time weights and calculate the traction for each side
    * according to Carsten Uphoff Thesis: EQ.: 4.60
-   * IN: NormalStressGP, XYTractionResultGP, * XZTractionResultGP
-   * OUT: imposedStatePlus, imposedStateMinus
    */
   void postcomputeImposedStateFromNewStress(const FaultStresses& faultStresses,
                                             const TractionResults& tractionResults,
@@ -171,26 +169,26 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
         auto normalStress = faultStresses.normalStress[o][i];
-        auto xyTraction = tractionResults.updatedTraction1[o][i];
-        auto xzTraction = tractionResults.updatedTraction2[o][i];
+        auto traction1 = tractionResults.traction1[o][i];
+        auto traction2 = tractionResults.traction2[o][i];
 
         imposedStateM[0][i] += weight * normalStress;
-        imposedStateM[3][i] += weight * xyTraction;
-        imposedStateM[5][i] += weight * xzTraction;
+        imposedStateM[3][i] += weight * traction1;
+        imposedStateM[5][i] += weight * traction2;
         imposedStateM[6][i] +=
             weight * (qIMinus[o][6][i] - invZpNeig * (normalStress - qIMinus[o][0][i]));
         imposedStateM[7][i] +=
-            weight * (qIMinus[o][7][i] - invZsNeig * (xyTraction - qIMinus[o][3][i]));
+            weight * (qIMinus[o][7][i] - invZsNeig * (traction1 - qIMinus[o][3][i]));
         imposedStateM[8][i] +=
-            weight * (qIMinus[o][8][i] - invZsNeig * (xzTraction - qIMinus[o][5][i]));
+            weight * (qIMinus[o][8][i] - invZsNeig * (traction2 - qIMinus[o][5][i]));
 
         imposedStateP[0][i] += weight * normalStress;
-        imposedStateP[3][i] += weight * xyTraction;
-        imposedStateP[5][i] += weight * xzTraction;
+        imposedStateP[3][i] += weight * traction1;
+        imposedStateP[5][i] += weight * traction2;
         imposedStateP[6][i] +=
             weight * (qIPlus[o][6][i] + invZp * (normalStress - qIPlus[o][0][i]));
-        imposedStateP[7][i] += weight * (qIPlus[o][7][i] + invZs * (xyTraction - qIPlus[o][3][i]));
-        imposedStateP[8][i] += weight * (qIPlus[o][8][i] + invZs * (xzTraction - qIPlus[o][5][i]));
+        imposedStateP[7][i] += weight * (qIPlus[o][7][i] + invZs * (traction1 - qIPlus[o][3][i]));
+        imposedStateP[8][i] += weight * (qIPlus[o][8][i] + invZs * (traction2 - qIPlus[o][5][i]));
       }
     }
   }
