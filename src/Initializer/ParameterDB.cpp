@@ -46,6 +46,7 @@
 #include "PUML/Downward.h"
 #endif
 #include <cmath>
+#include <algorithm>
 #include "ParameterDB.h"
 
 #include "SeisSol.h"
@@ -152,6 +153,15 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
     if (!elemVolumes[elem]) {
       logError() << "ElementAverageGenerator: Tetrahedron volume was 0.";
     }
+
+    // Output for element z coordinates
+    std::array<double,4> zCoords{};
+    for (int i = 0; i < 3; ++i) {
+      zCoords[i] = vertices[ elements[elem].vertices[i] ].coords[2];
+    }
+    const auto [zMin, zMax] = std::minmax_element(std::begin(zCoords), std::end(zCoords));
+    const double zAvg = std::accumulate(std::begin(zCoords), std::end(zCoords), 0.0) / 4.0;
+    logInfo() << "Element " << elem << " zMin: " << *zMin << ", zMax: " << *zMax << ", zAvg: " << zAvg;
   }
 
   return elemVolumes;
