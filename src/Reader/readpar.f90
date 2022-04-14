@@ -906,7 +906,7 @@ CONTAINS
     TYPE (tMPI)                            :: MPI
     INTENT(INOUT)                          :: IO, EQN, DISC, BND, MPI
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
+                                              OutputPointType, read_fault_file,refPointMethod, &
                                               thermalPress, SlipRateOutputType, readStat
     LOGICAL                                :: fileExists
 
@@ -917,7 +917,7 @@ CONTAINS
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
                                               RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
                                               alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
-                                              NucRS_sv0, r_s, energy_rate_printtimeinterval
+                                              NucRS_sv0, r_s
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, &
@@ -927,8 +927,7 @@ CONTAINS
                                                 RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
                                                 thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                                 L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
-                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
-                                                SlipRateOutputType, ModelFileName
+                                                OutputPointType, SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
 
     ! Setting default values
@@ -936,9 +935,6 @@ CONTAINS
     FL = 0
     RF_output_on = 0
     DS_output_on = 0
-    magnitude_output_on = 1
-    energy_rate_output_on = 0
-    energy_rate_printtimeinterval = 1
     OutputPointType = 3
     SlipRateOutputType = 1
     RS_sv0 = 0
@@ -1083,14 +1079,6 @@ CONTAINS
                DISC%DynRup%RF_output_on = 1
                DISC%DynRup%RFtime_on = 1
            ENDIF
-
-
-           ! magnitude output on = 1, off = 0
-           DISC%DynRup%magnitude_output_on = magnitude_output_on
-
-           ! moment rate and frictional energy rate output on=1, off=0
-           DISC%DynRup%energy_rate_output_on = energy_rate_output_on
-           DISC%DynRup%energy_rate_printtimeinterval = energy_rate_printtimeinterval
 
            !
            DISC%DynRup%OutputPointType = OutputPointType

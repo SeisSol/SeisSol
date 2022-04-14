@@ -99,10 +99,8 @@ src/Physics/InitialField.cpp
 src/Reader/readpar.f90
 src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90
-src/ResultWriter/magnitude_output.f90
 src/ResultWriter/output_rupturefront.f90
 src/ResultWriter/ini_faultoutput.f90
-src/ResultWriter/energies.f90
 src/ResultWriter/FaultWriterF.f90
 src/ResultWriter/faultoutput.f90
 src/ResultWriter/common_fault_receiver.f90
