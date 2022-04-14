@@ -103,7 +103,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
-  // Generate query using subpoints
+  // Generate query using subpoints for each element
   easi::Query query(elements.size() * NUM_QUADPOINTS, 3);
   
   // Transform subpoints to global coordinates for all elements
@@ -119,6 +119,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
       query.group(elem * NUM_QUADPOINTS + i) = elements[elem].group;
     }
   }
+
   return query;
 }
 
@@ -131,16 +132,18 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
   std::array<double, 3> c{};
   std::array<double, 3> bxc{};
 
-  // Compute tetrahedron volumes as 1/6 * |triple product|
+  // Compute tetrahedron volumes as 1/6 * |triple product| = 1/6 * |a • (b x c)|
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (int i = 0; i < 3; ++i) {
       a[i] = vertices[ elements[elem].vertices[1] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
       b[i] = vertices[ elements[elem].vertices[2] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
       c[i] = vertices[ elements[elem].vertices[3] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
     }
+
     bxc[0] = b[1] * c[2] - b[2] * c[1];
     bxc[1] = b[2] * c[0] - b[0] * c[2];
     bxc[2] = b[0] * c[1] - b[1] * c[0];
+
     for (int i = 0; i < 3; ++i) {
       elemVolumes[elem] += a[i] * bxc[i];
     }
@@ -356,26 +359,27 @@ namespace seissol {
         for (unsigned i = 0; i < numPoints; ++i) {
           // Scale up quadrature weights by (element volume / reference volume)
           double quadWeight = 6 * elemVolumes[i / NUM_QUADPOINTS] * quadratureWeights[i % NUM_QUADPOINTS];
+          // Integrate rho and (1 / mu)
           materialsMean[i / NUM_QUADPOINTS].rho += elasticMaterials[i].rho * quadWeight;
           materialsMean[i / NUM_QUADPOINTS].mu += 1 / elasticMaterials[i].mu * quadWeight;
-          // Integrate quotients of Poisson ratio and elastic modulus
+          // Integrate (Poisson ratio / elastic modulus) to obtain lambda
           vERatioMean[i / NUM_QUADPOINTS] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadWeight;
         }
 
-        // Obtain parameter mean values and store them in m_materials
+        // Divide by volumes to obtain parameter mean values and store them in m_materials
         for (unsigned i = 0; i < numElems; ++i) {
           materialsMean[i].rho /= elemVolumes[i];
           materialsMean[i].mu /= elemVolumes[i];
-          materialsMean[i].mu = 1 / materialsMean[i].mu;
-
-          // Derive lambda from mu and quotients of Poisson ratio / elastic modulus
           vERatioMean[i] /= elemVolumes[i];
+          // Harmonic average is used for mu, so take the reciprocal
+          materialsMean[i].mu = 1 / materialsMean[i].mu;
+          // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
           materialsMean[i].lambda = (4 * pow(materialsMean[i].mu, 2) * vERatioMean[i]) / (1 - 6 * materialsMean[i].mu * vERatioMean[i]);
 
           m_materials->at(i) = seissol::model::ElasticMaterial(materialsMean[i]);
         }
 
-        // Debugging comparison to barycentered parameter values
+        // Comparison to barycentered parameter values
         ElementBarycentreGenerator baryGen(seissol::SeisSol::main.meshReader());
         easi::Query baryQuery = baryGen.generate();
 
@@ -389,8 +393,9 @@ namespace seissol {
           logInfo() << "Element " << i << " barycenter  rho: " << baryMaterials[i].rho << ", mu: " << baryMaterials[i].mu << ", lambda: " << baryMaterials[i].lambda;
         }
       } else {
+        // Usual behavior without homogenization
         unsigned numPoints = query.numPoints();
-        for(unsigned i = 0; i < numPoints; ++i) {
+        for (unsigned i = 0; i < numPoints; ++i) {
           m_materials->at(i) = seissol::model::ElasticMaterial(elasticMaterials[i]);
         }
       }
