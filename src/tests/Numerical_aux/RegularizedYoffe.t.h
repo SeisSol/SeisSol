@@ -8,7 +8,7 @@ namespace seissol::unit_test {
  */
 real yoffe(real time, real riseTime) {
   constexpr real epsilon = 10 * std::numeric_limits<real>::epsilon();
-  if (time < epsilon || time > riseTime + epsilon) {
+  if (time < epsilon || time > riseTime - epsilon) {
     return 0.0;
   } else {
     return 2 / (M_PI * riseTime) * std::sqrt((riseTime - time) / time);
