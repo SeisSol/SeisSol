@@ -78,18 +78,18 @@ Building SeisSol
   git submodule update --init
  
 
-2. Load module. Could add these lines to .bashrc (changing the order and adding additionnal modules may prevent a successful compilation):
+2. Load module. Could add these lines to .bashrc (changing the order and adding additional modules may prevent a successful compilation):
 
 ::
 
   ##### module load for SeisSol
-  module load intel-mpi intel
-  module load gcc/9 cmake python/3.8.8-extended
+  module load gcc
+  module load cmake/3.21.4
+  module load python/3.8.11-extended
   module load libszip/2.1.1
-  module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
-  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
-  module load numactl
-  module load yaml-cpp/0.6.3-intel19
+  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel21-impi
+  module load numactl/2.0.14-intel21
+  module load yaml-cpp/0.7.0-intel21
 
   ####### for pspamm.py
   export PATH=~/bin:$PATH
@@ -100,9 +100,10 @@ Building SeisSol
   export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
 
 
-3. Install libxsmm, PSpaMM, easi and ASAGI
+3. Install metis, parmetis, libxsmm, PSpaMM, easi and ASAGI
 
-See :ref:`installing_libxsmm`, :ref:`installing_pspamm`, `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_ and :ref:`installing_ASAGI`. 
+See :ref:`installing_parmetis`, :ref:`installing_libxsmm`, :ref:`installing_pspamm`, :ref:`installing_ASAGI` and `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
+Note that ASAGI needs to be compiled before easi.
 Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
 The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 If you need to compile ASAGI, first clone ASAGI with:
@@ -137,15 +138,15 @@ set compiler options, run cmake, and compile with:
    CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
    make -j 48
 
-Note that to use sanitzer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
+Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
 For that modules and compiler need to be switched:
 
 ::
 
-    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.10-gcc8-impi
-    module unload intel-mpi intel
-    module load intel-mpi/2019-gcc
-    module switch yaml-cpp yaml-cpp/0.6.3
+    module load netcdf-hdf5-all/4.7_hdf5-1.10-gcc11-impi
+    module load numactl/2.0.14-gcc11
+    module load yaml-cpp/0.7.0
+
     export CC=mpigcc
     export CXX=mpigxx
     export FC=mpifc
