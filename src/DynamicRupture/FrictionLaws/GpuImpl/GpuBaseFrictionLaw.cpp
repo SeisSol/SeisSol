@@ -1,7 +1,7 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "utils/logger.h"
 #include <omp.h>
-#include <iostream>
-
+#include <sstream>
 
 
 namespace seissol::dr::friction_law::gpu {
@@ -62,6 +62,8 @@ void GpuBaseFrictionLaw::checkOffloading() {
       canOffload = true;
     }
   }
-  std::cout << "[DEBUG]:: can offload: " << std::boolalpha << canOffload << std::endl;
+  std::ostringstream info;
+  info << "Device offloading: " << std::boolalpha << canOffload;
+  logInfo() << info.str();
 }
 } // namespace seissol::dr::friction_law::gpu

@@ -49,7 +49,7 @@ Products NoFaultFactory::produce() {
 Products LinearSlipWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
           std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
-#ifndef ACL_DEVICE
+#ifndef ACL_DEVICE_OFFLOAD
           std::make_unique<friction_law::LinearSlipWeakeningLaw>(drParameters),
 #else
           std::make_unique<friction_law::gpu::LinearSlipWeakeningLaw>(drParameters),

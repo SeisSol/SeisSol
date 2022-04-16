@@ -328,6 +328,10 @@ if (WITH_GPU)
   target_link_libraries(SeisSol-lib PUBLIC device)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 
+  if (OpenMP_Offloading_FOUND)
+      target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE_OFFLOAD)
+  endif()
+
   get_target_property(SEISSOL_DEFENITIONS SeisSol-lib COMPILE_DEFINITIONS)
   target_compile_definitions(SeisSol-omp-offloaded PRIVATE ${SEISSOL_DEFENITIONS})
 
@@ -410,6 +414,12 @@ endif()
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
+
+if (WITH_GPU)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+      target_link_options(SeisSol-bin PRIVATE "-mp=gpu")
+  endif()
+endif()
 
 # SeisSol proxy-core
 add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
