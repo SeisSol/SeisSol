@@ -123,7 +123,6 @@ include(src/sources.cmake)
 add_dependencies(SeisSol-lib SeisSol-codegen)
 if (WITH_GPU)
   add_dependencies(SeisSol-device-lib SeisSol-codegen)
-  add_dependencies(SeisSol-omp-offloaded SeisSol-codegen)
 endif()
 
 
@@ -176,7 +175,9 @@ if (OPENMP)
   target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
 
   if (WITH_GPU)
-    find_package(OpenMP_Offloading REQUIRED)
+    find_package(OpenMP_Offloading QUIET)
+  else()
+    target_sources(SeisSol-lib PUBLIC ${SRC_FILES_OMP_OFFLOADING_COMMON})
   endif()
 
   # Note: there may be a conflict between OpenMP offloading and libsxmm.
@@ -186,8 +187,13 @@ if (OPENMP)
   # imported OpenMP targets to them.
   if (OpenMP_Offloading_FOUND)
     message(STATUS "Found OpenMP Offloading: TRUE")
+    add_library(SeisSol-omp-offloaded SHARED ${SRC_FILES_OMP_OFFLOADING_COMMON} ${SRC_FILES_OMP_OFFLOADING_REQUIRED})
     target_link_libraries(SeisSol-omp-offloaded PRIVATE OpenMP::OpenMP_CXX_with_offloading)
     target_compile_definitions(SeisSol-omp-offloaded PRIVATE ACL_DEVICE_OFFLOAD)
+
+    add_dependencies(SeisSol-omp-offloaded SeisSol-codegen)
+  else()
+    target_sources(SeisSol-lib PUBLIC ${SRC_FILES_OMP_OFFLOADING_COMMON})
   endif()
 endif()
 
@@ -326,25 +332,25 @@ if (WITH_GPU)
   add_subdirectory(submodules/Device)
   target_include_directories(SeisSol-lib PUBLIC submodules/Device)
   target_link_libraries(SeisSol-lib PUBLIC device)
+  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
   target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
 
   if (OpenMP_Offloading_FOUND)
-      target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE_OFFLOAD)
+    target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE_OFFLOAD)
+
+    get_target_property(SEISSOL_DEFENITIONS SeisSol-lib COMPILE_DEFINITIONS)
+    target_compile_definitions(SeisSol-omp-offloaded PRIVATE ${SEISSOL_DEFENITIONS})
+
+    get_target_property(SEISSOL_INCLUDES SeisSol-lib INCLUDE_DIRECTORIES)
+    get_target_property(SEISSOL_SYSTEM_INCLUDES SeisSol-lib INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+    list(REMOVE_ITEM SEISSOL_INCLUDES ${SEISSOL_SYSTEM_INCLUDES})
+
+    target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
+    target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
+    target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
+
+    target_link_libraries(SeisSol-lib PUBLIC SeisSol-omp-offloaded)
   endif()
-
-  get_target_property(SEISSOL_DEFENITIONS SeisSol-lib COMPILE_DEFINITIONS)
-  target_compile_definitions(SeisSol-omp-offloaded PRIVATE ${SEISSOL_DEFENITIONS})
-
-  get_target_property(SEISSOL_INCLUDES SeisSol-lib INCLUDE_DIRECTORIES)
-  get_target_property(SEISSOL_SYSTEM_INCLUDES SeisSol-lib INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
-  list(REMOVE_ITEM SEISSOL_INCLUDES ${SEISSOL_SYSTEM_INCLUDES})
-
-  target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
-  target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
-  target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
-
-  target_link_libraries(SeisSol-lib PUBLIC SeisSol-omp-offloaded)
-  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
 endif()
 
 

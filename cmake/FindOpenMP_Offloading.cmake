@@ -101,10 +101,11 @@ if (_OPENMP_OFFLOAD_RESULT)
                 ${OpenMP_Offloading_LINK_LIBRARIES})
     endif()
 else()
-    message(WARNING "OpenMP Offloading setting was not set")
+    message(WARNING "OpenMP Offloading setting was not set. "
+            "Check your compiler whether it can perform OpenMP GPU offloading.")
 endif()
 
-find_package_handle_standard_args(OpenMP_Offloading _OPENMP_OFFLOAD_RESULT)
+find_package_handle_standard_args(OpenMP_Offloading REQUIRED_VARS _OPENMP_OFFLOAD_RESULT)
 mark_as_advanced(_is_offloading_test_ready _Offloading_CXX_FLAGS _Offloading_LINK_LIBS)
 cmake_pop_check_state()
 

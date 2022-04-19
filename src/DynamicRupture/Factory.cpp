@@ -98,7 +98,7 @@ Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
   return {
       std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
       std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
-#ifndef ACL_DEVICE
+#ifndef ACL_DEVICE_OFFLOAD
       std::make_unique<friction_law::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
 #else
       std::make_unique<friction_law::gpu::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),

@@ -1,6 +1,5 @@
 #include "FrictionLaws.h"
 
-
 namespace seissol::dr::friction_law {
 
 void FrictionSolver::computeDeltaT(double timePoints[CONVERGENCE_ORDER]) {
@@ -37,9 +36,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   dynStressTimePending = layerData.var(dynRup->dynStressTimePending);
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
   qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
-
 }
-
 
 FaultStresses FrictionSolver::precomputeStressFromQInterpolated(unsigned int ltsFace) {
 
@@ -82,7 +79,6 @@ FaultStresses FrictionSolver::precomputeStressFromQInterpolated(unsigned int lts
   }
   return faultStresses;
 }
-
 
 void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& faultStresses,
                                                           const TractionResults& tractionResults,
@@ -137,14 +133,12 @@ void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& f
       imposedStateP[0][i] += weight * normalStress;
       imposedStateP[3][i] += weight * xyTraction;
       imposedStateP[5][i] += weight * xzTraction;
-      imposedStateP[6][i] +=
-          weight * (qIPlus[o][6][i] + invZp * (normalStress - qIPlus[o][0][i]));
+      imposedStateP[6][i] += weight * (qIPlus[o][6][i] + invZp * (normalStress - qIPlus[o][0][i]));
       imposedStateP[7][i] += weight * (qIPlus[o][7][i] + invZs * (xyTraction - qIPlus[o][3][i]));
       imposedStateP[8][i] += weight * (qIPlus[o][8][i] + invZs * (xzTraction - qIPlus[o][5][i]));
     }
   }
 }
-
 
 real FrictionSolver::calcSmoothStepIncrement(real currentTime, real dt) {
   real gNuc = calcSmoothStep(currentTime);
@@ -152,7 +146,6 @@ real FrictionSolver::calcSmoothStepIncrement(real currentTime, real dt) {
   gNuc = gNuc - calcSmoothStep(prevTime);
   return gNuc;
 }
-
 
 real FrictionSolver::calcSmoothStep(real currentTime) {
   if (currentTime <= 0) {
@@ -165,7 +158,6 @@ real FrictionSolver::calcSmoothStep(real currentTime) {
   }
 }
 
-
 void FrictionSolver::saveRuptureFrontOutput(unsigned int ltsFace) {
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     constexpr real ruptureFrontThreshold = 0.001;
@@ -177,14 +169,12 @@ void FrictionSolver::saveRuptureFrontOutput(unsigned int ltsFace) {
   }
 }
 
-
 void FrictionSolver::savePeakSlipRateOutput(unsigned int ltsFace) {
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     peakSlipRate[ltsFace][pointIndex] =
         std::max(peakSlipRate[ltsFace][pointIndex], slipRateMagnitude[ltsFace][pointIndex]);
   }
 }
-
 
 void FrictionSolver::saveAverageSlipOutput(std::array<real, misc::numPaddedPoints>& tmpSlip,
                                            unsigned int ltsFace) {
@@ -196,4 +186,4 @@ void FrictionSolver::saveAverageSlipOutput(std::array<real, misc::numPaddedPoint
     averagedSlip[ltsFace] += sumOfTmpSlip / misc::numberOfBoundaryGaussPoints;
   }
 }
-} // seissol::dr::friction_law
+} // namespace seissol::dr::friction_law

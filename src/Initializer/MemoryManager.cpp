@@ -88,6 +88,11 @@
 #include <Solver/Pipeline/DrPipeline.h>
 #endif //ACL_DEVICE
 
+#ifdef ACL_DEVICE_OFFLOAD
+#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#endif
+
+
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
@@ -829,11 +834,18 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   }
 }
 
+
 void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {
   if (!m_dynRupParameter.isDynamicRuptureEnabled) {
     return;
   }
   m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
+#ifdef ACL_DEVICE_OFFLOAD
+  if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
+    impl->allocateAuxiliaryMemory(&m_dynRupTree, m_dynRup.get());
+  }
+#endif
+
   interoperability->initializeFaultOutput();
 }
 

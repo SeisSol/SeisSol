@@ -1,6 +1,5 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.h"
 
-
 namespace seissol::dr::friction_law::gpu {
 void LinearSlipWeakeningBase::updateFrictionAndSlip(
     FaultStresses& faultStresses,

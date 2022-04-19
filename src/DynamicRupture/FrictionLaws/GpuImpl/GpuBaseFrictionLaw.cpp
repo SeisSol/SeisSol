@@ -1,8 +1,8 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
 #include "utils/logger.h"
 #include <omp.h>
+#include <algorithm>
 #include <sstream>
-
 
 namespace seissol::dr::friction_law::gpu {
 void GpuBaseFrictionLaw::evaluate(seissol::initializers::Layer& layerData,
@@ -56,7 +56,7 @@ void GpuBaseFrictionLaw::evaluate(seissol::initializers::Layer& layerData,
 
 void GpuBaseFrictionLaw::checkOffloading() {
   bool canOffload = false;
-  #pragma omp target map(tofrom: canOffload)
+#pragma omp target map(tofrom : canOffload)
   {
     if (!omp_is_initial_device()) {
       canOffload = true;
@@ -65,5 +65,15 @@ void GpuBaseFrictionLaw::checkOffloading() {
   std::ostringstream info;
   info << "Device offloading: " << std::boolalpha << canOffload;
   logInfo() << info.str();
+}
+
+void GpuBaseFrictionLaw::allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
+                                                 seissol::initializers::DynamicRupture* drDescr) {
+  for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
+       it != drTree->endLeaf();
+       ++it) {
+    size_t size = it->getNumberOfCells();
+    maxClusterSize = std::max(static_cast<size_t>(it->getNumberOfCells()), maxClusterSize);
+  }
 }
 } // namespace seissol::dr::friction_law::gpu

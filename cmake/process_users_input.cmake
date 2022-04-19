@@ -134,6 +134,8 @@ endif()
 if (NOT ${DEVICE_BACKEND} STREQUAL "none")
     set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
     set(WITH_GPU on)
+else()
+    set(WITH_GPU off)
 endif()
 message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 

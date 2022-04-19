@@ -140,17 +140,12 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
 
-if (WITH_GPU)
-  add_library(SeisSol-omp-offloaded SHARED
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
-else()
-  target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
-endif()
+set(SRC_FILES_OMP_OFFLOADING_COMMON
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp)
+
+set(SRC_FILES_OMP_OFFLOADING_REQUIRED
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
 
 target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)

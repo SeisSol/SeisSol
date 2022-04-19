@@ -4,7 +4,6 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
 #include "utils/logger.h"
 
-
 namespace seissol::dr::friction_law::gpu {
 
 /**
@@ -66,7 +65,6 @@ class LinearSlipWeakeningBase : public GpuBaseFrictionLaw {
    */
   void saveDynamicStressOutput(unsigned int ltsFace) override;
 };
-
 
 class LinearSlipWeakeningLaw : public LinearSlipWeakeningBase {
   public:

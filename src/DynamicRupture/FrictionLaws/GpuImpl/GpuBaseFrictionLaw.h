@@ -7,15 +7,16 @@
 #include "DynamicRupture/Parameters.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 
-
 namespace seissol::dr::friction_law::gpu {
 class GpuBaseFrictionLaw : public FrictionSolver {
   public:
-  GpuBaseFrictionLaw(dr::DRParameters& drParameters) : FrictionSolver(drParameters){
+  GpuBaseFrictionLaw(dr::DRParameters& drParameters) : FrictionSolver(drParameters) {
     checkOffloading();
   };
 
   void checkOffloading();
+  void allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
+                               seissol::initializers::DynamicRupture* drDescr);
 
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture* dynRup,
@@ -48,6 +49,9 @@ class GpuBaseFrictionLaw : public FrictionSolver {
                                      unsigned int ltsFace) = 0;
 
   virtual void saveDynamicStressOutput(unsigned int ltsFace) = 0;
+
+  protected:
+  size_t maxClusterSize{};
 };
 } // namespace seissol::dr::friction_law::gpu
 

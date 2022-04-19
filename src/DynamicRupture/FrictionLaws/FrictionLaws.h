@@ -13,7 +13,7 @@
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
 
-#ifdef ACL_DEVICE
+#ifdef ACL_DEVICE_OFFLOAD
 #include "GpuImpl/LinearSlipWeakening.h"
 #endif
 
