@@ -153,15 +153,6 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
     if (!elemVolumes[elem]) {
       logError() << "ElementAverageGenerator: Tetrahedron volume was 0.";
     }
-
-    // Output for element z coordinates
-    std::array<double,4> zCoords{};
-    for (int i = 0; i < 3; ++i) {
-      zCoords[i] = vertices[ elements[elem].vertices[i] ].coords[2];
-    }
-    const auto [zMin, zMax] = std::minmax_element(std::begin(zCoords), std::end(zCoords));
-    const double zAvg = std::accumulate(std::begin(zCoords), std::end(zCoords), 0.0) / 4.0;
-    logInfo() << "Element " << elem << " zMin: " << *zMin << ", zMax: " << *zMax << ", zAvg: " << zAvg;
   }
 
   return elemVolumes;
@@ -398,10 +389,21 @@ namespace seissol {
         MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(baryAdapter);
         model->evaluate(baryQuery, baryAdapter);
 
-        for (unsigned i = 0; i < 1000; ++i) {
+        std::vector<Element> const& elements = seissol::SeisSol::main.meshReader().getElements();
+        std::vector<Vertex> const& vertices = seissol::SeisSol::main.meshReader().getVertices();
+        std::array<double,4> zCoords{};
+
+        for (unsigned i = 0; i < numElems; ++i) {
           if (fabs(materialsMean[i].rho - baryMaterials[i].rho) > 0.1) {
             logInfo() << "Element " << i << " homogenized rho: " << materialsMean[i].rho << ", mu: " << materialsMean[i].mu << ", lambda: " << materialsMean[i].lambda;
             logInfo() << "Element " << i << " barycenter  rho: " << baryMaterials[i].rho << ", mu: " << baryMaterials[i].mu << ", lambda: " << baryMaterials[i].lambda;
+            // Output for element z coordinates
+            for (int j = 0; j < 4; ++j) {
+              zCoords[j] = vertices[ elements[i].vertices[j] ].coords[2];
+            }
+            const auto [zMin, zMax] = std::minmax_element(std::begin(zCoords), std::end(zCoords));
+            const double zAvg = std::accumulate(std::begin(zCoords), std::end(zCoords), 0.0) / 4.0;
+            logInfo() << "Element " << i << " zMin: " << *zMin << ", zMax: " << *zMax << ", zAvg: " << zAvg;
           }
         }
       } else {
