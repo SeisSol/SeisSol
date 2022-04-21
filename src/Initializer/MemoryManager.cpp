@@ -89,6 +89,7 @@
 #endif //ACL_DEVICE
 
 #ifdef ACL_DEVICE_OFFLOAD
+#include "device.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
 #endif
 
@@ -842,7 +843,8 @@ void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperab
   m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
 #ifdef ACL_DEVICE_OFFLOAD
   if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
-    impl->allocateAuxiliaryMemory(&m_dynRupTree, m_dynRup.get());
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    impl->allocateAuxiliaryMemory(&m_dynRupTree, m_dynRup.get(), device.api->getDeviceId());
   }
 #endif
 

@@ -38,7 +38,11 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
 }
 
-FaultStresses FrictionSolver::precomputeStressFromQInterpolated(unsigned int ltsFace) {
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp declare target
+#endif // ACL_DEVICE_OFFLOAD
+void FrictionSolver::precomputeStressFromQInterpolated(FaultStresses& faultStresses,
+                                                       unsigned int ltsFace) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
@@ -61,8 +65,11 @@ FaultStresses FrictionSolver::precomputeStressFromQInterpolated(unsigned int lts
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus))[ltsFace];
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus))[ltsFace];
 
-  alignas(ALIGNMENT) FaultStresses faultStresses{};
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp loop bind(parallel)
+#endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       faultStresses.normalStress[o][i] =
           etaP * (qIMinus[o][6][i] - qIPlus[o][6][i] + qIPlus[o][0][i] * invZp +
@@ -77,9 +84,14 @@ FaultStresses FrictionSolver::precomputeStressFromQInterpolated(unsigned int lts
                   qIMinus[o][5][i] * invZsNeig);
     }
   }
-  return faultStresses;
 }
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp end declare target
+#endif // ACL_DEVICE_OFFLOAD
 
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp declare target
+#endif // ACL_DEVICE_OFFLOAD
 void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& faultStresses,
                                                           const TractionResults& tractionResults,
                                                           double timeWeights[CONVERGENCE_ORDER],
@@ -90,6 +102,9 @@ void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& f
   //(but be careful of race conditions since this is computed in parallel for each face!!)
 
   // set imposed state to zero
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp loop bind(parallel)
+#endif // ACL_DEVICE_OFFLOAD
   for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
     imposedStatePlus[ltsFace][i] = static_cast<real>(0.0);
     imposedStateMinus[ltsFace][i] = static_cast<real>(0.0);
@@ -112,9 +127,11 @@ void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& f
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
 
-#ifdef _OPENMP
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp loop bind(parallel)
+#else
 #pragma omp simd
-#endif
+#endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       auto normalStress = faultStresses.normalStress[o][i];
       auto xyTraction = tractionResults.xyTraction[o][i];
@@ -139,6 +156,9 @@ void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& f
     }
   }
 }
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp end declare target
+#endif // ACL_DEVICE_OFFLOAD
 
 real FrictionSolver::calcSmoothStepIncrement(real currentTime, real dt) {
   real gNuc = calcSmoothStep(currentTime);

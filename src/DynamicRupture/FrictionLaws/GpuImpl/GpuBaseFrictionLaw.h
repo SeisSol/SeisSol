@@ -10,13 +10,13 @@
 namespace seissol::dr::friction_law::gpu {
 class GpuBaseFrictionLaw : public FrictionSolver {
   public:
-  GpuBaseFrictionLaw(dr::DRParameters& drParameters) : FrictionSolver(drParameters) {
-    checkOffloading();
-  };
+  GpuBaseFrictionLaw(dr::DRParameters& drParameters);
+  ~GpuBaseFrictionLaw();
 
   void checkOffloading();
   void allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
-                               seissol::initializers::DynamicRupture* drDescr);
+                               seissol::initializers::DynamicRupture* drDescr,
+                               int diviceId);
 
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture* dynRup,
@@ -52,6 +52,9 @@ class GpuBaseFrictionLaw : public FrictionSolver {
 
   protected:
   size_t maxClusterSize{};
+  int diviceId{};
+  FaultStresses* faultStresses{nullptr};
+  TractionResults* tractionResults{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

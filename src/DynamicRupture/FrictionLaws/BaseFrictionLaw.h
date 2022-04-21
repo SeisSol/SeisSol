@@ -32,7 +32,8 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      FaultStresses faultStresses = this->precomputeStressFromQInterpolated(ltsFace);
+      alignas(ALIGNMENT) FaultStresses faultStresses{};
+      this->precomputeStressFromQInterpolated(faultStresses, ltsFace);
 
       // define some temporary variables
       std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};

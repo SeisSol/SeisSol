@@ -4,7 +4,21 @@
 #include <algorithm>
 #include <sstream>
 
+#pragma omp declare target(                                                                        \
+    seissol::dr::friction_law::FrictionSolver::precomputeStressFromQInterpolated)
+#pragma omp declare target(                                                                        \
+    seissol::dr::friction_law::FrictionSolver::postcomputeImposedStateFromNewStress)
+
 namespace seissol::dr::friction_law::gpu {
+GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters& drParameters)
+    : FrictionSolver(drParameters){};
+
+GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
+  //#pragma omp target exit data map(release:faultStresses[0:maxClusterSize])
+  delete[] faultStresses;
+  delete[] tractionResults;
+}
+
 void GpuBaseFrictionLaw::evaluate(seissol::initializers::Layer& layerData,
                                   seissol::initializers::DynamicRupture* dynRup,
                                   real fullUpdateTime,
@@ -12,51 +26,69 @@ void GpuBaseFrictionLaw::evaluate(seissol::initializers::Layer& layerData,
   FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
 
-  // loop over all dynamic rupture faces, in this LTS layer
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-  for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-    FaultStresses faultStresses = this->precomputeStressFromQInterpolated(ltsFace);
+  #pragma omp target data map(to: this)
+  {
+    auto layerSize = layerData.getNumberOfCells();
 
-    // define some temporary variables
-    std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
-    std::array<real, misc::numPaddedPoints> strengthBuffer{0};
-
-    this->preHook(stateVariableBuffer, ltsFace);
-
-    TractionResults tractionResults = {};
-
-    // loop over sub time steps (i.e. quadrature points in time)
-    for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-      this->updateFrictionAndSlip(
-          faultStresses, tractionResults, stateVariableBuffer, strengthBuffer, ltsFace, timeIndex);
+    // clang-format off
+    #pragma omp target teams loop map(from: faultStresses [0:layerSize]) \
+    is_device_ptr(qInterpolatedPlus, qInterpolatedMinus, impAndEta) device(diviceId)
+    // clang-format on
+    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+      precomputeStressFromQInterpolated(faultStresses[ltsFace], ltsFace);
     }
 
-    this->postHook(stateVariableBuffer, ltsFace);
+    // loop over all dynamic rupture faces, in this LTS layer
+    #pragma omp parallel for schedule(static)
+    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
 
-    // output rupture front
-    this->saveRuptureFrontOutput(ltsFace);
+      // define some temporary variables
+      std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
+      std::array<real, misc::numPaddedPoints> strengthBuffer{0};
 
-    // output time when shear stress is equal to the dynamic stress after rupture arrived
-    this->saveDynamicStressOutput(ltsFace);
+      this->preHook(stateVariableBuffer, ltsFace);
 
-    // output peak slip rate
-    this->savePeakSlipRateOutput(ltsFace);
+      // loop over sub time steps (i.e. quadrature points in time)
+      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+        this->updateFrictionAndSlip(faultStresses[ltsFace],
+                                    tractionResults[ltsFace],
+                                    stateVariableBuffer,
+                                    strengthBuffer,
+                                    ltsFace,
+                                    timeIndex);
+      }
 
-    // output average slip
-    // TODO: What about outputSlip
-    // this->saveAverageSlipOutput(outputSlip, ltsFace);
+      this->postHook(stateVariableBuffer, ltsFace);
 
-    // compute output
-    this->postcomputeImposedStateFromNewStress(
-        faultStresses, tractionResults, timeWeights, ltsFace);
+      // output rupture front
+      this->saveRuptureFrontOutput(ltsFace);
+
+      // output time when shear stress is equal to the dynamic stress after rupture arrived
+      this->saveDynamicStressOutput(ltsFace);
+
+      // output peak slip rate
+      this->savePeakSlipRateOutput(ltsFace);
+
+      // output average slip
+      // TODO: What about outputSlip
+      // this->saveAverageSlipOutput(outputSlip, ltsFace);
+    }
+
+// clang-format off
+    #pragma omp target teams loop map(to: faultStresses [0:layerSize], tractionResults[0:layerSize], timeWeights[0:CONVERGENCE_ORDER]) \
+    is_device_ptr(imposedStatePlus, imposedStateMinus, qInterpolatedPlus, qInterpolatedMinus, impAndEta) \
+    device(diviceId)
+    // clang-format on
+    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+      this->postcomputeImposedStateFromNewStress(
+          faultStresses[ltsFace], tractionResults[ltsFace], timeWeights, ltsFace);
+    }
   }
 }
 
 void GpuBaseFrictionLaw::checkOffloading() {
   bool canOffload = false;
-#pragma omp target map(tofrom : canOffload)
+  #pragma omp target map(tofrom : canOffload)
   {
     if (!omp_is_initial_device()) {
       canOffload = true;
@@ -68,12 +100,18 @@ void GpuBaseFrictionLaw::checkOffloading() {
 }
 
 void GpuBaseFrictionLaw::allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
-                                                 seissol::initializers::DynamicRupture* drDescr) {
+                                                 seissol::initializers::DynamicRupture* drDescr,
+                                                 int currDiviceId) {
   for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != drTree->endLeaf();
        ++it) {
-    size_t size = it->getNumberOfCells();
-    maxClusterSize = std::max(static_cast<size_t>(it->getNumberOfCells()), maxClusterSize);
+    size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+    maxClusterSize = std::max(currClusterSize, maxClusterSize);
   }
+
+  diviceId = currDiviceId;
+  faultStresses = new FaultStresses[maxClusterSize];
+  tractionResults = new TractionResults[maxClusterSize];
+  //#pragma omp target enter data map(alloc:faultStresses[0:maxClusterSize])
 }
 } // namespace seissol::dr::friction_law::gpu

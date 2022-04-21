@@ -1,4 +1,5 @@
 enable_language(CUDA)
+set(CMAKE_CUDA_STANDARD 14)
 
 set(DEVICE_SRC ${DEVICE_SRC};
         ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp;
@@ -6,10 +7,8 @@ set(DEVICE_SRC ${DEVICE_SRC};
 
 add_library(SeisSol-device-lib SHARED ${DEVICE_SRC})
 
-#set_target_properties(SeisSol-device-lib PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(SeisSol-device-lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_source_files_properties(${DEVICE_SRC} PROPERTIES LANGUAGE CUDA)
-
 
 target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 target_compile_features(SeisSol-device-lib PRIVATE cxx_std_14)
@@ -31,4 +30,3 @@ if (EXTRA_CXX_FLAGS)
             --compiler-options ${EXTRA_CXX_FLAGS}
             >)
 endif()
-

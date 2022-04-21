@@ -15,6 +15,7 @@ namespace seissol::dr::friction_law {
  */
 class FrictionSolver {
   public:
+  // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   FrictionSolver(dr::DRParameters& userDrParameters) : drParameters(userDrParameters){};
   virtual ~FrictionSolver(){};
 
@@ -41,11 +42,11 @@ class FrictionSolver {
    * Using equations (A2) from Pelties et al. 2014
    * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
    * @param ltsFace: current fault face to be evaluated
+   * @param faultStresses: ormalStress XYStress, XZStress at the 2d face quadrature nodes evaluated
+   * at the time quadrature points
    * @returns
-   * NormalStress XYStress, XZStress at the 2d face quadrature nodes evaluated at the time
-   * quadrature points
    */
-  FaultStresses precomputeStressFromQInterpolated(unsigned int ltsFace);
+  void precomputeStressFromQInterpolated(FaultStresses& faultStresses, unsigned int ltsFace);
 
   /**
    * Integrate over all Time points with the time weights and calculate the traction for each side
