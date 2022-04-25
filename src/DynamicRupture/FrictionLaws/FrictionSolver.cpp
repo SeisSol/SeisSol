@@ -1,4 +1,4 @@
-#include "FrictionLaws.h"
+#include "FrictionSolver.h"
 
 namespace seissol::dr::friction_law {
 
@@ -178,7 +178,13 @@ real FrictionSolver::calcSmoothStep(real currentTime) {
   }
 }
 
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp declare target
+#endif // ACL_DEVICE_OFFLOAD
 void FrictionSolver::saveRuptureFrontOutput(unsigned int ltsFace) {
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp loop bind(parallel)
+#endif // ACL_DEVICE_OFFLOAD
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     constexpr real ruptureFrontThreshold = 0.001;
     if (ruptureTimePending[ltsFace][pointIndex] &&
@@ -188,13 +194,26 @@ void FrictionSolver::saveRuptureFrontOutput(unsigned int ltsFace) {
     }
   }
 }
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp end declare target
+#endif // ACL_DEVICE_OFFLOAD
 
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp declare target
+#endif // ACL_DEVICE_OFFLOAD
 void FrictionSolver::savePeakSlipRateOutput(unsigned int ltsFace) {
+
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp loop bind(parallel)
+#endif // ACL_DEVICE_OFFLOAD
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     peakSlipRate[ltsFace][pointIndex] =
         std::max(peakSlipRate[ltsFace][pointIndex], slipRateMagnitude[ltsFace][pointIndex]);
   }
 }
+#ifdef ACL_DEVICE_OFFLOAD
+#pragma omp end declare target
+#endif // ACL_DEVICE_OFFLOAD
 
 void FrictionSolver::saveAverageSlipOutput(std::array<real, misc::numPaddedPoints>& tmpSlip,
                                            unsigned int ltsFace) {
