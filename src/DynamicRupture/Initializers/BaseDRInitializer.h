@@ -79,8 +79,8 @@ class BaseDRInitializer {
    * slip1
    * slip2
    * slipRateMagnitude
-   * tractionXY
-   * tractionXZ
+   * traction1
+   * traction2
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    * @param e_interoperability pointer to the interoperability instance, can be removed once we do

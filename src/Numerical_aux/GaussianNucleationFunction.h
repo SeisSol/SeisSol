@@ -25,10 +25,7 @@ inline real smoothStep(real currentTime, real t0) {
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
 inline real smoothStepIncrement(real currentTime, real dt, real t0) {
-  real gNuc = smoothStep(currentTime, t0);
-  real prevTime = currentTime - dt;
-  gNuc = gNuc - smoothStep(prevTime, t0);
-  return gNuc;
+  return smoothStep(currentTime, t0) - smoothStep(currentTime - dt, t0);
 }
 
 } // namespace seissol::gaussianNucleationFunction

@@ -8,11 +8,12 @@
 
 namespace seissol::dr::friction_law {
 class YoffeSTF {
-  public:
+  private:
   real (*onsetTime)[misc::numPaddedPoints];
   real (*tauS)[misc::numPaddedPoints];
   real (*tauR)[misc::numPaddedPoints];
 
+  public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
@@ -24,10 +25,11 @@ class YoffeSTF {
 };
 
 class GaussianSTF {
-  public:
+  private:
   real (*onsetTime)[misc::numPaddedPoints];
   real (*riseTime)[misc::numPaddedPoints];
 
+  public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);

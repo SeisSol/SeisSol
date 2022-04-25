@@ -12,8 +12,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  real (*strikeSlip)[misc::numPaddedPoints];
-  real (*dipSlip)[misc::numPaddedPoints];
+  real (*slip1)[misc::numPaddedPoints];
+  real (*slip2)[misc::numPaddedPoints];
 
   STF stf{};
 
@@ -21,8 +21,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {
     auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
-    strikeSlip = layerData.var(concreteLts->strikeSlip);
-    dipSlip = layerData.var(concreteLts->dipSlip);
+    slip1 = layerData.var(concreteLts->slip1);
+    slip2 = layerData.var(concreteLts->slip2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -42,14 +42,14 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.xyStress[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * strikeSlip[ltsFace][pointIndex] * stfEvaluated;
+          faultStresses.traction1[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * slip1[ltsFace][pointIndex] * stfEvaluated;
       tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.xzStress[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * dipSlip[ltsFace][pointIndex] * stfEvaluated;
+          faultStresses.traction2[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * slip2[ltsFace][pointIndex] * stfEvaluated;
 
-      this->slipRate1[ltsFace][pointIndex] = this->strikeSlip[ltsFace][pointIndex] * stfEvaluated;
-      this->slipRate2[ltsFace][pointIndex] = this->dipSlip[ltsFace][pointIndex] * stfEvaluated;
+      this->slipRate1[ltsFace][pointIndex] = this->slip1[ltsFace][pointIndex] * stfEvaluated;
+      this->slipRate2[ltsFace][pointIndex] = this->slip2[ltsFace][pointIndex] * stfEvaluated;
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
 
@@ -59,8 +59,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
           this->slipRateMagnitude[ltsFace][pointIndex] * timeIncrement;
 
-      this->tractionXY[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-      this->tractionXZ[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
+      this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
+      this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
     }
   }
 
