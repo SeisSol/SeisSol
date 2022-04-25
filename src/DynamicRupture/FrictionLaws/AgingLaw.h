@@ -10,28 +10,33 @@ namespace seissol::dr::friction_law {
  * properly on the Master Branch. This class is also less optimized. It was left in here to have a
  * reference of how it could be implemented.
  */
-class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw> {
+template <class TPMethod>
+class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<AgingLaw>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<AgingLaw>::copyLtsTreeToLocal;
+  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
   /**
    * Integrates the state variable ODE in time
-   * \f[ \frac{\partial \Theta}{\partial t} = 1 - \frac{V}{L} \Theta. \f]
+   * \f[ \frac{\partial \Psi}{\partial t} = 1 - \frac{V}{L} \Psi \f]
    * Analytic solution:
-   * \f[\Theta(t) = - \Theta_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
+   * \f[\Psi(t) = - \Psi_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
    * -\frac{V}{L} \cdot t\right). \f]
    * Note that we need double precision here, since single precision led to NaNs.
-   * @param stateVarReference \f$ \Theta_0 \f$
+   * @param stateVarReference \f$ \Psi_0 \f$
    * @param timeIncrement \f$ t \f$
    * @param localSlipRate \f$ V \f$
-   * @return \f$ \Theta(t) \f$
+   * @return \f$ \Psi(t) \f$
    */
   double updateStateVariable(int pointIndex,
                              unsigned int face,
                              double stateVarReference,
                              double timeIncrement,
-                             double localSlipRate);
+                             double localSlipRate) {
+    double localSl0 = this->sl0[face][pointIndex];
+    double exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
+    return stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1);
+  }
 };
 
 } // namespace seissol::dr::friction_law

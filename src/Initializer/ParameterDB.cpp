@@ -172,6 +172,12 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
     for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3], xyz[3];
       double localPoints[2] = {pointsView(n,0), pointsView(n,1)};
+      // padded points are in the middle of the tetrahedron
+      if (n >= dr::misc::numberOfBoundaryGaussPoints) {
+        localPoints[0] = 1.0/3.0;
+        localPoints[1] = 1.0/3.0;
+      }
+
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       seissol::transformations::tetrahedronReferenceToGlobal(coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
       for (unsigned dim = 0; dim < 3; ++dim) {

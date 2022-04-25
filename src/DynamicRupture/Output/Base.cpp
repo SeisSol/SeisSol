@@ -300,8 +300,8 @@ void Base::tiePointers(seissol::initializers::Layer& layerData,
   real(*ruptureTime)[size] = layerData.var(description->ruptureTime);
   real(*dynStressTime)[size] = layerData.var(description->dynStressTime);
   real(*peakSR)[size] = layerData.var(description->peakSlipRate);
-  real(*tractionXY)[size] = layerData.var(description->tractionXY);
-  real(*tractionXZ)[size] = layerData.var(description->tractionXZ);
+  real(*traction1)[size] = layerData.var(description->traction1);
+  real(*traction2)[size] = layerData.var(description->traction2);
 
   DRFaceInformation* faceInformation = layerData.var(description->faceInformation);
 
@@ -318,8 +318,8 @@ void Base::tiePointers(seissol::initializers::Layer& layerData,
                                                          ruptureTime,
                                                          dynStressTime,
                                                          peakSR,
-                                                         tractionXY,
-                                                         tractionXZ);
+                                                         traction1,
+                                                         traction2);
   }
 }
 } // namespace seissol::dr::output

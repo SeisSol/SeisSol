@@ -25,12 +25,12 @@ void ImposedSlipRates::updateFrictionAndSlip(
 
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     //! EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
-    tractionResults.xyTraction[timeIndex][pointIndex] =
-        faultStresses.xyStress[timeIndex][pointIndex] -
+    tractionResults.traction1[timeIndex][pointIndex] =
+        faultStresses.traction1[timeIndex][pointIndex] -
         this->impAndEta[ltsFace].etaS * this->nucleationStressInFaultCS[ltsFace][pointIndex][0] *
             gNuc;
-    tractionResults.xzTraction[timeIndex][pointIndex] =
-        faultStresses.xzStress[timeIndex][pointIndex] -
+    tractionResults.traction2[timeIndex][pointIndex] =
+        faultStresses.traction2[timeIndex][pointIndex] -
         this->impAndEta[ltsFace].etaS * this->nucleationStressInFaultCS[ltsFace][pointIndex][1] *
             gNuc;
     this->slipRate1[ltsFace][pointIndex] =
@@ -46,8 +46,8 @@ void ImposedSlipRates::updateFrictionAndSlip(
     this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
         this->slipRateMagnitude[ltsFace][pointIndex] * timeInc;
 
-    this->tractionXY[ltsFace][pointIndex] = tractionResults.xyTraction[timeIndex][pointIndex];
-    this->tractionXZ[ltsFace][pointIndex] = tractionResults.xzTraction[timeIndex][pointIndex];
+    this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
+    this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
   }
 }
 

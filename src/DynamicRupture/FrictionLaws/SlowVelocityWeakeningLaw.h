@@ -7,10 +7,11 @@ namespace seissol::dr::friction_law {
 /**
  * This class was not tested and compared to the Fortran FL4.
  */
-template <class Derived>
-class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived>> {
+template <class Derived, class TPMethod>
+class SlowVelocityWeakeningLaw
+    : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SlowVelocityWeakeningLaw>::RateAndStateBase;
+  using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -31,11 +32,11 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
 
   /**
    * Computes the friction coefficient from the state variable and slip rate
-   * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Theta
+   * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi
    * / L)}{a} \right)\right).\f]
    * Note that we need double precision here, since single precision led to NaNs.
    * @param localSlipRateMagnitude \f$ V \f$
-   * @param localStateVariable \f$ \Theta \f$
+   * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
   double updateMu(unsigned int ltsFace,
@@ -54,10 +55,10 @@ class SlowVelocityWeakeningLaw : public RateAndStateBase<SlowVelocityWeakeningLa
   /**
    * Computes the derivative of the friction coefficient with respect to the slip rate.
    * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
-   * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Theta / L)}{a} \right). \f]
+   * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi / L)}{a} \right). \f]
    * Note that we need double precision here, since single precision led to NaNs.
    * @param localSlipRateMagnitude \f$ V \f$
-   * @param localStateVariable \f$ \Theta \f$
+   * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
   double updateMuDerivative(unsigned int ltsFace,

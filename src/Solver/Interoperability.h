@@ -427,16 +427,6 @@ class seissol::Interoperability {
                                               real *i_RS_sl0,
                                               real *i_RS_sr0);
 
-  /**
-   * get initial values from fortran
-   * for FL103 Thermal Pressure (TP)
-   *
-   *
-   * @param TP_grid     grid for TP
-   * @param TP_DFinv    inverse Fourier coefficients
-   **/
-  void getDynRupTP(real TP_grid[seissol::dr::numberOfTPGridPoints], real TP_DFinv[seissol::dr::numberOfTPGridPoints]);
-
   void copyFrictionOutputInitialStressInFaultCS(unsigned numberOfCells, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
 
   /**
@@ -452,8 +442,8 @@ class seissol::Interoperability {
                                           real  (*ruptureTime)[init::QInterpolated::Stop[0]],
                                           real  (*dynStressTime)[init::QInterpolated::Stop[0]],
                                           real  (*peakSlipRate)[init::QInterpolated::Stop[0]],
-                                          real  (*tractionXY)[init::QInterpolated::Stop[0]],
-                                          real  (*tractionXZ)[init::QInterpolated::Stop[0]]
+                                          real  (*traction1)[init::QInterpolated::Stop[0]],
+                                          real  (*traction2)[init::QInterpolated::Stop[0]]
   );
 
   /**
@@ -470,11 +460,16 @@ class seissol::Interoperability {
   );
 
   void copyFrictionOutputToFortranStateVar(unsigned ltsFace, unsigned meshFace,
-                                      real  (*stateVar)[init::QInterpolated::Stop[0]]
+                                      real (*stateVar)[init::QInterpolated::Stop[0]]
   );
 
   void copyFrictionOutputToFortranStrength(unsigned ltsFace, unsigned meshFace,
-                                           real  (*strength)[init::QInterpolated::Stop[0]]
+                                           real (*strength)[init::QInterpolated::Stop[0]]
+  );
+
+  void copyFrictionOutputToFortranThermalPressurization(unsigned ltsFace, unsigned meshFace,
+                                                        real (*fluidPressure)[dr::misc::numPaddedPoints],
+                                                        real (*fluidTemperature)[dr::misc::numPaddedPoints]
   );
 
   void copyFrictionOutputToFortranInitialStressInFaultCS(unsigned ltsFace, unsigned meshFace,

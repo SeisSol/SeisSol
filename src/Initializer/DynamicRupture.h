@@ -53,7 +53,7 @@ namespace seissol {
     struct LTS_LinearSlipWeakeningBimaterial;
     struct LTS_RateAndState;
     struct LTS_RateAndStateFastVelocityWeakening;
-    struct LTS_RateAndStateThermalPressurisation;
+    struct LTS_RateAndStateThermalPressurization;
     struct LTS_ImposedSlipRates;
   } // namespace initializers
 } // namespace seissol
@@ -101,8 +101,8 @@ public:
   Variable<bool[dr::misc::numPaddedPoints]> ruptureTimePending;
   Variable<bool[dr::misc::numPaddedPoints]> dynStressTimePending;
   Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
-  Variable<real[dr::misc::numPaddedPoints]> tractionXY;
-  Variable<real[dr::misc::numPaddedPoints]> tractionXZ;
+  Variable<real[dr::misc::numPaddedPoints]> traction1;
+  Variable<real[dr::misc::numPaddedPoints]> traction2;
   Variable<real> averagedSlip;
   Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedPlus;
   Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedMinus;
@@ -147,8 +147,8 @@ public:
     tree.addVar(slipRate1, mask, 1, seissol::memory::Standard);
     tree.addVar(slipRate2, mask, 1, seissol::memory::Standard);
     tree.addVar(peakSlipRate, mask, 1, seissol::memory::Standard);
-    tree.addVar(tractionXY, mask, 1, seissol::memory::Standard);
-    tree.addVar(tractionXZ, mask, 1, seissol::memory::Standard);
+    tree.addVar(traction1, mask, 1, seissol::memory::Standard);
+    tree.addVar(traction2, mask, 1, seissol::memory::Standard);
     tree.addVar(averagedSlip, mask, 1, seissol::memory::Standard);
     tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, seissol::memory::Standard);
     tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, seissol::memory::Standard);
@@ -231,24 +231,30 @@ struct seissol::initializers::LTS_RateAndStateFastVelocityWeakening : public sei
   }
 };
 
-struct seissol::initializers::LTS_RateAndStateThermalPressurisation : public seissol::initializers::LTS_RateAndStateFastVelocityWeakening {
+struct seissol::initializers::LTS_RateAndStateThermalPressurization : public seissol::initializers::LTS_RateAndStateFastVelocityWeakening {
 
   Variable<real[dr::misc::numPaddedPoints]> temperature;  //this is TP[1] in fortran
   Variable<real[dr::misc::numPaddedPoints]> pressure;     //this is TP[2] in fortran
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::numberOfTPGridPoints]> tpTheta;
-  Variable<real[dr::misc::numPaddedPoints][seissol::dr::numberOfTPGridPoints]> tpSigma;
-  Variable<real[dr::misc::numPaddedPoints]> tpHalfWidthShearZone;
-  Variable<real[dr::misc::numPaddedPoints]> alphaHy;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> theta;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigma;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> thetaTmpBuffer;
+  Variable<real[dr::misc::numPaddedPoints][seissol::dr::misc::numberOfTPGridPoints]> sigmaTmpBuffer;
+  Variable<real[dr::misc::numPaddedPoints]> faultStrength;
+  Variable<real[dr::misc::numPaddedPoints]>halfWidthShearZone;
+  Variable<real[dr::misc::numPaddedPoints]> hydraulicDiffusivity;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_RateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(temperature, mask, 1, seissol::memory::Standard);
-    tree.addVar(pressure, mask, 1, seissol::memory::Standard);
-    tree.addVar(tpTheta, mask, 1, seissol::memory::Standard);
-    tree.addVar(tpSigma, mask, 1, seissol::memory::Standard);
-    tree.addVar(tpHalfWidthShearZone, mask, 1, seissol::memory::Standard);
-    tree.addVar(alphaHy, mask, 1, seissol::memory::Standard);
+    tree.addVar(temperature, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(pressure, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(theta, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(sigma, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(thetaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(sigmaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(faultStrength, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(halfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(hydraulicDiffusivity, mask, ALIGNMENT, seissol::memory::Standard);
   }
 };
 

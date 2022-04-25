@@ -39,7 +39,8 @@ def l2_norm(q):
 def l2_difference(q_0, q_1):
     return l2_norm(q_0 - q_1)
 
-quantity_names = ["ASl", "Mud", "PSR", "P_n", "Pn0", "RT", "SRd", "SRs", "Sld", "Sls", "T_d", "T_s", "Td0", "Ts0", "Vr", "u_n"]
+quantity_names = sorted(fault.ReadAvailableDataFields())
+quantity_names.remove("partition")
 errors = np.zeros((len(quantity_names)))
 
 last_index = fault.ndt
@@ -49,9 +50,15 @@ for i, q in enumerate(quantity_names):
     quantity = fault.ReadData(q, last_index-1)
     quantity_ref = fault_ref.ReadData(q, last_index-1)
     # compute error
-    relative_error = l2_difference(quantity, quantity_ref) / l2_norm(quantity_ref)
-    print(f"{q:3}: {relative_error}")
-    errors[i] = relative_error
+    ref_norm = l2_norm(quantity_ref)
+    if ref_norm < 1e-10:
+        absolute_error = l2_difference(quantity, quantity_ref)
+        print(f"{q:3}: {relative_error}")
+        errors[i] = absolute_error
+    else:
+        relative_error = l2_difference(quantity, quantity_ref) / ref_norm
+        print(f"{q:3}: {relative_error}")
+        errors[i] = relative_error
 
 if np.any(errors > args.epsilon):
     print(f"Relative error {args.epsilon} exceeded for quantities")

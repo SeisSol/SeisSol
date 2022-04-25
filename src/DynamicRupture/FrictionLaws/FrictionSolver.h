@@ -7,23 +7,6 @@
 
 namespace seissol::dr::friction_law {
 /**
- * Struct that contains all input stresses
- */
-struct FaultStresses {
-  real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xyStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xzStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-};
-
-/**
- * Struct that contains all traction results
- */
-struct TractionResults {
-  real xyTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  real xzTraction[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-};
-
-/**
  * Abstract Base for friction solver class with the public interface
  * Only needed to be able to store a shared_ptr<FrictionSolver> in MemoryManager and TimeCluster.
  * BaseFrictionLaw has a template argument for CRTP, hence, we can't store a pointer to any

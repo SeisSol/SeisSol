@@ -5,12 +5,26 @@
 #include "Solver/Interoperability.h"
 
 namespace seissol::dr::friction_law {
+// TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
+// as a consequence, the SR is affected the AlmostZero value when too small
+// For double precision 1e-45 is a chosen by trial and error. For single precision, this value is
+// too small, so we use 1e-35
+constexpr real almostZero() {
+  if constexpr (std::is_same<real, double>()) {
+    return 1e-45;
+  } else if constexpr (std::is_same<real, float>()) {
+    return 1e-35;
+  } else {
+    return std::numeric_limits<real>::min();
+  }
+}
+
 /**
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
-template <class Derived>
-class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
+template <class Derived, class TPMethod>
+class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
   // Attributes
   // CS = coordinate system
@@ -22,9 +36,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   real (*sl0)[misc::numPaddedPoints];
   real (*stateVariable)[misc::numPaddedPoints];
 
-  // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
-  // as a consequence, the SR is affected the AlmostZero value when too small
-  const real almostZero = 1e-45;
+  TPMethod tpMethod;
 
   /**
    * Parameters of the optimisation loops
@@ -36,7 +48,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
   const unsigned int numberStateVariableUpdates = 2;
   const double newtonTolerance = 1e-8;
 
-  using BaseFrictionLaw<RateAndStateBase<Derived>>::BaseFrictionLaw;
+  RateAndStateBase(DRParameters& drParameters)
+      : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
+        tpMethod(TPMethod(drParameters)) {}
 
   protected:
   public:
@@ -48,11 +62,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                              unsigned& timeIndex) {
     bool hasConverged = false;
 
-    // TODO: only allocate fluidPressure if we actually need it, i.e. when thermal pressurisation is
-    // turned on.
-    std::array<real, misc::numPaddedPoints> fluidPressure{0};
-    // compute initial thermal pressure (ony for FL103 TP)
-    static_cast<Derived*>(this)->setInitialFluidPressureHook(fluidPressure, ltsFace);
     // compute initial slip rate and reference values
     std::array<real, misc::numPaddedPoints> localSlipRate{0};
     std::array<real, misc::numPaddedPoints> stateVarReference{0};
@@ -60,17 +69,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     std::array<real, misc::numPaddedPoints> absoluteShearStress{0};
     std::tie(absoluteShearStress, normalStress, stateVarReference, localSlipRate) =
         static_cast<Derived*>(this)->calcInitialVariables(
-            faultStresses, stateVariableBuffer, fluidPressure, timeIndex, ltsFace);
-
-    // compute pressure from thermal pressurization (only FL103 TP)
-    // Todo: Enable TP again
-    // static_cast<Derived*>(this)->hookCalcP_f(fluidPressure, faultStresses, false, timeIndex,
-    // ltsFace); compute slip rates by solving non-linear system of equations (with newton)
+            faultStresses, stateVariableBuffer, tpMethod, timeIndex, ltsFace);
+    // compute slip rates by solving non-linear system of equations (with newton)
     this->updateStateVariableIterative(hasConverged,
                                        stateVarReference,
                                        localSlipRate,
                                        stateVariableBuffer,
-                                       fluidPressure,
+                                       tpMethod,
                                        normalStress,
                                        absoluteShearStress,
                                        faultStresses,
@@ -81,11 +86,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     if (!hasConverged) {
       static_cast<Derived*>(this)->executeIfNotConverged(stateVariableBuffer, ltsFace);
     }
-    // compute final thermal pressure for FL103TP
-    // Todo: Enable TP again
-    // static_cast<Derived*>(this)->hookCalcP_f(fluidPressure, faultStresses, true, timeIndex,
-    // ltsFace); compute final slip rates and traction from median value of the iterative solution
-    // and initial guess
+    // compute final thermal pressure and normalStress
+    tpMethod.calcFluidPressure(
+        normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, timeIndex, ltsFace);
+    updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
+    // compute final slip rates and traction from median value of the iterative solution and initial
+    // guess
     this->calcSlipRateAndTraction(stateVarReference,
                                   localSlipRate,
                                   stateVariableBuffer,
@@ -128,6 +134,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
   /*
    * compute time increments (Gnuc)
@@ -164,7 +171,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
              std::array<real, misc::numPaddedPoints>>
       calcInitialVariables(FaultStresses const& faultStresses,
                            std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                           std::array<real, misc::numPaddedPoints> const& fluidPressure,
+                           TPMethod const& tpMethod,
                            unsigned int timeIndex,
                            unsigned int ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
@@ -172,31 +179,27 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
     std::array<real, misc::numPaddedPoints> stateVarZero;
     std::copy(localStateVariable.begin(), localStateVariable.end(), stateVarZero.begin());
 
-    std::array<real, misc::numPaddedPoints> absoluteShearStress;
+    std::array<real, misc::numPaddedPoints> absoluteTraction;
     std::array<real, misc::numPaddedPoints> normalStress;
     std::array<real, misc::numPaddedPoints> temporarySlipRate;
 
+    updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                           faultStresses.xyStress[timeIndex][pointIndex];
-      real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                           faultStresses.xzStress[timeIndex][pointIndex];
-      absoluteShearStress[pointIndex] = misc::magnitude(totalStressXY, totalStressXZ);
-
-      normalStress[pointIndex] = std::min(static_cast<real>(0.0),
-                                          faultStresses.normalStress[timeIndex][pointIndex] +
-                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              fluidPressure[pointIndex]);
+      real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+                            faultStresses.traction1[timeIndex][pointIndex];
+      real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+                            faultStresses.traction2[timeIndex][pointIndex];
+      absoluteTraction[pointIndex] = misc::magnitude(totalTraction1, totalTraction2);
 
       // The following process is adapted from that described by Kaneko et al. (2008)
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
       this->slipRateMagnitude[ltsFace][pointIndex] =
-          std::max(almostZero, this->slipRateMagnitude[ltsFace][pointIndex]);
+          std::max(almostZero(), this->slipRateMagnitude[ltsFace][pointIndex]);
       temporarySlipRate[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     } // End of pointIndex-loop
-    return {absoluteShearStress, normalStress, stateVarZero, temporarySlipRate};
+    return {absoluteTraction, normalStress, stateVarZero, temporarySlipRate};
   }
 
   void updateStateVariableIterative(
@@ -204,8 +207,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       std::array<real, misc::numPaddedPoints> const& stateVarReference,
       std::array<real, misc::numPaddedPoints>& localSlipRate,
       std::array<real, misc::numPaddedPoints>& localStateVariable,
-      std::array<real, misc::numPaddedPoints> const& fluidPressure,
-      std::array<real, misc::numPaddedPoints> const& normalStress,
+      TPMethod& tpMethod,
+      std::array<real, misc::numPaddedPoints>& normalStress,
       std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
       FaultStresses const& faultStresses,
       unsigned int timeIndex,
@@ -222,6 +225,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
+      tpMethod.calcFluidPressure(normalStress,
+                                 this->mu,
+                                 localSlipRate,
+                                 this->deltaT[timeIndex],
+                                 false,
+                                 timeIndex,
+                                 ltsFace);
+
+      updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
 
       // solve for new slip rate, applying the Newton-Raphson algorithm
       // effective normal stress including initial stresses and pore fluid pressure
@@ -252,7 +264,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                std::array<real, misc::numPaddedPoints> const& localSlipRate,
                                std::array<real, misc::numPaddedPoints>& localStateVariable,
                                std::array<real, misc::numPaddedPoints> const& normalStress,
-                               std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
+                               std::array<real, misc::numPaddedPoints> const& absoluteTraction,
                                FaultStresses& faultStresses,
                                TractionResults& tractionResults,
                                unsigned int timeIndex,
@@ -274,16 +286,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
                                                 localStateVariable[pointIndex]);
       real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
-      real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                           faultStresses.xyStress[timeIndex][pointIndex];
-      real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                           faultStresses.xzStress[timeIndex][pointIndex];
+      real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+                            faultStresses.traction1[timeIndex][pointIndex];
+      real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+                            faultStresses.traction2[timeIndex][pointIndex];
       // update stress change
-      this->tractionXY[ltsFace][pointIndex] =
-          (totalStressXY / absoluteShearStress[pointIndex]) * strength -
+      this->traction1[ltsFace][pointIndex] =
+          (totalTraction1 / absoluteTraction[pointIndex]) * strength -
           this->initialStressInFaultCS[ltsFace][pointIndex][3];
-      this->tractionXZ[ltsFace][pointIndex] =
-          (totalStressXZ / absoluteShearStress[pointIndex]) * strength -
+      this->traction2[ltsFace][pointIndex] =
+          (totalTraction2 / absoluteTraction[pointIndex]) * strength -
           this->initialStressInFaultCS[ltsFace][pointIndex][5];
 
       // Compute slip
@@ -296,10 +308,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       // caused by a free surface!)
       this->slipRate1[ltsFace][pointIndex] =
           -this->impAndEta[ltsFace].invEtaS *
-          (this->tractionXY[ltsFace][pointIndex] - faultStresses.xyStress[timeIndex][pointIndex]);
+          (this->traction1[ltsFace][pointIndex] - faultStresses.traction1[timeIndex][pointIndex]);
       this->slipRate2[ltsFace][pointIndex] =
           -this->impAndEta[ltsFace].invEtaS *
-          (this->tractionXZ[ltsFace][pointIndex] - faultStresses.xzStress[timeIndex][pointIndex]);
+          (this->traction2[ltsFace][pointIndex] - faultStresses.traction2[timeIndex][pointIndex]);
 
       // TU 07.07.16: correct slipRate1 and slipRate2 to avoid numerical errors
       real locSlipRateMagnitude = misc::magnitude(this->slipRate1[ltsFace][pointIndex],
@@ -312,8 +324,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       }
 
       // Save traction for flux computation
-      tractionResults.xyTraction[timeIndex][pointIndex] = this->tractionXY[ltsFace][pointIndex];
-      tractionResults.xzTraction[timeIndex][pointIndex] = this->tractionXZ[ltsFace][pointIndex];
+      tractionResults.traction1[timeIndex][pointIndex] = this->traction1[ltsFace][pointIndex];
+      tractionResults.traction2[timeIndex][pointIndex] = this->traction2[ltsFace][pointIndex];
 
       // update directional slip
       this->slip1[ltsFace][pointIndex] +=
@@ -337,19 +349,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
       }
     }
   }
-
-  void setInitialFluidPressureHook(std::array<real, misc::numPaddedPoints>& fluidPressure,
-                                   unsigned int ltsFace) {
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      fluidPressure[pointIndex] = 0.0;
-    }
-  }
-
-  void calcFluidPressureHook(std::array<real, misc::numPaddedPoints>& fluidPressure,
-                             FaultStresses& faultStresses,
-                             bool saveTmpInTP,
-                             unsigned int timeIndex,
-                             unsigned int ltsFace) {}
 
   bool IterativelyInvertSR(unsigned int ltsFace,
                            std::array<real, misc::numPaddedPoints> const& localStateVariable,
@@ -418,10 +417,23 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived>> {
         real tmp3 = nr[pointIndex] / dNr[pointIndex];
 
         // update slipRateTest
-        slipRateTest[pointIndex] = std::max(almostZero, slipRateTest[pointIndex] - tmp3);
+        slipRateTest[pointIndex] = std::max(almostZero(), slipRateTest[pointIndex] - tmp3);
       }
     }
     return hasConverged;
+  }
+
+  void updateNormalStress(std::array<real, misc::numPaddedPoints>& normalStress,
+                          FaultStresses const& faultStresses,
+                          TPMethod tpMethod,
+                          size_t timeIndex,
+                          size_t ltsFace) {
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+      normalStress[pointIndex] = std::min(static_cast<real>(0.0),
+                                          faultStresses.normalStress[timeIndex][pointIndex] +
+                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] -
+                                              tpMethod.fluidPressure(ltsFace, pointIndex));
+    }
   }
 };
 

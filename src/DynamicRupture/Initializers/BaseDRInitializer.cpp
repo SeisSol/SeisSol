@@ -165,8 +165,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     real(*slip1)[misc::numPaddedPoints] = it->var(dynRup->slip2);
     real(*slip2)[misc::numPaddedPoints] = it->var(dynRup->slip1);
     real(*slipRateMagnitude)[misc::numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
-    real(*tractionXY)[misc::numPaddedPoints] = it->var(dynRup->tractionXY);
-    real(*tractionXZ)[misc::numPaddedPoints] = it->var(dynRup->tractionXZ);
+    real(*traction1)[misc::numPaddedPoints] = it->var(dynRup->traction1);
+    real(*traction2)[misc::numPaddedPoints] = it->var(dynRup->traction2);
 
     for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -177,8 +177,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
         slip1[ltsFace][pointIndex] = 0;
         slip2[ltsFace][pointIndex] = 0;
         slipRateMagnitude[ltsFace][pointIndex] = 0;
-        tractionXY[ltsFace][pointIndex] = 0;
-        tractionXZ[ltsFace][pointIndex] = 0;
+        traction1[ltsFace][pointIndex] = 0;
+        traction2[ltsFace][pointIndex] = 0;
       }
     }
     // can be removed once output is in c++
@@ -193,8 +193,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                                                             ruptureTime,
                                                             dynStressTime,
                                                             peakSlipRate,
-                                                            tractionXY,
-                                                            tractionXZ);
+                                                            traction1,
+                                                            traction2);
     }
   }
 }

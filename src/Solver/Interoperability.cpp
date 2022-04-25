@@ -394,8 +394,8 @@ double c_interoperability_M2invDiagonal(int no) {
                                                           real* i_ruptureTime,
                                                           real* i_dynStressTime,
                                                           real* i_peakSlipRate,
-                                                          real* i_tractionXY,
-                                                          real* i_tractionXZ);
+                                                          real* i_traction1,
+                                                          real* i_traction2);
 
   extern void f_interoperability_setFrictionOutputSpecific(void*  i_domain,
                                                            int i_face,
@@ -408,6 +408,11 @@ double c_interoperability_M2invDiagonal(int no) {
 
   extern void f_interoperability_setFrictionOutputStrength(void*  i_domain, int i_face, real* strength);
 
+  extern void f_interoperability_setFrictionOutputThermalPressurization(void*  i_domain, 
+                                                                        int i_face, 
+                                                                        real* fluidPressure, 
+                                                                        real* fluidTemperature);
+  
   extern void f_interoperability_setFrictionOutputInitialStress(void*  i_domain,
                                                                 int i_face,
                                                                 real* i_initialStressInFaultCS,
@@ -1254,13 +1259,6 @@ void seissol::Interoperability::getDynRupFL_3(
                                    &i_RS_sr0[ltsFace]);
 }
 
-void seissol::Interoperability::getDynRupTP(
-    real TP_grid[seissol::dr::numberOfTPGridPoints],
-    real TP_DFinv[seissol::dr::numberOfTPGridPoints]) {
-
-  f_interoperability_getDynRupTP(m_domain, &TP_grid[0], &TP_DFinv[0]);
-}
-
 void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
     unsigned ltsFace, unsigned meshFace,
     real  (*slip)[dr::misc::numPaddedPoints],
@@ -1269,8 +1267,8 @@ void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
     real  (*ruptureTime)[dr::misc::numPaddedPoints],
     real  (*dynStressTime)[dr::misc::numPaddedPoints],
     real  (*peakSlipRate)[dr::misc::numPaddedPoints],
-    real  (*tractionXY)[dr::misc::numPaddedPoints],
-    real  (*tractionXZ)[dr::misc::numPaddedPoints]) {
+    real  (*traction1)[dr::misc::numPaddedPoints],
+    real  (*traction2)[dr::misc::numPaddedPoints]) {
 
     int fFace = meshFace + 1;
     f_interoperability_setFrictionOutputGeneral(m_domain, fFace,
@@ -1280,8 +1278,8 @@ void seissol::Interoperability::copyFrictionOutputToFortranGeneral(
                                                 &ruptureTime[ltsFace][0],
                                                 &dynStressTime[ltsFace][0],
                                                 &peakSlipRate[ltsFace][0],
-                                                &tractionXY[ltsFace][0],
-                                                &tractionXZ[ltsFace][0]);
+                                                &traction1[ltsFace][0],
+                                                &traction2[ltsFace][0]);
 }
 
 void seissol::Interoperability::copyFrictionOutputToFortranSpecific(
@@ -1316,6 +1314,16 @@ void seissol::Interoperability::copyFrictionOutputToFortranStrength(
 
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
+}
+
+void seissol::Interoperability::copyFrictionOutputToFortranThermalPressurization(
+    unsigned int ltsFace,
+    unsigned int meshFace,
+    real (*fluidPressure)[dr::misc::numPaddedPoints],
+    real (*fluidTemperature)[dr::misc::numPaddedPoints]) {
+
+    int fFace = meshFace + 1;
+  f_interoperability_setFrictionOutputThermalPressurization(m_domain, fFace, &fluidPressure[ltsFace][0], &fluidTemperature[ltsFace][0]);
 }
 
 void seissol::Interoperability::copyFrictionOutputToFortranInitialStressInFaultCS(

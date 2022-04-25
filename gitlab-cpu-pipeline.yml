@@ -42,13 +42,14 @@ ci_builder_pre:
         - pip3 install setuptools
         - pip3 install sphinx
         - pip3 install sphinx_rtd_theme
+        - pip3 install 'seissolxdmf>=0.1.0'
         - tar -xzf netcdf-4.6.1.tar.gz
         - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
         - unzip libxsmm-1.17.zip
         - cd libxsmm-1.17 && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
         - git clone https://github.com/uphoffc/ImpalaJIT.git &&
           mkdir impala_build && cd impala_build && cmake ../ImpalaJIT && sudo make -j $(nproc) install && cd ..
-        - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git &&
+        - git clone --depth 1 https://github.com/SeisSol/easi.git &&
           mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=ON ../easi && 
           sudo make -j $(nproc) install && cd ..
         
@@ -137,7 +138,7 @@ tpv_run:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 101, 101-slip, 104]
+              tpv: [5, 101, 101-slip, 104, 105]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/7bits-register/precomputed-seissol.git
@@ -172,14 +173,12 @@ tpv_check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 101, 101-slip, 104]
+              tpv: [5, 101, 101-slip, 104, 105]
     script: 
         - echo "check TPV{$tpv}"
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - pip3 install seissolxdmf
-        - pip3 install h5py
         - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
 
@@ -195,7 +194,7 @@ tpv_check_receivers:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 101, 101-slip, 104]
+              tpv: [5, 101, 101-slip, 104, 105]
     script: 
         - echo "check TPV{$tpv}"
         - ls
