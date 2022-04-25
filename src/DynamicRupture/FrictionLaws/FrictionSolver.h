@@ -108,8 +108,8 @@ class FrictionSolver {
   real (*ruptureTime)[misc::numPaddedPoints];
   bool (*ruptureTimePending)[misc::numPaddedPoints];
   real (*peakSlipRate)[misc::numPaddedPoints];
-  real (*tractionXY)[misc::numPaddedPoints];
-  real (*tractionXZ)[misc::numPaddedPoints];
+  real (*traction1)[misc::numPaddedPoints];
+  real (*traction2)[misc::numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 

@@ -41,9 +41,9 @@ void LinearSlipWeakeningBase::calcSlipRateAndTraction(
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     // calculate absolute value of stress in Y and Z direction
     real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                         faultStresses.xyStress[timeIndex][pointIndex];
+                         faultStresses.traction1[timeIndex][pointIndex];
     real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                         faultStresses.xzStress[timeIndex][pointIndex];
+                         faultStresses.traction2[timeIndex][pointIndex];
     real absoluteShearStress = misc::magnitude(totalStressXY, totalStressXZ);
     // calculate slip rates
     this->slipRateMagnitude[ltsFace][pointIndex] =
@@ -56,14 +56,14 @@ void LinearSlipWeakeningBase::calcSlipRateAndTraction(
     this->slipRate2[ltsFace][pointIndex] =
         this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
     // calculate traction
-    tractionResults.xyTraction[timeIndex][pointIndex] =
-        faultStresses.xyStress[timeIndex][pointIndex] -
+    tractionResults.traction1[timeIndex][pointIndex] =
+        faultStresses.traction1[timeIndex][pointIndex] -
         this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
-    tractionResults.xzTraction[timeIndex][pointIndex] =
-        faultStresses.xzStress[timeIndex][pointIndex] -
+    tractionResults.traction2[timeIndex][pointIndex] =
+        faultStresses.traction2[timeIndex][pointIndex] -
         this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
-    this->tractionXY[ltsFace][pointIndex] = tractionResults.xyTraction[timeIndex][pointIndex];
-    this->tractionXZ[ltsFace][pointIndex] = tractionResults.xzTraction[timeIndex][pointIndex];
+    this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
+    this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
     // update directional slip
     this->slip1[ltsFace][pointIndex] +=
         this->slipRate1[ltsFace][pointIndex] * this->deltaT[timeIndex];

@@ -26,8 +26,8 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   ruptureTime = layerData.var(dynRup->ruptureTime);
   ruptureTimePending = layerData.var(dynRup->ruptureTimePending);
   peakSlipRate = layerData.var(dynRup->peakSlipRate);
-  tractionXY = layerData.var(dynRup->tractionXY);
-  tractionXZ = layerData.var(dynRup->tractionXZ);
+  traction1 = layerData.var(dynRup->traction1);
+  traction2 = layerData.var(dynRup->traction2);
   imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
   imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
   mFullUpdateTime = fullUpdateTime;
@@ -75,11 +75,11 @@ void FrictionSolver::precomputeStressFromQInterpolated(FaultStresses& faultStres
           etaP * (qIMinus[o][6][i] - qIPlus[o][6][i] + qIPlus[o][0][i] * invZp +
                   qIMinus[o][0][i] * invZpNeig);
 
-      faultStresses.xyStress[o][i] =
+      faultStresses.traction1[o][i] =
           etaS * (qIMinus[o][7][i] - qIPlus[o][7][i] + qIPlus[o][3][i] * invZs +
                   qIMinus[o][3][i] * invZsNeig);
 
-      faultStresses.xzStress[o][i] =
+      faultStresses.traction2[o][i] =
           etaS * (qIMinus[o][8][i] - qIPlus[o][8][i] + qIPlus[o][5][i] * invZs +
                   qIMinus[o][5][i] * invZsNeig);
     }
@@ -134,8 +134,8 @@ void FrictionSolver::postcomputeImposedStateFromNewStress(const FaultStresses& f
 #endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       auto normalStress = faultStresses.normalStress[o][i];
-      auto xyTraction = tractionResults.xyTraction[o][i];
-      auto xzTraction = tractionResults.xzTraction[o][i];
+      auto xyTraction = tractionResults.traction1[o][i];
+      auto xzTraction = tractionResults.traction2[o][i];
 
       imposedStateM[0][i] += weight * normalStress;
       imposedStateM[3][i] += weight * xyTraction;
