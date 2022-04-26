@@ -352,7 +352,7 @@ void ReverseApproximateCommunication::setEdgeWeights(
 }
 
 
-void ApproximateCommunicationWithPenalizeBetweenClusters ::setEdgeWeights(
+void ApproximateCommunicationWithPenalizeBetweenClusters::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
   const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
@@ -386,7 +386,7 @@ void ApproximateCommunicationWithPenalizeBetweenClusters ::setEdgeWeights(
   EdgeWeightModel::setEdgeWeights(graph, factor);
 }
 
-void ApproximateCommunicationWithPenalizeBetweenClusters ::setEdgeWeights(
+void ApproximateCommunicationWithPenalizeBetweenClusters::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
   const std::vector<int>& clusterIds = ltsWeights.getClusterIds();

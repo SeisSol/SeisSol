@@ -27,7 +27,7 @@ enum class EdgeWeightModelTypes : int {
   ApproximateCommunicationWithMessageCount,
   ApproximateCommunicationWithPenalizeBetweenClusters,
   ReverseApproximateCommunication,
-  ReverseApproximateCommunicationWithPenalizeBetweenClusters
+  ReverseApproximateCommunicationWithPenalizeBetweenClusters,
   Count
 };
 
