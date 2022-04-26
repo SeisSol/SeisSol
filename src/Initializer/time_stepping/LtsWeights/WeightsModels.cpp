@@ -431,7 +431,7 @@ void ApproximateCommunicationWithBalancedMessaging::setEdgeWeights(
   MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
   std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
-    int rt = ipow(rate, global_max_cluster - cluster1);
+    int rt = 1; //ipow(rate, global_max_cluster - cluster1);
     return rt;
   };
 
