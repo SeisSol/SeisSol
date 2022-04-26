@@ -373,6 +373,7 @@ MODULE Eval_friction_law_mod
                                    resampleMatrix,                            &
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
+    USE NucleationFunctions_mod
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
@@ -403,11 +404,12 @@ MODULE Eval_friction_law_mod
     REAL        :: t_0
     REAL        :: f1(nBndGP), f2(nBndGP)
     real        :: tn
+    REAL        :: Gnuc(nBndGP), dt
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
     INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT,resampleMatrix
-    INTENT(IN)    :: EQN,MESH,MPI,IO
-    INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
+    INTENT(IN)    :: MESH,MPI,IO
+    INTENT(INOUT) :: EQN, DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
     t_0 = DISC%DynRup%t_0
     tmpSlip = 0.0D0
@@ -415,9 +417,23 @@ MODULE Eval_friction_law_mod
     Z = rho * w_speed(2)
     Z_neig = rho_neig * w_speed_neig(2)
     eta = Z*Z_neig / (Z+Z_neig)
-    
     tn = time
     
+    IF(EQN%FL.EQ.2) THEN
+        dt = sum(DeltaT(:))
+        IF (time.LE.t_0) THEN
+            Gnuc = Calc_SmoothStepIncrement(time, t_0, dt)
+
+            !DISC%DynRup%NucBulk_** is already in fault coordinate system
+            EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
+            EQN%InitialStressInFaultCS(:,2,iFace)=EQN%InitialStressInFaultCS(:,2,iFace)+EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
+            EQN%InitialStressInFaultCS(:,3,iFace)=EQN%InitialStressInFaultCS(:,3,iFace)+EQN%NucleationStressInFaultCS(:,3,iFace)*Gnuc
+            EQN%InitialStressInFaultCS(:,4,iFace)=EQN%InitialStressInFaultCS(:,4,iFace)+EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
+            EQN%InitialStressInFaultCS(:,5,iFace)=EQN%InitialStressInFaultCS(:,5,iFace)+EQN%NucleationStressInFaultCS(:,5,iFace)*Gnuc
+            EQN%InitialStressInFaultCS(:,6,iFace)=EQN%InitialStressInFaultCS(:,6,iFace)+EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
+        ENDIF ! t_0
+    ENDIF ! FL
+
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
       tn=tn + time_inc
