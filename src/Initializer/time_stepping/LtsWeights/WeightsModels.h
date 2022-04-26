@@ -109,6 +109,15 @@ class PenalizeBetweenClusters final : public EdgeWeightModel {
                                  const std::vector<idx_t>&>& graph) override final;
 };
 
+class ApproximateCommunicationWithPenalizeBetweenClusters final : public EdgeWeightModel {
+  public:
+  ApproximateCommunicationWithPenalizeBetweenClusters(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ~ApproximateCommunicationWithPenalizeBetweenClusters() noexcept override final {}
+
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph) override final;
+};
+
 class ApproximateCommunication final : public EdgeWeightModel {
   public:
   ApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
@@ -117,6 +126,25 @@ class ApproximateCommunication final : public EdgeWeightModel {
   void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph) override final;
 };
+
+class ReverseApproximateCommunication final : public EdgeWeightModel {
+  public:
+  ReverseApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ~ReverseApproximateCommunication() noexcept override final {}
+
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph) override final;
+};
+
+class ReverseApproximateCommunicationWithPenalizeBetweenClusters final : public EdgeWeightModel {
+  public:
+  ReverseApproximateCommunicationWithPenalizeBetweenClusters(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ~ReverseApproximateCommunicationWithPenalizeBetweenClusters() noexcept override final {}
+
+  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+                                 const std::vector<idx_t>&>& graph) override final;
+};
+
 
 class ApproximateCommunicationWithBalancedMessaging final : public EdgeWeightModel {
   public:
