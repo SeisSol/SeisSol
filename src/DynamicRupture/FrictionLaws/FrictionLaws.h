@@ -6,6 +6,7 @@
 #include "BaseFrictionLaw.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "ImposedSlipRates.h"
+#include "STF.h"
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"
 #include "RateAndState.h"

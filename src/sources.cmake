@@ -119,13 +119,14 @@ src/DynamicRupture/FrictionLaws/AgingLaw.cpp
 src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
 src/DynamicRupture/FrictionLaws/FastVelocityWeakeningLaw.cpp
 src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
+src/DynamicRupture/FrictionLaws/STF.cpp
 src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
 src/DynamicRupture/FrictionLaws/NoFault.cpp
 src/DynamicRupture/FrictionLaws/SlipLaw.cpp
 src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
 src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
 src/DynamicRupture/Initializers/BaseDRInitializer.cpp
-src/DynamicRupture/Initializers/ImposedSlipInitializer.cpp
+src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
 

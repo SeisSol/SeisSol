@@ -61,9 +61,9 @@ class OutputBuilder {
       outputData.faultDirections[receiverId].faceNormal = faultInfo[globalIndex].normal;
       outputData.faultDirections[receiverId].tangent1 = faultInfo[globalIndex].tangent1;
       outputData.faultDirections[receiverId].tangent2 = faultInfo[globalIndex].tangent2;
-      computeStrikeAndDipVectors(outputData.faultDirections[receiverId].faceNormal,
-                                 outputData.faultDirections[receiverId].strike,
-                                 outputData.faultDirections[receiverId].dip);
+      misc::computeStrikeAndDipVectors(outputData.faultDirections[receiverId].faceNormal,
+                                       outputData.faultDirections[receiverId].strike,
+                                       outputData.faultDirections[receiverId].dip);
     }
   }
 

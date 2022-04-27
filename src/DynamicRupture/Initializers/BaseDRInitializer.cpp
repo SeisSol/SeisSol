@@ -148,54 +148,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                                                                            initialStressXZ);
     }
 
-    // initialize rupture front flag
-    bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        ruptureTimePending[ltsFace][pointIndex] = drParameters.isRfOutputOn;
-      }
-    }
-
-    // initialize all other variables to zero
-    real(*peakSlipRate)[misc::numPaddedPoints] = it->var(dynRup->peakSlipRate);
-    real(*ruptureTime)[misc::numPaddedPoints] = it->var(dynRup->ruptureTime);
-    real(*dynStressTime)[misc::numPaddedPoints] = it->var(dynRup->dynStressTime);
-    real(*accumulatedSlipMagnitude)[misc::numPaddedPoints] =
-        it->var(dynRup->accumulatedSlipMagnitude);
-    real(*slip1)[misc::numPaddedPoints] = it->var(dynRup->slip2);
-    real(*slip2)[misc::numPaddedPoints] = it->var(dynRup->slip1);
-    real(*slipRateMagnitude)[misc::numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
-    real(*traction1)[misc::numPaddedPoints] = it->var(dynRup->traction1);
-    real(*traction2)[misc::numPaddedPoints] = it->var(dynRup->traction2);
-
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        peakSlipRate[ltsFace][pointIndex] = 0;
-        ruptureTime[ltsFace][pointIndex] = 0;
-        dynStressTime[ltsFace][pointIndex] = 0;
-        accumulatedSlipMagnitude[ltsFace][pointIndex] = 0;
-        slip1[ltsFace][pointIndex] = 0;
-        slip2[ltsFace][pointIndex] = 0;
-        slipRateMagnitude[ltsFace][pointIndex] = 0;
-        traction1[ltsFace][pointIndex] = 0;
-        traction2[ltsFace][pointIndex] = 0;
-      }
-    }
-    // can be removed once output is in c++
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      const auto& drFaceInformation = it->var(dynRup->faceInformation);
-      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      eInteroperability->copyFrictionOutputToFortranGeneral(ltsFace,
-                                                            meshFace,
-                                                            accumulatedSlipMagnitude,
-                                                            slip2,
-                                                            slip1,
-                                                            ruptureTime,
-                                                            dynStressTime,
-                                                            peakSlipRate,
-                                                            traction1,
-                                                            traction2);
-    }
+    initializeOtherVariables(dynRup, it, eInteroperability);
   }
 }
 
@@ -265,6 +218,60 @@ void BaseDRInitializer::addAdditionalParameters(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // do nothing for base friction law
+}
+
+void BaseDRInitializer::initializeOtherVariables(
+    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::LTSInternalNode::leaf_iterator& it,
+    Interoperability* eInteroperability) {
+  // initialize rupture front flag
+  bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      ruptureTimePending[ltsFace][pointIndex] = drParameters.isRfOutputOn;
+    }
+  }
+
+  // initialize all other variables to zero
+  real(*peakSlipRate)[misc::numPaddedPoints] = it->var(dynRup->peakSlipRate);
+  real(*ruptureTime)[misc::numPaddedPoints] = it->var(dynRup->ruptureTime);
+  real(*dynStressTime)[misc::numPaddedPoints] = it->var(dynRup->dynStressTime);
+  real(*accumulatedSlipMagnitude)[misc::numPaddedPoints] =
+      it->var(dynRup->accumulatedSlipMagnitude);
+  real(*slip1)[misc::numPaddedPoints] = it->var(dynRup->slip1);
+  real(*slip2)[misc::numPaddedPoints] = it->var(dynRup->slip2);
+  real(*slipRateMagnitude)[misc::numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
+  real(*traction1)[misc::numPaddedPoints] = it->var(dynRup->traction1);
+  real(*traction2)[misc::numPaddedPoints] = it->var(dynRup->traction2);
+
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+      peakSlipRate[ltsFace][pointIndex] = 0;
+      ruptureTime[ltsFace][pointIndex] = 0;
+      dynStressTime[ltsFace][pointIndex] = 0;
+      accumulatedSlipMagnitude[ltsFace][pointIndex] = 0;
+      slip1[ltsFace][pointIndex] = 0;
+      slip2[ltsFace][pointIndex] = 0;
+      slipRateMagnitude[ltsFace][pointIndex] = 0;
+      traction1[ltsFace][pointIndex] = 0;
+      traction2[ltsFace][pointIndex] = 0;
+    }
+  }
+  // can be removed once output is in c++
+  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    const auto& drFaceInformation = it->var(dynRup->faceInformation);
+    unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    eInteroperability->copyFrictionOutputToFortranGeneral(ltsFace,
+                                                          meshFace,
+                                                          accumulatedSlipMagnitude,
+                                                          slip1,
+                                                          slip2,
+                                                          ruptureTime,
+                                                          dynStressTime,
+                                                          peakSlipRate,
+                                                          traction1,
+                                                          traction2);
+  }
 }
 
 } // namespace seissol::dr::initializers

@@ -64,7 +64,13 @@ class LinearSlipWeakeningForcedRuptureTimeFactory : public AbstractFactory {
   virtual Products produce() override;
 };
 
-class ImposedSlipRatesFactory : public AbstractFactory {
+class ImposedSlipRatesYoffeFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  virtual Products produce() override;
+};
+
+class ImposedSlipRatesGaussianFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
   virtual Products produce() override;

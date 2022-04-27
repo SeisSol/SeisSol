@@ -18,7 +18,8 @@ enum class FrictionLawType : unsigned int {
   RateAndStateAgingLaw = 3,
   RateAndStateSlipLaw = 4,
   RateAndStateFastVelocityWeakening = 103,
-  ImposedSlipRates = 33,
+  ImposedSlipRatesYoffe = 33,
+  ImposedSlipRatesGaussian = 34,
   RateAndStateVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };
