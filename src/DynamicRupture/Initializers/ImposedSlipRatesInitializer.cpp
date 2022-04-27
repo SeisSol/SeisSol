@@ -57,11 +57,12 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
       }
     }
 
-    ensureCorrectness(dynRup, it);
+    fixInterpolatedSTFParameters(dynRup, it);
 
     initializeOtherVariables(dynRup, it, eInteroperability);
   }
 }
+
 void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSTree::leaf_iterator& it,
@@ -83,15 +84,15 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
     real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      real tmpSlip1 = slip1[ltsFace][pointIndex];
-      real tmpSlip2 = slip2[ltsFace][pointIndex];
-      slip1[ltsFace][pointIndex] = cos * tmpSlip1 + sin * tmpSlip2;
-      slip2[ltsFace][pointIndex] = -sin * tmpSlip1 + cos * tmpSlip2;
+      real strikeSlip = slip1[ltsFace][pointIndex];
+      real dipSlip = slip2[ltsFace][pointIndex];
+      slip1[ltsFace][pointIndex] = cos * strikeSlip + sin * dipSlip;
+      slip2[ltsFace][pointIndex] = -sin * strikeSlip + cos * dipSlip;
     }
   }
 }
 
-void ImposedSlipRatesInitializer::ensureCorrectness(
+void ImposedSlipRatesInitializer::fixInterpolatedSTFParameters(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // do nothing
@@ -108,7 +109,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
   parameterToStorageMap.insert({"tau_R", (real*)tauR});
 }
 
-void ImposedSlipRatesYoffeInitializer::ensureCorrectness(
+void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
     seissol::initializers::DynamicRupture* dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe*>(dynRup);

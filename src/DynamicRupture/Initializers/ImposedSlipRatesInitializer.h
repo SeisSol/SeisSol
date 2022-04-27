@@ -40,8 +40,9 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param dynRup
    * @param it
    */
-  virtual void ensureCorrectness(seissol::initializers::DynamicRupture* dynRup,
-                                 seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  virtual void
+      fixInterpolatedSTFParameters(seissol::initializers::DynamicRupture* dynRup,
+                                   seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   private:
   /**
@@ -64,9 +65,9 @@ class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
                               seissol::initializers::DynamicRupture* dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
-  virtual void
-      ensureCorrectness(seissol::initializers::DynamicRupture* dynRup,
-                        seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
+  virtual void fixInterpolatedSTFParameters(
+      seissol::initializers::DynamicRupture* dynRup,
+      seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
 class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
