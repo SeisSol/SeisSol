@@ -95,40 +95,15 @@ Building SeisSol
   export PATH=~/bin:$PATH
   
   ####  local setup for SeisSol. 
-  export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
-  export PKG_CONFIG_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
+  export PATH=~/bin:$PATH
+  export PKG_CONFIG_PATH=~/lib/pkgconfig:$PKG_CONFIG_PATH
+  export LD_LIBRARY_PATH=~/lib:$LD_LIBRARY_PATH
 
 
 3. Install metis, parmetis, libxsmm, PSpaMM, easi and ASAGI
 
 See :ref:`installing_parmetis`, :ref:`installing_libxsmm`, :ref:`installing_pspamm`, :ref:`installing_ASAGI` and `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 Note that ASAGI needs to be compiled before easi.
-Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
-The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-If you need to compile ASAGI, first clone ASAGI with:
-
-.. code-block:: bash
-
-  git clone git@github.com:TUM-I5/ASAGI
-  cd ASAGI
-  git submodule update --init
- 
-set compiler options, run cmake, and compile with:
-
-::
-
-  export FC=mpif90
-  export CXX=mpiCC
-  export CC=mpicc
-
-  mkdir build && cd build
-  CMAKE_PREFIX_PATH=$NETCDF_BASE
-  cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
-  make -j 48
-  make install
-  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
-
 
 4. Install SeisSol with cmake, e.g. with (more options with ccmake)
 
