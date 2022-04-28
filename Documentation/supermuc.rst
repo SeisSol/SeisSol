@@ -91,26 +91,34 @@ Building SeisSol
   module load numactl/2.0.14-intel21
   module load yaml-cpp/0.7.0-intel21
 
-  ####### for pspamm.py
-  export PATH=~/bin:$PATH
-  
-  ####  local setup for SeisSol. 
-  export PATH=~/bin:$PATH
-  export PKG_CONFIG_PATH=~/lib/pkgconfig:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=~/lib:$LD_LIBRARY_PATH
 
+3. Install eigen, metis, parmetis, libxsmm, PSpaMM, easi and ASAGI or rely on our precompiled libraries
 
-3. Install metis, parmetis, libxsmm, PSpaMM, easi and ASAGI
+We installed all these libraries in /hppfs/work/pr63qo/di73yeq4/myLibs/SeisSol_dependencies_intel
+Simply add the following line to your ~/.bashrc file:
 
-See :ref:`installing_parmetis`, :ref:`installing_libxsmm`, :ref:`installing_pspamm`, :ref:`installing_ASAGI` and `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
+.. code-block:: bash
+
+    export SeisSolDepFolder=/hppfs/work/pr63qo/di73yeq4/myLibs/SeisSol_dependencies_intel
+    export PATH=$SeisSolDepFolder/bin/:$PATH
+    export PKG_CONFIG_PATH=$SeisSolDepFolder/lib/pkgconfig:$PKG_CONFIG_PATH
+    export LD_LIBRARY_PATH=$SeisSolDepFolder/lib:$LD_LIBRARY_PATH
+
+Alternatively, to install by yourself, following the instructions below, you need to change the first line (SeisSolDepFolder) to your home directory (because that where libraries are installed when following the documentation) :
+
+.. code-block:: bash
+
+    export SeisSolDepFolder=~
+
+Then, follow :ref:`installing_eigen3`, :ref:`installing_parmetis`, :ref:`installing_libxsmm`, :ref:`installing_pspamm`, :ref:`installing_ASAGI` and `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 Note that ASAGI needs to be compiled before easi.
 
 4. Install SeisSol with cmake, e.g. with (more options with ccmake)
 
-::
+.. code-block:: bash
 
    mkdir build-release && cd build-release
-   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCMAKE_PREFIX_PATH=$SeisSolDepFolder -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=$SeisSolDepFolder/bin/pspamm.py ..
    make -j 48
 
 Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.

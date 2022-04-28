@@ -23,6 +23,7 @@ First, we download topography and bathymetry data from GEBCO
 - Note also that we use a custom transverse Mercator roughly centered at the domain center.
 - With the option ``--change_zero_elevation 1.0``, we move the nodes with zero elevation to 1.0 m. This avoids having to intersect locally coplanar surfaces.
 - With the option ``--smooth 100``, we replace the elevation of topography nodes with z coordinates in the range :math:`\pm` 100 m by spatially smoothed (using a 2D Gaussian kernel) values.
+
 This facilitates the intersection of the sea surface with the topography and allows a smoother coastline (which can else have a saw-tooth shape due to rounded elevation data, stored as integers in Gebco files).
 
 .. code-block:: bash
