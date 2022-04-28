@@ -38,19 +38,16 @@ Installing ASAGI
 
 Be careful that the python and gcc package is the same as for the
 compilation of SeisSol in a later step!
-
-example on SuperMuc
-~~~~~~~~~~~~~~~~~~~
-
 First clone ASAGI with:
 
 .. code-block:: bash
 
   git clone git@github.com:TUM-I5/ASAGI
+  # git clone https://github.com/TUM-I5/ASAGI.git
   cd ASAGI
   git submodule update --init
- 
-set compiler options, run cmake, and compile with:
+
+Set compiler options, e.g. for intel compilers on SuperMuc:
 
 .. code-block:: bash
 
@@ -58,9 +55,13 @@ set compiler options, run cmake, and compile with:
   export CXX=mpiCC
   export CC=mpicc
 
+Run cmake, and compile with:
+
+.. code-block:: bash
+
   mkdir build && cd build
   CMAKE_PREFIX_PATH=$NETCDF_BASE
-  cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME
+  cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DCMAKE_INSTALL_PREFIX=$HOME
   make -j 48
   make install
   (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
