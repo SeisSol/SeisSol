@@ -373,6 +373,7 @@ MODULE Eval_friction_law_mod
                                    resampleMatrix,                            &
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
+    USE NucleationFunctions_mod
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
@@ -381,7 +382,7 @@ MODULE Eval_friction_law_mod
     TYPE(tMPI)                     :: MPI
     TYPE(tInputOutput)             :: IO    
     ! Local variable declaration
-    INTEGER     :: iBndGP,iTimeGP,nBndGP,nTimeGP
+    INTEGER     :: iBndGP,iTimeGP,nBndGP,nTimeGP,i
     INTEGER     :: iFace,iSide,iElem
     REAL        :: time
     REAL        :: NorStressGP(nBndGP,nTimeGP)
@@ -403,11 +404,12 @@ MODULE Eval_friction_law_mod
     REAL        :: t_0
     REAL        :: f1(nBndGP), f2(nBndGP)
     real        :: tn
+    REAL        :: Gnuc(nBndGP), dt
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
     INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT,resampleMatrix
-    INTENT(IN)    :: EQN,MESH,MPI,IO
-    INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
+    INTENT(IN)    :: MESH,MPI,IO
+    INTENT(INOUT) :: EQN, DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
     t_0 = DISC%DynRup%t_0
     tmpSlip = 0.0D0
@@ -415,12 +417,20 @@ MODULE Eval_friction_law_mod
     Z = rho * w_speed(2)
     Z_neig = rho_neig * w_speed_neig(2)
     eta = Z*Z_neig / (Z+Z_neig)
-    
     tn = time
     
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
       tn=tn + time_inc
+      IF(EQN%FL .EQ. 2) THEN
+         IF (tn .LE. t_0) THEN
+            Gnuc = Calc_SmoothStepIncrement(tn, t_0, time_inc)
+            !DISC%DynRup%NucBulk_** is already in fault coordinate system
+            do i = 1,6
+               EQN%InitialStressInFaultCS(:,i,iFace) = EQN%InitialStressInFaultCS(:,i,iFace) + EQN%NucleationStressInFaultCS(:,i,iFace)*Gnuc
+            enddo
+         ENDIF ! t_0
+      ENDIF ! FL
       
       P = EQN%InitialStressInFaultCS(:,1,iFace) + NorStressGP(:,iTimeGP)
       
@@ -825,7 +835,7 @@ MODULE Eval_friction_law_mod
     INTEGER     :: iNeighbor, iLocalNeighborSide
     INTEGER     :: MPIIndex, iObject
     REAL        :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-    REAL        :: time
+    REAL        :: time, tn
     REAL        :: LocTracXY(nBndGP),LocTracXZ(nBndGP)
     REAL        :: NorStressGP(nBndGP,nTimeGP)
     REAL        :: XYStressGP(nBndGP,nTimeGP)
@@ -848,7 +858,7 @@ MODULE Eval_friction_law_mod
     REAL_TYPE   :: resampleMatrix(nBndGP,nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
     REAL        :: hypox, hypoy, hypoz
-    REAL        :: Rnuc, Tnuc, radius, Gnuc, invZ, AlmostZero
+    REAL        :: Rnuc, t_0, radius, Gnuc, invZ, AlmostZero
     REAL        :: prevtime,dt
     LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
@@ -866,7 +876,8 @@ MODULE Eval_friction_law_mod
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
-    Tnuc = DISC%DynRup%t_0
+    t_0 = DISC%DynRup%t_0
+    tn = time
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
@@ -878,21 +889,6 @@ MODULE Eval_friction_law_mod
     ! Number of iteration in the loops
     nSRupdates = 60
     nSVupdates = 2
-
-    !dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
-    dt = sum(DeltaT(:))
-    IF (time.LE.Tnuc) THEN
-    Gnuc = Calc_SmoothStepIncrement(time, Tnuc, dt)
-
-    !DISC%DynRup%NucBulk_** is already in fault coordinate system
-    EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
-    EQN%InitialStressInFaultCS(:,2,iFace)=EQN%InitialStressInFaultCS(:,2,iFace)+EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
-    EQN%InitialStressInFaultCS(:,3,iFace)=EQN%InitialStressInFaultCS(:,3,iFace)+EQN%NucleationStressInFaultCS(:,3,iFace)*Gnuc
-    EQN%InitialStressInFaultCS(:,4,iFace)=EQN%InitialStressInFaultCS(:,4,iFace)+EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
-    EQN%InitialStressInFaultCS(:,5,iFace)=EQN%InitialStressInFaultCS(:,5,iFace)+EQN%NucleationStressInFaultCS(:,5,iFace)*Gnuc
-    EQN%InitialStressInFaultCS(:,6,iFace)=EQN%InitialStressInFaultCS(:,6,iFace)+EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
-
-    ENDIF ! Tnuc
     !
      !
      LocSlip   = DISC%DynRup%Slip(:,iFace)
@@ -914,6 +910,14 @@ MODULE Eval_friction_law_mod
          !
          LocP   = NorStressGP(:,iTimeGP)
          time_inc = DeltaT(iTimeGP)
+         tn=tn + time_inc
+         IF (tn .LE. t_0) THEN
+            Gnuc = Calc_SmoothStepIncrement(tn, t_0, time_inc)
+            !DISC%DynRup%NucBulk_** is already in fault coordinate system
+            do i = 1,6
+               EQN%InitialStressInFaultCS(:,i,iFace) = EQN%InitialStressInFaultCS(:,i,iFace) + EQN%NucleationStressInFaultCS(:,i,iFace)*Gnuc
+            enddo
+         ENDIF ! t_0
          !
          RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
          RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
