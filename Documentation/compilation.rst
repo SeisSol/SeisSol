@@ -181,6 +181,7 @@ including all submodules:
 .. code-block:: bash
 
    git clone https://github.com/SeisSol/SeisSol.git
+   cd SeisSol
    git submodule update --init
 
 Compile SeisSol with (e.g.)
