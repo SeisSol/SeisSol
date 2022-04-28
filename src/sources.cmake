@@ -65,6 +65,7 @@ src/ResultWriter/FaultWriterExecutor.cpp
 src/ResultWriter/FaultWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
+src/ResultWriter/EnergyOutput.cpp
 
 # Fortran:
 src/Geometry/allocate_mesh.f90
@@ -105,7 +106,6 @@ src/ResultWriter/energies.f90
 src/ResultWriter/FaultWriterF.f90
 src/ResultWriter/faultoutput.f90
 src/ResultWriter/common_fault_receiver.f90
-src/ResultWriter/receiver.f90
 src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90

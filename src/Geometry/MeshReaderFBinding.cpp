@@ -118,7 +118,7 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 	getboundarytoobject(&size, &boundaryToObject);
 
 	for (int i = 0; i < size; i++) {
-		reference[i*5] = elements[i].material;
+		reference[i*5] = elements[i].group;
 
 		for (int j = 0; j < 4; j++) {
 			elementVertices[i*4+j] = elements[i].vertices[j] + 1;

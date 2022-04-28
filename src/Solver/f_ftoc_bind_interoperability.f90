@@ -62,7 +62,7 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface 
+  interface
    subroutine c_interoperability_setTravellingWaveInformation( origin, kVec, ampField ) bind( C, name='c_interoperability_setTravellingWaveInformation')
       use iso_c_binding, only: c_double
       implicit none
@@ -133,9 +133,9 @@ module f_ftoc_bind_interoperability
       use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), dimension(*), intent(in) :: momentTensor
-      real(kind=c_double), dimension(*), intent(in) :: solidVelocityComponent 
-      real(kind=c_double), dimension(*), intent(in) :: pressureComponent 
-      real(kind=c_double), dimension(*), intent(in) :: fluidVelocityComponent 
+      real(kind=c_double), dimension(*), intent(in) :: solidVelocityComponent
+      real(kind=c_double), dimension(*), intent(in) :: pressureComponent
+      real(kind=c_double), dimension(*), intent(in) :: fluidVelocityComponent
       integer(kind=c_int), value                    :: numberOfSources
       real(kind=c_double), dimension(*), intent(in) :: centres
       real(kind=c_double), dimension(*), intent(in) :: strikes
@@ -197,14 +197,6 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in)  :: modelFileName
       integer(kind=c_int), value                        :: gpwise, numberOfBndPoints
       real(kind=c_double), dimension(*), intent(in )    :: bndPoints
-    end subroutine
-  end interface
-
-  interface c_interoperability_addRecPoint
-    subroutine c_interoperability_addRecPoint( x, y, z ) bind( C, name='c_interoperability_addRecPoint' )
-      use iso_c_binding, only: c_double
-      implicit none
-      real(kind=c_double), value :: x,y,z
     end subroutine
   end interface
 
@@ -301,9 +293,9 @@ module f_ftoc_bind_interoperability
     end subroutine
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
-        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, &
+        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, i_outputGroups, i_outputGroupsSize, &
         freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
-        receiverSamplingInterval, receiverSyncInterval ) &
+        receiverFileName, receiverSamplingInterval, receiverSyncInterval ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -322,9 +314,12 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), dimension(*), intent(in) :: i_outputMask
       integer(kind=c_int), dimension(7), intent(in) :: i_plasticityMask
       real(kind=c_double), dimension(*), intent(in) :: i_outputRegionBounds
+      integer(kind=c_int), dimension(*), intent(in) :: i_outputGroups
+      integer(kind=c_int), value :: i_outputGroupsSize
       real(kind=c_double), value                    :: freeSurfaceInterval
       character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
+      character(kind=c_char), dimension(*), intent(in) :: receiverFileName
       real(kind=c_double), value                    :: receiverSamplingInterval
       real(kind=c_double), value                    :: receiverSyncInterval
     end subroutine
@@ -358,10 +353,11 @@ module f_ftoc_bind_interoperability
   end interface
 
   interface c_interoperability_simulate
-    subroutine c_interoperability_simulate( i_finalTime ) bind( C, name='c_interoperability_simulate' )
-      use iso_c_binding, only: c_double
+    subroutine c_interoperability_simulate( i_finalTime, i_plasticity ) bind( C, name='c_interoperability_simulate' )
+      use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), value :: i_finalTime
+      integer(kind=c_int), value :: i_plasticity
     end subroutine
   end interface
 

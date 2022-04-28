@@ -42,12 +42,12 @@ def fuzzysort(arr, idx, dim=0, tol=1e-6):
     return srtdidx
 
 
-def lookup_sorted_geom(geom):
+def lookup_sorted_geom(geom, atol):
     """return the indices to sort the
     geometry array by x, then y, then z
     and the associated inverse look-up table
     """
-    ind = fuzzysort(geom.T, list(range(0, geom.shape[0])), tol=1e-4)
+    ind = fuzzysort(geom.T, list(range(0, geom.shape[0])), tol=atol)
     # generate inverse look-up table
     dic = {i: index for i, index in enumerate(ind)}
     ind_inv = np.zeros_like(ind)
@@ -60,7 +60,7 @@ def read_geom_connect(sx):
     return sx.ReadGeometry(), sx.ReadConnect()
 
 
-def return_sorted_geom_connect(sx):
+def return_sorted_geom_connect(sx, atol):
     """sort geom array and reindex connect array to match the new geom array"""
     geom, connect = read_geom_connect(sx)
     nv = geom.shape[0]
@@ -69,21 +69,21 @@ def return_sorted_geom_connect(sx):
         import pymesh
 
         geom, connect, inf = pymesh.remove_duplicated_vertices_raw(
-            geom, connect, tol=1e-4
+            geom, connect, tol=atol
         )
         print(f"removed {inf['num_vertex_merged']} duplicates out of {nv}")
     except ModuleNotFoundError:
         print("pymesh not found, trying trimesh...")
         import trimesh
 
-        trimesh.tol.merge = 1e-4
+        trimesh.tol.merge = atol
         mesh = trimesh.Trimesh(geom, connect)
         mesh.merge_vertices()
         geom = mesh.vertices
         connect = mesh.faces
         print(f"removed {nv-geom.shape[0]} duplicates out of {nv}")
 
-    ind, ind_inv = lookup_sorted_geom(geom)
+    ind, ind_inv = lookup_sorted_geom(geom, atol)
     geom = geom[ind, :]
     connect = np.array([ind_inv[x] for x in connect.flatten()]).reshape(connect.shape)
     # sort along line (then we can use multidim_intersect)
@@ -107,13 +107,28 @@ def multidim_intersect(arr1, arr2):
     return ind1, ind2
 
 
-def same_geometry(sx1, sx2):
+def same_geometry(sx1, sx2, atol):
     geom1 = sx1.ReadGeometry()
     geom2 = sx2.ReadGeometry()
     if geom1.shape[0] != geom2.shape[0]:
         return False
     else:
-        return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4))
+        return np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=atol))
+
+
+def compute_areas(geom, connect):
+    triangles = geom[connect, :]
+    a = triangles[:, 1, :] - triangles[:, 0, :]
+    b = triangles[:, 2, :] - triangles[:, 0, :]
+    return 0.5 * np.linalg.norm(np.cross(a, b), axis=1)
+
+
+def l1_norm(areas, q):
+    return np.dot(areas, np.abs(q))
+
+
+def l2_norm(areas, q):
+    return np.dot(areas, np.power(q, 2))
 
 
 parser = argparse.ArgumentParser(
@@ -137,31 +152,35 @@ parser.add_argument(
     help="Data to differenciate (example SRs); all for all stored quantities",
 )
 parser.add_argument(
-    "--ratio",
-    dest="ratio",
-    default=False,
-    action="store_true",
-    help="compute relative ratio (f1-f2)/f1 instead of f2-f1",
+    "--atol",
+    nargs=1,
+    metavar=("atol"),
+    help="absolute tolerance to merge vertices",
+    type=float,
+    default=[1e-3],
 )
 
 args = parser.parse_args()
+atol = args.atol[0]
 
 sx1 = sx.seissolxdmf(args.xdmf_filename1)
 sx2 = sx.seissolxdmf(args.xdmf_filename2)
 
-same_geom = same_geometry(sx1, sx2)
+same_geom = same_geometry(sx1, sx2, atol)
 
 if same_geom:
     print("same indexing detected, no need to reindex arrays")
     geom1, connect1 = read_geom_connect(sx1)
     geom2, connect2 = read_geom_connect(sx2)
 else:
-    geom1, connect1 = return_sorted_geom_connect(sx1)
-    geom2, connect2 = return_sorted_geom_connect(sx2)
-    if not np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=1e-4)):
+    geom1, connect1 = return_sorted_geom_connect(sx1, atol)
+    geom2, connect2 = return_sorted_geom_connect(sx2, atol)
+    if not np.all(np.isclose(geom1, geom2, rtol=1e-3, atol=atol)):
         raise ValueError("geometry arrays differ")
     ind1, ind2 = multidim_intersect(connect1, connect2)
     connect1 = connect1[ind1, :]
+
+areas = compute_areas(geom1, connect1)
 
 if args.idt[0] == -1:
     args.idt = list(range(0, sx1.ndt))
@@ -184,6 +203,7 @@ if args.Data == ["all"]:
 else:
     variable_names = args.Data
 
+print("#idt relative_error_l2 relative_error_l1 min_abs_error max_abs_error")
 for dataname in variable_names:
     print(dataname)
     myData1 = read_reshape2d(sx1, dataname)
@@ -191,24 +211,28 @@ for dataname in variable_names:
     ndt = min(myData1.shape[0], myData2.shape[0])
     if same_geom:
         myData = myData1[0:ndt, :] - myData2[0:ndt, :]
-        if args.ratio:
-            myData = myData / myData1[0:ndt, :]
     else:
         myData = myData1[0:ndt, ind1] - myData2[0:ndt, ind2]
-        if args.ratio:
-            myData = myData / myData1[0:ndt, ind1]
 
     for idt in args.idt:
         if idt < ndt:
-            print(idt, np.amin(myData[idt, :]), np.amax(myData[idt, :]))
+            relative_error_l2 = l2_norm(areas, myData[idt, :]) / l2_norm(
+                areas, myData1[idt, ind1]
+            )
+            relative_error_l1 = l1_norm(areas, myData[idt, :]) / l1_norm(
+                areas, myData1[idt, ind1]
+            )
+            min_error, max_error = np.amin(myData[idt, :]), np.amax(myData[idt, :])
+            print(
+                f"{idt} {relative_error_l2} {relative_error_l1} {min_error} {max_error}"
+            )
         else:
             print(f"removing idt={idt}>{ndt} from args.idt")
             args.idt.pop(idt)
 
     aData.append(myData)
 prefix, ext = os.path.splitext(args.xdmf_filename1)
-add2prefix = "ratio" if args.ratio else "diff"
-fname = f"{add2prefix}_{os.path.basename(prefix)}"
+fname = f"diff_{os.path.basename(prefix)}"
 
 try:
     dt = sx1.ReadTimeStep()

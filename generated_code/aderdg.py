@@ -48,6 +48,7 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 from yateto.util import tensor_collection_from_constant_expression
+from yateto.memory import CSCMemoryLayout
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -110,6 +111,18 @@ class ADERDGBase(ABC):
       target_indices='jl')
 
     self.db.update(project2nFaceTo3m)
+
+    selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
+    selectVelocitySpp[6:9,0:3] = np.eye(3)
+    self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
+
+    self.selectTractionSpp = np.zeros((self.numberOfQuantities(), 3), dtype=bool)
+    self.selectTractionSpp[0,0] = True
+    self.selectTractionSpp[3,1] = True
+    self.selectTractionSpp[5,2] = True
+
+    self.tractionPlusMatrix = Tensor('tractionPlusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
+    self.tractionMinusMatrix = Tensor('tractionMinusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
 
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
@@ -263,6 +276,8 @@ class LinearADERDG(ADERDGBase):
                     self.I['kp'] <= power * dQ0['kp'],
                     target=target)
 
+      self.dQs = [dQ0]
+
       for i in range(1,self.order):
         derivativeSum = Add()
         if self.sourceMatrix():
@@ -273,6 +288,7 @@ class LinearADERDG(ADERDGBase):
         derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+        self.dQs.append(dQ)
 
         generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, target=target)
         generator.add(f'{name_prefix}derivativeTaylorExpansion({i})',

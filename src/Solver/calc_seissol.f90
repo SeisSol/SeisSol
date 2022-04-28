@@ -63,7 +63,6 @@ CONTAINS
 #ifdef HDF
     USE receiver_hdf_mod
 #else
-    USE receiver_mod
     USE energies_output_mod
 #endif
     USE ini_SeisSol_mod
@@ -174,7 +173,7 @@ CONTAINS
     call c_interoperability_report_device_memory_status()
 
     ! do the simulation
-    call c_interoperability_simulate( i_finalTime = disc%endTime );
+    call c_interoperability_simulate( i_finalTime = disc%endTime, i_plasticity = eqn%Plasticity)
     ! End time is currently the only supported abort criteria by GK
     time = disc%endTime
 !no generated kernel
@@ -207,17 +206,10 @@ CONTAINS
 
     logInfo(*)'<--------------------------------------------------------->'  !
     !
-    IF(IO%PGMLocationsFlag.NE.0)THEN
-#ifdef HDF
-        CALL PGM_output_hdf(IO,MPI)
-#else
-        CALL PGM_output(IO,MPI)
-#endif
-    ENDIF
 
 #ifdef USE_MPI
     CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
-#endif // USE_MPI
+#endif /* USE_MPI */
 
     ! output magnitude for dynamic rupture simulations
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO,DR_comm)

@@ -258,7 +258,7 @@ public:
 		ElemBoundaries* elemBoundaries = new ElemBoundaries[maxSize];
 		ElemNeighborRanks* elemNeighborRanks = new ElemNeighborRanks[maxSize];
 		ElemMPIIndices* elemMPIIndices = new ElemMPIIndices[maxSize];
-		ElemMaterial* elemMaterial = new ElemMaterial[maxSize];
+		ElemGroup* elemGroup = new ElemGroup[maxSize];
 
 //		SCOREP_USER_REGION_DEFINE( r_read_elements )
 //		SCOREP_USER_REGION_BEGIN( r_read_elements, "read_elements", SCOREP_USER_REGION_TYPE_COMMON )
@@ -283,7 +283,7 @@ public:
 				checkNcError(nc_get_vara_int(ncFile, ncVarElemNeighborRanks, start, count, reinterpret_cast<int*>(elemNeighborRanks)));
 				checkNcError(nc_get_vara_int(ncFile, ncVarElemMPIIndices, start, count, reinterpret_cast<int*>(elemMPIIndices)));
 				if (hasGroup)
-					checkNcError(nc_get_vara_int(ncFile, ncVarElemGroup, start, count, reinterpret_cast<int*>(elemMaterial)));
+					checkNcError(nc_get_vara_int(ncFile, ncVarElemGroup, start, count, reinterpret_cast<int*>(elemGroup)));
 
 				if (i != 0) {
 #ifdef USE_MPI
@@ -294,7 +294,7 @@ public:
 					MPI_Send(elemBoundaries, 4*sizes[i], MPI_INT, i+rank, 0, seissol::MPI::mpi.comm());
 					MPI_Send(elemNeighborRanks, 4*sizes[i], MPI_INT, i+rank, 0, seissol::MPI::mpi.comm());
 					MPI_Send(elemMPIIndices, 4*sizes[i], MPI_INT, i+rank, 0, seissol::MPI::mpi.comm());
-					MPI_Send(elemMaterial, sizes[i], MPI_INT, i+rank ,0 , seissol::MPI::mpi.comm());
+					MPI_Send(elemGroup, sizes[i], MPI_INT, i + rank , 0 , seissol::MPI::mpi.comm());
 #else // USE_MPI
 					assert(false);
 #endif // USE_MPI
@@ -310,7 +310,7 @@ public:
 			MPI_Recv(elemBoundaries, 4*sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 			MPI_Recv(elemNeighborRanks, 4*sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 			MPI_Recv(elemMPIIndices, 4*sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
-			MPI_Recv(elemMaterial, sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
+			MPI_Recv(elemGroup, sizes[0], MPI_INT, master, 0, seissol::MPI::mpi.comm(), MPI_STATUS_IGNORE);
 #else // USE_MPI
 			assert(false);
 #endif // USE_MPI
@@ -327,7 +327,7 @@ public:
 			memcpy(m_elements[i].boundaries, &elemBoundaries[i], sizeof(ElemBoundaries));
 			memcpy(m_elements[i].neighborRanks, &elemNeighborRanks[i], sizeof(ElemNeighborRanks));
 			memcpy(m_elements[i].mpiIndices, &elemMPIIndices[i], sizeof(ElemMPIIndices));
-			m_elements[i].material = elemMaterial[i];
+			m_elements[i].group = elemGroup[i];
 		}
 
 //		SCOREP_USER_REGION_END( r_read_elements )

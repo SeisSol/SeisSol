@@ -41,6 +41,8 @@
 #define RESULTWRITER_RECEIVERWRITER_H_
 
 #include <vector>
+#include <string_view>
+
 #include <Eigen/Dense>
 #include <Geometry/MeshReader.h>
 #include <Initializer/tree/Lut.hpp>
@@ -51,19 +53,20 @@
 
 struct LocalIntegrationData;
 struct GlobalData;
-namespace seissol {
-  namespace writer {
+namespace seissol::writer {
+    Eigen::Vector3d parseReceiverLine(const std::string& line);
+    std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
+
     class ReceiverWriter : public seissol::Module {
     public:
-      void init(  std::string const&  fileNamePrefix,
-                  double              samplingInterval,
-                  double              syncPointInterval);
+      void init(std::string receiverFileName, std::string fileNamePrefix,
+                double syncPointInterval, double samplingInterval);
 
-      void addPoints( std::vector<Eigen::Vector3d> const& points,
-                      MeshReader const&                   mesh,
-                      seissol::initializers::Lut const&   ltsLut,
-                      seissol::initializers::LTS const&   lts,
-                      GlobalData const*                   global );
+      void addPoints(
+          const MeshReader& mesh,
+          const seissol::initializers::Lut& ltsLut,
+          const seissol::initializers::LTS& lts,
+          const GlobalData* global);
 
       kernels::ReceiverCluster* receiverCluster(unsigned clusterId) {
         if (clusterId < m_receiverClusters.size()) {
@@ -74,18 +77,18 @@ namespace seissol {
       //
       // Hooks
       //
-      void syncPoint(double);
+      void syncPoint(double) override;
 
     private:
-      std::string fileName(unsigned pointId) const;
+      [[nodiscard]] std::string fileName(unsigned pointId) const;
       void writeHeader(unsigned pointId, Eigen::Vector3d const& point);
 
+      std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
       std::vector<kernels::ReceiverCluster> m_receiverClusters;
       Stopwatch   m_stopwatch;
     };
   }
-}
 
 #endif
