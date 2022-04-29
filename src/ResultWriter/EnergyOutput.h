@@ -59,8 +59,6 @@ class EnergyOutput : public Module {
   void simulationStart() override;
 
   private:
-  real computePlasticMoment();
-
   real computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
                          DRFaceInformation const& faceInfo,

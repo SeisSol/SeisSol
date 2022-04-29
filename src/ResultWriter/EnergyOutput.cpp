@@ -85,28 +85,6 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-real EnergyOutput::computePlasticMoment() {
-  real plasticMoment = 0.0;
-  std::vector<Element> const& elements = meshReader->getElements();
-  std::vector<Vertex> const& vertices = meshReader->getVertices();
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) reduction(+ : plasticMoment) default(none) shared(elements, vertices)
-#endif
-  for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
-    real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-    real volume = MeshTools::volume(elements[elementId], vertices);
-    CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
-#ifdef USE_ANISOTROPIC
-    real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
-#else
-    real mu = material.local.mu;
-#endif
-    plasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-  }
-  return plasticMoment;
-}
-
 real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                      const real* degreesOfFreedomMinus,
                                      const DRFaceInformation& faceInfo,
@@ -198,9 +176,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       }
     }
   }
-  if (isPlasticityEnabled) {
-    plasticMoment = computePlasticMoment();
-  }
 }
 
 void EnergyOutput::computeEnergies() {
@@ -211,6 +186,7 @@ void EnergyOutput::computeEnergies() {
   auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
   auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
   auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
+  auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
   std::vector<Element> const& elements = meshReader->getElements();
   std::vector<Vertex> const& vertices = meshReader->getVertices();
@@ -223,9 +199,9 @@ void EnergyOutput::computeEnergies() {
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
-#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
     real volume = MeshTools::volume(elements[elementId], vertices);
     CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
+#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
@@ -359,6 +335,17 @@ void EnergyOutput::computeEnergies() {
       }
     }
 #endif
+
+    if (isPlasticityEnabled) {
+      // plastic moment
+      real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
+#ifdef USE_ANISOTROPIC
+      real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
+#else
+      real mu = material.local.mu;
+#endif
+      totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+    }
   }
 
   computeDynamicRuptureEnergies();
