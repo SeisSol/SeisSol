@@ -704,11 +704,32 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
 
 namespace seissol::time_stepping {
 ActResult TimeCluster::act() {
-  actorStateStatistics->enter(state);
+  // TODO(Lukas) Does this make sense
+  // TODO(Lukas) Overwrite nextLegalAction
+  {
+    std::lock_guard lock{isRunningMutex};
+    if (isRunning) {
+      auto result = ActResult();
+      result.isStateChanged = false;
+      return result;
+    }
+
+    isRunning = true;
+  }
+  const auto rank = MPI::mpi.rank();
+  if (layerType == LayerType::Interior) logInfo(rank) << "Starting cluster " << m_globalClusterId;
+  //actorStateStatistics->enter(state);
   const auto result = AbstractTimeCluster::act();
-  actorStateStatistics->enter(state);
+  //actorStateStatistics->enter(state);
+  if (layerType == LayerType::Interior) logInfo(rank) << "Stopping cluster " << m_globalClusterId;
+  
+  {
+    std::lock_guard lock{isRunningMutex};
+    isRunning = false;
+  }
   return result;
 }
+
 
 void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
   if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {

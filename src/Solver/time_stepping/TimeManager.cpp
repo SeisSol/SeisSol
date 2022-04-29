@@ -39,6 +39,8 @@
  * Time Step width management in SeisSol.
  **/
 
+#include <atomic>
+
 #include "Parallel/MPI.h"
 
 #include "TimeManager.h"
@@ -253,25 +255,25 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
         if (cluster->getNextLegalAction() == ActorAction::Predict) {
           communicationManager->progression();
-//#pragma omp task
+#pragma omp task
           cluster->act();
         }
       });
 
-#pragma omp taskwait
+//#pragma omp taskwait
 
       std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
         if (cluster->getNextLegalAction() != ActorAction::Predict &&
             cluster->getNextLegalAction() != ActorAction::Nothing) {
           communicationManager->progression();
-//#pragma omp task
+#pragma omp task
           cluster->act();
         }
       });
 
       // Taskwait needed here because right now becuase DR is not threadsafe
       // between copy and interior clusters.
-#pragma omp taskwait
+//#pragma omp taskwait
 
       // Update one low priority cluster
       if (auto predictable = std::find_if(
@@ -282,7 +284,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
           predictable != lowPrioClusters.end()) {
 #pragma omp task
         (*predictable)->act();
-      } else {
       }
       if (auto correctable = std::find_if(
             lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
@@ -292,7 +293,6 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
           correctable != lowPrioClusters.end()) {
 #pragma omp task
         (*correctable)->act();
-      } else {
       }
       finished = std::all_of(clusters.begin(), clusters.end(),
                              [](auto& c) {
@@ -302,7 +302,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
       // Taskwait needed because we otherwise can schedule same cluster twice
       // leading to segfaults. Can be fixed with mutex.
-#pragma omp taskwait
+//#pragma omp taskwait
     }
   }
 #ifdef ACL_DEVICE

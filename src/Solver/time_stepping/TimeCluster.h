@@ -385,6 +385,9 @@ private:
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
+  bool isRunning = false;
+  std::mutex isRunningMutex;
+
 public:
   ActResult act() override;
 
