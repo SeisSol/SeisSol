@@ -47,7 +47,7 @@ Energy output
 | 0 : no output
 | 1 : csv output
 
-For the example configuration, the output is written in the file "output/conv_energy.csv".
+For the example configuration, the output is written in the file "output/conv-energy.csv".
 
 Terminal output
 ~~~~~~~~~~~~~~~~

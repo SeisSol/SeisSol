@@ -45,7 +45,7 @@ void EnergyOutput::init(GlobalData* newGlobal,
 
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = newIsTerminalOutputEnabled && (rank == 0);
-  outputFileName = outputFileNamePrefix + "_energy.csv";
+  outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
   dynRup = newDynRup;
@@ -196,7 +196,7 @@ void EnergyOutput::computeEnergies() {
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal) shared(elements, vertices, lts, ltsLut, global)
+#pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal, totalPlasticMoment) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     real volume = MeshTools::volume(elements[elementId], vertices);
@@ -259,7 +259,7 @@ void EnergyOutput::computeEnergies() {
         // Elastic
         totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
         auto getStressIndex = [](int i, int j) {
-          auto lookup = std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
+          const static auto lookup = std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
@@ -435,7 +435,6 @@ void EnergyOutput::writeHeader() {
 }
 
 void EnergyOutput::writeEnergies(double time) {
-  const auto rank = MPI::mpi.rank();
   out << time << "," << energiesStorage.gravitationalEnergy() << ","
       << energiesStorage.acousticEnergy() << "," << energiesStorage.acousticKineticEnergy() << ","
       << energiesStorage.elasticEnergy() << "," << energiesStorage.elasticKineticEnergy() << ","

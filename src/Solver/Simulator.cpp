@@ -144,9 +144,6 @@ void seissol::Simulator::simulate() {
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
     printPerformance(stopwatch.split());
-
-
-
   }
 
   
