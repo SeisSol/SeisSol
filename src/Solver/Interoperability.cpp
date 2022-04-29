@@ -239,12 +239,15 @@ extern "C" {
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  int* outputGroups, int outputGroupsSize,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
-      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval) {
+      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
+      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
-	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds, outputGroupBounds,
-			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
-      receiverFileName, receiverSamplingInterval, receiverSyncInterval);
+    e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
+                                    numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
+                                    outputGroupBounds,
+                                    freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
+                                    receiverFileName, receiverSamplingInterval, receiverSyncInterval,
+                                    isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval);
   }
 
   void c_interoperability_projectInitialField() {
@@ -882,15 +885,19 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
   seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
 }
 
-void seissol::Interoperability::initializeIO(
-		double* mu, double* slipRate1, double* slipRate2,
-		double* slip, double* slip1, double* slip2, double* state, double* strength,
-		int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
-		double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
-		double freeSurfaceInterval, const char* freeSurfaceFilename,
-    const char* xdmfWriterBackend,
-    const char* receiverFileName,
-    double receiverSamplingInterval, double receiverSyncInterval)
+void
+seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1,
+                                        double* slip2,
+                                        double* state, double* strength, int numSides, int numBndGP, int refinement,
+                                        int* outputMask,
+                                        int* plasticityMask, double* outputRegionBounds,
+                                        const std::unordered_set<int>& outputGroups,
+                                        double freeSurfaceInterval, const char* freeSurfaceFilename,
+                                        const char* xdmfWriterBackend,
+                                        const char* receiverFileName, double receiverSamplingInterval,
+                                        double receiverSyncInterval,
+                                        bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled,
+                                        double energySyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
@@ -950,14 +957,25 @@ void seissol::Interoperability::initializeIO(
   );
   seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
 
-	// I/O initialization is the last step that requires the mesh reader
-	// (at least at the moment ...)
+  auto& energyOutput = seissol::SeisSol::main.energyOutput();
+  auto* dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+  auto* dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
 
-	// TODO(Lukas) Free the mesh reader if not doing convergence test.
+  energyOutput.init(m_globalData,
+                    dynRup,
+                    dynRupTree,
+                    &seissol::SeisSol::main.meshReader(),
+                    m_ltsTree,
+                    m_lts,
+                    &m_ltsLut,
+                    isPlasticityEnabled,
+                    isEnergyTerminalOutputEnabled,
+                    freeSurfaceFilename,
+                    energySyncInterval);
+
 	seissol::SeisSol::main.analysisWriter().init(
 	    &seissol::SeisSol::main.meshReader(),
 	    freeSurfaceFilename);
-	//seissol::SeisSol::main.freeMeshReader();
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()
