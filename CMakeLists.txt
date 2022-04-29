@@ -414,7 +414,8 @@ set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_
 if (LIKWID)
   find_package(likwid REQUIRED)
   target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-  target_link_libraries(SeisSol-proxy-core PRIVATE likwid::likwid)
+  target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
+  target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
 endif()
 
 if (TESTING)
