@@ -173,16 +173,16 @@ You must not specify both.
      - Linear slip weakening: Critical distance.
    * - forced_rupture_time
      - s
-     - 2
+     - 16
      - Time of forced rupture.
    * - rs_a, rs_srW, RS_sl0
      - 
      - 101, 103
      - Rate-and-state friction parameter.
-   * - nuc_{xx, yy, zz, xy, yz, xz}
+   * - nuc_{xx, yy, zz, xy, yz, xz} or Tnuc_{n, s, d}
      - Pa
-     - 103
-     - Nucleation stress.
+     - 2, 3, 4, 103
+     - Nucleation stress or tractions.
 
 Debugging easi script
 ---------------------
