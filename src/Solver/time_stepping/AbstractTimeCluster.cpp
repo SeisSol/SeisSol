@@ -40,7 +40,7 @@ ActorAction AbstractTimeCluster::getNextLegalAction() {
       break;
     }
     default:
-      logError() << "Invalid actor state in getNextLegalAction() " << static_cast<int>(state);
+      logError() << "Invalid actor state in getNextLegalAction()" << static_cast<int>(state);
   }
   return ActorAction::Nothing;
 }
@@ -92,9 +92,10 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       break;
     case ActorAction::Sync:
       assert(state == ActorState::Corrected);
-      logDebug(MPI::mpi.rank()) << "synced at " << syncTime
+      logDebug(MPI::mpi.rank()) << "synced at" << syncTime
                                 << ", corrTime =" << ct.correctionTime
-                                << " stepsUntilLastSync " << ct.stepsSinceLastSync
+                                << "stepsSinceLastSync" << ct.stepsSinceLastSync
+                                << "stepsUntilLastSync" << ct.stepsUntilSync
                                 << std::endl;
       state = ActorState::Synced;
       break;
@@ -103,7 +104,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       state = ActorState::Corrected;
       break;
     default:
-      logError() << "Invalid actor action in getNextLegalAction() " << static_cast<int>(state);
+      logError() << "Invalid actor action in getNextLegalAction()" << static_cast<int>(state);
       break;
   }
 }
