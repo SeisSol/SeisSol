@@ -154,6 +154,7 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
   for (unsigned tc = 0; tc < m_ltsTree->numChildren(); ++tc) {
     auto& cluster = m_ltsTree->child(tc);
     clusters[tc+1] = clusters[tc] + cluster.getNumberOfCells();
+    // For each cluster, we first store the Ghost cells, then the Copy cells and finally the Interior cells.
     auto offsetGhost = 0U;
     auto offsetCopy = cluster.child<Ghost>().getNumberOfCells();
     auto offsetInterior = offsetCopy + cluster.child<Copy>().getNumberOfCells();
