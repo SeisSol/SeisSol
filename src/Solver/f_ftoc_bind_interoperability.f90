@@ -62,7 +62,7 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface 
+  interface
    subroutine c_interoperability_setTravellingWaveInformation( origin, kVec, ampField ) bind( C, name='c_interoperability_setTravellingWaveInformation')
       use iso_c_binding, only: c_double
       implicit none
@@ -133,9 +133,9 @@ module f_ftoc_bind_interoperability
       use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), dimension(*), intent(in) :: momentTensor
-      real(kind=c_double), dimension(*), intent(in) :: solidVelocityComponent 
-      real(kind=c_double), dimension(*), intent(in) :: pressureComponent 
-      real(kind=c_double), dimension(*), intent(in) :: fluidVelocityComponent 
+      real(kind=c_double), dimension(*), intent(in) :: solidVelocityComponent
+      real(kind=c_double), dimension(*), intent(in) :: pressureComponent
+      real(kind=c_double), dimension(*), intent(in) :: fluidVelocityComponent
       integer(kind=c_int), value                    :: numberOfSources
       real(kind=c_double), dimension(*), intent(in) :: centres
       real(kind=c_double), dimension(*), intent(in) :: strikes
@@ -293,9 +293,10 @@ module f_ftoc_bind_interoperability
     end subroutine
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
-        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, &
+        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, i_outputGroups, i_outputGroupsSize, &
         freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
-        receiverFileName, receiverSamplingInterval, receiverSyncInterval ) &
+        receiverFileName, receiverSamplingInterval, receiverSyncInterval, &
+        isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -314,12 +315,19 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), dimension(*), intent(in) :: i_outputMask
       integer(kind=c_int), dimension(7), intent(in) :: i_plasticityMask
       real(kind=c_double), dimension(*), intent(in) :: i_outputRegionBounds
+      integer(kind=c_int), dimension(*), intent(in) :: i_outputGroups
+      integer(kind=c_int), value :: i_outputGroupsSize
       real(kind=c_double), value                    :: freeSurfaceInterval
       character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
       character(kind=c_char), dimension(*), intent(in) :: receiverFileName
       real(kind=c_double), value                    :: receiverSamplingInterval
       real(kind=c_double), value                    :: receiverSyncInterval
+      logical(kind=c_bool), value :: isPlasticityEnabled
+      logical(kind=c_bool), value :: isEnergyTerminalOutputEnabled
+      real(kind=c_double), value :: energySyncInterval
+
+
     end subroutine
 
     subroutine c_interoperability_projectInitialField() bind( C, name='c_interoperability_projectInitialField' )
@@ -351,10 +359,11 @@ module f_ftoc_bind_interoperability
   end interface
 
   interface c_interoperability_simulate
-    subroutine c_interoperability_simulate( i_finalTime ) bind( C, name='c_interoperability_simulate' )
-      use iso_c_binding, only: c_double
+    subroutine c_interoperability_simulate( i_finalTime, i_plasticity ) bind( C, name='c_interoperability_simulate' )
+      use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), value :: i_finalTime
+      integer(kind=c_int), value :: i_plasticity
     end subroutine
   end interface
 

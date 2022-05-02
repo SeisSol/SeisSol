@@ -225,6 +225,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
+  DROutput     *                        drOutput                                                          = layerData.var(m_dynRup->drOutput);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
   real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
   real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
@@ -244,6 +245,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
                                                     m_globalDataOnHost,
                                                    &godunovData[face],
+                                                   &drOutput[face],
                                                     timeDerivativePlus[face],
                                                     timeDerivativeMinus[face],
                                                     QInterpolatedPlus,
@@ -641,8 +643,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
       if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
         GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
-                                                             cellInformation[cell].faceTypes[face],
-                                                             m_timeKernel);
+                                                             cellInformation[cell].faceTypes[face]);
         flopsNonZero += nonZeroFlopsDisplacement;
         flopsHardware += hardwareFlopsDisplacement;
       }

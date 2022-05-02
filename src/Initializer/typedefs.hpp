@@ -420,10 +420,20 @@ struct DRFaceInformation {
   unsigned plusSide;
   unsigned minusSide;
   unsigned faceRelation;
+  bool     plusSideOnThisRank;
 };
 
 struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
+  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
+  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  double doubledSurfaceArea;
+};
+
+struct DROutput {
+  real slip[seissol::tensor::slipInterpolated::size()];
+  real accumulatedSlip[seissol::tensor::squaredNormSlipRateInterpolated::size()];
+  real frictionalEnergy;
 };
 
 struct CellDRMapping {

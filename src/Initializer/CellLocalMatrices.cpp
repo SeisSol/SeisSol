@@ -406,9 +406,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
       if (fault[meshFace].element >= 0) {
         faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].element ].sideOrientations[ fault[meshFace].side ] + 1;
+        faceInformation[ltsFace].plusSideOnThisRank = true;
       } else {
         /// \todo check if this is correct
         faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].neighborElement ].sideOrientations[ fault[meshFace].neighborSide ] + 1;
+        faceInformation[ltsFace].plusSideOnThisRank = false;
       }
 
       /// Look for time derivative mapping in all duplicates
@@ -537,6 +539,25 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           break;
         }
       }
+      /// Traction matrices for "average" traction
+      auto tractionPlusMatrix = init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
+      auto tractionMinusMatrix = init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
+      double ZpP = plusMaterial->rho * waveSpeedsPlus[ltsFace].pWaveVelocity;
+      double ZsP = plusMaterial->rho * waveSpeedsPlus[ltsFace].sWaveVelocity;
+      double ZpM = minusMaterial->rho * waveSpeedsMinus[ltsFace].pWaveVelocity;
+      double ZsM = minusMaterial->rho * waveSpeedsMinus[ltsFace].sWaveVelocity;
+      double etaP = ZpP*ZpM / (ZpP + ZpM);
+      double etaS = ZsP*ZsM / (ZsP + ZsM);
+
+      tractionPlusMatrix.setZero();
+      tractionPlusMatrix(0,0) = etaP / ZpP;
+      tractionPlusMatrix(3,1) = etaS / ZsP;
+      tractionPlusMatrix(5,2) = etaS / ZsP;
+
+      tractionMinusMatrix.setZero();
+      tractionMinusMatrix(0,0) = etaP / ZpM;
+      tractionMinusMatrix(3,1) = etaS / ZsM;
+      tractionMinusMatrix(5,2) = etaS / ZsM;
 
       /// Transpose Tinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
@@ -544,19 +565,22 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
+        surfaceArea = plusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
+        surfaceArea = minusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
       }
+      godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = TData;

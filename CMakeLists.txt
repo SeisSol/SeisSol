@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -74,9 +74,16 @@ set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
                                 src/generated_code/kernel.h
                                 src/generated_code/kernel.cpp)
 
+
+if(PROXY_PYBINDING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+else()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
+
 add_custom_command(
   COMMAND
-  "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
@@ -407,7 +414,8 @@ set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_
 if (LIKWID)
   find_package(likwid REQUIRED)
   target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-  target_link_libraries(SeisSol-proxy-core PRIVATE likwid::likwid)
+  target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
+  target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
 endif()
 
 if (TESTING)

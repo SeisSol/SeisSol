@@ -28,7 +28,7 @@ gpu_pre_build:
         - wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
         - tar -xf eigen-3.4.0.tar.gz
         - mkdir eigen-3.4.0/build && cd eigen-3.4.0/build && 
-          cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr && make -j ($nproc) install 
+          cmake .. -DCMAKE_INSTALL_PREFIX=../../self_usr && make -j $(nproc) install 
           && cd ../..
         - git clone https://github.com/uphoffc/ImpalaJIT.git impalajit &&
           mkdir -p impalajit/build && cd impalajit/build &&

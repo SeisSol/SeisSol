@@ -320,10 +320,10 @@ CONTAINS
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
-#if defined(USE_POROELASTIC)      
+#if defined(USE_POROELASTIC)
       EQN%Poroelasticity = 1
       EQN%nVar = 13
-      EQN%nVarTotal = 13 
+      EQN%nVarTotal = 13
       EQN%nBackgroundVar = 10
 #else
       EQN%nVarTotal = EQN%nVar
@@ -400,7 +400,7 @@ CONTAINS
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     IF ((EQN%FreqCentral.EQ.0.0) .OR. (EQN%FreqRatio.EQ.0.0)) THEN
         logError(*) 'FreqCentral or FreqRatio not defined'
-        call exit(134) 
+        call exit(134)
     ENDIF
 #endif
     !
@@ -906,7 +906,7 @@ CONTAINS
     TYPE (tMPI)                            :: MPI
     INTENT(INOUT)                          :: IO, EQN, DISC, BND, MPI
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
+                                              OutputPointType, read_fault_file,refPointMethod, &
                                               thermalPress, SlipRateOutputType, readStat
     LOGICAL                                :: fileExists
 
@@ -917,7 +917,7 @@ CONTAINS
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
                                               RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
                                               alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
-                                              NucRS_sv0, r_s, energy_rate_printtimeinterval
+                                              NucRS_sv0, r_s
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, &
@@ -927,8 +927,7 @@ CONTAINS
                                                 RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
                                                 thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                                 L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
-                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
-                                                SlipRateOutputType, ModelFileName
+                                                OutputPointType, SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
 
     ! Setting default values
@@ -936,9 +935,6 @@ CONTAINS
     FL = 0
     RF_output_on = 0
     DS_output_on = 0
-    magnitude_output_on = 1
-    energy_rate_output_on = 0
-    energy_rate_printtimeinterval = 1
     OutputPointType = 3
     SlipRateOutputType = 1
     RS_sv0 = 0
@@ -1083,14 +1079,6 @@ CONTAINS
                DISC%DynRup%RF_output_on = 1
                DISC%DynRup%RFtime_on = 1
            ENDIF
-
-
-           ! magnitude output on = 1, off = 0
-           DISC%DynRup%magnitude_output_on = magnitude_output_on
-
-           ! moment rate and frictional energy rate output on=1, off=0
-           DISC%DynRup%energy_rate_output_on = energy_rate_output_on
-           DISC%DynRup%energy_rate_printtimeinterval = energy_rate_printtimeinterval
 
            !
            DISC%DynRup%OutputPointType = OutputPointType
@@ -1753,7 +1741,7 @@ CONTAINS
 
        CASE DEFAULT
           logError(*)  'The format type of the Finite Source Rupture Model is unknown! '
-          call exit(134)                                                                                   
+          call exit(134)
 
        END SELECT
 
@@ -1840,12 +1828,12 @@ CONTAINS
        IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for (solid) velocity component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read (solid) velocity component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
-       ENDIF 
+       ENDIF
        SOURCE%RP%PressureComponent(:) = 0.
        IF( index(char_dummy, 'pressure').gt.0 ) THEN                     ! Check for pressure component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%PressureComponent           ! Read pressure component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
-       ENDIF 
+       ENDIF
        SOURCE%RP%FluidVelocityComponent(:) = 0.
        IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
@@ -1892,7 +1880,7 @@ CONTAINS
        !
     CASE DEFAULT                                                                                   !
        logError(*)  'The sourctype specified (', SOURCE%Type, ') is unknown! '                  !
-       call exit(134)                                                                                       
+       call exit(134)
     END SELECT                                                                                     !
 
                                                                                                    !
@@ -2595,10 +2583,12 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
-      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, &
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement,  IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
+      REAL                             :: TimeInterval, pickdt, Interval, checkPointInterval, &
                                           OutputRegionBounds(1:6), SurfaceOutputInterval, &
                                           ReceiverOutputInterval
+      INTEGER :: OutputGroups(100) ! Larger buffer than necessary (probably)
+
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       !> The checkpoint back-end is specified via a string.
       !!
@@ -2612,14 +2602,20 @@ ALLOCATE( SpacePositionx(nDirac), &
       !!
       character(LEN=64)                :: checkPointBackend
       character(LEN=64)                :: xdmfWriterBackend
+      INTEGER                          :: EnergyOutput
+      INTEGER                          :: EnergyTerminalOutput
+      real                             :: EnergyOutputInterval
+
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, &
                                                 FaultOutputFlag, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
+                                                checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
-                                                ReceiverOutputInterval, nRecordPoints
-    !------------------------------------------------------------------------
+                                                ReceiverOutputInterval, nRecordPoints, &
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval
+
+              !------------------------------------------------------------------------
     !
       logInfo(*) '<--------------------------------------------------------->'
       logInfo(*) '<  O U T P U T                                            >'
@@ -2634,9 +2630,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       Refinement = 0
       pickdt = 0.1
       pickDtType = 1
-      energy_output_on = 0
-      pickdt_energy = 1.0
       OutputRegionBounds(:) = 0.0
+      outputGroups(:) = -1
       RFileName = ''
       nRecordPoints = -1
       pickDtType = 1
@@ -2654,8 +2649,12 @@ ALLOCATE( SpacePositionx(nDirac), &
       ReceiverOutputInterval = 1.0e99
       iPlasticityMask(1:6) = 0
       iPlasticityMask(7) = 1
-      !
+
+      EnergyOutput = 0
+      EnergyTerminalOutput = 0
+      EnergyOutputInterval = -1.0
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
+
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "Output")
     ENDIF
@@ -2772,7 +2771,9 @@ ALLOCATE( SpacePositionx(nDirac), &
           ENDIF
       END IF
 
-      ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
+      IO%OutputGroups = pack(OutputGroups, OutputGroups >= 0)
+
+	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !
         logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
         call exit(134)                                                                 !
@@ -2932,13 +2933,17 @@ ALLOCATE( SpacePositionx(nDirac), &
             call exit(134)
          ENDSELECT
 
-       ! energy output on = 1, off =0
-       IO%energy_output_on = energy_output_on
-
-       IF(IO%energy_output_on .EQ. 1) THEN
-            logWarning0(*) 'Energy output currently only working with classic version. Turning it off.'
-            IO%energy_output_on = 0
-       ENDIF
+        if (EnergyOutput == 1) then
+            if (EnergyOutputInterval < 0) then
+                ! no interval specified -> write only at end of sim
+                EnergyOutputInterval = 1e99
+            end if
+        else
+            ! Negative output interval -> Output disabled
+            IO%EnergyOutputInterval = -1.0
+        end if
+        IO%isEnergyTerminalOutputEnabled = EnergyTerminalOutput == 1
+        IO%energyOutputInterval = EnergyOutputInterval
 
       IF(EQN%DR.NE.0) THEN
           IO%FaultOutputFlag = FaultOutputFlag
