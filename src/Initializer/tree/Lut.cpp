@@ -140,16 +140,16 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
     }
   }
 
-  struct LayerCounter {
-      unsigned numGhost;
-      unsigned numCopy;
-      unsigned numInterior;
+  struct LayerOffset {
+      unsigned offsetGhost;
+      unsigned offsetCopy;
+      unsigned offsetInterior;
   };
 
   auto* clusters = new unsigned[m_ltsTree->numChildren()+1];
   // Store number of cells in layers for each timecluster.
   // Note that the index 0 is the first cluster, unlike as in clusters.
-  auto clustersLayerOffset = std::vector<LayerCounter>(m_ltsTree->numChildren());
+  auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numChildren());
   clusters[0] = 0;
   for (unsigned tc = 0; tc < m_ltsTree->numChildren(); ++tc) {
     auto& cluster = m_ltsTree->child(tc);
@@ -158,9 +158,9 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
     auto offsetGhost = 0U;
     auto offsetCopy = cluster.child<Ghost>().getNumberOfCells();
     auto offsetInterior = offsetCopy + cluster.child<Copy>().getNumberOfCells();
-    clustersLayerOffset[tc] = LayerCounter{offsetGhost, offsetCopy, offsetInterior};
+    clustersLayerOffset[tc] = LayerOffset{offsetGhost, offsetCopy, offsetInterior};
   }
-  
+
   m_meshToClusters = new unsigned[numberOfMeshIds];
   m_meshToLayer.resize(numberOfMeshIds);
   unsigned cluster = 0;
@@ -177,11 +177,11 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
       const auto meshId = ltsToMesh[cell];
       m_meshToClusters[meshId] = cluster;
       const auto& layerOffsets = clustersLayerOffset[cluster];
-      if (curClusterElements >= layerOffsets.numInterior) {
+      if (curClusterElements >= layerOffsets.offsetInterior) {
           m_meshToLayer[meshId] = Interior;
-      } else if (curClusterElements >= layerOffsets.numCopy) {
+      } else if (curClusterElements >= layerOffsets.offsetCopy) {
           m_meshToLayer[meshId] = Copy;
-      } else if (curClusterElements >= layerOffsets.numGhost) {
+      } else if (curClusterElements >= layerOffsets.offsetGhost) {
           m_meshToLayer[meshId] = Ghost;
       } else {
           throw std::logic_error("Can't tell which layer the meshid belongs.");

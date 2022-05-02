@@ -20,8 +20,7 @@ public:
 
 TEST_CASE("TimeCluster") {
   auto cluster = MockTimeCluster(1.0, 1);
-  // TODO(Lukas) Maybe the following two functions should be bundled.
-  cluster.updateSyncTime(10);
+  cluster.setSyncTime(10);
   cluster.reset();
 
   SUBCASE("Cluster start synced") {
@@ -60,7 +59,7 @@ TEST_CASE("GTS Timesteping works") {
   cluster1.connect(cluster2);
 
   for (auto* cluster : clusters) {
-    cluster->updateSyncTime(endTime);
+    cluster->setSyncTime(endTime);
     cluster->reset();
   }
 
@@ -127,7 +126,7 @@ TEST_CASE("LTS Timesteping works") {
   cluster1.connect(cluster2);
 
   for (auto* cluster : clusters) {
-    cluster->updateSyncTime(endTime);
+    cluster->setSyncTime(endTime);
     cluster->reset();
   }
 

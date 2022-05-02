@@ -11,7 +11,7 @@ double AbstractTimeCluster::timeStepSize() const {
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
     : timeStepRate(timeStepRate), numberOfTimeSteps(0),
-    lastStateChange(std::chrono::steady_clock::now()) {
+      timeOfLastStageChange(std::chrono::steady_clock::now()) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
@@ -58,9 +58,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       ct.stepsSinceStart += ct.timeStepRate;
       for (auto &neighbor : neighbors) {
         const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-        const bool sendMessageSteps = justBeforeSync
-                                      || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
-        if (sendMessageSteps) {
+        const bool sendMessage = justBeforeSync
+                                 || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
+        if (sendMessage) {
           AdvancedCorrectionTimeMessage message{};
           message.time = ct.correctionTime;
           message.stepsSinceSync = ct.stepsSinceLastSync;
@@ -79,9 +79,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       for (auto &neighbor : neighbors) {
         // Maybe check also how many steps neighbor has to sync!
         const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-        const bool sendMessageSteps = justBeforeSync
-                                      || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
-        if (sendMessageSteps) {
+        const bool sendMessage = justBeforeSync
+                                 || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
+        if (sendMessage) {
           AdvancedPredictionTimeMessage message{};
           message.time = ct.predictionTime;
           message.stepsSinceSync = ct.predictionsSinceLastSync;
@@ -118,13 +118,13 @@ ActResult AbstractTimeCluster::act() {
   const auto currentTime = std::chrono::steady_clock::now();
   result.isStateChanged = stateBefore != state;
   if (!result.isStateChanged) {
-    const auto timeSinceLastUpdate = currentTime - lastStateChange;
+    const auto timeSinceLastUpdate = currentTime - timeOfLastStageChange;
     if (timeSinceLastUpdate > timeout && !alreadyPrintedTimeOut) {
         alreadyPrintedTimeOut = true;
         printTimeoutMessage(std::chrono::duration_cast<std::chrono::seconds>(timeSinceLastUpdate));
     }
   } else {
-    lastStateChange = currentTime;
+    timeOfLastStageChange = currentTime;
     alreadyPrintedTimeOut = false;
   }
   return result;
@@ -195,7 +195,7 @@ void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
   other.neighbors.back().outbox = neighbors.back().inbox;
 }
 
-void AbstractTimeCluster::updateSyncTime(double newSyncTime) {
+void AbstractTimeCluster::setSyncTime(double newSyncTime) {
   assert(newSyncTime > syncTime);
   assert(state == ActorState::Synced);
   syncTime = newSyncTime;

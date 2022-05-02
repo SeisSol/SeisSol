@@ -11,7 +11,7 @@ namespace seissol::time_stepping {
 class AbstractTimeCluster {
 private:
   ActorPriority priority = ActorPriority::Low;
-  std::chrono::steady_clock::time_point lastStateChange;
+  std::chrono::steady_clock::time_point timeOfLastStageChange;
   const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut = false;
 
@@ -54,7 +54,7 @@ public:
   virtual void setPriority(ActorPriority priority);
 
   void connect(AbstractTimeCluster& other);
-  void updateSyncTime(double newSyncTime);
+  void setSyncTime(double newSyncTime);
 
   [[nodiscard]] ActorState getState() const;
   [[nodiscard]] bool synced() const;

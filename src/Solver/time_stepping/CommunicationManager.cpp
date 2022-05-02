@@ -8,7 +8,7 @@ seissol::time_stepping::AbstractCommunicationManager::AbstractCommunicationManag
 }
 void seissol::time_stepping::AbstractCommunicationManager::reset(double newSyncTime) {
   for (auto& ghostCluster : ghostClusters) {
-    ghostCluster->updateSyncTime(newSyncTime);
+    ghostCluster->setSyncTime(newSyncTime);
     ghostCluster->reset();
   }
 }

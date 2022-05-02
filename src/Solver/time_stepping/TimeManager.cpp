@@ -221,7 +221,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   m_timeStepping.synchronizationTime = synchronizationTime;
 
   for (auto& cluster : clusters) {
-    cluster->updateSyncTime(synchronizationTime);
+    cluster->setSyncTime(synchronizationTime);
     cluster->reset();
   }
 
