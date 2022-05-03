@@ -45,6 +45,7 @@
 #include <queue>
 #include <list>
 #include <cassert>
+#include <memory>
 
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/typedefs.hpp>
@@ -55,12 +56,30 @@
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
+#include "GhostTimeCluster.h"
 
 namespace seissol {
   namespace time_stepping {
     class TimeManager;
+    class AbstractCommunicationManager;
+
+      template<typename T>
+      constexpr T ipow(T x, T y) {
+          static_assert(std::is_integral_v<T>);
+          assert(y >= 0);
+
+          if (y == 0) {
+              return 1;
+          }
+          T result = x;
+          while(--y) {
+              result *= x;
+          }
+          return result;
+      }
   }
 }
+
 
 /**
  * Time manager, which takes care of the time stepping.
@@ -72,7 +91,7 @@ class seissol::time_stepping::TimeManager {
      **/
     struct clusterCompare {
       bool operator()( const TimeCluster* l_first, const TimeCluster* l_second ) {
-        return l_first->m_globalClusterId > l_second->m_globalClusterId;
+        return l_first->getGlobalClusterId() > l_second->getGlobalClusterId();
       }
     };
 
@@ -82,46 +101,21 @@ class seissol::time_stepping::TimeManager {
     //! time stepping
     TimeStepping m_timeStepping;
 
-    //! all LTS clusters, which are under control of this time manager
-    std::vector< TimeCluster* > m_clusters;
+    //! all local (copy & interior) LTS clusters, which are under control of this time manager
+    std::vector<std::unique_ptr<TimeCluster>> clusters;
+    std::vector<TimeCluster*> highPrioClusters;
+    std::vector<TimeCluster*> lowPrioClusters;
 
-    //! queue of clusters, which are allowed to update their copy layer locally
-    std::list< TimeCluster* > m_localCopyQueue;
+    //! one dynamic rupture scheduler per pair of interior/copy cluster
+    std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers;
 
-    //! queue of clusters, which are allowed to update their interior locally
-    std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_localInteriorQueue;
+    //! all MPI (ghost) LTS clusters, which are under control of this time manager
+    std::unique_ptr<AbstractCommunicationManager> communicationManager;
 
-    //! queue of clusters which are allowed to update their copy layer with the neighboring cells contribution
-    std::list< TimeCluster* > m_neighboringCopyQueue;
-
-    //! queue of clusters which are allowed to update their interior with the neighboring cells contribution
-    std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_neighboringInteriorQueue;
-    
     //! Stopwatch
     LoopStatistics m_loopStatistics;
+    ActorStateStatisticsManager actorStateStatisticsManager;
     
-    /**
-     * Checks if the time stepping restrictions for this cluster and its neighbors changed.
-     * If this is true:
-     *  * The respectice queues are updated.
-     *  * The corresponding copy layer/interior is set eligible for an full update or prediction.
-     *  * In the case of a new prediction the next time step width is derived.
-     *  * Enables the reset of the time buffers if applicable.
-     *
-     * Sketch:
-     *   ________ ______ ________
-     *  |        |      |        |
-     *  | TC n-1 | TC n | TC n+1 |
-     *  |________|______|________|
-     *
-     * A time cluster with id n is a neighbor of time clusters n-1 and n+1.
-     * By performing a full time step update or providing a new time predicion in cluster n
-     * clusters n-1 or n or n+1 migh now be allowed to perform a full update or a new prediction.
-     *
-     * @param i_localClusterId local cluster id of the cluster, which changed its status.
-     **/
-    void updateClusterDependencies( unsigned int i_localClusterId );
-
   public:
     /**
      * Construct a new time manager.
@@ -138,47 +132,37 @@ class seissol::time_stepping::TimeManager {
      *
      * @param i_timeStepping time stepping scheme.
      * @param i_meshStructure mesh structure.
-     * @param i_memoryManager memory manager.
+     * @param memoryManager memory manager.
      * @param i_meshToClusters mapping from the mesh to the clusters.
      **/
     void addClusters(TimeStepping& i_timeStepping,
                      MeshStructure* i_meshStructure,
-                     initializers::MemoryManager& i_memoryManager,
+                     initializers::MemoryManager& memoryManager,
                      bool usePlasticity);
-
-    /**
-     * Starts the communication thread.
-     * Remark: This method has no effect when not compiled for communication thread support.
-     **/
-    void startCommunicationThread();
-
-    /**
-     * Stops the communication thread.
-     * Remark: This method has no effect when not compiled for communication thread support.
-     **/
-    void stopCommunicationThread();
 
     /**
      * Advance in time until all clusters reach the next synchronization time.
      **/
-    void advanceInTime( const double &i_synchronizationTime );
+    void advanceInTime( const double &synchronizationTime );
 
     /**
      * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).
      **/
     double getTimeTolerance();
-    
+
     /**
      * Distributes point sources pointers to clusters
      * 
-     * @param i_pointSources Array of PointSources
-     * @param i_numberOfLocalClusters Number of entries in i_pointSources
+     * @param clusterMappings Maps layers+clusters to point sources
+     * @param pointSources Map from layer to list of point sources
      */
-    void setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources );
+    void setPointSourcesForClusters(
+        std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
+        std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources);
 
-    /**
-     * Returns the writer for the receivers
-     */
+  /**
+   * Returns the writer for the receivers
+   */
     void setReceiverClusters(writer::ReceiverWriter& receiverWriter); 
 
     /**
@@ -193,15 +177,6 @@ class seissol::time_stepping::TimeManager {
      * @param i_time time.
      **/
     void setInitialTimes( double i_time = 0 );
-
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-    void pollForCommunication();
-
-    static void* static_pollForCommunication(void* p) {
-      static_cast<seissol::time_stepping::TimeManager*>(p)->pollForCommunication();
-      return NULL;
-    }
-#endif
 
     void printComputationTime();
 };

@@ -446,6 +446,7 @@ if (TESTING)
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Pipeline/TestPipeline.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
+          src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           )
 
 
