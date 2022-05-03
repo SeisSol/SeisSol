@@ -41,25 +41,32 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
+#include <sys/sysinfo.h>
 #include <string>
+#include <deque>
 
-namespace seissol {
-  namespace parallel {
+namespace seissol::parallel {
+
 class Pinning {
 private:
   cpu_set_t openmpMask{};
+  cpu_set_t onlineMask{};
+
 public:
   Pinning();
 
-  cpu_set_t getWorkerUnionMask() const;
-  cpu_set_t getFreeCPUsMask() const;
+  static std::deque<bool> parseOnlineCpuMask(std::string mask, unsigned numberOfConfiguredCpus) ;
+  cpu_set_t computeOnlineCpuMask() ;
+  [[nodiscard]] static cpu_set_t getWorkerUnionMask() ;
+  [[nodiscard]] cpu_set_t getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(cpu_set_t const& set);
+  [[nodiscard]] cpu_set_t getOnlineMask() const;
+  [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;
   static std::string maskToString(cpu_set_t const& set);
-  cpu_set_t getNodeMask() const;
+  [[nodiscard]] cpu_set_t getNodeMask() const;
 };
 
-}
 }
 
 #endif

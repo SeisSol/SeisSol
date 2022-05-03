@@ -96,8 +96,14 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
+  if (!parallel::Pinning::areAllCpusOnline()) {
+    logInfo(rank) << "Some CPUs are offline. Only online CPUs are considered.";
+    logInfo(rank) << "Online Mask" << parallel::Pinning::maskToString(
+        pinning.getOnlineMask()
+    );
+  }
   logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
-      pinning.getWorkerUnionMask());
+      parallel::Pinning::getWorkerUnionMask());
   logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
       pinning.getNodeMask());
 #ifdef USE_MPI
