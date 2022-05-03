@@ -1021,9 +1021,11 @@ CONTAINS
              CONTINUE
            CASE(33, 34) !ImposedSlipRateOnDRBoundary
              IF (EQN%FL.EQ.33) THEN
-                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
+                logInfo0(*) &
+                'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
              ELSE
-                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
+                logInfo0(*) & 
+                'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
              ENDIF
              IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
                logWarning(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
@@ -3008,7 +3010,8 @@ ALLOCATE( SpacePositionx(nDirac), &
 
          CASE(3)
 
-             logInfo0(*) 'Refinement strategy for volume output is Equal Face Area and Face Extraction : 32 subcells per cell'
+             logInfo0(*) & 
+             'Refinement strategy for volume output is Equal Face Area and Face Extraction : 32 subcells per cell'
 
          CASE DEFAULT
 
@@ -3141,12 +3144,6 @@ ALLOCATE( SpacePositionx(nDirac), &
     !------------------------------------------------------------------------
     INTENT(IN)                 :: EQN, DISC, MESH, SOURCE, IO
     !------------------------------------------------------------------------
-
-! Generated kernels sanity check
-    if (NUMBER_OF_QUANTITIES .NE. EQN%nVarTotal) then
-      logError(*) 'Generated kernels: The number of quantities defined by the parameter file (', EQN%nVarTotal, ') does not the number of quantities this version was compiled for (', NUMBER_OF_QUANTITIES, ').'
-      call exit(134)
-    end if
 
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  END OF PARAMETER FILE                                  >'

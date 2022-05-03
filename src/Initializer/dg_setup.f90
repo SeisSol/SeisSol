@@ -890,7 +890,8 @@ CONTAINS
     nIntGP = DISC%Galerkin%nIntGP
     nDegFr = DISC%Galerkin%nDegFr
 
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, l_initialLoading,oneRankedShaped_iniloading, l_plasticParameters, iniGP_plast) default(none)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) & 
+    !$omp &private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, l_initialLoading,oneRankedShaped_iniloading, l_plasticParameters, iniGP_plast) default(none)
     DO iElem = 1,MESH%nElem
         l_initialLoading=0
         l_plasticParameters=0

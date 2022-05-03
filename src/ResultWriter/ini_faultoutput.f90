@@ -1087,7 +1087,8 @@ CONTAINS
         !		       (iFault-1)*SubElem, &
         !                       element_xi,element_eta,element_zeta,xp,yp,zp,xV,yV,zV, &
         !                       DISC%DynRup%DynRup_out_elementwise%refinement,SubElem)
-        CALL refineFaultOutput(DISC%DynRup%DynRup_out_elementwise%refinement_strategy,MESH,iFault,LocalRecPoint,(iFault-1)*(number_of_subtriangles**DISC%DynRup%DynRup_out_elementwise%refinement)+1,element_xi,element_eta,element_zeta,xp,yp,zp,xV,yV,zV,DISC%DynRup%DynRup_out_elementwise%refinement,SubElem)
+        CALL refineFaultOutput(DISC%DynRup%DynRup_out_elementwise%refinement_strategy,MESH,iFault,LocalRecPoint,(iFault-1)* &
+        (number_of_subtriangles**DISC%DynRup%DynRup_out_elementwise%refinement)+1,element_xi,element_eta,element_zeta,xp,yp,zp,xV,yV,zV,DISC%DynRup%DynRup_out_elementwise%refinement,SubElem)
         in=in+SubElem
         END IF
     ENDDO !iFault = 1, MESH%Fault%nSide

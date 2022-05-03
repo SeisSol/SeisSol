@@ -129,7 +129,8 @@ module f_ftoc_bind_interoperability
 
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
-    subroutine c_interoperability_setupFSRMPointSources( momentTensor, solidVelocityComponent, pressureComponent, fluidVelocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
+    subroutine c_interoperability_setupFSRMPointSources( momentTensor, solidVelocityComponent, pressureComponent, fluidVelocityComponent, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) &
+     bind( C, name='c_interoperability_setupFSRMPointSources' )
       use iso_c_binding, only: c_double, c_int
       implicit none
       real(kind=c_double), dimension(*), intent(in) :: momentTensor
