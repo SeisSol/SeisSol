@@ -7,6 +7,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Typedefs.hpp"
+#include "utils/logger.h"
 
 namespace YAML {
 template <>
@@ -28,15 +29,24 @@ struct convert<seissol::dr::FrictionLawType> {
 };
 } // namespace YAML
 namespace seissol::initializers {
+  /*
+   * If param stores a node with name field override value
+   * @param param: YAML Node, which we want to read from.
+   * @param field: Name of the field, we would like to read
+   * @param value: Reference to the value, which we want to override
+   */
   template <typename T>
   void updateIfExists(const YAML::Node& param, std::string&& field, T& value) {
-    // if params stores a node with name field override value
     if (param[field]) {
-      // booleans are stored as integers
-      if constexpr(std::is_same<T, bool>::value) {
-        value = param[field].as<int>() > 0;
-      } else {
-        value = param[field].as<T>();
+      try {
+        // booleans are stored as integers
+        if constexpr(std::is_same<T, bool>::value) {
+          value = param[field].as<int>() > 0;
+        } else {
+          value = param[field].as<T>();
+        }
+      } catch(std::exception& e) {
+        logError() << "Error while reading field " << field << ": " << e.what();
       }
   }
 }
