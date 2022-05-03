@@ -98,7 +98,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
   if (!parallel::Pinning::areAllCpusOnline()) {
     logInfo(rank) << "Some CPUs are offline. Only online CPUs are considered.";
-    logInfo(rank) << "Online Mask" << parallel::Pinning::maskToString(
+    logInfo(rank) << "Online Mask            (this node)   :" << parallel::Pinning::maskToString(
         pinning.getOnlineMask()
     );
   }
@@ -111,7 +111,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #ifdef USE_COMM_THREAD
   logInfo(rank) << "Running with communication thread";
   auto freeCpus = pinning.getFreeCPUsMask();
-  logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+  logInfo(rank) << "Communication thread affinity:       :" << parallel::Pinning::maskToString(freeCpus);
   if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }

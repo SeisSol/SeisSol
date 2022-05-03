@@ -214,7 +214,7 @@ void seissol::parallel::Pinning::pinToFreeCPUs() const {
 
 std::string seissol::parallel::Pinning::maskToString(cpu_set_t const& set) {
   std::stringstream st;
-  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs_conf()-1) {
       st << '|';
     }
@@ -231,8 +231,8 @@ cpu_set_t seissol::parallel::Pinning::getNodeMask() const {
   const auto workerMask = getWorkerUnionMask();
 
   // We have to use this due to the insanity of std::vector<bool>
-  auto workerMaskArray = std::vector<char>( get_nprocs(), 0);
-  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+  auto workerMaskArray = std::vector<char>( get_nprocs_conf(), 0);
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }
 
@@ -242,7 +242,7 @@ cpu_set_t seissol::parallel::Pinning::getNodeMask() const {
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);
-  for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     const auto isSet = workerMaskArray[cpu] != 0;
     if (isSet) {
       CPU_SET(cpu, &nodeMask);
