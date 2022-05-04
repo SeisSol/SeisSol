@@ -66,13 +66,6 @@
 
 bool seissol::SeisSol::init(int argc, char* argv[])
 {
-	// Check if we need threadsafe MPI
-#ifdef USE_COMM_THREAD
-	MPI::mpi.requireThreadsafe();
-#endif // USE_COMM_THREAD
-	if (async::Config::mode() != async::SYNC)
-		MPI::mpi.requireThreadsafe();
-
 #ifdef USE_ASAGI
 	// Construct an instance of AsagiModule, to initialize it.
 	// It needs to be done here, as it registers PRE_MPI hooks

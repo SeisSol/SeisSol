@@ -95,6 +95,19 @@ def addKernels(generator, aderdg, include_tensors, targets):
                           + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * aderdg.selectVelocity['qp']
   generator.addFamily('addVelocity', simpleParameterSpace(4), addVelocity)
 
+  numberOfQuadratureNodes = (aderdg.order+1)**2
+  rotatedFaceDisplacementAtQuadratureNodes = OptionalDimTensor('rotatedFaceDisplacementAtQuadratureNodes',
+                                                               aderdg.Q.optName(),
+                                                               aderdg.Q.optSize(),
+                                                               aderdg.Q.optPos(),
+                                                               (numberOfQuadratureNodes, 3),
+                                                               alignStride=True)
+  generator.add("rotateFaceDisplacementsAndEvaluateAtQuadratureNodes",
+                rotatedFaceDisplacementAtQuadratureNodes['in'] <=
+                aderdg.V2nTo2JacobiQuad['ij'] * \
+              rotatedFaceDisplacement['jp'] * displacementRotationMatrix['np']
+                )
+
   if 'gpu' in targets:
     name_prefix = generate_kernel_name_prefix(target='gpu')
 

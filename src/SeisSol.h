@@ -58,6 +58,7 @@
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "ResultWriter/FaultWriter.h"
+#include "ResultWriter/EnergyOutput.h"
 
 #include "ResultWriter/AnalysisWriter.h"
 #include <memory>
@@ -135,7 +136,8 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
-
+  //! Energy writer module
+  writer::EnergyOutput m_energyOutput;
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -247,6 +249,13 @@ public:
 	{
 		return m_receiverWriter;
 	}
+
+  /**
+   * Get the energy writer module
+   */
+   writer::EnergyOutput& energyOutput() {
+     return m_energyOutput;
+   }
 
 	/**
 	 * Set the mesh reader

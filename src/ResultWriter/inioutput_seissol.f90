@@ -162,7 +162,10 @@ CONTAINS
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
         receiverFileName = trim(io%RFileName) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
-        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
+        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval), &
+        isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
+        isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
+        energySyncInterval = IO%EnergyOutputInterval)
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN

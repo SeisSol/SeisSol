@@ -47,7 +47,7 @@ from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
-from yateto.util import tensor_collection_from_constant_expression
+from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
 from yateto.memory import CSCMemoryLayout
 
 class ADERDGBase(ABC):
@@ -96,6 +96,16 @@ class ADERDGBase(ABC):
                           transpose=self.transpose,
                           namespace='nodal')
     )
+    self.db.update(
+      parseXMLMatrixFile(f"{matricesDir}/nodal/gravitational_energy_matrices_{self.order}.xml",
+                         alignStride=self.alignStride)
+    )
+
+
+    # Note: MV2nTo2m is Vandermonde matrix from nodal to modal representation WITHOUT mass matrix factor
+    self.V2nTo2JacobiQuad = tensor_from_constant_expression('V2nTo2JacobiQuad', self.db.V2mTo2JacobiQuad['ik'] * \
+                                                             self.db.MV2nTo2m['kj'],
+                                                             target_indices='ij')
 
     self.INodal = OptionalDimTensor('INodal',
                                     's',

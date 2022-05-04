@@ -93,7 +93,6 @@ void seissol::Simulator::simulate() {
   // Set start time (required for checkpointing)
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
 
-  // tolerance in time which is neglected
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
   // Copy initial dynamic rupture in order to ensure correct initial fault output
@@ -107,9 +106,6 @@ void seissol::Simulator::simulate() {
   // intialize wave field and checkpoint time
   m_checkPointTime = m_currentTime;
   Modules::setSimulationStartTime(m_currentTime);
-
-  // start the communication thread (if applicable)
-  seissol::SeisSol::main.timeManager().startCommunicationThread();
 
   // derive next synchronization time
   double upcomingTime = m_finalTime;
@@ -145,26 +141,15 @@ void seissol::Simulator::simulate() {
 
     printPerformance(stopwatch.split());
   }
+
   
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
-
-  // stop the communication thread (if applicable)
-  seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 
   seissol::SeisSol::main.timeManager().printComputationTime();
 
-  auto globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
-  auto dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
-  auto dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
-  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
-  auto ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
-  auto lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  auto* ltsLut = e_interoperability.getLtsLut();
-  seissol::writer::printEnergies(
-      globalData.onHost, dynRup, dynRupTree, meshReader, ltsTree, lts, ltsLut, m_usePlasticity);
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 

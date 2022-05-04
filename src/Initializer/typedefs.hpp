@@ -58,7 +58,7 @@
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
-   * Number of lts clusters prensent throughout the entire domain.
+   * Number of lts clusters present throughout the entire domain.
    */
   unsigned int numberOfGlobalClusters;
 
@@ -432,6 +432,7 @@ struct DRGodunovData {
 
 struct DROutput {
   real slip[seissol::tensor::slipInterpolated::size()];
+  real accumulatedSlip[seissol::tensor::squaredNormSlipRateInterpolated::size()];
   real frictionalEnergy;
 };
 
