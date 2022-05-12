@@ -356,27 +356,27 @@ void OutputManager::tiePointers(seissol::initializers::Layer& layerData,
 
 void OutputManager::writeMomentMagnitude() {
   if (drTree && generalParams.isMagnitudeOutputOn) {
-    auto magnitude = integratedOutput.getSeismicMoment(integratedOutputData);
+    auto moment = integratedOutput.getSeismicMoment(integratedOutputData);
 
-    long double magnitudeSum{};
+    long double momentSum{};
     int localRank{0};
 #ifdef USE_MPI
     localRank = MPI::mpi.rank();
     MPI::mpi.comm();
-    MPI_Reduce(&magnitude, &magnitudeSum, 1, MPI_LONG_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
+    MPI_Reduce(&moment, &momentSum, 1, MPI_LONG_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
 #else
-    magnitudeSum = magnitude;
+    momentSum = moment;
 #endif
 
     if (localRank == 0) {
       real base{6.07};
-      logInfo() << "seismic moment " << magnitudeSum << " Mw "
-                << (2. / 3.) * std::log10(magnitudeSum) - base;
+      logInfo() << "seismic moment " << momentSum << " Mw "
+                << (2. / 3.) * std::log10(momentSum) - base;
 
       auto fileName = buildFileName(generalParams.outputFilePrefix, "new-MAG", "dat");
       std::ofstream file(fileName, std::ios_base::app);
       if (file.is_open()) {
-        file << magnitudeSum << std::endl;
+        file << momentSum << std::endl;
       } else {
         logError() << "cannot open " << fileName;
       }

@@ -22,7 +22,7 @@ long double IntegratedOutput::getSeismicMoment(IntegratedOutputData& outputData)
 }
 
 double IntegratedOutput::getSeismicMomentRate(IntegratedOutputData& outputData) {
-  real momentRate{0.0};
+  double momentRate{0.0};
   for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
     auto ltsMap = (*faceToLtsMap)[faceIndex];
     auto* layer = ltsMap.first;
