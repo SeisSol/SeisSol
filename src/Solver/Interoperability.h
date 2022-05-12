@@ -511,7 +511,7 @@ class seissol::Interoperability {
    /**
     * write fault magnitude
     */
-   void writeFaultMagnitude();
+   void writeMomentMagnitude();
 
    /**
     * Deallocates memory manager

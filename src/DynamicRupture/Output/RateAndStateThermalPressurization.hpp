@@ -33,7 +33,9 @@ class RateAndStateThermalPressurization : public RateAndState {
 
   protected:
   real computePf() override { return 0.0; }
-  void outputSpecifics(OutputData& outputData, size_t cacheLevel, size_t receiverIdx) override {
+  void outputSpecifics(ReceiverBasedOutputData& outputData,
+                       size_t cacheLevel,
+                       size_t receiverIdx) override {
     auto& tpVariables = std::get<VariableID::TpVariables>(outputData.vars);
     if (tpVariables.isActive) {
       using DrLtsDescrT = seissol::initializers::LTS_RateAndStateThermalPressurization;

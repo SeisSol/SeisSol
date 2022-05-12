@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTPUT_BUILDER_HPP
-#define SEISSOL_DR_OUTPUT_BUILDER_HPP
+#ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
+#define SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
@@ -11,10 +11,10 @@
 #include "Parallel/MPI.h"
 
 namespace seissol::dr::output {
-class OutputBuilder {
+class ReceiverBasedOutputBuilder {
   public:
-  virtual ~OutputBuilder() = default;
-  virtual void build(OutputData* outputData) = 0;
+  virtual ~ReceiverBasedOutputBuilder() = default;
+  virtual void build(ReceiverBasedOutputData* outputData) = 0;
 
   void setMeshReader(const MeshReader* reader) {
     meshReader = reader;
@@ -165,9 +165,9 @@ class OutputBuilder {
 
   protected:
   const MeshReader* meshReader{};
-  OutputData* outputData;
+  ReceiverBasedOutputData* outputData;
   int localRank{-1};
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTPUT_BUILDER_HPP
+#endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP

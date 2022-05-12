@@ -1,12 +1,12 @@
-#ifndef SEISSOL_GEOMETRY_BUILDER_HPP
-#define SEISSOL_GEOMETRY_BUILDER_HPP
+#ifndef SEISSOL_DR_INTEGRATED_OUTPUT_BUILDER_HPP
+#define SEISSOL_DR_INTEGRATED_OUTPUT_BUILDER_HPP
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/LTS.h"
 
 namespace seissol::dr::output {
-class GeometryBuilder {
+class IntegratedOutputBuilder {
   public:
   void setMeshReader(const MeshReader* reader) { meshReader = reader; }
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
@@ -17,7 +17,7 @@ class GeometryBuilder {
     wpLut = userWpLut;
   }
 
-  void build(GeoOutputData* geoOutputData) {
+  void build(IntegratedOutputData* geoOutputData) {
     outputData = geoOutputData;
     computeSurfaceAreas();
     saveMaterialData();
@@ -65,7 +65,7 @@ class GeometryBuilder {
 
   private:
   const MeshReader* meshReader{};
-  GeoOutputData* outputData{};
+  IntegratedOutputData* outputData{};
 
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};
@@ -73,4 +73,4 @@ class GeometryBuilder {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_GEOMETRY_BUILDER_HPP
+#endif // SEISSOL_DR_INTEGRATED_OUTPUT_BUILDER_HPP

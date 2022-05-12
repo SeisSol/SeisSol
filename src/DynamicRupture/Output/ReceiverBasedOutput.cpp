@@ -31,7 +31,7 @@ void ReceiverBasedOutput::getDofs(real dofsPlus[tensor::Q::size()], int meshId, 
 }
 
 void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
-                                          OutputData& outputData,
+                                          ReceiverBasedOutputData& outputData,
                                           const GeneralParamsT& generalParams,
                                           double time) {
 

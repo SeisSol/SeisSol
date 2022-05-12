@@ -146,7 +146,7 @@ struct PlusMinusBasisFunctionsT {
   std::vector<real> minusSide;
 };
 
-struct OutputData {
+struct ReceiverBasedOutputData {
   output::DrVarsT vars;
   std::vector<PlusMinusBasisFunctionsT> basisFunctions;
   std::vector<ReceiverPointT> receiverPoints;
@@ -164,7 +164,7 @@ struct OutputData {
   bool isActive{false};
 };
 
-struct GeoOutputData {
+struct IntegratedOutputData {
   std::vector<double> surfaceAreas{};
   std::vector<double> lambda{};
 };

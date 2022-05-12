@@ -2,14 +2,14 @@
 #define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
-#include "OutputBuilder.hpp"
+#include "ReceiverBasedOutputBuilder.hpp"
 
 namespace seissol::dr::output {
-class ElementWiseBuilder : public OutputBuilder {
+class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
   void setParams(const ElementwiseFaultParamsT& params) { elementwiseParams = params; }
-  void build(OutputData* ewOutputData) override {
+  void build(ReceiverBasedOutputData* ewOutputData) override {
     outputData = ewOutputData;
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);

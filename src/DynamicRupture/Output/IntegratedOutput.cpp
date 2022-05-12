@@ -7,7 +7,7 @@ void IntegratedOutput::setLtsData(seissol::initializers::DynamicRupture* userDrD
   numFaultElements = numElements;
 }
 
-long double IntegratedOutput::getMagnitude(GeoOutputData& outputData) {
+long double IntegratedOutput::getSeismicMoment(IntegratedOutputData& outputData) {
   long double magnitude{};
   for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
     auto ltsMap = (*faceToLtsMap)[faceIndex];
@@ -21,7 +21,7 @@ long double IntegratedOutput::getMagnitude(GeoOutputData& outputData) {
   return magnitude;
 }
 
-double IntegratedOutput::getMomentRate(GeoOutputData& outputData) {
+double IntegratedOutput::getSeismicMomentRate(IntegratedOutputData& outputData) {
   real momentRate{0.0};
   for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
     auto ltsMap = (*faceToLtsMap)[faceIndex];
@@ -33,8 +33,8 @@ double IntegratedOutput::getMomentRate(GeoOutputData& outputData) {
 
     double averageSr{0.0};
     for (size_t point = 0; point < misc::numberOfBoundaryGaussPoints; ++point) {
-      real slip = slipRate1[point] * slipRate1[point] + slipRate2[point] * slipRate2[point];
-      averageSr += std::sqrt(slip) / static_cast<double>(misc::numberOfBoundaryGaussPoints);
+      real normSlipRate = slipRate1[point] * slipRate1[point] + slipRate2[point] * slipRate2[point];
+      averageSr += std::sqrt(normSlipRate) / static_cast<double>(misc::numberOfBoundaryGaussPoints);
     }
 
     auto lambda = outputData.lambda[faceIndex];

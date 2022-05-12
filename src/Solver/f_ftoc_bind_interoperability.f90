@@ -435,8 +435,8 @@ module f_ftoc_bind_interoperability
     end function
   end interface
 
-  interface c_interoperability_write_fault_magnitude
-    subroutine c_interoperability_write_fault_magnitude() bind ( C, name='c_interoperability_write_fault_magnitude')
+  interface c_interoperability_write_moment_magnitude
+    subroutine c_interoperability_write_moment_magnitude() bind ( C, name='c_interoperability_write_moment_magnitude')
       use iso_c_binding
       implicit none
     end subroutine

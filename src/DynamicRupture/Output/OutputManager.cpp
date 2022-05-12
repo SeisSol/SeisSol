@@ -113,7 +113,7 @@ void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userM
     logInfo() << "No dynamic rupture output enabled";
   }
   if (generalParams.isEnergyRateOutputOn || generalParams.isMagnitudeOutputOn) {
-    geoOutputBuilder = std::make_unique<GeometryBuilder>();
+    integratedOutputBuilder = std::make_unique<IntegratedOutputBuilder>();
   }
 }
 
@@ -129,10 +129,10 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
 
-  if (geoOutputBuilder) {
+  if (integratedOutputBuilder) {
     const auto numFaultElements = meshReader->getFault().size();
     integratedOutput.setLtsData(drDescr, numFaultElements);
-    geoOutputBuilder->setLtsData(wpTree, wpDescr, wpLut);
+    integratedOutputBuilder->setLtsData(wpTree, wpDescr, wpLut);
   }
 }
 
@@ -241,8 +241,8 @@ void OutputManager::initMagnitudeOutput() {
 }
 
 void OutputManager::initGeoOutput() {
-  geoOutputBuilder->setMeshReader(meshReader);
-  geoOutputBuilder->build(&geoOutputData);
+  integratedOutputBuilder->setMeshReader(meshReader);
+  integratedOutputBuilder->build(&integratedOutputData);
 }
 
 void OutputManager::init() {
@@ -252,7 +252,7 @@ void OutputManager::init() {
   if (ppOutputBuilder) {
     initPickpointOutput();
   }
-  if (geoOutputBuilder) {
+  if (integratedOutputBuilder) {
     initGeoOutput();
 
     if (generalParams.isMagnitudeOutputOn) {
@@ -280,7 +280,7 @@ void OutputManager::initFaceToLtsMap() {
   }
   impl->setFaceToLtsMap(&faceToLtsMap);
 
-  if (geoOutputBuilder) {
+  if (integratedOutputBuilder) {
     integratedOutput.setFaceToLtsMap(&faceToLtsMap);
   }
 }
@@ -354,9 +354,9 @@ void OutputManager::tiePointers(seissol::initializers::Layer& layerData,
   impl->tiePointers(layerData, description, eInteroperability);
 }
 
-void OutputManager::writeMagnitude() {
+void OutputManager::writeMomentMagnitude() {
   if (drTree && generalParams.isMagnitudeOutputOn) {
-    auto magnitude = integratedOutput.getMagnitude(geoOutputData);
+    auto magnitude = integratedOutput.getSeismicMoment(integratedOutputData);
 
     long double magnitudeSum{};
     int localRank{0};
@@ -392,7 +392,7 @@ void OutputManager::writeMomentRate(double time, double dt) {
     const bool isReady = (iterationStep % generalParams.energyRatePrintTimeInterval) == 0;
 
     if (isReady || isCloseToTimeOut) {
-      auto momentRate = integratedOutput.getMomentRate(geoOutputData);
+      auto momentRate = integratedOutput.getSeismicMomentRate(integratedOutputData);
 
       auto fileName = buildMPIFileName(generalParams.outputFilePrefix, "new-EnF_t", "dat");
       std::ofstream file(fileName, std::ios_base::app);

@@ -3,7 +3,7 @@
 
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
-#include "DynamicRupture/Output/Builders/GeoGeometryBuilder.hpp"
+#include "DynamicRupture/Output/Builders/IntegratedOutputBuilder.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include "DynamicRupture/Output/IntegratedOutput.hpp"
 #include <iostream>
@@ -26,7 +26,7 @@ class OutputManager {
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
   void updateElementwiseOutput();
-  void writeMagnitude();
+  void writeMomentMagnitude();
   void writeMomentRate(double time, double dt);
   void incrementIteration() { ++iterationStep; };
   void tiePointers(seissol::initializers::Layer& layerData,
@@ -43,11 +43,11 @@ class OutputManager {
 
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
-  std::unique_ptr<GeometryBuilder> geoOutputBuilder{nullptr};
+  std::unique_ptr<IntegratedOutputBuilder> integratedOutputBuilder{nullptr};
 
-  OutputData ewOutputData{};
-  OutputData ppOutputData{};
-  GeoOutputData geoOutputData{};
+  ReceiverBasedOutputData ewOutputData{};
+  ReceiverBasedOutputData ppOutputData{};
+  IntegratedOutputData integratedOutputData{};
 
   GeneralParamsT generalParams;
   ElementwiseFaultParamsT elementwiseParams{};

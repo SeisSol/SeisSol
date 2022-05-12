@@ -1,15 +1,15 @@
 #ifndef SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
 #define SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
 
-#include "OutputBuilder.hpp"
+#include "ReceiverBasedOutputBuilder.hpp"
 #include <Initializer/PointMapper.h>
 
 namespace seissol::dr::output {
-class PickPointBuilder : public OutputBuilder {
+class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
   void setParams(const PickpointParamsT& params) { pickpointParams = params; }
-  void build(OutputData* ppOutputData) override {
+  void build(ReceiverBasedOutputData* ppOutputData) override {
     outputData = ppOutputData;
     readCoordsFromFile();
     initReceiverLocations();

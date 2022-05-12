@@ -314,8 +314,8 @@ void c_interoperability_numberOfTriangleQuadraturePoints(int* n) {
   *n = dr::misc::numberOfBoundaryGaussPoints;
 }
 
-void c_interoperability_write_fault_magnitude() {
-  e_interoperability.writeFaultMagnitude();
+void c_interoperability_write_moment_magnitude() {
+  e_interoperability.writeMomentMagnitude();
 }
 
 void c_interoperability_triangleQuadratureRule(double* points, double* weights) {
@@ -1379,8 +1379,8 @@ void Interoperability::initializeFaultOutput() {
   f_interoperability_initializeFaultOutput(m_domain);
 }
 
-void seissol::Interoperability::writeFaultMagnitude() {
+void seissol::Interoperability::writeMomentMagnitude() {
   auto &memoryManager = seissol::SeisSol::main.getMemoryManager();
   auto *faultOutputManager = memoryManager.getFaultOutputManager();
-  faultOutputManager->writeMagnitude();
+  faultOutputManager->writeMomentMagnitude();
 }

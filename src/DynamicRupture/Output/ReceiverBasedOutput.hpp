@@ -25,7 +25,7 @@ class ReceiverBasedOutput {
                            seissol::initializers::DynamicRupture* description,
                            seissol::Interoperability& eInteroperability);
   void calcFaultOutput(OutputType type,
-                       OutputData& state,
+                       ReceiverBasedOutputData& state,
                        const GeneralParamsT& generalParams,
                        double time = 0.0);
 
@@ -46,7 +46,8 @@ class ReceiverBasedOutput {
 
   int getClosestInternalGp(int nearestGpIndex, int nPoly);
 
-  virtual void outputSpecifics(OutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
+  virtual void
+      outputSpecifics(ReceiverBasedOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
 
   seissol::initializers::LTS* wpDescr{nullptr};

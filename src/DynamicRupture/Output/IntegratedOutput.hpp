@@ -13,8 +13,8 @@ class IntegratedOutput {
   void setLtsData(seissol::initializers::DynamicRupture* userDrDescr, size_t numFaultElements);
   void setFaceToLtsMap(FaceToLtsMapT* map) { faceToLtsMap = map; }
 
-  long double getMagnitude(GeoOutputData& outputData);
-  double getMomentRate(GeoOutputData& outputData);
+  long double getSeismicMoment(IntegratedOutputData& outputData);
+  double getSeismicMomentRate(IntegratedOutputData& outputData);
 
   private:
   seissol::initializers::DynamicRupture* drDescr{nullptr};
