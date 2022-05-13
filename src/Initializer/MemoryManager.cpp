@@ -88,6 +88,12 @@
 #include <Solver/Pipeline/DrPipeline.h>
 #endif //ACL_DEVICE
 
+#ifdef ACL_DEVICE_OFFLOAD
+#include "device.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#endif
+
+
 void seissol::initializers::MemoryManager::initialize()
 {
   // initialize global matrices
@@ -464,22 +470,11 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
-  constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size() * sizeof(real);
-  constexpr size_t imposedStateSize = tensor::QInterpolated::size() * sizeof(real);
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto layer = m_dynRupTree.beginLeaf(); layer != m_dynRupTree.endLeaf(); ++layer) {
     const auto layerSize = layer->getNumberOfCells();
-    layer->setScratchpadSize(m_dynRup->QInterpolatedPlusOnDevice, QInterpolatedSize * layerSize);
-    layer->setScratchpadSize(m_dynRup->QInterpolatedMinusOnDevice, QInterpolatedSize * layerSize);
     layer->setScratchpadSize(m_dynRup->idofsPlusOnDevice, idofsSize * layerSize);
     layer->setScratchpadSize(m_dynRup->idofsMinusOnDevice, idofsSize * layerSize);
-
-    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
-    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
-    layer->setScratchpadSize(m_dynRup->QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup->QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup->imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
-    layer->setScratchpadSize(m_dynRup->imposedStateMinusOnHost, LowerStageFactor *  imposedStateSize);
   }
   m_dynRupTree.allocateScratchPads();
 #endif
@@ -840,11 +835,19 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   }
 }
 
+
 void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {
   if (!m_dynRupParameter.isDynamicRuptureEnabled) {
     return;
   }
   m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
+#ifdef ACL_DEVICE_OFFLOAD
+  if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    impl->allocateAuxiliaryMemory(&m_dynRupTree, m_dynRup.get(), device.api->getDeviceId());
+  }
+#endif
+
   interoperability->initializeFaultOutput();
 }
 

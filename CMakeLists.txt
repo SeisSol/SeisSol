@@ -173,6 +173,28 @@ if (OPENMP)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
   target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_Fortran)
   target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
+
+  if (WITH_GPU)
+    find_package(OpenMP_Offloading QUIET)
+  else()
+    target_sources(SeisSol-lib PUBLIC ${SRC_FILES_OMP_OFFLOADING_COMMON})
+  endif()
+
+  # Note: there may be a conflict between OpenMP offloading and libsxmm.
+  # A collision can happen due to -march flags for CPUs and OpenMP GPU target
+  # (e.g. with clang -Xopenmp-target -march=sm_75). Therefore, we separate
+  # compilations for the source and generated codes and apply different
+  # imported OpenMP targets to them.
+  if (OpenMP_Offloading_FOUND)
+    message(STATUS "Found OpenMP Offloading: TRUE")
+    add_library(SeisSol-omp-offloaded SHARED ${SRC_FILES_OMP_OFFLOADING_COMMON} ${SRC_FILES_OMP_OFFLOADING_REQUIRED})
+    target_link_libraries(SeisSol-omp-offloaded PRIVATE OpenMP::OpenMP_CXX_with_offloading)
+    target_compile_definitions(SeisSol-omp-offloaded PRIVATE ACL_DEVICE_OFFLOAD)
+
+    add_dependencies(SeisSol-omp-offloaded SeisSol-codegen)
+  else()
+    target_sources(SeisSol-lib PUBLIC ${SRC_FILES_OMP_OFFLOADING_COMMON})
+  endif()
 endif()
 
 if (MPI)
@@ -267,14 +289,6 @@ if(${EQUATIONS} STREQUAL "poroelastic")
   endif()
 endif()
 
-if (WITH_GPU)
-  add_subdirectory(submodules/Device)
-  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
-  target_link_libraries(SeisSol-lib PUBLIC device)
-  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
-
-  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
-endif()
 
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
@@ -313,6 +327,33 @@ target_compile_definitions(SeisSol-lib PUBLIC
 	ENABLE_MATRIX_PREFETCH
 )
 
+
+if (WITH_GPU)
+  add_subdirectory(submodules/Device)
+  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
+  target_link_libraries(SeisSol-lib PUBLIC device)
+  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
+  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
+
+  if (OpenMP_Offloading_FOUND)
+    target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE_OFFLOAD)
+
+    get_target_property(SEISSOL_DEFENITIONS SeisSol-lib COMPILE_DEFINITIONS)
+    target_compile_definitions(SeisSol-omp-offloaded PRIVATE ${SEISSOL_DEFENITIONS})
+
+    get_target_property(SEISSOL_INCLUDES SeisSol-lib INCLUDE_DIRECTORIES)
+    get_target_property(SEISSOL_SYSTEM_INCLUDES SeisSol-lib INTERFACE_SYSTEM_INCLUDE_DIRECTORIES)
+    list(REMOVE_ITEM SEISSOL_INCLUDES ${SEISSOL_SYSTEM_INCLUDES})
+
+    target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
+    target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
+    target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
+
+    target_link_libraries(SeisSol-lib PUBLIC SeisSol-omp-offloaded)
+  endif()
+endif()
+
+
 # Fortran compliler settings
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
@@ -348,7 +389,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     set(WARNINGS "--display_error_number --diag_suppress186")
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.1")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
       set(WARNINGS "${WARNINGS} --diag_suppress1")
     endif()
 
@@ -379,6 +420,12 @@ endif()
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
+
+if (WITH_GPU)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+      target_link_options(SeisSol-bin PRIVATE "-mp=gpu")
+  endif()
+endif()
 
 # SeisSol proxy-core
 add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)

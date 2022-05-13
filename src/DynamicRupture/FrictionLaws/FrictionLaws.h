@@ -13,4 +13,8 @@
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
 
+#ifdef ACL_DEVICE_OFFLOAD
+#include "GpuImpl/LinearSlipWeakening.h"
+#endif
+
 #endif // SEISSOL_FRICTIONLAWS_H

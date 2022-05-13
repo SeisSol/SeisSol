@@ -43,17 +43,24 @@ if (_is_offloading_test_ready)
                                       -Xopenmp-target
                                       -march=${DEVICE_ARCH})
             set(_Offloading_LINK_LIBS -lomptarget)
+            set(_Offloading_TEST_CXX_FLAGS ${OpenMP_CXX_FLAGS} ${_Offloading_CXX_FLAGS})
         endif()
     elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
         if (${DEVICE_BACKEND} STREQUAL "cuda")
             set(_Offloading_CXX_FLAGS --target=nvptx-none)
             set(_Offloading_LINK_LIBS -lomptarget)
+            set(_Offloading_TEST_CXX_FLAGS ${OpenMP_CXX_FLAGS} ${_Offloading_CXX_FLAGS})
+        endif()
+    elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "NVHPC|PGI")
+        if (${DEVICE_BACKEND} STREQUAL "cuda")
+            string(REPLACE "sm_" "cc" OMP_DEVICE_ARCH "${DEVICE_ARCH}")
+            set(_Offloading_CXX_FLAGS -mp=gpu -Minfo=mp -gpu=${OMP_DEVICE_ARCH})
+            set(_Offloading_LINK_LIBS "")
+            set(_Offloading_TEST_CXX_FLAGS ${_Offloading_CXX_FLAGS})
         endif()
     endif()
 
-    set(CMAKE_REQUIRED_FLAGS ${OpenMP_CXX_FLAGS} ${_Offloading_CXX_FLAGS})
-    string (REPLACE ";" " " CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
-
+    string (REPLACE ";" " " CMAKE_REQUIRED_FLAGS "${_Offloading_TEST_CXX_FLAGS}")
     set(CMAKE_REQUIRED_INCLUDES ${OpenMP_CXX_INCLUDE_DIRS})
     set(CMAKE_REQUIRED_LIBRARIES ${OpenMP_CXX_LIBRARIES})
 
@@ -77,22 +84,28 @@ else()
 endif()
 
 if (_OPENMP_OFFLOAD_RESULT)
-    set(OpenMP_Offloading_FLAGS ${_Offloading_CXX_FLAGS})
-    set(OpenMP_Offloading_LINK_LIBRARIES ${_Offloading_LINK_LIBS})
-
     add_library(OpenMP::OpenMP_CXX_with_offloading INTERFACE IMPORTED)
-    set_property(TARGET OpenMP::OpenMP_CXX_with_offloading APPEND PROPERTY INTERFACE_COMPILE_OPTIONS
-            $<$<COMPILE_LANGUAGE:CXX>:${OpenMP_CXX_FLAGS} ${_Offloading_CXX_FLAGS}>)
 
-    target_link_libraries(OpenMP::OpenMP_CXX_with_offloading INTERFACE
-            ${OpenMP_CXX_LIBRARIES}
-            ${OpenMP_CXX_FLAGS} ${OpenMP_Offloading_FLAGS}
-            ${OpenMP_Offloading_LINK_LIBRARIES})
+    set(OpenMP_Offloading_CXX_FLAGS ${_Offloading_TEST_CXX_FLAGS})
+    set_property(TARGET OpenMP::OpenMP_CXX_with_offloading APPEND PROPERTY INTERFACE_COMPILE_OPTIONS
+            $<$<COMPILE_LANGUAGE:CXX>:${OpenMP_Offloading_CXX_FLAGS}>)
+
+    if (${CMAKE_CXX_COMPILER_ID} MATCHES "NVHPC|PGI")
+        target_link_options(OpenMP::OpenMP_CXX_with_offloading INTERFACE "-mp=gpu")
+    else()
+        set(OpenMP_Offloading_LINK_FLAGS ${OpenMP_Offloading_CXX_FLAGS})
+        set(OpenMP_Offloading_LINK_LIBRARIES ${_Offloading_LINK_LIBS})
+        target_link_libraries(OpenMP::OpenMP_CXX_with_offloading INTERFACE
+                ${OpenMP_CXX_LIBRARIES}
+                ${OpenMP_Offloading_LINK_FLAGS}
+                ${OpenMP_Offloading_LINK_LIBRARIES})
+    endif()
+else()
+    message(WARNING "OpenMP Offloading setting was not set. "
+            "Check your compiler whether it can perform OpenMP GPU offloading.")
 endif()
 
-find_package_handle_standard_args(OpenMP_Offloading
-        OpenMP_Offloading_FLAGS
-        OpenMP_Offloading_LINK_LIBRARIES
-        _OPENMP_OFFLOAD_RESULT)
+find_package_handle_standard_args(OpenMP_Offloading REQUIRED_VARS _OPENMP_OFFLOAD_RESULT)
 mark_as_advanced(_is_offloading_test_ready _Offloading_CXX_FLAGS _Offloading_LINK_LIBS)
 cmake_pop_check_state()
+

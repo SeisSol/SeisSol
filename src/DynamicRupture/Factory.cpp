@@ -5,6 +5,12 @@
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
 #include <Solver/Interoperability.h>
 
+#ifdef ACL_DEVICE_OFFLOAD
+namespace friction_law_impl = seissol::dr::friction_law::gpu;
+#else
+namespace friction_law_impl = seissol::dr::friction_law;
+#endif
+
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory> getFactory(dr::DRParameters& drParameters) {
   switch (drParameters.frictionLawType) {
@@ -49,7 +55,7 @@ Products NoFaultFactory::produce() {
 Products LinearSlipWeakeningFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
           std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
-          std::make_unique<friction_law::LinearSlipWeakeningLaw>(drParameters),
+          std::make_unique<friction_law_impl::LinearSlipWeakeningLaw>(drParameters),
           std::make_unique<output::LinearSlipWeakening>()};
 }
 
@@ -94,7 +100,7 @@ Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
   return {
       std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
       std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
-      std::make_unique<friction_law::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
+      std::make_unique<friction_law_impl::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
       std::make_unique<output::LinearSlipWeakening>()};
 }
 
