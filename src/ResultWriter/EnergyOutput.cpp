@@ -146,9 +146,6 @@ std::array<real, multipleSimulations::numberOfSimulations> EnergyOutput::compute
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
   for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
-#ifdef MULTIPLE_SIMULATIONS
-    logInfo() << "Multiple simulations together with DR are not tested, do not rely on this output.";
-#endif
     double& totalFrictionalWork= energiesStorage.totalFrictionalWork(s);
     double& staticFrictionalWork= energiesStorage.staticFrictionalWork(s);
     double& seismicMoment= energiesStorage.seismicMoment(s);
@@ -451,6 +448,9 @@ void EnergyOutput::printEnergies() {
 }
 
 void EnergyOutput::writeHeader() {
+#ifdef MULTIPLE_SIMULATIONS
+    logInfo() << "Energy output for multiple simulations is not thoroughly tested, please be careful about these results.";
+#endif
   out << "time,"
       << "simulation_index,"
       << "gravitational_energy,"
@@ -466,7 +466,7 @@ void EnergyOutput::writeHeader() {
 
 void EnergyOutput::writeEnergies(double time) {
   for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
-    out << time << "," << s << ", " << energiesStorage.gravitationalEnergy(s) << ","
+    out << time << "," << s << "," << energiesStorage.gravitationalEnergy(s) << ","
         << energiesStorage.acousticEnergy(s) << "," << energiesStorage.acousticKineticEnergy(s) << ","
         << energiesStorage.elasticEnergy(s) << "," << energiesStorage.elasticKineticEnergy(s) << ","
         << energiesStorage.totalFrictionalWork() << "," << energiesStorage.staticFrictionalWork()
