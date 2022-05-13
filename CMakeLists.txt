@@ -87,6 +87,7 @@ add_custom_command(
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
+       auto_tuning/config
        build-time-make-directory
        generated_code/arch.py
        generated_code/memlayout.py
