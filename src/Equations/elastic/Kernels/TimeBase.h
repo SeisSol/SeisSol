@@ -82,7 +82,7 @@ namespace seissol {
     class TimeBase;
   }
 }
-class GlobalData;
+struct GlobalData;
 
 class seissol::kernels::TimeBase {
   protected:
@@ -92,7 +92,8 @@ class seissol::kernels::TimeBase {
 #else    
     kernel::derivative m_krnlPrototype;
 #endif
-    kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype;
+    kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+
 
   /*
    *! Offsets of the derivatives.
@@ -115,6 +116,7 @@ public:
      * Constructor, which initializes the time kernel.
      **/
     TimeBase();
+
 };
 
 #endif

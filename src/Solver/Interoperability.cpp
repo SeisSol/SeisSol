@@ -180,10 +180,6 @@ extern "C" {
     e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
-  void c_interoperability_addRecPoint(double x, double y, double z) {
-    e_interoperability.addRecPoint(x, y, z);
-  }
-
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
   }
@@ -194,7 +190,7 @@ extern "C" {
                                        int    i_numMaterialVals ) {
     e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
   }
-      
+
  void c_interoperability_setInitialLoading( int    i_meshId,
                                             double *i_initialLoading ) {
     e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
@@ -242,12 +238,17 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval) {
-	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
-			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
-      receiverSamplingInterval, receiverSyncInterval);
+		  int* outputGroups, int outputGroupsSize,
+		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
+      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
+      auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
+    e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
+                                    numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
+                                    outputGroupBounds,
+                                    freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
+                                    receiverFileName, receiverSamplingInterval, receiverSyncInterval,
+                                    isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval);
   }
 
   void c_interoperability_projectInitialField() {
@@ -270,8 +271,8 @@ extern "C" {
     e_interoperability.getNeighborDofsFromDerivatives( i_meshId, i_localFaceId, o_dofs );
   }
 
-  void c_interoperability_simulate( double i_finalTime ) {
-    e_interoperability.simulate( i_finalTime );
+  void c_interoperability_simulate( double i_finalTime, int i_plasticity ) {
+    e_interoperability.simulate( i_finalTime, i_plasticity );
   }
 
   void c_interoperability_finalizeIO() {
@@ -566,7 +567,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   // viscoplastic materials
   // anisotropic elastic materials
   // poroelastic material
-  
+
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
@@ -619,14 +620,14 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     for (unsigned int i = 0; i < nElements; i++) {
       materialVal[i] =                materials[i].bulkSolid;
       materialVal[nElements + i] =    materials[i].rho;
-      materialVal[2*nElements + i] =  materials[i].lambda;   
-      materialVal[3*nElements + i] =  materials[i].mu;       
-      materialVal[4*nElements + i] =  materials[i].porosity; 
+      materialVal[2*nElements + i] =  materials[i].lambda;
+      materialVal[3*nElements + i] =  materials[i].mu;
+      materialVal[4*nElements + i] =  materials[i].porosity;
       materialVal[5*nElements + i] =  materials[i].permeability;
       materialVal[6*nElements + i] =  materials[i].tortuosity;
       materialVal[7*nElements + i] =  materials[i].bulkFluid;
       materialVal[8*nElements + i] =  materials[i].rhoFluid;
-      materialVal[9*nElements + i] =  materials[i].viscosity; 
+      materialVal[9*nElements + i] =  materials[i].viscosity;
       calcWaveSpeeds(&materials[i], i);
     }
   } else {
@@ -737,7 +738,7 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
   new(material) seissol::model::ViscoElasticMaterial(i_materialVal, i_numMaterialVals);
 #elif defined USE_POROELASTIC
   new(material) seissol::model::PoroElasticMaterial(i_materialVal, i_numMaterialVals);
-#else 
+#else
   new(material) seissol::model::ElasticMaterial(i_materialVal, i_numMaterialVals);
 #endif
 }
@@ -824,7 +825,9 @@ void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> c
     unsigned meshId = duplicatedMeshIds[dupMeshId];
     T* ref = &var[ meshToLts[0][meshId] ];
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates && meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max(); ++dup) {
-      memcpy(reinterpret_cast<void*>(&var[ meshToLts[dup][meshId] ]), ref, sizeof(T));
+      memcpy(reinterpret_cast<void*>(&var[ meshToLts[dup][meshId] ]),
+             reinterpret_cast<void*>(ref),
+             sizeof(T));
     }
   }
 }
@@ -883,14 +886,19 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
   seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
 }
 
-void seissol::Interoperability::initializeIO(
-		double* mu, double* slipRate1, double* slipRate2,
-		double* slip, double* slip1, double* slip2, double* state, double* strength,
-		int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
-		double* outputRegionBounds,
-		double freeSurfaceInterval, const char* freeSurfaceFilename,
-    char const* xdmfWriterBackend,
-    double receiverSamplingInterval, double receiverSyncInterval)
+void
+seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1,
+                                        double* slip2,
+                                        double* state, double* strength, int numSides, int numBndGP, int refinement,
+                                        int* outputMask,
+                                        int* plasticityMask, double* outputRegionBounds,
+                                        const std::unordered_set<int>& outputGroups,
+                                        double freeSurfaceInterval, const char* freeSurfaceFilename,
+                                        const char* xdmfWriterBackend,
+                                        const char* receiverFileName, double receiverSamplingInterval,
+                                        double receiverSyncInterval,
+                                        bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled,
+                                        double energySyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
@@ -926,8 +934,8 @@ void seissol::Interoperability::initializeIO(
       reinterpret_cast<const real*>(m_ltsTree->var(m_lts->pstrain)),
       seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
       m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-      refinement, outputMask, plasticityMask, outputRegionBounds,
-      type);
+      refinement, outputMask, plasticityMask, outputRegionBounds,outputGroups,
+			type);
 
 	// Initialize free surface output
 	seissol::SeisSol::main.freeSurfaceWriter().init(
@@ -935,15 +943,14 @@ void seissol::Interoperability::initializeIO(
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
 
+
   auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
   // Initialize receiver output
-  receiverWriter.init(
-    std::string(freeSurfaceFilename),
-    receiverSamplingInterval,
-    receiverSyncInterval
-  );
+  receiverWriter.init(std::string(receiverFileName),
+                      std::string(freeSurfaceFilename),
+                      receiverSyncInterval,
+                      receiverSamplingInterval);
   receiverWriter.addPoints(
-    m_recPoints,
     seissol::SeisSol::main.meshReader(),
     m_ltsLut,
     *m_lts,
@@ -951,14 +958,25 @@ void seissol::Interoperability::initializeIO(
   );
   seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
 
-	// I/O initialization is the last step that requires the mesh reader
-	// (at least at the moment ...)
+  auto& energyOutput = seissol::SeisSol::main.energyOutput();
+  auto* dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+  auto* dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
 
-	// TODO(Lukas) Free the mesh reader if not doing convergence test.
+  energyOutput.init(m_globalData,
+                    dynRup,
+                    dynRupTree,
+                    &seissol::SeisSol::main.meshReader(),
+                    m_ltsTree,
+                    m_lts,
+                    &m_ltsLut,
+                    isPlasticityEnabled,
+                    isEnergyTerminalOutputEnabled,
+                    freeSurfaceFilename,
+                    energySyncInterval);
+
 	seissol::SeisSol::main.analysisWriter().init(
 	    &seissol::SeisSol::main.meshReader(),
 	    freeSurfaceFilename);
-	//seissol::SeisSol::main.freeMeshReader();
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()
@@ -1060,8 +1078,9 @@ std::string seissol::Interoperability::getInitialConditionType() {
   return m_initialConditionType;
 }
 
-void seissol::Interoperability::simulate( double i_finalTime ) {
+void seissol::Interoperability::simulate( double i_finalTime, int i_plasticity ) {
   seissol::SeisSol::main.simulator().setFinalTime( i_finalTime );
+  seissol::SeisSol::main.simulator().setUsePlasticity( i_plasticity );
 
  seissol::SeisSol::main.simulator().simulate();
 }

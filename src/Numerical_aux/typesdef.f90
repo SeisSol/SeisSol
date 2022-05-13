@@ -688,7 +688,7 @@ MODULE TypesDef
      REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
      REAL                                   :: L                                !< reference length of prakash-cliff regularization
      REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
-     INTEGER                                :: thermalPress                     !< thermal pressurization switch
+     INTEGER                                :: thermalPress = 0                 !< thermal pressurization switch
      REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
      REAL, ALLOCATABLE                      :: alpha_hy(:,:)                    !< spatial dependent hydraulic diffusion parameter for TP
      REAL                                   :: rho_c                            !< heat capacity for TP
@@ -1050,10 +1050,6 @@ MODULE TypesDef
      INTEGER                                :: dimension                        !< Dimension for output (OneD,2d,3d)
      LOGICAL                                :: dimensionMask(3)                 !< Mask which Dimension is writen
      INTEGER                                :: dimensionIndex(3)                !< Index which is kept constant
-     !<                                                                         !< 2=for each variable the pick point's values are saved to one file
-     INTEGER                                :: nRecordPoint                     !< number of single pickpoints
-     INTEGER                                :: ntotalRecordPoint                !< total number of pickpoints from points, circles and lines
-     INTEGER                                :: nlocalRecordPoint                !< local number of pickpoints
      INTEGER,POINTER                        :: igloblocRecordPoint(:) => null() !< global index of local pickpoints
      INTEGER                                :: nGeometries                      !< number of the different geometries
      INTEGER                                :: w_or_wout_ana                    !< number of variables used
@@ -1077,13 +1073,7 @@ MODULE TypesDef
      CHARACTER(LEN=600)                     :: ParameterFile                    !< Parameter filename
      CHARACTER(LEN=20)                      :: meshgenerator                    !< ='emc2_am_fmt' or 'emc2_ftq'
                                                                                 !<  or 'triangle'
-     CHARACTER(LEN=600)                     :: PGMLocationsFile                 !< File, specifying PGM locations
-     INTEGER                                :: PGMLocationsFlag                 !< Flag if PGM output is required or not (1 or 0)
-     INTEGER                                :: nPGMRecordPoint                  !< Number of PGM locations
-     INTEGER                                :: PGMstartindex                    !< Index of pickpoints indicating first PGM pickpoint
-     REAL,POINTER                           :: PGM(:)                           !< Maximum peak ground motion
-     REAL,POINTER                           :: PGD_tmp(:,:)                     !< PGD auxiliary variable for integration
-     REAL,POINTER                           :: PGA_tmp(:,:)                     !< PGA auxiliary variable for derivation
+     CHARACTER(LEN=200)                     :: RFileName                        !< Receiver file name
      REAL,POINTER                           :: MaterialVal(:,:)                 !< Read in lines of (x,y,z,rho,mu,lamda) of material property structured grid
      CHARACTER(LEN=35)                      :: DATAFile                         !< Cfd Solver interface filename,
      CHARACTER(LEN=35)                      :: ObsFile                          !< File where the observations are found for adjoint inversions
@@ -1101,6 +1091,7 @@ MODULE TypesDef
                                                                                 !< .FALSE. = do not integrate and output for this variable
      REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
                                                                                 !< Format is xMin, xMax, yMin, yMax, zMin, zMax
+     INTEGER, ALLOCATABLE :: OutputGroups(:) !< Stores an array of group ids that should be included in the wavefield output. All others are excluded.
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
      INTEGER                      ,POINTER  :: VectList(:) !<List of Vector Vars
@@ -1119,8 +1110,6 @@ MODULE TypesDef
      REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
-     REAL                                   :: pickdt_energy                    !< Time increment for energy time series
-     INTEGER                                :: energy_output_on
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
      INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level
@@ -1131,7 +1120,6 @@ MODULE TypesDef
      REAL                         , POINTER :: TmpState_sts(:,:,:) => null()    !< Stored variables (stress)
      REAL                         , POINTER :: TmpState_vel(:,:,:) => null()    !< Stored variables (velocity)
      !<                                                                         !<
-     TYPE(tUnstructPoint)         , POINTER :: UnstructRecPoint(:)              !< Unstructured pickpoints
      TYPE(tUnstructPoint)         , POINTER :: tmpRecPoint(:)                   !< temporal     pickpoints
      TYPE(tUnitNumbers)                     :: UNIT                             !< Structure for unit numbers
      TYPE(tDR)                              :: DR                               !< Fault-based output
@@ -1154,6 +1142,9 @@ MODULE TypesDef
      real                                   :: SurfaceOutputInterval
      real                                   :: ReceiverOutputInterval
      character(len=64)                      :: xdmfWriterBackend                !< Check point backend
+     logical                                :: isEnergyTerminalOutputEnabled    !< Whether energy output should be written to terminal
+     real                                   :: EnergyOutputInterval
+
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------

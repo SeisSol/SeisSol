@@ -49,12 +49,14 @@
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
 #include "ResultWriter/AnalysisWriter.h"
+#include "ResultWriter/EnergyOutput.h"
 
 extern seissol::Interoperability e_interoperability;
 
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
+  m_usePlasticity(  false ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
   m_loadCheckPoint( false ) {}
@@ -73,6 +75,10 @@ void seissol::Simulator::setFinalTime( double i_finalTime ) {
   m_finalTime = i_finalTime;
 }
 
+void seissol::Simulator::setUsePlasticity( int i_plasticity ) {
+  m_usePlasticity = i_plasticity==1 ? true : false;
+}
+
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 	assert( i_currentTime > 0 );
 	m_currentTime = i_currentTime;
@@ -87,7 +93,6 @@ void seissol::Simulator::simulate() {
   // Set start time (required for checkpointing)
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
 
-  // tolerance in time which is neglected
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
   // Copy initial dynamic rupture in order to ensure correct initial fault output
@@ -101,9 +106,6 @@ void seissol::Simulator::simulate() {
   // intialize wave field and checkpoint time
   m_checkPointTime = m_currentTime;
   Modules::setSimulationStartTime(m_currentTime);
-
-  // start the communication thread (if applicable)
-  seissol::SeisSol::main.timeManager().startCommunicationThread();
 
   // derive next synchronization time
   double upcomingTime = m_finalTime;
@@ -139,19 +141,17 @@ void seissol::Simulator::simulate() {
 
     printPerformance(stopwatch.split());
   }
+
   
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
-
-  // stop the communication thread (if applicable)
-  seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 
   seissol::SeisSol::main.timeManager().printComputationTime();
 
+
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
   printFlops();
-
 }

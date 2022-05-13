@@ -71,7 +71,7 @@ struct seissol::initializers::DynamicRupture {
   Variable<DRFaceInformation>                                       faceInformation;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
-
+  Variable<DROutput>                                                drOutput;
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;
   ScratchpadMemory                        idofsMinusOnDevice;
@@ -96,6 +96,7 @@ struct seissol::initializers::DynamicRupture {
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(                drOutput,             mask,         ALIGNMENT,      seissol::memory::Standard );
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(  idofsMinusOnDevice,             1,      seissol::memory::DeviceGlobalMemory);

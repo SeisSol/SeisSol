@@ -81,9 +81,21 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
 
   generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
-  generator.add('plConvertToNodalNoLoading', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'])
-  generator.add('plConvertEtaModal2Nodal', QEtaNodal['k'] <= db.v[aderdg.t('kl')] * QEtaModal['l'])
-  generator.add('plConvertEtaNodal2Modal', QEtaModal['k'] <= db.vInv[aderdg.t('kl')] * QEtaNodal['l'])
+
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.add(name=f'{name_prefix}plConvertToNodalNoLoading',
+                  ast=QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'],
+                  target=target)
+
+    generator.add(name=f'{name_prefix}plConvertEtaModal2Nodal',
+                  ast=QEtaNodal['k'] <= db.v[aderdg.t('kl')] * QEtaModal['l'],
+                  target=target)
+
+    generator.add(name=f'{name_prefix}plConvertEtaNodal2Modal',
+                  ast=QEtaModal['k'] <= db.vInv[aderdg.t('kl')] * QEtaNodal['l'],
+                  target=target)
+
   generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
   generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
@@ -108,3 +120,9 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     generator.add(name=f'{name_prefix}plConvertToNodal',
                   ast=convert_to_nodal,
                   target=gpu_target)
+
+
+    generator.add(f'{name_prefix}plConvertToModal',
+                  QStress['kp'] <= QStress['kp'] + db.vInv[aderdg.t('kl')] * QStressNodal['lp'],
+                  target=gpu_target)
+

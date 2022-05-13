@@ -86,6 +86,7 @@ private:
   LutsForMask maskedLuts[1 << NUMBER_OF_LAYERS];
   LTSTree*    m_ltsTree;
   unsigned*   m_meshToClusters;
+  std::vector<LayerType> m_meshToLayer;
 
 public:  
   Lut();  
@@ -122,6 +123,10 @@ public:
   
   inline unsigned cluster(unsigned meshId) const {
     return m_meshToClusters[meshId];
+  }
+
+  inline LayerType layer(unsigned meshId) const {
+    return m_meshToLayer[meshId];
   }
   
   inline unsigned* getMeshToClusterLut() const {

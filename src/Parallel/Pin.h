@@ -58,7 +58,8 @@ public:
   static std::string maskToString(cpu_set_t const& set);
   cpu_set_t getNodeMask() const;
 };
-  }
+
+}
 }
 
 #endif

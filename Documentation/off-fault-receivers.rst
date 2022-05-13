@@ -12,7 +12,6 @@ commented example:
   &Output
   pickdt = 0.01 ! Pickpoint Sampling
   pickDtType = 1 ! Pickpoint Type
-  nRecordPoints = 22 ! number of Record points which are read from file
   RFileName = 'receivers.dat' ! Record Points in extra file
   /
 

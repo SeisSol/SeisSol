@@ -51,7 +51,7 @@
 #include <Kernels/Interface.hpp>
 #include <generated_code/init.h>
 
-class GlobalData;
+struct GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
@@ -114,13 +114,14 @@ namespace seissol {
       }
 
     private:
-      std::vector<Receiver>   m_receivers;
-      seissol::kernels::Time  m_timeKernel;
-      std::vector<unsigned>   m_quantities;
-      unsigned                m_nonZeroFlops;
-      unsigned                m_hardwareFlops;
-      double                  m_samplingInterval;
-      double                  m_syncPointInterval;
+      std::vector<Receiver> m_receivers;
+      seissol::kernels::Time m_timeKernel;
+      std::vector<unsigned> m_quantities;
+      unsigned m_nonZeroFlops;
+      unsigned m_hardwareFlops;
+      double m_samplingInterval;
+      double m_syncPointInterval;
+
     };
   }
 }

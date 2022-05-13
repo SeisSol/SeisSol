@@ -77,6 +77,7 @@ Characteristics of the SeisSol simulation software are:
   postprocessing-and-visualization
   wave-field-output
   checkpointing
+  energy-output
  
 .. toctree::
   :maxdepth: 2
@@ -88,6 +89,7 @@ Characteristics of the SeisSol simulation software are:
   performance-measurement
   attenuation
   physical-models 
+  scaling
   basic-code-structure
   known-issues
 
@@ -97,6 +99,8 @@ Characteristics of the SeisSol simulation software are:
   
   simmodelerCAD-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
+  generating-a-megathrust-geometry
+  fully-coupled-mesh-tutorial
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad

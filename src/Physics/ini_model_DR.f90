@@ -312,16 +312,16 @@ MODULE ini_model_DR_mod
           DISC%DynRup%rs_a_array(:,i) = 0.0
       END DO
           call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
+
       if ((EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) then
-        nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
-        allocate( DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),  &
-                  nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
-        
+        allocate( DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+        ! Initialize w/ first-touch
+        !$omp parallel do schedule(static)
+        DO i=1,MESH%fault%nSide
+            DISC%DynRup%RS_sl0_array(:,i) = 0.0
+        END DO
+        call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
+
         if (EQN%FL == 103) then
            allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide))
            !$omp parallel do schedule(static)
@@ -330,36 +330,8 @@ MODULE ini_model_DR_mod
            END DO
            call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         endif
-
-        ! Initialize w/ first-touch
-        !$omp parallel do schedule(static)
-        DO i=1,MESH%fault%nSide
-            DISC%DynRup%RS_sl0_array(:,i) = 0.0
-            nuc_xx(:,i) = 0.0
-            nuc_yy(:,i) = 0.0
-            nuc_zz(:,i) = 0.0
-            nuc_xy(:,i) = 0.0
-            nuc_yz(:,i) = 0.0
-            nuc_xz(:,i) = 0.0
-        END DO
-
-        call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
-        if (nucleationParameterizedByTraction) then
-          call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
-          call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
-          call c_interoperability_addFaultParameter("Tnuc_d" // c_null_char, nuc_xz)
-          nuc_yy(:,:) = 0.0d0
-          nuc_zz(:,:) = 0.0d0
-          nuc_yz(:,:) = 0.0d0
-        else
-          call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
-          call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
-          call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
-          call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
-          call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
-          call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
-        endif
       end if
+
       if (DISC%DynRup%ThermalPress == 1) THEN
          nz = DISC%DynRup%TP_grid_nz !number of grid points for the advection equation perpendicular to the fault, currently fixed to 60.0 but requires more testing
         ALLOCATE(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
@@ -393,6 +365,43 @@ MODULE ini_model_DR_mod
       end if
     END SELECT
 
+    if ((EQN%FL == 2) .OR. (EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) then
+        nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)
+        allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+
+        ! Initialize w/ first-touch
+        !$omp parallel do schedule(static)
+        DO i=1,MESH%fault%nSide
+            nuc_xx(:,i) = 0.0
+            nuc_yy(:,i) = 0.0
+            nuc_zz(:,i) = 0.0
+            nuc_xy(:,i) = 0.0
+            nuc_yz(:,i) = 0.0
+            nuc_xz(:,i) = 0.0
+        END DO
+
+        if (nucleationParameterizedByTraction) then
+          call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
+          call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
+          call c_interoperability_addFaultParameter("Tnuc_d" // c_null_char, nuc_xz)
+          nuc_yy(:,:) = 0.0d0
+          nuc_zz(:,:) = 0.0d0
+          nuc_yz(:,:) = 0.0d0
+        else
+          call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
+          call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
+          call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
+          call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
+          call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
+          call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
+        endif
+    end if
+
     call c_interoperability_initializeFault(  trim(DISC%DynRup%ModelFileName) // c_null_char, &
                                               EQN%GPwise,                                     &
                                               MESH%ELEM%BndGP_Tri,                            &
@@ -419,9 +428,8 @@ MODULE ini_model_DR_mod
         call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
     endif
 
-    if ((EQN%FL == 103) .OR. (EQN%FL == 3) .OR. (EQN%FL == 4)) then
+    if ((EQN%FL == 2) .OR. (EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-
 
       ! Initialize w/ first-touch
       !$omp parallel do schedule(static)

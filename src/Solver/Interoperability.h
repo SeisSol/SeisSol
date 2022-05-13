@@ -45,8 +45,8 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
-#include <Eigen/Dense>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
@@ -98,8 +98,6 @@ class seissol::Interoperability {
     
     //! Set of parameters that have to be initialized for dynamic rupture
     std::unordered_map<std::string, double*> m_faultParameters;
-
-    std::vector<Eigen::Vector3d>           m_recPoints;
 
     //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
@@ -206,18 +204,10 @@ class seissol::Interoperability {
                           double* bndPoints,
                           int     numberOfBndPoints );
 
-   /**
-    * Adds a receiver at the specified location.
-    *
-    * @param x,y,z coordinates in physical space
-    **/
-   void addRecPoint(double x, double y, double z) {
-     m_recPoints.emplace_back(Eigen::Vector3d(x, y, z));
-   }
 
-   /**
-    * Enables dynamic rupture.
-    **/
+  /**
+   * Enables dynamic rupture.
+   **/
    void enableDynamicRupture();
 
    /**
@@ -300,13 +290,12 @@ class seissol::Interoperability {
     **/
    void getIntegrationMask( int* i_integrationMask );
 
-   void initializeIO(double* mu, double* slipRate1, double* slipRate2,
-			double* slip, double* slip1, double* slip2, double* state, double* strength,
-			int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask,
-			double* outputRegionBounds,
-			double freeSurfaceInterval, const char* freeSurfaceFilename,
-      char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval);
+   void initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
+                     double* state, double* strength, int numSides, int numBndGP, int refinement, int* outputMask,
+                     int* plasticityMask, double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
+                     double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+                     const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
+                     bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval);
 
    /**
     * Copy dynamic rupture variables for output.
@@ -396,8 +385,9 @@ class seissol::Interoperability {
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
+    * @param i_plasticity=1 if plasticity is on
     **/
-   void simulate( double i_finalTime );
+   void simulate( double i_finalTime, int i_plasticity );
 
    /**
     * Finalizes I/O

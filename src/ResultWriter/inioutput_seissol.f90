@@ -125,20 +125,6 @@ CONTAINS
 
     timestepWavefield = 0
 
-#ifdef HDF
-    CALL ini_receiver_hdf(                                &                    ! Initialize receivers
-         EQN    = EQN                                   , &                    ! Initialize receivers
-         MESH   = MESH                                  , &                    ! Initialize receivers
-         DISC   = DISC                                  , &                    ! Initialize receivers
-         SOURCE = SOURCE                                , &                    ! Initialize receivers
-         IO     = IO                                    , &                    ! Initialize receivers
-         MPI    = MPI                                     )                    ! Initialize receivers
-    !                                                                          !
-#endif
-    do i=1, IO%ntotalRecordPoint
-      call c_interoperability_addRecPoint(IO%UnstructRecpoint(i)%x, IO%UnstructRecpoint(i)%y, IO%UnstructRecpoint(i)%z)
-    end do
-
     if (io%surfaceOutput > 0) then
         call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
     endif
@@ -169,11 +155,17 @@ CONTAINS
         i_outputMask= outputMaskInt,         &
         i_plasticityMask=io%PlasticityMask,     &
         i_outputRegionBounds = io%OutputRegionBounds, &
+        i_outputGroups = io%OutputGroups, &
+        i_outputGroupsSize = size(io%OutputGroups), &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
+        receiverFileName = trim(io%RFileName) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
-        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
+        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval), &
+        isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
+        isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
+        energySyncInterval = IO%EnergyOutputInterval)
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN

@@ -71,10 +71,6 @@
 
 #include "Kernels/Neighbor.h"
 
-#ifndef NDEBUG
-#pragma message "compiling boundary kernel with assertions"
-#endif
-
 #include <cassert>
 #include <stdint.h>
 
@@ -184,7 +180,7 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
     this->device.api->resetCircularStreamCounter();
   };
 
-
+  device.api->fastStreamsSync(); // finish all previous work in the default stream
   for(size_t face = 0; face < 4; face++) {
     size_t streamCounter{0};
 
