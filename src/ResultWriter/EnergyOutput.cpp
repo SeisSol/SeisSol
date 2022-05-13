@@ -131,17 +131,19 @@ std::array<real, multipleSimulations::numberOfSimulations> EnergyOutput::compute
   trKrnl.tractionInterpolated = tractionInterpolated;
   trKrnl.execute();
 
-  alignas(ALIGNMENT) std::array<real, tensor::frictionalEnergy::size()> staticFrictionalWork;
+  alignas(ALIGNMENT) real staticFrictionalWork[tensor::frictionalEnergy::size()]{};
 
   dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
   feKrnl.slipRateInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = staticFrictionalWork.data();
+  feKrnl.frictionalEnergy = staticFrictionalWork;
   feKrnl.timeWeight = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
-  return staticFrictionalWork;
+  std::array<real, multipleSimulations::numberOfSimulations> frictionalWorkReturn;
+  std::copy(staticFrictionalWork, staticFrictionalWork + multipleSimulations::numberOfSimulations, std::begin(frictionalWorkReturn));
+  return frictionalWorkReturn;
 }
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
