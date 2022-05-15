@@ -320,6 +320,7 @@ private:
         );
 
         if constexpr (usePlasticity) {
+          updateRelaxTime();
           numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
                                                                                              timeStepSize(),
                                                                                              m_tv,
