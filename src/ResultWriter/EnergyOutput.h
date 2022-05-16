@@ -21,7 +21,7 @@ namespace seissol::writer {
 
 struct EnergiesStorage {
 
-  std::array<std::array<double, multipleSimulations::numberOfSimulations>, 9> energies{};
+  std::array<double, multipleSimulations::numberOfSimulations * 9> energies{};
 
   double& gravitationalEnergy(size_t sim = 0);
 

@@ -7,31 +7,31 @@
 namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy(size_t sim) {
-  return energies[0][sim];
+  return energies[0 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::acousticEnergy(size_t sim) {
-  return energies[1][sim];
+  return energies[1 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::acousticKineticEnergy(size_t sim) {
-  return energies[2][sim];
+  return energies[2 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::elasticEnergy(size_t sim) {
-  return energies[3][sim];
+  return energies[3 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::elasticKineticEnergy(size_t sim) {
-  return energies[4][sim];
+  return energies[4 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::totalFrictionalWork(size_t sim) {
-  return energies[5][sim];
+  return energies[5 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::staticFrictionalWork(size_t sim) {
-  return energies[6][sim];
+  return energies[6 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::plasticMoment(size_t sim) {
-  return energies[7][sim];
+  return energies[7 + sim * multipleSimulations::numberOfSimulations];
 }
 double& EnergiesStorage::seismicMoment(size_t sim) {
-  return energies[8][sim];
+  return energies[8 + sim * multipleSimulations::numberOfSimulations];
 }
 
 void EnergyOutput::init(GlobalData* newGlobal,
@@ -194,9 +194,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 }
 
 void EnergyOutput::computeEnergies() {
-  for (auto& energy : energiesStorage.energies) {
-    energy.fill(0.0);
-  }
+  energiesStorage.energies.fill(0.0);
 
   for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
     auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(s);
