@@ -7,31 +7,31 @@
 namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy(size_t sim) {
-  return energies[0 + sim * multipleSimulations::numberOfSimulations];
+  return energies[0 + sim * 9];
 }
 double& EnergiesStorage::acousticEnergy(size_t sim) {
-  return energies[1 + sim * multipleSimulations::numberOfSimulations];
+  return energies[1 + sim * 9];
 }
 double& EnergiesStorage::acousticKineticEnergy(size_t sim) {
-  return energies[2 + sim * multipleSimulations::numberOfSimulations];
+  return energies[2 + sim * 9];
 }
 double& EnergiesStorage::elasticEnergy(size_t sim) {
-  return energies[3 + sim * multipleSimulations::numberOfSimulations];
+  return energies[3 + sim * 9];
 }
 double& EnergiesStorage::elasticKineticEnergy(size_t sim) {
-  return energies[4 + sim * multipleSimulations::numberOfSimulations];
+  return energies[4 + sim * 9];
 }
 double& EnergiesStorage::totalFrictionalWork(size_t sim) {
-  return energies[5 + sim * multipleSimulations::numberOfSimulations];
+  return energies[5 + sim * 9];
 }
 double& EnergiesStorage::staticFrictionalWork(size_t sim) {
-  return energies[6 + sim * multipleSimulations::numberOfSimulations];
+  return energies[6 + sim * 9];
 }
 double& EnergiesStorage::plasticMoment(size_t sim) {
-  return energies[7 + sim * multipleSimulations::numberOfSimulations];
+  return energies[7 + sim * 9];
 }
 double& EnergiesStorage::seismicMoment(size_t sim) {
-  return energies[8 + sim * multipleSimulations::numberOfSimulations];
+  return energies[8 + sim * 9];
 }
 
 void EnergyOutput::init(GlobalData* newGlobal,
@@ -469,8 +469,8 @@ void EnergyOutput::writeEnergies(double time) {
     out << time << "," << s << "," << energiesStorage.gravitationalEnergy(s) << ","
         << energiesStorage.acousticEnergy(s) << "," << energiesStorage.acousticKineticEnergy(s) << ","
         << energiesStorage.elasticEnergy(s) << "," << energiesStorage.elasticKineticEnergy(s) << ","
-        << energiesStorage.totalFrictionalWork() << "," << energiesStorage.staticFrictionalWork()
-        << "," << energiesStorage.seismicMoment() << "," << energiesStorage.plasticMoment()
+        << energiesStorage.totalFrictionalWork(s) << "," << energiesStorage.staticFrictionalWork(s)
+        << "," << energiesStorage.seismicMoment(s) << "," << energiesStorage.plasticMoment(s)
         << std::endl;
   }
 }
