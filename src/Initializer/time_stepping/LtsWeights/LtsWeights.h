@@ -85,9 +85,9 @@ protected:
 
   GlobalTimeStepDetails collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
   void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
-  int getCluster(double timestep, double globalMinTimestep, unsigned rate);
+  int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
-  std::vector<int> computeClusterIds();
+  std::vector<int> computeClusterIds(double wiggleFactor);
   int enforceMaximumDifference();
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();
@@ -109,6 +109,7 @@ protected:
   int m_ncon{std::numeric_limits<int>::infinity()};
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
+  double wiggleFactor;
 };
 }
 

@@ -52,6 +52,8 @@
 
 #include <generated_code/init.h>
 
+#include "SeisSol.h"
+
 namespace seissol::initializers::time_stepping {
 
 class FaceSorter {
@@ -72,10 +74,59 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
-  m_clusterIds = computeClusterIds();
+  m_cellCosts = computeCostsPerTimestep();
+
+  double bestWiggleFactor = 1.0;
+  double bestCostEstimate = std::numeric_limits<double>::max();
+  double stepSizeWiggleFactor = 0.01;
+  double minWiggleFactor = 1.0 / m_rate + stepSizeWiggleFactor;
+  double maxWiggleFactor = 2.0;
+  int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor);
+  for (int i = 0; i <= numberOfStepsWiggleFactor; ++i) {
+    double curWiggleFactor = std::min(minWiggleFactor + i * stepSizeWiggleFactor, maxWiggleFactor);
+    m_clusterIds = computeClusterIds(curWiggleFactor);
+    m_ncon = evaluateNumberOfConstraints();
+    enforceMaximumDifference();
+    // Compute cost
+    double costEstimate = 0.0;
+    for (auto j=0U; j < m_clusterIds.size(); ++j) {
+      auto cluster = m_clusterIds[j];
+      double updateFactor = 1.0/ curWiggleFactor * std::pow(2, cluster);
+      costEstimate += updateFactor * m_cellCosts[j];
+    }
+    if (costEstimate <= bestCostEstimate) {
+      bestCostEstimate = costEstimate;
+      bestWiggleFactor = curWiggleFactor;
+    }
+  }
+  logInfo() << "Best wiggle factor" << bestWiggleFactor << "with cost" << bestCostEstimate;
+  // TODO (Lukas) Maybe add message comparing speedup for wiggle = 1 with best wiggle
+
+  bestWiggleFactor = 0.51;
+  seissol::SeisSol::main.wiggleFactorLts = bestWiggleFactor;
+  wiggleFactor = bestWiggleFactor;
+
+
+  m_clusterIds = computeClusterIds(wiggleFactor);
+
+  // TODO (Lukas) Remove debug code
+  // Compute clustering
+  int numberOfClusters = 0;
+  auto clusterSizes = std::vector<int>(1, 0);
+  for (auto clusterId : m_clusterIds) {
+    numberOfClusters = std::max(numberOfClusters, clusterId);
+    clusterSizes.resize(numberOfClusters + 1);
+    clusterSizes[clusterId]++;
+  }
+
+  for (int i = 0; i < clusterSizes.size(); ++i) {
+    logInfo() << "Cluster" << i << "has size" << clusterSizes[i];
+  }
+
+
+
   m_ncon = evaluateNumberOfConstraints();
   auto totalNumberOfReductions = enforceMaximumDifference();
-  m_cellCosts = computeCostsPerTimestep();
 
   if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
   m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
@@ -137,12 +188,12 @@ void LtsWeights::computeMaxTimesteps(std::vector<double> const &pWaveVel,
   }
 }
 
-int LtsWeights::getCluster(double timestep, double globalMinTimestep, unsigned rate) {
+int LtsWeights::getCluster(double timestep, double globalMinTimestep, double ltsWiggleFactor, unsigned rate) {
   if (rate == 1) {
     return 0;
   }
 
-  double upper = rate * globalMinTimestep;
+  double upper = ltsWiggleFactor * rate * globalMinTimestep;
 
   int cluster = 0;
   while (upper <= timestep) {
@@ -215,11 +266,14 @@ LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(doubl
   return details;
 }
 
-std::vector<int> LtsWeights::computeClusterIds() {
+std::vector<int> LtsWeights::computeClusterIds(double wiggleFactor) {
   const auto &cells = m_mesh->cells();
   std::vector<int> clusterIds(cells.size(), 0);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    clusterIds[cell] = getCluster(m_details.timeSteps[cell], m_details.globalMinTimeStep, m_rate);
+    clusterIds[cell] = getCluster(m_details.timeSteps[cell],
+                                  m_details.globalMinTimeStep,
+                                  wiggleFactor,
+                                  m_rate);
   }
   return clusterIds;
 }
