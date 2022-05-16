@@ -27,6 +27,7 @@ Characteristics of the SeisSol simulation software are:
   compilation
   a-first-example
   acknowledge
+  reproducible-research
   related-publications
 
 .. toctree::
