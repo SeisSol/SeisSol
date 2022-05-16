@@ -181,11 +181,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                          waveSpeedsMinus[i].sWaveVelocity;
           real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
           real seismicMomentIncrease = 0.0;
-          for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::size(); ++k) {
+          for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::Shape[0]; ++k) {
             seismicMomentIncrease += drOutput[i].accumulatedSlip[k];
           }
           seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                   seissol::tensor::squaredNormSlipRateInterpolated::size();
+                                   seissol::tensor::squaredNormSlipRateInterpolated::Shape[0];
           seismicMoment += seismicMomentIncrease;
         }
       }
