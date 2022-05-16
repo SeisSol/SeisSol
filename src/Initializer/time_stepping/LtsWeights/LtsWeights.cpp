@@ -69,61 +69,76 @@ public:
 };
 
 void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep) {
-  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
+  const auto rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  double bestWiggleFactor = 1.0;
-  double bestCostEstimate = std::numeric_limits<double>::max();
   double stepSizeWiggleFactor = 0.01;
   double minWiggleFactor = 1.0 / m_rate + stepSizeWiggleFactor;
-  double maxWiggleFactor = 2.0;
-  int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor);
+  double maxWiggleFactor = 1.0;
+  int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
+
+  auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
+    return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
+  };
+
+  auto costEstimates = std::vector<double>(numberOfStepsWiggleFactor, std::numeric_limits<double>::max());
+
   for (int i = 0; i <= numberOfStepsWiggleFactor; ++i) {
-    double curWiggleFactor = std::min(minWiggleFactor + i * stepSizeWiggleFactor, maxWiggleFactor);
+    double curWiggleFactor = computeWiggleFactor(i);
     m_clusterIds = computeClusterIds(curWiggleFactor);
     m_ncon = evaluateNumberOfConstraints();
     enforceMaximumDifference();
+
     // Compute cost
-    double costEstimate = 0.0;
+    costEstimates[i] = 0.0;
     for (auto j=0U; j < m_clusterIds.size(); ++j) {
       auto cluster = m_clusterIds[j];
       double updateFactor = 1.0/ curWiggleFactor * std::pow(2, cluster);
-      costEstimate += updateFactor * m_cellCosts[j];
-    }
-    if (costEstimate <= bestCostEstimate) {
-      bestCostEstimate = costEstimate;
-      bestWiggleFactor = curWiggleFactor;
+      costEstimates[i] += updateFactor * m_cellCosts[j];
     }
   }
-  logInfo() << "Best wiggle factor" << bestWiggleFactor << "with cost" << bestCostEstimate;
-  // TODO (Lukas) Maybe add message comparing speedup for wiggle = 1 with best wiggle
+#ifdef USE_MPI
+  MPI_Allreduce(
+      MPI_IN_PLACE,
+      costEstimates.data(),
+      static_cast<int>(costEstimates.size()),
+      MPI_DOUBLE,
+      MPI_SUM,
+      seissol::MPI::mpi.comm()
+      );
+  MPI_Barrier(seissol::MPI::mpi.comm());
+#endif
 
-  bestWiggleFactor = 0.51;
+  double bestCostEstimate = std::numeric_limits<double>::max();
+  double bestWiggleFactor = maxWiggleFactor;
+  for (auto i = 0u; i < costEstimates.size(); ++i) {
+    auto curCost = costEstimates[i];
+    logInfo(rank) << i <<computeWiggleFactor(i) << curCost;
+    // Note: Higher wiggle factor with same cost is better!
+    if (curCost <= bestCostEstimate) {
+      bestCostEstimate = curCost;
+      bestWiggleFactor = computeWiggleFactor(i);
+    }
+  }
+
+  logInfo(rank) << "Best wiggle factor" << bestWiggleFactor << "with cost" << bestCostEstimate;
+
+  auto maxWiggleFactorCostEstimate = costEstimates[costEstimates.size() - 1];
+  logInfo(rank) << "Speedup of" << maxWiggleFactorCostEstimate / bestCostEstimate
+      << "with absolute cost difference" << maxWiggleFactorCostEstimate - bestCostEstimate
+      << "compared to the default wiggle factor of"
+      << maxWiggleFactor;
+
   seissol::SeisSol::main.wiggleFactorLts = bestWiggleFactor;
   wiggleFactor = bestWiggleFactor;
 
 
   m_clusterIds = computeClusterIds(wiggleFactor);
-
-  // TODO (Lukas) Remove debug code
-  // Compute clustering
-  int numberOfClusters = 0;
-  auto clusterSizes = std::vector<int>(1, 0);
-  for (auto clusterId : m_clusterIds) {
-    numberOfClusters = std::max(numberOfClusters, clusterId);
-    clusterSizes.resize(numberOfClusters + 1);
-    clusterSizes[clusterId]++;
-  }
-
-  for (int i = 0; i < clusterSizes.size(); ++i) {
-    logInfo() << "Cluster" << i << "has size" << clusterSizes[i];
-  }
-
-
 
   m_ncon = evaluateNumberOfConstraints();
   auto totalNumberOfReductions = enforceMaximumDifference();
@@ -135,7 +150,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   setVertexWeights();
   setAllowedImbalances();
 
-  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights. Done. " << utils::nospace << '('
+  logInfo(rank) << "Computing LTS weights. Done. " << utils::nospace << '('
                                     << totalNumberOfReductions << " reductions.)";
 }
 
