@@ -65,7 +65,7 @@ namespace seissol::kernels {
                                          real *pstrain) {
 #ifdef MULTIPLE_SIMULATIONS
     // Todo(SW) find a better solution here
-    logError() << "Multiple simulations do not work with plasticity";
+    logError() << "Plasticity does not work with multiple simulations";
 #else
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0);

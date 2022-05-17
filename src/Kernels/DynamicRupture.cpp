@@ -135,6 +135,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
+#ifdef MULTIPLE_SIMULATIONS
+  logError() << "Dynamic Rupture does not work with multiple simulations";
+#endif
+
   alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
   alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
 
