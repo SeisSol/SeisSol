@@ -436,9 +436,9 @@ void EnergyOutput::printEnergies() {
         logInfo(rank) << "Seismic moment for simulation " << s << " (without plasticity):" << energiesStorage.seismicMoment()
                       << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
       }
-      if (energiesStorage.plasticMoment()) {
+      if (energiesStorage.plasticMoment(s)) {
         logInfo(rank) << "Plastic moment for simulation " << s << " (value, equivalent Mw, % total moment):"
-                      << energiesStorage.plasticMoment() << " ,"
+                      << energiesStorage.plasticMoment(s) << " ,"
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
         ;
