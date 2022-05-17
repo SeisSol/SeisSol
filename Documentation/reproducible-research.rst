@@ -5,82 +5,67 @@ The input files associated with many recent publications have been uploaded to t
 A non-exhaustive list is given below:
 
 .. list-table:: 
-   :widths: 20 30 50 10
+   :widths: 20 20 50
    :header-rows: 1
 
    * - Research Item
-     - DOI
      - Zenodo data
      - Description
 
-   * - Uphoff et al. (2017)
-     - `10.1145/3126908.3126948 <https://doi.org/10.1145/3126908.3126948>`_
+   * - `Uphoff et al. (2017) <https://doi.org/10.1145/3126908.3126948>`_
      - `zenodo.org/record/439946 <https://zenodo.org/record/439946>`_
      - Extreme scale multi-physics simulations of the tsunamigenic 2004 sumatra megathrust earthquake
 
    * - Fursin et al. (2018)
-     - n.a.
      - `zenodo.org/record/2422877 <https://zenodo.org/record/2422877>`_
      - SeisSol application from the SCC Reproducibility Challenge at Supercomputing'18
 
-   * - Palgunadi et al. (2020)
-     - `10.1785/0120200106 <https://doi.org/10.1785/0120200106>`_
+   * - `Palgunadi et al. (2020) <https://doi.org/10.1785/0120200106>`_
      - `zenodo.org/record/3930819 <https://zenodo.org/record/3930819>`_
      - Dynamic fault interaction during a fluid-injection induced earthquake: The 2017 Mw 5.5 Pohang event
 
-   * - Ulrich et al. (2019)
-     - `10.1038/s41467-019-09125-w <https://doi.org/10.1038/s41467-019-09125-w>`_
+   * - `Ulrich et al. (2019) <https://doi.org/10.1038/s41467-019-09125-w>`_
      - `zenodo.org/record/2538024 <https://zenodo.org/record/2538024>`_
      - Dynamic rupture model setup of the 2016 Mw 7.8 Kaikōura earthquake scenario
 
-   * - Ulrich et al. (2019)
-     - `10.1007/s00024-019-02290-5 <https://doi.org/10.1007/s00024-019-02290-5>`_
+   * - `Ulrich et al. (2019b) <https://doi.org/10.1007/s00024-019-02290-5>`_
      - `zenodo.org/record/3234664 <https://zenodo.org/record/3234664>`_
      - Dynamic rupture model setup of the 2018 Mw 7.5 Palu earthquake scenario
 
-   * - Uphoff (2019)
-     - http://mediatum.ub.tum.de/?id=1531433 
+   * - `Uphoff (2019) <http://mediatum.ub.tum.de/?id=1531433>`_
      - `zenodo.org/record/3565774 <https://zenodo.org/record/3565774>`_
      - Setup of the 2010 Darfield earthquake for SeisSol
 
-   * - Krenz et al. (2021)
-     - `10.1145/3458817.3476173 <https://doi.org/10.1145/3458817.3476173>`_
+   * - `Krenz et al. (2021) <https://doi.org/10.1145/3458817.3476173>`_
      - `zenodo.org/record/5159333  <https://zenodo.org/record/5159333>`_
      - Acoustic-Elastic model of Palu-Sulawesi Earthquake
 
-   * - Wirp et al. (2021)
-     - `10.3389/feart.2021.626844 <https://doi.org/10.3389/feart.2021.626844>`_
+   * - `Wirp et al. (2021) <https://doi.org/10.3389/feart.2021.626844>`_
      - `zenodo.org/record/4686551 <https://zenodo.org/record/4686551>`_
      - 3D linked subduction, dynamic rupture, tsunami and inundation modeling
 
-   * - Wolf et al. (2021)
-     - `10.1016/j.jcp.2021.110886 <https://doi.org/10.1016/j.jcp.2021.110886>`_
+   * - `Wolf et al. (2021) <https://doi.org/10.1016/j.jcp.2021.110886>`_
      - `zenodo.org/record/5236133 <https://zenodo.org/record/5236133>`_
      - Benchmarks for poroelasticity implementation in SeisSol
 
-   * - Biemiller et al. (2022)
-     - `10.1029/2021GC010298 <https://doi.org/10.1029/2021GC010298>`_
+   * - `Biemiller et al. (2022) <https://doi.org/10.1029/2021GC010298>`_
      - `zenodo.org/record/6094294 <https://zenodo.org/record/6094294>`_
      - 3D Modeling of Low-angle Normal Fault Rupture at the Mai'iu Fault, Papua New Guinea
 
-   * - Madden et al. (2022)
-     - `10.1029/2021JB023382 <https://doi.org/10.1029/2021JB023382>`_
+   * - `Madden et al. (2022) <https://doi.org/10.1029/2021JB023382>`_
      - `zenodo.org/record/5914661 <https://zenodo.org/record/5914661>`_
      - The state of pore fluid pressure and 3D megathrust earthquake dynamics
 
-   * - Taufiqurrahman et al. (2022)
-     - `10.1002/essoar.10510965.1 <https://doi.org/10.1002/essoar.10510965.1>`_
+   * - `Taufiqurrahman et al. (2022) <https://doi.org/10.1002/essoar.10510965.1>`_
      - `zenodo.org/record/6386938 <https://zenodo.org/record/6386938>`_
      - Broadband dynamic rupture models of the 2016 Amatrice earthquake model
 
-   * - Ulrich et al. (2022)
-     - `10.1038/s41561-021-00863-5 <https://doi.org/10.1038/s41561-021-00863-5>`_
+   * - `Ulrich et al. (2022) <https://doi.org/10.1038/s41561-021-00863-5>`_
      - `zenodo.org/record/5541271 <https://zenodo.org/record/5541271>`_
      - Dynamic rupture model setup of the Mw 9.2 Sumatra megathrust earthquake scenario
 
 ..
-   * - xxx et al. (xxx)
-     - `<https://doi.org/>`_
+   * - `xxx et al. (xxx) <https://doi.org/>`_
      - `zenodo.org/record/ <https://zenodo.org/record/>`_
      - description
 
