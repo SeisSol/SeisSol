@@ -1,5 +1,5 @@
-Reproducible reseach
-====================
+Reproducible research
+======================
 
 The input files associated with many recent publications have been uploaded to the Zenodo repository to comply and promote reproducible science.
 A non-exhaustive list is given below:
@@ -9,7 +9,7 @@ A non-exhaustive list is given below:
    :header-rows: 1
 
    * - Research Item
-     - Zenodo data
+     - Data
      - Description
 
    * - `Uphoff et al. (2017) <https://doi.org/10.1145/3126908.3126948>`_
