@@ -3,6 +3,7 @@
 #include <Numerical_aux/Quadrature.h>
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
+#include <sstream>
 
 namespace seissol::writer {
 
@@ -419,25 +420,40 @@ void EnergyOutput::printEnergies() {
       const auto ratioPlasticMoment =
           100.0 * energiesStorage.plasticMoment(s) /
           (energiesStorage.plasticMoment(s) + energiesStorage.seismicMoment(s));
+#ifdef MULTIPLE_SIMULATIONS
+      std::stringstream multipleSimulationStream;
+      multipleSimulationStream << " for simulation " << s;
+      const std::string multipleSimulationString = multipleSimulationStream.str();
+      const char* multipleSimulationSnippet = multipleSimulationString.c_str();
+#else
+      //note: utils/logger puts std::string between quotation marks.
+      const char* multipleSimulationSnippet = "";
+#endif
       if (totalElasticEnergy) {
-        logInfo(rank) << "Elastic energy for simulation " << s << " (total, % kinematic, % potential): " << totalElasticEnergy
+        logInfo(rank) << "Elastic energy" << multipleSimulationSnippet
+                      << "(total, % kinematic, % potential): " << totalElasticEnergy
                       << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (totalAcousticEnergy) {
-        logInfo(rank) << "Acoustic energy for simulation " << s << " (total, % kinematic, % potential): " << totalAcousticEnergy
+        logInfo(rank) << "Acoustic energy" << multipleSimulationSnippet
+                      << "(total, % kinematic, % potential): " << totalAcousticEnergy
                       << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
       }
       if (energiesStorage.gravitationalEnergy(s)) {
-        logInfo(rank) << "Gravitational energy for simulation " << s << ":" << energiesStorage.gravitationalEnergy(s);
+        logInfo(rank) << "Gravitational energy" << multipleSimulationSnippet
+                      << ":" << energiesStorage.gravitationalEnergy(s);
       }
       if (totalFrictionalWork) {
-        logInfo(rank) << "Frictional work for simulation " << s << " (total, % static, % radiated): " << totalFrictionalWork
+        logInfo(rank) << "Frictional work" << multipleSimulationSnippet
+                      << "(total, % static, % radiated): " << totalFrictionalWork
                       << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-        logInfo(rank) << "Seismic moment for simulation " << s << " (without plasticity):" << energiesStorage.seismicMoment()
+        logInfo(rank) << "Seismic moment" << multipleSimulationSnippet
+                      << "(without plasticity):" << energiesStorage.seismicMoment()
                       << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
       }
       if (energiesStorage.plasticMoment(s)) {
-        logInfo(rank) << "Plastic moment for simulation " << s << " (value, equivalent Mw, % total moment):"
+        logInfo(rank) << "Plastic moment" << multipleSimulationSnippet
+                      << "(value, equivalent Mw, % total moment):"
                       << energiesStorage.plasticMoment(s) << " ,"
                       << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                       << ratioPlasticMoment;
@@ -448,11 +464,10 @@ void EnergyOutput::printEnergies() {
 }
 
 void EnergyOutput::writeHeader() {
-#ifdef MULTIPLE_SIMULATIONS
-    logInfo() << "Energy output for multiple simulations is not thoroughly tested, please be careful about these results.";
-#endif
   out << "time,"
+#ifdef MULTIPLE_SIMULATIONS
       << "simulation_index,"
+#endif
       << "gravitational_energy,"
       << "acoustic_energy,"
       << "acoustic_kinetic_energy,"
@@ -466,7 +481,11 @@ void EnergyOutput::writeHeader() {
 
 void EnergyOutput::writeEnergies(double time) {
   for (size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
-    out << time << "," << s << "," << energiesStorage.gravitationalEnergy(s) << ","
+    out << time
+#ifdef MULTIPLE_SIMULATIONS
+        << "," << s
+#endif
+        << "," << energiesStorage.gravitationalEnergy(s) << ","
         << energiesStorage.acousticEnergy(s) << "," << energiesStorage.acousticKineticEnergy(s) << ","
         << energiesStorage.elasticEnergy(s) << "," << energiesStorage.elasticKineticEnergy(s) << ","
         << energiesStorage.totalFrictionalWork(s) << "," << energiesStorage.staticFrictionalWork(s)
