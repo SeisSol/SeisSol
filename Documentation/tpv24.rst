@@ -178,3 +178,13 @@ as well as the rest main fault. The fault slip rate is shown in Figure
    Snapshot of slip rate in branching fault system. Slip rate at 3.5 s.
 
 
+Comparison
+~~~~~~~~~~
+We compared the fault slip rate and shear traction at one fault recerver with SCEC benchmark results.
+
+.. figure:: LatexFigures/tpv24_fault.png
+   :alt: Fault slip rate along the strike
+   :width: 11.00000cm
+   :align: center
+
+   Horizontal fault slip rate and shear traction at 3 km horizontally distant from hypocenter in comparison with SCEC benchmark results. 
