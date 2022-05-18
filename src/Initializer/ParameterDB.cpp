@@ -406,6 +406,23 @@ namespace seissol {
             logInfo() << "Element " << i << " zMin: " << *zMin << ", zMax: " << *zMax << ", zAvg: " << zAvg;
           }
         }
+
+        double median = 0;
+        long double mean = 0;
+        std::vector<double> ratSorted(numElems);
+        for (unsigned i = 0; i < numElems; ++i) {
+          ratSorted.at(i) = baryMaterials[i].rho / materialsMean[i].rho;
+          mean += baryMaterials[i].rho / materialsMean[i].rho;
+        }
+        std:sort(ratSorted.begin(), ratSorted.end());
+        mean /= numElems;
+        if (numElems % 2) {
+          median = ratSorted[numElems / 2];
+        } else {
+          median = (ratSorted[numElems / 2] + ratSorted[numElems / 2 - 1]) / 2;
+        }
+        logInfo() << "Median ratio of (barycenter / homogenized rho): " << median;
+        logInfo() << "Mean ratio of (barycenter / homogenized rho): " << mean;
       } else {
         // Usual behavior without homogenization
         for (unsigned i = 0; i < numPoints; ++i) {
