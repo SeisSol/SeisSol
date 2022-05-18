@@ -37,14 +37,18 @@ class IntegratedOutputBuilder {
 
       // get a global element ID for the current fault face
       auto elementIndex = faultInfo[faceIndex].element;
-      const auto& element = elementsInfo[elementIndex];
-      auto localFaceSideId = faultInfo[faceIndex].side;
+      if (elementIndex >= 0) {
+        const auto& element = elementsInfo[elementIndex];
+        auto localFaceSideId = faultInfo[faceIndex].side;
 
-      // find global coordinates of the fault face
-      ExtTriangle face = getGlobalTriangle(localFaceSideId, element, verticesInfo);
+        // find global coordinates of the fault face
+        ExtTriangle face = getGlobalTriangle(localFaceSideId, element, verticesInfo);
 
-      // compute area and append the vector
-      outputData->surfaceAreas.push_back(computeTriangleArea(face));
+        // compute area and append the vector
+        outputData->surfaceAreas.push_back(computeTriangleArea(face));
+      } else {
+        outputData->surfaceAreas.push_back(0.0);
+      }
     }
   }
 
@@ -57,17 +61,20 @@ class IntegratedOutputBuilder {
     // iterate through each fault side
     for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
       auto faultInfo = faultInfos[faceIndex];
-
-      auto& local = wpLut->lookup(wpDescr->material, faultInfo.element).local;
+      auto elementIndex = faultInfos[faceIndex].element;
+      if (elementIndex >= 0) {
+        auto& local = wpLut->lookup(wpDescr->material, faultInfo.element).local;
 
 #if defined USE_ANISOTROPIC
-      double muBar = (local.c44 + local.c55 + local.c66) / 3.0;
-      auto lambda = (local.c11 + local.c22 + local.c33) / 3.0 - 2.0 * muBar;
+        double muBar = (local.c44 + local.c55 + local.c66) / 3.0;
+        auto lambda = (local.c11 + local.c22 + local.c33) / 3.0 - 2.0 * muBar;
 #else
-      auto lambda = local.lambda;
+        auto lambda = local.lambda;
 #endif
-
-      outputData->lambda.push_back(lambda);
+        outputData->lambda.push_back(lambda);
+      } else {
+        outputData->lambda.push_back(0.0);
+      }
     }
   }
 

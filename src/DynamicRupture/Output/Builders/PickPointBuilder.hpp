@@ -39,23 +39,23 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         point.global.coords[i] = coords[i];
       }
 
-      outputData->receiverPoints.push_back(point);
+      potentialReceivers.push_back(point);
     }
   }
 
   void initReceiverLocations() {
-    const auto numReceiverPoints = outputData->receiverPoints.size();
+    const auto numReceiverPoints = potentialReceivers.size();
 
     // findMeshIds expects a vector of eigenPoints.
     // Therefore, we need to convert
     std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
-      auto& receiverPoint = outputData->receiverPoints[receiverId];
+      auto& receiverPoint = potentialReceivers[receiverId];
       eigenPoints[receiverId] = receiverPoint.global.getAsEigenVector();
     }
 
     std::vector<short> contained(numReceiverPoints);
-    std::vector<unsigned> meshIds(numReceiverPoints, std::numeric_limits<unsigned>::max());
+    std::vector<unsigned> localIds(numReceiverPoints, std::numeric_limits<unsigned>::max());
 
     std::vector<Vertex> faultVertices;
     std::vector<Element> faultElements;
@@ -68,22 +68,27 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                        faultElements,
                                        numReceiverPoints,
                                        contained.data(),
-                                       meshIds.data());
+                                       localIds.data());
 
     auto meshElements = meshReader->getElements();
     auto meshVertices = meshReader->getVertices();
+    const auto& faultInfos = meshReader->getFault();
 
-    const auto& fault = meshReader->getFault();
-    for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
-      auto& receiver = outputData->receiverPoints[receiverId];
+    for (size_t receiverIdx{0}; receiverIdx < numReceiverPoints; ++receiverIdx) {
+      auto& receiver = potentialReceivers[receiverIdx];
 
-      if (static_cast<bool>(contained[receiverId])) {
-        auto meshId = meshIds[receiverId];
-        const auto& faultIndices = elementToFault[meshId];
+      if (static_cast<bool>(contained[receiverIdx])) {
+        auto localId = localIds[receiverIdx];
+        const auto& faultIndices = elementToFault[localId];
+        auto firstFaultIdx = faultIndices[0];
 
-        auto element = meshElements[meshId];
+        // find the original element which contains a fault face
+        // note: this allows to project a receiver to the plus side
+        //       even if it was found in the negative one
+        auto element = meshElements[faultInfos[firstFaultIdx].element];
+
         auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
-        auto faultItem = fault[closest];
+        auto faultItem = faultInfos[closest];
 
         receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
         projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
@@ -91,8 +96,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.isInside = true;
         receiver.faultFaceIndex = closest;
         receiver.localFaceSideId = faultItem.side;
-        receiver.globalReceiverIndex = receiverId;
-        receiver.elementIndex = meshId;
+        receiver.globalReceiverIndex = receiverIdx;
+        receiver.elementIndex = element.localId;
+        receiver.isInside = true;
 
         using namespace seissol::transformations;
         receiver.reference = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
@@ -100,11 +106,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                                           meshVertices[element.vertices[2]].coords,
                                                           meshVertices[element.vertices[3]].coords,
                                                           receiver.global.getAsEigenVector());
-        receiver.isInside = true;
-      } else {
-        logInfo() << "pickpoint fault output: receiver (" << receiverId << ") is not inside"
-                  << " any element along the rupture surface";
-        receiver.isInside = false;
+      }
+    }
+
+    reportFoundReceivers(contained);
+    for (auto& receiver : potentialReceivers) {
+      if (receiver.isInside) {
+        outputData->receiverPoints.push_back(receiver);
       }
     }
   }
@@ -120,8 +128,15 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     auto meshVertices = meshReader->getVertices();
 
     constexpr int numSides{2};
-    std::vector<Vertex> faultVertices(4 * numFaultElements * numSides);
-    std::vector<Element> faultElements(numFaultElements * numSides);
+
+    std::vector<Vertex> faultVertices;
+    faultVertices.reserve(4 * numFaultElements * numSides);
+
+    std::vector<Element> faultElements;
+    faultElements.reserve(numFaultElements * numSides);
+
+    std::vector<size_t> filtertedToOrigIndices;
+    filtertedToOrigIndices.reserve(2 * numFaultElements);
 
     // note: an element can have multiple fault faces
     std::unordered_map<size_t, std::vector<size_t>> elementToFault{};
@@ -129,26 +144,26 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     for (size_t faultIdx{0}; faultIdx < numFaultElements; ++faultIdx) {
       const auto& faultItem = fault[faultIdx];
 
-      // element copy done on purpose because we are recording
-      // a new vertex array and thus we need to modify vertex indices
-      // inside of each element
-      std::array<Element*, numSides> elements{&meshElements[faultItem.element],
-                                              &meshElements[faultItem.neighborElement]};
-      for (int sideId = 0; sideId < numSides; ++sideId) {
-        auto& element = elements[sideId];
+      if ((faultItem.element >= 0) && (faultItem.neighborElement >= 0)) {
+        // element copy done on purpose because we are recording
+        // a new vertex array and thus we need to modify vertex indices
+        // inside of each element
+        std::array<Element*, numSides> elements{&meshElements[faultItem.element],
+                                                &meshElements[faultItem.neighborElement]};
+        for (int sideId = 0; sideId < numSides; ++sideId) {
+          auto element = (*elements[sideId]);
 
-        for (size_t vertexIdx{0}; vertexIdx < 4; ++vertexIdx) {
-          const size_t faultVertexIdx = vertexIdx + 4 * (sideId + numSides * faultIdx);
-          faultVertices[faultVertexIdx] = meshVertices[element->vertices[vertexIdx]];
-          element->vertices[vertexIdx] = faultVertexIdx;
+          for (size_t vertexIdx{0}; vertexIdx < 4; ++vertexIdx) {
+            faultVertices.push_back(meshVertices[element.vertices[vertexIdx]]);
+            element.vertices[vertexIdx] = faultVertices.size() - 1;
+          }
+          faultElements.push_back(element);
+          elementToFault[element.localId].push_back(faultIdx);
         }
-
-        faultElements[sideId + numSides * faultIdx] = *element;
       }
-      elementToFault[faultItem.element].push_back(faultIdx);
-      elementToFault[faultItem.neighborElement].push_back(faultIdx);
     }
-
+    faultVertices.shrink_to_fit();
+    faultElements.shrink_to_fit();
     return std::make_tuple(faultVertices, faultElements, elementToFault);
   }
 
@@ -163,8 +178,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       return faultIndices[0];
     }
 
+    auto meshVertices = meshReader->getVertices();
     const auto& fault = meshReader->getFault();
-    const auto& meshVertices = meshReader->getVertices();
 
     auto minDistance = std::numeric_limits<double>::max();
     auto closest = std::numeric_limits<size_t>::max();
@@ -189,8 +204,40 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     outputData->currentCacheLevel = 0;
   }
 
+  protected:
+  void reportFoundReceivers(std::vector<short>& localContainVector) {
+    const auto size = localContainVector.size();
+    std::vector<short> globalContainVector(size);
+
+    auto comm = MPI::mpi.comm();
+    MPI_Reduce(const_cast<short*>(&localContainVector[0]),
+               const_cast<short*>(&globalContainVector[0]),
+               size,
+               MPI_SHORT,
+               MPI_SUM,
+               0,
+               comm);
+
+    if (localRank == 0) {
+      bool allReceiversFound{true};
+      for (size_t idx{0}; idx < size; ++idx) {
+        auto isFound = globalContainVector[idx];
+        if (!isFound) {
+          logInfo(localRank) << "pickpoint fault output: "
+                             << "receiver (" << idx << ") is not inside "
+                             << "any element along the rupture surface";
+          allReceiversFound = false;
+        }
+      }
+      if (allReceiversFound) {
+        logInfo(localRank) << "all point receivers found along the fault";
+      }
+    }
+  }
+
   private:
   PickpointParamsT pickpointParams;
+  std::vector<ReceiverPointT> potentialReceivers{};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP

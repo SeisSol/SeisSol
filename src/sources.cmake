@@ -135,6 +135,7 @@ src/DynamicRupture/Output/ReceiverBasedOutput.cpp
 src/DynamicRupture/Output/IntegratedOutput.cpp
 src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
 src/DynamicRupture/Output/OutputAux.cpp
+src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
 
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp

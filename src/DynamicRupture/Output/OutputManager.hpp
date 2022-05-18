@@ -37,7 +37,7 @@ class OutputManager {
   bool isAtPickpoint(double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
-  void initGeoOutput();
+  void initIntegratedOutput();
   void initMomentRateOutput();
   void initMagnitudeOutput();
 

@@ -171,14 +171,14 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
 }
 
 PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
-                                                    const VrtxCoords* plusElementCoords[4],
-                                                    const VrtxCoords* minusElementCoords[4]) {
+                                                    VrtxCoords plusElementCoords[4],
+                                                    VrtxCoords minusElementCoords[4]) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
+  auto getBasisFunctions = [&point](VrtxCoords elementCoords[4]) {
     auto referenceCoords = transformations::tetrahedronGlobalToReference(
-        *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
+        elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], point);
     basisFunction::SampledBasisFunctions<real> sampler(
         CONVERGENCE_ORDER, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.m_data;

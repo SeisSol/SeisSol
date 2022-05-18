@@ -18,16 +18,20 @@ void ReceiverBasedOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drDescr = userDrDescr;
 }
 
-void ReceiverBasedOutput::getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side) {
+void ReceiverBasedOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   // get DOFs from 0th derivatives
-  real* derivatives{nullptr};
   auto ltsSetup = wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup;
-  if ((ltsSetup >> 9) % 2 == 1) {
-    derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
-  } else {
-    derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
-  }
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofsPlus[0]);
+  assert((ltsSetup >> 9) % 2 == 1);
+
+  real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+}
+
+void ReceiverBasedOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+  real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
+  assert(derivatives != nullptr);
+
+  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
 void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
@@ -39,190 +43,194 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
   auto faultInfos = meshReader->getFault();
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
-    if (outputData.receiverPoints[i].isInside) {
-      const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
-      assert(faceIndex != -1 && "receiver is not initialized");
-      local = LocalInfo{};
+    assert(outputData.receiverPoints[i].isInside == true &&
+           "A receiver must be inside of a fault. Error in pre-processing");
 
-      auto ltsMap = (*faceToLtsMap)[faceIndex];
-      local.layer = ltsMap.first;
-      local.ltsId = ltsMap.second;
-      local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
+    const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
+    assert(faceIndex != -1 && "receiver is not initialized");
+    local = LocalInfo{};
 
-      local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
-      local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
+    auto ltsMap = (*faceToLtsMap)[faceIndex];
+    local.layer = ltsMap.first;
+    local.ltsId = ltsMap.second;
+    local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
 
-      auto faultInfo = faultInfos[faceIndex];
+    local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
+    local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
 
-      real dofsPlus[tensor::Q::size()]{};
-      getDofs(dofsPlus, faultInfo.element, faultInfo.side);
+    auto faultInfo = faultInfos[faceIndex];
 
-      real dofsMinus[tensor::Q::size()]{};
-      getDofs(dofsMinus, faultInfo.neighborElement, faultInfo.neighborSide);
+    real dofsPlus[tensor::Q::size()]{};
+    getDofs(dofsPlus, faultInfo.element);
 
-      auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
-      auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
-
-      local.mu = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
-      local.sXY = initStress[3];
-      local.sXZ = initStress[5];
-      local.p0 = initStress[0];
-      local.pf = this->computePf();
-
-      const auto* const normal = outputData.faultDirections[i].faceNormal;
-      const auto* const tangent1 = outputData.faultDirections[i].tangent1;
-      [[maybe_unused]] const auto* const tangent2 = outputData.faultDirections[i].tangent2;
-      auto* const strike = outputData.faultDirections[i].strike;
-      [[maybe_unused]] const auto* dip = outputData.faultDirections[i].dip;
-
-      auto* phiPlusSide = outputData.basisFunctions[i].plusSide.data();
-      auto* phiMinusSide = outputData.basisFunctions[i].minusSide.data();
-
-      seissol::dynamicRupture::kernel::computeFaceAlignedValues kernel;
-      kernel.Tinv = outputData.glbToFaceAlignedData[i].data();
-
-      kernel.Q = dofsPlus;
-      kernel.basisFunctionsAtPoint = phiPlusSide;
-      kernel.QAtPoint = local.faceAlignedValuesPlus;
-      kernel.execute();
-
-      kernel.Q = dofsMinus;
-      kernel.basisFunctionsAtPoint = phiMinusSide;
-      kernel.QAtPoint = local.faceAlignedValuesMinus;
-      kernel.execute();
-
-      this->computeLocalStresses();
-      real strength = this->computeLocalStrength();
-      this->computeLocalTraction(strength);
-
-      seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-      alignAlongDipAndStrikeKernel.stressRotationMatrix =
-          outputData.stressGlbToDipStrikeAligned[i].data();
-      alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-          outputData.stressFaceAlignedToGlb[i].data();
-
-      std::array<real, 6> tmpVector{};
-      tmpVector[0] = local.p;
-      tmpVector[1] = local.yyStress;
-      tmpVector[2] = local.zzStress;
-      tmpVector[3] = local.xyTraction;
-      tmpVector[4] = local.yzStress;
-      tmpVector[5] = local.xzTraction;
-
-      alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
-      std::array<real, 6> rotatedTraction{};
-      alignAlongDipAndStrikeKernel.rotatedStress = rotatedTraction.data();
-      alignAlongDipAndStrikeKernel.execute();
-
-      tmpVector[0] = local.p;
-      tmpVector[1] = local.yyStress;
-      tmpVector[2] = local.zzStress;
-      tmpVector[3] = local.xyStress;
-      tmpVector[4] = local.yzStress;
-      tmpVector[5] = local.xzStress;
-
-      alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
-      std::array<real, 6> rotatedLocalStress{};
-      alignAlongDipAndStrikeKernel.rotatedStress = rotatedLocalStress.data();
-      alignAlongDipAndStrikeKernel.execute();
-
-      if (generalParams.slipRateOutputType) {
-        this->computeSlipAndRate(rotatedTraction, rotatedLocalStress);
-      } else {
-        this->computeSlipAndRate(tangent1, tangent2, strike, dip);
-      }
-
-      adjustRotatedTractionAndStresses(rotatedTraction, rotatedLocalStress);
-
-      auto& slipRate = std::get<VariableID::SlipRate>(outputData.vars);
-      if (slipRate.isActive) {
-        slipRate(DirectionID::Strike, level, i) = local.srS;
-        slipRate(DirectionID::Dip, level, i) = local.srD;
-      }
-
-      auto& transientTractions = std::get<VariableID::TransientTractions>(outputData.vars);
-      if (transientTractions.isActive) {
-        transientTractions(DirectionID::Strike, level, i) = rotatedTraction[3];
-        transientTractions(DirectionID::Dip, level, i) = rotatedTraction[5];
-        transientTractions(DirectionID::Normal, level, i) = local.p - local.pf;
-      }
-
-      auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
-      if (frictionAndState.isActive) {
-        frictionAndState(ParamID::FrictionCoefficient, level, i) = local.mu;
-      }
-
-      auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
-      if (ruptureTime.isActive) {
-        auto* rt = local.layer->var(drDescr->ruptureTime);
-        ruptureTime(level, i) = rt[local.ltsId][local.nearestGpIndex];
-      }
-
-      auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData.vars);
-      if (normalVelocity.isActive) {
-        normalVelocity(level, i) = local.u;
-      }
-
-      auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
-      if (accumulatedSlip.isActive) {
-        auto* slip = local.layer->var(drDescr->accumulatedSlipMagnitude);
-        accumulatedSlip(level, i) = slip[local.ltsId][local.nearestGpIndex];
-      }
-
-      auto& totalTractions = std::get<VariableID::TotalTractions>(outputData.vars);
-      if (totalTractions.isActive) {
-        std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
-        alignAlongDipAndStrikeKernel.initialStress = initStress;
-        alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
-        alignAlongDipAndStrikeKernel.execute();
-
-        totalTractions(DirectionID::Strike, level, i) = rotatedTraction[3] + rotatedInitStress[3];
-        totalTractions(DirectionID::Dip, level, i) = rotatedTraction[5] + rotatedInitStress[5];
-        totalTractions(DirectionID::Normal, level, i) = local.p - local.pf + rotatedInitStress[0];
-      }
-
-      auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData.vars);
-      if (ruptureVelocity.isActive) {
-        auto& jacobiT2d = outputData.jacobianT2d[i];
-        ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d);
-      }
-
-      auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
-      if (peakSlipsRate.isActive) {
-        auto* peakSR = local.layer->var(drDescr->peakSlipRate);
-        peakSlipsRate(level, i) = peakSR[local.ltsId][local.nearestGpIndex];
-      }
-
-      auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData.vars);
-      if (dynamicStressTime.isActive) {
-        auto* dynStressTime = (local.layer->var(drDescr->dynStressTime));
-        dynamicStressTime(level, i) = dynStressTime[local.ltsId][local.nearestGpIndex];
-      }
-
-      auto& slipVectors = std::get<VariableID::Slip>(outputData.vars);
-      if (slipVectors.isActive) {
-        VrtxCoords crossProduct = {0.0, 0.0, 0.0};
-        MeshTools::cross(strike, tangent1, crossProduct);
-
-        double cos1 = MeshTools::dot(strike, tangent1);
-        double scalarProd = MeshTools::dot(crossProduct, normal);
-
-        // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
-        double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
-        sin1 = (scalarProd > 0) ? sin1 : -sin1;
-
-        auto* slip1 = local.layer->var(drDescr->slip1);
-        auto* slip2 = local.layer->var(drDescr->slip2);
-
-        slipVectors(DirectionID::Strike, level, i) =
-            cos1 * slip1[local.ltsId][local.nearestGpIndex] -
-            sin1 * slip2[local.ltsId][local.nearestGpIndex];
-
-        slipVectors(DirectionID::Dip, level, i) = sin1 * slip1[local.ltsId][local.nearestGpIndex] +
-                                                  cos1 * slip2[local.ltsId][local.nearestGpIndex];
-      }
-      this->outputSpecifics(outputData, level, i);
+    real dofsMinus[tensor::Q::size()]{};
+    if (faultInfo.neighborElement >= 0) {
+      getDofs(dofsMinus, faultInfo.neighborElement);
+    } else {
+      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
+
+    auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
+    auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
+
+    local.mu = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
+    local.sXY = initStress[3];
+    local.sXZ = initStress[5];
+    local.p0 = initStress[0];
+    local.pf = this->computePf();
+
+    const auto* const normal = outputData.faultDirections[i].faceNormal;
+    const auto* const tangent1 = outputData.faultDirections[i].tangent1;
+    const auto* const tangent2 = outputData.faultDirections[i].tangent2;
+    auto* const strike = outputData.faultDirections[i].strike;
+    const auto* dip = outputData.faultDirections[i].dip;
+
+    auto* phiPlusSide = outputData.basisFunctions[i].plusSide.data();
+    auto* phiMinusSide = outputData.basisFunctions[i].minusSide.data();
+
+    seissol::dynamicRupture::kernel::computeFaceAlignedValues kernel;
+    kernel.Tinv = outputData.glbToFaceAlignedData[i].data();
+
+    kernel.Q = dofsPlus;
+    kernel.basisFunctionsAtPoint = phiPlusSide;
+    kernel.QAtPoint = local.faceAlignedValuesPlus;
+    kernel.execute();
+
+    kernel.Q = dofsMinus;
+    kernel.basisFunctionsAtPoint = phiMinusSide;
+    kernel.QAtPoint = local.faceAlignedValuesMinus;
+    kernel.execute();
+
+    this->computeLocalStresses();
+    real strength = this->computeLocalStrength();
+    this->computeLocalTraction(strength);
+
+    seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+    alignAlongDipAndStrikeKernel.stressRotationMatrix =
+        outputData.stressGlbToDipStrikeAligned[i].data();
+    alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+        outputData.stressFaceAlignedToGlb[i].data();
+
+    std::array<real, 6> tmpVector{};
+    tmpVector[0] = local.p;
+    tmpVector[1] = local.yyStress;
+    tmpVector[2] = local.zzStress;
+    tmpVector[3] = local.xyTraction;
+    tmpVector[4] = local.yzStress;
+    tmpVector[5] = local.xzTraction;
+
+    alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
+    std::array<real, 6> rotatedTraction{};
+    alignAlongDipAndStrikeKernel.rotatedStress = rotatedTraction.data();
+    alignAlongDipAndStrikeKernel.execute();
+
+    tmpVector[0] = local.p;
+    tmpVector[1] = local.yyStress;
+    tmpVector[2] = local.zzStress;
+    tmpVector[3] = local.xyStress;
+    tmpVector[4] = local.yzStress;
+    tmpVector[5] = local.xzStress;
+
+    alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
+    std::array<real, 6> rotatedLocalStress{};
+    alignAlongDipAndStrikeKernel.rotatedStress = rotatedLocalStress.data();
+    alignAlongDipAndStrikeKernel.execute();
+
+    if (generalParams.slipRateOutputType) {
+      this->computeSlipAndRate(rotatedTraction, rotatedLocalStress);
+    } else {
+      this->computeSlipAndRate(tangent1, tangent2, strike, dip);
+    }
+
+    adjustRotatedTractionAndStresses(rotatedTraction, rotatedLocalStress);
+
+    auto& slipRate = std::get<VariableID::SlipRate>(outputData.vars);
+    if (slipRate.isActive) {
+      slipRate(DirectionID::Strike, level, i) = local.srS;
+      slipRate(DirectionID::Dip, level, i) = local.srD;
+    }
+
+    auto& transientTractions = std::get<VariableID::TransientTractions>(outputData.vars);
+    if (transientTractions.isActive) {
+      transientTractions(DirectionID::Strike, level, i) = rotatedTraction[3];
+      transientTractions(DirectionID::Dip, level, i) = rotatedTraction[5];
+      transientTractions(DirectionID::Normal, level, i) = local.p - local.pf;
+    }
+
+    auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
+    if (frictionAndState.isActive) {
+      frictionAndState(ParamID::FrictionCoefficient, level, i) = local.mu;
+    }
+
+    auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
+    if (ruptureTime.isActive) {
+      auto* rt = local.layer->var(drDescr->ruptureTime);
+      ruptureTime(level, i) = rt[local.ltsId][local.nearestGpIndex];
+    }
+
+    auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData.vars);
+    if (normalVelocity.isActive) {
+      normalVelocity(level, i) = local.u;
+    }
+
+    auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
+    if (accumulatedSlip.isActive) {
+      auto* slip = local.layer->var(drDescr->accumulatedSlipMagnitude);
+      accumulatedSlip(level, i) = slip[local.ltsId][local.nearestGpIndex];
+    }
+
+    auto& totalTractions = std::get<VariableID::TotalTractions>(outputData.vars);
+    if (totalTractions.isActive) {
+      std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
+      alignAlongDipAndStrikeKernel.initialStress = initStress;
+      alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
+      alignAlongDipAndStrikeKernel.execute();
+
+      totalTractions(DirectionID::Strike, level, i) = rotatedTraction[3] + rotatedInitStress[3];
+      totalTractions(DirectionID::Dip, level, i) = rotatedTraction[5] + rotatedInitStress[5];
+      totalTractions(DirectionID::Normal, level, i) = local.p - local.pf + rotatedInitStress[0];
+    }
+
+    auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData.vars);
+    if (ruptureVelocity.isActive) {
+      auto& jacobiT2d = outputData.jacobianT2d[i];
+      ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d);
+    }
+
+    auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
+    if (peakSlipsRate.isActive) {
+      auto* peakSR = local.layer->var(drDescr->peakSlipRate);
+      peakSlipsRate(level, i) = peakSR[local.ltsId][local.nearestGpIndex];
+    }
+
+    auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData.vars);
+    if (dynamicStressTime.isActive) {
+      auto* dynStressTime = (local.layer->var(drDescr->dynStressTime));
+      dynamicStressTime(level, i) = dynStressTime[local.ltsId][local.nearestGpIndex];
+    }
+
+    auto& slipVectors = std::get<VariableID::Slip>(outputData.vars);
+    if (slipVectors.isActive) {
+      VrtxCoords crossProduct = {0.0, 0.0, 0.0};
+      MeshTools::cross(strike, tangent1, crossProduct);
+
+      double cos1 = MeshTools::dot(strike, tangent1);
+      double scalarProd = MeshTools::dot(crossProduct, normal);
+
+      // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
+      double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
+      sin1 = (scalarProd > 0) ? sin1 : -sin1;
+
+      auto* slip1 = local.layer->var(drDescr->slip1);
+      auto* slip2 = local.layer->var(drDescr->slip2);
+
+      slipVectors(DirectionID::Strike, level, i) = cos1 * slip1[local.ltsId][local.nearestGpIndex] -
+                                                   sin1 * slip2[local.ltsId][local.nearestGpIndex];
+
+      slipVectors(DirectionID::Dip, level, i) = sin1 * slip1[local.ltsId][local.nearestGpIndex] +
+                                                cos1 * slip2[local.ltsId][local.nearestGpIndex];
+    }
+    this->outputSpecifics(outputData, level, i);
   }
 
   if (type == OutputType::AtPickpoint) {

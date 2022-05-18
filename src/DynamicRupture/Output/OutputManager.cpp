@@ -240,7 +240,7 @@ void OutputManager::initMagnitudeOutput() {
   os_support::backupFile(fileName, "dat");
 }
 
-void OutputManager::initGeoOutput() {
+void OutputManager::initIntegratedOutput() {
   integratedOutputBuilder->setMeshReader(meshReader);
   integratedOutputBuilder->build(&integratedOutputData);
 }
@@ -253,7 +253,7 @@ void OutputManager::init() {
     initPickpointOutput();
   }
   if (integratedOutputBuilder) {
-    initGeoOutput();
+    initIntegratedOutput();
 
     if (generalParams.isMagnitudeOutputOn) {
       initMagnitudeOutput();
@@ -267,7 +267,10 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drTree) {
-    faceToLtsMap.resize(drTree->getNumberOfCells(Ghost));
+    size_t readerFaultSize = meshReader->getFault().size();
+    size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
+
+    faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
          it != drTree->endLeaf();
          ++it) {

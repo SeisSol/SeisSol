@@ -47,37 +47,38 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
 
       // get a global element ID for the current fault face
-      auto elementIndex = faultInfo[faceIndex].element;
-      const auto& element = elementsInfo[elementIndex];
+      const auto& fault = faultInfo[faceIndex];
+      auto elementIndex = fault.element;
 
-      // store coords of vertices of the current ELEMENT
-      std::array<const double*, 4> elementVerticesCoords{};
-      for (int elementVertexId = 0; elementVertexId < 4; ++elementVertexId) {
-        auto globalVertexId = element.vertices[elementVertexId];
-        elementVerticesCoords[elementVertexId] = verticesInfo[globalVertexId].coords;
+      if (elementIndex >= 0) {
+        const auto& element = elementsInfo[elementIndex];
+
+        // store coords of vertices of the current ELEMENT
+        constexpr size_t numSides{4};
+        std::array<const double*, numSides> elementVerticesCoords{};
+        for (size_t side = 0; side < numSides; ++side) {
+          auto globalVertexId = element.vertices[side];
+          elementVerticesCoords[side] = verticesInfo[globalVertexId].coords;
+        }
+
+        auto faceSideId = fault.side;
+
+        // init reference coordinates of the fault face
+        ExtTriangle referenceFace = getReferenceFace(faceSideId);
+
+        // init global coordinates of the fault face
+        ExtTriangle globalFace = getGlobalTriangle(faceSideId, element, verticesInfo);
+
+        faultRefiner->refineAndAccumulate(
+            {elementwiseParams.refinement, static_cast<int>(faceIndex), faceSideId, elementIndex},
+            std::make_pair(globalFace, referenceFace));
       }
-
-      auto localFaceSideId = faultInfo[faceIndex].side;
-
-      // init reference coordinates of the fault face
-      ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
-
-      // init global coordinates of the fault face
-      ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
-
-      faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
-                                         static_cast<int>(faceIndex),
-                                         localFaceSideId,
-                                         faultInfo[faceIndex].element},
-                                        std::make_pair(globalFace, referenceFace));
     }
 
     // retrieve all receivers from a fault face refiner
     outputData->receiverPoints = faultRefiner->moveAllReceiverPoints();
     faultRefiner.reset(nullptr);
   }
-
-  void initConstrains() {}
 
   inline const static size_t maxAllowedCacheLevel = 1;
 

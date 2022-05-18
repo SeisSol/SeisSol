@@ -30,7 +30,8 @@ class ReceiverBasedOutput {
                        double time = 0.0);
 
   protected:
-  void getDofs(real dofsPlus[tensor::Q::size()], int meshId, int side);
+  void getDofs(real dofs[tensor::Q::size()], int meshId);
+  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses();
   virtual real computeLocalStrength() = 0;
   virtual real computePf() { return 0.0; }
