@@ -1,7 +1,7 @@
 Reproducible research
 ======================
 
-The input files associated with many recent publications have been uploaded to the Zenodo repository to comply and promote reproducible science.
+We provide datasets containing all input files of simulations in recent SeisSol publications as Zenodo repositories to promote reproducible research and open science.
 A non-exhaustive list is given below:
 
 .. list-table:: 
@@ -127,7 +127,7 @@ A non-exhaustive list is given below:
 
 
 
-In addition, many examples are precisely described in the cookbook  (see :ref:`cookbook overview<cookbook overview>`), and the associated input files are available at https://github.com/SeisSol/Examples.
+SeisSol setups for community benchmark are described in the cookbook  (see :ref:`cookbook overview<cookbook overview>`), and the input files are available at https://github.com/SeisSol/Examples.
 
 .. include:: table_cookbook.rst
 
