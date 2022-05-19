@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTPUT_INITIALIZER_HPP
-#define SEISSOL_DR_OUTPUT_INITIALIZER_HPP
+#ifndef SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
+#define SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
 
 #include "DataTypes.hpp"
 #include "FaultRefiner/FaultRefiners.hpp"
@@ -104,4 +104,4 @@ class ParametersInitializer {
   const YAML::Node& data;
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_INITIALIZER_HPP
+#endif // SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP

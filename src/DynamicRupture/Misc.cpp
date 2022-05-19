@@ -10,8 +10,7 @@ double power<8>(double base) {
   double baseToTheEight = baseToTheFour * baseToTheFour;
   return baseToTheEight;
 }
-real magnitude(real x, real y) { return std::sqrt(x * x + y * y); }
-double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
+
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
   // compute normalized strike vector
   auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);

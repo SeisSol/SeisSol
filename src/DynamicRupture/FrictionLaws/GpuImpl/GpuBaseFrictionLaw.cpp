@@ -13,7 +13,9 @@
 // clang-format off
 namespace seissol::dr::friction_law::gpu {
 GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters& drParameters)
-    : FrictionSolver(drParameters) {}
+    : FrictionSolver(drParameters) {
+  checkOffloading();
+}
 
 GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   //#pragma omp target exit data map(release:faultStresses[0:maxClusterSize])

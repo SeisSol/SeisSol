@@ -13,7 +13,8 @@ class ImposedSlipRates : public ReceiverBasedOutput {
   }
 
   real computeLocalStrength() override {
-    return -1.0 * local.mu * std::min(local.p + local.p0 - local.pf, static_cast<real>(0.0));
+    auto resultingPressure = local.pressure + local.iniPressure - local.internalPressure;
+    return -1.0 * local.frictionCoefficient * std::min(resultingPressure, static_cast<real>(0.0));
   }
 
   void adjustRotatedTractionAndStresses(std::array<real, 6>& rotatedTraction,

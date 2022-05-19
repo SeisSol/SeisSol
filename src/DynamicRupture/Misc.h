@@ -58,9 +58,9 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
-template <size_t exp>
-double power(double base) {
-  double result = 1.0;
+template <size_t exp, typename T>
+inline auto power(T base) -> T {
+  T result = static_cast<T>(1.0);
   for (size_t i = 0; i < exp; ++i) {
     result *= base;
   }
@@ -73,7 +73,7 @@ double power(double base) {
  * @param y Second component of the vector
  * @return magnitude of the vector
  */
-real magnitude(real x, real y);
+inline real magnitude(real x, real y) { return std::sqrt(x * x + y * y); }
 
 /**
  * Computes the arcus sinus hyperbolicus of x.
@@ -81,7 +81,7 @@ real magnitude(real x, real y);
  * @param x
  * @return asinh(x)
  */
-double asinh(double x);
+inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
 
 /**
  * Create strike and dip unit vectors give a fault normal vector

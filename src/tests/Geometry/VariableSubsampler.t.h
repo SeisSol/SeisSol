@@ -51,6 +51,6 @@ TEST_CASE("Variable Subsampler") {
       REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(epsilon));
     }
   };
-};
+}
 
 } // namespace seissol::unit_test

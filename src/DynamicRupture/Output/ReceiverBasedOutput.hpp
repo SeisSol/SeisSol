@@ -1,5 +1,5 @@
-#ifndef SEISSOL_DR_OUTPUT_BASE_HPP
-#define SEISSOL_DR_OUTPUT_BASE_HPP
+#ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
+#define SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
 
 #include "DynamicRupture/Output/ParametersInitializer.hpp"
 #include "Initializer/tree/Lut.hpp"
@@ -34,8 +34,8 @@ class ReceiverBasedOutput {
   void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses();
   virtual real computeLocalStrength() = 0;
-  virtual real computePf() { return 0.0; }
-  void computeLocalTraction(real strength);
+  virtual real computeInternalPressure() { return 0.0; }
+  void updateLocalTractions(real strength);
   virtual void computeSlipAndRate(std::array<real, 6>&, std::array<real, 6>&);
   void computeSlipAndRate(const double* tangent1,
                           const double* tangent2,
@@ -64,26 +64,27 @@ class ReceiverBasedOutput {
     size_t ltsId{};
     int nearestGpIndex{};
 
-    real pf{};
-    real mu{};
-    real sXY{};
-    real sXZ{};
-    real p0{};
+    real iniTraction1{};
+    real iniTraction2{};
 
-    real p{};
-    real u{};
-    real yyStress{};
-    real zzStress{};
-    real xyStress{};
-    real xzStress{};
-    real yzStress{};
-    real tracEla{};
+    real pressure{};
+    real iniPressure{};
+    real internalPressure{};
 
-    real xyTraction{};
-    real xzTraction{};
+    real frictionCoefficient{};
+    real faultNormalVelocity{};
 
-    real srS{};
-    real srD{};
+    real faceAlignedStress22{};
+    real faceAlignedStress33{};
+    real faceAlignedStress12{};
+    real faceAlignedStress13{};
+    real faceAlignedStress23{};
+
+    real updatedTraction1{};
+    real updatedTraction2{};
+
+    real slipRateStrike{};
+    real slipRateDip{};
 
     real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
     real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
@@ -93,4 +94,4 @@ class ReceiverBasedOutput {
   } local{};
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_BASE_HPP
+#endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP

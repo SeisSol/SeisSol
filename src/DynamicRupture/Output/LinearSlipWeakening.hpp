@@ -36,7 +36,8 @@ class LinearSlipWeakening : public ReceiverBasedOutput {
     auto* cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
     auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
 
-    return -1.0 * local.mu * std::min(local.p + local.p0 - local.pf, static_cast<real>(0.0)) -
+    auto resultingPressure = local.pressure + local.iniPressure - local.internalPressure;
+    return -1.0 * local.frictionCoefficient * std::min(resultingPressure, static_cast<real>(0.0)) -
            cohesion;
   }
 };

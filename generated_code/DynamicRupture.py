@@ -91,7 +91,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
   QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
 
-  generator.add('computeFaceAlignedValues',
+  generator.add('evaluateFaceAlignedDOFSAtPoint',
                 QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
 
   def interpolateQGenerator(i,h):

@@ -22,7 +22,7 @@ TEST_CASE("DR Geometry") {
   constexpr static int y{1};
   constexpr static int z{2};
 
-  constexpr static int xi{0};
+  [[maybe_unused]] constexpr static int xi{0};
   constexpr static int eta{1};
   constexpr static int zeta{2};
 
@@ -232,16 +232,7 @@ TEST_CASE("DR Geometry") {
     VrtxCoords minusElementCoords[4]{
         {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -2.0}};
 
-    const VrtxCoords* plusElementCoordsPtr[4]{
-        &plusElementCoords[0], &plusElementCoords[1], &plusElementCoords[2], &plusElementCoords[3]};
-
-    const VrtxCoords* minusElementCoordsPtr[4]{&minusElementCoords[0],
-                                               &minusElementCoords[1],
-                                               &minusElementCoords[2],
-                                               &minusElementCoords[3]};
-
-    auto basisFunctions =
-        getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);
+    auto basisFunctions = getPlusMinusBasisFunctions(point, plusElementCoords, minusElementCoords);
 
     constexpr double epsilon = 1e-6;
     for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {

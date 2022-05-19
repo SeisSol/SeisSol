@@ -20,8 +20,7 @@ void ReceiverBasedOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
 
 void ReceiverBasedOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   // get DOFs from 0th derivatives
-  auto ltsSetup = wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup;
-  assert((ltsSetup >> 9) % 2 == 1);
+  assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
@@ -73,11 +72,11 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
     auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
-    local.mu = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
-    local.sXY = initStress[3];
-    local.sXZ = initStress[5];
-    local.p0 = initStress[0];
-    local.pf = this->computePf();
+    local.frictionCoefficient = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
+    local.iniTraction1 = initStress[3];
+    local.iniTraction2 = initStress[5];
+    local.iniPressure = initStress[0];
+    local.internalPressure = this->computeInternalPressure();
 
     const auto* const normal = outputData.faultDirections[i].faceNormal;
     const auto* const tangent1 = outputData.faultDirections[i].tangent1;
@@ -88,7 +87,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     auto* phiPlusSide = outputData.basisFunctions[i].plusSide.data();
     auto* phiMinusSide = outputData.basisFunctions[i].minusSide.data();
 
-    seissol::dynamicRupture::kernel::computeFaceAlignedValues kernel;
+    seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData.glbToFaceAlignedData[i].data();
 
     kernel.Q = dofsPlus;
@@ -103,7 +102,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
     this->computeLocalStresses();
     real strength = this->computeLocalStrength();
-    this->computeLocalTraction(strength);
+    this->updateLocalTractions(strength);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -112,24 +111,24 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
         outputData.stressFaceAlignedToGlb[i].data();
 
     std::array<real, 6> tmpVector{};
-    tmpVector[0] = local.p;
-    tmpVector[1] = local.yyStress;
-    tmpVector[2] = local.zzStress;
-    tmpVector[3] = local.xyTraction;
-    tmpVector[4] = local.yzStress;
-    tmpVector[5] = local.xzTraction;
+    tmpVector[0] = local.pressure;
+    tmpVector[1] = local.faceAlignedStress22;
+    tmpVector[2] = local.faceAlignedStress33;
+    tmpVector[3] = local.updatedTraction1;
+    tmpVector[4] = local.faceAlignedStress23;
+    tmpVector[5] = local.updatedTraction2;
 
     alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
     std::array<real, 6> rotatedTraction{};
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedTraction.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    tmpVector[0] = local.p;
-    tmpVector[1] = local.yyStress;
-    tmpVector[2] = local.zzStress;
-    tmpVector[3] = local.xyStress;
-    tmpVector[4] = local.yzStress;
-    tmpVector[5] = local.xzStress;
+    tmpVector[0] = local.pressure;
+    tmpVector[1] = local.faceAlignedStress22;
+    tmpVector[2] = local.faceAlignedStress33;
+    tmpVector[3] = local.faceAlignedStress12;
+    tmpVector[4] = local.faceAlignedStress23;
+    tmpVector[5] = local.faceAlignedStress13;
 
     alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
     std::array<real, 6> rotatedLocalStress{};
@@ -146,20 +145,20 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
     auto& slipRate = std::get<VariableID::SlipRate>(outputData.vars);
     if (slipRate.isActive) {
-      slipRate(DirectionID::Strike, level, i) = local.srS;
-      slipRate(DirectionID::Dip, level, i) = local.srD;
+      slipRate(DirectionID::Strike, level, i) = local.slipRateStrike;
+      slipRate(DirectionID::Dip, level, i) = local.slipRateDip;
     }
 
     auto& transientTractions = std::get<VariableID::TransientTractions>(outputData.vars);
     if (transientTractions.isActive) {
       transientTractions(DirectionID::Strike, level, i) = rotatedTraction[3];
       transientTractions(DirectionID::Dip, level, i) = rotatedTraction[5];
-      transientTractions(DirectionID::Normal, level, i) = local.p - local.pf;
+      transientTractions(DirectionID::Normal, level, i) = local.pressure - local.internalPressure;
     }
 
     auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
     if (frictionAndState.isActive) {
-      frictionAndState(ParamID::FrictionCoefficient, level, i) = local.mu;
+      frictionAndState(ParamID::FrictionCoefficient, level, i) = local.frictionCoefficient;
     }
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
@@ -170,7 +169,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
     auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData.vars);
     if (normalVelocity.isActive) {
-      normalVelocity(level, i) = local.u;
+      normalVelocity(level, i) = local.faultNormalVelocity;
     }
 
     auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
@@ -188,7 +187,8 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
       totalTractions(DirectionID::Strike, level, i) = rotatedTraction[3] + rotatedInitStress[3];
       totalTractions(DirectionID::Dip, level, i) = rotatedTraction[5] + rotatedInitStress[5];
-      totalTractions(DirectionID::Normal, level, i) = local.p - local.pf + rotatedInitStress[0];
+      totalTractions(DirectionID::Normal, level, i) =
+          local.pressure - local.internalPressure + rotatedInitStress[0];
     }
 
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData.vars);
@@ -248,42 +248,47 @@ void ReceiverBasedOutput::computeLocalStresses() {
     return this->local.faceAlignedValuesMinus[i] - this->local.faceAlignedValuesPlus[i];
   };
 
-  local.xyStress = local.faceAlignedValuesPlus[3] +
-                   ((diff(3) + impAndEta.zsNeig * diff(7)) * impAndEta.zs) * shearDivisor;
+  local.faceAlignedStress12 =
+      local.faceAlignedValuesPlus[3] +
+      ((diff(3) + impAndEta.zsNeig * diff(7)) * impAndEta.zs) * shearDivisor;
 
-  local.xzStress = local.faceAlignedValuesPlus[5] +
-                   ((diff(5) + impAndEta.zsNeig * diff(8)) * impAndEta.zs) * shearDivisor;
+  local.faceAlignedStress13 =
+      local.faceAlignedValuesPlus[5] +
+      ((diff(5) + impAndEta.zsNeig * diff(8)) * impAndEta.zs) * shearDivisor;
 
-  local.p = local.faceAlignedValuesPlus[0] +
-            ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * norDivisor;
+  local.pressure = local.faceAlignedValuesPlus[0] +
+                   ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * norDivisor;
 
-  local.u =
-      local.faceAlignedValuesPlus[6] + (local.p - local.faceAlignedValuesPlus[0]) * impAndEta.invZp;
+  local.faultNormalVelocity = local.faceAlignedValuesPlus[6] +
+                              (local.pressure - local.faceAlignedValuesPlus[0]) * impAndEta.invZp;
 
-  real missingSigmaValues = (local.p - local.faceAlignedValuesPlus[0]);
+  real missingSigmaValues = (local.pressure - local.faceAlignedValuesPlus[0]);
   missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
                                                   local.waveSpeedsPlus->pWaveVelocity,
                                               2));
 
-  local.yyStress = local.faceAlignedValuesPlus[1] + missingSigmaValues;
-  local.zzStress = local.faceAlignedValuesPlus[2] + missingSigmaValues;
-  local.yzStress = local.faceAlignedValuesPlus[4];
-
-  local.tracEla =
-      std::sqrt(std::pow(local.sXY + local.xyStress, 2) + std::pow(local.sXZ + local.xzStress, 2));
+  local.faceAlignedStress22 = local.faceAlignedValuesPlus[1] + missingSigmaValues;
+  local.faceAlignedStress33 = local.faceAlignedValuesPlus[2] + missingSigmaValues;
+  local.faceAlignedStress23 = local.faceAlignedValuesPlus[4];
 }
 
-void ReceiverBasedOutput::computeLocalTraction(real strength) {
-  if (local.tracEla > std::abs(strength)) {
-    local.xyTraction = ((local.sXY + local.xyStress) / local.tracEla) * strength;
-    local.xzTraction = ((local.sXZ + local.xzStress) / local.tracEla) * strength;
+void ReceiverBasedOutput::updateLocalTractions(real strength) {
+  auto squaredComponent1 = std::pow(local.iniTraction1 + local.faceAlignedStress12, 2);
+  auto squaredComponent2 = std::pow(local.iniTraction2 + local.faceAlignedStress13, 2);
+  auto tracEla = std::sqrt(squaredComponent1 + squaredComponent2);
+
+  if (tracEla > std::abs(strength)) {
+    local.updatedTraction1 =
+        ((local.iniTraction1 + local.faceAlignedStress12) / tracEla) * strength;
+    local.updatedTraction2 =
+        ((local.iniTraction2 + local.faceAlignedStress13) / tracEla) * strength;
 
     // update stress change
-    local.xyTraction -= local.sXY;
-    local.xzTraction -= local.sXZ;
+    local.updatedTraction1 -= local.iniTraction1;
+    local.updatedTraction2 -= local.iniTraction2;
   } else {
-    local.xyTraction = local.xyStress;
-    local.xzTraction = local.xzStress;
+    local.updatedTraction1 = local.faceAlignedStress12;
+    local.updatedTraction2 = local.faceAlignedStress13;
   }
 }
 
@@ -291,16 +296,16 @@ void ReceiverBasedOutput::computeSlipAndRate(std::array<real, 6>& rotatedTractio
                                              std::array<real, 6>& rotatedLocalStress) {
 
   auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  local.srS = -impAndEta.invEtaS * (rotatedTraction[3] - rotatedLocalStress[3]);
-  local.srD = -impAndEta.invEtaS * (rotatedTraction[5] - rotatedLocalStress[5]);
+  local.slipRateStrike = -impAndEta.invEtaS * (rotatedTraction[3] - rotatedLocalStress[3]);
+  local.slipRateDip = -impAndEta.invEtaS * (rotatedTraction[5] - rotatedLocalStress[5]);
 }
 
 void ReceiverBasedOutput::computeSlipAndRate(const double* tangent1,
                                              const double* tangent2,
                                              const double* strike,
                                              const double* dip) {
-  local.srS = static_cast<real>(0.0);
-  local.srD = static_cast<real>(0.0);
+  local.slipRateStrike = static_cast<real>(0.0);
+  local.slipRateDip = static_cast<real>(0.0);
 
   for (size_t i = 0; i < 3; ++i) {
     real factorMinus = (local.faceAlignedValuesMinus[7] * tangent1[i] +
@@ -309,8 +314,8 @@ void ReceiverBasedOutput::computeSlipAndRate(const double* tangent1,
     real factorPlus = (local.faceAlignedValuesPlus[7] * tangent1[i] +
                        local.faceAlignedValuesPlus[8] * tangent2[i]);
 
-    local.srS += factorMinus * strike[i] - factorPlus * strike[i];
-    local.srD += factorMinus * dip[i] - factorPlus * dip[i];
+    local.slipRateStrike += factorMinus * strike[i] - factorPlus * strike[i];
+    local.slipRateDip += factorMinus * dip[i] - factorPlus * dip[i];
   }
 }
 

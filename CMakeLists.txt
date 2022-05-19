@@ -177,7 +177,8 @@ if (OPENMP)
   if (WITH_GPU)
     find_package(OpenMP_Offloading QUIET)
   else()
-    target_sources(SeisSol-lib PUBLIC ${SRC_FILES_OMP_OFFLOADING_COMMON})
+    # Add DR source files to SeisSol-lib if we compile without any GPU support
+    target_sources(SeisSol-lib PUBLIC ${DYNAMIC_RUPTURE_SRC_FILES})
   endif()
 
   # Note: there may be a conflict between OpenMP offloading and libsxmm.
@@ -187,13 +188,14 @@ if (OPENMP)
   # imported OpenMP targets to them.
   if (OpenMP_Offloading_FOUND)
     message(STATUS "Found OpenMP Offloading: TRUE")
-    add_library(SeisSol-omp-offloaded SHARED ${SRC_FILES_OMP_OFFLOADING_COMMON} ${SRC_FILES_OMP_OFFLOADING_REQUIRED})
+    add_library(SeisSol-omp-offloaded SHARED ${DYNAMIC_RUPTURE_SRC_FILES} ${DYNAMIC_RUPTURE_OMP_OFFLOADING_SRC_FILES})
     target_link_libraries(SeisSol-omp-offloaded PRIVATE OpenMP::OpenMP_CXX_with_offloading)
     target_compile_definitions(SeisSol-omp-offloaded PRIVATE ACL_DEVICE_OFFLOAD)
 
     add_dependencies(SeisSol-omp-offloaded SeisSol-codegen)
   else()
-    target_sources(SeisSol-lib PUBLIC ${SRC_FILES_OMP_OFFLOADING_COMMON})
+    # Add DR source files to SeisSol-lib if the compiler doesn't support GPU offloading
+    target_sources(SeisSol-lib PUBLIC ${DYNAMIC_RUPTURE_SRC_FILES})
   endif()
 endif()
 
@@ -348,8 +350,6 @@ if (WITH_GPU)
     target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
     target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
     target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
-
-    target_link_libraries(SeisSol-lib PUBLIC SeisSol-omp-offloaded)
   endif()
 endif()
 
@@ -418,14 +418,8 @@ endif()
 
 
 add_executable(SeisSol-bin src/main.cpp)
-target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-
-if (WITH_GPU)
-  if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-      target_link_options(SeisSol-bin PRIVATE "-mp=gpu")
-  endif()
-endif()
+target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
 # SeisSol proxy-core
 add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
@@ -441,6 +435,16 @@ if (PROXY_PYBINDING)
   pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
   target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
   file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
+if (WITH_GPU)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    target_link_options(SeisSol-bin PRIVATE "-mp=gpu")
+  endif()
+  if (OpenMP_Offloading_FOUND)
+    target_link_libraries(SeisSol-bin PUBLIC SeisSol-omp-offloaded)
+    target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-omp-offloaded)
+  endif()
 endif()
 
 # C/C++ proxy interface

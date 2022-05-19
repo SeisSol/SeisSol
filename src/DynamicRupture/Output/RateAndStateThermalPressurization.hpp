@@ -32,7 +32,7 @@ class RateAndStateThermalPressurization : public RateAndState {
   }
 
   protected:
-  real computePf() override { return 0.0; }
+  real computeInternalPressure() override { return 0.0; }
   void outputSpecifics(ReceiverBasedOutputData& outputData,
                        size_t cacheLevel,
                        size_t receiverIdx) override {
