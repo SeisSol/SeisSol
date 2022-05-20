@@ -22,7 +22,7 @@ A non-exhaustive list is given below:
      - LSW
      - 4
      - `Uphoff et al. (2017) <https://doi.org/10.1145/3126908.3126948>`_
-     - `zenodo.org/record/439946 <https://zenodo.org/record/439946>`
+     - `zenodo.org/record/439946 <https://zenodo.org/record/439946>`_
 
    * - Collective Knowledge |br| (CK) workflow 
      - n/a 
