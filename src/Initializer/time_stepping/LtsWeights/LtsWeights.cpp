@@ -568,20 +568,21 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
     for (int neighbor_rank : neighbor_ranks) {
       const std::vector<idx_t>& layer_ref = ghost_layer_to_send[neighbor_rank];
       size_t elcount = layer_ref.size();
-      std::vector<long long int> layer_lli(elcount);
-      for ( idx_t el : layer_ref)
-      {
-        layer_lli.push_back(static_cast<long long int>(el));
-      }
 
       assert(!layer_ref.empty());
-      assert(!layer_lli.empty());
 
-      //std::cout << "Ghost layer to be sent from rank: " << rank << " to " << neighbor_rank
-      //          << " has " << layer_ref.size() / 2 << " elements" << std::endl;
+      if (sizeof(idx_t) != 8)
+      {
+        if (rank == 0)
+        {
+          std::cerr << "If the size of idx_t is not 64 bits the ghost layer exchange will crush with a segmentation fault!" << std::endl;
+        }
+      } 
 
       MPI_Isend(layer_ref.data(), layer_ref.size(), MPI_LONG_LONG_INT, neighbor_rank, rank,
                 MPI_COMM_WORLD, &send_requests[offset]);
+      
+
       offset += 1;
     }
   }

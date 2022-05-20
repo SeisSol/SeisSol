@@ -34,7 +34,7 @@ class EdgeWeightModel : public WeightModel {
   void setBalancedMessagingWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph);
 
-  void setBalancedMessageCount(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+  void setMessageCountWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph,
                                  std::function<int(idx_t, idx_t)>& factor);
 
@@ -100,46 +100,10 @@ class Naive final : public EdgeWeightModel {
                                  const std::vector<idx_t>&>& graph) override final;
 };
 
-class PenalizeBetweenClusters final : public EdgeWeightModel {
-  public:
-  PenalizeBetweenClusters(LtsWeights& ltsWeights) noexcept : EdgeWeightModel(ltsWeights) {}
-  ~PenalizeBetweenClusters() noexcept override final {}
-
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
-};
-
-class ApproximateCommunicationWithPenalizeBetweenClusters final : public EdgeWeightModel {
-  public:
-  ApproximateCommunicationWithPenalizeBetweenClusters(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
-  ~ApproximateCommunicationWithPenalizeBetweenClusters() noexcept override final {}
-
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
-};
-
 class ApproximateCommunication final : public EdgeWeightModel {
   public:
   ApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunication() noexcept override final {}
-
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
-};
-
-class ReverseApproximateCommunication final : public EdgeWeightModel {
-  public:
-  ReverseApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
-  ~ReverseApproximateCommunication() noexcept override final {}
-
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
-};
-
-class ReverseApproximateCommunicationWithPenalizeBetweenClusters final : public EdgeWeightModel {
-  public:
-  ReverseApproximateCommunicationWithPenalizeBetweenClusters(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
-  ~ReverseApproximateCommunicationWithPenalizeBetweenClusters() noexcept override final {}
 
   void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
                                  const std::vector<idx_t>&>& graph) override final;
@@ -164,12 +128,4 @@ class ApproximateCommunicationWithMessageCount final : public EdgeWeightModel {
                                  const std::vector<idx_t>&>& graph) override final;
 };
 
-class ClusterDifference final : public EdgeWeightModel {
-  public:
-  ClusterDifference(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
-  ~ClusterDifference() noexcept override final {}
-
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
-};
 } // namespace seissol::initializers::time_stepping

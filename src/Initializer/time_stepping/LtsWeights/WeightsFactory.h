@@ -20,16 +20,30 @@ enum class NodeWeightModelTypes : int {
 
 enum class EdgeWeightModelTypes : int {
   Naive = 0,
-  PenalizeBetweenClusters,
   ApproximateCommunication,
   ApproximateCommunicationWithBalancedMessaging,
-  ClusterDifference,
   ApproximateCommunicationWithMessageCount,
-  ApproximateCommunicationWithPenalizeBetweenClusters,
-  ReverseApproximateCommunication,
-  ReverseApproximateCommunicationWithPenalizeBetweenClusters,
   Count
 };
+
+inline void checkWeightModelCombinationIsAllowed(NodeWeightModelTypes nmod, EdgeWeightModelTypes emod) {
+  if (nmod == NodeWeightModelTypes::ExponentialBalancedWeightsWithBalancedMessaging &&
+      emod != EdgeWeightModelTypes::ApproximateCommunicationWithBalancedMessaging)
+  {
+    std::stringstream err;
+    err << "Balanced Messaging strategies need to be paired";
+    throw std::runtime_error(err.str());
+  }
+
+  if (nmod == NodeWeightModelTypes::ExponentialBalancedWeightsWithMessageCount && 
+      emod != EdgeWeightModelTypes::ApproximateCommunicationWithMessageCount)
+  {
+    std::stringstream err;
+    err << "Minimum Messaging strategies need to be paired";
+    throw std::runtime_error(err.str());
+  }
+
+}
 
 bool isNodeWeightModelTypeAllowed(int id) {
   return ((id >= 0) && (id < static_cast<int>(NodeWeightModelTypes::Count)));
@@ -66,6 +80,8 @@ std::unique_ptr<LtsWeights> getLtsWeightsImplementation(NodeWeightModelTypes nod
   NodeWeightModel* nwm = nullptr;
   EdgeWeightModel* ewm = nullptr;
 
+  checkWeightModelCombinationIsAllowed(nodeType, edgeType);
+
   switch (nodeType) {
   case NodeWeightModelTypes::ExponentialWeights: {
     nwm = new ExponentialWeights(*lts.get());
@@ -97,10 +113,6 @@ std::unique_ptr<LtsWeights> getLtsWeightsImplementation(NodeWeightModelTypes nod
     ewm = new Naive(*lts.get());
     break;
   }
-  case EdgeWeightModelTypes::PenalizeBetweenClusters: {
-    ewm = new PenalizeBetweenClusters(*lts.get());
-    break;
-  }
   case EdgeWeightModelTypes::ApproximateCommunication: {
     ewm = new ApproximateCommunication(*lts.get());
     break;
@@ -109,28 +121,10 @@ std::unique_ptr<LtsWeights> getLtsWeightsImplementation(NodeWeightModelTypes nod
     ewm = new ApproximateCommunicationWithBalancedMessaging(*lts.get());
     break;
   }
-  case EdgeWeightModelTypes::ClusterDifference: {
-    ewm = new ClusterDifference(*lts.get());
-    break;
-  }
   case EdgeWeightModelTypes::ApproximateCommunicationWithMessageCount:
   {
     ewm = new ApproximateCommunicationWithMessageCount(*lts.get());
     break;
-  }
-  case EdgeWeightModelTypes::ApproximateCommunicationWithPenalizeBetweenClusters:
-  {
-    ewm = new ApproximateCommunicationWithPenalizeBetweenClusters(*lts.get());
-    break; 
-  }
-  case EdgeWeightModelTypes::ReverseApproximateCommunication: {
-    ewm = new ReverseApproximateCommunication(*lts.get());
-    break;
-  }
-  case EdgeWeightModelTypes::ReverseApproximateCommunicationWithPenalizeBetweenClusters:
-  {
-    ewm = new ReverseApproximateCommunicationWithPenalizeBetweenClusters(*lts.get());
-    break; 
   }
   default: {
     break;

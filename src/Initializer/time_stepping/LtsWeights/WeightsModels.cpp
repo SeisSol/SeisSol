@@ -278,29 +278,6 @@ void EdgeWeightModel::setEdgeWeights(
   }
 }
 
-void PenalizeBetweenClusters::setEdgeWeights(
-    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
-        graph) {
-  std::function<int(idx_t, idx_t)> factor = [](idx_t cluster1, idx_t cluster2) {
-    const char* env_cp = std::getenv("CLUSTER_PENALTY");
-    int penalty_int = 150;
-    
-    if(env_cp != nullptr)
-    {
-      try {
-        penalty_int = std::atoi(env_cp);
-      } catch (const std::exception& e) {
-        penalty_int = 150;
-      }
-    }
-
-
-    int rt = (cluster1 == cluster2) ? 100 : penalty_int;
-    return rt;
-  };
-
-  EdgeWeightModel::setEdgeWeights(graph, factor);
-}
 
 int ipow(int x, int y) {
   assert(y >= 0);
@@ -327,93 +304,6 @@ void ApproximateCommunication::setEdgeWeights(
 
   std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
     int rt = ipow(rate, global_max_cluster - cluster1);
-    return rt;
-  };
-
-  EdgeWeightModel::setEdgeWeights(graph, factor);
-}
-
-void ReverseApproximateCommunication::setEdgeWeights(
-    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
-        graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
-  unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
-  std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
-    int rt = ipow(rate, global_max_cluster - cluster2);
-    return rt;
-  };
-
-  EdgeWeightModel::setEdgeWeights(graph, factor);
-}
-
-
-void ApproximateCommunicationWithPenalizeBetweenClusters::setEdgeWeights(
-    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
-        graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
-  unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
-    const char* env_cp = std::getenv("CLUSTER_PENALTY");
-    int penalty_int = 150;
-    
-    if(env_cp != nullptr)
-    {
-      try {
-        penalty_int = std::atoi(env_cp);
-      } catch (const std::exception& e) {
-        penalty_int = 150;
-      }
-    }
-  
-  std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate, penalty_int](idx_t cluster1, idx_t cluster2) {
-    int rt = ipow(rate, global_max_cluster - cluster1);
-    if (cluster1 != cluster2)
-    {
-      rt *= penalty_int;
-    }
-    return rt;
-  };
-
-  EdgeWeightModel::setEdgeWeights(graph, factor);
-}
-
-void ReverseApproximateCommunicationWithPenalizeBetweenClusters::setEdgeWeights(
-    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
-        graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
-  unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
-    const char* env_cp = std::getenv("CLUSTER_PENALTY");
-    int penalty_int = 150;
-    
-    if(env_cp != nullptr)
-    {
-      try {
-        penalty_int = std::atoi(env_cp);
-      } catch (const std::exception& e) {
-        penalty_int = 150;
-      }
-    }
-  
-  std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate, penalty_int](idx_t cluster1, idx_t cluster2) {
-    int rt = ipow(rate, global_max_cluster - cluster2);
-    if (cluster1 != cluster2)
-    {
-      rt *= penalty_int;
-    }
     return rt;
   };
 
@@ -456,7 +346,7 @@ void ApproximateCommunicationWithMessageCount::setEdgeWeights(
   };
 
   EdgeWeightModel::setEdgeWeights(graph, factor);
-  EdgeWeightModel::setBalancedMessageCount(graph, factor);
+  EdgeWeightModel::setMessageCountWeights(graph, factor);
 }
 
 
@@ -513,7 +403,7 @@ void EdgeWeightModel::setBalancedMessagingWeights(
   }
 }
 
-void EdgeWeightModel::setBalancedMessageCount(
+void EdgeWeightModel::setMessageCountWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph, std::function<int(idx_t, idx_t)>& factor) {
   
@@ -564,24 +454,5 @@ void EdgeWeightModel::setBalancedMessageCount(
   }
 }
 
-void ClusterDifference::setEdgeWeights(
-    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
-        graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
-  unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
-  std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
-    int rt1 = ipow(rate, global_max_cluster - cluster1);
-    int rt2 = ipow(rate, global_max_cluster - cluster2);
-    int rt = std::min(std::abs(rt1 - rt2),1);
-    return rt;
-  };
-
-  EdgeWeightModel::setEdgeWeights(graph, factor);
-}
 
 } // namespace seissol::initializers::time_stepping
