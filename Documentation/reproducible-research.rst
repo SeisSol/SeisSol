@@ -1,6 +1,10 @@
 Reproducible research
 ======================
 
+On this page we list datasets containing reproducible simulation scenarios realised with SeisSol and elementary benchmark examples. In these data sets, all required input files, etc., are provided, to promote reproducible research and open science, and to inspire new simulation scenarios. 
+
+Please contact us via `SeisSol Email list <mailto:seissol-maintainers@lists.lrz.de>`_, if you're interested to provide a scenario. While many data sets are hosted on Zenodo, we do not require specific formats or repositories. 
+
 We provide datasets containing all input files of simulations in recent SeisSol publications as Zenodo repositories to promote reproducible research and open science.
 A non-exhaustive list is given below:
 
