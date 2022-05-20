@@ -69,7 +69,7 @@
    * - `TPV104 <https://github.com/SeisSol/Examples/tree/master/tpv104>`_
      - dynamic
      - SS
-     - RS
+     - fvw-RS
      - 1
      - see :ref:`tpv104`
 
@@ -89,7 +89,7 @@
 
 
 .. [#f1] SS: strike-slip, N: normal, R: reverse, O: oblique
-.. [#f2] LSW: linear slip weakening, RS: rate-and-state
+.. [#f2] LSW: linear slip-weakening friction, fvw-RS: fast-velocity weakening rate-and-state friction
 
 .. |br| raw:: html
 
