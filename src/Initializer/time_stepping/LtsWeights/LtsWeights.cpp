@@ -567,7 +567,6 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
     int offset = 0;
     for (int neighbor_rank : neighbor_ranks) {
       const std::vector<idx_t>& layer_ref = ghost_layer_to_send[neighbor_rank];
-      size_t elcount = layer_ref.size();
 
       assert(!layer_ref.empty());
 
