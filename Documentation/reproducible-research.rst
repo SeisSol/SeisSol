@@ -131,3 +131,39 @@ SeisSol setups for community benchmark are described in the cookbook  (see :ref:
 
 .. include:: table_cookbook.rst
 
+
+We provide tutorial materials designed for software training, e.g., CHEESE Advanced training (https://www.hlrs.de/training/2021-10-19-cheese/) and ICTP Advanced Workshop on Earthquake Fault Mechanics (https://indico.ictp.it/event/8715/overview).  The training material depends on an easy-to-obtain and uniform installation of SeisSol (Docker version) and related tools (e.g. Gmsh, Paraview) and necessary input files. 
+
+.. list-table:: 
+   :widths: 20 20 20 20 20 20
+   :header-rows: 1
+
+   * - Description
+     - Source
+     - Focal |br| mech. [#f1]_
+     - Friction |br| law [#f2]_
+     - Number |br| of faults
+     - Data
+     
+   * - `TPV13 <https://github.com/SeisSol/Examples/tree/master/tpv12_13>`_
+     - dynamic
+     - N
+     - LSW
+     - 1
+     - `<https://github.com/SeisSol/Training/tree/main/tpv13>`_
+
+   * - 2018 Mw 7.5 Palu earthquake(reduced mesh-size)
+     - dynamic 
+     - SS & N
+     - RS
+     - 3
+     - `<https://github.com/SeisSol/Training/tree/main/sulawesi>`_
+     
+   * - `Northridge <https://github.com/SeisSol/Examples/tree/master/Northridge>`_
+     - kinematic 
+     - R
+     - n/a
+     - 1
+     - `<https://github.com/SeisSol/Training/tree/main/northridge>`_
+    
+     
