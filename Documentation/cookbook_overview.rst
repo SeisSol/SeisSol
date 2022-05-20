@@ -14,33 +14,9 @@ Each benchmark example is composed of a short problem description, a section of 
 Please note that the examples used here are only for demonstration purpose. 
 For detailed benchmark tests please refer to SCEC benchmark center. 
 
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| No.            | Fault type              | Difficulty     | Description                                                                                                         |
-+================+=========================+================+=====================================================================================================================+
-| TPV5           | strike-slip             | beginner       | slip-weakening and heterogeneous initial stress conditions                                                          |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV6           | strike-slip             | beginner       | bi-material fault and, slip-weakening and heterogeneous initial stress conditions                                   |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV12          | normal fault            | beginner       | linear elastic and initial stress conditions are dependent on depth                                                 |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV13          | normal fault            | beginner       | non-associative Drucker-Prager plastic with yielding in shear ad initial stress conditions are dependent on depth   |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV16          | strike-slip             | intermediate   | randomly-generated heterogeneous initial stress conditions                                                          |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV24          | branching strike-slip   | intermediate   | a rightward branch forming a 30 degree angle. There are linear elastic material properties                          |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV29          | strike-slip             | difficult      | stochastic roughness. Linear elastic material properties in a homogeneous half-space                                |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV34          | strike-slip             | difficult      | Imperial Fault model with 3D velocity structure in a linear elastic half-space                                      |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| TPV104         | strike-slip             | difficult      | Rate-state friction, using a slip law with strong rate-weakening                                                    |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| Point Source   | strike-slip             | intermediate   | benchmark of SISMOWINE WP2\_LOH1                                                                                    |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
-| Kinematic      | reverse fault           | intermediate   | Kinematic source of 1994 Mw6.7 Northridge earthquake                                                                |
-+----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
 
-Table: Overall of examples suites.
+.. include:: table_cookbook.rst
+
 
 Prerequisites
 ~~~~~~~~~~~~~

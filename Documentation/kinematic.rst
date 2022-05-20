@@ -1,3 +1,5 @@
+.. _northridge:
+
 Kinematic source example - 1994 Northridge earthquake
 =====================================================
 
