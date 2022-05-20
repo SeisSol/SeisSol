@@ -43,7 +43,6 @@ extern "C" {
   void fortran_main();
 }
 
-#include "Solver/time_stepping/CommunicationTracker.h"
 #include <iostream>
 
 int main(int argc, char* argv[])
@@ -57,9 +56,6 @@ int main(int argc, char* argv[])
 	// Initialize Fortan Part and run SeisSol
 	if (runSeisSol)
 		fortran_main();
-
-	std::string stats = communication_stats();
-	std::cout << stats << std::endl;
 
 	// Finalize SeisSol
 	seissol::SeisSol::main.finalize();

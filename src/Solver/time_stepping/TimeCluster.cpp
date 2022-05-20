@@ -82,7 +82,6 @@
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Monitoring/FlopCounter.hpp>
-#include <Solver/time_stepping/CommunicationTracker.h>
 #include <cassert>
 #include <cstring>
 
