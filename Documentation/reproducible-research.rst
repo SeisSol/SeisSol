@@ -10,7 +10,7 @@ A non-exhaustive list is given below:
 
    * - Description
      - Source
-     - Focal |br| mech. [#f1]_
+     - Faulting |br| mechanism [#f1]_
      - Friction |br| law [#f2]_
      - Number |br| of faults
      - Research Item
@@ -22,7 +22,7 @@ A non-exhaustive list is given below:
      - LSW
      - 4
      - `Uphoff et al. (2017) <https://doi.org/10.1145/3126908.3126948>`_
-     - `zenodo.org/record/439946 <https://zenodo.org/record/439946>`_
+     - `zenodo.org/record/439946 <https://zenodo.org/record/439946>`
 
    * - Collective Knowledge |br| (CK) workflow 
      - n/a 
@@ -132,7 +132,7 @@ SeisSol setups for community benchmark are described in the cookbook  (see :ref:
 .. include:: table_cookbook.rst
 
 
-We provide tutorial materials designed for software training, e.g.,  `CHEESE Advanced training <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https://indico.ictp.it/event/8715/overview>`_ .  The training material depends on an easy-to-obtain and uniform installation of SeisSol (Docker version) and related tools (e.g. Gmsh, Paraview) and necessary input files. 
+We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and Paraview) and all required input files. 
 
 .. list-table:: 
    :widths: 20 20 20 20 20 20
@@ -140,7 +140,7 @@ We provide tutorial materials designed for software training, e.g.,  `CHEESE Adv
 
    * - Description
      - Source
-     - Focal |br| mech. [#f1]_
+     - Faulting |br| mechanism [#f1]_
      - Friction |br| law [#f2]_
      - Number |br| of faults
      - Data
