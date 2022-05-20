@@ -57,7 +57,7 @@ public:
               std::string_view fileNamePrefix) {
       isEnabled = true;
       this->meshReader = meshReader;
-      fileName = std::string(fileNamePrefix) + "_analysis.csv";
+      fileName = std::string(fileNamePrefix) + "-analysis.csv";
     }  
 
     

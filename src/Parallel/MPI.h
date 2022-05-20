@@ -199,7 +199,10 @@ public:
 	 */
 	void init(int &argc, char** &argv)
 	{
-		int required = (m_threadsafe ? MPI_THREAD_MULTIPLE : MPI_THREAD_SINGLE);
+	  // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
+	  // a communication thread and/or async I/O.
+	  // The safer (and more sane) option is to enable it by default.
+		int required = MPI_THREAD_MULTIPLE;
 		int provided;
 		MPI_Init_thread(&argc, &argv, required, &provided);
 

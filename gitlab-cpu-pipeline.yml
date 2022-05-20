@@ -23,7 +23,6 @@ ci_builder_pre:
         - git submodule set-url submodules/scons-tools https://github.com/TUM-I5/scons-tools.git
         - git submodule set-url submodules/PUML https://github.com/TUM-I5/PUML2.git
         - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
-        - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
         - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
         - git submodule --quiet update --init --recursive 
         - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
@@ -47,6 +46,9 @@ ci_builder_pre:
         - git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git &&
           mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && 
           sudo make -j $(nproc) install && cd ..
+        - wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+        - tar -xf eigen-3.4.0.tar.gz
+        - mkdir eigen3_build && cd eigen3_build && cmake ../eigen-3.4.0 && sudo  make install && cd ..
         
 ci_builder_build:
     stage: build

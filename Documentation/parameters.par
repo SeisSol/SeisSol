@@ -46,8 +46,6 @@ ZRef = -1.0
 refPointMethod = 1
 
 RF_output_on = 0            ! Rupture front ascii output
-magnitude_output_on =0      ! Moment magnitude output
-energy_rate_output_on =1    ! Moment rate output
 OutputPointType = 5         ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
@@ -132,6 +130,11 @@ checkPointInterval = 6
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
 ! HDF5 support.
+
+EnergyOutput = 1 ! Computation of energy, written in csv file
+EnergyTerminalOutput = 1 ! Write energy to standard output
+EnergyOutputInterval = 0.05
+
 /
            
 &AbortCriteria

@@ -58,189 +58,187 @@
 #include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
 #include "Solver/time_stepping/MiniSeisSol.h"
 
-void read_mesh(int rank, MeshReader& meshReader, bool hasFault, double const displacement[3],
-               double const scalingMatrix[3][3]) {
-  logInfo(rank) << "Reading mesh. Done.";
+void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
+{
+	logInfo(rank) << "Reading mesh. Done.";
 
-  meshReader.displaceMesh(displacement);
-  meshReader.scaleMesh(scalingMatrix);
+	meshReader.displaceMesh(displacement);
+	meshReader.scaleMesh(scalingMatrix);
 
-  const std::vector<Element>& elements = meshReader.getElements();
-  const std::vector<Vertex>& vertices = meshReader.getVertices();
-  const std::map<int, MPINeighbor>& mpiNeighbors = meshReader.getMPINeighbors();
+	const std::vector<Element>& elements = meshReader.getElements();
+	const std::vector<Vertex>& vertices = meshReader.getVertices();
+	const std::map<int, MPINeighbor>& mpiNeighbors = meshReader.getMPINeighbors();
 
-  // Compute maximum element for one vertex
-  size_t maxElements = 0;
-  for (std::vector<Vertex>::const_iterator i = vertices.begin(); i != vertices.end(); i++)
-    maxElements = std::max(maxElements, i->elements.size());
+	// Compute maximum element for one vertex
+	size_t maxElements = 0;
+	for (std::vector<Vertex>::const_iterator i = vertices.begin();
+			i != vertices.end(); i++)
+		maxElements = std::max(maxElements, i->elements.size());
 
-  allocelements(elements.size());
-  allocvertices(vertices.size(), maxElements);
-  allocbndobjs(mpiNeighbors.size());
+	allocelements(elements.size());
+	allocvertices(vertices.size(), maxElements);
+	allocbndobjs(mpiNeighbors.size());
 
-  // Set vertices
-  int size;
-  double* verticesXY;
-  int* verticesNElements;
-  int* verticesElements;
-  getverticesxy(&size, &verticesXY);
-  getverticesnelements(&size, &verticesNElements);
-  getverticeselements(&size, &verticesElements);
-  for (int i = 0; i < size; i++) {
-    for (int j = 0; j < 3; j++) {
-      verticesXY[i * 3 + j] = vertices[i].coords[j];
-    }
+	// Set vertices
+	int size;
+	double* verticesXY;
+	int* verticesNElements;
+	int* verticesElements;
+	getverticesxy(&size, &verticesXY);
+	getverticesnelements(&size, &verticesNElements);
+	getverticeselements(&size, &verticesElements);
+	for (int i = 0; i < size; i++) {
+		for (int j = 0; j < 3; j++) {
+			verticesXY[i*3+j] = vertices[i].coords[j];
+		}
 
-    verticesNElements[i] = vertices[i].elements.size();
+		verticesNElements[i] = vertices[i].elements.size();
 
-    for (unsigned int j = 0; j < vertices[i].elements.size(); j++) {
-      verticesElements[i + j * vertices.size()] = vertices[i].elements[j] + 1;
-    }
-  }
+		for (unsigned int j = 0; j < vertices[i].elements.size(); j++) {
+			verticesElements[i+j*vertices.size()] = vertices[i].elements[j] + 1;
+		}
+	}
 
-  // Set elements
-  int* elementVertices;
-  int* sideNeighbor;
-  int* localNeighborSide;
-  int* localNeighborVrtx;
-  int* reference;
-  int* mpiReference;
-  int* mpiNumber;
-  int* boundaryToObject;
-  getelementvertices(&size, &elementVertices);
-  getsideneighbor(&size, &sideNeighbor);
-  getlocalneighborside(&size, &localNeighborSide);
-  getlocalneighborvrtx(&size, &localNeighborVrtx);
-  getreference(&size, &reference);
-  getmpireference(&size, &mpiReference);
-  getmpinumber(&size, &mpiNumber);
-  getboundarytoobject(&size, &boundaryToObject);
+	// Set elements
+	int* elementVertices;
+	int* sideNeighbor;
+	int* localNeighborSide;
+	int* localNeighborVrtx;
+	int* reference;
+	int* mpiReference;
+	int* mpiNumber;
+	int* boundaryToObject;
+	getelementvertices(&size, &elementVertices);
+	getsideneighbor(&size, &sideNeighbor);
+	getlocalneighborside(&size, &localNeighborSide);
+	getlocalneighborvrtx(&size, &localNeighborVrtx);
+	getreference(&size, &reference);
+	getmpireference(&size, &mpiReference);
+	getmpinumber(&size, &mpiNumber);
+	getboundarytoobject(&size, &boundaryToObject);
 
-  for (int i = 0; i < size; i++) {
-    reference[i * 5] = elements[i].material;
+	for (int i = 0; i < size; i++) {
+		reference[i*5] = elements[i].group;
 
-    for (int j = 0; j < 4; j++) {
-      elementVertices[i * 4 + j] = elements[i].vertices[j] + 1;
+		for (int j = 0; j < 4; j++) {
+			elementVertices[i*4+j] = elements[i].vertices[j] + 1;
 
-      sideNeighbor[i * 4 + j] = elements[i].neighbors[j] + 1;
+			sideNeighbor[i*4+j] = elements[i].neighbors[j] + 1;
 
-      reference[i * 5 + j + 1] = elements[i].boundaries[j];
-      switch (reference[i * 5 + j + 1]) {
-      case 0:
-      case 3:
-      case 6:
-        localNeighborSide[i * 4 + j] = elements[i].neighborSides[j] + 1;
-        localNeighborVrtx[i * 4 + j] = elements[i].sideOrientations[j] + 1;
-        boundaryToObject[i * 4 + j] = 0;
-        break;
-      default:
-        localNeighborSide[i * 4 + j] = 1;
-        localNeighborVrtx[i * 4 + j] = 1;
-        boundaryToObject[i * 4 + j] = 1;
-      }
+			reference[i*5+j+1] = elements[i].boundaries[j];
+			switch(reference[i*5+j+1]) {
+			case 0:
+			case 3:
+			case 6:
+				localNeighborSide[i*4+j] = elements[i].neighborSides[j] + 1;
+				localNeighborVrtx[i*4+j] = elements[i].sideOrientations[j] + 1;
+				boundaryToObject[i*4+j] = 0;
+				break;
+			default:
+				localNeighborSide[i*4+j] = 1;
+				localNeighborVrtx[i*4+j] = 1;
+				boundaryToObject[i*4+j] = 1;
+			}
 
-      mpiReference[i * 5 + j + 1] = (elements[i].neighborRanks[j] == rank ? 0 : 1);
-      if (mpiReference[i * 5 + j + 1]) {
-        boundaryToObject[i * 4 + j] = mpiNeighbors.at(elements[i].neighborRanks[j]).localID + 1;
-        mpiNumber[i * 4 + j] = elements[i].mpiIndices[j] + 1;
-      } else {
-        mpiNumber[i * 4 + j] = -1;
-      }
-    }
-  }
+			mpiReference[i*5+j+1] = (elements[i].neighborRanks[j] == rank ? 0 : 1);
+			if (mpiReference[i*5+j+1]) {
+				boundaryToObject[i*4+j] = mpiNeighbors.at(elements[i].neighborRanks[j]).localID + 1;
+				mpiNumber[i*4+j] = elements[i].mpiIndices[j] + 1;
+			} else {
+				mpiNumber[i*4+j] = -1;
+			}
+		}
+	}
 
-  // Set Boundary objects
-  for (std::map<int, MPINeighbor>::const_iterator i = mpiNeighbors.begin(); i != mpiNeighbors.end();
-       i++) {
-    int localID = i->second.localID;
-    int* bnddomainelements;
-    setbndnelem(localID + 1, i->second.elements.size());
+	// Set Boundary objects
+	for (std::map<int, MPINeighbor>::const_iterator i = mpiNeighbors.begin(); i != mpiNeighbors.end(); i++) {
+		int localID = i->second.localID;
+		int* bnddomainelements;
+		setbndnelem(localID + 1, i->second.elements.size());
 
-    allocbndobj(localID + 1, i->second.elements.size());
+		allocbndobj(localID + 1, i->second.elements.size());
 
-    setbndrank(localID + 1, i->first);
-    getbnddomainelements(localID + 1, &size, &bnddomainelements);
+		setbndrank(localID + 1, i->first);
+		getbnddomainelements(localID + 1, &size, &bnddomainelements);
 
-    for (int j = 0; j < size; j++) {
-      bnddomainelements[j] = i->second.elements[j].localElement + 1;
-    }
-  }
+		for (int j = 0; j < size; j++) {
+			bnddomainelements[j] = i->second.elements[j].localElement + 1;
+		}
+	}
 
-  if (hasFault) {
-    logInfo(rank) << "Extracting fault information";
+	if (hasFault) {
+		logInfo(rank) << "Extracting fault information";
 
-    VrtxCoords center;
-    int refPointMethod;
-    getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
-    meshReader.findFault(center, refPointMethod);
+		VrtxCoords center;
+		int refPointMethod;
+		getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
+		meshReader.findFault(center, refPointMethod);
 
-    int* mpiNumberDr;
-    getmpinumberdr(&size, &mpiNumberDr);
+		int* mpiNumberDr;
+		getmpinumberdr(&size, &mpiNumberDr);
 
-    for (int i = 0; i < size; i++) {
-      for (int j = 0; j < 4; j++) {
-        if (elements[i].neighborRanks[j] == rank)
-          mpiNumberDr[i * 4 + j] = -1;
-        else
-          mpiNumberDr[i * 4 + j] = elements[i].mpiFaultIndices[j] + 1;
-      }
-    }
+		for (int i = 0; i < size; i++) {
+			for (int j = 0; j < 4; j++) {
+				if (elements[i].neighborRanks[j] == rank)
+					mpiNumberDr[i*4+j] = -1;
+				else
+					mpiNumberDr[i*4+j] = elements[i].mpiFaultIndices[j] + 1;
+			}
+		}
 
-    const std::vector<Fault>& fault = meshReader.getFault();
-    const std::map<int, std::vector<MPINeighborElement>>& mpiFaultNeighbors =
-        meshReader.getMPIFaultNeighbors();
+		const std::vector<Fault>& fault = meshReader.getFault();
+		const std::map<int, std::vector<MPINeighborElement> >& mpiFaultNeighbors = meshReader.getMPIFaultNeighbors();
 
-    allocfault(fault.size());
+		allocfault(fault.size());
 
-    if (meshReader.hasPlusFault())
-      hasplusfault();
+		if (meshReader.hasPlusFault())
+			hasplusfault();
 
-    if (fault.size() > 0) {
-      int* faultface;
-      double* faultnormals;
-      double* faulttangent1;
-      double* faulttangent2;
-      getfaultface(&size, &faultface);
-      getfaultnormals(&size, &faultnormals);
-      getfaulttangent1(&size, &faulttangent1);
-      getfaulttangent2(&size, &faulttangent2);
+		if (fault.size() > 0) {
+			int* faultface;
+			double* faultnormals;
+			double* faulttangent1;
+			double* faulttangent2;
+			getfaultface(&size, &faultface);
+			getfaultnormals(&size, &faultnormals);
+			getfaulttangent1(&size, &faulttangent1);
+			getfaulttangent2(&size, &faulttangent2);
 
-      for (int i = 0; i < size; i++) {
-        faultface[i] = fault[i].element + 1;
-        faultface[i + size] = fault[i].side + 1;
-        faultface[i + size * 2] = fault[i].neighborElement + 1;
-        faultface[i + size * 3] = fault[i].neighborSide + 1;
+			for (int i = 0; i < size; i++) {
+				faultface[i] = fault[i].element + 1;
+				faultface[i + size] = fault[i].side + 1;
+				faultface[i + size*2] = fault[i].neighborElement + 1;
+				faultface[i + size*3] = fault[i].neighborSide + 1;
 
-        memcpy(&faultnormals[i * 3], fault[i].normal, sizeof(double) * 3);
-        memcpy(&faulttangent1[i * 3], fault[i].tangent1, sizeof(double) * 3);
-        memcpy(&faulttangent2[i * 3], fault[i].tangent2, sizeof(double) * 3);
-      }
-    }
+				memcpy(&faultnormals[i*3], fault[i].normal, sizeof(double)*3);
+				memcpy(&faulttangent1[i*3], fault[i].tangent1, sizeof(double)*3);
+				memcpy(&faulttangent2[i*3], fault[i].tangent2, sizeof(double)*3);
+			}
+		}
 
-    for (std::map<int, std::vector<MPINeighborElement>>::const_iterator i =
-             mpiFaultNeighbors.begin();
-         i != mpiFaultNeighbors.end(); i++) {
-      int localID = mpiNeighbors.at(i->first).localID;
+		for (std::map<int, std::vector<MPINeighborElement> >::const_iterator i = mpiFaultNeighbors.begin();
+				i != mpiFaultNeighbors.end(); i++) {
+			int localID = mpiNeighbors.at(i->first).localID;
 
-      int* bndfaultelements;
+			int* bndfaultelements;
 
-      allocbndobjfault(localID + 1, i->second.size());
+			allocbndobjfault(localID + 1, i->second.size());
 
-      getbndfaultelements(localID + 1, &size, &bndfaultelements);
+			getbndfaultelements(localID + 1, &size, &bndfaultelements);
 
-      for (int j = 0; j < size; j++) {
-        bndfaultelements[j] = i->second[j].localElement + 1;
-      }
-    }
-  }
+			for (int j = 0; j < size; j++) {
+				bndfaultelements[j] = i->second[j].localElement + 1;
+			}
+		}
+	}
 
-  seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
+	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
 
-  // Setup the communicator for dynamic rupture
-  seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
+	// Setup the communicator for dynamic rupture
+	seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
 
-  // Call the post mesh initialization hook
-  seissol::Modules::callHook<seissol::POST_MESH>();
+	// Call the post mesh initialization hook
+	seissol::Modules::callHook<seissol::POST_MESH>();
 }
 
 extern "C" {
@@ -253,8 +251,8 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
   logInfo(rank) << "Reading Gambit mesh using fast reader";
   logInfo(rank) << "Parsing mesh and partition file:" << meshfile << ';' << partitionfile;
 
-  Stopwatch watch;
-  watch.start();
+  seissol::Stopwatch watch;
+	watch.start();
 
   seissol::SeisSol::main.setMeshReader(new GambitReader(rank, meshfile, partitionfile));
 
@@ -271,8 +269,8 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 #ifdef USE_NETCDF
   logInfo(rank) << "Reading netCDF mesh" << meshfile;
 
-  Stopwatch watch;
-  watch.start();
+  seissol::Stopwatch watch;
+	watch.start();
 
   seissol::SeisSol::main.setMeshReader(new NetcdfReader(rank, nProcs, meshfile));
 
@@ -316,8 +314,8 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
 
   logInfo(rank) << "Reading PUML mesh" << meshfile;
 
-  Stopwatch watch;
-  watch.start();
+  seissol::Stopwatch watch;
+	watch.start();
 
   bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 

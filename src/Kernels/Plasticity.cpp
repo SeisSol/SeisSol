@@ -321,7 +321,6 @@ namespace seissol::kernels {
       n2mKrnl.execute();
 
 
-
       // prepare memory
       const size_t QEtaNodalSize = tensor::QEtaNodal::Size * numElements * sizeof(real);
       real *QEtaNodal = reinterpret_cast<real*>(device.api->getStackMemory(QEtaNodalSize));
@@ -337,7 +336,6 @@ namespace seissol::kernels {
       real **dUdTpstrainPtrs = reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
 
       stackMemCounter += 6;
-
 
       device::aux::plasticity::adjustPointers(QEtaNodal,
                                               QEtaNodalPtrs,
@@ -364,7 +362,7 @@ namespace seissol::kernels {
                                                defaultStream);
 
 
-      /* Convert modal to nodal */
+      // Convert modal to nodal
       static_assert(kernel::gpu_plConvertToNodalNoLoading::TmpMaxMemRequiredInBytes == 0);
       kernel::gpu_plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
       m2nKrnl_dudt_pstrain.v = global->vandermondeMatrix;
@@ -381,7 +379,7 @@ namespace seissol::kernels {
                                                   numElements,
                                                   defaultStream);
 
-      /* Convert modal to nodal */
+      // Convert modal to nodal
       static_assert(kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
       kernel::gpu_plConvertEtaModal2Nodal m2n_eta_Krnl;
       m2n_eta_Krnl.v = global->vandermondeMatrix;
@@ -400,7 +398,7 @@ namespace seissol::kernels {
                                                numElements,
                                                defaultStream);
 
-      /* Convert nodal to modal */
+      // Convert nodal to modal
       static_assert(kernel::gpu_plConvertEtaNodal2Modal::TmpMaxMemRequiredInBytes == 0);
       kernel::gpu_plConvertEtaNodal2Modal n2m_eta_Krnl;
       n2m_eta_Krnl.vInv = global->vandermondeMatrixInverse;
@@ -426,7 +424,6 @@ namespace seissol::kernels {
                                   static_cast<char>(0),
                                   numElements * sizeof(int),
                                   defaultStream);
-
 
       for (unsigned i = 0; i < stackMemCounter; ++i) {
         device.api->popStackMemory();

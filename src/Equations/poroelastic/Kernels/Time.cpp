@@ -62,7 +62,7 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
 
 {
   alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
-  assert( ((uintptr_t)stp) % PAGESIZE_STACK  == 0);
+  assert( ((uintptr_t)stp) % ALIGNMENT  == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = m_krnlPrototype;

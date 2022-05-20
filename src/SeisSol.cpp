@@ -64,56 +64,49 @@
 #include "Reader/AsagiModule.h"
 #endif
 
-bool seissol::SeisSol::init(int argc, char* argv[])
+bool seissol::SeisSol::init(int argc, char *argv[])
 {
-	// Check if we need threadsafe MPI
-#ifdef USE_COMM_THREAD
-	MPI::mpi.requireThreadsafe();
-#endif
-	if (async::Config::mode() != async::SYNC)
-		MPI::mpi.requireThreadsafe();
-
 #ifdef USE_ASAGI
-	// Construct an instance of AsagiModule, to initialize it.
-	// It needs to be done here, as it registers PRE_MPI hooks
-	asagi::AsagiModule::getInstance();
+  // Construct an instance of AsagiModule, to initialize it.
+  // It needs to be done here, as it registers PRE_MPI hooks
+  asagi::AsagiModule::getInstance();
 #endif
-	// Call pre MPI hooks
-	seissol::Modules::callHook<seissol::PRE_MPI>();
+  // Call pre MPI hooks
+  seissol::Modules::callHook<seissol::PRE_MPI>();
 
 #if defined(ACL_DEVICE) && defined(USE_MPI)
   MPI::mpi.bindRankToDevice();
 #endif
 
-	MPI::mpi.init(argc, argv);
-	const int rank = MPI::mpi.rank();
+  MPI::mpi.init(argc, argv);
+  const int rank = MPI::mpi.rank();
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
   logInfo(rank) << "Copyright (c) 2012-2021, SeisSol Group";
-  logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
+  logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
   logInfo(rank) << "Version:" << VERSION_STRING;
 
-  if (MPI::mpi.rank() == 0) {
+  if (MPI::mpi.rank() == 0)
+  {
     constexpr size_t hostNameMaxLength = 100;
-    char hostname[hostNameMaxLength+1];
-    if (gethostname(hostname, hostNameMaxLength+1) == 0)
+    char hostname[hostNameMaxLength + 1];
+    if (gethostname(hostname, hostNameMaxLength + 1) == 0)
       logInfo() << "Running on:" << hostname;
   }
 
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
-  logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
-      pinning.getWorkerUnionMask());
-  logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
-      pinning.getNodeMask());
+  logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(pinning.getWorkerUnionMask());
+  logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(pinning.getNodeMask());
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
 #ifdef USE_COMM_THREAD
   logInfo(rank) << "Running with communication thread";
   auto freeCpus = pinning.getFreeCPUsMask();
   logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
-  if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+  if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus))
+  {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }
 #endif
@@ -129,48 +122,56 @@ bool seissol::SeisSol::init(int argc, char* argv[])
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
   rlimit rlim;
-  if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
+  if (getrlimit(RLIMIT_STACK, &rlim) == 0)
+  {
     const auto rlimInKb = rlim.rlim_cur / 1024;
     // Softlimit (rlim_cur) is enforced by the kernel.
     // This limit is pretty arbitrarily set at 2GB.
     const auto reasonableStackLimit = 2097152; // [kb]
-    if (rlim.rlim_cur == RLIM_INFINITY) {
+    if (rlim.rlim_cur == RLIM_INFINITY)
+    {
       logInfo(rank) << "The stack size ulimit is unlimited.";
-    } else {
+    }
+    else
+    {
       logInfo(rank) << "The stack size ulimit is " << rlimInKb
-		    << "[kb].";
+                    << "[kb].";
     }
-    if (rlimInKb < reasonableStackLimit) {
+    if (rlimInKb < reasonableStackLimit)
+    {
       logWarning(rank) << "Stack size of"
-		       << rlimInKb
-		       << "[kb] is lower than recommended minimum of"
-		       << reasonableStackLimit
-		       << "[kb]."
-		       << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
+                       << rlimInKb
+                       << "[kb] is lower than recommended minimum of"
+                       << reasonableStackLimit
+                       << "[kb]."
+                       << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
     }
-  } else {
+  }
+  else
+  {
     logError() << "Stack size cannot be determined because getrlimit syscall failed!";
   }
-  
+
   // Call post MPI initialization hooks
   seissol::Modules::callHook<seissol::POST_MPI_INIT>();
 
   // Parse command line arguments
   utils::Args args;
   args.addAdditionalOption("file", "The parameter file", false);
-  switch (args.parse(argc, argv)) {
+  switch (args.parse(argc, argv))
+  {
   case utils::Args::Help:
   case utils::Args::Error:
-	  MPI::mpi.finalize();
-	  exit(1);
-	  break;
+    MPI::mpi.finalize();
+    exit(1);
+    break;
   case utils::Args::Success:
-	  break;
+    break;
   }
 
   // Initialize the ASYNC I/O library
   if (!m_asyncIO.init())
-	  return false;
+    return false;
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
   m_memoryManager->initialize();
@@ -179,19 +180,19 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 void seissol::SeisSol::finalize()
 {
-	// Cleanup ASYNC I/O library
-	m_asyncIO.finalize();
+  // Cleanup ASYNC I/O library
+  m_asyncIO.finalize();
 
-	const int rank = MPI::mpi.rank();
+  const int rank = MPI::mpi.rank();
 
 #ifdef ACL_DEVICE
-	device::DeviceInstance &device = device::DeviceInstance::getInstance();
-	device.api->finalize();
+  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device.api->finalize();
 #endif
 
-	MPI::mpi.finalize();
+  MPI::mpi.finalize();
 
-	logInfo(rank) << "SeisSol done. Goodbye.";
+  logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
 seissol::SeisSol seissol::SeisSol::main;

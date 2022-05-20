@@ -64,6 +64,7 @@ namespace seissol {
         FSRM
       };
       enum Mode mode;
+
       /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
        *  basis function and xi_s, eta_s, and zeta_s are the space position
        *  of the point source in the reference tetrahedron. */
@@ -110,7 +111,7 @@ namespace seissol {
        **/
       unsigned numberOfPointSources;
       
-      CellToPointSourcesMapping() : dofs(NULL), pointSourcesOffset(0), numberOfPointSources(0) {}
+      CellToPointSourcesMapping() : dofs(nullptr), pointSourcesOffset(0), numberOfPointSources(0) {}
     };
     
     struct ClusterMapping {
@@ -119,7 +120,7 @@ namespace seissol {
       CellToPointSourcesMapping* cellToSources;
       unsigned                   numberOfMappings;
       
-      ClusterMapping() : sources(NULL), numberOfSources(0), cellToSources(NULL), numberOfMappings(0) {}
+      ClusterMapping() : sources(nullptr), numberOfSources(0), cellToSources(nullptr), numberOfMappings(0) {}
       ~ClusterMapping() { delete[] sources; numberOfSources = 0; delete[] cellToSources; numberOfMappings = 0; }
     };
   }

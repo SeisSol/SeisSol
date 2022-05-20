@@ -54,9 +54,9 @@ Installing HDF5
 
 .. code-block:: bash
 
-  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/src/hdf5-1.8.21.tar.bz2
-  tar -xaf hdf5-1.8.21.tar.bz2
-  cd hdf5-1.8.21
+  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.bz2
+  tar -xaf hdf5-1.10.8.tar.bz2
+  cd hdf5-1.10.8
   CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran 
   make -j8
   make install
@@ -76,6 +76,21 @@ Installing netCDF
   make -j8
   make install
   cd ..
+
+.. _installing_eigen3:
+
+Installing Eigen3
+-----------------
+
+.. code-block:: bash
+
+   wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+   tar -xf eigen-3.4.0.tar.gz
+   cd eigen-3.4.0
+   mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=~
+   make install
+   cd ../..
 
 .. _installing_libxsmm:
 
@@ -124,7 +139,10 @@ Additionally, one can install *chainforge* GEMM generator which can result in be
    pip3 install https://github.com/ravil-mobile/chainforge.git
 
 
-Installing ParMetis (Optional: PUML mesh format)
+
+.. _installing_parmetis:
+
+Installing ParMetis
 ------------------------------------------------
 
 .. code-block:: bash
@@ -163,6 +181,7 @@ including all submodules:
 .. code-block:: bash
 
    git clone https://github.com/SeisSol/SeisSol.git
+   cd SeisSol
    git submodule update --init
 
 Compile SeisSol with (e.g.)
