@@ -1,0 +1,7 @@
+
+      program test
+      @OpenMP_Fortran_INCLUDE_LINE@
+  !$  integer :: n
+      n = omp_get_num_threads()
+      end program test
+  

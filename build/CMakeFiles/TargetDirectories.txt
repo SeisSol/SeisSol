@@ -1,0 +1,8 @@
+/home/primrose/work/SS2/build/CMakeFiles/rebuild_cache.dir
+/home/primrose/work/SS2/build/CMakeFiles/edit_cache.dir
+/home/primrose/work/SS2/build/CMakeFiles/SeisSol-proxy.dir
+/home/primrose/work/SS2/build/CMakeFiles/SeisSol-proxy-core.dir
+/home/primrose/work/SS2/build/CMakeFiles/SeisSol-bin.dir
+/home/primrose/work/SS2/build/CMakeFiles/SeisSol-lib.dir
+/home/primrose/work/SS2/build/CMakeFiles/SeisSol-codegen.dir
+/home/primrose/work/SS2/build/CMakeFiles/build-time-make-directory.dir
