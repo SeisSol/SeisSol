@@ -71,7 +71,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   real lambdaPrime = drParameters.undrainedTPResponse * drParameters.thermalDiffusivity /
                      (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters.thermalDiffusivity);
 
-#pragma omp simd
+  #pragma omp simd
   for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w

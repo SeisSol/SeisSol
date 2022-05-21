@@ -1,121 +1,8 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.h"
 
 namespace seissol::dr::friction_law::gpu {
-void LinearSlipWeakeningBase::updateFrictionAndSlip(
-    FaultStresses& faultStresses,
-    TractionResults& tractionResults,
-    std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-    std::array<real, misc::numPaddedPoints>& strengthBuffer,
-    unsigned int ltsFace,
-    unsigned int timeIndex) {
-  // computes fault strength, which is the critical value whether active slip exists.
-  this->calcStrengthHook(faultStresses, strengthBuffer, timeIndex, ltsFace);
-  // computes resulting slip rates, traction and slip dependent on current friction
-  // coefficient and strength
-  this->calcSlipRateAndTraction(faultStresses, tractionResults, strengthBuffer, timeIndex, ltsFace);
-  this->calcStateVariableHook(stateVariableBuffer, timeIndex, ltsFace);
-  this->frictionFunctionHook(stateVariableBuffer, ltsFace);
-}
-
-void LinearSlipWeakeningBase::copySpecificLtsDataTreeToLocal(
-    seissol::initializers::Layer& layerData,
-    seissol::initializers::DynamicRupture* dynRup,
-    real fullUpdateTime) {
-  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
-  this->dC = layerData.var(concreteLts->dC);
-  this->muS = layerData.var(concreteLts->muS);
-  this->muD = layerData.var(concreteLts->muD);
-  this->cohesion = layerData.var(concreteLts->cohesion);
-}
-
-/**
- *  compute the slip rate and the traction from the fault strength and fault stresses
- *  also updates the directional slip1 and slip2
- */
-void LinearSlipWeakeningBase::calcSlipRateAndTraction(
-    FaultStresses& faultStresses,
-    TractionResults& tractionResults,
-    std::array<real, misc::numPaddedPoints>& strength,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    // calculate absolute value of stress in Y and Z direction
-    real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                         faultStresses.traction1[timeIndex][pointIndex];
-    real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                         faultStresses.traction2[timeIndex][pointIndex];
-    real absoluteShearStress = misc::magnitude(totalStressXY, totalStressXZ);
-    // calculate slip rates
-    this->slipRateMagnitude[ltsFace][pointIndex] =
-        std::max(static_cast<real>(0.0),
-                 (absoluteShearStress - strength[pointIndex]) * this->impAndEta[ltsFace].invEtaS);
-    auto divisor = strength[pointIndex] +
-                   this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
-    this->slipRate1[ltsFace][pointIndex] =
-        this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / divisor;
-    this->slipRate2[ltsFace][pointIndex] =
-        this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
-    // calculate traction
-    tractionResults.traction1[timeIndex][pointIndex] =
-        faultStresses.traction1[timeIndex][pointIndex] -
-        this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
-    tractionResults.traction2[timeIndex][pointIndex] =
-        faultStresses.traction2[timeIndex][pointIndex] -
-        this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
-    this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-    this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
-    // update directional slip
-    this->slip1[ltsFace][pointIndex] +=
-        this->slipRate1[ltsFace][pointIndex] * this->deltaT[timeIndex];
-    this->slip2[ltsFace][pointIndex] +=
-        this->slipRate2[ltsFace][pointIndex] * this->deltaT[timeIndex];
-  }
-}
-/**
- * evaluate friction law: updated mu -> friction law
- * for example see Carsten Uphoff's thesis: Eq. 2.45
- */
-void LinearSlipWeakeningBase::frictionFunctionHook(
-    std::array<real, misc::numPaddedPoints>& stateVariable, unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    this->mu[ltsFace][pointIndex] =
-        muS[ltsFace][pointIndex] -
-        (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
-  }
-}
-
-/**
- * Instantaneous healing option:
- * Reset Mu and Slip, if slipRateMagnitude drops below threshold
- * This function is currently not used, as we miss an appropriate benchmark.
- */
-void LinearSlipWeakeningBase::instantaneousHealing(unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    if (this->slipRateMagnitude[ltsFace][pointIndex] < u0) {
-      this->mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
-      this->accumulatedSlipMagnitude[ltsFace][pointIndex] = 0.0;
-    }
-  }
-}
-
-/*
- * output time when shear stress is equal to the dynamic stress after rupture arrived
- * currently only for linear slip weakening
- */
-void LinearSlipWeakeningBase::saveDynamicStressOutput(unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-    if (this->dynStressTimePending[pointIndex] &&
-        std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >= dC[ltsFace][pointIndex]) {
-      this->dynStressTime[ltsFace][pointIndex] = this->mFullUpdateTime;
-      this->dynStressTimePending[ltsFace][pointIndex] = false;
-    }
-  }
-}
-
-//--------------------------------------------------------------------------
-
 void LinearSlipWeakeningLaw::calcStrengthHook(FaultStresses& faultStresses,
-                                              std::array<real, misc::numPaddedPoints>& strength,
+                                              real (*strength)[misc::numPaddedPoints],
                                               unsigned int timeIndex,
                                               unsigned int ltsFace) {
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
@@ -124,16 +11,15 @@ void LinearSlipWeakeningLaw::calcStrengthHook(FaultStresses& faultStresses,
     // fault strength (Uphoff eq 2.44) with addition cohesion term
     real totalNormalStress = initialStressInFaultCS[ltsFace][pointIndex][0] +
                              faultStresses.normalStress[timeIndex][pointIndex];
-    strength[pointIndex] =
+    strength[ltsFace][pointIndex] =
         -cohesion[ltsFace][pointIndex] -
         mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
   }
 }
 
-void LinearSlipWeakeningLaw::calcStateVariableHook(
-    std::array<real, misc::numPaddedPoints>& stateVariable,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
+void LinearSlipWeakeningLaw::calcStateVariableHook(real (*stateVariable)[misc::numPaddedPoints],
+                                                   unsigned int timeIndex,
+                                                   unsigned int ltsFace) {
   alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
   dynamicRupture::kernel::resampleParameter resampleKrnl;
   resampleKrnl.resample = init::resample::Values;
@@ -154,7 +40,7 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(
     // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
     // actually slip is already the stateVariable for this FL, but to simplify the next equations we
     // divide it here by d_C
-    stateVariable[pointIndex] =
+    stateVariable[ltsFace][pointIndex] =
         std::min(std::fabs(accumulatedSlipMagnitude[ltsFace][pointIndex]) / dC[ltsFace][pointIndex],
                  static_cast<real>(1.0));
   }
@@ -174,14 +60,20 @@ void LinearSlipWeakeningLawForcedRuptureTime::copySpecificLtsDataTreeToLocal(
 }
 
 void LinearSlipWeakeningLawForcedRuptureTime::preHook(
-    std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
-  tn[ltsFace] = mFullUpdateTime;
+    real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  auto layerSize{this->currLayerSize};
+  auto fullUpdateTime{this->mFullUpdateTime};
+  auto* tn{this->tn};
+
+  #pragma omp target teams loop is_device_ptr(tn) \
+  firstprivate(fullUpdateTime) device(diviceId)
+  for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+    tn[ltsFace] = mFullUpdateTime;
+  }
 }
 
 void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
-    std::array<real, misc::numPaddedPoints>& stateVariable,
-    unsigned int timeIndex,
-    unsigned int ltsFace) {
+    real (*stateVariable)[misc::numPaddedPoints], unsigned int timeIndex, unsigned int ltsFace) {
   LinearSlipWeakeningLaw::calcStateVariableHook(stateVariable, timeIndex, ltsFace);
   tn[ltsFace] += deltaT[timeIndex];
 
@@ -201,7 +93,7 @@ void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
                    // m_fullUpdateTime, but this implementation is correct.
                    (tn[ltsFace] - forcedRuptureTime[ltsFace][pointIndex]) / drParameters.t0));
     }
-    stateVariable[pointIndex] = std::max(stateVariable[pointIndex], f2);
+    stateVariable[ltsFace][pointIndex] = std::max(stateVariable[ltsFace][pointIndex], f2);
   }
 }
 } // namespace seissol::dr::friction_law::gpu

@@ -26,8 +26,12 @@ format() {
 
     for dir in ${whitelist}; do
         path=${SEISSOL_SOURCE_DIR}/${dir}
-        find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx \
-            -iname *.cu | xargs -n1 ${formatter} -i -style=file
+        files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
+        for file in ${files}; do
+          sed -i 's/#pragma omp/\/\/#pragma omp/g' $file
+          ${formatter} -i -style=file $file
+          sed -i 's/\/\/ *#pragma omp/#pragma omp/g' $file
+        done
     done
 }
 
