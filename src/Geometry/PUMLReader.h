@@ -73,7 +73,7 @@ private:
 	/**
 	 * Create the partitioning
 	 */
-	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile, bool readPartitionFromFile, const char* checkPointFile);
+	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile, bool readPartitionFromFile, const char* checkPointFile, double maximumAllowedTimeStep);
 	int readPartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile);
 	void writePartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile);
 	/**

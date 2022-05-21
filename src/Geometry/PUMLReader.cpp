@@ -85,9 +85,8 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeS
   
 	if (ltsWeights != nullptr) {
 		generatePUML(puml);
-		ltsWeights->computeWeights(puml, maximumAllowedTimeStep);
 	}
-	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
+	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile, maximumAllowedTimeStep);
 
 	generatePUML(puml);
 
@@ -246,7 +245,8 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
                                       double tpwgt,
                                       const char *meshFile,
                                       bool readPartitionFromFile,
-                                      const char *checkPointFile )
+                                      const char *checkPointFile,
+									  double maximumAllowedTimeStep)
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -269,11 +269,18 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
     double* nodeWeights = &tpwgt;
 #endif
 
-    auto status = metis.partition(partition,
-                                  ltsWeights->vertexWeights(),
-                                  ltsWeights->imbalances(),
-                                  ltsWeights->nWeightsPerVertex(),
-                                  nodeWeights);
+    auto graph = metis.getGraph();
+	ltsWeights->computeNodeWeights(puml, maximumAllowedTimeStep);
+    ltsWeights->computeEdgeWeights(graph);
+    
+	auto status = metis.partition(partition, 
+								  ltsWeights->vertexWeights(), 
+								  ltsWeights->imbalances(),
+                                  ltsWeights->nWeightsPerVertex(), 
+								  nodeWeights,
+                                  ltsWeights->edgeWeights(), 
+								  ltsWeights->edgeCount());
+
 
     if (status == PUML::TETPartitionMetis::Status::Error) {
       logError() << "mesh partitioning step failed";

@@ -291,7 +291,8 @@ void read_mesh_puml_c(const char* meshfile,
                       double const scalingMatrix[3][3],
                       char const* easiVelocityModel,
                       int clusterRate,
-                      int ltsWeightsTypeId,
+                      int nodeWeightModelTypeId,
+					  int edgeWeightModelTypeId,
                       int vertexWeightElement,
                       int vertexWeightDynamicRupture,
                       int vertexWeightFreeSurfaceWithGravity,
@@ -330,28 +331,31 @@ void read_mesh_puml_c(const char* meshfile,
 	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 
 	using namespace seissol::initializers::time_stepping;
-	LtsWeightsConfig config {
-		easiVelocityModel,
-		static_cast<unsigned int>(clusterRate),
-		vertexWeightElement,
-		vertexWeightDynamicRupture,
-		vertexWeightFreeSurfaceWithGravity
-	};
+	LtsWeightsConfig config{easiVelocityModel, static_cast<unsigned int>(clusterRate),
+							vertexWeightElement, vertexWeightDynamicRupture,
+							vertexWeightFreeSurfaceWithGravity};
 
-	LtsWeightsTypes ltsWeightsType{};
+	NodeWeightModelTypes nodeWeightModelType{};
 	try {
-		ltsWeightsType = convertLtsIdToType(ltsWeightsTypeId);
-	}
-	catch (const std::runtime_error& error) {
+		nodeWeightModelType = convertNodeWeightModelTypeIdToType(nodeWeightModelTypeId);
+	} catch (const std::runtime_error& error) {
 		logError() << error.what();
 	}
 
-	auto ltsWeights = getLtsWeightsImplementation(ltsWeightsType, config);
+	EdgeWeightModelTypes edgeWeightModelType{};
+	try {
+		edgeWeightModelType = convertEdgeWeightModelTypeIdToType(edgeWeightModelTypeId);
+	} catch (const std::runtime_error& error) {
+		logError() << error.what();
+	}
+
+	auto ltsWeights = getLtsWeightsImplementation(nodeWeightModelType, edgeWeightModelType, config);
 	auto meshReader = new seissol::PUMLReader(meshfile, maximumAllowedTimeStep, checkPointFile,
-        ltsWeights.get(), tpwgt, readPartitionFromFile);
+												ltsWeights.get(), tpwgt, readPartitionFromFile);
 	seissol::SeisSol::main.setMeshReader(meshReader);
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+
 
 	watch.pause();
 	watch.printTime("Mesh initialized in:");
