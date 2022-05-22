@@ -14,7 +14,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
 
   void allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
                                seissol::initializers::DynamicRupture* drDescr,
-                               int diviceId);
+                               int deviceId);
 
   virtual void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
                                               seissol::initializers::DynamicRupture* dynRup,
@@ -25,12 +25,13 @@ class GpuBaseFrictionLaw : public FrictionSolver {
 
   size_t maxClusterSize{};
   size_t currLayerSize{};
-  int diviceId{};
+  int deviceId{};
 
   FaultStresses* faultStresses{nullptr};
   TractionResults* tractionResults{nullptr};
   real (*stateVariableBuffer)[misc::numPaddedPoints]{nullptr};
   real (*strengthBuffer)[misc::numPaddedPoints]{nullptr};
+  real* resampleMatrix{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

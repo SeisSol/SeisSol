@@ -24,21 +24,25 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   real (*muD)[misc::numPaddedPoints];
   real (*cohesion)[misc::numPaddedPoints];
 
-  void updateFrictionAndSlip(FaultStresses& faultStresses,
-                             TractionResults& tractionResults,
-                             real (*stateVariableBuffer)[misc::numPaddedPoints],
-                             real (*strengthBuffer)[misc::numPaddedPoints],
-                             unsigned int ltsFace,
-                             unsigned int timeIndex) {
-    // computes fault strength, which is the critical value whether active slip exists.
-    static_cast<Derived*>(this)->calcStrengthHook(
-        faultStresses, strengthBuffer, timeIndex, ltsFace);
-    // computes resulting slip rates, traction and slip dependent on current friction
-    // coefficient and strength
-    this->calcSlipRateAndTraction(
-        faultStresses, tractionResults, strengthBuffer, timeIndex, ltsFace);
-    static_cast<Derived*>(this)->calcStateVariableHook(stateVariableBuffer, timeIndex, ltsFace);
-    this->frictionFunctionHook(stateVariableBuffer, ltsFace);
+  void updateFrictionAndSlip() {
+    auto layerSize{this->currLayerSize};
+
+    #pragma omp target data                       \
+    map(to: deltaT[0:CONVERGENCE_ORDER])          \
+    device(deviceId)
+    {
+      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+        // computes fault strength, which is the critical value whether active slip exists.
+        static_cast<Derived*>(this)->calcStrengthHook(
+            this->faultStresses, this->strengthBuffer, timeIndex);
+        // computes resulting slip rates, traction and slip dependent on current friction
+        // coefficient and strength
+        this->calcSlipRateAndTraction(
+            this->faultStresses, this->tractionResults, this->strengthBuffer, timeIndex);
+        static_cast<Derived*>(this)->calcStateVariableHook(this->stateVariableBuffer, timeIndex);
+        this->frictionFunctionHook(this->stateVariableBuffer);
+      }
+    }
   }
 
   void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
@@ -55,42 +59,74 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  void calcSlipRateAndTraction(FaultStresses& faultStresses,
-                               TractionResults& tractionResults,
-                               real (*strength)[misc::numPaddedPoints],
-                               unsigned int timeIndex,
-                               unsigned int ltsFace) {
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      // calculate absolute value of stress in Y and Z direction
-      real totalStressXY = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                           faultStresses.traction1[timeIndex][pointIndex];
-      real totalStressXZ = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                           faultStresses.traction2[timeIndex][pointIndex];
-      real absoluteShearStress = misc::magnitude(totalStressXY, totalStressXZ);
-      // calculate slip rates
-      this->slipRateMagnitude[ltsFace][pointIndex] = std::max(
-          static_cast<real>(0.0),
-          (absoluteShearStress - strength[ltsFace][pointIndex]) * this->impAndEta[ltsFace].invEtaS);
-      auto divisor = strength[ltsFace][pointIndex] +
-                     this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
-      this->slipRate1[ltsFace][pointIndex] =
-          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / divisor;
-      this->slipRate2[ltsFace][pointIndex] =
-          this->slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
-      // calculate traction
-      tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
-      this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-      this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
-      // update directional slip
-      this->slip1[ltsFace][pointIndex] +=
-          this->slipRate1[ltsFace][pointIndex] * this->deltaT[timeIndex];
-      this->slip2[ltsFace][pointIndex] +=
-          this->slipRate2[ltsFace][pointIndex] * this->deltaT[timeIndex];
+  void calcSlipRateAndTraction(FaultStresses* faultStressesPtr,
+                               TractionResults* tractionResultsPtr,
+                               real (*strengthBuffer)[misc::numPaddedPoints],
+                               unsigned int timeIndex) {
+
+    auto layerSize{this->currLayerSize};
+    auto* initialStressInFaultCS{this->initialStressInFaultCS};
+    auto* impAndEta{this->impAndEta};
+    auto* slipRateMagnitude{this->slipRateMagnitude};
+    auto* slipRate1{this->slipRate1};
+    auto* slipRate2{this->slipRate2};
+    auto* traction1{this->traction1};
+    auto* traction2{this->traction2};
+    auto* slip1{this->slip1};
+    auto* slip2{this->slip2};
+    auto* deltaT{this->deltaT};
+
+    #pragma omp target teams loop                \
+    map(to: deltaT[0:CONVERGENCE_ORDER])         \
+    is_device_ptr(faultStressesPtr,              \
+                  tractionResultsPtr,            \
+                  strengthBuffer,                \
+                  initialStressInFaultCS,        \
+                  impAndEta,                     \
+                  slipRateMagnitude,             \
+                  slipRate1,                     \
+                  slipRate2,                     \
+                  traction1,                     \
+                  traction2,                     \
+                  slip1,                         \
+                  slip2)                         \
+    device(deviceId)
+    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+      auto& faultStresses = faultStressesPtr[ltsFace];
+      auto& tractionResults = tractionResultsPtr[ltsFace];
+      auto& strength = strengthBuffer[ltsFace];
+
+      #pragma omp loop bind(parallel)
+      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+        // calculate absolute value of stress in Y and Z direction
+        real totalStressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
+                             faultStresses.traction1[timeIndex][pointIndex];
+        real totalStressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
+                             faultStresses.traction2[timeIndex][pointIndex];
+        real absoluteShearStress = misc::magnitude(totalStressXY, totalStressXZ);
+        // calculate slip rates
+        slipRateMagnitude[ltsFace][pointIndex] =
+            std::max(static_cast<real>(0.0),
+                     (absoluteShearStress - strength[pointIndex]) * impAndEta[ltsFace].invEtaS);
+        auto divisor =
+            strength[pointIndex] + impAndEta[ltsFace].etaS * slipRateMagnitude[ltsFace][pointIndex];
+        slipRate1[ltsFace][pointIndex] =
+            slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / divisor;
+        slipRate2[ltsFace][pointIndex] =
+            slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
+        // calculate traction
+        tractionResults.traction1[timeIndex][pointIndex] =
+            faultStresses.traction1[timeIndex][pointIndex] -
+            impAndEta[ltsFace].etaS * slipRate1[ltsFace][pointIndex];
+        tractionResults.traction2[timeIndex][pointIndex] =
+            faultStresses.traction2[timeIndex][pointIndex] -
+            impAndEta[ltsFace].etaS * slipRate2[ltsFace][pointIndex];
+        traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
+        traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
+        // update directional slip
+        slip1[ltsFace][pointIndex] += slipRate1[ltsFace][pointIndex] * deltaT[timeIndex];
+        slip2[ltsFace][pointIndex] += slipRate2[ltsFace][pointIndex] * deltaT[timeIndex];
+      }
     }
   }
 
@@ -98,11 +134,24 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  void frictionFunctionHook(real (*stateVariable)[misc::numPaddedPoints], unsigned int ltsFace) {
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      this->mu[ltsFace][pointIndex] =
-          muS[ltsFace][pointIndex] - (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) *
-                                         stateVariable[ltsFace][pointIndex];
+  void frictionFunctionHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+    auto layerSize{this->currLayerSize};
+    auto* mu{this->mu};
+    auto* muS{this->muS};
+    auto* muD{this->muD};
+
+    #pragma omp target teams loop \
+    is_device_ptr(stateVariableBuffer, mu, muS, muD) \
+    device(deviceId)
+    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+      auto& stateVariable = stateVariableBuffer[ltsFace];
+
+      #pragma omp loop bind(parallel)
+      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+        mu[ltsFace][pointIndex] =
+            muS[ltsFace][pointIndex] -
+            (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
+      }
     }
   }
 
@@ -127,17 +176,17 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   void saveDynamicStressOutput() {
     auto layerSize{this->currLayerSize};
     auto fullUpdateTime{this->mFullUpdateTime};
-    auto* dC = this->dC;
-    auto* dynStressTime = this->dynStressTime;
-    auto* dynStressTimePending = this->dynStressTimePending;
-    auto* accumulatedSlipMagnitude = this->accumulatedSlipMagnitude;
+    auto* dynStressTime{this->dynStressTime};
+    auto* dynStressTimePending{this->dynStressTimePending};
+    auto* accumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
+    auto* dC{this->dC};
 
     #pragma omp target teams loop           \
-    is_device_ptr(dynStressTimePending,     \
+    is_device_ptr(dynStressTime,            \
+                  dynStressTimePending,     \
                   accumulatedSlipMagnitude, \
-                  dynStressTime,            \
                   dC)                       \
-    device(diviceId)
+    device(deviceId)
     for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
       #pragma omp loop bind(parallel)
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
@@ -167,14 +216,11 @@ class LinearSlipWeakeningLaw : public LinearSlipWeakeningBase<LinearSlipWeakenin
   void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]){};
   void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]){};
 
-  void calcStrengthHook(FaultStresses& faultStresses,
-                        real (*strength)[misc::numPaddedPoints],
-                        unsigned int timeIndex,
-                        unsigned int ltsFace);
+  void calcStrengthHook(FaultStresses* faultStressesPtr,
+                        real (*strengthBuffer)[misc::numPaddedPoints],
+                        unsigned int timeIndex);
 
-  void calcStateVariableHook(real (*stateVariable)[misc::numPaddedPoints],
-                             unsigned int timeIndex,
-                             unsigned int ltsFace);
+  void calcStateVariableHook(real (*stateVariable)[misc::numPaddedPoints], unsigned int timeIndex);
 };
 
 class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
@@ -190,9 +236,7 @@ class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
                                       seissol::initializers::DynamicRupture* dynRup,
                                       real fullUpdateTime);
 
-  void calcStateVariableHook(real (*stateVariable)[misc::numPaddedPoints],
-                             unsigned int timeIndex,
-                             unsigned int ltsFace);
+  void calcStateVariableHook(real (*stateVariable)[misc::numPaddedPoints], unsigned int timeIndex);
 };
 } // namespace seissol::dr::friction_law::gpu
 
