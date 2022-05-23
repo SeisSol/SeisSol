@@ -232,7 +232,16 @@ TEST_CASE("DR Geometry") {
     VrtxCoords minusElementCoords[4]{
         {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -2.0}};
 
-    auto basisFunctions = getPlusMinusBasisFunctions(point, plusElementCoords, minusElementCoords);
+    const VrtxCoords* plusElementCoordsPtr[4]{
+        &plusElementCoords[0], &plusElementCoords[1], &plusElementCoords[2], &plusElementCoords[3]};
+
+    const VrtxCoords* minusElementCoordsPtr[4]{&minusElementCoords[0],
+                                               &minusElementCoords[1],
+                                               &minusElementCoords[2],
+                                               &minusElementCoords[3]};
+
+    auto basisFunctions =
+        getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);
 
     constexpr double epsilon = 1e-6;
     for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {

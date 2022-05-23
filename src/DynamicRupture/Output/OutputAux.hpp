@@ -43,8 +43,8 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const VrtxCoords faceNormal);
 
 PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords point,
-                                                    VrtxCoords plusElementCoords[4],
-                                                    VrtxCoords minusElementCoords[4]);
+                                                    const VrtxCoords* plusElementCoords[4],
+                                                    const VrtxCoords* minusElementCoords[4]);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverPoints);
 

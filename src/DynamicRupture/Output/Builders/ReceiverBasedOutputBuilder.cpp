@@ -12,9 +12,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   const auto& verticesInfo = meshReader->getVertices();
   const auto& mpiNeighborVertices = meshReader->getMPINeighborVertices();
 
-  constexpr size_t numDims{3};
   constexpr size_t numSides{4};
-
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
       auto elementIndex = faultInfo[point.faultFaceIndex].element;
@@ -22,33 +20,29 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
-      VrtxCoords elemCoords[4]{};
+      const VrtxCoords* elemCoords[numSides]{};
       for (size_t side = 0; side < numSides; ++side) {
         auto vertexIdx = elementsInfo[elementIndex].vertices[side];
-        for (size_t dim = 0; dim < numDims; ++dim) {
-          elemCoords[side][dim] = verticesInfo[vertexIdx].coords[dim];
-        }
+        elemCoords[side] = &(verticesInfo[vertexIdx].coords);
       }
 
-      VrtxCoords neighborElemCoords[4]{};
+      const VrtxCoords* neighborElemCoords[numSides]{};
       if (neighborElementIndex >= 0) {
         for (size_t side = 0; side < numSides; ++side) {
-          for (size_t dim = 0; dim < numDims; ++dim) {
-            neighborElemCoords[side][dim] =
-                verticesInfo[elementsInfo[neighborElementIndex].vertices[side]].coords[dim];
-          }
+          auto vertexIdx = elementsInfo[neighborElementIndex].vertices[side];
+          neighborElemCoords[side] = &(verticesInfo[vertexIdx].coords);
         }
       } else {
-        auto side = faultInfo[point.faultFaceIndex].side;
-        auto neighborRank = element.neighborRanks[side];
+        auto faultSide = faultInfo[point.faultFaceIndex].side;
+        auto neighborRank = element.neighborRanks[faultSide];
         const auto& neighborVerticesItr = mpiNeighborVertices.find(neighborRank);
         assert(neighborVerticesItr != mpiNeighborVertices.end());
 
-        auto neighborIndex = element.mpiIndices[side];
+        auto neighborIndex = element.mpiIndices[faultSide];
         for (size_t side = 0; side < numSides; ++side) {
-          for (size_t dim = 0; dim < numDims; ++dim) {
-            neighborElemCoords[side][dim] = neighborVerticesItr->second[neighborIndex][side][dim];
-          }
+          const auto& array3d = neighborVerticesItr->second[neighborIndex][side];
+          auto* data = const_cast<double*>(array3d.data());
+          neighborElemCoords[side] = reinterpret_cast<double(*)[3]>(data);
         }
       }
 
