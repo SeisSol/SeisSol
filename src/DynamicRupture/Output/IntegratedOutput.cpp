@@ -31,14 +31,16 @@ double IntegratedOutput::getSeismicMomentRate(IntegratedOutputData& outputData) 
     auto* slipRate1 = (layer->var(drDescr->slipRate1))[ltsId];
     auto* slipRate2 = (layer->var(drDescr->slipRate2))[ltsId];
 
-    double averageSr{0.0};
+    double averageSlipRate{0.0};
     for (size_t point = 0; point < misc::numberOfBoundaryGaussPoints; ++point) {
-      real normSlipRate = slipRate1[point] * slipRate1[point] + slipRate2[point] * slipRate2[point];
-      averageSr += std::sqrt(normSlipRate) / static_cast<double>(misc::numberOfBoundaryGaussPoints);
+      real normSlipRateSquared =
+          slipRate1[point] * slipRate1[point] + slipRate2[point] * slipRate2[point];
+      averageSlipRate +=
+          std::sqrt(normSlipRateSquared) / static_cast<double>(misc::numberOfBoundaryGaussPoints);
     }
 
     auto lambda = outputData.lambda[faceIndex];
-    momentRate += averageSr * lambda * outputData.surfaceAreas[faceIndex];
+    momentRate += averageSlipRate * lambda * outputData.surfaceAreas[faceIndex];
   }
   return momentRate;
 }

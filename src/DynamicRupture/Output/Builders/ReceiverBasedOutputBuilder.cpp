@@ -90,8 +90,8 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
     const auto* const faceNormal = outputData->faultDirections[receiverId].faceNormal;
-    auto* const strike = outputData->faultDirections[receiverId].strike;
-    auto* const dip = outputData->faultDirections[receiverId].dip;
+    const auto* const strike = outputData->faultDirections[receiverId].strike;
+    const auto* const dip = outputData->faultDirections[receiverId].dip;
     const auto* const tangent1 = outputData->faultDirections[receiverId].tangent1;
     const auto* const tangent2 = outputData->faultDirections[receiverId].tangent2;
 

@@ -230,29 +230,6 @@ real computeTriangleArea(ExtTriangle& triangle) {
   auto normal = vector1.cross(vector2);
   return 0.5 * normal.norm();
 }
-
-void computeTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly) {
-  assert(numPoly > 0);
-  unsigned idx = 0;
-  for (unsigned int d = 0; d <= static_cast<unsigned>(numPoly); ++d) {
-    for (unsigned int j = 0; j <= d; ++j) {
-      phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
-    }
-  }
-}
-
-void computeGradTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly) {
-  assert(numPoly > 0);
-  unsigned idx = 0;
-  for (unsigned int d = 0; d <= static_cast<unsigned>(numPoly); ++d) {
-    for (unsigned int j = 0; j <= d; ++j) {
-      auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
-      for (auto const& g : grad) {
-        phis[idx++] = g;
-      }
-    }
-  }
-}
 } // namespace seissol::dr
 
 namespace seissol::dr::os_support {

@@ -50,9 +50,6 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT
 
 real computeTriangleArea(ExtTriangle& triangle);
 
-void computeTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly);
-void computeGradTriDubinerPolynomials(double* phis, double xi, double eta, int numPoly);
-
 template <int Size>
 std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& boolMask) {
   auto intMask = std::unique_ptr<int[]>(new int[boolMask.size()]);

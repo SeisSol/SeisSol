@@ -36,11 +36,11 @@ class ReceiverBasedOutput {
   virtual real computeLocalStrength() = 0;
   virtual real computeInternalPressure() { return 0.0; }
   void updateLocalTractions(real strength);
-  virtual void computeSlipAndRate(std::array<real, 6>&, std::array<real, 6>&);
-  void computeSlipAndRate(const double* tangent1,
-                          const double* tangent2,
-                          const double* strike,
-                          const double* dip);
+  virtual void computeSlipRate(std::array<real, 6>&, std::array<real, 6>&);
+  void computeSlipRate(const double* tangent1,
+                       const double* tangent2,
+                       const double* strike,
+                       const double* dip);
 
   virtual void adjustRotatedTractionAndStresses(std::array<real, 6>& rotatedTraction,
                                                 std::array<real, 6>& rotatedLocalStress){};

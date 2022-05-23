@@ -10,17 +10,17 @@
 struct NativeFormat {};
 struct WideFormat {};
 template <typename T, typename U = NativeFormat>
-struct FormattedBuildInType {
+struct FormattedBuildinType {
   T value;
 };
 
 template <typename T, typename U = NativeFormat>
 auto makeFormatted(T value) {
-  return FormattedBuildInType<T, U>{value};
+  return FormattedBuildinType<T, U>{value};
 }
 
 template <typename T, typename U = NativeFormat>
-std::ostream& operator<<(std::ostream& stream, FormattedBuildInType<T, U> obj) {
+std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   if constexpr (std::is_floating_point_v<T>) {
     stream << std::setprecision(16) << std::scientific << obj.value;
   } else if constexpr (std::is_integral_v<T> && std::is_same_v<U, WideFormat>) {
@@ -178,7 +178,7 @@ void OutputManager::initPickpointOutput() {
   std::stringstream baseHeader;
   baseHeader << "VARIABLES = \"Time\"";
   size_t labelCounter = 0;
-  auto collectVariableNames = [&baseHeader, &labelCounter](auto& var, int i) {
+  auto collectVariableNames = [&baseHeader, &labelCounter](auto& var, int) {
     if (var.isActive) {
       for (int dim = 0; dim < var.dim(); ++dim) {
         baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << '\"';
