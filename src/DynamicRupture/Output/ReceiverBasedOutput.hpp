@@ -45,8 +45,6 @@ class ReceiverBasedOutput {
   virtual void adjustRotatedTractionAndStresses(std::array<real, 6>& rotatedTraction,
                                                 std::array<real, 6>& rotatedLocalStress){};
 
-  int getClosestInternalGp(int nearestGpIndex, int nPoly);
-
   virtual void
       outputSpecifics(ReceiverBasedOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
@@ -63,6 +61,7 @@ class ReceiverBasedOutput {
     seissol::initializers::Layer* layer{};
     size_t ltsId{};
     int nearestGpIndex{};
+    int nearestInternalGpIndex{};
 
     real iniTraction1{};
     real iniTraction2{};

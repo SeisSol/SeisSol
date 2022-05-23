@@ -30,6 +30,8 @@ std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
 
 void assignNearestGaussianPoints(ReceiverPointsT& geoPoints);
 
+int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
+
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            unsigned numFacePoints);

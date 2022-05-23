@@ -172,4 +172,18 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     outputData->jacobianT2d[receiverId] = matrix.inverse();
   }
 }
+
+void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
+  auto& geoPoints = outputData->receiverPoints;
+  constexpr int numPoly = CONVERGENCE_ORDER - 1;
+
+#ifdef dunavant
+  logWarning() << "computing internal gaussian points based on the Stroud rule";
+#endif
+
+  for (auto& geoPoint : geoPoints) {
+    assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
+    geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, numPoly);
+  }
+}
 } // namespace seissol::dr::output

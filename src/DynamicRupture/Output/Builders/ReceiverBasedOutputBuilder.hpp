@@ -26,6 +26,7 @@ class ReceiverBasedOutputBuilder {
   void initRotationMatrices();
   void initOutputVariables(std::array<bool, std::tuple_size<DrVarsT>::value>& outputMask);
   void initJacobian2dMatrices();
+  void assignNearestInternalGaussianPoints();
 
   protected:
   const MeshReader* meshReader{};

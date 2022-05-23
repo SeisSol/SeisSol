@@ -146,6 +146,23 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
   }
 }
 
+int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
+  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
+  int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
+  if (i1 == 1) {
+    i1 = i1 + 1;
+  } else if (i1 == (nPoly + 2)) {
+    i1 = i1 - 1;
+  }
+
+  if (j1 == 1) {
+    j1 = j1 + 1;
+  } else if (j1 == (nPoly + 2)) {
+    j1 = j1 - 1;
+  }
+  return (i1 - 1) * (nPoly + 2) + j1;
+}
+
 void projectPointToFace(ExtVrtxCoords& point,
                         const ExtTriangle& face,
                         const VrtxCoords faceNormal) {

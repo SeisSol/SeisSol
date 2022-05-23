@@ -54,6 +54,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     local.layer = ltsMap.first;
     local.ltsId = ltsMap.second;
     local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
+    local.nearestInternalGpIndex = outputData.receiverPoints[i].nearestInternalGpIndex;
 
     local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
@@ -320,23 +321,6 @@ void ReceiverBasedOutput::computeSlipRate(const double* tangent1,
   }
 }
 
-int ReceiverBasedOutput::getClosestInternalGp(int nearestGpIndex, int nPoly) {
-  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
-  int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
-  if (i1 == 1) {
-    i1 = i1 + 1;
-  } else if (i1 == (nPoly + 2)) {
-    i1 = i1 - 1;
-  }
-
-  if (j1 == 1) {
-    j1 = j1 + 1;
-  } else if (j1 == (nPoly + 2)) {
-    j1 = j1 - 1;
-  }
-  return (i1 - 1) * (nPoly + 2) + j1;
-}
-
 real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
   auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
   real ruptureVelocity = 0.0;
@@ -378,9 +362,8 @@ real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jaco
       projectedRT[d] *= m2inv(d, d);
     }
 
-    auto nearestGpIndex = getClosestInternalGp(local.nearestGpIndex, numPoly);
-    real chi = chiTau2dPoints(nearestGpIndex, 0);
-    real tau = chiTau2dPoints(nearestGpIndex, 1);
+    real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
+    real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
 
     basisFunction::TriDubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
