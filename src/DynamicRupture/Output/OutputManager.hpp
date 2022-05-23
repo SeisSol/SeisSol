@@ -3,9 +3,7 @@
 
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
-#include "DynamicRupture/Output/Builders/IntegratedOutputBuilder.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
-#include "DynamicRupture/Output/IntegratedOutput.hpp"
 #include <iostream>
 #include <memory>
 
@@ -26,8 +24,6 @@ class OutputManager {
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
   void updateElementwiseOutput();
-  void writeMomentMagnitude();
-  void writeMomentRate(double time, double dt);
   void incrementIteration() { ++iterationStep; };
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* description,
@@ -37,17 +33,12 @@ class OutputManager {
   bool isAtPickpoint(double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
-  void initIntegratedOutput();
-  void initMomentRateOutput();
-  void initMagnitudeOutput();
 
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
-  std::unique_ptr<IntegratedOutputBuilder> integratedOutputBuilder{nullptr};
 
   ReceiverBasedOutputData ewOutputData{};
   ReceiverBasedOutputData ppOutputData{};
-  IntegratedOutputData integratedOutputData{};
 
   GeneralParamsT generalParams;
   ElementwiseFaultParamsT elementwiseParams{};
@@ -66,7 +57,6 @@ class OutputManager {
   static constexpr double timeMargin{1.005};
 
   std::unique_ptr<ReceiverBasedOutput> impl{nullptr};
-  IntegratedOutput integratedOutput{};
 };
 } // namespace seissol::dr::output
 

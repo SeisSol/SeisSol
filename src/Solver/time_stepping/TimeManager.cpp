@@ -303,7 +303,6 @@ void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady(const 
 
         e_interoperability.faultOutput(printTime, firstCluster->timeStepWidth());
         m_faultOutputManager->writePickpointOutput(printTime, firstCluster->timeStepWidth());
-        m_faultOutputManager->writeMomentRate(printTime, firstCluster->timeStepWidth());
         m_faultOutputManager->incrementIteration();
 
         this->lastPrintTime = printTime;

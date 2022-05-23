@@ -163,11 +163,6 @@ struct ReceiverBasedOutputData {
   size_t maxCacheLevel{50};
   bool isActive{false};
 };
-
-struct IntegratedOutputData {
-  std::vector<double> surfaceAreas{};
-  std::vector<double> lambda{};
-};
 } // namespace seissol::dr
 
 #endif // SEISSOL_DR_OUTPUT_DATA_TYPES_HPP

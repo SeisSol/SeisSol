@@ -112,9 +112,6 @@ void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userM
   if (!elementwiseEnabled && !pointEnabled) {
     logInfo() << "No dynamic rupture output enabled";
   }
-  if (generalParams.isEnergyRateOutputOn || generalParams.isMagnitudeOutputOn) {
-    integratedOutputBuilder = std::make_unique<IntegratedOutputBuilder>();
-  }
 }
 
 void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
@@ -128,12 +125,6 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
   impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
-
-  if (integratedOutputBuilder) {
-    const auto numFaultElements = meshReader->getFault().size();
-    integratedOutput.setLtsData(drDescr, numFaultElements);
-    integratedOutputBuilder->setLtsData(wpTree, wpDescr, wpLut);
-  }
 }
 
 void OutputManager::initElementwiseOutput() {
@@ -221,47 +212,12 @@ void OutputManager::initPickpointOutput() {
   }
 }
 
-void OutputManager::initMomentRateOutput() {
-  std::string fileName{};
-  fileName = buildMPIFileName(generalParams.outputFilePrefix, "new-EnF_t");
-  os_support::backupFile(fileName, "dat");
-  fileName += ".dat";
-  std::ofstream file(fileName, std::ios_base::app);
-  if (file.is_open()) {
-    file << "#time\tMomentRate\n";
-  } else {
-    logError() << "cannot open " << fileName;
-  }
-  file.close();
-}
-
-void OutputManager::initMagnitudeOutput() {
-  auto fileName = buildFileName(generalParams.outputFilePrefix, "new-MAG");
-  os_support::backupFile(fileName, "dat");
-}
-
-void OutputManager::initIntegratedOutput() {
-  integratedOutputBuilder->setMeshReader(meshReader);
-  integratedOutputBuilder->build(&integratedOutputData);
-}
-
 void OutputManager::init() {
   if (ewOutputBuilder) {
     initElementwiseOutput();
   }
   if (ppOutputBuilder) {
     initPickpointOutput();
-  }
-  if (integratedOutputBuilder) {
-    initIntegratedOutput();
-
-    if (generalParams.isMagnitudeOutputOn) {
-      initMagnitudeOutput();
-    }
-
-    if (generalParams.isEnergyRateOutputOn) {
-      initMomentRateOutput();
-    }
   }
 }
 
@@ -282,10 +238,6 @@ void OutputManager::initFaceToLtsMap() {
     }
   }
   impl->setFaceToLtsMap(&faceToLtsMap);
-
-  if (integratedOutputBuilder) {
-    integratedOutput.setFaceToLtsMap(&faceToLtsMap);
-  }
 }
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
@@ -355,57 +307,5 @@ void OutputManager::tiePointers(seissol::initializers::Layer& layerData,
                                 seissol::initializers::DynamicRupture* description,
                                 seissol::Interoperability& eInteroperability) {
   impl->tiePointers(layerData, description, eInteroperability);
-}
-
-void OutputManager::writeMomentMagnitude() {
-  if (drTree && generalParams.isMagnitudeOutputOn) {
-    auto moment = integratedOutput.getSeismicMoment(integratedOutputData);
-
-    long double momentSum{};
-    int localRank{0};
-#ifdef USE_MPI
-    localRank = MPI::mpi.rank();
-    MPI::mpi.comm();
-    MPI_Reduce(&moment, &momentSum, 1, MPI_LONG_DOUBLE, MPI_SUM, 0, MPI::mpi.comm());
-#else
-    momentSum = moment;
-#endif
-
-    if (localRank == 0) {
-      real base{6.07};
-      logInfo() << "seismic moment " << momentSum << " Mw "
-                << (2. / 3.) * std::log10(momentSum) - base;
-
-      auto fileName = buildFileName(generalParams.outputFilePrefix, "new-MAG", "dat");
-      std::ofstream file(fileName, std::ios_base::app);
-      if (file.is_open()) {
-        file << momentSum << std::endl;
-      } else {
-        logError() << "cannot open " << fileName;
-      }
-      file.close();
-    }
-  }
-}
-
-void OutputManager::writeMomentRate(double time, double dt) {
-  if (drTree && generalParams.isEnergyRateOutputOn) {
-    const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
-    const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
-    const bool isReady = (iterationStep % generalParams.energyRatePrintTimeInterval) == 0;
-
-    if (isReady || isCloseToTimeOut) {
-      auto momentRate = integratedOutput.getSeismicMomentRate(integratedOutputData);
-
-      auto fileName = buildMPIFileName(generalParams.outputFilePrefix, "new-EnF_t", "dat");
-      std::ofstream file(fileName, std::ios_base::app);
-      if (file.is_open()) {
-        file << makeFormatted(time) << '\t' << makeFormatted(momentRate) << '\n';
-      } else {
-        logError() << "cannot open " << fileName;
-      }
-      file.close();
-    }
-  }
 }
 } // namespace seissol::dr::output
