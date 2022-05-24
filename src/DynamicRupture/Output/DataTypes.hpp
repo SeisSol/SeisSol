@@ -100,9 +100,11 @@ enum class OutputType : int {
   AtPickpointAndElementwise = 5
 };
 
+enum class SlipRateOutputType { VelocityDifference, TractionsAndFailure };
+
 struct GeneralParamsT {
   OutputType outputPointType{OutputType::None};
-  int slipRateOutputType{1};
+  SlipRateOutputType slipRateOutputType{SlipRateOutputType::TractionsAndFailure};
   int frictionLawType{0};
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};

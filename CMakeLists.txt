@@ -29,8 +29,8 @@ endif()
 #                     NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
-#                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS
-#
+#                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
+#                     DR_QUAD_RULE
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
 include(cmake/process_users_input.cmake)
@@ -324,9 +324,10 @@ target_include_directories(SeisSol-lib PUBLIC
 
 target_compile_definitions(SeisSol-lib PUBLIC
     CONVERGENCE_ORDER=${ORDER}
-	NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
-	NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-	ENABLE_MATRIX_PREFETCH
+    NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+    NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+    ENABLE_MATRIX_PREFETCH
+    ${DR_QUAD_RULE}
 )
 
 

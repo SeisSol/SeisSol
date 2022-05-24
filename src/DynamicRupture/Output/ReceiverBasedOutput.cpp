@@ -137,10 +137,15 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedLocalStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    if (generalParams.slipRateOutputType) {
+    switch (generalParams.slipRateOutputType) {
+    case SlipRateOutputType::TractionsAndFailure: {
       this->computeSlipRate(rotatedTraction, rotatedLocalStress);
-    } else {
+      break;
+    }
+    case SlipRateOutputType::VelocityDifference: {
       this->computeSlipRate(tangent1, tangent2, strike, dip);
+      break;
+    }
     }
 
     adjustRotatedTractionAndStresses(rotatedTraction, rotatedLocalStress);
