@@ -53,8 +53,10 @@ class RateAndState : public ReceiverBasedOutput {
 
   protected:
   real computeLocalStrength() override {
-    auto resultingPressure = local.pressure + local.iniPressure - local.internalPressure;
-    return -1.0 * local.frictionCoefficient * std::min(resultingPressure, static_cast<real>(0.0));
+    auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    return -1.0 * local.frictionCoefficient *
+           std::min(effectiveNormalStress, static_cast<real>(0.0));
   }
 };
 } // namespace seissol::dr::output

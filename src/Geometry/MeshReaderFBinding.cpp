@@ -232,7 +232,7 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		}
 	}
 
-	meshReader.findMPINeighborVertices();
+	meshReader.exchangeVerticesWithMPINeighbors();
 
 	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
 

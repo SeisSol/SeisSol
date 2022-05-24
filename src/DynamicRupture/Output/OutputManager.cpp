@@ -187,7 +187,7 @@ void OutputManager::initPickpointOutput() {
 
     auto fileName =
         buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "new-faultreceiver");
-    os_support::backupFile(fileName, "dat");
+    os_support::generateBackupFileIfNecessary(fileName, "dat");
     fileName += ".dat";
 
     if (!std::filesystem::exists(fileName)) {

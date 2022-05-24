@@ -34,7 +34,7 @@ class ReceiverBasedOutput {
   void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses();
   virtual real computeLocalStrength() = 0;
-  virtual real computeInternalPressure() { return 0.0; }
+  virtual real computeFluidPressure() { return 0.0; }
   void updateLocalTractions(real strength);
   virtual void computeSlipRate(std::array<real, 6>&, std::array<real, 6>&);
   void computeSlipRate(const double* tangent1,
@@ -42,8 +42,8 @@ class ReceiverBasedOutput {
                        const double* strike,
                        const double* dip);
 
-  virtual void adjustRotatedTractionAndStresses(std::array<real, 6>& rotatedTraction,
-                                                std::array<real, 6>& rotatedLocalStress){};
+  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
+                                          std::array<real, 6>& rotatedStress){};
 
   virtual void
       outputSpecifics(ReceiverBasedOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
@@ -66,9 +66,9 @@ class ReceiverBasedOutput {
     real iniTraction1{};
     real iniTraction2{};
 
-    real pressure{};
-    real iniPressure{};
-    real internalPressure{};
+    real transientNormalTraction{};
+    real iniNormalTraction{};
+    real fluidPressure{};
 
     real frictionCoefficient{};
     real faultNormalVelocity{};

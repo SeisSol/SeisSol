@@ -129,9 +129,10 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     auto meshVertices = meshReader->getVertices();
 
     constexpr int numSides{2};
+    constexpr int numVertices{4};
 
     std::vector<Vertex> faultVertices;
-    faultVertices.reserve(4 * numFaultElements * numSides);
+    faultVertices.reserve(numVertices * numFaultElements * numSides);
 
     std::vector<Element> faultElements;
     faultElements.reserve(numFaultElements * numSides);
@@ -154,7 +155,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         for (int sideId = 0; sideId < numSides; ++sideId) {
           auto element = (*elements[sideId]);
 
-          for (size_t vertexIdx{0}; vertexIdx < 4; ++vertexIdx) {
+          for (size_t vertexIdx{0}; vertexIdx < numVertices; ++vertexIdx) {
             faultVertices.push_back(meshVertices[element.vertices[vertexIdx]]);
             element.vertices[vertexIdx] = faultVertices.size() - 1;
           }

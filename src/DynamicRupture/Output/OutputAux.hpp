@@ -15,7 +15,7 @@ auto reshape(T* ptr) -> T (*)[N] {
 namespace seissol::dr {
 int getElementVertexId(int localSideId, int localFaceVertexId);
 
-ExtTriangle getReferenceFace(int localSideId);
+ExtTriangle getReferenceTriangle(int sideIdx);
 
 ExtTriangle getGlobalTriangle(int localSideId,
                               const Element& element,
@@ -66,7 +66,7 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
 
 namespace seissol::dr::os_support {
 std::string getTimeStamp();
-void backupFile(std::string fileName, std::string fileExtension);
+void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension);
 } // namespace seissol::dr::os_support
 
 #endif // SEISSOL_DR_OUTPUT_AUX_HPP

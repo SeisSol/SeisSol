@@ -16,9 +16,9 @@ int getElementVertexId(int localSideId, int localFaceVertexId) {
   return MeshTools::FACE2NODES[localSideId][localFaceVertexId];
 }
 
-ExtTriangle getReferenceFace(int localSideId) {
+ExtTriangle getReferenceTriangle(int sideIdx) {
   ExtTriangle referenceFace;
-  switch (localSideId) {
+  switch (sideIdx) {
   case 0:
     referenceFace.p1 = {0.0, 0.0, 0.0};
     referenceFace.p2 = {0.0, 1.0, 0.0};
@@ -259,7 +259,7 @@ std::string getTimeStamp() {
   return timeStamp.str();
 }
 
-void backupFile(std::string fileName, std::string fileExtension) {
+void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension) {
   std::stringstream fullName;
   fullName << fileName << '.' << fileExtension;
   std::filesystem::path path(fullName.str());

@@ -45,34 +45,34 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     const auto& verticesInfo = meshReader->getVertices();
 
     // iterate through each fault side
-    for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
+    for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
 
       // get a global element ID for the current fault face
-      const auto& fault = faultInfo[faceIndex];
-      auto elementIndex = fault.element;
+      const auto& fault = faultInfo[faceIdx];
+      auto elementIdx = fault.element;
 
-      if (elementIndex >= 0) {
-        const auto& element = elementsInfo[elementIndex];
+      if (elementIdx >= 0) {
+        const auto& element = elementsInfo[elementIdx];
 
         // store coords of vertices of the current ELEMENT
-        constexpr size_t numSides{4};
-        std::array<const double*, numSides> elementVerticesCoords{};
-        for (size_t side = 0; side < numSides; ++side) {
-          auto globalVertexId = element.vertices[side];
-          elementVerticesCoords[side] = verticesInfo[globalVertexId].coords;
+        constexpr size_t numVertices{4};
+        std::array<const double*, numVertices> elementVerticesCoords{};
+        for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+          auto globalVertexIdx = element.vertices[vertexIdx];
+          elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
         }
 
-        auto faceSideId = fault.side;
+        auto faceSideIdx = fault.side;
 
         // init reference coordinates of the fault face
-        ExtTriangle referenceFace = getReferenceFace(faceSideId);
+        ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
         // init global coordinates of the fault face
-        ExtTriangle globalFace = getGlobalTriangle(faceSideId, element, verticesInfo);
+        ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
         faultRefiner->refineAndAccumulate(
-            {elementwiseParams.refinement, static_cast<int>(faceIndex), faceSideId, elementIndex},
-            std::make_pair(globalFace, referenceFace));
+            {elementwiseParams.refinement, static_cast<int>(faceIdx), faceSideIdx, elementIdx},
+            std::make_pair(globalFace, referenceTriangle));
       }
     }
 

@@ -12,7 +12,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   const auto& verticesInfo = meshReader->getVertices();
   const auto& mpiNeighborVertices = meshReader->getMPINeighborVertices();
 
-  constexpr size_t numSides{4};
+  constexpr size_t numVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
       auto elementIndex = faultInfo[point.faultFaceIndex].element;
@@ -20,17 +20,17 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
-      const VrtxCoords* elemCoords[numSides]{};
-      for (size_t side = 0; side < numSides; ++side) {
-        auto vertexIdx = elementsInfo[elementIndex].vertices[side];
-        elemCoords[side] = &(verticesInfo[vertexIdx].coords);
+      const VrtxCoords* elemCoords[numVertices]{};
+      for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+        auto address = elementsInfo[elementIndex].vertices[vertexIdx];
+        elemCoords[vertexIdx] = &(verticesInfo[address].coords);
       }
 
-      const VrtxCoords* neighborElemCoords[numSides]{};
+      const VrtxCoords* neighborElemCoords[numVertices]{};
       if (neighborElementIndex >= 0) {
-        for (size_t side = 0; side < numSides; ++side) {
-          auto vertexIdx = elementsInfo[neighborElementIndex].vertices[side];
-          neighborElemCoords[side] = &(verticesInfo[vertexIdx].coords);
+        for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+          auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
+          neighborElemCoords[vertexIdx] = &(verticesInfo[address].coords);
         }
       } else {
         auto faultSide = faultInfo[point.faultFaceIndex].side;
@@ -39,10 +39,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         assert(neighborVerticesItr != mpiNeighborVertices.end());
 
         auto neighborIndex = element.mpiIndices[faultSide];
-        for (size_t side = 0; side < numSides; ++side) {
-          const auto& array3d = neighborVerticesItr->second[neighborIndex][side];
+        for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+          const auto& array3d = neighborVerticesItr->second[neighborIndex][vertexIdx];
           auto* data = const_cast<double*>(array3d.data());
-          neighborElemCoords[side] = reinterpret_cast<double(*)[3]>(data);
+          neighborElemCoords[vertexIdx] = reinterpret_cast<double(*)[3]>(data);
         }
       }
 
@@ -171,13 +171,18 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
   constexpr int numPoly = CONVERGENCE_ORDER - 1;
 
-#ifdef dunavant
-  logWarning() << "computing internal gaussian points based on the Stroud rule";
+#ifndef stroud
+  logWarning() << "internal gaussian points are equal to "
+               << "the nearest gaussian points of the fault receivers";
 #endif
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
+#ifdef stroud
     geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, numPoly);
+#else
+    geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+#endif
   }
 }
 } // namespace seissol::dr::output

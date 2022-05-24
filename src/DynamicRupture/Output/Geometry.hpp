@@ -92,8 +92,9 @@ struct ReceiverPointT {
   bool isInside{false};         // If a point is inside the mesh or not
   int nearestGpIndex{-1};
 
-  // required for computing gradients because of the issues related to
-  // some cases when GPs are located along element borders
+  // Internal points are required because computed gradients
+  // are inaccurate near triangle edges, specifically
+  // for low-order elements
   int nearestInternalGpIndex{-1};
 };
 using ReceiverPointsT = std::vector<ReceiverPointT>;

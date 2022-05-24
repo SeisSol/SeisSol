@@ -14,10 +14,10 @@ class ImposedSlipRates : public ReceiverBasedOutput {
 
   real computeLocalStrength() override { return 0.0; }
 
-  void adjustRotatedTractionAndStresses(std::array<real, 6>& rotatedTraction,
-                                        std::array<real, 6>& rotatedLocalStress) override {
-    rotatedTraction[3] = rotatedLocalStress[3];
-    rotatedTraction[5] = rotatedLocalStress[5];
+  void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
+                                  std::array<real, 6>& rotatedStress) override {
+    rotatedUpdatedStress[3] = rotatedStress[3];
+    rotatedUpdatedStress[5] = rotatedStress[5];
   };
 };
 } // namespace seissol::dr::output

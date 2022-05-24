@@ -288,7 +288,7 @@ public:
 		}
 	}
 
-	void findMPINeighborVertices() {
+	void exchangeVerticesWithMPINeighbors() {
 		size_t numMPIDomains = m_MPINeighbors.size();
 
 		std::unordered_map<int, std::vector<double>> sendData;
@@ -299,7 +299,7 @@ public:
 		auto communicator = seissol::MPI::mpi.comm();
 
 		constexpr size_t numDims{3};
-		constexpr size_t numSides{4};
+		constexpr size_t numVertices{4};
 		auto &domainVertices = m_vertices;
 		auto &domainElements = m_elements;
 
@@ -310,7 +310,7 @@ public:
 
 			auto neighborRank = it->first;
 			auto numElements = it->second.elements.size();
-			const size_t messageSize = numDims * numSides * numElements;
+			const size_t messageSize = numDims * numVertices * numElements;
 
 			sendData[neighborRank].resize(messageSize);
 			recvData[neighborRank].resize(messageSize);
@@ -328,12 +328,11 @@ public:
 				auto localElementIdx = it->second.elements[elementIdx].localElement;
 				auto& element = domainElements[localElementIdx];
 
-				for (size_t side = 0; side < numSides; ++side) {
+				for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+					auto address = element.vertices[vertexIdx];
 					for (size_t dim = 0; dim < numDims; ++dim) {
-						auto vertexIdx = element.vertices[side];
-						size_t linearIdx = dim + numDims * (side + numSides * elementIdx);
-
-						sendData[neighborRank][linearIdx] = domainVertices[vertexIdx].coords[dim];
+						size_t linearIdx = dim + numDims * (vertexIdx + numVertices * elementIdx);
+						sendData[neighborRank][linearIdx] = domainVertices[address].coords[dim];
 					}
 				}
 			}
@@ -362,10 +361,10 @@ public:
 			m_MPINeighborVertices[neighborRank].resize(numElements);
 
 			for (size_t elementIdx = 0; elementIdx < numElements; ++elementIdx) {
-				for (size_t side = 0; side < numSides; ++side) {
+				for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
 					for (size_t dim = 0; dim < numDims; ++dim) {
-						size_t linearIdx = dim + numDims * (side + numSides * elementIdx);
-						m_MPINeighborVertices[neighborRank][elementIdx][side][dim] = message[linearIdx];
+						size_t linearIdx = dim + numDims * (vertexIdx + numVertices * elementIdx);
+						m_MPINeighborVertices[neighborRank][elementIdx][vertexIdx][dim] = message[linearIdx];
 					}
 				}
 			}
