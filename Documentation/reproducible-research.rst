@@ -70,7 +70,7 @@ A non-exhaustive list is given below:
 
    * - Acoustic-Elastic model |br| of Palu earthquake
      - dynamic
-     - miexed SS & N
+     - mixed SS & N
      - fvw-RS
      - 3
      - `Krenz et al. (2021) <https://doi.org/10.1145/3458817.3476173>`_
@@ -136,7 +136,7 @@ SeisSol setups for community benchmark are described in the cookbook  (see :ref:
 .. include:: table_cookbook.rst
 
 
-We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and Paraview) and all required input files. 
+We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView) and all required input files. 
 
 .. list-table:: 
    :widths: 20 20 20 20 20 20

@@ -5,7 +5,7 @@
 
    * - Description
      - Source
-     - Focal |br| mech. [#f1]_
+     - Faulting |br| mechanism [#f1]_
      - Friction |br| law [#f2]_
      - Number |br| of faults
      - Further details
