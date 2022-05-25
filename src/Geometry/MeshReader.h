@@ -292,8 +292,8 @@ public:
 		size_t numMPIDomains = m_MPINeighbors.size();
 
 		std::unordered_map<int, std::vector<double>> sendData;
-		std::vector<MPI_Request> sendRequests{numMPIDomains};
-		std::vector<MPI_Request> recvRequests{numMPIDomains};
+		std::vector<MPI_Request> sendRequests(numMPIDomains);
+		std::vector<MPI_Request> recvRequests(numMPIDomains);
 
 		constexpr int exchangeTag{10};
 		auto communicator = seissol::MPI::mpi.comm();

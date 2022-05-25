@@ -16,6 +16,8 @@ class ImposedSlipRates : public ReceiverBasedOutput {
 
   void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
                                   std::array<real, 6>& rotatedStress) override {
+    // we plot the Stress from Godunov state, because we want
+    // to see the traction change from the imposed slip distribution
     rotatedUpdatedStress[3] = rotatedStress[3];
     rotatedUpdatedStress[5] = rotatedStress[5];
   };

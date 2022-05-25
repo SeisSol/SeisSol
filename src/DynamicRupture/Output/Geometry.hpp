@@ -93,8 +93,8 @@ struct ReceiverPointT {
   int nearestGpIndex{-1};
 
   // Internal points are required because computed gradients
-  // are inaccurate near triangle edges, specifically
-  // for low-order elements
+  // are inaccurate near triangle edges,
+  // specifically for low-order elements
   int nearestInternalGpIndex{-1};
 };
 using ReceiverPointsT = std::vector<ReceiverPointT>;

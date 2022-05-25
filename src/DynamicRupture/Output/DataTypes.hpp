@@ -36,8 +36,9 @@ struct VarT {
     return this->operator()(0, level, index);
   }
 
-  // allocates data for a var (for all dimensions and cache levels) initialized to zeros
-  // if var is active. Otherwise, inits with nullptr
+  // allocates data for a var (for all dimensions and cache levels)
+  // initialized to zeros if var is active.
+  // Otherwise, inits with nullptr
   void allocateData(size_t dataSize) {
     size = dataSize;
     if (isActive) {
