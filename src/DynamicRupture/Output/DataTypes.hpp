@@ -3,6 +3,8 @@
 
 #include "Geometry.hpp"
 #include "Initializer/tree/Layer.hpp"
+#include "generated_code/tensor.h"
+#include <Eigen/Dense>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -34,8 +36,9 @@ struct VarT {
     return this->operator()(0, level, index);
   }
 
-  // allocates data for a var (for all dimensions and cache levels) initialized to zeros
-  // if var is active. Otherwise, inits with nullptr
+  // allocates data for a var (for all dimensions and cache levels)
+  // initialized to zeros if var is active.
+  // Otherwise, inits with nullptr
   void allocateData(size_t dataSize) {
     size = dataSize;
     if (isActive) {
@@ -98,16 +101,18 @@ enum class OutputType : int {
   AtPickpointAndElementwise = 5
 };
 
+enum class SlipRateOutputType { VelocityDifference, TractionsAndFailure };
+
 struct GeneralParamsT {
   OutputType outputPointType{OutputType::None};
-  int slipRateOutputType{1};
+  SlipRateOutputType slipRateOutputType{SlipRateOutputType::TractionsAndFailure};
   int frictionLawType{0};
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
   bool isMagnitudeOutputOn{false};
   bool isEnergyRateOutputOn{false};
   bool isThermalPressurizationOn{false};
-  int energyRatePrintTimeInterval{30};
+  int energyRatePrintTimeInterval{50};
   bool isRfTimeOn{false};
   bool faultOutputFlag{false};
   std::string outputFilePrefix{"data"};
@@ -133,6 +138,9 @@ struct ElementwiseFaultParamsT {
   RefinerType refinementStrategy{RefinerType::Quad};
   int refinement{2};
 };
+
+using FaceToLtsMapT = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
+
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
@@ -141,20 +149,18 @@ struct PlusMinusBasisFunctionsT {
   std::vector<real> minusSide;
 };
 
-struct IntialTraction {
-  real p0{0.0};
-  real ts0{0.0};
-  real td0{0.0};
-};
-using ConstantsT = std::vector<IntialTraction>;
-
-struct OutputData {
+struct ReceiverBasedOutputData {
   output::DrVarsT vars;
   std::vector<PlusMinusBasisFunctionsT> basisFunctions;
   std::vector<ReceiverPointT> receiverPoints;
-  std::vector<std::vector<real>> rotationMatrices;
+  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
+      stressGlbToDipStrikeAligned;
+  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
+      stressFaceAlignedToGlb;
+  std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
+  std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
+  std::vector<Eigen::Matrix<real, 2, 2>> jacobianT2d;
   std::vector<FaultDirectionsT> faultDirections{};
-  std::vector<IntialTraction> intialTractions;
   std::vector<double> cachedTime{};
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};

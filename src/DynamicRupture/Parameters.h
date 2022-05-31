@@ -27,7 +27,7 @@ struct DRParameters {
   bool isMagnitudeOutputOn{false};
   bool isEnergyRateOutputOn{false};
   bool isThermalPressureOn{false};
-  int energyRatePrintTimeInterval{1};
+  int energyRatePrintTimeInterval{50};
   bool isInstaHealingOn{false};
   real t0{0.0};
   real rsF0{0.0};
@@ -72,7 +72,7 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
         yamlParams, "energy_rate_output_on", drParameters.isEnergyRateOutputOn);
     initializers::updateIfExists(yamlParams, "thermalpress", drParameters.isThermalPressureOn);
     initializers::updateIfExists(
-        yamlParams, "energy_rate_printtimeinterval", drParameters.backgroundType);
+        yamlParams, "energy_rate_printtimeinterval", drParameters.energyRatePrintTimeInterval);
     initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
     initializers::updateIfExists(yamlParams, "t_0", drParameters.t0);
     initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rsF0);

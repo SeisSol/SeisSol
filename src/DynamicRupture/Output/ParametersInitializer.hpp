@@ -1,8 +1,9 @@
-#ifndef SEISSOL_DR_OUTPUT_INITIALIZER_HPP
-#define SEISSOL_DR_OUTPUT_INITIALIZER_HPP
+#ifndef SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
+#define SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP
 
 #include "DataTypes.hpp"
 #include "FaultRefiner/FaultRefiners.hpp"
+#include "Initializer/InputAux.hpp"
 #include <utils/logger.h>
 #include <yaml-cpp/yaml.h>
 
@@ -25,7 +26,23 @@ class ParametersInitializer {
     updateIfExists(drSettings, "outputpointtype", outputPointID);
     params.outputPointType = static_cast<OutputType>(outputPointID);
 
-    updateIfExists(drSettings, "sliprateoutputtype", params.slipRateOutputType);
+    int slipRateOutputType{1};
+    updateIfExists(drSettings, "sliprateoutputtype", slipRateOutputType);
+
+    switch (slipRateOutputType) {
+    case 0: {
+      params.slipRateOutputType = SlipRateOutputType::VelocityDifference;
+      break;
+    }
+    case 1: {
+      params.slipRateOutputType = SlipRateOutputType::TractionsAndFailure;
+      break;
+    }
+    default: {
+      logError() << "given slip rate output type (" << slipRateOutputType << ") is not supported";
+    }
+    }
+
     updateIfExists(drSettings, "fl", params.frictionLawType);
     updateIfExists(drSettings, "rf_output_on", params.isRfOutputOn);
     updateIfExists(drSettings, "ds_output_on", params.isDsOutputOn);
@@ -103,4 +120,4 @@ class ParametersInitializer {
   const YAML::Node& data;
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_INITIALIZER_HPP
+#endif // SEISSOL_DR_OUTPUT_PARAMETERS_INITIALIZER_HPP

@@ -2,33 +2,31 @@
 #define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
 
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.hpp"
-#include "OutputBuilder.hpp"
+#include "ReceiverBasedOutputBuilder.hpp"
 
 namespace seissol::dr::output {
-class Base;
-
-class ElementWiseBuilder : public OutputBuilder {
+class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
-  friend Base;
-
   ~ElementWiseBuilder() override = default;
-
   void setParams(const ElementwiseFaultParamsT& params) { elementwiseParams = params; }
-
-  void init() override {
+  void build(ReceiverBasedOutputData* ewOutputData) override {
+    outputData = ewOutputData;
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData.receiverPoints);
+    assignNearestGaussianPoints(outputData->receiverPoints);
+    assignNearestInternalGaussianPoints();
     initTimeCaching();
-    initOutputVariables(this->elementwiseParams.outputMask);
+    initOutputVariables(elementwiseParams.outputMask);
     initFaultDirections();
     initRotationMatrices();
     initBasisFunctions();
-    outputData.isActive = true;
+    initJacobian2dMatrices();
+    outputData->isActive = true;
   }
 
+  protected:
   void initTimeCaching() override {
-    outputData.maxCacheLevel = ElementWiseBuilder::maxAllowedCacheLevel;
-    outputData.currentCacheLevel = 0;
+    outputData->maxCacheLevel = ElementWiseBuilder::maxAllowedCacheLevel;
+    outputData->currentCacheLevel = 0;
   }
 
   void initReceiverLocations() {
@@ -41,51 +39,46 @@ class ElementWiseBuilder : public OutputBuilder {
     logInfo(localRank) << "CPP: Initialising Fault output. "
                        << "Number of sub-triangles: " << numSubTriangles;
 
-    // get arrays of elements and vertices from the mesher
+    // get arrays of elements and vertices from the meshReader
     const auto& faultInfo = meshReader->getFault();
     const auto& elementsInfo = meshReader->getElements();
     const auto& verticesInfo = meshReader->getVertices();
 
     // iterate through each fault side
-    for (size_t faceIndex = 0; faceIndex < numFaultElements; ++faceIndex) {
+    for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
 
-      // get a Global Element ID for the current fault face
-      auto elementIndex = faultInfo[faceIndex].element;
-      const auto& element = elementsInfo[elementIndex];
+      // get a global element ID for the current fault face
+      const auto& fault = faultInfo[faceIdx];
+      auto elementIdx = fault.element;
 
-      // TODO: check whether we need this if-statement
-      if (elementIndex > 0) {
+      if (elementIdx >= 0) {
+        const auto& element = elementsInfo[elementIdx];
 
         // store coords of vertices of the current ELEMENT
-        std::array<const double*, 4> elementVerticesCoords{};
-        for (int elementVertexId = 0; elementVertexId < 4; ++elementVertexId) {
-          auto globalVertexId = element.vertices[elementVertexId];
-          elementVerticesCoords[elementVertexId] = verticesInfo[globalVertexId].coords;
+        constexpr size_t numVertices{4};
+        std::array<const double*, numVertices> elementVerticesCoords{};
+        for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+          auto globalVertexIdx = element.vertices[vertexIdx];
+          elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
         }
 
-        auto localFaceSideId = faultInfo[faceIndex].side;
+        auto faceSideIdx = fault.side;
 
         // init reference coordinates of the fault face
-        ExtTriangle referenceFace = getReferenceFace(localFaceSideId);
+        ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
         // init global coordinates of the fault face
-        ExtTriangle globalFace = getGlobalTriangle(localFaceSideId, element, verticesInfo);
+        ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
         faultRefiner->refineAndAccumulate(
-            {elementwiseParams.refinement, static_cast<int>(faceIndex), localFaceSideId},
-            std::make_pair(globalFace, referenceFace));
+            {elementwiseParams.refinement, static_cast<int>(faceIdx), faceSideIdx, elementIdx},
+            std::make_pair(globalFace, referenceTriangle));
       }
     }
 
     // retrieve all receivers from a fault face refiner
-    outputData.receiverPoints = faultRefiner->moveAllReceiverPoints();
+    outputData->receiverPoints = faultRefiner->moveAllReceiverPoints();
     faultRefiner.reset(nullptr);
-  }
-
-  void initConstrains() {}
-
-  void evaluateInitialStressInFaultCS() {
-    // Compute initialStressInFaultCS
   }
 
   inline const static size_t maxAllowedCacheLevel = 1;

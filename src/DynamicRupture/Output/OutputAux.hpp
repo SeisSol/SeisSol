@@ -15,7 +15,7 @@ auto reshape(T* ptr) -> T (*)[N] {
 namespace seissol::dr {
 int getElementVertexId(int localSideId, int localFaceVertexId);
 
-ExtTriangle getReferenceFace(int localSideId);
+ExtTriangle getReferenceTriangle(int sideIdx);
 
 ExtTriangle getGlobalTriangle(int localSideId,
                               const Element& element,
@@ -29,6 +29,8 @@ std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
     generateTriangleQuadrature(unsigned polyDegree);
 
 void assignNearestGaussianPoints(ReceiverPointsT& geoPoints);
+
+int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
@@ -48,6 +50,8 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
 
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT& receiverPoints);
 
+real computeTriangleArea(ExtTriangle& triangle);
+
 template <int Size>
 std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& boolMask) {
   auto intMask = std::unique_ptr<int[]>(new int[boolMask.size()]);
@@ -59,5 +63,10 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
   return intMask;
 }
 } // namespace seissol::dr
+
+namespace seissol::dr::os_support {
+std::string getTimeStamp();
+void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension);
+} // namespace seissol::dr::os_support
 
 #endif // SEISSOL_DR_OUTPUT_AUX_HPP

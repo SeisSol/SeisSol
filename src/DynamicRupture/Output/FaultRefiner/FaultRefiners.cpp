@@ -39,8 +39,9 @@ void FaultRefiner::repeat(Data data, PointsPair& point1, PointsPair& point2, Poi
   ExtTriangle subReferenceFace(
       std::get<reference>(point1), std::get<reference>(point2), std::get<reference>(point3));
 
-  refineAndAccumulate({data.refinementLevel - 1, data.faultFaceIndex, data.localFaceSideId},
-                      std::make_pair(subGlobalFace, subReferenceFace));
+  refineAndAccumulate(
+      {data.refinementLevel - 1, data.faultFaceIndex, data.localFaceSideId, data.elementId},
+      std::make_pair(subGlobalFace, subReferenceFace));
 }
 
 void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
@@ -48,6 +49,7 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   receiver.isInside = true;
   receiver.faultFaceIndex = data.faultFaceIndex;
   receiver.localFaceSideId = data.localFaceSideId;
+  receiver.elementIndex = data.elementId;
   receiver.globalReceiverIndex = points.size();
   receiver.global = getMidTrianglePoint(std::get<global>(face));
   receiver.reference = getMidTrianglePoint(std::get<reference>(face));

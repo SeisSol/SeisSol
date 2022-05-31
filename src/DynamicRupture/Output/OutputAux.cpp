@@ -5,6 +5,10 @@
 #include "Numerical_aux/Transformation.h"
 #include <Eigen/Dense>
 #include <limits>
+#include <unordered_map>
+#include <iomanip>
+#include <filesystem>
+#include <ctime>
 
 namespace seissol::dr {
 
@@ -12,9 +16,9 @@ int getElementVertexId(int localSideId, int localFaceVertexId) {
   return MeshTools::FACE2NODES[localSideId][localFaceVertexId];
 }
 
-ExtTriangle getReferenceFace(int localSideId) {
+ExtTriangle getReferenceTriangle(int sideIdx) {
   ExtTriangle referenceFace;
-  switch (localSideId) {
+  switch (sideIdx) {
   case 0:
     referenceFace.p1 = {0.0, 0.0, 0.0};
     referenceFace.p2 = {0.0, 1.0, 0.0};
@@ -139,8 +143,24 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
     std::tie(nearestPoint, shortestDistance) =
         getNearestFacePoint(targetPoint2D, trianglePoints2D, numPoints);
     geoPoint.nearestGpIndex = nearestPoint;
-    geoPoint.distanceToNearestGp = shortestDistance;
   }
+}
+
+int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
+  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
+  int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
+  if (i1 == 1) {
+    i1 = i1 + 1;
+  } else if (i1 == (nPoly + 2)) {
+    i1 = i1 - 1;
+  }
+
+  if (j1 == 1) {
+    j1 = j1 + 1;
+  } else if (j1 == (nPoly + 2)) {
+    j1 = j1 - 1;
+  }
+  return (i1 - 1) * (nPoly + 2) + j1;
 }
 
 void projectPointToFace(ExtVrtxCoords& point,
@@ -216,4 +236,41 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT
   }
   return cells;
 }
+
+real computeTriangleArea(ExtTriangle& triangle) {
+  auto p1 = triangle.p1.getAsEigenVector();
+  auto p2 = triangle.p2.getAsEigenVector();
+  auto p3 = triangle.p3.getAsEigenVector();
+
+  auto vector1 = p2 - p1;
+  auto vector2 = p3 - p1;
+  auto normal = vector1.cross(vector2);
+  return 0.5 * normal.norm();
+}
 } // namespace seissol::dr
+
+namespace seissol::dr::os_support {
+std::string getTimeStamp() {
+  std::time_t time = std::time(nullptr);
+  std::tm tm = *std::localtime(&time);
+
+  std::stringstream timeStamp;
+  timeStamp << std::put_time(&tm, "%F_%T");
+  return timeStamp.str();
+}
+
+void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension) {
+  std::stringstream fullName;
+  fullName << fileName << '.' << fileExtension;
+  std::filesystem::path path(fullName.str());
+  std::filesystem::directory_entry entry(path);
+
+  if (entry.exists()) {
+    auto stamp = getTimeStamp();
+    std::stringstream backupFileName;
+    backupFileName << fileName << ".bak_" << stamp << '.' << fileExtension;
+    std::filesystem::path copyPath(backupFileName.str());
+    std::filesystem::rename(path, copyPath);
+  }
+}
+} // namespace seissol::dr::os_support

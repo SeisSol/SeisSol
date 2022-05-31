@@ -101,8 +101,8 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_bindFaultOutputManager
-    subroutine c_interoperability_bindFaultOutputManager() bind( C, name='c_interoperability_bindFaultOutputManager' )
+  interface c_interoperability_initFaultOutputManager
+    subroutine c_interoperability_initFaultOutputManager() bind( C, name='c_interoperability_initFaultOutputManager' )
       use iso_c_binding
       implicit none
     end subroutine
@@ -433,5 +433,12 @@ module f_ftoc_bind_interoperability
       implicit none
       integer(kind=c_int), intent(in), value  :: no
     end function
+  end interface
+
+  interface c_interoperability_write_moment_magnitude
+    subroutine c_interoperability_write_moment_magnitude() bind ( C, name='c_interoperability_write_moment_magnitude')
+      use iso_c_binding
+      implicit none
+    end subroutine
   end interface
 end module

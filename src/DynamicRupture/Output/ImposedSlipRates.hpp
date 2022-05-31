@@ -1,20 +1,26 @@
 #ifndef SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
 #define SEISSOL_DR_OUTPUT_IMPOSED_RS_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class ImposedSlipRates : public Base {
+class ImposedSlipRates : public ReceiverBasedOutput {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, dynRup, eInteroperability);
+    ReceiverBasedOutput::tiePointers(layerData, drDescr, eInteroperability);
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
-    // do nothing
-  }
+  real computeLocalStrength() override { return 0.0; }
+
+  void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
+                                  std::array<real, 6>& rotatedStress) override {
+    // we plot the Stress from Godunov state, because we want
+    // to see the traction change from the imposed slip distribution
+    rotatedUpdatedStress[3] = rotatedStress[3];
+    rotatedUpdatedStress[5] = rotatedStress[5];
+  };
 };
 } // namespace seissol::dr::output
 

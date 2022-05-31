@@ -17,6 +17,7 @@ class FaultRefiner {
     int refinementLevel{};
     int faultFaceIndex{};
     int localFaceSideId{};
+    int elementId{-1};
   };
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;

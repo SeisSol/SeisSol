@@ -1,13 +1,13 @@
 #ifndef SEISSOL_DR_OUTPUT_RS_TP_HPP
 #define SEISSOL_DR_OUTPUT_RS_TP_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization : public RateAndState {
   public:
-  using RateAndState::postCompute;
   using RateAndState::RateAndState;
+  using RateAndState::tiePointers;
 
   void tiePointers(seissol::initializers::Layer& layerData,
                    seissol::initializers::DynamicRupture* dynRup,
@@ -28,6 +28,24 @@ class RateAndStateThermalPressurization : public RateAndState {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       eInteroperability.copyFrictionOutputToFortranThermalPressurization(
           ltsFace, meshFace, fluidPressure, fluidTemperature);
+    }
+  }
+
+  protected:
+  real computeFluidPressure() override { return 0.0; }
+  void outputSpecifics(ReceiverBasedOutputData& outputData,
+                       size_t cacheLevel,
+                       size_t receiverIdx) override {
+    auto& tpVariables = std::get<VariableID::TpVariables>(outputData.vars);
+    if (tpVariables.isActive) {
+      using DrLtsDescrT = seissol::initializers::LTS_RateAndStateThermalPressurization;
+      auto* temperature = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->temperature);
+      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) =
+          temperature[local.ltsId][local.nearestGpIndex];
+
+      auto* pressure = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->pressure);
+      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) =
+          pressure[local.ltsId][local.nearestGpIndex];
     }
   }
 };

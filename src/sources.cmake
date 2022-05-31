@@ -113,37 +113,38 @@ src/Parallel/mpiF.f90
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
-src/DynamicRupture/Misc.cpp
-src/DynamicRupture/Factory.cpp
-src/DynamicRupture/FrictionLaws/AgingLaw.cpp
-src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
-src/DynamicRupture/FrictionLaws/FastVelocityWeakeningLaw.cpp
-src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
-src/DynamicRupture/FrictionLaws/STF.cpp
-src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
-src/DynamicRupture/FrictionLaws/NoFault.cpp
-src/DynamicRupture/FrictionLaws/SlipLaw.cpp
-src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
-src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
-src/DynamicRupture/Initializers/BaseDRInitializer.cpp
-src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
-src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
-src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
-
-src/DynamicRupture/Output/Base.cpp
-src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
-src/DynamicRupture/Output/OutputAux.cpp
-
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
 
-set(SRC_FILES_OMP_OFFLOADING_COMMON
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp)
+set(DYNAMIC_RUPTURE_SRC_FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/AgingLaw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FastVelocityWeakeningLaw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/STF.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/NoFault.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SlipLaw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/BaseDRInitializer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/LinearSlipWeakeningInitializer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/RateAndStateInitializer.cpp
 
-set(SRC_FILES_OMP_OFFLOADING_REQUIRED
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputManager.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/ReceiverBasedOutput.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/OutputAux.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp)
+
+set(DYNAMIC_RUPTURE_OMP_OFFLOADING_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
 

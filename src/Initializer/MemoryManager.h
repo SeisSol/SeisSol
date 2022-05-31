@@ -163,7 +163,7 @@ class seissol::initializers::MemoryManager {
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-    std::unique_ptr<dr::output::Base> m_DROutput = nullptr;
+    std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     dr::DRParameters m_dynRupParameter;
     std::shared_ptr<YAML::Node> m_inputParams = nullptr;
 
@@ -345,8 +345,8 @@ class seissol::initializers::MemoryManager {
     inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer.get();
     }
-    inline seissol::dr::output::Base* getDROutput() {
-        return m_DROutput.get();
+    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
+        return m_faultOutputManager.get();
     }
 
     void setInputParams(std::shared_ptr<YAML::Node> params) {
@@ -358,6 +358,7 @@ class seissol::initializers::MemoryManager {
 #endif
 
   void initializeFrictionLaw();
+  void initFaultOutputManager();
 
   void readFrictionData(Interoperability *interoperability);
 };

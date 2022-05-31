@@ -89,9 +89,13 @@ struct ReceiverPointT {
   int localFaceSideId{-1};      // Side ID of a reference element
   int elementIndex{-1};         // Element which the receiver belongs to
   int globalReceiverIndex{-1};  // receiver index of global list
-  bool isInside{};              // If a point is inside the mesh or not
+  bool isInside{false};         // If a point is inside the mesh or not
   int nearestGpIndex{-1};
-  double distanceToNearestGp{std::numeric_limits<double>::max()};
+
+  // Internal points are required because computed gradients
+  // are inaccurate near triangle edges,
+  // specifically for low-order elements
+  int nearestInternalGpIndex{-1};
 };
 using ReceiverPointsT = std::vector<ReceiverPointT>;
 

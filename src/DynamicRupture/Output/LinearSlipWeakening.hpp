@@ -1,17 +1,17 @@
 #ifndef SEISSOL_DR_OUTPUT_LSW_HPP
 #define SEISSOL_DR_OUTPUT_LSW_HPP
 
-#include "DynamicRupture/Output/Base.hpp"
+#include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class LinearSlipWeakening : public Base {
+class LinearSlipWeakening : public ReceiverBasedOutput {
   public:
   void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* dynRup,
+                   seissol::initializers::DynamicRupture* drDescr,
                    seissol::Interoperability& eInteroperability) override {
-    Base::tiePointers(layerData, dynRup, eInteroperability);
+    ReceiverBasedOutput::tiePointers(layerData, drDescr, eInteroperability);
 
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(drDescr);
 
     DRFaceInformation* faceInformation = layerData.var(concreteLts->faceInformation);
     real* averagedSlip = layerData.var(concreteLts->averagedSlip);
@@ -30,8 +30,17 @@ class LinearSlipWeakening : public Base {
     }
   }
 
-  void postCompute(seissol::initializers::DynamicRupture& dynRup) override {
-    // do nothing
+  protected:
+  real computeLocalStrength() override {
+    using DrLtsDescrT = seissol::initializers::LTS_LinearSlipWeakening;
+    auto* cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
+    auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
+
+    auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    return -1.0 * local.frictionCoefficient *
+               std::min(effectiveNormalStress, static_cast<real>(0.0)) -
+           cohesion;
   }
 };
 } // namespace seissol::dr::output

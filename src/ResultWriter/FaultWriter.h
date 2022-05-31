@@ -53,7 +53,7 @@
 #include "Monitoring/Stopwatch.h"
 
 namespace seissol::dr::output {
-  class Base;
+  class OutputManager;
 }
 
 
@@ -82,7 +82,7 @@ private:
 	/** Frontend stopwatch */
 	Stopwatch m_stopwatch;
 
-	dr::output::Base* callbackObject{nullptr};
+	dr::output::OutputManager* callbackObject{nullptr};
 
 public:
 	FaultWriter()
@@ -166,8 +166,8 @@ public:
 		m_executor.finalize();
 	}
 
-	void setupCallbackObject(dr::output::Base* faultOutput) {
-		callbackObject = faultOutput;
+	void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
+		callbackObject = faultOutputManager;
 	}
 
 	//

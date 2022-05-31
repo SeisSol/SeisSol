@@ -22,7 +22,7 @@ TEST_CASE("DR Geometry") {
   constexpr static int y{1};
   constexpr static int z{2};
 
-  constexpr static int xi{0};
+  [[maybe_unused]] constexpr static int xi{0};
   constexpr static int eta{1};
   constexpr static int zeta{2};
 
