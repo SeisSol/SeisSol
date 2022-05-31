@@ -143,6 +143,11 @@ class seissol::initializers::time_stepping::MultiRate {
                                      unsigned int *o_cellClusterIds ) {
       logInfo(seissol::MPI::mpi.rank()) << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
                                                                                  << i_multiRate;
+      const auto wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+      logInfo(seissol::MPI::mpi.rank())
+          << "Due to wiggle factor of" << wiggleFactor << "the minimal size is reduced to"
+          << wiggleFactor * i_minimumTimeStepWidth;
+
       // iterate over all cells
       for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
         double l_clusterTimeStepWidth;

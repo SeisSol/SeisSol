@@ -98,7 +98,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
     costEstimates[i] = 0.0;
     for (auto j=0U; j < m_clusterIds.size(); ++j) {
       auto cluster = m_clusterIds[j];
-      double updateFactor = 1.0/ curWiggleFactor * std::pow(2, cluster);
+      double updateFactor = 1.0/(std::pow(2, cluster) * curWiggleFactor * m_details.globalMinTimeStep);
+
       costEstimates[i] += updateFactor * m_cellCosts[j];
     }
   }
@@ -129,8 +130,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   logInfo(rank) << "Best wiggle factor" << bestWiggleFactor << "with cost" << bestCostEstimate;
 
   auto maxWiggleFactorCostEstimate = costEstimates[costEstimates.size() - 1];
-  logInfo(rank) << "Speedup of" << maxWiggleFactorCostEstimate / bestCostEstimate
-      << "with absolute cost difference" << maxWiggleFactorCostEstimate - bestCostEstimate
+  logInfo(rank) << "Speedup of" << (maxWiggleFactorCostEstimate / bestCostEstimate) * 100 - 100
+      << "% with absolute cost difference" << maxWiggleFactorCostEstimate - bestCostEstimate
       << "compared to the default wiggle factor of"
       << maxWiggleFactor;
 
