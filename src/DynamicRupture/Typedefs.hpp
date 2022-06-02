@@ -3,6 +3,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Kernels/precision.hpp"
+#include <Eigen/Dense>
 
 namespace seissol::dr {
 
@@ -29,6 +30,18 @@ enum class FrictionLawType : unsigned int {
  */
 struct ImpedancesAndEta {
   real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+};
+
+/**
+ * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
+ * This generalizes equation (4.51) from Carsten's thesis
+ */
+struct ImpedanceMatrices {
+  // TODO replace by storage for yateto matrix
+  using Matrix44 = Eigen::Matrix<double, 4, 4>;
+  Matrix44 impedance;
+  Matrix44 impedanceNeig;
+  Matrix44 eta;
 };
 
 /**

@@ -87,6 +87,7 @@ public:
   Variable<DREnergyOutput>                                          drEnergyOutput;
 
   Variable<seissol::dr::ImpedancesAndEta>                           impAndEta;
+  Variable<seissol::dr::ImpedanceMatrices>                          impedanceMatrices;
   //size padded for vectorization
   //CS = coordinate system
   Variable<real[dr::misc::numPaddedPoints][6]> initialStressInFaultCS;
@@ -127,6 +128,7 @@ public:
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      MEMKIND_STANDARD );
     tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
+    tree.addVar(      impedanceMatrices,              mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      ruptureTime,                    mask,                 1,      MEMKIND_STANDARD );
