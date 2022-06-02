@@ -342,7 +342,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       if (this->ruptureTime[face][pointIndex] > 0.0 &&
           this->ruptureTime[face][pointIndex] <= this->mFullUpdateTime &&
-          this->dynStressTimePending[pointIndex] &&
+          this->dynStressTimePending[face][pointIndex] &&
           this->mu[face][pointIndex] <=
               (this->drParameters.muW +
                0.05 * (this->drParameters.rsF0 - this->drParameters.muW))) {

@@ -136,7 +136,7 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
   void saveDynamicStressOutput(unsigned int ltsFace) {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 
-      if (this->dynStressTimePending[pointIndex] &&
+      if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
               dC[ltsFace][pointIndex]) {
         this->dynStressTime[ltsFace][pointIndex] = this->mFullUpdateTime;

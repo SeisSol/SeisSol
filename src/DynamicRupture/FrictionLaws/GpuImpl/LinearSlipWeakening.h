@@ -183,7 +183,7 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
     for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
       #pragma omp loop bind(parallel)
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-        if (dynStressTimePending[pointIndex] &&
+        if (dynStressTimePending[ltsFace][pointIndex] &&
             std::fabs(accumulatedSlipMagnitude[ltsFace][pointIndex]) >= dC[ltsFace][pointIndex]) {
           dynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           dynStressTimePending[ltsFace][pointIndex] = false;
