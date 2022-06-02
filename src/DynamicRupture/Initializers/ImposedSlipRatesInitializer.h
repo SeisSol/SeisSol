@@ -49,13 +49,15 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * Rotate slip from strike/dip cooordinate system to the fault aligned coordinate system.
    * @param dynRup
    * @param it
-   * @param slip1: In: Slip in strike direction, Out: Slip in fault aligned direction 1
-   * @param slip2: In: Slip in dip direction, Out: Slip in fault aligned direction 2
+   * @param strikeSlip: Slip in strike direction
+   * @param dipSlip: Slip in dip direction
+   * @param imposedSlipDirections: Slip in fault aligned directions
    */
   void rotateSlipToFaultCS(seissol::initializers::DynamicRupture* dynRup,
                            seissol::initializers::LTSTree::leaf_iterator& it,
-                           real (*slip1)[misc::numPaddedPoints],
-                           real (*slip2)[misc::numPaddedPoints]);
+                           std::vector<std::array<real, misc::numPaddedPoints>> const& strikeSlip,
+                           std::vector<std::array<real, misc::numPaddedPoints>> const& dipSlip,
+                           real (*imposedSlipDirections)[misc::numPaddedPoints][2]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
