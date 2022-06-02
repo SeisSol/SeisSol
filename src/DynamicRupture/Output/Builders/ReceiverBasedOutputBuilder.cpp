@@ -172,8 +172,9 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   constexpr int numPoly = CONVERGENCE_ORDER - 1;
 
 #ifndef stroud
-  logWarning() << "internal gaussian points are equal to "
-               << "the nearest gaussian points of the fault receivers";
+  const int rank = seissol::MPI::mpi.rank();
+  logWarning(rank) << "This quadrature rule does not move gaussian points away from cell edges when"
+                   << "evaluating rupture speed. This may result in inacurrate rupture speeds there.";
 #endif
 
   for (auto& geoPoint : geoPoints) {

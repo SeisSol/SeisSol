@@ -816,7 +816,8 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializers::MemoryManager::initializeFrictionLaw() {
-  logInfo(0) << "Initialize Friction Model";
+  const int rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "Initialize Friction Model";
   // reading input provided by parameters.par
   m_dynRupParameter = dr::readParametersFromYaml(*m_inputParams);
 

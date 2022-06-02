@@ -95,22 +95,23 @@ void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userM
   bool bothEnabled = generalParams.outputPointType == OutputType::AtPickpointAndElementwise;
   bool pointEnabled = generalParams.outputPointType == OutputType::AtPickpoint || bothEnabled;
   bool elementwiseEnabled = generalParams.outputPointType == OutputType::Elementwise || bothEnabled;
+  const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
-    logInfo() << "Enabling on-fault receiver output";
+    logInfo(rank) << "Enabling on-fault receiver output";
     ppOutputBuilder = std::make_unique<PickPointBuilder>();
     ppOutputBuilder->setMeshReader(&userMesher);
     pickpointParams = reader.getPickPointParams();
     ppOutputBuilder->setParams(pickpointParams);
   }
   if (elementwiseEnabled) {
-    logInfo() << "Enabling 2D fault output";
+    logInfo(rank) << "Enabling 2D fault output";
     ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder->setMeshReader(&userMesher);
     elementwiseParams = reader.getElementwiseFaultParams();
     ewOutputBuilder->setParams(elementwiseParams);
   }
   if (!elementwiseEnabled && !pointEnabled) {
-    logInfo() << "No dynamic rupture output enabled";
+    logInfo(rank) << "No dynamic rupture output enabled";
   }
 }
 
