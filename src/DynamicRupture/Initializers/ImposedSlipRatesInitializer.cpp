@@ -8,7 +8,8 @@ namespace seissol::dr::initializers {
 void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
                                                   seissol::initializers::LTSTree* dynRupTree,
                                                   seissol::Interoperability* eInteroperability) {
-  logInfo() << "Initializing Fault, using a quadrature rule with "
+  const int rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "Initializing Fault, using a quadrature rule with "
             << misc::numberOfBoundaryGaussPoints << " points.";
   seissol::initializers::FaultParameterDB faultParameterDB;
 
