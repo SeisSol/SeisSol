@@ -123,6 +123,7 @@ inline void precomputeStressFromQInterpolated(
 #endif
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto i{startLoopIndex + index};
+      // This is eq (4.53) from Carsten's thesis
       faultStresses.normalStress[o][i] =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);

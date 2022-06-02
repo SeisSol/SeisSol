@@ -3,6 +3,7 @@
 
 #include <numeric>
 #include <Eigen/Eigenvalues>
+#include <Eigen/Dense>
 
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
@@ -24,6 +25,18 @@ namespace seissol::eigenvalues{
      * values: Vector of eigenvalues, in the same ordering as the eigenvectors
      */
     std::array<T, dim> values;
+    /**
+     * returns: eigenvectors as Eigen3 matrix
+     */
+     Eigen::Matrix<T, dim, dim> getVectorsAsMatrix() {
+       return Eigen::Matrix<T, dim, dim>(vectors.data());
+     }
+    /**
+     * returns: eigenvalues as Eigen3 vector
+     */
+    Eigen::Matrix<T, dim, 1> getValuesAsVector() {
+      return Eigen::Matrix<T, dim, 1>(values.data());
+    }
   };
 
   /**

@@ -539,6 +539,30 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         case seissol::model::MaterialType::poroelastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, AMinus);
+          auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
+          auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial));
+
+          using Matrix44 = Eigen::Matrix<double, 4, 4>;
+          std::array<int, 4> tractionIndices = {0,3,5,9};
+          std::array<int, 4> velocityIndices = {6,7,8,10};
+          std::array<int, 4> columnIndices = {0,1,2,3};
+          auto plusMatrix = plusEigenpair.getVectorsAsMatrix();
+          Matrix44 RT = plusMatrix(tractionIndices, columnIndices).real();
+          Matrix44 RT_inv = RT.inverse();
+          Matrix44 RU = plusMatrix(velocityIndices, columnIndices).real();
+          Matrix44 M = RU * RT_inv;
+#pragma omp critical
+          {
+            std::cout << "--------------------------" << std::endl;
+            std::cout << "R=" << std::endl;
+            std::cout << plusMatrix.real() << std::endl;
+            std::cout << "RT=" << std::endl;
+            std::cout << RT.real() << std::endl;
+            std::cout << "RU=" << std::endl;
+            std::cout << RU.real() << std::endl;
+            std::cout << "M=" << std::endl;
+            std::cout << M.real() << std::endl;
+          }
           break;
         }
         case seissol::model::MaterialType::anisotropic: {
@@ -549,6 +573,30 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         case seissol::model::MaterialType::elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
+          auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial));
+          auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial));
+
+          using Matrix33 = Eigen::Matrix<double, 3, 3>;
+          std::array<int, 3> tractionIndices = {0,3,5};
+          std::array<int, 3> velocityIndices = {6,7,8};
+          std::array<int, 3> columnIndices = {0,1,2};
+          auto plusMatrix = plusEigenpair.getVectorsAsMatrix();
+          Matrix33 RT = plusMatrix(tractionIndices, columnIndices).real();
+          Matrix33 RT_inv = RT.inverse();
+          Matrix33 RU = plusMatrix(velocityIndices, columnIndices).real();
+          Matrix33 M = RU * RT_inv;
+#pragma omp critical
+          {
+            std::cout << "--------------------------" << std::endl;
+            std::cout << "R=" << std::endl;
+            std::cout << plusMatrix.real() << std::endl;
+            std::cout << "RT=" << std::endl;
+            std::cout << RT.real() << std::endl;
+            std::cout << "RU=" << std::endl;
+            std::cout << RU.real() << std::endl;
+            std::cout << "M=" << std::endl;
+            std::cout << M.real() << std::endl;
+          }
           break;
         }
         case seissol::model::MaterialType::viscoelastic: {

@@ -254,6 +254,59 @@ namespace seissol {
     }
 
     template<>
+    inline seissol::eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> getEigenDecomposition (PoroElasticMaterial const& material, double zeroThreshold) {
+      std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
+      auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+      getTransposedCoefficientMatrix(material, 0, ATView);
+      std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
+      //transpose AT to get A
+      for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+        for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
+          A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
+        }
+      }
+      eigenvalues::Eigenpair<std::complex<double>, 13> eigenpair;
+      eigenvalues::computeEigenvaluesWithLapack(A, eigenpair);
+
+#ifndef NDEBUG
+      using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
+      using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
+      CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
+      CVector eigenvalues = CVector(eigenpair.values.data());
+      //check number of eigenvalues
+      //also check that the imaginary parts are zero
+      int evNeg = 0;
+      int evPos = 0;
+      for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+        assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
+        if (eigenvalues(i).real() < -zeroThreshold) {
+          ++evNeg;
+        } else if (eigenvalues(i).real() > zeroThreshold) {
+          ++evPos;
+        }
+      }
+      assert(evNeg == 4);
+      assert(evPos == 4);
+
+      //check whether eigensolver is good enough
+      CMatrix coeff(A.data());
+      const CMatrix matrixMult = coeff * eigenvectors;
+      CMatrix eigenvalueMatrix = CMatrix::Zero();
+      for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+        eigenvalueMatrix(i,i) = eigenvalues(i);
+      }
+      const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
+      const CMatrix diff = matrixMult - vectorMult;
+      const double norm = diff.norm();
+
+      std::stringstream messageStream;
+      messageStream << "Residual " << norm << " is larger than " << zeroThreshold << ": Eigensolver is not accurate enough";
+      assert((messageStream.str().c_str(), norm < zeroThreshold));
+#endif
+      return eigenpair;
+    };
+
+    template<>
     inline void getTransposedGodunovState( PoroElasticMaterial const&        local,
                                            PoroElasticMaterial const&        neighbor,
                                            FaceType                          faceType,
@@ -265,58 +318,14 @@ namespace seissol {
       using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
       using Matrix = Eigen::Matrix<double, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
       using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
-      auto getEigenDecomposition = [&zeroThreshold](PoroElasticMaterial const& material) {
-        std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
-        auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
-        getTransposedCoefficientMatrix(material, 0, ATView);
-        std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
-        //transpose AT to get A
-        for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-          for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
-            A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
-          }
-        }
-        seissol::eigenvalues::Eigenpair<std::complex<double>, 13> eigenpair;
-        seissol::eigenvalues::computeEigenvaluesWithLapack(A, eigenpair);
-        CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
-        CVector eigenvalues = CVector(eigenpair.values.data());
 
-#ifndef NDEBUG
-        //check number of eigenvalues
-        //also check that the imaginary parts are zero
-        int evNeg = 0;
-        int evPos = 0;
-        for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-          assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
-          if (eigenvalues(i).real() < -zeroThreshold) {
-            ++evNeg;
-          } else if (eigenvalues(i).real() > zeroThreshold) {
-            ++evPos;
-          }
-        }
-        assert(evNeg == 4);
-        assert(evPos == 4);
-
-        //check whether eigensolver is good enough
-        CMatrix coeff(A.data());
-        const CMatrix matrixMult = coeff * eigenvectors;
-        CMatrix eigenvalueMatrix = CMatrix::Zero();
-        for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-          eigenvalueMatrix(i,i) = eigenvalues(i);
-        }
-        const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
-        const CMatrix diff = matrixMult - vectorMult;
-        const double norm = diff.norm();
-        
-        std::stringstream messageStream;
-        messageStream << "Residual " << norm << " is larger than " << zeroThreshold << ": Eigensolver is not accurate enough";
-        assert((messageStream.str().c_str(), norm < zeroThreshold));
-#endif
-        return std::pair<CVector, CMatrix>({eigenvalues, eigenvectors});
+      auto splitEigenDecomposition = [&zeroThreshold] (PoroElasticMaterial const& material) {
+        auto eigenpair = getEigenDecomposition(material, zeroThreshold);
+        return std::pair<CVector, CMatrix>{eigenpair.getValuesAsVector(), eigenpair.getVectorsAsMatrix()};
       };
-      auto [localEigenvalues, localEigenvectors] = getEigenDecomposition(local);
-      auto [neighborEigenvalues, neighborEigenvectors] = getEigenDecomposition(neighbor);
 
+      auto [localEigenvalues, localEigenvectors] = splitEigenDecomposition(local);
+      auto [neighborEigenvalues, neighborEigenvectors] = splitEigenDecomposition(neighbor);
 
       CMatrix chiMinus = CMatrix::Zero();
       CMatrix chiPlus = CMatrix::Zero();
