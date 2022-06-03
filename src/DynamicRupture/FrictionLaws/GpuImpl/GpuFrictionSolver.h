@@ -30,6 +30,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       auto layerSize{this->currLayerSize};
 
       auto* impAndEta{this->impAndEta};
+      auto* impedanceMatrices{this->impedanceMatrices};
       auto* qInterpolatedPlus{this->qInterpolatedPlus};
       auto* qInterpolatedMinus{this->qInterpolatedMinus};
       auto* faultStresses{this->faultStresses};
@@ -42,6 +43,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
           common::precomputeStressFromQInterpolated<gpuRangeType>(faultStresses[ltsFace],
                                                                   impAndEta[ltsFace],
+                                                                  impedanceMatrices[ltsFace],
                                                                   qInterpolatedPlus[ltsFace],
                                                                   qInterpolatedMinus[ltsFace],
                                                                   pointIndex);

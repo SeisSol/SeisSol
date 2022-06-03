@@ -38,10 +38,14 @@ struct ImpedancesAndEta {
  */
 struct ImpedanceMatrices {
   // TODO replace by storage for yateto matrix
-  using Matrix44 = Eigen::Matrix<double, 4, 4>;
-  Matrix44 impedance;
-  Matrix44 impedanceNeig;
-  Matrix44 eta;
+#ifdef USE_POROELASTIC
+  using Matrix = Eigen::Matrix<double, 4, 4>;
+#else
+  using Matrix = Eigen::Matrix<double, 3, 3>;
+#endif
+  Matrix impedance;
+  Matrix impedanceNeig;
+  Matrix eta;
 };
 
 /**

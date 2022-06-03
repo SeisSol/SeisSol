@@ -41,6 +41,7 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
+                                                impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");

@@ -531,6 +531,24 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
+      using Matrix = dr::ImpedanceMatrices::Matrix;
+      auto extractMatrix = [](eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair) {
+#ifdef USE_POROELASTIC
+        constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
+        constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
+        constexpr std::array<int, 4> columnIndices = {0,1,2,3};
+#else
+        constexpr std::array<int, 3> tractionIndices = {0,3,5};
+        constexpr std::array<int, 3> velocityIndices = {6,7,8};
+        constexpr std::array<int, 3> columnIndices = {0,1,2};
+#endif
+        auto matrix = eigenpair.getVectorsAsMatrix();
+        Matrix RT = matrix(tractionIndices, columnIndices).real();
+        Matrix RT_inv = RT.inverse();
+        Matrix RU = matrix(velocityIndices, columnIndices).real();
+        Matrix M = RU * RT_inv;
+        return M;
+      };
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
@@ -543,22 +561,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
           auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial));
 
-          using Matrix44 = Eigen::Matrix<double, 4, 4>;
-          auto extractMatrix = [](eigenvalues::Eigenpair<std::complex<double>, 13> eigenpair) {
-            constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
-            constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
-            constexpr std::array<int, 4> columnIndices = {0,1,2,3};
-            auto matrix = eigenpair.getVectorsAsMatrix();
-            Matrix44 RT = matrix(tractionIndices, columnIndices).real();
-            Matrix44 RT_inv = RT.inverse();
-            Matrix44 RU = matrix(velocityIndices, columnIndices).real();
-            Matrix44 M = RU * RT_inv;
-            return M;
-          };
-
           impedanceMatrices[ltsFace].impedance = extractMatrix(plusEigenpair);
           impedanceMatrices[ltsFace].impedanceNeig = extractMatrix(minusEigenpair);
-          impedanceMatrices[ltsFace].eta = impedanceMatrices[ltsFace].impedance - impedanceMatrices[ltsFace].impedanceNeig;
+          impedanceMatrices[ltsFace].eta = (impedanceMatrices[ltsFace].impedanceNeig + impedanceMatrices[ltsFace].impedance).inverse();
 
 #pragma omp critical
           {
@@ -583,26 +588,19 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial));
           auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial));
 
-          using Matrix33 = Eigen::Matrix<double, 3, 3>;
-          std::array<int, 3> tractionIndices = {0,3,5};
-          std::array<int, 3> velocityIndices = {6,7,8};
-          std::array<int, 3> columnIndices = {0,1,2};
-          auto plusMatrix = plusEigenpair.getVectorsAsMatrix();
-          Matrix33 RT = plusMatrix(tractionIndices, columnIndices).real();
-          Matrix33 RT_inv = RT.inverse();
-          Matrix33 RU = plusMatrix(velocityIndices, columnIndices).real();
-          Matrix33 M = RU * RT_inv;
+          impedanceMatrices[ltsFace].impedance = extractMatrix(plusEigenpair);
+          impedanceMatrices[ltsFace].impedanceNeig = extractMatrix(minusEigenpair);
+          impedanceMatrices[ltsFace].eta = (impedanceMatrices[ltsFace].impedanceNeig + impedanceMatrices[ltsFace].impedance).inverse();
+
 #pragma omp critical
           {
             std::cout << "--------------------------" << std::endl;
-            std::cout << "R=" << std::endl;
-            std::cout << plusMatrix.real() << std::endl;
-            std::cout << "RT=" << std::endl;
-            std::cout << RT.real() << std::endl;
-            std::cout << "RU=" << std::endl;
-            std::cout << RU.real() << std::endl;
-            std::cout << "M=" << std::endl;
-            std::cout << M.real() << std::endl;
+            std::cout << "Z =" << std::endl;
+            std::cout << impedanceMatrices[ltsFace].impedance << std::endl;
+            std::cout << "Z_neigh =" << std::endl;
+            std::cout << impedanceMatrices[ltsFace].impedanceNeig << std::endl;
+            std::cout << "eta = " << std::endl;
+            std::cout << impedanceMatrices[ltsFace].eta << std::endl;
           }
           break;
         }
