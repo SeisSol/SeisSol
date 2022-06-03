@@ -12,9 +12,10 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   GpuBaseFrictionLaw(dr::DRParameters& drParameters);
   ~GpuBaseFrictionLaw();
 
-  void allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
-                               seissol::initializers::DynamicRupture* drDescr,
-                               int deviceId);
+  void setDeviceId(int currDeviceId) { deviceId = currDeviceId; }
+  void setMaxClusterSize(size_t size) { maxClusterSize = size; }
+  void allocateAuxiliaryMemory();
+  void copyStaticDataToDevice();
 
   virtual void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
                                               seissol::initializers::DynamicRupture* dynRup,

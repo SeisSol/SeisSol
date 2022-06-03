@@ -18,18 +18,7 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   omp_target_free(resampleMatrix, deviceId);
 }
 
-void GpuBaseFrictionLaw::allocateAuxiliaryMemory(seissol::initializers::LTSTree* drTree,
-                                                 seissol::initializers::DynamicRupture* drDescr,
-                                                 int currDiviceId) {
-  for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-       it != drTree->endLeaf();
-       ++it) {
-    size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
-    maxClusterSize = std::max(currClusterSize, maxClusterSize);
-  }
-
-  deviceId = currDiviceId;
-
+void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   faultStresses = reinterpret_cast<FaultStresses*>(
       omp_target_alloc(maxClusterSize * sizeof(FaultStresses), deviceId));
   tractionResults = reinterpret_cast<TractionResults*>(
@@ -40,10 +29,12 @@ void GpuBaseFrictionLaw::allocateAuxiliaryMemory(seissol::initializers::LTSTree*
       reinterpret_cast<decltype(stateVariableBuffer)>(omp_target_alloc(requiredNumBytes, deviceId));
   strengthBuffer =
       reinterpret_cast<decltype(strengthBuffer)>(omp_target_alloc(requiredNumBytes, deviceId));
+}
 
+void GpuBaseFrictionLaw::copyStaticDataToDevice() {
   constexpr auto dim0 = misc::dimSize<init::resample, 0>();
   constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-  requiredNumBytes = dim0 * dim1 * sizeof(real);
+  size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
 
   resampleMatrix = reinterpret_cast<real*>(omp_target_alloc(requiredNumBytes, deviceId));
   auto hostId = omp_get_initial_device();

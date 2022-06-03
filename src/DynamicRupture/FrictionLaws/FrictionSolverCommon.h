@@ -103,26 +103,26 @@ struct Common {
 #endif // ACL_DEVICE_OFFLOAD
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
         auto normalStress = faultStresses.normalStress[o][i];
-        auto xyTraction = tractionResults.traction1[o][i];
-        auto xzTraction = tractionResults.traction2[o][i];
+        auto traction1 = tractionResults.traction1[o][i];
+        auto traction2 = tractionResults.traction2[o][i];
 
         imposedStateM[0][i] += weight * normalStress;
-        imposedStateM[3][i] += weight * xyTraction;
-        imposedStateM[5][i] += weight * xzTraction;
+        imposedStateM[3][i] += weight * traction1;
+        imposedStateM[5][i] += weight * traction2;
         imposedStateM[6][i] +=
             weight * (qIMinus[o][6][i] - invZpNeig * (normalStress - qIMinus[o][0][i]));
         imposedStateM[7][i] +=
-            weight * (qIMinus[o][7][i] - invZsNeig * (xyTraction - qIMinus[o][3][i]));
+            weight * (qIMinus[o][7][i] - invZsNeig * (traction1 - qIMinus[o][3][i]));
         imposedStateM[8][i] +=
-            weight * (qIMinus[o][8][i] - invZsNeig * (xzTraction - qIMinus[o][5][i]));
+            weight * (qIMinus[o][8][i] - invZsNeig * (traction2 - qIMinus[o][5][i]));
 
         imposedStateP[0][i] += weight * normalStress;
-        imposedStateP[3][i] += weight * xyTraction;
-        imposedStateP[5][i] += weight * xzTraction;
+        imposedStateP[3][i] += weight * traction1;
+        imposedStateP[5][i] += weight * traction2;
         imposedStateP[6][i] +=
             weight * (qIPlus[o][6][i] + invZp * (normalStress - qIPlus[o][0][i]));
-        imposedStateP[7][i] += weight * (qIPlus[o][7][i] + invZs * (xyTraction - qIPlus[o][3][i]));
-        imposedStateP[8][i] += weight * (qIPlus[o][8][i] + invZs * (xzTraction - qIPlus[o][5][i]));
+        imposedStateP[7][i] += weight * (qIPlus[o][7][i] + invZs * (traction1 - qIPlus[o][3][i]));
+        imposedStateP[8][i] += weight * (qIPlus[o][8][i] + invZs * (traction2 - qIPlus[o][5][i]));
       }
     }
   }

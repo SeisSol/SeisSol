@@ -99,11 +99,11 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
       #pragma omp loop bind(parallel)
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // calculate absolute value of stress in Y and Z direction
-        real totalStressXY = initialStressInFaultCS[ltsFace][pointIndex][3] +
-                             faultStresses.traction1[timeIndex][pointIndex];
-        real totalStressXZ = initialStressInFaultCS[ltsFace][pointIndex][5] +
-                             faultStresses.traction2[timeIndex][pointIndex];
-        real absoluteShearStress = misc::magnitude(totalStressXY, totalStressXZ);
+        real totalStress1 = initialStressInFaultCS[ltsFace][pointIndex][3] +
+                            faultStresses.traction1[timeIndex][pointIndex];
+        real totalStress2 = initialStressInFaultCS[ltsFace][pointIndex][5] +
+                            faultStresses.traction2[timeIndex][pointIndex];
+        real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
         // calculate slip rates
         slipRateMagnitude[ltsFace][pointIndex] =
             std::max(static_cast<real>(0.0),
@@ -111,9 +111,9 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
         auto divisor =
             strength[pointIndex] + impAndEta[ltsFace].etaS * slipRateMagnitude[ltsFace][pointIndex];
         slipRate1[ltsFace][pointIndex] =
-            slipRateMagnitude[ltsFace][pointIndex] * totalStressXY / divisor;
+            slipRateMagnitude[ltsFace][pointIndex] * totalStress1 / divisor;
         slipRate2[ltsFace][pointIndex] =
-            slipRateMagnitude[ltsFace][pointIndex] * totalStressXZ / divisor;
+            slipRateMagnitude[ltsFace][pointIndex] * totalStress2 / divisor;
         // calculate traction
         tractionResults.traction1[timeIndex][pointIndex] =
             faultStresses.traction1[timeIndex][pointIndex] -

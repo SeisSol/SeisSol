@@ -844,18 +844,26 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
 }
 
 
-void seissol::initializers::MemoryManager::readFrictionData(seissol::Interoperability *interoperability) {
-  if (!m_dynRupParameter.isDynamicRuptureEnabled) {
-    return;
-  }
-  m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
-#ifdef ACL_DEVICE_OFFLOAD
-  if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    impl->allocateAuxiliaryMemory(&m_dynRupTree, m_dynRup.get(), device.api->getDeviceId());
-  }
-#endif
+void seissol::initializers::MemoryManager::initFrictionData(seissol::Interoperability *interoperability) {
+  if (m_dynRupParameter.isDynamicRuptureEnabled) {
 
-  interoperability->initializeFaultOutput();
+    m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
+
+#ifdef ACL_DEVICE_OFFLOAD
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
+      device::DeviceInstance& device = device::DeviceInstance::getInstance();
+      impl->setDeviceId(device.api->getDeviceId());
+
+      LayerMask mask = seissol::initializers::LayerMask(Ghost);
+      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
+      impl->setMaxClusterSize(maxSize);
+
+      impl->allocateAuxiliaryMemory();
+      impl->copyStaticDataToDevice();
+    }
+#endif // ACL_DEVICE_OFFLOAD
+
+    interoperability->initializeFaultOutput();
+  }
 }
 
