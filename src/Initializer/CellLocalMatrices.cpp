@@ -356,6 +356,39 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
   }
 }
 
+template<typename T, int dim1, int dim2>
+void copyEigenToYateto (Eigen::Matrix<T, dim1, dim2> const& matrix, yateto::DenseTensorView<2, T>& tensorView) {
+  assert(tensorView.shape(0) == dim1);
+  assert(tensorView.shape(1) == dim2);
+
+  tensorView.setZero();
+  for (size_t row = 0; row < dim1; ++row) {
+    for (size_t col = 0; col < dim2; ++col) {
+      tensorView(row, col) = matrix(row, col);
+    }
+  }
+};
+
+constexpr int N = tensor::Zminus::Shape[0];
+using Matrix = Eigen::Matrix<double, N, N>;
+Matrix extractMatrix(eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair) {
+#ifdef USE_POROELASTIC
+  constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
+        constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
+        constexpr std::array<int, 4> columnIndices = {0,1,2,3};
+#else
+  constexpr std::array<int, 3> tractionIndices = {0,3,5};
+  constexpr std::array<int, 3> velocityIndices = {6,7,8};
+  constexpr std::array<int, 3> columnIndices = {0,1,2};
+#endif
+  auto matrix = eigenpair.getVectorsAsMatrix();
+  Matrix RT = matrix(tractionIndices, columnIndices).real();
+  Matrix RT_inv = RT.inverse();
+  Matrix RU = matrix(velocityIndices, columnIndices).real();
+  Matrix M = RU * RT_inv;
+  return M;
+};
+
 void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,
@@ -531,24 +564,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
-      using Matrix = dr::ImpedanceMatrices::Matrix;
-      auto extractMatrix = [](eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair) {
-#ifdef USE_POROELASTIC
-        constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
-        constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
-        constexpr std::array<int, 4> columnIndices = {0,1,2,3};
-#else
-        constexpr std::array<int, 3> tractionIndices = {0,3,5};
-        constexpr std::array<int, 3> velocityIndices = {6,7,8};
-        constexpr std::array<int, 3> columnIndices = {0,1,2};
-#endif
-        auto matrix = eigenpair.getVectorsAsMatrix();
-        Matrix RT = matrix(tractionIndices, columnIndices).real();
-        Matrix RT_inv = RT.inverse();
-        Matrix RU = matrix(velocityIndices, columnIndices).real();
-        Matrix M = RU * RT_inv;
-        return M;
-      };
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
@@ -556,25 +571,25 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           break;
         }
         case seissol::model::MaterialType::poroelastic: {
+          // TODO (SW) Extract this into a function
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, AMinus);
+
           auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
           auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial));
 
-          impedanceMatrices[ltsFace].impedance = extractMatrix(plusEigenpair);
-          impedanceMatrices[ltsFace].impedanceNeig = extractMatrix(minusEigenpair);
-          impedanceMatrices[ltsFace].eta = (impedanceMatrices[ltsFace].impedanceNeig + impedanceMatrices[ltsFace].impedance).inverse();
+          Matrix impedanceMatrix = extractMatrix(plusEigenpair);
+          Matrix impedanceNeigMatrix = extractMatrix(minusEigenpair);
+          Matrix etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
 
-#pragma omp critical
-          {
-            std::cout << "--------------------------" << std::endl;
-            std::cout << "Z =" << std::endl;
-            std::cout << impedanceMatrices[ltsFace].impedance << std::endl;
-            std::cout << "Z_neigh =" << std::endl;
-            std::cout << impedanceMatrices[ltsFace].impedanceNeig << std::endl;
-            std::cout << "eta = " << std::endl;
-            std::cout << impedanceMatrices[ltsFace].eta << std::endl;
-          }
+          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance.data());
+          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig.data());
+          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta.data());
+
+          copyEigenToYateto(impedanceMatrix, impedanceView);
+          copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
+          copyEigenToYateto(etaMatrix, etaView);
+
           break;
         }
         case seissol::model::MaterialType::anisotropic: {
@@ -585,23 +600,22 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         case seissol::model::MaterialType::elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
+
           auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial));
           auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial));
 
-          impedanceMatrices[ltsFace].impedance = extractMatrix(plusEigenpair);
-          impedanceMatrices[ltsFace].impedanceNeig = extractMatrix(minusEigenpair);
-          impedanceMatrices[ltsFace].eta = (impedanceMatrices[ltsFace].impedanceNeig + impedanceMatrices[ltsFace].impedance).inverse();
+          Matrix impedanceMatrix = extractMatrix(plusEigenpair);
+          Matrix impedanceNeigMatrix = extractMatrix(minusEigenpair);
+          Matrix etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
 
-#pragma omp critical
-          {
-            std::cout << "--------------------------" << std::endl;
-            std::cout << "Z =" << std::endl;
-            std::cout << impedanceMatrices[ltsFace].impedance << std::endl;
-            std::cout << "Z_neigh =" << std::endl;
-            std::cout << impedanceMatrices[ltsFace].impedanceNeig << std::endl;
-            std::cout << "eta = " << std::endl;
-            std::cout << impedanceMatrices[ltsFace].eta << std::endl;
-          }
+          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance.data());
+          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig.data());
+          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta.data());
+
+          copyEigenToYateto(impedanceMatrix, impedanceView);
+          copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
+          copyEigenToYateto(etaMatrix, etaView);
+
           break;
         }
         case seissol::model::MaterialType::viscoelastic: {

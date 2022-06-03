@@ -37,15 +37,9 @@ struct ImpedancesAndEta {
  * This generalizes equation (4.51) from Carsten's thesis
  */
 struct ImpedanceMatrices {
-  // TODO replace by storage for yateto matrix
-#ifdef USE_POROELASTIC
-  using Matrix = Eigen::Matrix<double, 4, 4>;
-#else
-  using Matrix = Eigen::Matrix<double, 3, 3>;
-#endif
-  Matrix impedance;
-  Matrix impedanceNeig;
-  Matrix eta;
+  std::array<real, tensor::Zplus::size()> impedance;
+  std::array<real, tensor::Zplus::size()> impedanceNeig;
+  std::array<real, tensor::Zplus::size()> eta;
 };
 
 /**

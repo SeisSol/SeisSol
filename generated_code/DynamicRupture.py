@@ -132,26 +132,25 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)
 
-  Qplus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  Qminus = OptionalDimTensor('Qminus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  selectVelocitiesSPP = np.zeros((3, aderdg.numberOfQuantities()))
-  selectVelocitiesSPP[0, 6] = 1
-  selectVelocitiesSPP[1, 7] = 1
-  selectVelocitiesSPP[2, 8] = 1
-  selectVelocities = Tensor('selectVelocities', (3, aderdg.numberOfQuantities()), spp=selectVelocitiesSPP)
-  selectTractionsSPP = np.zeros((3, aderdg.numberOfQuantities()))
-  selectTractionsSPP[0, 0] = 1
-  selectTractionsSPP[1, 3] = 1
-  selectTractionsSPP[2, 5] = 1
-  selectTractions = Tensor('selectTractions', (3, aderdg.numberOfQuantities()), spp=selectTractionsSPP)
-  eta = Tensor('eta', (3,3), spp=np.eye(3))
-  Zplus = Tensor('Zplus', (3,3), spp=np.eye(3))
-  Zminus = Tensor('Zminus', (3,3), spp=np.eye(3))
-  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (3, numberOfPoints))
-  velocityJump = selectVelocities['lj'] * Qminus['ij'] - selectVelocities['lj'] * Qplus['ij']
-  tractionsPlus = selectTractions['mn'] * Qplus['in']
-  tractionsMinus = selectTractions['mn'] * Qminus['in']
-  computeTheta = theta['ki'] <= eta['kl'] * velocityJump + eta['kl'] * Zplus['lm'] * tractionsPlus + eta['kl'] * Zminus['lm'] * tractionsMinus
+  ## Dynamic Rupture Precompute
+  qPlus = OptionalDimTensor('Qplus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  qMinus = OptionalDimTensor('Qminus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+
+  extractVelocitiesSPP = aderdg.extractVelocities()
+  extractVelocities = Tensor('extractVelocities', extractVelocitiesSPP.shape, spp=extractVelocitiesSPP)
+  extractTractionsSPP = aderdg.extractTractions()
+  extractTractions = Tensor('extractTractions', extractTractionsSPP.shape, spp=extractTractionsSPP)
+
+  N = extractTractionsSPP.shape[0]
+  eta = Tensor('eta', (N,N))
+  zPlus = Tensor('Zplus', (N,N))
+  zMinus = Tensor('Zminus', (N,N))
+  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (N, numberOfPoints))
+
+  velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
+  tractionsPlus = extractTractions['mn'] * qPlus['in']
+  tractionsMinus = extractTractions['mn'] * qMinus['in']
+  computeTheta = theta['ki'] <= eta['kl'] * velocityJump + eta['kl'] * zPlus['lm'] * tractionsPlus + eta['kl'] * zMinus['lm'] * tractionsMinus
   generator.add('computeTheta', computeTheta)
 
   return {db.resample, db.quadpoints, db.quadweights}

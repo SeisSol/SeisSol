@@ -38,6 +38,22 @@ class PoroelasticADERDG(LinearADERDG):
   def sourceMatrix(self):
     return self.db.ET
 
+  def extractVelocities(self):
+    extractVelocitiesSPP = np.zeros((4, self.numberOfQuantities()))
+    extractVelocitiesSPP[0, 6] = 1
+    extractVelocitiesSPP[1, 7] = 1
+    extractVelocitiesSPP[2, 8] = 1
+    extractVelocitiesSPP[3, 10] = 1
+    return extractVelocitiesSPP
+
+  def extractTractions(self):
+    extractTractionsSPP = np.zeros((4, self.numberOfQuantities()))
+    extractTractionsSPP[0, 0] = 1
+    extractTractionsSPP[1, 3] = 1
+    extractTractionsSPP[2, 5] = 1
+    extractTractionsSPP[3, 9] = 1
+    return extractTractionsSPP
+
   def transformationSpp(self):
     spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
     spp[0:6,0:6] = 1

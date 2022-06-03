@@ -61,34 +61,6 @@ void copyEigenToYateto(Eigen::Matrix<T, dim1, dim2> const& matrix,
       tensorView(row, col) = matrix(row, col);
     }
   }
-
-/**
- * Asserts whether all relevant arrays are properly aligned
- */
-inline void checkAlignmentPreCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const FaultStresses& faultStresses) {
-  using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
-
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
-
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % ALIGNMENT == 0);
-  }
 }
 
 /**
@@ -107,7 +79,7 @@ inline void checkAlignmentPreCompute(
 template <RangeType Type = RangeType::CPU>
 inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
-    const ImpedancesAndEta& impAndEta,
+    const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
@@ -115,85 +87,33 @@ inline void precomputeStressFromQInterpolated(
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
-  const auto etaP = impAndEta.etaP;
-  const auto etaS = impAndEta.etaS;
-  const auto invZp = impAndEta.invZp;
-  const auto invZs = impAndEta.invZs;
-  const auto invZpNeig = impAndEta.invZpNeig;
-  const auto invZsNeig = impAndEta.invZsNeig;
+  seissol::dynamicRupture::kernel::computeTheta krnl;
+  krnl.extractVelocities = init::extractVelocities::Values;
+  krnl.extractTractions = init::extractTractions::Values;
 
-    #pragma omp critical
-    {
-      std::cout << "#######################" << std::endl;
-      std::cout << impedanceMatrices.impedance << std::endl;
-      std::cout << impAndEta.invZp << ", " << impAndEta.invZs << std::endl;
-      std::cout << impedanceMatrices.impedanceNeig << std::endl;
-      std::cout << impAndEta.invZpNeig << ", " << impAndEta.invZsNeig << std::endl;
-      std::cout << impedanceMatrices.eta << std::endl;
-      std::cout << impAndEta.etaP << ", " << impAndEta.etaS << std::endl;
-    }
+  // Compute Theta from eq (4.53) in Carsten's thesis
+  krnl.Zplus = impedanceMatrices.impedanceNeig.data();
+  krnl.Zminus = impedanceMatrices.impedance.data();
+  krnl.eta = impedanceMatrices.eta.data();
 
-    seissol::dynamicRupture::kernel::computeTheta krnl;
-    krnl.selectVelocities = init::selectVelocities::Values;
-    krnl.selectTractions = init::selectTractions::Values;
+  real thetaBuffer[tensor::theta::size()] = {};
+  krnl.theta = thetaBuffer;
+  auto thetaView = init::theta::view::create(thetaBuffer);
 
-    real zPlus[tensor::Zplus::size()] = {};
-    auto zPlusView = init::theta::view::create(zPlus);
-    copyEigenToYateto(impedanceMatrices.impedanceNeig, zPlusView);
-    real zMinus[tensor::Zminus::size()] = {};
-    auto zMinusView = init::theta::view::create(zMinus);
-    copyEigenToYateto<real, 3, 3>(impedanceMatrices.impedance, zMinusView);
-    real eta[tensor::Zminus::size()] = {};
-    auto etaView = init::theta::view::create(eta);
-    copyEigenToYateto<real, 3, 3>(impedanceMatrices.eta, etaView);
-    krnl.Zplus = zPlus;
-    krnl.Zminus = zMinus;
-    krnl.eta = eta;
-
-    real thetaBuffer[tensor::theta::size()] = {};
-    krnl.theta = thetaBuffer;
-    auto thetaView = init::theta::view::create(thetaBuffer);
-    for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-      krnl.Qplus = qInterpolatedPlus[o];
-      krnl.Qminus = qInterpolatedMinus[o];
-      krnl.execute();
-
-  using namespace dr::misc::quantity_indices;
-
-#ifndef ACL_DEVICE
-  checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
-#endif
-
+  // TODO: Integrate loop over o into the kernel
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    using Range = typename NumPoints<Type>::Range;
+    krnl.Qplus = qInterpolatedPlus[o];
+    krnl.Qminus = qInterpolatedMinus[o];
+    krnl.execute();
 
-#ifndef ACL_DEVICE
-    #pragma omp simd
+    // TODO: what about GPUs/Ranges
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      faultStresses.normalStress[o][i] = thetaView(0, i);
+      faultStresses.traction1[o][i] = thetaView(1, i);
+      faultStresses.traction2[o][i] = thetaView(2, i);
+#ifdef USE_POROELASTIC
+      faultStresses.fluidPressure[o][i] = thetaView(3, i);
 #endif
-    for (auto index = Range::start; index < Range::end; index += Range::step) {
-      auto i{startLoopIndex + index};
-      // This is eq (4.53) from Carsten's thesis
-      faultStresses.normalStress[o][i] =
-          etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
-                  qIMinus[o][N][i] * invZpNeig);
-
-      faultStresses.traction1[o][i] =
-          etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
-                  qIMinus[o][T1][i] * invZsNeig);
-
-      faultStresses.traction2[o][i] =
-          etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
-                  qIMinus[o][T2][i] * invZsNeig);
-
-        #pragma omp critical
-        {
-          std::cout << "---------------------------" << std::endl;
-          std::cout << faultStresses.normalStress[o][i] << ", " << faultStresses.traction1[o][i]
-                    << ", " << faultStresses.traction2[o][i] << std::endl;
-          std::cout << thetaView(0, i) << ", " << thetaView(1, i) << ", " << thetaView(2, i)
-                    << std::endl;
-        }
-      }
     }
   }
 }

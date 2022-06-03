@@ -42,7 +42,6 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
           const auto pointIndex = item.get_local_id(0);
 
           common::precomputeStressFromQInterpolated<gpuRangeType>(faultStresses[ltsFace],
-                                                                  impAndEta[ltsFace],
                                                                   impedanceMatrices[ltsFace],
                                                                   qInterpolatedPlus[ltsFace],
                                                                   qInterpolatedMinus[ltsFace],
