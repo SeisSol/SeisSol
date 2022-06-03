@@ -62,22 +62,20 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
-  virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
-  virtual void fixInterpolatedSTFParameters(
+  void fixInterpolatedSTFParameters(
       seissol::initializers::DynamicRupture* dynRup,
       seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
 class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
-  virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 } // namespace seissol::dr::initializers
 

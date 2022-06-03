@@ -2,10 +2,10 @@
 #define SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
 
 #include "DynamicRupture/Output/ParametersInitializer.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/LTS.h"
-#include "Initializer/DynamicRupture.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/Lut.hpp"
 #include "Solver/Interoperability.h"
 
 namespace seissol::dr::output {

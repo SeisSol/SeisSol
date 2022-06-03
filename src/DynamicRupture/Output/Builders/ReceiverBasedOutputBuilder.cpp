@@ -16,7 +16,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
       auto elementIndex = faultInfo[point.faultFaceIndex].element;
-      auto& element = elementsInfo[elementIndex];
+      const auto& element = elementsInfo[elementIndex];
 
       auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
@@ -155,8 +155,8 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     }
 
     auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
-    auto* tangent1 = faultInfo[faultIndex].tangent1;
-    auto* tangent2 = faultInfo[faultIndex].tangent2;
+    const auto* tangent1 = faultInfo[faultIndex].tangent1;
+    const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
     Eigen::Matrix<real, 2, 2> matrix;
     matrix(0, 0) = MeshTools::dot(tangent1, xab);

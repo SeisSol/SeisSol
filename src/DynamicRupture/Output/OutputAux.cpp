@@ -1,14 +1,14 @@
-#include "OutputAux.hpp"
 #include "Geometry/MeshTools.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
+#include "OutputAux.hpp"
 #include <Eigen/Dense>
+#include <ctime>
+#include <filesystem>
+#include <iomanip>
 #include <limits>
 #include <unordered_map>
-#include <iomanip>
-#include <filesystem>
-#include <ctime>
 
 namespace seissol::dr {
 

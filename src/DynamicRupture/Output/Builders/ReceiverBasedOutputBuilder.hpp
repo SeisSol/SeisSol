@@ -1,9 +1,9 @@
 #ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
 #define SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
-#include "DynamicRupture/Misc.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.hpp"
 #include "Model/common.hpp"

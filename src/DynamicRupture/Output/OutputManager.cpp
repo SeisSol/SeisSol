@@ -1,7 +1,7 @@
 #include "DynamicRupture/Output/OutputManager.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
-#include "SeisSol.h"
 #include "ResultWriter/common.hpp"
+#include "SeisSol.h"
 #include <filesystem>
 #include <fstream>
 #include <type_traits>

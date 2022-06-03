@@ -1,8 +1,8 @@
 #include "ImposedSlipRatesInitializer.h"
 
-#include <utils/logger.h>
 #include "Model/common.hpp"
 #include "SeisSol.h"
+#include <utils/logger.h>
 
 namespace seissol::dr::initializers {
 void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
