@@ -22,6 +22,7 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
 
 void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   hostId = omp_get_initial_device();
+  ompx_set_cuda_stream_auto(0);
 
   faultStresses = reinterpret_cast<FaultStresses*>(
       omp_target_alloc(maxClusterSize * sizeof(FaultStresses), deviceId));

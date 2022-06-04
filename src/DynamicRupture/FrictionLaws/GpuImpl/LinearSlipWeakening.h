@@ -83,7 +83,7 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
                   slip1,                         \
                   slip2,                         \
                   deltaT)                        \
-    device(deviceId)
+    device(deviceId) nowait
     for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
       auto& faultStresses = faultStressesPtr[ltsFace];
       auto& tractionResults = tractionResultsPtr[ltsFace];
@@ -135,7 +135,7 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
 
     #pragma omp target teams loop \
     is_device_ptr(stateVariableBuffer, mu, muS, muD) \
-    device(deviceId)
+    device(deviceId) nowait
     for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
       auto& stateVariable = stateVariableBuffer[ltsFace];
 
@@ -179,7 +179,7 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
                   dynStressTimePending,     \
                   accumulatedSlipMagnitude, \
                   dC)                       \
-    device(deviceId)
+    device(deviceId) nowait
     for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
       #pragma omp loop bind(parallel)
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {

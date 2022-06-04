@@ -38,7 +38,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
       #pragma omp target teams loop \
       is_device_ptr(faultStresses, qInterpolatedPlus, qInterpolatedMinus, impAndEta) \
-      device(deviceId)
+      device(deviceId) nowait
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         Common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
                                                   impAndEta[ltsFace],
@@ -56,7 +56,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
       #pragma omp target teams loop \
       is_device_ptr(ruptureTimePending, slipRateMagnitude, ruptureTime) \
-      device(deviceId)
+      device(deviceId) nowait
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         // output rupture front
         Common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
@@ -84,7 +84,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
                     qInterpolatedMinus, \
                     impAndEta,          \
                     devTimeWeights)     \
-      device(deviceId)
+      device(deviceId) nowait
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
         Common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
@@ -96,6 +96,8 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
                                                      qInterpolatedMinus[ltsFace],
                                                      devTimeWeights);
       }
+
+      #pragma omp taskwait
     }
   }
 };

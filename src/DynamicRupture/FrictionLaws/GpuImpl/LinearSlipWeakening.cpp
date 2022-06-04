@@ -16,7 +16,7 @@ void LinearSlipWeakeningLaw::calcStrengthHook(FaultStresses* faultStressesPtr,
                 initialStressInFaultCS,      \
                 cohesion,                    \
                 mu)                          \
-  device(deviceId)
+  device(deviceId) nowait
   for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
     auto& faultStresses = faultStressesPtr[ltsFace];
     auto& strength = strengthBuffer[ltsFace];
@@ -57,7 +57,7 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(
                 accumulatedSlipMagnitude,       \
                 dC,                             \
                 deltaT)                         \
-  device(deviceId)
+  device(deviceId) nowait
   for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
     real resampledSlipRate[misc::numPaddedPoints]{};
 
@@ -109,7 +109,7 @@ void LinearSlipWeakeningLawForcedRuptureTime::preHook(
   auto* tn{this->tn};
 
   #pragma omp target teams loop is_device_ptr(tn) \
-  firstprivate(fullUpdateTime) device(deviceId)
+  firstprivate(fullUpdateTime) device(deviceId) nowait
   for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
     tn[ltsFace] = fullUpdateTime;
   }
@@ -130,7 +130,7 @@ void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
                 forcedRuptureTime,   \
                 tn,                  \
                 deltaT)              \
-  device(deviceId)
+  device(deviceId) nowait
   for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
     tn[ltsFace] += deltaT[timeIndex];
     auto& stateVariable = stateVariableBuffer[ltsFace];
