@@ -21,11 +21,13 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
-    auto* deltaT{this->deltaT};
 
-    #pragma omp target data \
-    map(to: timeWeights[0:CONVERGENCE_ORDER], \
-            deltaT[0:CONVERGENCE_ORDER])
+    size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    omp_target_memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes, 0, 0, deviceId, hostId);
+
+    requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
+    omp_target_memcpy(devDeltaT, &deltaT[0], requiredNumBytes, 0, 0, deviceId, hostId);
+
     {
       auto layerSize{this->currLayerSize};
 
@@ -69,9 +71,9 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       auto* imposedStatePlus{this->imposedStatePlus};
       auto* imposedStateMinus{this->imposedStateMinus};
       auto* tractionResults{this->tractionResults};
+      auto* devTimeWeights{this->devTimeWeights};
 
-      #pragma omp target teams loop \
-      map(to: timeWeights [0:CONVERGENCE_ORDER]) \
+      #pragma omp target teams loop     \
       is_device_ptr(faultStresses,      \
                     tractionResults,    \
                     peakSlipRate,       \
@@ -80,7 +82,9 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
                     imposedStateMinus,  \
                     qInterpolatedPlus,  \
                     qInterpolatedMinus, \
-                    impAndEta) device(deviceId)
+                    impAndEta,          \
+                    devTimeWeights)     \
+      device(deviceId)
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
         Common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
@@ -90,7 +94,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
                                                      imposedStateMinus[ltsFace],
                                                      qInterpolatedPlus[ltsFace],
                                                      qInterpolatedMinus[ltsFace],
-                                                     timeWeights);
+                                                     devTimeWeights);
       }
     }
   }

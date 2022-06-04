@@ -25,23 +25,16 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   real (*cohesion)[misc::numPaddedPoints];
 
   void updateFrictionAndSlip() {
-    auto layerSize{this->currLayerSize};
-
-    #pragma omp target data                       \
-    map(to: deltaT[0:CONVERGENCE_ORDER])          \
-    device(deviceId)
-    {
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-        // computes fault strength, which is the critical value whether active slip exists.
-        static_cast<Derived*>(this)->calcStrengthHook(
-            this->faultStresses, this->strengthBuffer, timeIndex);
-        // computes resulting slip rates, traction and slip dependent on current friction
-        // coefficient and strength
-        this->calcSlipRateAndTraction(
-            this->faultStresses, this->tractionResults, this->strengthBuffer, timeIndex);
-        static_cast<Derived*>(this)->calcStateVariableHook(this->stateVariableBuffer, timeIndex);
-        this->frictionFunctionHook(this->stateVariableBuffer);
-      }
+    for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+      // computes fault strength, which is the critical value whether active slip exists.
+      static_cast<Derived*>(this)->calcStrengthHook(
+          this->faultStresses, this->strengthBuffer, timeIndex);
+      // computes resulting slip rates, traction and slip dependent on current friction
+      // coefficient and strength
+      this->calcSlipRateAndTraction(
+          this->faultStresses, this->tractionResults, this->strengthBuffer, timeIndex);
+      static_cast<Derived*>(this)->calcStateVariableHook(this->stateVariableBuffer, timeIndex);
+      this->frictionFunctionHook(this->stateVariableBuffer);
     }
   }
 
@@ -74,10 +67,9 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
     auto* traction2{this->traction2};
     auto* slip1{this->slip1};
     auto* slip2{this->slip2};
-    auto* deltaT{this->deltaT};
+    auto* deltaT{this->devDeltaT};
 
     #pragma omp target teams loop                \
-    map(to: deltaT[0:CONVERGENCE_ORDER])         \
     is_device_ptr(faultStressesPtr,              \
                   tractionResultsPtr,            \
                   strengthBuffer,                \
@@ -89,7 +81,8 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
                   traction1,                     \
                   traction2,                     \
                   slip1,                         \
-                  slip2)                         \
+                  slip2,                         \
+                  deltaT)                        \
     device(deviceId)
     for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
       auto& faultStresses = faultStressesPtr[ltsFace];

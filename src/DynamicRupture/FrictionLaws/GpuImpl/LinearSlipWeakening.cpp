@@ -42,7 +42,7 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(
   auto* accumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
   auto* slipRateMagnitude{this->slipRateMagnitude};
   auto* dC{this->dC};
-  auto* deltaT{this->deltaT};
+  auto* deltaT{this->devDeltaT};
   auto* resample{this->resampleMatrix};
 
   constexpr auto dim0 = misc::dimSize<init::resample, 0>();
@@ -51,12 +51,12 @@ void LinearSlipWeakeningLaw::calcStateVariableHook(
   static_assert(dim0 >= dim1);
 
   #pragma omp target teams loop                 \
-  map(to: deltaT[0:CONVERGENCE_ORDER])          \
   is_device_ptr(stateVariableBuffer,            \
                 slipRateMagnitude,              \
                 resample,                       \
                 accumulatedSlipMagnitude,       \
-                dC)                             \
+                dC,                             \
+                deltaT)                         \
   device(deviceId)
   for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
     real resampledSlipRate[misc::numPaddedPoints]{};
@@ -121,13 +121,15 @@ void LinearSlipWeakeningLawForcedRuptureTime::calcStateVariableHook(
 
   auto layerSize{this->currLayerSize};
   auto t0 = drParameters.t0;
-  auto* deltaT{this->deltaT};
+  auto* deltaT{this->devDeltaT};
   auto* forcedRuptureTime{this->forcedRuptureTime};
   auto* tn{this->tn};
 
-  #pragma omp target teams loop                             \
-  map(to: deltaT[0:CONVERGENCE_ORDER])                      \
-  is_device_ptr(stateVariableBuffer, forcedRuptureTime, tn) \
+  #pragma omp target teams loop      \
+  is_device_ptr(stateVariableBuffer, \
+                forcedRuptureTime,   \
+                tn,                  \
+                deltaT)              \
   device(deviceId)
   for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
     tn[ltsFace] += deltaT[timeIndex];

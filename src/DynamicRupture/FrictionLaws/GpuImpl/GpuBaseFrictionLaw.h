@@ -26,6 +26,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
 
   size_t maxClusterSize{};
   size_t currLayerSize{};
+  int hostId{};
   int deviceId{};
 
   FaultStresses* faultStresses{nullptr};
@@ -33,6 +34,8 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   real (*stateVariableBuffer)[misc::numPaddedPoints]{nullptr};
   real (*strengthBuffer)[misc::numPaddedPoints]{nullptr};
   real* resampleMatrix{nullptr};
+  double* devTimeWeights{nullptr};
+  real* devDeltaT{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 
