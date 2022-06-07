@@ -2,18 +2,14 @@ jobs:
   - job:
     displayName: seissol-clang-format
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
     variables:
       - name: version
         value: 10
     steps:
       - bash: |
           set -euo pipefail
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{ variables.version }}
-          sudo apt-get remove clang-format*
-          sudo apt-get -y install clang-format-${{ variables.version }} zlib1g-dev
+          sudo apt-get -y install clang-format-${{ variables.version }}
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-${{ variables.version }} 10
       - bash: |
           set -euo pipefail

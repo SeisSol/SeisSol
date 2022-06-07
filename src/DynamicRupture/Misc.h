@@ -7,6 +7,7 @@
 #include <cmath>
 #include <generated_code/init.h>
 #include <stdexcept>
+#include <tuple>
 
 namespace seissol::dr::misc {
 // Note: this can be moved to yateto headers
