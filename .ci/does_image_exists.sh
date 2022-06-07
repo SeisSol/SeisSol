@@ -1,11 +1,11 @@
 #!/bin/bash
 
 show_help() {
-  echo Usage: does_image_exist.sh ubuntu 18.04
+  echo "Usage - does_image_exist.sh ubuntu 18.04"
 }
 
 if [[ -z $1 ]]; then
-    echo ERROR: provide an image name with a tag
+    echo "ERROR: provide an image name with a tag"
     show_help
     exit 0
 fi

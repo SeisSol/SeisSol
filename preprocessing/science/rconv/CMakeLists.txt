@@ -25,9 +25,10 @@ add_executable(SeisSol-rconv
 target_include_directories(SeisSol-rconv PUBLIC src
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../src" # SeisSol :(
    "${CMAKE_CURRENT_SOURCE_DIR}/../../../submodules/"
-   "${CMAKE_CURRENT_SOURCE_DIR}/../../../submodules/eigen3"
-
 )
+
+find_package(Eigen3 3.4 REQUIRED)
+target_link_libraries(SeisSol-rconv PUBLIC Eigen3::Eigen)
 
 find_package(NetCDF REQUIRED)
 target_include_directories(SeisSol-rconv PUBLIC ${NetCDF_INCLUDE_DIRS})

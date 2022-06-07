@@ -1,11 +1,11 @@
 #!/bin/bash
 
 show_help() {
-  echo Usage: does_image_exist.sh ubuntu 18.04
+  echo "Usage - is_changed.sh path"
 }
 
 if [[ -z $1 ]]; then
-    echo ERROR: provide a file or a directory
+    echo "ERROR: provide a file or a directory"
     show_help
     exit 0
 fi
