@@ -10,7 +10,7 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
                                                   seissol::Interoperability* eInteroperability) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-            << misc::numberOfBoundaryGaussPoints << " points.";
+                << misc::numberOfBoundaryGaussPoints << " points.";
   seissol::initializers::FaultParameterDB faultParameterDB;
 
   for (auto it = dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
