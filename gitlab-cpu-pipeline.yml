@@ -48,10 +48,11 @@ ci_builder_pre:
         - unzip libxsmm-1.17.zip
         - cd libxsmm-1.17 && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
         - git clone https://github.com/uphoffc/ImpalaJIT.git &&
-          mkdir impala_build && cd impala_build && cmake ../ImpalaJIT && sudo make -j $(nproc) install && cd ..
+          mkdir -p ImpalaJIT/build && cd ImpalaJIT/build && cmake .. && make -j $(nproc) &&
+          sudo make install && cd ../.. && rm -rf ./ImpalaJIT
         - git clone --depth 1 https://github.com/SeisSol/easi.git &&
-          mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=ON ../easi && 
-          sudo make -j $(nproc) install && cd ..
+          mkdir -p easi/build && cd easi/build && cmake -DASAGI=OFF -DIMPALAJIT=ON .. &&
+          make -j $(nproc) && sudo make install  && cd ../.. && rm -rf ./easi
         
 ci_builder_build:
     stage: build
