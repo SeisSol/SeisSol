@@ -49,33 +49,35 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * Rotate slip from strike/dip cooordinate system to the fault aligned coordinate system.
    * @param dynRup
    * @param it
-   * @param slip1: In: Slip in strike direction, Out: Slip in fault aligned direction 1
-   * @param slip2: In: Slip in dip direction, Out: Slip in fault aligned direction 2
+   * @param strikeSlip: Slip in strike direction
+   * @param dipSlip: Slip in dip direction
+   * @param imposedSlipDirection1: Slip in fault aligned direction 1
+   * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
   void rotateSlipToFaultCS(seissol::initializers::DynamicRupture* dynRup,
                            seissol::initializers::LTSTree::leaf_iterator& it,
-                           real (*slip1)[misc::numPaddedPoints],
-                           real (*slip2)[misc::numPaddedPoints]);
+                           std::vector<std::array<real, misc::numPaddedPoints>> const& strikeSlip,
+                           std::vector<std::array<real, misc::numPaddedPoints>> const& dipSlip,
+                           real (*imposedSlipDirection1)[misc::numPaddedPoints],
+                           real (*imposedSlipDirection2)[misc::numPaddedPoints]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
-  virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
-  virtual void fixInterpolatedSTFParameters(
+  void fixInterpolatedSTFParameters(
       seissol::initializers::DynamicRupture* dynRup,
       seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 
 class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
-  virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it);
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               seissol::initializers::DynamicRupture* dynRup,
+                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 };
 } // namespace seissol::dr::initializers
 

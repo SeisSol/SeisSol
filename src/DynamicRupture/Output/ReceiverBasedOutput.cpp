@@ -1,9 +1,9 @@
-#include "ReceiverBasedOutput.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "Initializer/tree/Layer.hpp"
 #include "Numerical_aux/BasisFunction.h"
-#include "generated_code/tensor.h"
+#include "ReceiverBasedOutput.hpp"
 #include "generated_code/kernel.h"
+#include "generated_code/tensor.h"
 #include <unordered_map>
 
 namespace seissol::dr::output {

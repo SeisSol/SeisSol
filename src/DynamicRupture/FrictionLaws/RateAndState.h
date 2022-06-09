@@ -2,8 +2,8 @@
 #define SEISSOL_RATEANDSTATE_H
 
 #include "BaseFrictionLaw.h"
-#include "Solver/Interoperability.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
+#include "Solver/Interoperability.h"
 
 namespace seissol::dr::friction_law {
 // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
@@ -342,7 +342,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       if (this->ruptureTime[face][pointIndex] > 0.0 &&
           this->ruptureTime[face][pointIndex] <= this->mFullUpdateTime &&
-          this->dynStressTimePending[pointIndex] &&
+          this->dynStressTimePending[face][pointIndex] &&
           this->mu[face][pointIndex] <=
               (this->drParameters.muW +
                0.05 * (this->drParameters.rsF0 - this->drParameters.muW))) {
