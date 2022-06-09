@@ -1,5 +1,5 @@
-FROM ravilmobile/seissol-compilers:gcc-8_cuda-10
-
+ARG BASE_IMAGE_NAME=seissol/gpu-ci-compiler-image:custom
+FROM $BASE_IMAGE_NAME
 
 RUN apt-get update -yqq && \
 apt-get install -yqq autotools-dev autoconf libtool \
@@ -25,7 +25,7 @@ tar -xvf ./hwloc-${VERSION}.tar.gz && cd hwloc-${VERSION} && \
 --disable-cuda \
 --disable-libudev \
 --enable-shared && \
-make -j && make install && cd .. && rm -rf ./hwloc*
+make -j $(nproc) && make install && cd .. && rm -rf ./hwloc*
 
 
 # Install OpenMPI
@@ -41,7 +41,7 @@ tar -xvf ./v${VERSION}.tar.gz && cd ./ompi-${VERSION} && \
 --with-hwloc=/usr \
 --enable-mpirun-prefix-by-default \
 --with-cuda=/usr/local/cuda && \
-make -j && make install && cd ../.. && rm -rf ./ompi* && rm -rf ./v*
+make -j $(nproc) && make install && cd ../.. && rm -rf ./ompi* && rm -rf ./v*
 
 
 RUN export VERSION=1.10.7 && \
@@ -53,7 +53,7 @@ CFLAGS="-fPIC" CC=mpicc FC=mpif90 ./configure \
 --disable-shared \
 --enable-fortran \
 --prefix=/usr && \ 
-make -j4 && make install && \
+make -j $(nproc) && make install && \
 cd .. && rm -rf ./hdf5*
 
 
@@ -62,7 +62,7 @@ wget --progress=bar:force:noscroll ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-
 tar -xvf netcdf-c-${VERSION}.tar.gz && \
 cd netcdf-c-${VERSION} && \
 CFLAGS="-fPIC" CC=/usr/bin/h5pcc ./configure --enable-shared=no --prefix=/usr --disable-dap && \
-make -j4 && make install && \
+make -j $(nproc) && make install && \
 cd .. && rm -rf ./netcdf-c*
 
 
@@ -72,7 +72,7 @@ tar -xvf parmetis-${VERSION}.tar.gz && \
 cd parmetis-${VERSION} && \
 sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h && \
 CC=mpicc CXX=mpicxx make config prefix=/usr && \
-make -j4 && make install && \
+make -j $(nproc) && make install && \
 cp build/Linux-x86_64/libmetis/libmetis.a /usr/lib && \
 cp metis/include/metis.h /usr/include && \ 
 cd .. && rm -rf ./parmetis-*
@@ -82,7 +82,7 @@ RUN export VERSION=1.16.1 && \
 git clone https://github.com/hfp/libxsmm.git && \
 cd libxsmm && \
 git checkout ${VERSION} && \
-make -j4 generator && \
+make -j $(nproc) generator && \
 cp bin/libxsmm_gemm_generator /usr/bin && \
 cd .. && rm -rf ./libxsmm*
 
@@ -92,7 +92,7 @@ git clone https://github.com/OSGeo/PROJ.git && \
 cd PROJ && git checkout ${VERSION} && \
 mkdir build && cd build && \
 CC=mpicc CXX=mpicxx cmake .. -DCMAKE_INSTALL_PREFIX=/usr && \
-make -j4 && make install && \
+make -j $(nproc) && make install && \
 cd ../.. && rm -rf ./PROJ*
 
 
@@ -105,21 +105,53 @@ cmake .. -DCMAKE_INSTALL_PREFIX=/usr \
 -DCMAKE_CXX_COMPILER=mpicxx \
 -DCMAKE_BUILD_TYPE=Release \
 -DSCOREC_CXX_FLAGS="-Wno-error=array-bounds" && \
-make -j4 && make install && \
+make -j $(nproc) && make install && \
 cd ../.. && rm -rf ./core
 
 
 RUN git clone --recurse-submodules https://github.com/SeisSol/PUMGen.git pumgen && \
 mkdir -p ./pumgen/build && cd ./pumgen/build && \
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DCMAKE_BUILD_TYPE=Release && \
-make -j4 && make install && \
+make -j $(nproc) && make install && \
 cd ../.. && rm -rf ./pumgen
 
 
-RUN git clone --recurse-submodules https://github.com/SeisSol/SeisSol.git seissol && \
-DIR=./seissol/preprocessing/meshing/cube_c/build && \
+RUN export VERSION=2.6.2 && \
+apt install -yqq libjpeg-dev && \
+apt install -yqq locales && locale-gen en_US.UTF-8 && \
+pip3 install pytest==6.2.5 && \
+wget --progress=bar:force:noscroll https://github.com/pybind/pybind11/archive/v${VERSION}.tar.gz && \
+tar -xvf ./v${VERSION}.tar.gz && \
+cd ./pybind11-${VERSION} && mkdir build && cd build && \
+PYBIND11_USE_CMAKE=1 cmake .. -DPYTHON_EXECUTABLE=$(which python3) && \
+make -j $(nproc) && make install && cd .. && \
+LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8' python3 ./setup.py install && \
+cd .. && rm -rf ./pybind11-${VERSION} ./v${VERSION}.tar.gz
+
+
+RUN export VERSION=0.6.2 && \
+git clone --depth 1 --branch yaml-cpp-${VERSION} https://github.com/jbeder/yaml-cpp.git yaml-cpp && \
+mkdir -p yaml-cpp/build && cd yaml-cpp/build && \
+cmake .. -DCMAKE_CXX_FLAGS="-fPIC" && \
+make -j $(nproc) && make install && \
+cd ../.. && rm -rf ./yaml-cpp
+
+
+RUN export VERSION=3.4.0 && \
+wget --progress=bar:force:noscroll https://gitlab.com/libeigen/eigen/-/archive/${VERSION}/eigen-${VERSION}.tar.gz && \
+tar -xf eigen-${VERSION}.tar.gz && \
+mkdir eigen-${VERSION}/build && cd eigen-${VERSION}/build && \
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr && make -j $(nproc) install && \
+cd ../.. && rm -rf ./eigen-${VERSION}*
+
+ARG SEISSOL_SHA_COMMIT=master
+
+RUN git clone https://github.com/SeisSol/SeisSol.git seissol && cd ./seissol && \
+git reset $SEISSOL_SHA_COMMIT --hard && \
+git submodule update --init --recursive && \
+DIR=./preprocessing/meshing/cube_c/build && \
 mkdir -p $DIR && cd $DIR && \
-CC=mpicc CXX=mpicxx cmake .. && make -j4 && \
+CC=mpicc CXX=mpicxx cmake .. && make -j $(nproc) && \
 cp ./cubeGenerator /usr/bin && \
 cd .. && rm -rf ./build
 
@@ -135,30 +167,9 @@ RUN DIR=./seissol/preprocessing/science/rconv/build && \
 mkdir -p $DIR && cd $DIR && \
 echo "find_package(HDF5 REQUIRED COMPONENTS C HL)" >> ../CMakeLists.txt && \
 echo "target_link_libraries(SeisSol-rconv PUBLIC \${HDF5_C_HL_LIBRARIES} \${HDF5_C_LIBRARIES})" >> ../CMakeLists.txt && \
-CC=mpicc CXX=mpicxx cmake .. && make && \
+CC=mpicc CXX=mpicxx cmake .. && make -j $(nproc) && \
 cp ./rconv /usr/bin && \
 cd /tmp && rm -rf ./seissol
-
-
-RUN export VERSION=2.6.2 && \
-apt install -yqq libjpeg-dev && \
-apt install -yqq locales && locale-gen en_US.UTF-8 && \
-pip3 install pytest==6.2.5 && \
-wget --progress=bar:force:noscroll https://github.com/pybind/pybind11/archive/v${VERSION}.tar.gz && \
-tar -xvf ./v${VERSION}.tar.gz && \
-cd ./pybind11-${VERSION} && mkdir build && cd build && \
-PYBIND11_USE_CMAKE=1 cmake .. -DPYTHON_EXECUTABLE=$(which python3) && \
-make -j3 && make install && cd .. && \
-LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8' python3 ./setup.py install && \
-cd .. && rm -rf ./pybind11-${VERSION} ./v${VERSION}.tar.gz
-
-
-RUN export VERSION=0.6.2 && \
-git clone --depth 1 --branch yaml-cpp-${VERSION} https://github.com/jbeder/yaml-cpp.git yaml-cpp && \
-mkdir -p yaml-cpp/build && cd yaml-cpp/build && \
-cmake .. -DCMAKE_CXX_FLAGS="-fPIC" && \
-make -j4 && make install && \
-cd ../.. && rm -rf ./yaml-cpp
 
 
 # Clean-up
