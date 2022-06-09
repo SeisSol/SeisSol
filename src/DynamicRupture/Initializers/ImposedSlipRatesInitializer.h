@@ -51,13 +51,15 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param it
    * @param strikeSlip: Slip in strike direction
    * @param dipSlip: Slip in dip direction
-   * @param imposedSlipDirections: Slip in fault aligned directions
+   * @param imposedSlipDirection1: Slip in fault aligned direction 1
+   * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
   void rotateSlipToFaultCS(seissol::initializers::DynamicRupture* dynRup,
                            seissol::initializers::LTSTree::leaf_iterator& it,
                            std::vector<std::array<real, misc::numPaddedPoints>> const& strikeSlip,
                            std::vector<std::array<real, misc::numPaddedPoints>> const& dipSlip,
-                           real (*imposedSlipDirections)[misc::numPaddedPoints][2]);
+                           real (*imposedSlipDirection1)[misc::numPaddedPoints],
+                           real (*imposedSlipDirection2)[misc::numPaddedPoints]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {

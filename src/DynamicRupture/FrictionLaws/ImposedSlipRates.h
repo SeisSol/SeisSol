@@ -12,7 +12,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  real (*imposedSlipDirections)[misc::numPaddedPoints][2];
+  real (*imposedSlipDirection1)[misc::numPaddedPoints];
+  real (*imposedSlipDirection2)[misc::numPaddedPoints];
 
   STF stf{};
 
@@ -20,7 +21,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {
     auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
-    imposedSlipDirections = layerData.var(concreteLts->imposedSlipDirections);
+    imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
+    imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -39,19 +41,17 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
-      this->traction1[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] -
-                                             this->impAndEta[ltsFace].etaS *
-                                                 imposedSlipDirections[ltsFace][pointIndex][0] *
-                                                 stfEvaluated;
-      this->traction2[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] -
-                                             this->impAndEta[ltsFace].etaS *
-                                                 imposedSlipDirections[ltsFace][pointIndex][1] *
-                                                 stfEvaluated;
+      this->traction1[ltsFace][pointIndex] =
+          faultStresses.traction1[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * imposedSlipDirection1[ltsFace][pointIndex] * stfEvaluated;
+      this->traction2[ltsFace][pointIndex] =
+          faultStresses.traction2[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * imposedSlipDirection2[ltsFace][pointIndex] * stfEvaluated;
 
       this->slipRate1[ltsFace][pointIndex] =
-          this->imposedSlipDirections[ltsFace][pointIndex][0] * stfEvaluated;
+          this->imposedSlipDirection1[ltsFace][pointIndex] * stfEvaluated;
       this->slipRate2[ltsFace][pointIndex] =
-          this->imposedSlipDirections[ltsFace][pointIndex][1] * stfEvaluated;
+          this->imposedSlipDirection2[ltsFace][pointIndex] * stfEvaluated;
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
 

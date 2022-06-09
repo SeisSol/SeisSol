@@ -21,8 +21,10 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
-    real(*imposedSlipDirections)[misc::numPaddedPoints][2] =
-        it->var(concreteLts->imposedSlipDirections);
+    real(*imposedSlipDirection1)[misc::numPaddedPoints] =
+        it->var(concreteLts->imposedSlipDirection1);
+    real(*imposedSlipDirection2)[misc::numPaddedPoints] =
+        it->var(concreteLts->imposedSlipDirection2);
     real(*onsetTime)[misc::numPaddedPoints] = it->var(concreteLts->onsetTime);
 
     // First read slip in strike/dip direction. Later we will rotate this to the face aligned
@@ -44,7 +46,8 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
     const auto faceIDs = getFaceIDsInIterator(dynRup, it);
     queryModel(faultParameterDB, faceIDs);
 
-    rotateSlipToFaultCS(dynRup, it, strikeSlip, dipSlip, imposedSlipDirections);
+    rotateSlipToFaultCS(
+        dynRup, it, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
     real(*nucleationStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
@@ -72,7 +75,8 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     seissol::initializers::LTSTree::leaf_iterator& it,
     std::vector<std::array<real, misc::numPaddedPoints>> const& strikeSlip,
     std::vector<std::array<real, misc::numPaddedPoints>> const& dipSlip,
-    real (*imposedSlipDirections)[misc::numPaddedPoints][2]) {
+    real (*imposedSlipDirection1)[misc::numPaddedPoints],
+    real (*imposedSlipDirection2)[misc::numPaddedPoints]) {
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
     unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
@@ -89,9 +93,9 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     real scalarProduct = MeshTools::dot(crossProduct, fault.normal);
     real sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      imposedSlipDirections[ltsFace][pointIndex][0] =
+      imposedSlipDirection1[ltsFace][pointIndex] =
           cos * strikeSlip[ltsFace][pointIndex] + sin * dipSlip[ltsFace][pointIndex];
-      imposedSlipDirections[ltsFace][pointIndex][1] =
+      imposedSlipDirection2[ltsFace][pointIndex] =
           -sin * strikeSlip[ltsFace][pointIndex] + cos * dipSlip[ltsFace][pointIndex];
     }
   }
