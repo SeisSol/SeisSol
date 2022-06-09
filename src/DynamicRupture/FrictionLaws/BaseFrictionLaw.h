@@ -6,6 +6,7 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
+#include "FrictionSolverCommon.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -33,7 +34,10 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       alignas(ALIGNMENT) FaultStresses faultStresses{};
-      this->precomputeStressFromQInterpolated(faultStresses, ltsFace);
+      Common::precomputeStressFromQInterpolated(faultStresses,
+                                                impAndEta[ltsFace],
+                                                qInterpolatedPlus[ltsFace],
+                                                qInterpolatedMinus[ltsFace]);
 
       // define some temporary variables
       std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
@@ -56,21 +60,32 @@ class BaseFrictionLaw : public FrictionSolver {
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
       // output rupture front
-      this->saveRuptureFrontOutput(ltsFace);
+      Common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+                                     ruptureTime[ltsFace],
+                                     slipRateMagnitude[ltsFace],
+                                     mFullUpdateTime);
 
       // output time when shear stress is equal to the dynamic stress after rupture arrived
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
       // output peak slip rate
-      this->savePeakSlipRateOutput(ltsFace);
+      Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
 
       // output average slip
       // TODO: What about outputSlip
-      // this->saveAverageSlipOutput(outputSlip, ltsFace);
+      // if (drParameters.isMagnitudeOutputOn) {
+      // Common::saveAverageSlipOutput(outputSlip, averagedSlip[ltsFace]);
+      //}
 
       // compute output
-      this->postcomputeImposedStateFromNewStress(
-          faultStresses, tractionResults, timeWeights, ltsFace);
+      Common::postcomputeImposedStateFromNewStress(faultStresses,
+                                                   tractionResults,
+                                                   impAndEta[ltsFace],
+                                                   imposedStatePlus[ltsFace],
+                                                   imposedStateMinus[ltsFace],
+                                                   qInterpolatedPlus[ltsFace],
+                                                   qInterpolatedMinus[ltsFace],
+                                                   timeWeights);
     }
   }
 };

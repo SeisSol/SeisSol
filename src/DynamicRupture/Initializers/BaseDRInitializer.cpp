@@ -12,7 +12,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                                         seissol::Interoperability* eInteroperability) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-            << misc::numberOfBoundaryGaussPoints << " points.";
+                << misc::numberOfBoundaryGaussPoints << " points.";
   seissol::initializers::FaultParameterDB faultParameterDB;
   dynRup->isFaultParameterizedByTraction =
       faultParameterDB.faultParameterizedByTraction(drParameters.faultFileName);

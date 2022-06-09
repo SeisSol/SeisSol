@@ -38,28 +38,6 @@ class FrictionSolver {
                           real fullUpdateTime);
 
   /**
-   * Calculate traction and normal stress at the interface.
-   * Using equations (A2) from Pelties et al. 2014
-   * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
-   * @param ltsFace: current fault face to be evaluated
-   * @param faultStresses: ormalStress XYStress, XZStress at the 2d face quadrature nodes evaluated
-   * at the time quadrature points
-   * @returns
-   */
-  void precomputeStressFromQInterpolated(FaultStresses& faultStresses, unsigned int ltsFace);
-
-  /**
-   * Integrate over all Time points with the time weights and calculate the traction for each side
-   * according to Carsten Uphoff Thesis: EQ.: 4.60
-   * IN: NormalStressGP, XYTractionResultGP, * XZTractionResultGP
-   * OUT: imposedStatePlus, imposedStateMinus
-   */
-  void postcomputeImposedStateFromNewStress(const FaultStresses& faultStresses,
-                                            const TractionResults& tractionResults,
-                                            double timeWeights[CONVERGENCE_ORDER],
-                                            unsigned int ltsFace);
-
-  /**
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
   real calcSmoothStepIncrement(real currentTime, real dt);
@@ -68,27 +46,6 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */
   real calcSmoothStep(real currentTime);
-
-  /**
-   * output rupture front, saves update time of the rupture front
-   * rupture front is the first registered change in slip rates that exceeds 0.001
-   */
-  void saveRuptureFrontOutput(unsigned int ltsFace);
-
-  /**
-   * Save the maximal computed slip rate magnitude in peakSlipRate
-   */
-  void savePeakSlipRateOutput(unsigned int ltsFace);
-
-  /**
-   * Compute and store element-averaged slip to determine the magnitude of an earthquake.
-   * In calc_seissol.f90 this value will be multiplied by the element surface
-   * and the seismic moment is outputted once at the end of the simulation.
-   * @param tmpSlip
-   * @param ltsFace
-   */
-  void saveAverageSlipOutput(std::array<real, misc::numPaddedPoints>& tmpSlip,
-                             unsigned int ltsFace);
 
   real deltaT[CONVERGENCE_ORDER] = {};
 

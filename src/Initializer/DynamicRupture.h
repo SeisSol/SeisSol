@@ -142,8 +142,8 @@ public:
     tree.addVar(slipRate1, mask, 1, MEMKIND_STANDARD);
     tree.addVar(slipRate2, mask, 1, MEMKIND_STANDARD);
     tree.addVar(peakSlipRate, mask, 1, MEMKIND_STANDARD);
-    tree.addVar(traction1, mask, 1, seissol::memory::Standard);
-    tree.addVar(traction2, mask, 1, seissol::memory::Standard);
+    tree.addVar(traction1, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(traction2, mask, 1, MEMKIND_STANDARD);
     tree.addVar(averagedSlip, mask, 1, MEMKIND_STANDARD);
     tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, MEMKIND_STANDARD);
     tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, MEMKIND_STANDARD);
@@ -165,10 +165,10 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
     virtual void addTo(initializers::LTSTree& tree) {
         seissol::initializers::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
-        tree.addVar(dC, mask, 1, seissol::memory::Standard);
-        tree.addVar(muS, mask, 1, seissol::memory::Standard);
-        tree.addVar(muD, mask, 1, seissol::memory::Standard);
-        tree.addVar(cohesion, mask,1, seissol::memory::Standard);
+        tree.addVar(dC, mask, 1, MEMKIND_STANDARD);
+        tree.addVar(muS, mask, 1, MEMKIND_STANDARD);
+        tree.addVar(muD, mask, 1, MEMKIND_STANDARD);
+        tree.addVar(cohesion, mask,1, MEMKIND_STANDARD);
     }
 };
 
@@ -179,8 +179,8 @@ struct seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime : public 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_LinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(forcedRuptureTime, mask, 1, seissol::memory::Standard);
-    tree.addVar(tn, mask, 1, seissol::memory::Standard);
+    tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(tn, mask, 1, MEMKIND_STANDARD);
   }
 };
 
