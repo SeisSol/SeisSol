@@ -145,17 +145,17 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   eta = Tensor('eta', (N,N))
   zPlus = Tensor('Zplus', (N,N))
   zMinus = Tensor('Zminus', (N,N))
-  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (N, numberOfPoints))
+  theta = OptionalDimTensor('theta', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (numberOfPoints, N), alignStride=True)
 
   velocityJump = extractVelocities['lj'] * qMinus['ij'] - extractVelocities['lj'] * qPlus['ij']
   tractionsPlus = extractTractions['mn'] * qPlus['in']
   tractionsMinus = extractTractions['mn'] * qMinus['in']
-  computeTheta = theta['ki'] <= eta['kl'] * velocityJump + eta['kl'] * zPlus['lm'] * tractionsPlus + eta['kl'] * zMinus['lm'] * tractionsMinus
+  computeTheta = theta['ik'] <= eta['kl'] * velocityJump + eta['kl'] * zPlus['lm'] * tractionsPlus + eta['kl'] * zMinus['lm'] * tractionsMinus
   generator.add('computeTheta', computeTheta)
 
   velocities = OptionalDimTensor('velocity', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (N, numberOfPoints))
-  computeVelocityM = velocities['ki'] <= extractVelocities['km'] * qMinus['im'] + zMinus['km'] * theta['mi'] - zMinus['km'] * tractionsMinus
-  computeVelocityP = velocities['ki'] <= extractVelocities['km'] * qPlus['im'] + zPlus['km'] * tractionsPlus - zPlus['km'] * theta['mi']
+  computeVelocityM = velocities['ki'] <= extractVelocities['km'] * qMinus['im'] + zMinus['km'] * theta['im'] - zMinus['km'] * tractionsMinus
+  computeVelocityP = velocities['ki'] <= extractVelocities['km'] * qPlus['im'] + zPlus['km'] * tractionsPlus - zPlus['km'] * theta['im']
   generator.add('computeVelocityM', computeVelocityM)
   generator.add('computeVelocityP', computeVelocityP)
 

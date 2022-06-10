@@ -108,11 +108,11 @@ inline void precomputeStressFromQInterpolated(
 
     // TODO: what about GPUs/Ranges
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
-      faultStresses.normalStress[o][i] = thetaView(0, i);
-      faultStresses.traction1[o][i] = thetaView(1, i);
-      faultStresses.traction2[o][i] = thetaView(2, i);
+      faultStresses.normalStress[o][i] = thetaView(i, 0);
+      faultStresses.traction1[o][i] = thetaView(i, 1);
+      faultStresses.traction2[o][i] = thetaView(i, 2);
 #ifdef USE_POROELASTIC
-      faultStresses.fluidPressure[o][i] = thetaView(3, i);
+      faultStresses.fluidPressure[o][i] = thetaView(i, 3);
 #endif
     }
   }
