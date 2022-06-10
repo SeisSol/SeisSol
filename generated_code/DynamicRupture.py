@@ -153,11 +153,16 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   computeTheta = theta['ik'] <= eta['kl'] * velocityJump + eta['kl'] * zPlus['lm'] * tractionsPlus + eta['kl'] * zMinus['lm'] * tractionsMinus
   generator.add('computeTheta', computeTheta)
 
-  velocities = OptionalDimTensor('velocity', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos, (N, numberOfPoints))
-  computeVelocityM = velocities['ki'] <= extractVelocities['km'] * qMinus['im'] + zMinus['km'] * theta['im'] - zMinus['km'] * tractionsMinus
-  computeVelocityP = velocities['ki'] <= extractVelocities['km'] * qPlus['im'] + zPlus['km'] * tractionsPlus - zPlus['km'] * theta['im']
-  generator.add('computeVelocityM', computeVelocityM)
-  generator.add('computeVelocityP', computeVelocityP)
+  mapToVelocitiesSPP = aderdg.mapToVelocities()
+  mapToVelocities = Tensor('mapToVelocities', mapToVelocitiesSPP.shape, spp=mapToVelocitiesSPP)
+  mapToTractionsSPP = aderdg.mapToTractions()
+  mapToTractions = Tensor('mapToTractions', mapToTractionsSPP.shape, spp=mapToTractionsSPP)
+  imposedState = OptionalDimTensor('imposedState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  weight = Scalar('weight')
+  computeImposedStateM = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qMinus['im'] - zMinus['lm'] * theta['im'] + zMinus['lm'] * tractionsMinus) + weight * mapToTractions['kl'] * theta['il']
+  computeImposedStateP = imposedState['ik'] <= imposedState['ik'] + weight * mapToVelocities['kl'] * (extractVelocities['lm'] * qPlus['im'] - zPlus['lm'] * tractionsPlus + zPlus['lm'] * theta['im']) + weight * mapToTractions['kl'] * theta['il']
+  generator.add('computeImposedStateM', computeImposedStateM)
+  generator.add('computeImposedStateP', computeImposedStateP)
 
 
   return {db.resample, db.quadpoints, db.quadweights}

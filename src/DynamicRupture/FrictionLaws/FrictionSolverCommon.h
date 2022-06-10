@@ -119,59 +119,12 @@ inline void precomputeStressFromQInterpolated(
 }
 
 /**
- * Asserts whether all relevant arrays are properly aligned
- */
-inline void checkAlignmentPostCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real imposedStateP[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
-    const real imposedStateM[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults) {
-  using namespace dr::misc::quantity_indices;
-
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % ALIGNMENT == 0);
-
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % ALIGNMENT == 0);
-
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
-
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
-
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % ALIGNMENT == 0);
-  }
-}
-
-/**
  * Integrate over all Time points with the time weights and calculate the traction for each side
  * according to Carsten Uphoff Thesis: EQ.: 4.60
  *
  * @param[in] faultStresses
  * @param[in] tractionResults
- * @param[in] impAndEta
+ * @param[in] impedancenceMatrices
  * @param[in] qInterpolatedPlus
  * @param[in] qInterpolatedMinus
  * @param[in] timeWeights
@@ -182,7 +135,7 @@ template <RangeType Type = RangeType::CPU>
 inline void postcomputeImposedStateFromNewStress(
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults,
-    const ImpedancesAndEta& impAndEta,
+    const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -199,60 +152,47 @@ inline void postcomputeImposedStateFromNewStress(
     imposedStateMinus[i] = static_cast<real>(0.0);
   }
 
-  const auto invZs = impAndEta.invZs;
-  const auto invZp = impAndEta.invZp;
-  const auto invZsNeig = impAndEta.invZsNeig;
-  const auto invZpNeig = impAndEta.invZpNeig;
+  // setup kernel
+  seissol::dynamicRupture::kernel::computeImposedStateM krnlM;
+  krnlM.extractVelocities = init::extractVelocities::Values;
+  krnlM.extractTractions = init::extractTractions::Values;
+  krnlM.mapToVelocities = init::mapToVelocities::Values;
+  krnlM.mapToTractions = init::mapToTractions::Values;
+  krnlM.Zminus = impedanceMatrices.impedance.data();
+  krnlM.imposedState = imposedStateMinus;
 
-  using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
-  auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
-  auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
+  seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
+  krnlP.extractVelocities = init::extractVelocities::Values;
+  krnlP.extractTractions = init::extractTractions::Values;
+  krnlP.mapToVelocities = init::mapToVelocities::Values;
+  krnlP.mapToTractions = init::mapToTractions::Values;
+  krnlP.Zplus = impedanceMatrices.impedanceNeig.data();
+  krnlP.imposedState = imposedStatePlus;
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
-
-  using namespace dr::misc::quantity_indices;
-
-#ifndef ACL_DEVICE
-  checkAlignmentPostCompute(
-      qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
-#endif
+  real thetaBuffer[tensor::theta::size()] = {};
+  auto thetaView = init::theta::view::create(thetaBuffer);
+  krnlM.theta = thetaBuffer;
+  krnlP.theta = thetaBuffer;
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
-
-    using NumPointsRange = typename NumPoints<Type>::Range;
-#ifndef ACL_DEVICE
-    #pragma omp simd
+    // copy values to yateto dataformat
+    for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+      thetaView(i, 0) = faultStresses.normalStress[o][i];
+      thetaView(i, 1) = tractionResults.traction1[o][i];
+      thetaView(i, 2) = tractionResults.traction2[o][i];
+#ifdef USE_POROELASTIC
+      thetaView(i, 3) = faultStresses.fluidPressure[o][i];
 #endif
-    for (auto index = NumPointsRange::start; index < NumPointsRange::end;
-         index += NumPointsRange::step) {
-      auto i{startIndex + index};
-
-      const auto normalStress = faultStresses.normalStress[o][i];
-      const auto traction1 = tractionResults.traction1[o][i];
-      const auto traction2 = tractionResults.traction2[o][i];
-
-      imposedStateM[N][i] += weight * normalStress;
-      imposedStateM[T1][i] += weight * traction1;
-      imposedStateM[T2][i] += weight * traction2;
-      // This is eq (4.60) from Carsten's thesis
-      imposedStateM[U][i] +=
-          weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      imposedStateM[V][i] +=
-          weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      imposedStateM[W][i] +=
-          weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
-
-      imposedStateP[N][i] += weight * normalStress;
-      imposedStateP[T1][i] += weight * traction1;
-      imposedStateP[T2][i] += weight * traction2;
-      // This is eq (4.60) from Carsten's thesis
-      imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
+    // execute kernel (and hence update imposedStatePlus/Minus)
+    krnlM.Qminus = qInterpolatedMinus[o];
+    krnlM.weight = weight;
+    krnlM.execute();
+
+    krnlP.Qplus = qInterpolatedPlus[o];
+    krnlP.weight = weight;
+    krnlP.execute();
   }
 }
 

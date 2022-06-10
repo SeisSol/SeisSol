@@ -112,7 +112,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
           common::postcomputeImposedStateFromNewStress<gpuRangeType>(faultStresses[ltsFace],
                                                                      tractionResults[ltsFace],
-                                                                     impAndEta[ltsFace],
+                                                                     impedanceMatrices[ltsFace],
                                                                      imposedStatePlus[ltsFace],
                                                                      imposedStateMinus[ltsFace],
                                                                      qInterpolatedPlus[ltsFace],
@@ -123,7 +123,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
           common::computeFrictionEnergy<gpuRangeType>(energyData[ltsFace],
                                                       qInterpolatedPlus[ltsFace],
                                                       qInterpolatedMinus[ltsFace],
-                                                      impAndEta[ltsFace],
+                                                      impedanceMatrices[ltsFace],
                                                       devTimeWeights,
                                                       devSpaceWeights,
                                                       godunovData[ltsFace],

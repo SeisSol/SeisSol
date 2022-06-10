@@ -370,12 +370,12 @@ void copyEigenToYateto (Eigen::Matrix<T, dim1, dim2> const& matrix, yateto::Dens
 };
 
 constexpr int N = tensor::Zminus::Shape[0];
-using Matrix = Eigen::Matrix<double, N, N>;
+using Matrix = Eigen::Matrix<real, N, N>;
 Matrix extractMatrix(eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair) {
 #ifdef USE_POROELASTIC
   constexpr std::array<int, 4> tractionIndices = {0,3,5,9};
-        constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
-        constexpr std::array<int, 4> columnIndices = {0,1,2,3};
+  constexpr std::array<int, 4> velocityIndices = {6,7,8,10};
+  constexpr std::array<int, 4> columnIndices = {0,1,2,3};
 #else
   constexpr std::array<int, 3> tractionIndices = {0,3,5};
   constexpr std::array<int, 3> velocityIndices = {6,7,8};

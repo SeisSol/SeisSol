@@ -103,7 +103,7 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
-                                                   impAndEta[ltsFace],
+                                                   impedanceMatrices[ltsFace],
                                                    imposedStatePlus[ltsFace],
                                                    imposedStateMinus[ltsFace],
                                                    qInterpolatedPlus[ltsFace],
