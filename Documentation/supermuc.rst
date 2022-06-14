@@ -43,6 +43,7 @@ Building SeisSol
     # load spack
     module load user_spack
     # clone seissol-spack-aid and add the repository
+    # we use a supermuc specific branch as supermuc spack is too old (0.17.1) for the main branch
     git clone --branch supermuc_NG https://github.com/SeisSol/seissol-spack-aid.git
     cd seissol-spack-aid
     spack repo add ./spack
