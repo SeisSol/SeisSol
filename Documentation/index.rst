@@ -57,7 +57,7 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
-  git_behind_firewall
+  behind_firewall
   supermuc
   marconi
 
