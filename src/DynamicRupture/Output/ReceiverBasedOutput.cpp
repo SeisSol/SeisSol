@@ -41,6 +41,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
   size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
   auto faultInfos = meshReader->getFault();
+
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
     assert(outputData.receiverPoints[i].isInside == true &&
@@ -75,6 +76,8 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
     local.frictionCoefficient = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
+    local.stateVariable = this->computeStateVariable();
+
     local.iniTraction1 = initStress[3];
     local.iniTraction2 = initStress[5];
     local.iniNormalTraction = initStress[0];
@@ -167,6 +170,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
     if (frictionAndState.isActive) {
       frictionAndState(ParamID::FrictionCoefficient, level, i) = local.frictionCoefficient;
+      frictionAndState(ParamID::State, level, i) = local.stateVariable;
     }
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);

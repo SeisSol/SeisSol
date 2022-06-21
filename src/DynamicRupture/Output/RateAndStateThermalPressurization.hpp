@@ -32,7 +32,11 @@ class RateAndStateThermalPressurization : public RateAndState {
   }
 
   protected:
-  real computeFluidPressure() override { return 0.0; }
+  real computeFluidPressure() override {
+    using DrLtsDescrT = seissol::initializers::LTS_RateAndStateThermalPressurization;
+    auto* pressure = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->pressure);
+    return pressure[local.ltsId][local.nearestGpIndex];
+  }
   void outputSpecifics(ReceiverBasedOutputData& outputData,
                        size_t cacheLevel,
                        size_t receiverIdx) override {
