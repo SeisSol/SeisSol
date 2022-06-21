@@ -248,6 +248,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   {
 #pragma omp single
     while (!finished) {
+      logInfo() << "Task scheduling loop: enter";
       finished = true;
       communicationManager->progression();
 
@@ -303,6 +304,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       // Taskwait needed because we otherwise can schedule same cluster twice
       // leading to segfaults. Can be fixed with mutex.
 //#pragma omp taskwait
+      logInfo() << "Task scheduling loop: exit";
     }
   }
 #ifdef ACL_DEVICE

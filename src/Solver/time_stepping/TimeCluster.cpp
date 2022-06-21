@@ -717,12 +717,15 @@ ActResult TimeCluster::act() {
     isRunning = true;
   }
   const auto rank = MPI::mpi.rank();
-  if (layerType == LayerType::Interior) logInfo(rank) << "Starting cluster " << m_globalClusterId;
+  const auto thread = omp_get_thread_num();
+  if (layerType == LayerType::Interior) logInfo(rank) << "Starting cluster " << m_globalClusterId
+        << "with state" << actorStateToString(state) << "on thread" << thread;
   //actorStateStatistics->enter(state);
   const auto result = AbstractTimeCluster::act();
   //actorStateStatistics->enter(state);
-  if (layerType == LayerType::Interior) logInfo(rank) << "Stopping cluster " << m_globalClusterId;
-  
+  if (layerType == LayerType::Interior) logInfo(rank) << "Stopping cluster " << m_globalClusterId
+        << "with state" << actorStateToString(state) << "on thread" << thread;
+
   {
     std::lock_guard lock{isRunningMutex};
     isRunning = false;
