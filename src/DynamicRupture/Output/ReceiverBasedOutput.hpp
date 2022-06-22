@@ -21,9 +21,6 @@ class ReceiverBasedOutput {
 
   void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapT* map) { faceToLtsMap = map; }
-  virtual void tiePointers(seissol::initializers::Layer& layerData,
-                           seissol::initializers::DynamicRupture* description,
-                           seissol::Interoperability& eInteroperability);
   void calcFaultOutput(OutputType type,
                        ReceiverBasedOutputData& state,
                        const GeneralParamsT& generalParams,
@@ -35,6 +32,7 @@ class ReceiverBasedOutput {
   void computeLocalStresses();
   virtual real computeLocalStrength() = 0;
   virtual real computeFluidPressure() { return 0.0; }
+  virtual real computeStateVariable() { return 0.0; }
   void updateLocalTractions(real strength);
   virtual void computeSlipRate(std::array<real, 6>&, std::array<real, 6>&);
   void computeSlipRate(const double* tangent1,
@@ -71,6 +69,8 @@ class ReceiverBasedOutput {
     real fluidPressure{};
 
     real frictionCoefficient{};
+    real stateVariable{};
+
     real faultNormalVelocity{};
 
     real faceAlignedStress22{};

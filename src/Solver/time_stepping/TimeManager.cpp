@@ -296,12 +296,6 @@ void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady(const 
 
       double printTime = firstCluster->m_previousFullUpdateTime;
       if (printTime != this->lastPrintTime) {
-        // iterate over all clusters and update faults
-        for (auto *cluster: this->m_clusters) {
-          cluster->updateFaultOutput();
-        }
-
-        e_interoperability.faultOutput(printTime, firstCluster->timeStepWidth());
         m_faultOutputManager->writePickpointOutput(printTime, firstCluster->timeStepWidth());
         m_faultOutputManager->incrementIteration();
 

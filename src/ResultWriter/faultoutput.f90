@@ -285,6 +285,7 @@ CONTAINS
     !-------------------------------------------------------------------------!
     !
     ! register epik/scorep function
+    ! DEPRECATED: can be removed
     EPIK_FUNC_REG("calc_faultoutput")
     SCOREP_USER_FUNC_DEFINE()
     EPIK_FUNC_START()
@@ -814,6 +815,7 @@ CONTAINS
     !-------------------------------------------------------------------------!
     !
 
+    ! DEPRECATED: can be removed
     ALLOCATE ( TmpStateIO( UBOUND(DISC%DynRup%DynRup_out_atPickpoint%TmpState, 3) ) )
     nOutPoints = DISC%DynRup%DynRup_out_atPickpoint%nDR_pick                   ! number of output receivers for this MPI domain
     DO iOutPoints = 1,nOutPoints                                               ! loop over number of output receivers for this domain
@@ -821,9 +823,9 @@ CONTAINS
           IF(DISC%DynRup%DynRup_out_atPickpoint%CurrentPick(iOutPoints).GE.DISC%DynRup%DynRup_out_atPickpoint%MaxPickStore.OR.ABS(DISC%EndTime-time).LE.(dt*1.005d0)) THEN
 #ifdef PARALLEL
             WRITE(cmyrank,'(I5.5)') MPI%myrank                                   ! myrank -> cmyrank
-            WRITE(ptsoutfile, '(a,a15,i5.5,a1,a5,a4)') TRIM(IO%OutputFile),'-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(iOutPoints)%globalreceiverindex,'-',TRIM(cmyrank),'.dat'!
+            WRITE(ptsoutfile, '(a,a19,i5.5,a1,a5,a4)') TRIM(IO%OutputFile),'-old-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(iOutPoints)%globalreceiverindex,'-',TRIM(cmyrank),'.dat'!
 #else
-            WRITE(ptsoutfile, '(a,a15,i5.5,a4)') TRIM(IO%OutputFile),'-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(iOutPoints)%globalreceiverindex,'.dat'
+            WRITE(ptsoutfile, '(a,a19,i5.5,a4)') TRIM(IO%OutputFile),'-old-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(iOutPoints)%globalreceiverindex,'.dat'
 #endif
             !
             OPEN(UNIT     = DISC%DynRup%DynRup_out_atPickpoint%VFile(iOutPoints)                    , & !

@@ -945,20 +945,6 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_hardware[PlasticityYield] );
 }
 
-void seissol::time_stepping::TimeCluster::updateFaultOutput() {
-#ifdef USE_MPI
-  initializers::Layer *layers[2];
-  layers[0] = &(m_dynRupClusterData->child<Interior>());
-  layers[1] = &(m_dynRupClusterData->child<Copy>());
-#else
-  initializers::Layer *layers[1];
-  layers[0] = &(m_dynRupClusterData->child<Interior>());
-#endif
-  for (auto layer : layers) {
-      m_faultOutputManager->tiePointers(*layer, m_dynRup, e_interoperability);
-  }
-}
-
 long seissol::time_stepping::TimeCluster::getNumberOfCells() const {
   return m_clusterData->child<Copy>().getNumberOfCells() +
          m_clusterData->child<Interior>().getNumberOfCells();

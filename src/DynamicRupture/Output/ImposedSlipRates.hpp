@@ -5,13 +5,7 @@
 
 namespace seissol::dr::output {
 class ImposedSlipRates : public ReceiverBasedOutput {
-  public:
-  void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* drDescr,
-                   seissol::Interoperability& eInteroperability) override {
-    ReceiverBasedOutput::tiePointers(layerData, drDescr, eInteroperability);
-  }
-
+  protected:
   real computeLocalStrength() override { return 0.0; }
 
   void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,

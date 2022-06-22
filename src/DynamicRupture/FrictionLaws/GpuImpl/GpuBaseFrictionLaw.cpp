@@ -1,14 +1,12 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "Parallel/MPI.h"
 #include "utils/logger.h"
 #include <omp.h>
-#include <algorithm>
 #include <sstream>
 
 namespace seissol::dr::friction_law::gpu {
 GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters& drParameters)
-    : FrictionSolver(drParameters) {
-  checkOffloading();
-}
+    : FrictionSolver(drParameters) {}
 
 GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   omp_target_free(faultStresses, deviceId);
@@ -20,9 +18,17 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   omp_target_free(resampleMatrix, deviceId);
 }
 
+void GpuBaseFrictionLaw::setDeviceId(int currDeviceId) {
+  deviceId = currDeviceId;
+  checkOffloading();
+}
+
 void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   hostId = omp_get_initial_device();
+
+#if defined(__NVCOMPILER)
   ompx_set_cuda_stream_auto(0);
+#endif
 
   faultStresses = reinterpret_cast<FaultStresses*>(
       omp_target_alloc(maxClusterSize * sizeof(FaultStresses), deviceId));
@@ -55,7 +61,7 @@ void GpuBaseFrictionLaw::copyStaticDataToDevice() {
 
 void GpuBaseFrictionLaw::checkOffloading() {
   bool canOffload = false;
-  #pragma omp target map(tofrom : canOffload)
+  #pragma omp target map(tofrom : canOffload) device(deviceId)
   {
     if (!omp_is_initial_device()) {
       canOffload = true;
@@ -63,6 +69,8 @@ void GpuBaseFrictionLaw::checkOffloading() {
   }
   std::ostringstream info;
   info << "Device offloading: " << std::boolalpha << canOffload;
-  logInfo() << info.str();
+
+  const auto rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << info.str();
 }
 } // namespace seissol::dr::friction_law::gpu
