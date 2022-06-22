@@ -48,14 +48,6 @@ void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupt
       }
       averagedSlip[ltsFace] = 0.0;
     }
-    // can be removed once output is in c++
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      const auto& drFaceInformation = it->var(dynRup->faceInformation);
-      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      eInteroperability->copyFrictionOutputToFortranSpecific(
-          ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
-      eInteroperability->copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVariable);
-    }
   }
 }
 

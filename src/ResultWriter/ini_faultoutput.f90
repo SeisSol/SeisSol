@@ -122,12 +122,12 @@ CONTAINS
     CHARACTER (len=200)     :: ptsoutfile
 
     CHARACTER (LEN=5)       :: cmyrank
-
+    ! DEPRECATED: can be removed
 #ifdef PARALLEL
     WRITE(cmyrank,'(I5.5)') MPI%myrank                                   ! myrank -> cmyrank
-    WRITE(ptsoutfile, '(a,a15,i5.5,a1,a5,a4)') TRIM(IO%OutputFile),'-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(receiver_index)%globalreceiverindex,'-',TRIM(cmyrank),'.dat'!
+    WRITE(ptsoutfile, '(a,a19,i5.5,a1,a5,a4)') TRIM(IO%OutputFile),'-old-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(receiver_index)%globalreceiverindex,'-',TRIM(cmyrank),'.dat'!
 #else
-    WRITE(ptsoutfile, '(a,a15,i5.5,a4)') TRIM(IO%OutputFile),'-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(receiver_index)%globalreceiverindex,'.dat'
+    WRITE(ptsoutfile, '(a,a19,i5.5,a4)') TRIM(IO%OutputFile),'-old-faultreceiver-',DISC%DynRup%DynRup_out_atPickpoint%RecPoint(receiver_index)%globalreceiverindex,'.dat'
 #endif
   END SUBROUTINE
 
@@ -344,6 +344,8 @@ CONTAINS
     INTENT(INOUT)           :: DISC
     !-----------------------------------------------------------!
 
+    ! DEPRECATED: can be removed
+#if 0
     ! initialization common to hdf5 ascii output
     CALL ini_common_fault_receiver(DISC, MESH)
 
@@ -361,7 +363,7 @@ CONTAINS
       ! fills file header for each receiver with its parameters
       CALL write_header_info_to_files(EQN, MESH, DISC, IO, MPI)
     ENDIF
-
+#endif
   END SUBROUTINE ini_fault_receiver
 
 

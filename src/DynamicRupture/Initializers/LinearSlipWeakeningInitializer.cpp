@@ -21,8 +21,6 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
     real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      const auto& drFaceInformation = it->var(dynRup->faceInformation);
-      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
 
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -33,9 +31,6 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
         mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
       }
       averagedSlip[ltsFace] = 0.0;
-      // can be removed once output is in c++
-      eInteroperability->copyFrictionOutputToFortranSpecific(
-          ltsFace, meshFace, averagedSlip, slipRate1, slipRate2, mu);
     }
   }
 }
@@ -101,16 +96,10 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
         it->var(concreteLts->initialStressInFaultCS);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      const auto& drFaceInformation = it->var(dynRup->faceInformation);
-      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      // unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         regularisedStrength[ltsFace][pointIndex] =
             mu[ltsFace][pointIndex] * initialStressInFaultCS[ltsFace][pointIndex][0];
       }
-      // can be removed once output is in c++
-      eInteroperability->copyFrictionOutputToFortranStrength(
-          ltsFace, meshFace, regularisedStrength);
     }
   }
 }

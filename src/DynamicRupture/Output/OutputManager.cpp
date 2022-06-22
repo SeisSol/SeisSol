@@ -137,7 +137,6 @@ void OutputManager::initElementwiseOutput() {
   constexpr auto maxNumVars = std::tuple_size<DrVarsT>::value;
   auto intMask = convertMaskFromBoolToInt<maxNumVars>(this->elementwiseParams.outputMask);
 
-  std::string newFaultFilePrefix = generalParams.outputFilePrefix + std::string("-new");
   double printTime = this->elementwiseParams.printTimeIntervalSec;
   auto backendType = seissol::writer::backendType(generalParams.xdmfWriterBackend.c_str());
 
@@ -157,7 +156,7 @@ void OutputManager::initElementwiseOutput() {
       static_cast<unsigned int>(3 * receiverPoints.size()),
       &intMask[0],
       const_cast<const real**>(dataPointers.data()),
-      newFaultFilePrefix.data(),
+      generalParams.outputFilePrefix.data(),
       printTime,
       backendType);
 
@@ -187,7 +186,7 @@ void OutputManager::initPickpointOutput() {
     const size_t globalIndex = receiver.globalReceiverIndex;
 
     auto fileName =
-        buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "new-faultreceiver");
+        buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "faultreceiver");
     os_support::generateBackupFileIfNecessary(fileName, "dat");
     fileName += ".dat";
 
@@ -282,7 +281,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 
           auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex;
           auto fileName = buildIndexedMPIFileName(
-              generalParams.outputFilePrefix, globalIndex, "new-faultreceiver", "dat");
+              generalParams.outputFilePrefix, globalIndex, "faultreceiver", "dat");
 
           std::ofstream file(fileName, std::ios_base::app);
           if (file.is_open()) {
@@ -302,11 +301,5 @@ void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder) {
     impl->calcFaultOutput(OutputType::Elementwise, ewOutputData, generalParams);
   }
-}
-
-void OutputManager::tiePointers(seissol::initializers::Layer& layerData,
-                                seissol::initializers::DynamicRupture* description,
-                                seissol::Interoperability& eInteroperability) {
-  impl->tiePointers(layerData, description, eInteroperability);
 }
 } // namespace seissol::dr::output

@@ -118,7 +118,7 @@ contains
         call fault_hdf_init(cells, vertices, &
             nCells, nVertices, &
             outputMask, cDataBuffer, &
-            trim(outputPrefix) // c_null_char, &
+            trim(outputPrefix) // "-old" // c_null_char, &
             interval, &
             trim(xdmfWriterBackend) // c_null_char)
 

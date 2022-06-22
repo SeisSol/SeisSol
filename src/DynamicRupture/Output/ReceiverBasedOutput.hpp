@@ -21,9 +21,6 @@ class ReceiverBasedOutput {
 
   void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapT* map) { faceToLtsMap = map; }
-  virtual void tiePointers(seissol::initializers::Layer& layerData,
-                           seissol::initializers::DynamicRupture* description,
-                           seissol::Interoperability& eInteroperability);
   void calcFaultOutput(OutputType type,
                        ReceiverBasedOutputData& state,
                        const GeneralParamsT& generalParams,

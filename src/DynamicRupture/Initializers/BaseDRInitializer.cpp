@@ -134,21 +134,6 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                           nucleationStressYZ,
                           nucleationStressXZ);
 
-    // can be removed once output is in c++
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      const auto& drFaceInformation = it->var(dynRup->faceInformation);
-      unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-      eInteroperability->copyFrictionOutputToFortranInitialStressInFaultCS(ltsFace,
-                                                                           meshFace,
-                                                                           initialStressInFaultCS,
-                                                                           initialStressXX,
-                                                                           initialStressYY,
-                                                                           initialStressZZ,
-                                                                           initialStressXY,
-                                                                           initialStressYZ,
-                                                                           initialStressXZ);
-    }
-
     initializeOtherVariables(dynRup, it, eInteroperability);
   }
 }
@@ -257,21 +242,6 @@ void BaseDRInitializer::initializeOtherVariables(
       traction1[ltsFace][pointIndex] = 0;
       traction2[ltsFace][pointIndex] = 0;
     }
-  }
-  // can be removed once output is in c++
-  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    const auto& drFaceInformation = it->var(dynRup->faceInformation);
-    unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
-    eInteroperability->copyFrictionOutputToFortranGeneral(ltsFace,
-                                                          meshFace,
-                                                          accumulatedSlipMagnitude,
-                                                          slip1,
-                                                          slip2,
-                                                          ruptureTime,
-                                                          dynStressTime,
-                                                          peakSlipRate,
-                                                          traction1,
-                                                          traction2);
   }
 }
 

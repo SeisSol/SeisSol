@@ -25,9 +25,6 @@ class OutputManager {
   void writePickpointOutput(double time, double dt);
   void updateElementwiseOutput();
   void incrementIteration() { ++iterationStep; };
-  void tiePointers(seissol::initializers::Layer& layerData,
-                   seissol::initializers::DynamicRupture* description,
-                   seissol::Interoperability& eInteroperability);
 
   protected:
   bool isAtPickpoint(double time, double dt);

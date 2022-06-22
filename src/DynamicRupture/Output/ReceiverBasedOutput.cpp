@@ -395,37 +395,4 @@ real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jaco
 
   return ruptureVelocity;
 }
-
-void ReceiverBasedOutput::tiePointers(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture* description,
-                                      seissol::Interoperability& eInteroperability) {
-  constexpr auto size = init::QInterpolated::Stop[0];
-  real(*accumulatedSlipMagnitude)[size] = layerData.var(description->accumulatedSlipMagnitude);
-  real(*slip1)[size] = layerData.var(description->slip1);
-  real(*slip2)[size] = layerData.var(description->slip2);
-  real(*ruptureTime)[size] = layerData.var(description->ruptureTime);
-  real(*dynStressTime)[size] = layerData.var(description->dynStressTime);
-  real(*peakSR)[size] = layerData.var(description->peakSlipRate);
-  real(*traction1)[size] = layerData.var(description->traction1);
-  real(*traction2)[size] = layerData.var(description->traction2);
-
-  DRFaceInformation* faceInformation = layerData.var(description->faceInformation);
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-  for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-    unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
-    eInteroperability.copyFrictionOutputToFortranGeneral(ltsFace,
-                                                         meshFace,
-                                                         accumulatedSlipMagnitude,
-                                                         slip1,
-                                                         slip2,
-                                                         ruptureTime,
-                                                         dynStressTime,
-                                                         peakSR,
-                                                         traction1,
-                                                         traction2);
-  }
-}
 } // namespace seissol::dr::output
