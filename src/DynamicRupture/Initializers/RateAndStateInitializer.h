@@ -17,8 +17,7 @@ class RateAndStateInitializer : public BaseDRInitializer {
    * Computes initial friction and slip rates
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability) override;
+                               seissol::initializers::LTSTree* dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
@@ -114,8 +113,7 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
    * Intializes temperature and pressure and sets compute grid to 0
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability) override;
+                               seissol::initializers::LTSTree* dynRupTree) override;
 
   protected:
   /**

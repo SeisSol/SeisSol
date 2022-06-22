@@ -781,7 +781,7 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            *memoryManager.getGlobalDataOnHost(),
                                                            m_timeStepping );
 
-  memoryManager.initFrictionData(this);
+  memoryManager.initFrictionData();
   seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 
   // TODO (Ravil and Sebastian): discuss and remove this comment (dr/cpp)

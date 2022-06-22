@@ -3,7 +3,6 @@
 #include "FrictionLaws/FrictionLaws.h"
 #include "FrictionLaws/ThermalPressurization/NoTP.h"
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
-#include <Solver/Interoperability.h>
 
 #ifdef ACL_DEVICE_OFFLOAD
 namespace friction_law_impl = seissol::dr::friction_law::gpu;

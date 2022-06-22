@@ -6,7 +6,6 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Lut.hpp"
-#include "Solver/Interoperability.h"
 
 namespace seissol::dr::output {
 class ReceiverBasedOutput {

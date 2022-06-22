@@ -4,9 +4,8 @@
 
 namespace seissol::dr::initializers {
 void RateAndStateInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                                              seissol::initializers::LTSTree* dynRupTree,
-                                              seissol::Interoperability* eInteroperability) {
-  BaseDRInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+                                              seissol::initializers::LTSTree* dynRupTree) {
+  BaseDRInitializer::initializeFault(dynRup, dynRupTree);
   auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
 
   for (seissol::initializers::LTSTree::leaf_iterator it =
@@ -115,10 +114,8 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
 }
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSTree* dynRupTree,
-    seissol::Interoperability* eInteroperability) {
-  RateAndStateInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+    seissol::initializers::DynamicRupture* dynRup, seissol::initializers::LTSTree* dynRupTree) {
+  RateAndStateInitializer::initializeFault(dynRup, dynRupTree);
 
   auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurization*>(dynRup);

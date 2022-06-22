@@ -15,8 +15,7 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
    * Computes initial friction and slip rates
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability) override;
+                               seissol::initializers::LTSTree* dynRupTree) override;
 
   protected:
   /**
@@ -38,8 +37,7 @@ class LinearSlipWeakeningForcedRuptureTimeInitializer : public LinearSlipWeakeni
    * initializes tn to 0
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability) override;
+                               seissol::initializers::LTSTree* dynRupTree) override;
 
   protected:
   /**
@@ -61,8 +59,7 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
    * Computes initial value for the regularized strength
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability) override;
+                               seissol::initializers::LTSTree* dynRupTree) override;
 };
 
 } // namespace seissol::dr::initializers

@@ -3,7 +3,6 @@
 
 #include "BaseFrictionLaw.h"
 #include "Numerical_aux/GaussianNucleationFunction.h"
-#include "Solver/Interoperability.h"
 
 namespace seissol::dr::friction_law {
 // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)

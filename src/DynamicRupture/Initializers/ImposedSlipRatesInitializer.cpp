@@ -6,8 +6,7 @@
 
 namespace seissol::dr::initializers {
 void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                                                  seissol::initializers::LTSTree* dynRupTree,
-                                                  seissol::Interoperability* eInteroperability) {
+                                                  seissol::initializers::LTSTree* dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
                 << misc::numberOfBoundaryGaussPoints << " points.";
@@ -66,7 +65,7 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializers::Dynamic
 
     fixInterpolatedSTFParameters(dynRup, it);
 
-    initializeOtherVariables(dynRup, it, eInteroperability);
+    initializeOtherVariables(dynRup, it);
   }
 }
 
