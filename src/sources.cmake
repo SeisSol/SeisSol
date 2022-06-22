@@ -123,15 +123,9 @@ set(DYNAMIC_RUPTURE_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/AgingLaw.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/BaseFrictionLaw.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FastVelocityWeakeningLaw.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ImposedSlipRates.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/STF.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/NoFault.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SlipLaw.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SlowVelocityWeakeningLaw.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/BaseDRInitializer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Initializers/ImposedSlipRatesInitializer.cpp
