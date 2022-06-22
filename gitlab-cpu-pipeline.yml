@@ -187,7 +187,7 @@ tpv_check_receivers:
     stage: check
     tags:
         - ci_testing_cc
-    allow_failure: true
+    allow_failure: false
     needs:
         - job: tpv_run
     variables:
