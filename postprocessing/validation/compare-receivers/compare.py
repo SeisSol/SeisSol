@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser(description='Compare two sets of receivers.')
 parser.add_argument('output', type=str)
 parser.add_argument('output_ref', type=str)
 parser.add_argument('--epsilon', type=float, default=0.01, required=False)
+parser.add_argument('--mode', type=str, default="rs", required=False, choices=["rs", "lsw", "tp"])
 args = parser.parse_args()
 
 def velocity_norm(receiver):
@@ -18,20 +19,44 @@ def stress_norm(receiver):
     return np.sqrt(receiver[1]**2 + receiver[2]**2 + receiver[3]**2
             + receiver[4]**2 + receiver[5]**2 + receiver[6]**2)
 
-def sliprate_norm(receiver):
-    return np.sqrt(receiver["SRs"]**2 + receiver["SRd"]**2)
+def absolute_slip_norm(receiver):
+    return np.sqrt(receiver["ASl"]**2)
 
-def traction_norm(receiver):
-    return np.sqrt(receiver["Td0"]**2 + receiver["Ts0"]**2 + receiver["Pn0"]**2)
-
-def normal_velocity_norm(receiver):
-    return np.sqrt(receiver["u_n"]**2)
+def dynstress_norm(receiver):
+    return np.sqrt(receiver["DS"]**2)
 
 def friction_coefficient_norm(receiver):
     return np.sqrt(receiver["Mud"]**2)
 
+def peak_sliprate_norm(receiver):
+    return np.sqrt(receiver["PSR"]**2)
+
+def pressure_norm(receiver):
+    return np.sqrt(receiver["P_f"]**2)
+
+def traction_norm(receiver):
+    return np.sqrt(receiver["Td0"]**2 + receiver["Ts0"]**2 + receiver["Pn0"]**2)
+
+def rupture_time_norm(receiver):
+    return np.sqrt(receiver["RT"]**2)
+
+def sliprate_norm(receiver):
+    return np.sqrt(receiver["SRs"]**2 + receiver["SRd"]**2)
+
+def slip_norm(receiver):
+    return np.sqrt(receiver["Sls"]**2 + receiver["Sld"]**2)
+
 def statevariable_norm(receiver):
     return np.sqrt(receiver["StV"]**2)
+
+def temperature_norm(receiver):
+    return np.sqrt(receiver["Tmp"]**2)
+
+def rupture_velocity_norm(receiver):
+    return np.sqrt(receiver["Vr"]**2)
+
+def normal_velocity_norm(receiver):
+    return np.sqrt(receiver["u_n"]**2)
 
 def integrate_in_time(time, samples):
     return np.trapz(samples, x=time)
@@ -78,7 +103,7 @@ def read_faultreceiver(filename):
     #receiver[5] += initial_stress[0]
     return receiver
 
-def faultreceiver_diff(args, i):
+def faultreceiver_diff(args, i, quantities):
     sim_filename = f"{args.output}/tpv-faultreceiver-0000{i-1}-00000.dat"
     ref_filename = f"{args.output_ref}/tpv-faultreceiver-0000{i}-00000.dat"
     sim_receiver = read_faultreceiver(sim_filename)
@@ -89,22 +114,74 @@ def faultreceiver_diff(args, i):
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
-    ref_sliprate_norm = integrate_in_time(time, sliprate_norm(ref_receiver))
-    diff_sliprate_norm = integrate_in_time(time, sliprate_norm(difference))
+    errors = pd.DataFrame(index=[i], columns=quantities)
+    
+    if "absolute slip" in quantities:   
+        ref_absolute_slip_norm = integrate_in_time(time, absolute_slip_norm(ref_receiver))
+        diff_absolute_slip_norm = integrate_in_time(time, absolute_slip_norm(difference))
+        errors.loc[i, "absolute slip"] = diff_absolute_slip_norm / ref_absolute_slip_norm
 
-    ref_traction_norm = integrate_in_time(time, traction_norm(ref_receiver))
-    diff_traction_norm = integrate_in_time(time, traction_norm(difference))
+    if "friction coefficient" in quantities:   
+        ref_friction_coefficient_norm = integrate_in_time(time, friction_coefficient_norm(ref_receiver))
+        diff_friction_coefficient_norm = integrate_in_time(time, friction_coefficient_norm(difference))
+        errors.loc[i, "friction coefficient"] = diff_friction_coefficient_norm / ref_friction_coefficient_norm
 
-    ref_normal_velocity_norm = integrate_in_time(time, normal_velocity_norm(ref_receiver))
-    diff_normal_velocity_norm = integrate_in_time(time, normal_velocity_norm(difference))
+    if "peak sliprate" in quantities:   
+        ref_peak_sliprate_norm = integrate_in_time(time, peak_sliprate_norm(ref_receiver))
+        diff_peak_sliprate_norm = integrate_in_time(time, peak_sliprate_norm(difference))
+        errors.loc[i, "peak sliprate"] = diff_peak_sliprate_norm / ref_peak_sliprate_norm
 
-    ref_friction_coefficient_norm = integrate_in_time(time, friction_coefficient_norm(ref_receiver))
-    diff_friction_coefficient_norm = integrate_in_time(time, friction_coefficient_norm(difference))
+    if "traction" in quantities:   
+        ref_traction_norm = integrate_in_time(time, traction_norm(ref_receiver))
+        diff_traction_norm = integrate_in_time(time, traction_norm(difference))
+        errors.loc[i, "traction"] = diff_traction_norm / ref_traction_norm
 
-    ref_statevariable_norm = integrate_in_time(time, statevariable_norm(ref_receiver))
-    diff_statevariable_norm = integrate_in_time(time, statevariable_norm(difference))
+    if "rupture time" in quantities:   
+        ref_rupture_time_norm = integrate_in_time(time, rupture_time_norm(ref_receiver))
+        diff_rupture_time_norm = integrate_in_time(time, rupture_time_norm(difference))
+        errors.loc[i, "rupture time"] = diff_rupture_time_norm / ref_rupture_time_norm
 
-    return diff_sliprate_norm / ref_sliprate_norm, diff_traction_norm / ref_traction_norm, diff_normal_velocity_norm / ref_normal_velocity_norm, diff_friction_coefficient_norm / ref_friction_coefficient_norm, diff_statevariable_norm / ref_statevariable_norm
+    if "sliprate" in quantities:   
+        ref_sliprate_norm = integrate_in_time(time, sliprate_norm(ref_receiver))
+        diff_sliprate_norm = integrate_in_time(time, sliprate_norm(difference))
+        errors.loc[i, "sliprate"] = diff_sliprate_norm / ref_sliprate_norm
+
+    if "slip" in quantities:   
+        ref_slip_norm = integrate_in_time(time, slip_norm(ref_receiver))
+        diff_slip_norm = integrate_in_time(time, slip_norm(difference))
+        errors.loc[i, "slip"] = diff_slip_norm / ref_slip_norm
+
+    if "rupture velocity" in quantities:   
+        ref_rupture_velocity_norm = integrate_in_time(time, rupture_velocity_norm(ref_receiver))
+        diff_rupture_velocity_norm = integrate_in_time(time, rupture_velocity_norm(difference))
+        errors.loc[i, "rupture velocity"] = diff_rupture_velocity_norm / ref_rupture_velocity_norm
+
+    if "normal velocity" in quantities:   
+        ref_normal_velocity_norm = integrate_in_time(time, normal_velocity_norm(ref_receiver))
+        diff_normal_velocity_norm = integrate_in_time(time, normal_velocity_norm(difference))
+        errors.loc[i, "normal velocity"] = diff_normal_velocity_norm / ref_normal_velocity_norm
+
+    if "dynstress" in quantities:   
+        ref_dynstress_norm = integrate_in_time(time, dynstress_norm(ref_receiver))
+        diff_dynstress_norm = integrate_in_time(time, dynstress_norm(difference))
+        errors.loc[i, "dynstress"] = diff_dynstress_norm / ref_dynstress_norm
+
+    if "state variable" in quantities:   
+        ref_statevariable_norm = integrate_in_time(time, statevariable_norm(ref_receiver))
+        diff_statevariable_norm = integrate_in_time(time, statevariable_norm(difference))
+        errors.loc[i, "state variable"] = diff_statevariable_norm / ref_statevariable_norm
+
+    if "pressure" in quantities:   
+        ref_pressure_norm = integrate_in_time(time, pressure_norm(ref_receiver))
+        diff_pressure_norm = integrate_in_time(time, pressure_norm(difference))
+        errors.loc[i, "pressure"] = diff_pressure_norm / ref_pressure_norm
+
+    if "temperature" in quantities:   
+        ref_temperature_norm = integrate_in_time(time, temperature_norm(ref_receiver))
+        diff_temperature_norm = integrate_in_time(time, temperature_norm(difference))
+        errors.loc[i, "temperature"] = diff_temperature_norm / ref_temperature_norm
+
+    return errors
 
 def find_all_receivers(directory, faultreceiver=False):
     if faultreceiver:   
@@ -129,16 +206,26 @@ receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
 
 receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
 for i in receiver_ids:
-    receiver_errors.iloc[i-1,:] = receiver_diff(args, i)
+    receiver_errors.loc[i,:] = receiver_diff(args, i)
 print(receiver_errors)
 
 for q in receiver_errors.columns:
     broken_receivers = receiver_errors.index[receiver_errors[q] > args.epsilon].tolist()
     print(f"{q} exceeds relative error of {args.epsilon} at receveivers {broken_receivers}")
 
-faultreceiver_errors = pd.DataFrame(index=faultreceiver_ids, columns=["sliprate", "traction", "normal_velocity", "friction_coefficient", "statevariable"])
+quantities = ["absolute slip", "friction coefficient", "peak sliprate", "traction", "rupture time", "sliprate", "slip", "rupture velocity", "normal velocity"]
+if args.mode == "lsw":
+    quantities.append("dynstress")
+if args.mode == "rs":
+    quantities.append("state variable")
+if args.mode == "tp":
+    quantities.append("pressure")
+    quantities.append("temperature")
+
+faultreceiver_errors = pd.DataFrame(index=faultreceiver_ids, columns=quantities)
 for i in faultreceiver_ids:
-    faultreceiver_errors.iloc[i-1,:] = faultreceiver_diff(args, i)
+    local_errors = faultreceiver_diff(args, i, quantities)
+    faultreceiver_errors.loc[i,:] = local_errors.loc[i,:]
 print(faultreceiver_errors)
 
 for q in faultreceiver_errors.columns:
