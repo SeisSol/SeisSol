@@ -183,7 +183,7 @@ void OutputManager::initPickpointOutput() {
 
   auto& outputData = ppOutputData;
   for (const auto& receiver : outputData.receiverPoints) {
-    const size_t globalIndex = receiver.globalReceiverIndex;
+    const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
     auto fileName =
         buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "faultreceiver");
@@ -279,7 +279,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
             data << '\n';
           }
 
-          auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex;
+          auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex + 1;
           auto fileName = buildIndexedMPIFileName(
               generalParams.outputFilePrefix, globalIndex, "faultreceiver", "dat");
 

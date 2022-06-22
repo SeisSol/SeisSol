@@ -226,7 +226,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         auto isFound = globalContainVector[idx];
         if (!isFound) {
           logInfo(localRank) << "pickpoint fault output: "
-                             << "receiver (" << idx << ") is not inside "
+                             << "receiver (" << idx + 1 << ") is not inside "
                              << "any element along the rupture surface";
           allReceiversFound = false;
         }
