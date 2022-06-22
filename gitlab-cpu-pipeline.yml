@@ -202,4 +202,5 @@ tpv_check_receivers:
         - cd output-tpv{$tpv}-${precision}
         - ls
         - pip3 install pandas
-        - python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon}
+        - if [ ${tpv} = 5 ]; then mode=lsw; else if [${tpv} = 105] then mode=tp; else mode=rs; fi; fi;
+          python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon} --mode $mode
