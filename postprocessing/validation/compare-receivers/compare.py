@@ -97,14 +97,10 @@ def read_faultreceiver(filename):
             first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep="\s+")
     receiver.columns = variables
-    #initial_stress= read_initial_stress(filename)
-    #receiver[3] += initial_stress[1]
-    #receiver[4] += initial_stress[2]
-    #receiver[5] += initial_stress[0]
     return receiver
 
 def faultreceiver_diff(args, i, quantities):
-    sim_filename = f"{args.output}/tpv-faultreceiver-0000{i-1}-00000.dat"
+    sim_filename = f"{args.output}/tpv-faultreceiver-0000{i}-00000.dat"
     ref_filename = f"{args.output_ref}/tpv-faultreceiver-0000{i}-00000.dat"
     sim_receiver = read_faultreceiver(sim_filename)
     ref_receiver = read_faultreceiver(ref_filename).iloc[:-1]
@@ -161,10 +157,10 @@ def faultreceiver_diff(args, i, quantities):
         diff_normal_velocity_norm = integrate_in_time(time, normal_velocity_norm(difference))
         errors.loc[i, "normal velocity"] = diff_normal_velocity_norm / ref_normal_velocity_norm
 
-    if "dynstress" in quantities:   
+    if "dynstress time" in quantities:   
         ref_dynstress_norm = integrate_in_time(time, dynstress_norm(ref_receiver))
         diff_dynstress_norm = integrate_in_time(time, dynstress_norm(difference))
-        errors.loc[i, "dynstress"] = diff_dynstress_norm / ref_dynstress_norm
+        errors.loc[i, "dynstress time"] = diff_dynstress_norm / ref_dynstress_norm
 
     if "state variable" in quantities:   
         ref_statevariable_norm = integrate_in_time(time, statevariable_norm(ref_receiver))
@@ -195,7 +191,7 @@ def find_all_receivers(directory, faultreceiver=False):
             receiver_ids.append(int(match.groups()[0]))
     return np.array(sorted(receiver_ids))
 
-sim_faultreceiver_ids = find_all_receivers(args.output, True) + 1
+sim_faultreceiver_ids = find_all_receivers(args.output, True)
 ref_faultreceiver_ids = find_all_receivers(args.output_ref, True)
 faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)    
 
@@ -215,7 +211,7 @@ for q in receiver_errors.columns:
 
 quantities = ["absolute slip", "friction coefficient", "peak sliprate", "traction", "rupture time", "sliprate", "slip", "rupture velocity", "normal velocity"]
 if args.mode == "lsw":
-    quantities.append("dynstress")
+    quantities.append("dynstress time")
 if args.mode == "rs":
     quantities.append("state variable")
 if args.mode == "tp":
