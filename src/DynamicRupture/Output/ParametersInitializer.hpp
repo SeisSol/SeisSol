@@ -44,12 +44,7 @@ class ParametersInitializer {
     }
 
     updateIfExists(drSettings, "fl", params.frictionLawType);
-    updateIfExists(drSettings, "rf_output_on", params.isRfOutputOn);
-    updateIfExists(drSettings, "ds_output_on", params.isDsOutputOn);
-    updateIfExists(drSettings, "magnitude_output_on", params.isMagnitudeOutputOn);
-    updateIfExists(drSettings, "energy_rate_output_on", params.isEnergyRateOutputOn);
     updateIfExists(drSettings, "thermalpress", params.isThermalPressurizationOn);
-    updateIfExists(drSettings, "energy_rate_printtimeinterval", params.energyRatePrintTimeInterval);
 
     using namespace seissol::initializers;
     const YAML::Node& outputParams = data["output"];
