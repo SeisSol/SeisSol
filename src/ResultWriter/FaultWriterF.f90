@@ -38,6 +38,8 @@
 
 #include "Initializer/preProcessorMacros.fpp"
 
+#if 0
+! DEPRECATED: can be removed
 module FaultWriter
     use TypesDef
 
@@ -140,3 +142,4 @@ contains
     end subroutine closeFaultOutput
 
 end module FaultWriter
+#endif

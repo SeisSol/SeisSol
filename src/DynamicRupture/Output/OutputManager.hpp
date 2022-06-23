@@ -23,8 +23,8 @@ class OutputManager {
   void init();
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
+  void flushPickpointDataToFile();
   void updateElementwiseOutput();
-  void incrementIteration() { ++iterationStep; };
 
   protected:
   bool isAtPickpoint(double time, double dt);

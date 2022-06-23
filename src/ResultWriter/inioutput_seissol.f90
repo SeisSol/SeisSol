@@ -162,10 +162,11 @@ CONTAINS
         receiverSamplingInterval = io%pickdt, &
         receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
 
+    ! DEPRECATED: can be removed
     ! Initialize the fault Xdmf Writer
-    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
-     CALL ini_fault_xdmfwriter(DISC,IO)
-    ENDIF
+    !IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
+    ! CALL ini_fault_xdmfwriter(DISC,IO)
+    !ENDIF
 
     ! end epik/scorep function
     EPIK_FUNC_END()

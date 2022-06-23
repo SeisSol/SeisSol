@@ -115,6 +115,11 @@ void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::out
   m_faultOutputManager = faultOutputManager;
 }
 
+seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaultOutputManager() {
+  assert(m_faultOutputManager != nullptr);
+  return m_faultOutputManager;
+}
+
 void seissol::time_stepping::TimeManager::startCommunicationThread() {
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
   g_executeCommThread = true;
@@ -297,8 +302,6 @@ void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady(const 
       double printTime = firstCluster->m_previousFullUpdateTime;
       if (printTime != this->lastPrintTime) {
         m_faultOutputManager->writePickpointOutput(printTime, firstCluster->timeStepWidth());
-        m_faultOutputManager->incrementIteration();
-
         this->lastPrintTime = printTime;
       }
     }

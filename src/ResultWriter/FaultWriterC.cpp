@@ -36,6 +36,8 @@
  *
  * @section DESCRIPTION
  */
+#if 0
+// DEPRECATED: can be removed
 
 #include "SeisSol.h"
 #include "common.hpp"
@@ -53,7 +55,6 @@ void fault_hdf_init(const int* cells,
                     double interval,
                     char const* xdmfWriterBackend)
 {
-  // TODO: deprecated
   auto type = seissol::writer::backendType(xdmfWriterBackend);
 	seissol::SeisSol::main.faultWriter().init(reinterpret_cast<const unsigned int*>(cells),
                                             vertices,
@@ -77,3 +78,4 @@ void fault_hdf_close()
 }
 
 }
+#endif

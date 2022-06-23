@@ -81,6 +81,9 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 void seissol::Simulator::simulate() {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
+  auto* faultOutputManager = seissol::SeisSol::main.timeManager().getFaultOutputManager();
+  faultOutputManager->writePickpointOutput(0.0, 0.0);
+
   Stopwatch stopwatch;
   stopwatch.start();
 
@@ -139,7 +142,7 @@ void seissol::Simulator::simulate() {
 
     printPerformance(stopwatch.split());
   }
-  
+
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 
   // stop the communication thread (if applicable)
@@ -151,6 +154,8 @@ void seissol::Simulator::simulate() {
   seissol::SeisSol::main.timeManager().printComputationTime();
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
+
+  faultOutputManager->writePickpointOutput(m_currentTime, 0.0);
 
   printFlops();
 

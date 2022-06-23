@@ -59,7 +59,7 @@ MODULE ini_faultoutput_mod
 
   PUBLIC  :: ini_fault_subsampled
   PUBLIC  :: ini_fault_receiver
-  PUBLIC  :: ini_fault_xdmfwriter
+  !PUBLIC  :: ini_fault_xdmfwriter ! DEPRECAETD: can be removed
   !---------------------------------------------------------------------------!
   INTERFACE ini_fault_receiver
      MODULE PROCEDURE ini_fault_receiver
@@ -71,9 +71,10 @@ MODULE ini_faultoutput_mod
      MODULE PROCEDURE ini_fault_subsampled
   END INTERFACE
 
-  INTERFACE ini_fault_xdmfwriter
-    MODULE PROCEDURE ini_fault_xdmfwriter
-  END INTERFACE
+  ! DEPRECAETD: can be removed
+  !INTERFACE ini_fault_xdmfwriter
+  !  MODULE PROCEDURE ini_fault_xdmfwriter
+  !END INTERFACE
 CONTAINS
 
 
@@ -954,8 +955,10 @@ CONTAINS
     ENDIF
   END SUBROUTINE set_xi_eta_zeta
 
+#if 0
+  ! DEPRECATED: can be removed
   SUBROUTINE ini_fault_xdmfwriter(DISC,IO)
-   use FaultWriter
+   ! use FaultWriter ! DEPRECATED: can be removed
   !-------------------------------------------------------------------------!
   ! Argument list declaration
   TYPE(tDiscretization)   :: DISC
@@ -974,13 +977,14 @@ CONTAINS
         IO%xdmfWriterBackend)
 
   END SUBROUTINE
+#endif
 !
 !> Subroutine initializing the fault output
 !<
   SUBROUTINE ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
    USE DGBasis_mod
    USE create_fault_rotationmatrix_mod
-   use FaultWriter
+   ! use FaultWriter ! DEPRECATED: can be removed
     !--------------------------------------------------------------------------!
     IMPLICIT NONE
     !--------------------------------------------------------------------------!

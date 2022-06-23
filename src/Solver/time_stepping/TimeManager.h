@@ -154,6 +154,7 @@ class seissol::time_stepping::TimeManager {
                      bool usePlasticity);
 
     void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
+    seissol::dr::output::OutputManager* getFaultOutputManager();
 
     /**
      * Starts the communication thread.
