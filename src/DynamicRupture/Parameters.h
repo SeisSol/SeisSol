@@ -24,10 +24,7 @@ struct DRParameters {
   int backgroundType{0};
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
-  bool isMagnitudeOutputOn{false};
-  bool isEnergyRateOutputOn{false};
   bool isThermalPressureOn{false};
-  int energyRatePrintTimeInterval{50};
   bool isInstaHealingOn{false};
   real t0{0.0};
   real rsF0{0.0};
@@ -49,53 +46,62 @@ struct DRParameters {
 
 inline DRParameters readParametersFromYaml(YAML::Node& params) {
   DRParameters drParameters;
-  const YAML::Node& yamlParams = params["dynamicrupture"];
+  const YAML::Node& yamlDrParams = params["dynamicrupture"];
 
   if (params["dynamicrupture"]) {
     double xref = 0.0;
-    initializers::updateIfExists(yamlParams, "xref", xref);
+    initializers::updateIfExists(yamlDrParams, "xref", xref);
     double yref = 0.0;
-    initializers::updateIfExists(yamlParams, "yref", yref);
+    initializers::updateIfExists(yamlDrParams, "yref", yref);
     double zref = 0.0;
-    initializers::updateIfExists(yamlParams, "zref", zref);
+    initializers::updateIfExists(yamlDrParams, "zref", zref);
     drParameters.referencePoint = {xref, yref, zref};
 
-    initializers::updateIfExists(yamlParams, "outputpointtype", drParameters.outputPointType);
-    initializers::updateIfExists(yamlParams, "sliprateoutputtype", drParameters.slipRateOutputType);
-    initializers::updateIfExists(yamlParams, "fl", drParameters.frictionLawType);
-    initializers::updateIfExists(yamlParams, "backgroundtype", drParameters.backgroundType);
-    initializers::updateIfExists(yamlParams, "rf_output_on", drParameters.isRfOutputOn);
-    initializers::updateIfExists(yamlParams, "ds_output_on", drParameters.isDsOutputOn);
+    initializers::updateIfExists(yamlDrParams, "outputpointtype", drParameters.outputPointType);
     initializers::updateIfExists(
-        yamlParams, "magnitude_output_on", drParameters.isMagnitudeOutputOn);
-    initializers::updateIfExists(
-        yamlParams, "energy_rate_output_on", drParameters.isEnergyRateOutputOn);
-    initializers::updateIfExists(yamlParams, "thermalpress", drParameters.isThermalPressureOn);
-    initializers::updateIfExists(
-        yamlParams, "energy_rate_printtimeinterval", drParameters.energyRatePrintTimeInterval);
-    initializers::updateIfExists(yamlParams, "inst_healing", drParameters.isInstaHealingOn);
-    initializers::updateIfExists(yamlParams, "t_0", drParameters.t0);
-    initializers::updateIfExists(yamlParams, "rs_f0", drParameters.rsF0);
-    initializers::updateIfExists(yamlParams, "rs_a", drParameters.rsA);
-    initializers::updateIfExists(yamlParams, "rs_b", drParameters.rsB);
-    initializers::updateIfExists(yamlParams, "rs_sr0", drParameters.rsSr0);
-    initializers::updateIfExists(yamlParams, "rs_inisliprate1", drParameters.rsInitialSlipRate1);
-    initializers::updateIfExists(yamlParams, "rs_inisliprate2", drParameters.rsInitialSlipRate2);
-    initializers::updateIfExists(yamlParams, "mu_w", drParameters.muW);
+        yamlDrParams, "sliprateoutputtype", drParameters.slipRateOutputType);
+    initializers::updateIfExists(yamlDrParams, "fl", drParameters.frictionLawType);
+    initializers::updateIfExists(yamlDrParams, "backgroundtype", drParameters.backgroundType);
+    initializers::updateIfExists(yamlDrParams, "thermalpress", drParameters.isThermalPressureOn);
+    initializers::updateIfExists(yamlDrParams, "inst_healing", drParameters.isInstaHealingOn);
+    initializers::updateIfExists(yamlDrParams, "t_0", drParameters.t0);
+    initializers::updateIfExists(yamlDrParams, "rs_f0", drParameters.rsF0);
+    initializers::updateIfExists(yamlDrParams, "rs_a", drParameters.rsA);
+    initializers::updateIfExists(yamlDrParams, "rs_b", drParameters.rsB);
+    initializers::updateIfExists(yamlDrParams, "rs_sr0", drParameters.rsSr0);
+    initializers::updateIfExists(yamlDrParams, "rs_inisliprate1", drParameters.rsInitialSlipRate1);
+    initializers::updateIfExists(yamlDrParams, "rs_inisliprate2", drParameters.rsInitialSlipRate2);
+    initializers::updateIfExists(yamlDrParams, "mu_w", drParameters.muW);
 
     // Thermal Pressurization parameters
-    initializers::updateIfExists(yamlParams, "alpha_th", drParameters.thermalDiffusivity);
-    initializers::updateIfExists(yamlParams, "rho_c", drParameters.heatCapacity);
-    initializers::updateIfExists(yamlParams, "tp_lambda", drParameters.undrainedTPResponse);
-    initializers::updateIfExists(yamlParams, "initemp", drParameters.initialTemperature);
-    initializers::updateIfExists(yamlParams, "inipressure", drParameters.initialPressure);
+    initializers::updateIfExists(yamlDrParams, "alpha_th", drParameters.thermalDiffusivity);
+    initializers::updateIfExists(yamlDrParams, "rho_c", drParameters.heatCapacity);
+    initializers::updateIfExists(yamlDrParams, "tp_lambda", drParameters.undrainedTPResponse);
+    initializers::updateIfExists(yamlDrParams, "initemp", drParameters.initialTemperature);
+    initializers::updateIfExists(yamlDrParams, "inipressure", drParameters.initialPressure);
 
     // Prakash-Clifton regularization parameters
-    initializers::updateIfExists(yamlParams, "vStar", drParameters.vStar);
-    initializers::updateIfExists(yamlParams, "prakashLength", drParameters.prakashLength);
+    initializers::updateIfExists(yamlDrParams, "vStar", drParameters.vStar);
+    initializers::updateIfExists(yamlDrParams, "prakashLength", drParameters.prakashLength);
 
     // filename of the yaml file describing the fault parameters
-    initializers::updateIfExists(yamlParams, "modelfilename", drParameters.faultFileName);
+    initializers::updateIfExists(yamlDrParams, "modelfilename", drParameters.faultFileName);
+  }
+
+  const YAML::Node& yamlElementwiseParams = params["elementwise"];
+  if (params["elementwise"]) {
+    // check whether we need rupture time and dynamic stress time outputs
+    std::array<bool, 12> mask;
+    initializers::convertStringToMask(yamlElementwiseParams["outputmask"].as<std::string>(), mask);
+    drParameters.isRfOutputOn = drParameters.isRfOutputOn || mask[9];
+    drParameters.isDsOutputOn = drParameters.isDsOutputOn || mask[10];
+  }
+  const YAML::Node& yamlPickpointParams = params["pickpoint"];
+  if (params["pickpoint"]) {
+    std::array<bool, 12> mask;
+    initializers::convertStringToMask(yamlPickpointParams["outputmask"].as<std::string>(), mask);
+    drParameters.isRfOutputOn = drParameters.isRfOutputOn || mask[9];
+    drParameters.isDsOutputOn = drParameters.isDsOutputOn || mask[10];
   }
   // if there is no filename given for the fault, assume that we do not use dynamic rupture
   if (drParameters.faultFileName == "") {

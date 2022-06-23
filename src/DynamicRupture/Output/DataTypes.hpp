@@ -109,10 +109,7 @@ struct GeneralParamsT {
   int frictionLawType{0};
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
-  bool isMagnitudeOutputOn{false};
-  bool isEnergyRateOutputOn{false};
   bool isThermalPressurizationOn{false};
-  int energyRatePrintTimeInterval{50};
   bool isRfTimeOn{false};
   bool faultOutputFlag{false};
   std::string outputFilePrefix{"data"};

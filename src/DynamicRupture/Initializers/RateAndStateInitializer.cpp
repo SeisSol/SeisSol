@@ -60,15 +60,15 @@ std::pair<real, real>
                                                             real rsSr0,
                                                             real rsF0,
                                                             real initialSlipRate) {
-  real absoluteTraction = misc::magnitude(traction1, traction2);
-  real tmp = std::abs(absoluteTraction / (rsA * pressure));
-  real stateVariable = rsSl0 / rsSr0 *
-                       std::exp((rsA * std::log(std::exp(tmp) - std::exp(-tmp)) - rsF0 -
-                                 rsA * std::log(initialSlipRate / rsSr0)) /
-                                rsB);
-  real tmp2 = initialSlipRate * 0.5 / rsSr0 *
-              std::exp((rsF0 + rsB * std::log(rsSr0 * stateVariable / rsSl0)) / rsA);
-  real mu = rsA * std::asinh(tmp2);
+  double absoluteTraction = misc::magnitude(traction1, traction2);
+  double tmp = std::abs(absoluteTraction / (rsA * pressure));
+  double stateVariable = rsSl0 / rsSr0 *
+                         std::exp((rsA * std::log(std::exp(tmp) - std::exp(-tmp)) - rsF0 -
+                                   rsA * std::log(initialSlipRate / rsSr0)) /
+                                  rsB);
+  double tmp2 = initialSlipRate * 0.5 / rsSr0 *
+                std::exp((rsF0 + rsB * std::log(rsSr0 * stateVariable / rsSl0)) / rsA);
+  double mu = rsA * std::asinh(tmp2);
   return {stateVariable, mu};
 }
 

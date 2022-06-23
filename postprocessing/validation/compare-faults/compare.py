@@ -49,6 +49,11 @@ for i, q in enumerate(quantity_names):
     # extract quantity
     quantity = fault.ReadData(q, last_index-1)
     quantity_ref = fault_ref.ReadData(q, last_index-1)
+    if q == "DS":
+        print("There is a bug on the master branch, which sets DS output to zero in wrong places. In order to make a fair comparison, we only compare the parts of DS, where it is non-zero.")
+        ds_equals_zero = np.where(quantity_ref < 1e-10)
+        quantity[ds_equals_zero] = 0.0
+
     # compute error
     ref_norm = l2_norm(quantity_ref)
     if ref_norm < 1e-10:
