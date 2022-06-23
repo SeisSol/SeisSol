@@ -47,12 +47,8 @@ Building SeisSol
     git clone --branch supermuc_NG https://github.com/SeisSol/seissol-spack-aid.git
     cd seissol-spack-aid
     spack repo add ./spack
-
-    # Manually add a package that cannot be reached by spack
-    mkdir -p ~/spack/cache/pkg-config/
-    # download package on your local computer and move to supermuc
-    wget https://pkgconfig.freedesktop.org/releases/pkg-config-0.29.2.tar.gz
-    cp pkg-config-0.29.2.tar.gz ~/spack/cache/pkg-config/
+    # locate externally build pkg-config
+    spack external find pkg-config
 
     # install all dependencies of seissol.
     # We specify the intel and intel-mpi version matching preinstalled version on supermuc
