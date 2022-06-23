@@ -38,6 +38,7 @@ ci_builder_pre:
         - gfortran --version
         - pip3 install --upgrade pip
         - pip3 install 'numpy>=1.12.0'
+        - pip3 install pandas
         - pip3 install lxml
         - pip3 install setuptools
         - pip3 install sphinx
@@ -197,10 +198,9 @@ tpv_check_receivers:
             - precision: [double, single]
               tpv: [5, 101, 101-slip, 104, 105, 33, 34]
     script: 
-        - echo "check TPV{$tpv}"
+        - echo "check TPV${tpv}"
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - pip3 install pandas
-        - if [ ${tpv} = 5 ]; then mode=lsw; else if [${tpv} = 105] then mode=tp; else mode=rs; fi; fi;
+        - if [ ${tpv} = 5 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
           python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon} --mode $mode
