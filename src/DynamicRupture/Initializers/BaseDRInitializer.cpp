@@ -8,8 +8,7 @@
 
 namespace seissol::dr::initializers {
 void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                                        seissol::initializers::LTSTree* dynRupTree,
-                                        seissol::Interoperability* eInteroperability) {
+                                        seissol::initializers::LTSTree* dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
                 << misc::numberOfBoundaryGaussPoints << " points.";
@@ -134,7 +133,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
                           nucleationStressYZ,
                           nucleationStressXZ);
 
-    initializeOtherVariables(dynRup, it, eInteroperability);
+    initializeOtherVariables(dynRup, it);
   }
 }
 
@@ -208,8 +207,7 @@ void BaseDRInitializer::addAdditionalParameters(
 
 void BaseDRInitializer::initializeOtherVariables(
     seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSInternalNode::leaf_iterator& it,
-    Interoperability* eInteroperability) {
+    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // initialize rupture front flag
   bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {

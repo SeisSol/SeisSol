@@ -2,7 +2,6 @@
 #define SEISSOL_DR_OUTPUT_NO_FAULT_HPP
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
-#include <Solver/Interoperability.h>
 
 namespace seissol::dr::output {
 class NoFault : public ReceiverBasedOutput {

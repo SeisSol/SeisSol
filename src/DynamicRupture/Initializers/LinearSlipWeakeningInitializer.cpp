@@ -5,9 +5,8 @@
 namespace seissol::dr::initializers {
 
 void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                                                     seissol::initializers::LTSTree* dynRupTree,
-                                                     seissol::Interoperability* eInteroperability) {
-  BaseDRInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+                                                     seissol::initializers::LTSTree* dynRupTree) {
+  BaseDRInitializer::initializeFault(dynRup, dynRupTree);
 
   auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
   for (seissol::initializers::LTSTree::leaf_iterator it =
@@ -51,10 +50,8 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
 }
 
 void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSTree* dynRupTree,
-    seissol::Interoperability* eInteroperability) {
-  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+    seissol::initializers::DynamicRupture* dynRup, seissol::initializers::LTSTree* dynRupTree) {
+  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
   auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
   for (seissol::initializers::LTSTree::leaf_iterator it =
@@ -79,10 +76,8 @@ void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSTree* dynRupTree,
-    seissol::Interoperability* eInteroperability) {
-  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree, eInteroperability);
+    seissol::initializers::DynamicRupture* dynRup, seissol::initializers::LTSTree* dynRupTree) {
+  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
   auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
 

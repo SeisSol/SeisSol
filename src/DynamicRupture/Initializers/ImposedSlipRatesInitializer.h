@@ -15,12 +15,10 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * Main function to initialize all fault dependent parameters.
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param dynRupTree pointer to the dynamic rupture lts tree
-   * @param e_interoperability pointer to the interoperability instance, can be removed once we do
    * not need to store values in the Fortran parts
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability);
+                               seissol::initializers::LTSTree* dynRupTree) override;
 
   /**
    * Add additional parameters to be read from the easi file
@@ -30,10 +28,10 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it) = 0;
+  virtual void addAdditionalParameters(
+      std::unordered_map<std::string, real*>& parameterToStorageMap,
+      seissol::initializers::DynamicRupture* dynRup,
+      seissol::initializers::LTSInternalNode::leaf_iterator& it) override = 0;
 
   /**
    * Ensure that all parameters are correct.

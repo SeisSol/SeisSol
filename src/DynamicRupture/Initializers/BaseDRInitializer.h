@@ -1,7 +1,6 @@
 #ifndef SEISSOL_BASEDRINITIALIZER_H
 #define SEISSOL_BASEDRINITIALIZER_H
 
-#include <Solver/Interoperability.h>
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
@@ -38,12 +37,10 @@ class BaseDRInitializer {
    * aligned coordinate system Furthermore data is copied to the fortran part
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param dynRupTree pointer to the dynamic rupture lts tree
-   * @param e_interoperability pointer to the interoperability instance, can be removed once we do
    * not need to store values in the Fortran parts
    */
   virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree,
-                               seissol::Interoperability* eInteroperability);
+                               seissol::initializers::LTSTree* dynRupTree);
 
   protected:
   /**
@@ -83,12 +80,9 @@ class BaseDRInitializer {
    * traction2
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
-   * @param e_interoperability pointer to the interoperability instance, can be removed once we do
-   * not need to store values in the Fortran parts
    */
   void initializeOtherVariables(seissol::initializers::DynamicRupture* dynRup,
-                                seissol::initializers::LTSInternalNode::leaf_iterator& it,
-                                Interoperability* eInteroperability);
+                                seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
    * Reads the parameters from the easi file

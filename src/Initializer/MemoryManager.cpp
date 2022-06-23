@@ -844,10 +844,10 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
 }
 
 
-void seissol::initializers::MemoryManager::initFrictionData(seissol::Interoperability *interoperability) {
+void seissol::initializers::MemoryManager::initFrictionData() {
   if (m_dynRupParameter.isDynamicRuptureEnabled) {
 
-    m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree, interoperability);
+    m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
 #ifdef ACL_DEVICE_OFFLOAD
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
@@ -862,8 +862,6 @@ void seissol::initializers::MemoryManager::initFrictionData(seissol::Interoperab
       impl->copyStaticDataToDevice();
     }
 #endif // ACL_DEVICE_OFFLOAD
-
-    interoperability->initializeFaultOutput();
   }
 }
 

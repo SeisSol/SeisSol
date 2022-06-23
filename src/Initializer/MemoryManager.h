@@ -359,8 +359,7 @@ class seissol::initializers::MemoryManager {
 
   void initializeFrictionLaw();
   void initFaultOutputManager();
-
-  void initFrictionData(Interoperability *interoperability);
+  void initFrictionData();
 };
 
 
