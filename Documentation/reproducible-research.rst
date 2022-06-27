@@ -1,6 +1,10 @@
 Reproducible research
 ======================
 
+On this page we list datasets containing reproducible simulation scenarios realised with SeisSol and elementary benchmark examples. In these data sets, all required input files, etc., are provided, to promote reproducible research and open science, and to inspire new simulation scenarios. 
+
+Please contact us via `SeisSol Email list <mailto:seissol-maintainers@lists.lrz.de>`_, if you're interested to provide a scenario. While many data sets are hosted on Zenodo, we do not require specific formats or repositories. 
+
 We provide datasets containing all input files of simulations in recent SeisSol publications as Zenodo repositories to promote reproducible research and open science.
 A non-exhaustive list is given below:
 
@@ -10,7 +14,7 @@ A non-exhaustive list is given below:
 
    * - Description
      - Source
-     - Focal |br| mech. [#f1]_
+     - Faulting |br| mechanism [#f1]_
      - Friction |br| law [#f2]_
      - Number |br| of faults
      - Research Item
@@ -35,23 +39,23 @@ A non-exhaustive list is given below:
    * - 2017 Mw 5.5 Pohang |br| induced earthquake
      - dynamic
      - O
-     - RS
+     - fvw-RS
      - 2
      - `Palgunadi et al. (2020) <https://doi.org/10.1785/0120200106>`_
      - `zenodo.org/record/3930819 <https://zenodo.org/record/3930819>`_
 
    * - 2016 Mw 7.8 Kaikōura |br| earthquake
      - dynamic
-     - SS & R
-     - RS
+     - mixed SS & R
+     - fvw-RS
      - 10
      - `Ulrich et al. (2019) <https://doi.org/10.1038/s41467-019-09125-w>`_
      - `zenodo.org/record/2538024 <https://zenodo.org/record/2538024>`_
 
    * - 2018 Mw 7.5 Palu |br| earthquake
      - dynamic 
-     - SS & N
-     - RS
+     - mixed SS & N
+     - fvw-RS
      - 3
      - `Ulrich et al. (2019b) <https://doi.org/10.1007/s00024-019-02290-5>`_
      - `zenodo.org/record/3234664 <https://zenodo.org/record/3234664>`_
@@ -66,8 +70,8 @@ A non-exhaustive list is given below:
 
    * - Acoustic-Elastic model |br| of Palu earthquake
      - dynamic
-     - SS & N
-     - RS
+     - mixed SS & N
+     - fvw-RS
      - 3
      - `Krenz et al. (2021) <https://doi.org/10.1145/3458817.3476173>`_
      - `zenodo.org/record/5159333  <https://zenodo.org/record/5159333>`_
@@ -91,7 +95,7 @@ A non-exhaustive list is given below:
    * - Low-angle normal fault |br| scenarios
      - dynamic
      - N
-     - RS
+     - fvw-RS
      - 1
      - `Biemiller et al. (2022) <https://doi.org/10.1029/2021GC010298>`_
      - `zenodo.org/record/6094294 <https://zenodo.org/record/6094294>`_
@@ -131,3 +135,39 @@ SeisSol setups for community benchmark are described in the cookbook  (see :ref:
 
 .. include:: table_cookbook.rst
 
+
+We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView) and all required input files. 
+
+.. list-table:: 
+   :widths: 20 20 20 20 20 20
+   :header-rows: 1
+
+   * - Description
+     - Source
+     - Faulting |br| mechanism [#f1]_
+     - Friction |br| law [#f2]_
+     - Number |br| of faults
+     - Data
+     
+   * - `TPV13 <https://github.com/SeisSol/Examples/tree/master/tpv12_13>`_
+     - dynamic
+     - N
+     - LSW
+     - 1
+     - `<https://github.com/SeisSol/Training/tree/main/tpv13>`_
+
+   * - 2018 Mw 7.5 Palu earthquake |br| (reduced mesh-size)
+     - dynamic 
+     - mixed SS & N
+     - fvw-RS
+     - 3
+     - `<https://github.com/SeisSol/Training/tree/main/sulawesi>`_
+     
+   * - `Northridge <https://github.com/SeisSol/Examples/tree/master/Northridge>`_
+     - kinematic 
+     - R
+     - n/a
+     - 1
+     - `<https://github.com/SeisSol/Training/tree/main/northridge>`_
+    
+     

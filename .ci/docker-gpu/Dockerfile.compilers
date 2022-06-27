@@ -35,7 +35,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release \
 -DBUILD_SHARED_LIBS=ON \
 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 -DYAML_CPP_BUILD_TESTS=OFF && \
-make -j4 && \
+make -j $(nproc) && \
 make install && \
 cd ../.. && rm -rf ./yaml-cpp
 
@@ -45,7 +45,7 @@ RUN export VERSION=1.10.0 && \
 git clone --depth 1 --branch release-${VERSION} https://github.com/google/googletest && \
 mkdir -p googletest/build && cd googletest/build && \
 cmake .. -DBUILD_GTEST=ON -DBUILD_GMOCK=ON -Dgtest_disable_pthreads=ON -DBUILD_SHARED_LIBS=ON && \
-make -j4 && \
+make -j $(nproc) && \
 make install && \
 cd ../.. && rm -rf ./googletest
 
@@ -71,7 +71,7 @@ cd boost_${VERSION} && \
 ./bootstrap.sh --prefix=/usr/local --with-toolset=gcc --with-libraries=serialization,wave,date_time,iostreams,locale,math,random,context,regex,program_options,atomic,timer,log,fiber,chrono,thread,exception,system,test,graph,filesystem && \
 echo "using gcc : : /usr/bin/g++-9 ;" > user-config.jam && \
 ./b2 --clean && \
-./b2 install threading=multi variant=release toolset=gcc link=shared cxxflags="-std=c++17" visibility=hidden address-model=64 architecture=x86 -j4 --user-config="user-config.jam" && \
+./b2 install threading=multi variant=release toolset=gcc link=shared cxxflags="-std=c++17" visibility=hidden address-model=64 architecture=x86 -j $(nproc) --user-config="user-config.jam" && \
 cd ../ && rm -rf ./boost*
 
 
@@ -80,7 +80,7 @@ RUN export VERSION=11.0.1 && \
 git clone --depth 1 --branch llvmorg-${VERSION} https://github.com/llvm/llvm-project.git && \
 mkdir -p llvm-project/build && cd llvm-project/build && \
 CC=/usr/bin/gcc-9 CXX=/usr/bin/g++-9 cmake ../llvm -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -DGCC_INSTALL_PREFIX=/usr && \
-make -j4 && \
+make -j $(nproc) && \
 make install && \
 cd ../../ && rm -rf ./llvm-project
 
@@ -102,7 +102,7 @@ CC=/usr/bin/gcc-9 CXX=/usr/bin/g++-9 cmake .. \
 -DCLANG_INCLUDE_PATH:String=/usr/local/lib/clang/11.0.1/include \
 -DCLANG_EXECUTABLE_PATH:String=/usr/local/bin/clang++ \
 -DCUDA_TOOLKIT_ROOT_DIR:String=/usr/local/cuda && \
-make -j4 && make install && cd ../.. && rm -rf ./hipsycl
+make -j $(nproc) && make install && cd ../.. && rm -rf ./hipsycl
 
 
 # Clean-up
