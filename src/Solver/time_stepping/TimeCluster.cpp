@@ -183,8 +183,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   // are no point sources on this rank.
   if (m_numberOfCellToPointSourcesMappings != 0) {
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-  //#pragma omp taskloop
+  //#pragma omp parallel for schedule(static)
+  #pragma omp taskloop default(shared)
 #endif
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
       unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
@@ -239,8 +239,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
-  //#pragma omp taskloop private(QInterpolatedPlus,QInterpolatedMinus)
+  //#pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
+  #pragma omp taskloop private(QInterpolatedPlus,QInterpolatedMinus) default(shared)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
@@ -703,12 +703,17 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
 }
 
 namespace seissol::time_stepping {
+
+bool TimeCluster::isScheduable() const {
+  return !isScheduledAndWaiting && !isRunning;
+}
+
 ActResult TimeCluster::act() {
-  // TODO(Lukas) Does this make sense
-  // TODO(Lukas) Overwrite nextLegalAction
   {
+    isScheduledAndWaiting = false;
     std::lock_guard lock{isRunningMutex};
     if (isRunning) {
+      logInfo() << "Cluster is already running, aborting";
       auto result = ActResult();
       result.isStateChanged = false;
       return result;

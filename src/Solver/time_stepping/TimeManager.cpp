@@ -248,14 +248,17 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   {
 #pragma omp single
     while (!finished) {
-      logInfo() << "Task scheduling loop: enter";
+      int scheduledTasks = 0;
       finished = true;
       communicationManager->progression();
 
       // Update all high priority clusters
       std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-        if (cluster->getNextLegalAction() == ActorAction::Predict) {
+        if (cluster->isScheduable() &&
+            cluster->getNextLegalAction() == ActorAction::Predict) {
           communicationManager->progression();
+          scheduledTasks++;
+          cluster->isScheduledAndWaiting = true;
 #pragma omp task
           cluster->act();
         }
@@ -264,9 +267,12 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 //#pragma omp taskwait
 
       std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-        if (cluster->getNextLegalAction() != ActorAction::Predict &&
+        if (cluster->isScheduable() &&
+            cluster->getNextLegalAction() != ActorAction::Predict &&
             cluster->getNextLegalAction() != ActorAction::Nothing) {
           communicationManager->progression();
+          scheduledTasks++;
+          cluster->isScheduledAndWaiting = true;
 #pragma omp task
           cluster->act();
         }
@@ -279,19 +285,26 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       // Update one low priority cluster
       if (auto predictable = std::find_if(
             lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
-              return c->getNextLegalAction() == ActorAction::Predict;
+              return c->isScheduable() &&
+                  c->getNextLegalAction() == ActorAction::Predict;
             }
         );
           predictable != lowPrioClusters.end()) {
+        scheduledTasks++;
+        (*predictable)->isScheduledAndWaiting = true;
 #pragma omp task
         (*predictable)->act();
       }
       if (auto correctable = std::find_if(
             lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
-              return c->getNextLegalAction() != ActorAction::Predict && c->getNextLegalAction() != ActorAction::Nothing;
+              return c->isScheduable() &&
+                  c->getNextLegalAction() != ActorAction::Predict &&
+                  c->getNextLegalAction() != ActorAction::Nothing;
             }
         );
           correctable != lowPrioClusters.end()) {
+        (*correctable)->isScheduledAndWaiting = true;
+        scheduledTasks++;
 #pragma omp task
         (*correctable)->act();
       }
@@ -304,7 +317,15 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       // Taskwait needed because we otherwise can schedule same cluster twice
       // leading to segfaults. Can be fixed with mutex.
 //#pragma omp taskwait
-      logInfo() << "Task scheduling loop: exit";
+      if (scheduledTasks) {
+        logInfo() << "Exit scheduling loop. Scheduled"
+        << scheduledTasks << "tasks";
+      } else {
+        // TODO(Lukas) Does the following do anything outside of task?
+        logInfo() << "Exit scheduling loop. Yielding.";
+#pragma omp taskyield
+#pragma omp taskwait
+      }
     }
   }
 #ifdef ACL_DEVICE
