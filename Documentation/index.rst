@@ -58,6 +58,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   environment-variables
   gpus
   memory-requirements
+  workload-partitioning
 
 .. toctree::
   :maxdepth: 2
