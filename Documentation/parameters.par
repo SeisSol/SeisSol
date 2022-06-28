@@ -92,9 +92,9 @@ CFL = 0.5                            ! CFL number (<=1.0)
 FixTimeStep = 5                      ! Manually chosen maximum time step
 ClusteredLTS = 2                     ! 1 for Global time stepping, 2,3,5,... Local time stepping (advised value 2)
 !ClusteredLTS defines the multi-rate for the time steps of the clusters 2 for Local time stepping
-NodeWeightModelTypeId = 0            ! 0 for Exponential, 1 for Exponential Balanced, 2 for Encoded Balanced
-EdgeWeightModelTypeId = 0            ! 0 for Naive, 1 for Communication Approximation, 2 for 1 + Minimum Messaging, 3 for 1 + Balanced Messaging
-
+NodeWeightModelTypeId = 0            ! 0 for Exponential, 1 for Exponential Balanced, 2 for Encoded Balanced, 3 for  Minimum Messaging, 4 for Balanced Messaging
+EdgeWeightModelTypeId = 0            ! 0 for Naive, 1 for Communication Approximation,
+                                     ! Node Weight Models 3 (Minimum Messaging) and 4 (Balanced Messaging) require the edge weight strategy to be set to 1 
 /
 
 &Output
