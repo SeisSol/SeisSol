@@ -136,7 +136,6 @@ real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
 void EnergyOutput::computeDynamicRuptureEnergies() {
   double& totalFrictionalWork = energiesStorage.totalFrictionalWork();
   double& staticFrictionalWork = energiesStorage.staticFrictionalWork();
-  double& plasticMoment = energiesStorage.plasticMoment();
   double& seismicMoment = energiesStorage.seismicMoment();
   for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
     /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
