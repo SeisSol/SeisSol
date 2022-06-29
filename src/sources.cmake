@@ -102,7 +102,6 @@ src/ResultWriter/magnitude_output.f90
 src/ResultWriter/output_rupturefront.f90
 src/ResultWriter/ini_faultoutput.f90
 src/ResultWriter/energies.f90
-src/ResultWriter/FaultWriterF.f90
 src/ResultWriter/faultoutput.f90
 src/ResultWriter/common_fault_receiver.f90
 src/Initializer/dg_setup.f90

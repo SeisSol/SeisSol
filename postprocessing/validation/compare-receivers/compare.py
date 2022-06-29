@@ -100,10 +100,12 @@ def read_faultreceiver(filename):
     return receiver
 
 def faultreceiver_diff(args, i, quantities):
-    sim_filename = f"{args.output}/tpv-faultreceiver-0000{i}-00000.dat"
     ref_filename = f"{args.output_ref}/tpv-faultreceiver-0000{i}-00000.dat"
-    sim_receiver = read_faultreceiver(sim_filename)
-    ref_receiver = read_faultreceiver(ref_filename).iloc[:-1]
+    ref_receiver = read_faultreceiver(ref_filename)
+
+    sim_filename = f"{args.output}/tpv-faultreceiver-0000{i}-00000.dat"
+    sim_receiver = read_faultreceiver(sim_filename).iloc[1:]
+    sim_receiver.reset_index(drop=True, inplace=True)
 
     # both receivers must have the same time axis
     assert(np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14)

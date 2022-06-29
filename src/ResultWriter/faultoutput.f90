@@ -766,7 +766,7 @@ CONTAINS
   SUBROUTINE write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
-      use FaultWriter
+      ! use FaultWriter ! DEPRECATED: can be removed
       use, intrinsic :: iso_c_binding
       !-------------------------------------------------------------------------!
       IMPLICIT NONE
@@ -781,7 +781,8 @@ CONTAINS
       REAL                     :: MaterialVal(MESH%nElem,EQN%nBackgroundVar)    ! Local Mean Values
       REAL                     :: dt, time
       !-------------------------------------------------------------------------!
-      call writeFault(time)
+      ! DEPRECATED: can be removed
+      !call writeFault(time)
   END SUBROUTINE ! write_FaultOutput_elementwise
   !
   !> writing fault output at pickpoints to files

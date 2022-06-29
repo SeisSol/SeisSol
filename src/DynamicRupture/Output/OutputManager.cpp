@@ -72,6 +72,8 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
 }
 
 OutputManager::~OutputManager() {
+  flushPickpointDataToFile();
+
   auto deallocateVars = [](auto& var, int) { var.releaseData(); };
   misc::forEach(ppOutputData.vars, deallocateVars);
   misc::forEach(ewOutputData.vars, deallocateVars);
@@ -149,18 +151,17 @@ void OutputManager::initElementwiseOutput() {
   };
   misc::forEach(ewOutputData.vars, recordPointers);
 
-  seissol::SeisSol::main.secondFaultWriter().init(
-      cellConnectivity.data(),
-      vertices.data(),
-      static_cast<unsigned int>(receiverPoints.size()),
-      static_cast<unsigned int>(3 * receiverPoints.size()),
-      &intMask[0],
-      const_cast<const real**>(dataPointers.data()),
-      generalParams.outputFilePrefix.data(),
-      printTime,
-      backendType);
+  seissol::SeisSol::main.faultWriter().init(cellConnectivity.data(),
+                                            vertices.data(),
+                                            static_cast<unsigned int>(receiverPoints.size()),
+                                            static_cast<unsigned int>(3 * receiverPoints.size()),
+                                            &intMask[0],
+                                            const_cast<const real**>(dataPointers.data()),
+                                            generalParams.outputFilePrefix.data(),
+                                            printTime,
+                                            backendType);
 
-  seissol::SeisSol::main.secondFaultWriter().setupCallbackObject(this);
+  seissol::SeisSol::main.faultWriter().setupCallbackObject(this);
 }
 
 void OutputManager::initPickpointOutput() {
@@ -242,7 +243,6 @@ void OutputManager::initFaceToLtsMap() {
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
   bool isFirstStep = iterationStep == 0;
-
   const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
   const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
 
@@ -262,39 +262,45 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       const bool isMaxCacheLevel =
           outputData.currentCacheLevel >= static_cast<size_t>(this->pickpointParams.maxPickStore);
       const bool isCloseToEnd = (generalParams.endTime - time) < dt * timeMargin;
+
       if (isMaxCacheLevel || isCloseToEnd) {
-        for (size_t pointId = 0; pointId < outputData.receiverPoints.size(); ++pointId) {
-
-          std::stringstream data;
-          for (size_t level = 0; level < outputData.currentCacheLevel; ++level) {
-            data << makeFormatted(outputData.cachedTime[level]) << '\t';
-            auto recordResults = [pointId, level, &data](auto& var, int) {
-              if (var.isActive) {
-                for (int dim = 0; dim < var.dim(); ++dim) {
-                  data << makeFormatted(var(dim, level, pointId)) << '\t';
-                }
-              }
-            };
-            misc::forEach(outputData.vars, recordResults);
-            data << '\n';
-          }
-
-          auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex + 1;
-          auto fileName = buildIndexedMPIFileName(
-              generalParams.outputFilePrefix, globalIndex, "faultreceiver", "dat");
-
-          std::ofstream file(fileName, std::ios_base::app);
-          if (file.is_open()) {
-            file << data.str();
-          } else {
-            logError() << "cannot open " << fileName;
-          }
-          file.close();
-        }
-        outputData.currentCacheLevel = 0;
+        this->flushPickpointDataToFile();
       }
     }
+    ++iterationStep;
   }
+}
+
+void OutputManager::flushPickpointDataToFile() {
+  auto& outputData = ppOutputData;
+  for (size_t pointId = 0; pointId < outputData.receiverPoints.size(); ++pointId) {
+    std::stringstream data;
+    for (size_t level = 0; level < outputData.currentCacheLevel; ++level) {
+      data << makeFormatted(outputData.cachedTime[level]) << '\t';
+      auto recordResults = [pointId, level, &data](auto& var, int) {
+        if (var.isActive) {
+          for (int dim = 0; dim < var.dim(); ++dim) {
+            data << makeFormatted(var(dim, level, pointId)) << '\t';
+          }
+        }
+      };
+      misc::forEach(outputData.vars, recordResults);
+      data << '\n';
+    }
+
+    auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex + 1;
+    auto fileName = buildIndexedMPIFileName(
+        generalParams.outputFilePrefix, globalIndex, "faultreceiver", "dat");
+
+    std::ofstream file(fileName, std::ios_base::app);
+    if (file.is_open()) {
+      file << data.str();
+    } else {
+      logError() << "cannot open " << fileName;
+    }
+    file.close();
+  }
+  outputData.currentCacheLevel = 0;
 }
 
 void OutputManager::updateElementwiseOutput() {

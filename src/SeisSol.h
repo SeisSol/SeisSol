@@ -126,14 +126,11 @@ private:
   writer::AnalysisWriter m_analysisWriter;
 
 
-	/** Wavefield output module */
-	writer::WaveFieldWriter m_waveFieldWriter;
+  /** Wavefield output module */
+  writer::WaveFieldWriter m_waveFieldWriter;
 
-	/** Fault output module */
-	writer::FaultWriter m_faultWriter;
-
-    // TODO: must be deleted after a full integration of cpp output of dr
-    writer::FaultWriter m_secondFaultWriter;
+  /** Fault output module */
+  writer::FaultWriter m_faultWriter;
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -243,15 +240,6 @@ public:
 	writer::FaultWriter& faultWriter()
 	{
 		return m_faultWriter;
-	}
-
-	/**
-	 * Get the fault writer module 
-     * TODO: must be deleted after a full integration of cpp output of dr
-	 */
-	writer::FaultWriter& secondFaultWriter()
-	{
-		return m_secondFaultWriter;
 	}
 
 	/**
