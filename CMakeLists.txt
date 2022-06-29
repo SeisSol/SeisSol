@@ -172,7 +172,7 @@ endif()
 # Libs
 include(ExternalProject)
 
-find_package(easi 1.2.0 REQUIRED)
+find_package(easi 1.0.0 REQUIRED)
 target_link_libraries(SeisSol-lib PUBLIC easi::easi)
 
 if (OPENMP)
