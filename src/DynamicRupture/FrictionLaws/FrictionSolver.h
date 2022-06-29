@@ -37,6 +37,7 @@ class FrictionSolver {
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
+  protected:
   /**
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
    */

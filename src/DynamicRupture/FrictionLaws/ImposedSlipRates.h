@@ -12,11 +12,6 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  real (*imposedSlipDirection1)[misc::numPaddedPoints];
-  real (*imposedSlipDirection2)[misc::numPaddedPoints];
-
-  STF stf{};
-
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime) {
@@ -69,6 +64,11 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
   void saveDynamicStressOutput(unsigned int ltsFace) {}
+
+  protected:
+  real (*imposedSlipDirection1)[misc::numPaddedPoints];
+  real (*imposedSlipDirection2)[misc::numPaddedPoints];
+  STF stf{};
 };
 
 } // namespace seissol::dr::friction_law

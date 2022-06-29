@@ -351,7 +351,11 @@ if (WITH_GPU)
     target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
     target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
     target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
+
+    install(TARGETS SeisSol-omp-offloaded DESTINATION ${CMAKE_INSTALL_PREFIX})
   endif()
+  install(TARGETS SeisSol-device-lib DESTINATION ${CMAKE_INSTALL_PREFIX})
+  install(TARGETS device DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif()
 
 
@@ -438,6 +442,7 @@ if (PROXY_PYBINDING)
   file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
+
 if (WITH_GPU)
   if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     target_link_options(SeisSol-bin PRIVATE "-mp=gpu")
@@ -452,6 +457,7 @@ endif()
 add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
 target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
 set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+install(TARGETS SeisSol-proxy DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 if (LIKWID)
   find_package(likwid REQUIRED)
@@ -534,5 +540,6 @@ if (TESTING)
   target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
 endif()
 
+install(TARGETS SeisSol-bin DESTINATION ${CMAKE_INSTALL_PREFIX})
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/

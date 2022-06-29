@@ -10,7 +10,6 @@ class FastVelocityWeakeningLaw
     : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
-  real (*srW)[misc::numPaddedPoints];
 
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
@@ -142,6 +141,9 @@ class FastVelocityWeakeningLaw
                                 this->slipRateMagnitude[ltsFace][0];
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
+
+  protected:
+  real (*srW)[misc::numPaddedPoints];
 };
 } // namespace seissol::dr::friction_law
 
