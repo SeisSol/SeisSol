@@ -14,15 +14,6 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   public:
   LinearSlipWeakeningBase<Derived>(dr::DRParameters& drParameters)
       : GpuFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
-  /**
-   * critical velocity at which slip rate is considered as being zero for instaneous healing
-   */
-  static constexpr real u0 = 10e-14;
-
-  real (*dC)[misc::numPaddedPoints];
-  real (*muS)[misc::numPaddedPoints];
-  real (*muD)[misc::numPaddedPoints];
-  real (*cohesion)[misc::numPaddedPoints];
 
   void updateFrictionAndSlip() {
     for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
@@ -199,6 +190,16 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
     static_cast<Derived*>(this)->postHook(stateVariableBuffer);
   }
+
+  protected:
+  /**
+   * critical velocity at which slip rate is considered as being zero for instaneous healing
+   */
+  static constexpr real u0 = 10e-14;
+  real (*dC)[misc::numPaddedPoints];
+  real (*muS)[misc::numPaddedPoints];
+  real (*muD)[misc::numPaddedPoints];
+  real (*cohesion)[misc::numPaddedPoints];
 };
 
 class LinearSlipWeakeningLaw : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw> {
@@ -221,15 +222,16 @@ class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
   LinearSlipWeakeningLawForcedRuptureTime(dr::DRParameters& drParameters)
       : LinearSlipWeakeningLaw(drParameters){};
 
-  real (*forcedRuptureTime)[misc::numPaddedPoints];
-  real* tn;
-
   void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]);
   void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
                                       seissol::initializers::DynamicRupture* dynRup,
                                       real fullUpdateTime);
 
   void calcStateVariableHook(real (*stateVariable)[misc::numPaddedPoints], unsigned int timeIndex);
+
+  protected:
+  real (*forcedRuptureTime)[misc::numPaddedPoints];
+  real* tn;
 };
 } // namespace seissol::dr::friction_law::gpu
 

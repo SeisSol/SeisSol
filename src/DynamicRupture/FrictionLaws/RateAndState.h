@@ -26,34 +26,10 @@ constexpr real almostZero() {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  // Attributes
-  // CS = coordinate system
-  real (*nucleationStressInFaultCS)[misc::numPaddedPoints][6];
-  real dt = 0;
-  real gNuc = 0;
-
-  real (*a)[misc::numPaddedPoints];
-  real (*sl0)[misc::numPaddedPoints];
-  real (*stateVariable)[misc::numPaddedPoints];
-
-  TPMethod tpMethod;
-
-  /**
-   * Parameters of the optimisation loops
-   * absolute tolerance on the function to be optimized
-   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-   * the most adapted Number of iteration in the loops
-   */
-  const unsigned int numberSlipRateUpdates = 60;
-  const unsigned int numberStateVariableUpdates = 2;
-  const double newtonTolerance = 1e-8;
-
   RateAndStateBase(DRParameters& drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
-  protected:
-  public:
   void updateFrictionAndSlip(FaultStresses& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
@@ -436,6 +412,29 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                               tpMethod.fluidPressure(ltsFace, pointIndex));
     }
   }
+
+  protected:
+  // Attributes
+  // CS = coordinate system
+  real (*nucleationStressInFaultCS)[misc::numPaddedPoints][6];
+  real dt = 0;
+  real gNuc = 0;
+
+  real (*a)[misc::numPaddedPoints];
+  real (*sl0)[misc::numPaddedPoints];
+  real (*stateVariable)[misc::numPaddedPoints];
+
+  TPMethod tpMethod;
+
+  /**
+   * Parameters of the optimisation loops
+   * absolute tolerance on the function to be optimized
+   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
+   * the most adapted Number of iteration in the loops
+   */
+  const unsigned int numberSlipRateUpdates = 60;
+  const unsigned int numberStateVariableUpdates = 2;
+  const double newtonTolerance = 1e-8;
 };
 
 } // namespace seissol::dr::friction_law

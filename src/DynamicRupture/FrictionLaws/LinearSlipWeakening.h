@@ -16,16 +16,6 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
   public:
   using BaseFrictionLaw<LinearSlipWeakeningBase<Derived>>::BaseFrictionLaw;
 
-  /**
-   * critical velocity at which slip rate is considered as being zero for instaneous healing
-   */
-  static constexpr real u0 = 10e-14;
-
-  real (*dC)[misc::numPaddedPoints];
-  real (*muS)[misc::numPaddedPoints];
-  real (*muD)[misc::numPaddedPoints];
-  real (*cohesion)[misc::numPaddedPoints];
-
   void updateFrictionAndSlip(FaultStresses& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
@@ -159,11 +149,21 @@ class LinearSlipWeakeningBase : public BaseFrictionLaw<LinearSlipWeakeningBase<D
   }
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
     static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
-  };
+  }
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                 unsigned int ltsFace) {
     static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
-  };
+  }
+
+  protected:
+  /**
+   * critical velocity at which slip rate is considered as being zero for instaneous healing
+   */
+  static constexpr real u0 = 10e-14;
+  real (*dC)[misc::numPaddedPoints];
+  real (*muS)[misc::numPaddedPoints];
+  real (*muD)[misc::numPaddedPoints];
+  real (*cohesion)[misc::numPaddedPoints];
 };
 
 class LinearSlipWeakeningLaw : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw> {
@@ -187,9 +187,6 @@ class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
   public:
   using LinearSlipWeakeningLaw::LinearSlipWeakeningLaw;
 
-  real (*forcedRuptureTime)[misc::numPaddedPoints];
-  real* tn;
-
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
@@ -200,6 +197,10 @@ class LinearSlipWeakeningLawForcedRuptureTime : public LinearSlipWeakeningLaw {
   void calcStateVariableHook(std::array<real, misc::numPaddedPoints>& stateVariable,
                              unsigned int timeIndex,
                              unsigned int ltsFace);
+
+  protected:
+  real (*forcedRuptureTime)[misc::numPaddedPoints];
+  real* tn;
 };
 
 /**
@@ -225,12 +226,12 @@ class LinearSlipWeakeningLawBimaterial
                              unsigned int timeIndex,
                              unsigned int ltsFace){};
 
-  real (*regularisedStrength)[misc::numPaddedPoints];
-
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
+  protected:
+  real (*regularisedStrength)[misc::numPaddedPoints];
   void prak_clif_mod(real& strength, real& sigma, real& locSlipRate, real& mu, real& dt);
 };
 
