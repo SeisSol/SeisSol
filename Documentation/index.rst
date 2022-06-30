@@ -63,6 +63,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
+  behind_firewall
   supermuc
   marconi
 
