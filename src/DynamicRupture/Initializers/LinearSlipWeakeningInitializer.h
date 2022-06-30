@@ -33,11 +33,6 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
 class LinearSlipWeakeningForcedRuptureTimeInitializer : public LinearSlipWeakeningInitializer {
   public:
   using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
-  /**
-   * initializes tn to 0
-   */
-  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree) override;
 
   protected:
   /**

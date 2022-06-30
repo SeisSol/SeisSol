@@ -49,22 +49,6 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   parameterToStorageMap.insert({"cohesion", (real*)cohesion});
 }
 
-void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup, seissol::initializers::LTSTree* dynRupTree) {
-  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
-  auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
-  for (seissol::initializers::LTSTree::leaf_iterator it =
-           dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-       it != dynRupTree->endLeaf();
-       ++it) {
-    real* tn = it->var(concreteLts->tn);
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      tn[ltsFace] = 0.0;
-    }
-  }
-}
-
 void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     seissol::initializers::DynamicRupture* dynRup,
