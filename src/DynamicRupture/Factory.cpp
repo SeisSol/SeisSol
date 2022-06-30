@@ -52,10 +52,12 @@ Products NoFaultFactory::produce() {
 }
 
 Products LinearSlipWeakeningFactory::produce() {
-  return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
-          std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
-          std::make_unique<friction_law_impl::LinearSlipWeakeningLaw>(drParameters),
-          std::make_unique<output::OutputManager>(new output::LinearSlipWeakening)};
+  return {
+      std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
+      std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
+      std::make_unique<friction_law_impl::LinearSlipWeakeningLaw<friction_law::NoSpecialization>>(
+          drParameters),
+      std::make_unique<output::OutputManager>(new output::LinearSlipWeakening)};
 }
 
 Products RateAndStateAgingFactory::produce() {
@@ -91,7 +93,8 @@ Products RateAndStateSlipFactory::produce() {
 Products LinearSlipWeakeningBimaterialFactory::produce() {
   return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningBimaterial>(),
           std::make_unique<initializers::LinearSlipWeakeningBimaterialInitializer>(drParameters),
-          std::make_unique<friction_law::LinearSlipWeakeningLawBimaterial>(drParameters),
+          std::make_unique<friction_law::LinearSlipWeakeningLaw<friction_law::BiMaterialFault>>(
+              drParameters),
           std::make_unique<output::OutputManager>(new output::LinearSlipWeakeningBimaterial)};
 }
 
@@ -99,7 +102,8 @@ Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
   return {
       std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
       std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
-      std::make_unique<friction_law_impl::LinearSlipWeakeningLawForcedRuptureTime>(drParameters),
+      std::make_unique<friction_law_impl::LinearSlipWeakeningLaw<friction_law::ForcedRuptureTime>>(
+          drParameters),
       std::make_unique<output::OutputManager>(new output::LinearSlipWeakening)};
 }
 

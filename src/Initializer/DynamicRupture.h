@@ -174,13 +174,11 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
 
 struct seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime : public seissol::initializers::LTS_LinearSlipWeakening {
   Variable<real[dr::misc::numPaddedPoints]> forcedRuptureTime;
-  Variable<real> tn;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_LinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD);
-    tree.addVar(tn, mask, 1, MEMKIND_STANDARD);
   }
 };
 
