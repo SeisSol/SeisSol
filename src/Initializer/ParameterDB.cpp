@@ -134,6 +134,7 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
   std::array<double, 3> bxc{};
 
   // Compute tetrahedron volumes as 1/6 * |triple product| = 1/6 * |a • (b x c)|
+  // where a := (v_1 − v_0) , b := (v_2 − v_0) and c := (v_3 − v_0)
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (int i = 0; i < 3; ++i) {
       a[i] = vertices[ elements[elem].vertices[1] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
@@ -141,10 +142,12 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
       c[i] = vertices[ elements[elem].vertices[3] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
     }
 
+    // Cross product
     bxc[0] = b[1] * c[2] - b[2] * c[1];
     bxc[1] = b[2] * c[0] - b[0] * c[2];
     bxc[2] = b[0] * c[1] - b[1] * c[0];
 
+    // Dot product
     for (int i = 0; i < 3; ++i) {
       elemVolumes[elem] += a[i] * bxc[i];
     }
@@ -379,50 +382,6 @@ namespace seissol {
 
           m_materials->at(i) = seissol::model::ElasticMaterial(materialsMean[i]);
         }
-
-        // Comparison to barycentered parameter values
-        ElementBarycentreGenerator baryGen(seissol::SeisSol::main.meshReader());
-        easi::Query baryQuery = baryGen.generate();
-
-        std::vector<seissol::model::ElasticMaterial> baryMaterials(baryQuery.numPoints());
-        easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> baryAdapter(baryMaterials.data());
-        MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(baryAdapter);
-        model->evaluate(baryQuery, baryAdapter);
-
-        std::vector<Element> const& elements = seissol::SeisSol::main.meshReader().getElements();
-        std::vector<Vertex> const& vertices = seissol::SeisSol::main.meshReader().getVertices();
-        std::array<double,4> zCoords{};
-
-        for (unsigned i = 0; i < numElems; ++i) {
-          if (fabs(materialsMean[i].rho - baryMaterials[i].rho) > 0.1) {
-            logInfo() << "Element " << i << " homogenized rho: " << materialsMean[i].rho << ", mu: " << materialsMean[i].mu << ", lambda: " << materialsMean[i].lambda;
-            logInfo() << "Element " << i << " barycenter  rho: " << baryMaterials[i].rho << ", mu: " << baryMaterials[i].mu << ", lambda: " << baryMaterials[i].lambda;
-            // Output for element z coordinates
-            for (int j = 0; j < 4; ++j) {
-              zCoords[j] = vertices[ elements[i].vertices[j] ].coords[2];
-            }
-            const auto [zMin, zMax] = std::minmax_element(std::begin(zCoords), std::end(zCoords));
-            const double zAvg = std::accumulate(std::begin(zCoords), std::end(zCoords), 0.0) / 4.0;
-            logInfo() << "Element " << i << " zMin: " << *zMin << ", zMax: " << *zMax << ", zAvg: " << zAvg;
-          }
-        }
-
-        double median = 0;
-        long double mean = 0;
-        std::vector<double> ratSorted(numElems);
-        for (unsigned i = 0; i < numElems; ++i) {
-          ratSorted.at(i) = baryMaterials[i].rho / materialsMean[i].rho;
-          mean += baryMaterials[i].rho / materialsMean[i].rho;
-        }
-        std:sort(ratSorted.begin(), ratSorted.end());
-        mean /= numElems;
-        if (numElems % 2) {
-          median = ratSorted[numElems / 2];
-        } else {
-          median = (ratSorted[numElems / 2] + ratSorted[numElems / 2 - 1]) / 2;
-        }
-        logInfo() << "Median ratio of (barycenter / homogenized rho): " << median;
-        logInfo() << "Mean ratio of (barycenter / homogenized rho): " << mean;
       } else {
         // Usual behavior without homogenization
         for (unsigned i = 0; i < numPoints; ++i) {
@@ -479,33 +438,6 @@ namespace seissol {
           materialsMean[i].lambda = (4 * pow(materialsMean[i].mu, 2) * vERatioMean[i]) / (1 - 6 * materialsMean[i].mu * vERatioMean[i]);
 
           m_materials->at(i) = seissol::model::ViscoElasticMaterial(materialsMean[i]);
-        }
-
-        // Comparison to barycentered parameter values
-        ElementBarycentreGenerator baryGen(seissol::SeisSol::main.meshReader());
-        easi::Query baryQuery = baryGen.generate();
-
-        std::vector<seissol::model::ViscoElasticMaterial> baryMaterials(baryQuery.numPoints());
-        easi::ArrayOfStructsAdapter<seissol::model::ViscoElasticMaterial> baryAdapter(baryMaterials.data());
-        MaterialParameterDB<seissol::model::ViscoElasticMaterial>().addBindingPoints(baryAdapter);
-        model->evaluate(baryQuery, baryAdapter);
-
-        std::vector<Element> const& elements = seissol::SeisSol::main.meshReader().getElements();
-        std::vector<Vertex> const& vertices = seissol::SeisSol::main.meshReader().getVertices();
-        std::array<double,4> zCoords{};
-
-        for (unsigned i = 0; i < numElems; ++i) {
-          if (fabs(materialsMean[i].Qp - baryMaterials[i].Qp) > 0.1) {
-            logInfo() << "Element " << i << " homogenized Qp: " << materialsMean[i].Qp << ", Qs: " << materialsMean[i].Qs;
-            logInfo() << "Element " << i << " barycenter  Qp: " << baryMaterials[i].Qp << ", Qs: " << baryMaterials[i].Qs;
-            // Output for element z coordinates
-            for (int j = 0; j < 4; ++j) {
-              zCoords[j] = vertices[ elements[i].vertices[j] ].coords[2];
-            }
-            const auto [zMin, zMax] = std::minmax_element(std::begin(zCoords), std::end(zCoords));
-            const double zAvg = std::accumulate(std::begin(zCoords), std::end(zCoords), 0.0) / 4.0;
-            logInfo() << "Element " << i << " zMin: " << *zMin << ", zMax: " << *zMax << ", zAvg: " << zAvg;
-          }
         }
       } else {
         // Usual behavior without homogenization
