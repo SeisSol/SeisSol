@@ -1138,7 +1138,6 @@ MODULE Eval_friction_law_mod
         ! For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
         SVss = RS_a * LOG(2.0D0*RS_sr0/SR_tmp * (EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
 
-        SVss = max(1e-8,SVss)
         ! exact integration of dSV/dt DGL, assuming constant V over integration step
         LocSV = Svss*(1.0D0-EXP(-SR_tmp*time_inc/RS_sl0))+EXP(-SR_tmp*time_inc/RS_sl0)*SV0
     END SELECT  
