@@ -279,11 +279,11 @@ MODULE Eval_friction_law_mod
        ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
 
        !Coulomb's law (we use old mu value, as mu, S, SR and Traction are interdependent!)
-       IF(ShTest.GT.Strength) THEN
+       IF(ShTest.GT.Strength_exp) THEN
 
          ! 1 evaluate friction
-         LocTracXY = ((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-         LocTracXZ = ((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXY = ((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength_exp
+         LocTracXZ = ((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength_exp
            
          ! 2 update stress change
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
@@ -1138,6 +1138,7 @@ MODULE Eval_friction_law_mod
         ! For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
         SVss = RS_a * LOG(2.0D0*RS_sr0/SR_tmp * (EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
 
+        SVss = max(1e-8,SVss)
         ! exact integration of dSV/dt DGL, assuming constant V over integration step
         LocSV = Svss*(1.0D0-EXP(-SR_tmp*time_inc/RS_sl0))+EXP(-SR_tmp*time_inc/RS_sl0)*SV0
     END SELECT  
