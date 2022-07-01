@@ -19,6 +19,12 @@ Characteristics of the SeisSol simulation software are:
 - parallel geo-information input (ASAGI)
 - to produce reliable and sufficiently accurate synthetic seismograms or other seismological data sets
 
+-----
+
+We gratefully acknowledge the funding of the German Research Foundation (as part of project no. 391134334 - "CoCoReCS"), which massively contributed to creating all documentation, tutorials, example workflows and reproducible setups published on this website. 
+
+-----
+
 .. toctree::
   :maxdepth: 2
   :caption: Introduction
@@ -57,6 +63,7 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
+  behind_firewall
   supermuc
   marconi
 
