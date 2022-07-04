@@ -7,7 +7,7 @@ In order to run SeisSol, you need to first install:
 -  Numpy (>= 1.12.0)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
+-  Intel compiler (>= 2021, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
