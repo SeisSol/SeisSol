@@ -47,6 +47,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
     this->cohesion = layerData.var(concreteLts->cohesion);
+    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
     specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
@@ -181,6 +182,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     // the polynomial at the quadrature points
     resampleKrnl.execute();
 
+    real time = this->mFullUpdateTime + this->deltaT[timeIndex];
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
@@ -191,9 +193,23 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       stateVariable[pointIndex] = std::min(
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) / dC[ltsFace][pointIndex],
           static_cast<real>(1.0));
+
+      // Forced rupture time
+      real f2 = 0.0;
+      if (this->drParameters.t0 == 0) {
+        // avoid branching
+        // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
+        f2 = 1.0 * (time >= this->forcedRuptureTime[ltsFace][pointIndex]);
+      } else {
+        // Note: In the fortran implementation on the master branch, this is
+        // m_fullUpdateTime, but this implementation is correct.
+        f2 = std::max(static_cast<real>(0.0),
+                      std::min(static_cast<real>(1.0),
+                               (time - this->forcedRuptureTime[ltsFace][pointIndex]) /
+                                   this->drParameters.t0));
+      }
+      stateVariable[pointIndex] = std::max(stateVariable[pointIndex], f2);
     }
-    specialization.stateVariableHook(
-        stateVariable, this->mFullUpdateTime + this->deltaT[timeIndex], ltsFace);
   }
 
   protected:
@@ -205,6 +221,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   real (*muS)[misc::numPaddedPoints];
   real (*muD)[misc::numPaddedPoints];
   real (*cohesion)[misc::numPaddedPoints];
+  real (*forcedRuptureTime)[misc::numPaddedPoints];
   SpecializationT specialization;
 };
 
@@ -215,39 +232,13 @@ class NoSpecialization {
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime){};
-  void stateVariableHook(std::array<real, misc::numPaddedPoints>& stateVariable,
-                         real time,
-                         unsigned int ltsFace){};
   void strengthHook(real& strength,
                     real& localSlipRate,
                     real& sigma,
                     real& mu,
                     real& deltaT,
                     unsigned int ltsFace,
-                    unsigned int pointIndex){};
-};
-
-class ForcedRuptureTime {
-  public:
-  ForcedRuptureTime(DRParameters& parameters) : drParameters(parameters){};
-
-  void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
-                          real fullUpdateTime);
-  void stateVariableHook(std::array<real, misc::numPaddedPoints>& stateVariable,
-                         real time,
-                         unsigned int ltsFace);
-  void strengthHook(real& strength,
-                    real& localSlipRate,
-                    real& sigma,
-                    real& mu,
-                    real& deltaT,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex){};
-
-  private:
-  DRParameters& drParameters;
-  real (*forcedRuptureTime)[misc::numPaddedPoints];
+                    unsigned int pointIndex) {};
 };
 
 /**
@@ -262,9 +253,6 @@ class BiMaterialFault {
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
-  void stateVariableHook(std::array<real, misc::numPaddedPoints>& stateVariable,
-                         real time,
-                         unsigned int ltsFace){};
   void strengthHook(real& strength,
                     real& localSlipRate,
                     real& sigma,

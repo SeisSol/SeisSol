@@ -171,9 +171,11 @@ Friction parameters:
 +------------------+----------------------------------------+-------------------------------+
 | :math:`C(x)`     | cohesion                               | :code:`cohesion`              |
 +------------------+----------------------------------------+-------------------------------+
+| :math:`T(x)`     | forced rupture time                    | :code:`forced_rupture_time`   |
++------------------+----------------------------------------+-------------------------------+
 
-Friction law :code:`2` implements such classical linear slip-weakening, 
-while friction law :code:`16` combines linear slip-weakening with a forced rupture time.
+Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
+If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter `forced_rupture_time` in the fault `yaml` file.
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
 
 Examples of input files for the friction laws :code:`2` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.

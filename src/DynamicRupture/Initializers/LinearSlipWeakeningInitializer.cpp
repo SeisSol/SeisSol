@@ -19,6 +19,7 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
     real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
     real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
+    real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
 
       // initialize padded elements for vectorization
@@ -28,6 +29,9 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
         slipRate2[ltsFace][pointIndex] = 0.0;
         // initial friction coefficient is static friction (no slip has yet occurred)
         mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
+        if (!this->faultProvides("forced_rupture_time")) {
+          forcedRuptureTime[ltsFace][pointIndex] = std::numeric_limits<real>::max();
+        }
       }
       averagedSlip[ltsFace] = 0.0;
     }
@@ -47,17 +51,10 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   parameterToStorageMap.insert({"mu_s", (real*)muS});
   parameterToStorageMap.insert({"mu_d", (real*)muD});
   parameterToStorageMap.insert({"cohesion", (real*)cohesion});
-}
-
-void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
-  LinearSlipWeakeningInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, it);
-  auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
-  real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
-  parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
+  if (this->faultProvides("forced_rupture_time")) {
+    real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
+    parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
+  }
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(

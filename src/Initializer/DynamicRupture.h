@@ -160,6 +160,7 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
     Variable<real[dr::misc::numPaddedPoints]> muS;
     Variable<real[dr::misc::numPaddedPoints]> muD;
     Variable<real[dr::misc::numPaddedPoints]> cohesion;
+    Variable<real[dr::misc::numPaddedPoints]> forcedRuptureTime;
 
 
     virtual void addTo(initializers::LTSTree& tree) {
@@ -169,17 +170,8 @@ struct seissol::initializers::LTS_LinearSlipWeakening : public seissol::initiali
         tree.addVar(muS, mask, 1, MEMKIND_STANDARD);
         tree.addVar(muD, mask, 1, MEMKIND_STANDARD);
         tree.addVar(cohesion, mask,1, MEMKIND_STANDARD);
+        tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD);
     }
-};
-
-struct seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime : public seissol::initializers::LTS_LinearSlipWeakening {
-  Variable<real[dr::misc::numPaddedPoints]> forcedRuptureTime;
-
-  virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::LTS_LinearSlipWeakening::addTo(tree);
-    LayerMask mask = LayerMask(Ghost);
-    tree.addVar(forcedRuptureTime, mask, 1, MEMKIND_STANDARD);
-  }
 };
 
 struct seissol::initializers::LTS_LinearSlipWeakeningBimaterial : public seissol::initializers::LTS_LinearSlipWeakening {

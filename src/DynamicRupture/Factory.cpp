@@ -21,8 +21,6 @@ std::unique_ptr<AbstractFactory> getFactory(dr::DRParameters& drParameters) {
     return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters);
   case FrictionLawType::LinearSlipWeakening:
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters);
-  case FrictionLawType::LinearSlipWeakeningForcedRuptureTime:
-    return std::make_unique<LinearSlipWeakeningForcedRuptureTimeFactory>(drParameters);
   // Prakash-Clifton regularisation for bimaterial faults: see (Pelties et al. 2014)
   case FrictionLawType::LinearSlipWeakeningBimaterial:
     return std::make_unique<LinearSlipWeakeningBimaterialFactory>(drParameters);
@@ -96,15 +94,6 @@ Products LinearSlipWeakeningBimaterialFactory::produce() {
           std::make_unique<friction_law::LinearSlipWeakeningLaw<friction_law::BiMaterialFault>>(
               drParameters),
           std::make_unique<output::OutputManager>(new output::LinearSlipWeakeningBimaterial)};
-}
-
-Products LinearSlipWeakeningForcedRuptureTimeFactory::produce() {
-  return {
-      std::make_unique<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime>(),
-      std::make_unique<initializers::LinearSlipWeakeningForcedRuptureTimeInitializer>(drParameters),
-      std::make_unique<friction_law_impl::LinearSlipWeakeningLaw<friction_law::ForcedRuptureTime>>(
-          drParameters),
-      std::make_unique<output::OutputManager>(new output::LinearSlipWeakening)};
 }
 
 Products ImposedSlipRatesYoffeFactory::produce() {

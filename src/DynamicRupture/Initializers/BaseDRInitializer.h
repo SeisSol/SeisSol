@@ -92,6 +92,13 @@ class BaseDRInitializer {
   void queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
                   std::vector<unsigned> faceIDs);
 
+  /**
+   * Evaluates, whether the FaultParameterDB provides a certain parameter.
+   * @param parameter
+   * @return true if the FaultParameterDB provides parameter.
+   */
+  bool faultProvides(std::string&& parameter);
+
   private:
   /**
    * Rotates the stress tensor a fault aligned coordinate system
