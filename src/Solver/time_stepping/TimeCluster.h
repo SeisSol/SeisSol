@@ -91,6 +91,7 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 #include <Monitoring/ActorStateStatistics.h>
+#include <mutex>
 
 #include "AbstractTimeCluster.h"
 
@@ -456,10 +457,13 @@ public:
 
   void reset() override;
 
+  public:
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
   void setReceiverTime(double receiverTime);
+
+  bool isEmpty();
 };
 
 #endif

@@ -1,11 +1,28 @@
 #ifndef SEISSOL_ACTORSTATE_H
 #define SEISSOL_ACTORSTATE_H
 
-#include <mutex>
+#include <omp.h>
 #include <queue>
 #include <variant>
 
 namespace seissol::time_stepping {
+
+class OmpLockGuard {
+  private:
+    omp_lock_t* lock;
+  public:
+  OmpLockGuard(omp_lock_t* lock) : lock(lock) {
+   omp_set_lock(lock);
+   };
+  ~OmpLockGuard() {
+    omp_unset_lock(lock);
+  }
+};
+
+enum class ActorPriority {
+  Low,
+  High
+};
 
 struct AdvancedPredictionTimeMessage {
   double time;
@@ -26,11 +43,15 @@ inline std::ostream& operator<<(std::ostream& stream, const Message& message);
 class MessageQueue {
  private:
   std::queue<Message> queue;
-  std::mutex mutex;
+  omp_lock_t lock;
 
  public:
-  MessageQueue() = default;
-  ~MessageQueue() = default;
+  MessageQueue() {
+    omp_init_lock(&lock);
+   };
+  ~MessageQueue() {
+    omp_destroy_lock(&lock);
+  }
 
   void push(Message const& message);
 
@@ -95,6 +116,8 @@ class DynamicRuptureScheduler {
   long lastFaultOutput = -1;
   long numberOfDynamicRuptureFaces;
 
+  omp_lock_t drLock;
+
 public:
   explicit DynamicRuptureScheduler(long numberOfDynamicRuptureFaces);
 
@@ -109,16 +132,16 @@ public:
   void setLastFaultOutput(long steps);
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
+
+  void lock();
+
+  void unlock();
 };
 
 struct ActResult {
   bool isStateChanged = false;
 };
 
-enum class ActorPriority {
-  Low,
-  High
-};
 
 }
 

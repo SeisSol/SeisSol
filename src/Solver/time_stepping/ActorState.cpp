@@ -36,12 +36,12 @@ std::string actorStateToString(ActorState state) {
 
 
 void MessageQueue::push(const Message& message) {
-  std::lock_guard lock{mutex};
+  auto guard = OmpLockGuard(&lock);
   queue.push(message);
 }
 
 Message MessageQueue::pop() {
-  std::lock_guard lock{mutex};
+  auto guard = OmpLockGuard(&lock);
   const Message message = queue.front();
   queue.pop();
   return message;
@@ -78,7 +78,9 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate) {
 }
 
 DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces) :
-    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces) {}
+    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces) {
+  omp_init_lock(&drLock);
+}
 
 bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const {
   return curCorrectionSteps > lastCorrectionStepsInterior;
@@ -104,6 +106,12 @@ void DynamicRuptureScheduler::setLastFaultOutput(long steps) {
 
 bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
   return numberOfDynamicRuptureFaces > 0;
+}
+void DynamicRuptureScheduler::lock() {
+  omp_set_lock(&drLock);
+}
+void DynamicRuptureScheduler::unlock() {
+  omp_unset_lock(&drLock);
 }
 } // namespace seissol::time_stepping
 

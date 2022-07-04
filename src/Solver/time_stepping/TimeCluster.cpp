@@ -183,7 +183,6 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   // are no point sources on this rank.
   if (m_numberOfCellToPointSourcesMappings != 0) {
 #ifdef _OPENMP
-  //#pragma omp parallel for schedule(static)
   #pragma omp taskloop default(shared)
 #endif
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
@@ -239,7 +238,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 #ifdef _OPENMP
-  //#pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
   #pragma omp taskloop private(QInterpolatedPlus,QInterpolatedMinus) default(shared)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
@@ -762,9 +760,11 @@ void TimeCluster::predict() {
 
   // These methods compute the receivers/sources for both interior and copy cluster
   // and are called in actors for both copy AND interior.
-  writeReceivers();
-  computeLocalIntegration(*m_clusterData, resetBuffers);
-  computeSources();
+  if (!isEmpty()) {
+    writeReceivers();
+    computeLocalIntegration(*m_clusterData, resetBuffers);
+    computeSources();
+  }
 
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[static_cast<int>(ComputePart::Local)];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[static_cast<int>(ComputePart::Local)];
@@ -795,21 +795,29 @@ void TimeCluster::correct() {
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
   if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
+    dynamicRuptureScheduler->lock();
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
+      logInfo() << "Computing interior of cluster" << m_globalClusterId <<
+          "for layer" << layerType;
       computeDynamicRupture(*dynRupInteriorData);
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)];
       dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
+    dynamicRuptureScheduler->unlock();
     if (layerType == Copy) {
       computeDynamicRupture(*dynRupCopyData);
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)];
+      dynamicRuptureScheduler->lock();
       dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
+      dynamicRuptureScheduler->unlock();
     }
 
   }
-  computeNeighboringIntegration(*m_clusterData, subTimeStart);
+  if (!isEmpty()) {
+    computeNeighboringIntegration(*m_clusterData, subTimeStart);
+  }
 
   g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
   g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
@@ -819,10 +827,13 @@ void TimeCluster::correct() {
   // First cluster calls fault receiver output
   // Call fault output only if both interior and copy parts of DR were computed
   // TODO: Change from iteration based to time based
-  if (m_clusterId == 0
-      && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
-    dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
+  if (m_clusterId == 0) {
+    dynamicRuptureScheduler->lock();
+    if (dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
+      e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+      dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
+    }
+    dynamicRuptureScheduler->unlock();
   }
 
 
@@ -885,4 +896,7 @@ void TimeCluster::setReceiverTime(double receiverTime) {
   m_receiverTime = receiverTime;
 }
 
+bool TimeCluster::isEmpty() {
+  return m_clusterData->getNumberOfCells() == 0;
+}
 }
