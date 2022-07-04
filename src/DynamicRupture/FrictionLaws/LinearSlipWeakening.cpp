@@ -48,7 +48,7 @@ void BiMaterialFault::strengthHook(real& strength,
                                    real& deltaT,
                                    unsigned int ltsFace,
                                    unsigned int pointIndex) {
-  // modify strength according to prakash clifton
+  // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
   prak_clif_mod(strength, sigma, localSlipRate, mu, deltaT);
   // save for output
@@ -56,7 +56,7 @@ void BiMaterialFault::strengthHook(real& strength,
 }
 
 /*
- * calculates prakash clifton regularization
+ * calculates Prakash-Clifton regularization
  */
 void BiMaterialFault::prak_clif_mod(
     real& strength, real& sigma, real& localSlipRate, real& mu, real& dt) {

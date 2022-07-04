@@ -186,9 +186,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
           resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
 
-      // Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-      // actually slip is already the stateVariable for this FL, but to simplify the next equations
-      // we divide it here by the critical distance
+      // Actually slip is already the stateVariable for this FL, but to simplify the next equations
+      // we divide it here by the critical distance.
       stateVariable[pointIndex] = std::min(
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) / dC[ltsFace][pointIndex],
           static_cast<real>(1.0));
