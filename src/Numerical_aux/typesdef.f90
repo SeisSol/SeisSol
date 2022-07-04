@@ -348,11 +348,12 @@ MODULE TypesDef
                                                      !< 5 = Nonlinear ADER DG
                                                      !< 6 = local RK-DG, ADD eqn.
     INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
-    INTEGER           :: nodeWeightModelTypeId       !< 0 = exponential, 1 = balanced exponential, 2 = encoded balanced
-    INTEGER           :: edgeWeightModelTypeId       !< 0 = naive (as if there is no edge weights)
+    INTEGER           :: nodeWeightModelTypeId       !< 0 = exponential, 1 = balanced exponential, 2 = encoded
+                                                     !< 3 = communication approximation + balanced messaging (tries to distribute communication symmetrically, every cut (i,j) is equally distributed among ranks)
+                                                     !< 4 = communicaiton approximation + minimum messaging (tries to minimize messages sent between clusters)
+    INTEGER           :: edgeWeightModelTypeId       !< 0 = naive (as if there are no edge weights)
                                                      !< 1 = approximate communication (approximate cost of communication with the message counts per time unit), 
-                                                     !< 3 = 2 + balanced messaging (tries to distribute communication, every cut (i,j) is equally distributed among ranks),
-                                                     !< 4 = 2 + minimum messaging (tries to minimize messages sent between clusters)
+
     
     INTEGER           :: CKMethod                    !< 0 = regular CK
                                                      !< 1 = local space-time DG

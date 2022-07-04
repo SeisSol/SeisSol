@@ -2393,7 +2393,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, NodeWeightModelTypeId, &
                                         EdgeWeightModelTypeId
-    REAL                             :: CFL, FixTimeStep
+    REAL                             :: CFL, FixTimeStep, StableDt
     NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
@@ -2448,12 +2448,12 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     disc%galerkin%nodeWeightModelTypeId = NodeWeightModelTypeId
     if ((DISC%Galerkin%clusteredLts > 0) .and. (DISC%Galerkin%nodeWeightModelTypeId > 0)) then
-        logInfo(*) 'Using memory balancing for LTS scheme of type', DISC%Galerkin%nodeWeightModelTypeId
+        logInfo(*) 'Using node weight cost model of type ', DISC%Galerkin%nodeWeightModelTypeId
     end if
 
     disc%galerkin%edgeWeightModelTypeId = EdgeWeightModelTypeId
     if ((DISC%Galerkin%clusteredLts > 0) .and. (DISC%Galerkin%edgeWeightModelTypeId > 0)) then
-        logInfo(*) 'Using memory balancing for LTS scheme of type', DISC%Galerkin%edgeWeightModelTypeId
+        logInfo(*) 'Using edge weight cost model of type ', DISC%Galerkin%edgeWeightModelTypeId
     end if
 
     DISC%Galerkin%DGMethod = DGMethod
