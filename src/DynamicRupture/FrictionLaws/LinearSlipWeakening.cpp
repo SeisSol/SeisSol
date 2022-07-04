@@ -10,27 +10,31 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
-void BiMaterialFault::strengthHook(real& strength,
+real BiMaterialFault::strengthHook(real& faultStrength,
                                    real& localSlipRate,
-                                   real& sigma,
-                                   real& mu,
                                    real& deltaT,
                                    unsigned int ltsFace,
                                    unsigned int pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-  prak_clif_mod(strength, sigma, localSlipRate, mu, deltaT);
-  // save for output
-  regularisedStrength[ltsFace][pointIndex] = strength;
+  real newStrength =
+      prak_clif_mod(regularisedStrength[ltsFace][pointIndex], faultStrength, localSlipRate, deltaT);
+  // regularisedStrength[ltsFace][pointIndex] = newStrength;
+  return newStrength;
 }
 
-/*
- * calculates Prakash-Clifton regularization
- */
-void BiMaterialFault::prak_clif_mod(
-    real& strength, real& sigma, real& localSlipRate, real& mu, real& dt) {
+void BiMaterialFault::postHook(std::array<real, misc::numPaddedPoints>& strengthBuffer,
+                               unsigned int ltsFace) {
+  std::copy(strengthBuffer.begin(), strengthBuffer.end(), regularisedStrength[ltsFace]);
+}
+
+real BiMaterialFault::prak_clif_mod(real& regularisedStrength,
+                                    real& faultStrength,
+                                    real& localSlipRate,
+                                    real& dt) {
   real expterm =
       std::exp(-(std::abs(localSlipRate) + drParameters.vStar) * dt / drParameters.prakashLength);
-  strength = strength * expterm - std::max(static_cast<real>(0.0), -mu * sigma) * (expterm - 1.0);
+  real newstrength = regularisedStrength * expterm + faultStrength * (1.0 - expterm);
+  return newstrength;
 }
 } // namespace seissol::dr::friction_law

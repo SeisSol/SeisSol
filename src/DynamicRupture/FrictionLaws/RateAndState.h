@@ -91,7 +91,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
+  void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+                std::array<real, misc::numPaddedPoints>& strengthBuffer,
+                unsigned ltsFace) {
     // resample state variables
     std::array<real, misc::numPaddedPoints> resampledStateVar =
         static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);

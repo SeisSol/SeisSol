@@ -70,13 +70,16 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
        ++it) {
     real(*regularisedStrength)[misc::numPaddedPoints] = it->var(concreteLts->regularisedStrength);
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
+    real(*cohesion)[misc::numPaddedPoints] = it->var(concreteLts->cohesion);
     real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(concreteLts->initialStressInFaultCS);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         regularisedStrength[ltsFace][pointIndex] =
-            mu[ltsFace][pointIndex] * initialStressInFaultCS[ltsFace][pointIndex][0];
+            -cohesion[ltsFace][pointIndex] -
+            mu[ltsFace][pointIndex] *
+                std::min(static_cast<real>(0.0), initialStressInFaultCS[ltsFace][pointIndex][0]);
       }
     }
   }

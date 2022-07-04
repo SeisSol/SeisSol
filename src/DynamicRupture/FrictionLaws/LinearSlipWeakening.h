@@ -101,7 +101,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                unsigned int ltsFace){};
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                unsigned int ltsFace){};
+                std::array<real, misc::numPaddedPoints>& strengthBuffer,
+                unsigned int ltsFace) {
+    specialization.postHook(strengthBuffer, ltsFace);
+  };
 
   /**
    * evaluate friction law: updated mu -> friction law
@@ -157,13 +160,12 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
           -cohesion[ltsFace][pointIndex] -
           this->mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
 
-      specialization.strengthHook(strength[pointIndex],
-                                  this->slipRateMagnitude[ltsFace][pointIndex],
-                                  totalNormalStress,
-                                  this->mu[ltsFace][pointIndex],
-                                  this->deltaT[timeIndex],
-                                  ltsFace,
-                                  pointIndex);
+      strength[pointIndex] =
+          specialization.strengthHook(strength[pointIndex],
+                                      this->slipRateMagnitude[ltsFace][pointIndex],
+                                      this->deltaT[timeIndex],
+                                      ltsFace,
+                                      pointIndex);
     }
   }
 
@@ -232,19 +234,23 @@ class NoSpecialization {
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime){};
-  void strengthHook(real& strength,
+  real strengthHook(real& strength,
                     real& localSlipRate,
-                    real& sigma,
-                    real& mu,
                     real& deltaT,
                     unsigned int ltsFace,
+<<<<<<< HEAD
                     unsigned int pointIndex){};
+=======
+                    unsigned int pointIndex) {
+    return strength;
+  };
+
+  void postHook(std::array<real, misc::numPaddedPoints>& strengthBuffer, unsigned int ltsFace){};
+>>>>>>> 1ae588ae (Fix Prakash-Clifton)
 };
 
 /**
- * Law for Bimaterial faults, implements strength regularization (according to prakash clifton)
- * currently regularized strength is not used (bug)
- * State variable (slip) is not resampled in this friction law!
+ * Law for bimaterial faults, implements strength regularization (according to Prakash-Clifton)
  */
 class BiMaterialFault {
   public:
@@ -253,18 +259,20 @@ class BiMaterialFault {
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
-  void strengthHook(real& strength,
+  real strengthHook(real& strength,
                     real& localSlipRate,
-                    real& sigma,
-                    real& mu,
                     real& deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex);
+  void postHook(std::array<real, misc::numPaddedPoints>& strengthBuffer, unsigned int ltsFace);
 
   protected:
   DRParameters& drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
-  void prak_clif_mod(real& strength, real& sigma, real& locSlipRate, real& mu, real& dt);
+  /*
+   * Calculates Prakash-Clifton regularization
+   */
+  real prak_clif_mod(real& regularisedStrength, real& faultStrength, real& localSlipRate, real& dt);
 };
 
 } // namespace seissol::dr::friction_law

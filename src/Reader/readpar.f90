@@ -915,7 +915,7 @@ CONTAINS
     REAL                                   :: RS_sv0, XRef, YRef, ZRef, GPwise,  &
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, vStar, L, t_0, Mu_W, &
+                                              RS_iniSlipRate2, vStar, prakashLength, t_0, Mu_W, &
                                               alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                               NucRS_sv0, r_s, energy_rate_printtimeinterval
 
@@ -926,7 +926,7 @@ CONTAINS
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
                                                 RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, vstar, &
                                                 thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
-                                                L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
+                                                prakashLength, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
                                                 SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
@@ -957,7 +957,7 @@ CONTAINS
     RS_iniSlipRate2 = 0
     vstar = 0
     t_0 = 0
-    L = 0
+    prakashLength = 0
     Mu_W = 0
     NucRS_sv0 = 0
     r_s = 0
@@ -1021,7 +1021,7 @@ CONTAINS
              ENDIF
            CASE(6) ! bimaterial with LSW
              DISC%DynRup%v_star = vstar
-             DISC%DynRup%L = L
+             DISC%DynRup%L = prakashLength
              CONTINUE
            CASE(33, 34) !ImposedSlipRateOnDRBoundary
              IF (EQN%FL.EQ.33) THEN
