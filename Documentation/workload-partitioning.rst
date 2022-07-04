@@ -148,6 +148,6 @@ Note that the *exponential* and *naive* strategies are the default node and edge
 
 *exponential-balanced* can be used when the memory of the compute nodes are limited. On CPUs, *communication approximation* and 
 *communication approximation + minimum messaging* may provide a slight performance boost over *naive*. The user is suggested to use
-*exponential$* combined with *communication approximation* or  *communication approximation + minimum messaging* for CPUs.
+*exponential* combined with *communication approximation* or  *communication approximation + minimum messaging* for CPUs.
 Even though *communication approximation + balanced messaging* may provide a slight performance boost for the GPU in general, the results depend 
 massively on the mesh, the problem size and the hardware and can often degrade the performance, therefore we recommend the *naive* and *exponential-balanced* (as memory of the GPUs are often limited).
