@@ -140,6 +140,8 @@ class seissol::time_stepping::TimeManager {
                      initializers::MemoryManager& memoryManager,
                      bool usePlasticity);
 
+    void scheduleCluster(TimeCluster* cluster);
+
     /**
      * Advance in time until all clusters reach the next synchronization time.
      **/
