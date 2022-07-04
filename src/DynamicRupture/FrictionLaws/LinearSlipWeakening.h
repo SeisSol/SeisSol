@@ -238,7 +238,7 @@ class NoSpecialization {
                     real& mu,
                     real& deltaT,
                     unsigned int ltsFace,
-                    unsigned int pointIndex) {};
+                    unsigned int pointIndex){};
 };
 
 /**
