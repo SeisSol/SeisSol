@@ -15,11 +15,11 @@ jobs:
                         pwd
                         ls
                         sudo apt-get update
-                        sudo apt-get install gcc-8 g++-8 gfortran-8
-                        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
-                        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
-                        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
-                        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-8 100
+                        sudo apt-get install gcc-10 g++-10 gfortran-10
+                        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100
+                        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
+                        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-10 100
+                        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-10 100
                         gcc --version
                         gcov-tool --version
                         gcov --version
