@@ -91,7 +91,7 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
   auto m_ncon = ltsWeights.getNcon();
   auto& m_imbalances = ltsWeights.getImbalances();
 
-  assert(m_ncon == 3 && "ternary constaints partitioning");
+  assert(m_ncon == 2 && "binary constaints partitioning");
   m_imbalances.resize(m_ncon);
 
   constexpr double tinyLtsWeightImbalance{1.01};
@@ -104,8 +104,8 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
 void ExponentialBalancedWeightsWithMessageCount::setAllowedImbalances() {
   auto m_ncon = ltsWeights.getNcon();
   auto& m_imbalances = ltsWeights.getImbalances();
-
-  assert(m_ncon == 2 && "binary constaints partitioning");
+  
+  assert(m_ncon == 3 && "ternary constaints partitioning");
   m_imbalances.resize(m_ncon);
 
   constexpr double tinyLtsWeightImbalance{1.01};
