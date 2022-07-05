@@ -147,14 +147,34 @@ class LtsWeights {
   const PUML::TETPUML* getMesh() const;
   const std::vector<int>& getClusterIds() const;
 
+  /*
+    LtsWeights calss is the class that updates and sets the weights, and it requires the cost models
+  */
   void addWeightModels(NodeWeightModel* nwm, EdgeWeightModel* ewm);
 
   static int find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId);
 
+  /*
+    The graph representation of the mesh already distributed among multiple compute nodes,
+    for the implementation of edge weight strategies we need to exchange the border information
+    of the distributed graph, which means that we create a ghostlayer and exchange this information,
+    this means every vertex of the graph that connects to a vertex of another computer node,
+    must sends its cluter id to that rank and vice verse so we can compute the edge weights
+  */
   void exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
                                            const std::vector<idx_t>&,
                                            const std::vector<idx_t>&>& graph);
 
+  /*
+    The apply_constraints takes the graph model of the vertex, and applies the constraints depending
+    on the cost model 'factor', the idea is to update edge or node weights given at the right index.
+    The choice of index (in the constraint vector) depends on which constraint to update
+    whose information is given by the OffsetType, to implement new edge weights the user will need to
+    choose the right constraint to update, define the function factor, and update this function at
+    the end where the constraint is updated depending on the offset type. It is suggest to create a 
+    classes that override EdgeWeightModel and NodeWeightModel to dfine the functions factor and
+    show them to weights factory so that they can be used.
+  */
   void apply_constraints(const std::tuple<const std::vector<idx_t>&,
                                           const std::vector<idx_t>&,
                                           const std::vector<idx_t>&>& graph,
