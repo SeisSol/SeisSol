@@ -289,7 +289,7 @@ endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-lib PUBLIC debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
   )
 endif()
 
