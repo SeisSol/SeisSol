@@ -58,12 +58,6 @@ class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
   virtual Products produce() override;
 };
 
-class LinearSlipWeakeningForcedRuptureTimeFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  virtual Products produce() override;
-};
-
 class ImposedSlipRatesYoffeFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;

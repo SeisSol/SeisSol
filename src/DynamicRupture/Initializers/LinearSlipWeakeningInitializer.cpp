@@ -19,6 +19,8 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
     real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
     real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
+    real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
+    bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
 
       // initialize padded elements for vectorization
@@ -28,6 +30,9 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
         slipRate2[ltsFace][pointIndex] = 0.0;
         // initial friction coefficient is static friction (no slip has yet occurred)
         mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
+        if (!providesForcedRuptureTime) {
+          forcedRuptureTime[ltsFace][pointIndex] = std::numeric_limits<real>::max();
+        }
       }
       averagedSlip[ltsFace] = 0.0;
     }
@@ -47,32 +52,10 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   parameterToStorageMap.insert({"mu_s", (real*)muS});
   parameterToStorageMap.insert({"mu_d", (real*)muD});
   parameterToStorageMap.insert({"cohesion", (real*)cohesion});
-}
-
-void LinearSlipWeakeningForcedRuptureTimeInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup, seissol::initializers::LTSTree* dynRupTree) {
-  LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
-  auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
-  for (seissol::initializers::LTSTree::leaf_iterator it =
-           dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
-       it != dynRupTree->endLeaf();
-       ++it) {
-    real* tn = it->var(concreteLts->tn);
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      tn[ltsFace] = 0.0;
-    }
+  if (this->faultProvides("forced_rupture_time")) {
+    real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
+    parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
   }
-}
-
-void LinearSlipWeakeningForcedRuptureTimeInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture* dynRup,
-    seissol::initializers::LTSInternalNode::leaf_iterator& it) {
-  auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningForcedRuptureTime*>(dynRup);
-  real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
-  parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(

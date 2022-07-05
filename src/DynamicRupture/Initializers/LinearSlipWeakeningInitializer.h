@@ -19,29 +19,7 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
 
   protected:
   /**
-   * Adds the additional parameters mu_s, mu_d, d_c, cohesion.
-   */
-  virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
-                              seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
-};
-
-/**
- * Derived initializer class for the LinearSlipWeakening friction law with a forced rupture time
- */
-class LinearSlipWeakeningForcedRuptureTimeInitializer : public LinearSlipWeakeningInitializer {
-  public:
-  using LinearSlipWeakeningInitializer::LinearSlipWeakeningInitializer;
-  /**
-   * initializes tn to 0
-   */
-  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree) override;
-
-  protected:
-  /**
-   * Reads the additional parameter forced_rupture_time
+   * Adds the additional parameters mu_s, mu_d, d_c, cohesion and if available forced_rupture_time.
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,

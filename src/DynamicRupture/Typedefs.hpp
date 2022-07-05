@@ -12,9 +12,8 @@ namespace seissol::dr {
  */
 enum class FrictionLawType : unsigned int {
   NoFault = 0,
-  LinearSlipWeakening = 2,
+  LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
-  LinearSlipWeakeningForcedRuptureTime = 16,
   RateAndStateAgingLaw = 3,
   RateAndStateSlipLaw = 4,
   RateAndStateFastVelocityWeakening = 103,

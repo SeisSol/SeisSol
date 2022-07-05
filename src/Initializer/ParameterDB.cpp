@@ -317,6 +317,13 @@ namespace seissol {
   }
 }
 
+bool seissol::initializers::FaultParameterDB::faultProvides(std::string& parameter, std::string const& fileName) {
+  easi::Component* model = loadEasiModel(fileName);
+  std::set<std::string> supplied = model->suppliedParameters();
+  delete model;
+  return supplied.count(parameter) > 0;
+}
+
 bool seissol::initializers::FaultParameterDB::faultParameterizedByTraction(std::string const& fileName) {
   easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();

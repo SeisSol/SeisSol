@@ -243,4 +243,9 @@ void BaseDRInitializer::initializeOtherVariables(
   }
 }
 
+bool BaseDRInitializer::faultProvides(std::string&& parameter) {
+  return seissol::initializers::FaultParameterDB::faultProvides(parameter,
+                                                                drParameters.faultFileName);
+}
+
 } // namespace seissol::dr::initializers
