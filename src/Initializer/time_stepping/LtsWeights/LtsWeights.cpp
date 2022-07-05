@@ -491,11 +491,14 @@ int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
 
 
 std::vector<std::unordered_map<idx_t, int>>
-LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
+LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&,
+                                          const std::vector<idx_t>&,
                                           const std::vector<idx_t>&>& graph) {
-  // fails with intel compiler, mpi standard says use mpi size of
-  // static_assert(sizeof(idx_t) <= sizeof(MPI_LONG_LONG_INT));
 
+  int mpillint_size = 0;
+  MPI_Type_size(MPI_LONG_LONG_INT,&mpillint_size);
+  assert(sizeof(idx_t) <= static_cast<unsigned int>(mpillint_size) && "For ghost layer exchange to work the size of idx_t has to be least or equal to MPI_LONG_LONG_INT");
+  
   const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
   const std::vector<idx_t>& xadj = std::get<1>(graph);
   const std::vector<idx_t>& adjncy = std::get<2>(graph);
@@ -503,11 +506,10 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
   const int rank = seissol::MPI::mpi.rank();
   const int size = seissol::MPI::mpi.size();
 
-  assert(vrtxdist.size() == static_cast<size_t>(size + 1) && !xadj.empty() && !adjncy.empty());
-  assert(vrtxdist[0] == 0);
+  assert((vrtxdist.size() == static_cast<size_t>(size + 1) && !xadj.empty() && !adjncy.empty()) && "The dual graph should be initialized for the ghost layer exchange");
+  assert(vrtxdist[0] == 0 && "Metis always returns 0 for the first element of vrtxdist, either the graph is not intiliazed or there was an unllowed write to vrtxdist[0]");
 
   const size_t vertex_id_begin = vrtxdist[rank];
-  // const size_t vertex_id_end = vrtxdist[rank + 1];
 
   assert(!m_clusterIds.empty());
 
@@ -551,12 +553,6 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
     }
   }
 
-  //std::cout << "Neighbors of " << rank << " are: ";
-  //for (int nb : neighbor_ranks) {
-  //  std::cout << nb << " ";
-  //}
-  //std::cout << std::endl;
-
   // if we add empty requests and stats waiting becomes problematic
   send_requests.resize(neighbor_ranks.size());
   recv_stats.resize(neighbor_ranks.size());
@@ -567,8 +563,6 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
     int offset = 0;
     for (int neighbor_rank : neighbor_ranks) {
       const std::vector<idx_t>& layer_ref = ghost_layer_to_send[neighbor_rank];
-
-      assert(!layer_ref.empty());
 
       if (sizeof(idx_t) != 8)
       {
@@ -600,11 +594,8 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
       }
 
       if (skip[offset]) {
-
         offset += 1;
-
       } else {
-
         int flag = 0;
         MPI_Iprobe(neighbor_rank, neighbor_rank, MPI_COMM_WORLD, &flag, &recv_stats[offset]);
 
@@ -621,8 +612,6 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
           got += 1;
 
           skip[offset] = true;
-
-          // lets move the data here
         }
 
         offset += 1;
@@ -635,18 +624,15 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::
 
   // not sure if necessary as waiting for all send implies the loop will
   // completed too and the rest of communication is totally local
-  // MPI_Barrier(MPI_COMM_WORLD);
 
   for (int i : neighbor_ranks) {
     assert(i != rank);
-    assert(!ghost_layer_received[i].empty());
-    assert(ghost_layer_received[i].size() % 2 == 0);
+    assert(!ghost_layer_received[i].empty() && "Ghost layer received should not be empty");
+    assert(ghost_layer_received[i].size() % 2 == 0 && "Ghost layer received should have an even number elements n cell ids and n cluster ids therefore always 2n");
 
     for (unsigned int j = 0; j < ghost_layer_received[i].size(); j += 2) {
       ghost_layer_mapped[i].emplace(ghost_layer_received[i][j], ghost_layer_received[i][j + 1]);
     }
-    //std::cout << "Ghost received from rank: " << i << " to " << rank << " has "
-    //          << ghost_layer_received[i].size() / 2 << " elements" << std::endl;
   }
 
   return ghost_layer_mapped;

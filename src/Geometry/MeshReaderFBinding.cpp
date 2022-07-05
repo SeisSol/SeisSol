@@ -331,13 +331,17 @@ void read_mesh_puml_c(const char* meshfile,
 	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 
 	using namespace seissol::initializers::time_stepping;
-	LtsWeightsConfig config{easiVelocityModel, static_cast<unsigned int>(clusterRate),
-							vertexWeightElement, vertexWeightDynamicRupture,
-							vertexWeightFreeSurfaceWithGravity};
+	LtsWeightsConfig config {
+		easiVelocityModel,
+		static_cast<unsigned int>(clusterRate),
+		vertexWeightElement,
+		vertexWeightDynamicRupture,
+		vertexWeightFreeSurfaceWithGravity
+	};
 
 	NodeWeightModelTypes nodeWeightModelType{};
 	try {
-		nodeWeightModelType = convertNodeWeightModelTypeIdToType(nodeWeightModelTypeId);
+		nodeWeightModelType = convertNodeWeightModelTypeIdToType					(nodeWeightModelTypeId);
 	} catch (const std::runtime_error& error) {
 		logError() << error.what();
 	}

@@ -365,7 +365,6 @@ void EdgeWeightModel::setBalancedMessagingWeights(
   const int rank = seissol::MPI::mpi.rank();
 
   const size_t vertex_id_begin = vrtxdist[rank];
-  // const size_t vertex_id_end = vrtxdist[rank + 1];
 
   const std::vector<int>& m_clusterIds = ltsWeights.getClusterIds();
   assert(!m_clusterIds.empty());
@@ -375,7 +374,6 @@ void EdgeWeightModel::setBalancedMessagingWeights(
   // compute edge weights with the ghost layer
   for (size_t i = 0; i < xadj.size() - 1; i++) {
     // get cluster of the cell i
-    // const int self_cluster_id = m_clusterIds[i];
 
     const size_t neighbors_offset_begin = xadj[i];
     const size_t neighbors_offset_end = xadj[i + 1];
@@ -393,10 +391,10 @@ void EdgeWeightModel::setBalancedMessagingWeights(
                              vertex_id_begin] // mapping from global id to local id
               : ghost_layer_mapped[rank_of_neighbor].find(neighbor_id_idx)->second;
 
-      assert(rank_of_neighbor != rank || (rank_of_neighbor == rank && neighbor_id_idx >= vrtxdist[rank] && neighbor_id_idx < vrtxdist[rank+1]));
+      assert((rank_of_neighbor != rank || (rank_of_neighbor == rank && neighbor_id_idx >= vrtxdist[rank] && neighbor_id_idx < vrtxdist[rank+1])) && "The offsets of vertex distribution is not consistent (has to be an error in the implementation of the edge weights");
       
-      constexpr unsigned int constraint_beg_offset = 2;
-      assert(constraint_beg_offset + other_cluster_id < m_ncon);
+      constexpr int constraint_beg_offset = 2;
+      assert((constraint_beg_offset + other_cluster_id < m_ncon) && "Offsets of the cosntraints are wrong, either you are using a wrong combination or error in implementation of edge weights");
       m_vertexWeights[(m_ncon * i) + constraint_beg_offset + other_cluster_id] += 1;
 
     }
