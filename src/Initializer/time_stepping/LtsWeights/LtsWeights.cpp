@@ -2,10 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017 - 2020, SeisSol Group
@@ -490,11 +488,15 @@ int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
 }
 
 
-std::vector<std::unordered_map<idx_t, int>>
-LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&,
-                                          const std::vector<idx_t>&,
-                                          const std::vector<idx_t>&>& graph) {
+void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
+                                                     const std::vector<idx_t>&,
+                                                     const std::vector<idx_t>&>& graph) {
 
+  if (!ghost_layer_info.empty())
+  {
+    return;
+  }
+  
   int mpillint_size = 0;
   MPI_Type_size(MPI_LONG_LONG_INT,&mpillint_size);
   assert(sizeof(idx_t) <= static_cast<unsigned int>(mpillint_size) && "For ghost layer exchange to work the size of idx_t has to be least or equal to MPI_LONG_LONG_INT");
@@ -635,7 +637,57 @@ LtsWeights::exchangeGhostLayer(std::tuple<const std::vector<idx_t>&,
     }
   }
 
-  return ghost_layer_mapped;
+  ghost_layer_info = std::move(ghost_layer_mapped);
+}
+
+void LtsWeights::apply_constraints(
+                        const std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>& graph,
+                        std::vector<idx_t> &constraint_to_update, 
+                        std::function<int(idx_t, idx_t)>& factor,
+                        OffsetType ot)
+{
+   exchangeGhostLayer(graph);
+
+  const int rank = seissol::MPI::mpi.rank();
+  
+  const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
+  const std::vector<idx_t>& xadj = std::get<1>(graph);
+  const std::vector<idx_t>& adjncy = std::get<2>(graph);
+  
+  const size_t vertex_id_begin = vrtxdist[rank];
+
+  // compute edge weights with the ghost layer
+  for (size_t i = 0; i < xadj.size() - 1; i++) {
+    // get cluster of the cell i
+    const int self_cluster_id = m_clusterIds[i];
+
+    const size_t neighbors_offset_begin = xadj[i];
+    const size_t neighbors_offset_end = xadj[i + 1];
+
+    for (size_t j = neighbors_offset_begin; j < neighbors_offset_end; j++) {
+      const idx_t neighbor_id_idx = adjncy[j];
+
+      const int rank_of_neighbor = find_rank(vrtxdist, neighbor_id_idx);
+
+      // if  on the same rank get from cluster_ids otherwise get it from the received ghost_layer
+
+      const int other_cluster_id =
+          (rank_of_neighbor == rank)
+              ? m_clusterIds[neighbor_id_idx -
+                             vertex_id_begin] // mapping from global id to local id
+              : ghost_layer_info[rank_of_neighbor].find(neighbor_id_idx)->second;
+      
+      if (ot == OffsetType::edgeWeight)
+      {
+        constraint_to_update[j] = factor(self_cluster_id, other_cluster_id);
+      } else if (ot == OffsetType::minMsg) {
+        constraint_to_update[(m_ncon * i) + 2] += factor(self_cluster_id, other_cluster_id);
+      } else {
+        constexpr int constraint_beg_offset = 2;
+        constraint_to_update[(m_ncon * i) + constraint_beg_offset + other_cluster_id] += 1;
+      }
+    }
+  }
 }
 
 } // namespace seissol::initializers::time_stepping

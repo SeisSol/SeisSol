@@ -185,17 +185,6 @@ void EncodedBalancedWeights::setVertexWeights() {
   const auto& m_clusterIds = ltsWeights.getClusterIds();
   auto& m_vertexWeights = ltsWeights.getVertexWeights();
   
-  /*
-
-  for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
-    int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
-    m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
-
-    constexpr int memoryWeight{1};
-    m_vertexWeights[m_ncon * cell + 1] = memoryWeight;
-  }
-  */
-  
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
     for (int i = 0; i < m_ncon; ++i) {
       m_vertexWeights[m_ncon * cell + i] = 0;
@@ -226,56 +215,14 @@ void Naive::setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vect
 
 inline int calc_offset(int rank, int i) { return (rank > i) ? i : i - 1; }
 
+
 void EdgeWeightModel::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph,
     std::function<int(idx_t, idx_t)>& factor) {
-  
-  //static_assert(sizeof(idx_t) == sizeof(MPI_INT64_T));
-  
-  const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
-  const std::vector<idx_t>& xadj = std::get<1>(graph);
-  const std::vector<idx_t>& adjncy = std::get<2>(graph);
-
-  const int rank = seissol::MPI::mpi.rank();
-
-  const size_t vertex_id_begin = vrtxdist[rank];
-  // const size_t vertex_id_end = vrtxdist[rank + 1];
-
-  const std::vector<int>& m_clusterIds = ltsWeights.getClusterIds();
-  assert(!m_clusterIds.empty());
-
   std::vector<int>& edgeWeights = ltsWeights.getEdgeWeights();
-  assert(!edgeWeights.empty());
 
-  std::vector<std::unordered_map<idx_t, int>> ghost_layer_mapped = ltsWeights.exchangeGhostLayer(graph);
-
-  // compute edge weights with the ghost layer
-  for (size_t i = 0; i < xadj.size() - 1; i++) {
-    // get cluster of the cell i
-    const int self_cluster_id = m_clusterIds[i];
-
-    const size_t neighbors_offset_begin = xadj[i];
-    const size_t neighbors_offset_end = xadj[i + 1];
-
-    for (size_t j = neighbors_offset_begin; j < neighbors_offset_end; j++) {
-      const idx_t neighbor_id_idx = adjncy[j];
-
-      const int rank_of_neighbor = ltsWeights.find_rank(vrtxdist, neighbor_id_idx);
-
-      // if  on the same rank get from cluster_ids otherwis get it from the received ghost_layer
-
-      const int other_cluster_id =
-          (rank_of_neighbor == rank)
-              ? m_clusterIds[neighbor_id_idx -
-                             vertex_id_begin] // mapping from global id to local id
-              : ghost_layer_mapped[rank_of_neighbor].find(neighbor_id_idx)->second;
-
-      assert(rank_of_neighbor != rank || (rank_of_neighbor == rank && neighbor_id_idx >= vrtxdist[rank] && neighbor_id_idx < vrtxdist[rank+1]));
-      
-      edgeWeights[j] = factor(self_cluster_id, other_cluster_id);
-    }
-  }
+  ltsWeights.apply_constraints(graph, edgeWeights, factor, OffsetType::edgeWeight);
 }
 
 
@@ -295,12 +242,10 @@ int ipow(int x, int y) {
 void ApproximateCommunication::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
   unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  const auto &m_details = ltsWeights.getDetails();
+  int global_max_cluster = 
+    ltsWeights.getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, rate);
 
   std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
     int rt = ipow(rate, global_max_cluster - cluster1);
@@ -313,15 +258,13 @@ void ApproximateCommunication::setEdgeWeights(
 void ApproximateCommunicationWithBalancedMessaging::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
   unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  const auto &m_details = ltsWeights.getDetails();
+  int global_max_cluster =
+    ltsWeights.getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, rate);
 
   std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
-    int rt = 1; //ipow(rate, global_max_cluster - cluster1);
+    int rt = ipow(rate, global_max_cluster - cluster1);
     return rt;
   };
 
@@ -333,12 +276,10 @@ void ApproximateCommunicationWithBalancedMessaging::setEdgeWeights(
 void ApproximateCommunicationWithMessageCount::setEdgeWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
-  const std::vector<int>& clusterIds = ltsWeights.getClusterIds();
   unsigned rate = ltsWeights.getRate();
-  int local_max_cluster = *std::max_element(clusterIds.begin(), clusterIds.end());
-  int global_max_cluster = 0;
-
-  MPI_Allreduce(&local_max_cluster, &global_max_cluster, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  const auto &m_details = ltsWeights.getDetails();
+  int global_max_cluster =
+    ltsWeights.getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, rate);
 
   std::function<int(idx_t, idx_t)> factor = [global_max_cluster, rate](idx_t cluster1, idx_t cluster2) {
     int rt = ipow(rate, global_max_cluster - cluster1);
@@ -353,103 +294,21 @@ void ApproximateCommunicationWithMessageCount::setEdgeWeights(
 void EdgeWeightModel::setBalancedMessagingWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph) {
-  
-  //static_assert(sizeof(idx_t) == sizeof(MPI_INT64_T));
   auto& m_vertexWeights = ltsWeights.getVertexWeights();
-  auto m_ncon = ltsWeights.getNcon();
 
-  const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
-  const std::vector<idx_t>& xadj = std::get<1>(graph);
-  const std::vector<idx_t>& adjncy = std::get<2>(graph);
+  std::function<int(idx_t, idx_t)> factor = [](idx_t cluster1, idx_t cluster2) {
+    return 1;
+  };
 
-  const int rank = seissol::MPI::mpi.rank();
-
-  const size_t vertex_id_begin = vrtxdist[rank];
-
-  const std::vector<int>& m_clusterIds = ltsWeights.getClusterIds();
-  assert(!m_clusterIds.empty());
-
-  std::vector<std::unordered_map<idx_t, int>> ghost_layer_mapped = ltsWeights.exchangeGhostLayer(graph);
-
-  // compute edge weights with the ghost layer
-  for (size_t i = 0; i < xadj.size() - 1; i++) {
-    // get cluster of the cell i
-
-    const size_t neighbors_offset_begin = xadj[i];
-    const size_t neighbors_offset_end = xadj[i + 1];
-
-    for (size_t j = neighbors_offset_begin; j < neighbors_offset_end; j++) {
-      const idx_t neighbor_id_idx = adjncy[j];
-
-      const int rank_of_neighbor = ltsWeights.find_rank(vrtxdist, neighbor_id_idx);
-
-      // if  on the same rank get from cluster_ids otherwis get it from the received ghost_layer
-
-      const int other_cluster_id =
-          (rank_of_neighbor == rank)
-              ? m_clusterIds[neighbor_id_idx -
-                             vertex_id_begin] // mapping from global id to local id
-              : ghost_layer_mapped[rank_of_neighbor].find(neighbor_id_idx)->second;
-
-      assert((rank_of_neighbor != rank || (rank_of_neighbor == rank && neighbor_id_idx >= vrtxdist[rank] && neighbor_id_idx < vrtxdist[rank+1])) && "The offsets of vertex distribution is not consistent (has to be an error in the implementation of the edge weights");
-      
-      constexpr int constraint_beg_offset = 2;
-      assert((constraint_beg_offset + other_cluster_id < m_ncon) && "Offsets of the cosntraints are wrong, either you are using a wrong combination or error in implementation of edge weights");
-      m_vertexWeights[(m_ncon * i) + constraint_beg_offset + other_cluster_id] += 1;
-
-    }
-  }
+  ltsWeights.apply_constraints(graph, m_vertexWeights, factor, OffsetType::balancedMsg);
 }
 
 void EdgeWeightModel::setMessageCountWeights(
     std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
         graph, std::function<int(idx_t, idx_t)>& factor) {
-  
-  //static_assert(sizeof(idx_t) == sizeof(MPI_INT64_T));
   auto& m_vertexWeights = ltsWeights.getVertexWeights();
-  auto m_ncon = ltsWeights.getNcon();
 
-  const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
-  const std::vector<idx_t>& xadj = std::get<1>(graph);
-  const std::vector<idx_t>& adjncy = std::get<2>(graph);
-
-  const int rank = seissol::MPI::mpi.rank();
-
-  const size_t vertex_id_begin = vrtxdist[rank];
-  // const size_t vertex_id_end = vrtxdist[rank + 1];
-
-  const std::vector<int>& m_clusterIds = ltsWeights.getClusterIds();
-  assert(!m_clusterIds.empty());
-
-  std::vector<std::unordered_map<idx_t, int>> ghost_layer_mapped = ltsWeights.exchangeGhostLayer(graph);
-
-  // compute edge weights with the ghost layer
-  for (size_t i = 0; i < xadj.size() - 1; i++) {
-    // get cluster of the cell i
-    const int self_cluster_id = m_clusterIds[i];
-
-    const size_t neighbors_offset_begin = xadj[i];
-    const size_t neighbors_offset_end = xadj[i + 1];
-
-    for (size_t j = neighbors_offset_begin; j < neighbors_offset_end; j++) {
-      const idx_t neighbor_id_idx = adjncy[j];
-
-      const int rank_of_neighbor = ltsWeights.find_rank(vrtxdist, neighbor_id_idx);
-
-      // if  on the same rank get from cluster_ids otherwis get it from the received ghost_layer
-
-      const int other_cluster_id =
-          (rank_of_neighbor == rank)
-              ? m_clusterIds[neighbor_id_idx -
-                             vertex_id_begin] // mapping from global id to local id
-              : ghost_layer_mapped[rank_of_neighbor].find(neighbor_id_idx)->second;
-
-      assert(rank_of_neighbor != rank || (rank_of_neighbor == rank && neighbor_id_idx >= vrtxdist[rank] && neighbor_id_idx < vrtxdist[rank+1]));
-      
-      m_vertexWeights[(m_ncon * i) + 2] += factor(self_cluster_id, other_cluster_id);
-
-    }
-  }
+  ltsWeights.apply_constraints(graph, m_vertexWeights, factor, OffsetType::minMsg);
 }
 
 

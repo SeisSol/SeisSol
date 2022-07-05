@@ -66,6 +66,12 @@ struct LtsWeightsConfig {
   int vertexWeightFreeSurfaceWithGravity{};
 };
 
+enum class OffsetType {
+  edgeWeight,
+  minMsg,
+  balancedMsg
+};
+
 
 class NodeWeightModel;
 class EdgeWeightModel;
@@ -93,6 +99,8 @@ private:
 
   NodeWeightModel* m_nodeWeightModel;
   EdgeWeightModel* m_edgeWeightModel;
+
+  std::vector<std::unordered_map<idx_t, int>> ghost_layer_info{};
 
   public:
   LtsWeights(const LtsWeightsConfig& config) noexcept;
@@ -145,9 +153,14 @@ private:
 
   static int find_rank(const std::vector<idx_t> &vrtxdist, idx_t elemId);
   
-  std::vector<std::unordered_map<idx_t, int>>
-  exchangeGhostLayer(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                const std::vector<idx_t>&>& graph);
+  void exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
+                                           const std::vector<idx_t>&,
+                                           const std::vector<idx_t>&>& graph);
+
+  void apply_constraints(const std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>& graph,
+                          std::vector<idx_t> &constraint_to_update, 
+                          std::function<int(idx_t, idx_t)>& factor,
+                          OffsetType ot);
 };
 }
 
