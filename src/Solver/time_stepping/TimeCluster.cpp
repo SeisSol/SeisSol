@@ -711,6 +711,8 @@ bool TimeCluster::isScheduable() const {
 }
 
 ActResult TimeCluster::act() {
+  const auto rank = MPI::mpi.rank();
+
   assert(isScheduledAndWaiting.load());
   isScheduledAndWaiting.store(false);
 
@@ -718,20 +720,19 @@ ActResult TimeCluster::act() {
   if (!isRunning.compare_exchange_strong(
       expected, true
   )) {
-    logInfo() << "Cluster is already running, aborting";
+    logDebug(rank) << "Cluster is already running, aborting";
     auto result = ActResult();
     result.isStateChanged = false;
     return result;
   }
 
-  const auto rank = MPI::mpi.rank();
   const auto thread = omp_get_thread_num();
-  if (layerType == LayerType::Interior) logInfo(rank) << "Starting cluster " << m_globalClusterId
+  if (layerType == LayerType::Interior) logDebug(rank) << "Starting cluster " << m_globalClusterId
         << "with state" << actorStateToString(state) << "on thread" << thread;
   //actorStateStatistics->enter(state);
   const auto result = AbstractTimeCluster::act();
   //actorStateStatistics->enter(state);
-  if (layerType == LayerType::Interior) logInfo(rank) << "Stopping cluster " << m_globalClusterId
+  if (layerType == LayerType::Interior) logDebug(rank) << "Stopping cluster " << m_globalClusterId
         << "with state" << actorStateToString(state) << "on thread" << thread;
 
   isRunning.store(false);
@@ -799,8 +800,6 @@ void TimeCluster::correct() {
   if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
     dynamicRuptureScheduler->lock();
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
-      logInfo() << "Computing interior of cluster" << m_globalClusterId <<
-          "for layer" << layerType;
       computeDynamicRupture(*dynRupInteriorData);
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)];

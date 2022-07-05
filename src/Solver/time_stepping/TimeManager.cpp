@@ -218,7 +218,7 @@ void seissol::time_stepping::TimeManager::scheduleCluster(TimeCluster* cluster) 
   // Optimization: Empty clusters are scheduled sequentially.
   // TODO(Lukas): Note: This adds a small serial part, maybe schedule at end of loop?
   if (cluster->isEmpty()) {
-    logInfo(0) << "Cluster is empty, execute immediately";
+    logDebug(MPI::mpi.rank()) << "Cluster is empty, execute immediately";
     cluster->act();
   } else {
 #pragma omp task
@@ -313,13 +313,13 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
                              });
       finished &= communicationManager->checkIfFinished();
 
-      // Taskwait needed because we otherwise can schedule same cluster twice
-      // leading to segfaults. Can be fixed with mutex.
+      const auto rank = MPI::mpi.rank();
       if (scheduledTasks) {
-        logInfo() << "Exit scheduling loop. Scheduled"
+        logDebug(rank) << "Exit scheduling loop. Scheduled"
         << scheduledTasks << "tasks";
       } else {
-        logInfo() << "Exit scheduling loop. Yielding.";
+        logDebug(rank) << "Exit scheduling loop. Yielding.";
+        // Note: Taskwait not needed for correctness.
 #pragma omp taskwait
       }
     }
