@@ -8,17 +8,17 @@
  * @section LICENSE
  * Copyright (c) 2017 - 2020, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -51,11 +51,11 @@
 // for std pair
 #include <utility>
 
-
 #ifndef PUML_PUML_H
-namespace PUML { class TETPUML; }
+namespace PUML {
+class TETPUML;
+}
 #endif // PUML_PUML_H
-
 
 namespace seissol::initializers::time_stepping {
 struct LtsWeightsConfig {
@@ -66,18 +66,13 @@ struct LtsWeightsConfig {
   int vertexWeightFreeSurfaceWithGravity{};
 };
 
-enum class OffsetType {
-  edgeWeight,
-  minMsg,
-  balancedMsg
-};
-
+enum class OffsetType { edgeWeight, minMsg, balancedMsg };
 
 class NodeWeightModel;
 class EdgeWeightModel;
 
 class LtsWeights {
-private:
+  private:
   struct GlobalTimeStepDetails {
     double globalMinTimeStep{};
     double globalMaxTimeStep{};
@@ -107,8 +102,9 @@ private:
 
   ~LtsWeights() noexcept;
   void computeNodeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
-  void computeEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                     const std::vector<idx_t>&>& graph);
+  void computeEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph);
 
   const int* vertexWeights() const;
   const double* imbalances() const;
@@ -118,7 +114,8 @@ private:
   int edgeCount() const;
 
   GlobalTimeStepDetails collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
-  void computeMaxTimesteps(std::vector<double> const& pWaveVel, std::vector<double>& timeSteps,
+  void computeMaxTimesteps(std::vector<double> const& pWaveVel,
+                           std::vector<double>& timeSteps,
                            double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, unsigned rate);
   int getBoundaryCondition(int const* boundaryCond, unsigned cell, unsigned face);
@@ -132,8 +129,9 @@ private:
   void setVertexWeights();
   void setAllowedImbalances();
   int evaluateNumberOfConstraints() const;
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph);
+  void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph);
 
   const GlobalTimeStepDetails& getDetails() const;
   const std::string& getVelocityModel() const;
@@ -151,17 +149,19 @@ private:
 
   void addWeightModels(NodeWeightModel* nwm, EdgeWeightModel* ewm);
 
-  static int find_rank(const std::vector<idx_t> &vrtxdist, idx_t elemId);
-  
+  static int find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId);
+
   void exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
                                            const std::vector<idx_t>&,
                                            const std::vector<idx_t>&>& graph);
 
-  void apply_constraints(const std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>& graph,
-                          std::vector<idx_t> &constraint_to_update, 
-                          std::function<int(idx_t, idx_t)>& factor,
-                          OffsetType ot);
+  void apply_constraints(const std::tuple<const std::vector<idx_t>&,
+                                          const std::vector<idx_t>&,
+                                          const std::vector<idx_t>&>& graph,
+                         std::vector<idx_t>& constraint_to_update,
+                         std::function<int(idx_t, idx_t)>& factor,
+                         OffsetType ot);
 };
-}
+} // namespace seissol::initializers::time_stepping
 
 #endif

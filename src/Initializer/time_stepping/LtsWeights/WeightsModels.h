@@ -3,7 +3,6 @@
 
 #include "LtsWeights.h"
 
-
 namespace seissol::initializers::time_stepping {
 
 class WeightModel {
@@ -26,19 +25,23 @@ class NodeWeightModel : public WeightModel {
 class EdgeWeightModel : public WeightModel {
   public:
   EdgeWeightModel(LtsWeights& ltsWeights) noexcept : WeightModel(ltsWeights) {}
-  virtual void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                         const std::vector<idx_t>&>& graph) = 0;
+  virtual void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph) = 0;
 
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph,
-                      std::function<int(idx_t, idx_t)>& factor);
-                      
-  void setBalancedMessagingWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph);
+  void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph,
+      std::function<int(idx_t, idx_t)>& factor);
 
-  void setMessageCountWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph,
-                                 std::function<int(idx_t, idx_t)>& factor);
+  void setBalancedMessagingWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph);
+
+  void setMessageCountWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph,
+      std::function<int(idx_t, idx_t)>& factor);
 
   virtual ~EdgeWeightModel() noexcept {}
 };
@@ -55,7 +58,8 @@ class ExponentialWeights final : public NodeWeightModel {
 
 class ExponentialBalancedWeights final : public NodeWeightModel {
   public:
-  explicit ExponentialBalancedWeights(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
+  explicit ExponentialBalancedWeights(LtsWeights& ltsWeights) noexcept
+      : NodeWeightModel(ltsWeights) {}
   ~ExponentialBalancedWeights() noexcept override final {}
 
   int evaluateNumberOfConstraints() const override final { return 2; }
@@ -65,7 +69,8 @@ class ExponentialBalancedWeights final : public NodeWeightModel {
 
 class ExponentialBalancedWeightsWithBalancedMessaging final : public NodeWeightModel {
   public:
-  explicit ExponentialBalancedWeightsWithBalancedMessaging(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
+  explicit ExponentialBalancedWeightsWithBalancedMessaging(LtsWeights& ltsWeights) noexcept
+      : NodeWeightModel(ltsWeights) {}
   ~ExponentialBalancedWeightsWithBalancedMessaging() noexcept override final {}
 
   int evaluateNumberOfConstraints() const override final;
@@ -75,7 +80,8 @@ class ExponentialBalancedWeightsWithBalancedMessaging final : public NodeWeightM
 
 class ExponentialBalancedWeightsWithMessageCount final : public NodeWeightModel {
   public:
-  explicit ExponentialBalancedWeightsWithMessageCount(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
+  explicit ExponentialBalancedWeightsWithMessageCount(LtsWeights& ltsWeights) noexcept
+      : NodeWeightModel(ltsWeights) {}
   ~ExponentialBalancedWeightsWithMessageCount() noexcept override final {}
 
   int evaluateNumberOfConstraints() const override final { return 3; }
@@ -85,7 +91,7 @@ class ExponentialBalancedWeightsWithMessageCount final : public NodeWeightModel 
 
 class EncodedBalancedWeights final : public NodeWeightModel {
   public:
-  explicit EncodedBalancedWeights(LtsWeights& ltsWeights) noexcept: NodeWeightModel(ltsWeights) {}
+  explicit EncodedBalancedWeights(LtsWeights& ltsWeights) noexcept : NodeWeightModel(ltsWeights) {}
   ~EncodedBalancedWeights() noexcept override final {}
 
   int evaluateNumberOfConstraints() const override final;
@@ -98,38 +104,43 @@ class Naive final : public EdgeWeightModel {
   Naive(LtsWeights& ltsWeights) : EdgeWeightModel(ltsWeights) {}
   ~Naive() override final {}
 
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
+  void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph) override final;
 };
 
 class ApproximateCommunication final : public EdgeWeightModel {
   public:
-  ApproximateCommunication(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ApproximateCommunication(LtsWeights& ltsWeights) noexcept : EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunication() noexcept override final {}
 
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
+  void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph) override final;
 };
-
 
 class ApproximateCommunicationWithBalancedMessaging final : public EdgeWeightModel {
   public:
-  ApproximateCommunicationWithBalancedMessaging(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ApproximateCommunicationWithBalancedMessaging(LtsWeights& ltsWeights) noexcept
+      : EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunicationWithBalancedMessaging() noexcept override final {}
 
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
+  void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph) override final;
 };
 
 class ApproximateCommunicationWithMessageCount final : public EdgeWeightModel {
   public:
-  ApproximateCommunicationWithMessageCount(LtsWeights& ltsWeights) noexcept: EdgeWeightModel(ltsWeights) {}
+  ApproximateCommunicationWithMessageCount(LtsWeights& ltsWeights) noexcept
+      : EdgeWeightModel(ltsWeights) {}
   ~ApproximateCommunicationWithMessageCount() noexcept override final {}
 
-  void setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                 const std::vector<idx_t>&>& graph) override final;
+  void setEdgeWeights(
+      std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+          graph) override final;
 };
 
-}
+} // namespace seissol::initializers::time_stepping
 
-#endif //SEISSOL_LTSWEIGHTSMODELS_H
+#endif // SEISSOL_LTSWEIGHTSMODELS_H

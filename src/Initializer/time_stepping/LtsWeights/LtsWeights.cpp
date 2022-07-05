@@ -91,8 +91,9 @@ void LtsWeights::computeNodeWeights(PUML::TETPUML const& mesh, double maximumAll
                                     << totalNumberOfReductions << " reductions.)";
 }
 
-void LtsWeights::computeEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                               const std::vector<idx_t>&>& graph) {
+void LtsWeights::computeEdgeWeights(
+    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+        graph) {
   if (!m_edgeWeights.empty()) {
     m_edgeWeights.clear();
   }
@@ -203,7 +204,7 @@ int LtsWeights::ipow(int x, int y) {
 }
 
 LtsWeights::GlobalTimeStepDetails
-LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+    LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
 
   const auto& cells = m_mesh->cells();
   std::vector<double> pWaveVel;
@@ -235,9 +236,17 @@ LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
   double localMaxTimestep = *std::max_element(details.timeSteps.begin(), details.timeSteps.end());
 
 #ifdef USE_MPI
-  MPI_Allreduce(&localMinTimestep, &details.globalMinTimeStep, 1, MPI_DOUBLE, MPI_MIN,
+  MPI_Allreduce(&localMinTimestep,
+                &details.globalMinTimeStep,
+                1,
+                MPI_DOUBLE,
+                MPI_MIN,
                 seissol::MPI::mpi.comm());
-  MPI_Allreduce(&localMaxTimestep, &details.globalMaxTimeStep, 1, MPI_DOUBLE, MPI_MAX,
+  MPI_Allreduce(&localMaxTimestep,
+                &details.globalMaxTimeStep,
+                1,
+                MPI_DOUBLE,
+                MPI_MAX,
                 seissol::MPI::mpi.comm());
 #else
   details.globalMinTimeStep = localMinTimestep;
@@ -287,7 +296,11 @@ int LtsWeights::enforceMaximumDifference() {
     int localNumberOfReductions = enforceMaximumDifferenceLocal();
 
 #ifdef USE_MPI
-    MPI_Allreduce(&localNumberOfReductions, &globalNumberOfReductions, 1, MPI_INT, MPI_SUM,
+    MPI_Allreduce(&localNumberOfReductions,
+                  &globalNumberOfReductions,
+                  1,
+                  MPI_INT,
+                  MPI_SUM,
                   seissol::MPI::mpi.comm());
 #else
     globalNumberOfReductions = localNumberOfReductions;
@@ -368,9 +381,19 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     for (unsigned n = 0; n < exchangeSize; ++n) {
       copy[ex][n] = m_clusterIds[localFaceIdToLocalCellId[exchange->second[n]]];
     }
-    MPI_Isend(copy[ex].data(), exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(),
+    MPI_Isend(copy[ex].data(),
+              exchangeSize,
+              MPI_INT,
+              exchange->first,
+              0,
+              seissol::MPI::mpi.comm(),
               &requests[ex]);
-    MPI_Irecv(ghost[ex].data(), exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(),
+    MPI_Irecv(ghost[ex].data(),
+              exchangeSize,
+              MPI_INT,
+              exchange->first,
+              0,
+              seissol::MPI::mpi.comm(),
               &requests[numExchanges + ex]);
     ++exchange;
   }
@@ -454,8 +477,9 @@ int LtsWeights::evaluateNumberOfConstraints() const {
   return m_nodeWeightModel->evaluateNumberOfConstraints();
 }
 
-void LtsWeights::setEdgeWeights(std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&,
-                                           const std::vector<idx_t>&>& graph) {
+void LtsWeights::setEdgeWeights(
+    std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>&
+        graph) {
   m_edgeWeightModel->setEdgeWeights(graph);
 }
 
@@ -471,15 +495,17 @@ void LtsWeights::addWeightModels(NodeWeightModel* nwm, EdgeWeightModel* ewm) {
 
 std::vector<int>& LtsWeights::getEdgeWeights() { return m_edgeWeights; }
 
-int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
-  assert(!vrtxdist.empty() && "Vrtxdist should not be empty, implementation in PUML could have a bug");
-  assert(elemId < vrtxdist.back() && "Local ids should be within vrtxdist, implementation in PUML could have a bug");
+int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId) {
+  assert(!vrtxdist.empty() &&
+         "Vrtxdist should not be empty, implementation in PUML could have a bug");
+  assert(elemId < vrtxdist.back() &&
+         "Local ids should be within vrtxdist, implementation in PUML could have a bug");
   assert(elemId >= 0 && "Element id should not be empty, implementation in PUML could have a bug");
-  assert(vrtxdist[0] == 0 && "Metis returns the vrtxdist where the first element is always 0, implementation in PUML could have a bug (unauthorized write");
+  assert(vrtxdist[0] == 0 && "Metis returns the vrtxdist where the first element is always 0, "
+                             "implementation in PUML could have a bug (unauthorized write");
 
-  for (size_t i = 0; i < vrtxdist.size()-1; i++){
-    if (elemId >= vrtxdist[i] && elemId < vrtxdist[i+1])
-    {
+  for (size_t i = 0; i < vrtxdist.size() - 1; i++) {
+    if (elemId >= vrtxdist[i] && elemId < vrtxdist[i + 1]) {
       return i;
     }
   }
@@ -487,20 +513,20 @@ int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
   throw std::runtime_error("element id is not in valid range!");
 }
 
-
 void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
                                                      const std::vector<idx_t>&,
                                                      const std::vector<idx_t>&>& graph) {
 
-  if (!ghost_layer_info.empty())
-  {
+  if (!ghost_layer_info.empty()) {
     return;
   }
-  
+
   int mpillint_size = 0;
-  MPI_Type_size(MPI_LONG_LONG_INT,&mpillint_size);
-  assert(sizeof(idx_t) <= static_cast<unsigned int>(mpillint_size) && "For ghost layer exchange to work the size of idx_t has to be least or equal to MPI_LONG_LONG_INT");
-  
+  MPI_Type_size(MPI_LONG_LONG_INT, &mpillint_size);
+  assert(sizeof(idx_t) <= static_cast<unsigned int>(mpillint_size) &&
+         "For ghost layer exchange to work the size of idx_t has to be least or equal to "
+         "MPI_LONG_LONG_INT");
+
   const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
   const std::vector<idx_t>& xadj = std::get<1>(graph);
   const std::vector<idx_t>& adjncy = std::get<2>(graph);
@@ -508,8 +534,11 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
   const int rank = seissol::MPI::mpi.rank();
   const int size = seissol::MPI::mpi.size();
 
-  assert((vrtxdist.size() == static_cast<size_t>(size + 1) && !xadj.empty() && !adjncy.empty()) && "The dual graph should be initialized for the ghost layer exchange");
-  assert(vrtxdist[0] == 0 && "Metis always returns 0 for the first element of vrtxdist, either the graph is not intiliazed or there was an unllowed write to vrtxdist[0]");
+  assert((vrtxdist.size() == static_cast<size_t>(size + 1) && !xadj.empty() && !adjncy.empty()) &&
+         "The dual graph should be initialized for the ghost layer exchange");
+  assert(vrtxdist[0] == 0 &&
+         "Metis always returns 0 for the first element of vrtxdist, either the graph is not "
+         "intiliazed or there was an unllowed write to vrtxdist[0]");
 
   const size_t vertex_id_begin = vrtxdist[rank];
 
@@ -566,17 +595,21 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
     for (int neighbor_rank : neighbor_ranks) {
       const std::vector<idx_t>& layer_ref = ghost_layer_to_send[neighbor_rank];
 
-      if (sizeof(idx_t) != 8)
-      {
-        if (rank == 0)
-        {
-          std::cerr << "If the size of idx_t is not 64 bits the ghost layer exchange will crush with a segmentation fault!" << std::endl;
+      if (sizeof(idx_t) != 8) {
+        if (rank == 0) {
+          std::cerr << "If the size of idx_t is not 64 bits the ghost layer exchange will crush "
+                       "with a segmentation fault!"
+                    << std::endl;
         }
-      } 
+      }
 
-      MPI_Isend(layer_ref.data(), layer_ref.size(), MPI_LONG_LONG_INT, neighbor_rank, rank,
-                MPI_COMM_WORLD, &send_requests[offset]);
-      
+      MPI_Isend(layer_ref.data(),
+                layer_ref.size(),
+                MPI_LONG_LONG_INT,
+                neighbor_rank,
+                rank,
+                MPI_COMM_WORLD,
+                &send_requests[offset]);
 
       offset += 1;
     }
@@ -606,11 +639,18 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
 
           MPI_Get_count(&recv_stats[offset], MPI_LONG_LONG_INT, &count);
 
-          assert(ghost_layer_received[neighbor_rank].empty() && "After ghost layer exchange the ghost layer map should not be empty");
+          assert(ghost_layer_received[neighbor_rank].empty() &&
+                 "After ghost layer exchange the ghost layer map should not be empty");
           ghost_layer_received[neighbor_rank].resize(count);
-          assert(ghost_layer_mapped[neighbor_rank].empty() && "After ghost layer exchange the ghost layer map should not be empty");
-          MPI_Recv(ghost_layer_received[neighbor_rank].data(), count, MPI_LONG_LONG_INT, neighbor_rank,
-                   neighbor_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          assert(ghost_layer_mapped[neighbor_rank].empty() &&
+                 "After ghost layer exchange the ghost layer map should not be empty");
+          MPI_Recv(ghost_layer_received[neighbor_rank].data(),
+                   count,
+                   MPI_LONG_LONG_INT,
+                   neighbor_rank,
+                   neighbor_rank,
+                   MPI_COMM_WORLD,
+                   MPI_STATUS_IGNORE);
           got += 1;
 
           skip[offset] = true;
@@ -630,7 +670,9 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
   for (int i : neighbor_ranks) {
     assert(i != rank && "A neighbor should not be our own local rank");
     assert(!ghost_layer_received[i].empty() && "Ghost layer received should not be empty");
-    assert(ghost_layer_received[i].size() % 2 == 0 && "Ghost layer received should have an even number elements n cell ids and n cluster ids therefore always 2n");
+    assert(ghost_layer_received[i].size() % 2 == 0 &&
+           "Ghost layer received should have an even number elements n cell ids and n cluster ids "
+           "therefore always 2n");
 
     for (unsigned int j = 0; j < ghost_layer_received[i].size(); j += 2) {
       ghost_layer_mapped[i].emplace(ghost_layer_received[i][j], ghost_layer_received[i][j + 1]);
@@ -640,20 +682,20 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
   ghost_layer_info = std::move(ghost_layer_mapped);
 }
 
-void LtsWeights::apply_constraints(
-                        const std::tuple<const std::vector<idx_t>&, const std::vector<idx_t>&, const std::vector<idx_t>&>& graph,
-                        std::vector<idx_t> &constraint_to_update, 
-                        std::function<int(idx_t, idx_t)>& factor,
-                        OffsetType ot)
-{
-   exchangeGhostLayer(graph);
+void LtsWeights::apply_constraints(const std::tuple<const std::vector<idx_t>&,
+                                                    const std::vector<idx_t>&,
+                                                    const std::vector<idx_t>&>& graph,
+                                   std::vector<idx_t>& constraint_to_update,
+                                   std::function<int(idx_t, idx_t)>& factor,
+                                   OffsetType ot) {
+  exchangeGhostLayer(graph);
 
   const int rank = seissol::MPI::mpi.rank();
-  
+
   const std::vector<idx_t>& vrtxdist = std::get<0>(graph);
   const std::vector<idx_t>& xadj = std::get<1>(graph);
   const std::vector<idx_t>& adjncy = std::get<2>(graph);
-  
+
   const size_t vertex_id_begin = vrtxdist[rank];
 
   // compute edge weights with the ghost layer
@@ -676,16 +718,17 @@ void LtsWeights::apply_constraints(
               ? m_clusterIds[neighbor_id_idx -
                              vertex_id_begin] // mapping from global id to local id
               : ghost_layer_info[rank_of_neighbor].find(neighbor_id_idx)->second;
-      
-      if (ot == OffsetType::edgeWeight)
-      {
+
+      if (ot == OffsetType::edgeWeight) {
         constraint_to_update[j] = factor(self_cluster_id, other_cluster_id);
       } else if (ot == OffsetType::minMsg) {
         constexpr int constraint_beg_offset = 2;
-        constraint_to_update[(m_ncon * i) + constraint_beg_offset] += factor(self_cluster_id, other_cluster_id);
+        constraint_to_update[(m_ncon * i) + constraint_beg_offset] +=
+            factor(self_cluster_id, other_cluster_id);
       } else {
         constexpr int constraint_beg_offset = 2;
-        constraint_to_update[(m_ncon * i) + constraint_beg_offset + other_cluster_id] += factor(self_cluster_id, other_cluster_id);
+        constraint_to_update[(m_ncon * i) + constraint_beg_offset + other_cluster_id] +=
+            factor(self_cluster_id, other_cluster_id);
       }
     }
   }
