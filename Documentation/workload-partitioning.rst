@@ -138,9 +138,10 @@ A user can specify a particular partitioning strategy in the *parameters.par* fi
     &Discretization
     ...
     ClusteredLTS = 2
-    NodeWeightModelTypeId = 0            ! 0 for Exponential, 1 for Exponential Balanced, 2 for Encoded Balanced, 3 for  Minimum Messaging, 4 for Balanced Messaging
-    EdgeWeightModelTypeId = 0            ! 0 for Naive, 1 for Communication Approximation,
-                                         ! Node Weight Models 3 (Minimum Messaging) and 4 (Balanced Messaging) require the edge weight strategy to be set to 1 
+    NodeWeightModelTypeId = 0            ! 0 for Exponential, 1 for Exponential Balanced, 2 for Encoded, 3 for 1 + Balanced Messaging, 4 for  1 + Minimum Messaging
+    EdgeWeightModelTypeId = 0            ! 0 for Naive, 1 for Communication Approximation, 2 1 + Balanced Messaging, 3 1 + Minimum Messaging, 
+                                         ! Node Weight Models 3 (Exponential Balanced + Balanced Messaging) and 4 (Exponential Balanced + Minimum Messaging) require 
+                                         ! the edge weight strategy to be set to 2 (Communication Approximation + Balanced Messaging) and 3 (Communication Approximation + Minimum Messaging) respectively 
     /
 
 
@@ -151,3 +152,5 @@ Note that the *exponential* and *naive* strategies are the default node and edge
 *exponential* combined with *communication approximation* or  *communication approximation + minimum messaging* for CPUs.
 Even though *communication approximation + balanced messaging* may provide a slight performance boost for the GPU in general, the results depend 
 massively on the mesh, the problem size and the hardware and can often degrade the performance, therefore we recommend the *naive* and *exponential-balanced* (as memory of the GPUs are often limited).
+
+Due to limitations to implementation, for  *communication approximation + minimum messaging* and *communication approximation + balanced messaging* that are implemented on top of *exponential balanced* the user must chose the right edge weight models *communication approximation + balanced messaging* (2) or *Ccommunication approximation + minimum messaging* respectively instead of *communication approximation*. There are runtime checks to ensure correct combinations of strategies are used.

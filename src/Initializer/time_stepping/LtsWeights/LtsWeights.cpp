@@ -472,10 +472,10 @@ void LtsWeights::addWeightModels(NodeWeightModel* nwm, EdgeWeightModel* ewm) {
 std::vector<int>& LtsWeights::getEdgeWeights() { return m_edgeWeights; }
 
 int LtsWeights::find_rank(const std::vector<idx_t>& vrtxdist, idx_t elemId){
-  assert(!vrtxdist.empty());
-  assert(elemId < vrtxdist.back());
-  assert(elemId >= 0);
-  assert(vrtxdist[0] == 0);
+  assert(!vrtxdist.empty() && "Vrtxdist should not be empty, implementation in PUML could have a bug");
+  assert(elemId < vrtxdist.back() && "Local ids should be within vrtxdist, implementation in PUML could have a bug");
+  assert(elemId >= 0 && "Element id should not be empty, implementation in PUML could have a bug");
+  assert(vrtxdist[0] == 0 && "Metis returns the vrtxdist where the first element is always 0, implementation in PUML could have a bug (unauthorized write");
 
   for (size_t i = 0; i < vrtxdist.size()-1; i++){
     if (elemId >= vrtxdist[i] && elemId < vrtxdist[i+1])
@@ -513,7 +513,7 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
 
   const size_t vertex_id_begin = vrtxdist[rank];
 
-  assert(!m_clusterIds.empty());
+  assert(!m_clusterIds.empty() && "Cluster Ids need to updated by this point");
 
   // gather all the ranks that have neighbors to these ranks
   std::set<int> neighbor_ranks;
@@ -606,9 +606,9 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
 
           MPI_Get_count(&recv_stats[offset], MPI_LONG_LONG_INT, &count);
 
-          assert(ghost_layer_received[neighbor_rank].empty());
+          assert(ghost_layer_received[neighbor_rank].empty() && "After ghost layer exchange the ghost layer map should not be empty");
           ghost_layer_received[neighbor_rank].resize(count);
-          assert(ghost_layer_mapped[neighbor_rank].empty());
+          assert(ghost_layer_mapped[neighbor_rank].empty() && "After ghost layer exchange the ghost layer map should not be empty");
           MPI_Recv(ghost_layer_received[neighbor_rank].data(), count, MPI_LONG_LONG_INT, neighbor_rank,
                    neighbor_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
           got += 1;
@@ -628,7 +628,7 @@ void LtsWeights::exchangeGhostLayer(const std::tuple<const std::vector<idx_t>&,
   // completed too and the rest of communication is totally local
 
   for (int i : neighbor_ranks) {
-    assert(i != rank);
+    assert(i != rank && "A neighbor should not be our own local rank");
     assert(!ghost_layer_received[i].empty() && "Ghost layer received should not be empty");
     assert(ghost_layer_received[i].size() % 2 == 0 && "Ghost layer received should have an even number elements n cell ids and n cluster ids therefore always 2n");
 
@@ -681,10 +681,11 @@ void LtsWeights::apply_constraints(
       {
         constraint_to_update[j] = factor(self_cluster_id, other_cluster_id);
       } else if (ot == OffsetType::minMsg) {
-        constraint_to_update[(m_ncon * i) + 2] += factor(self_cluster_id, other_cluster_id);
+        constexpr int constraint_beg_offset = 2;
+        constraint_to_update[(m_ncon * i) + constraint_beg_offset] += factor(self_cluster_id, other_cluster_id);
       } else {
         constexpr int constraint_beg_offset = 2;
-        constraint_to_update[(m_ncon * i) + constraint_beg_offset + other_cluster_id] += 1;
+        constraint_to_update[(m_ncon * i) + constraint_beg_offset + other_cluster_id] += factor(self_cluster_id, other_cluster_id);
       }
     }
   }

@@ -31,7 +31,7 @@ inline void checkWeightModelCombinationIsAllowed(NodeWeightModelTypes nmod, Edge
       emod != EdgeWeightModelTypes::ApproximateCommunicationWithBalancedMessaging)
   {
     std::stringstream err;
-    err << "Balanced Messaging strategies need to be paired";
+    err << "Balanced Messaging strategies need to be paired NodeWeightModelTypeId = 3 with EdgeWeightModelTypeId = 2";
     throw std::runtime_error(err.str());
   }
 
@@ -39,7 +39,7 @@ inline void checkWeightModelCombinationIsAllowed(NodeWeightModelTypes nmod, Edge
       emod != EdgeWeightModelTypes::ApproximateCommunicationWithMessageCount)
   {
     std::stringstream err;
-    err << "Minimum Messaging strategies need to be paired";
+    err << "Minimum Messaging strategies need to be paired NodeWeightModelTypeId = 4 with EdgeWeightModelTypeId = 3";
     throw std::runtime_error(err.str());
   }
 
