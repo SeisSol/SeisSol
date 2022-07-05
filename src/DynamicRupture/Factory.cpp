@@ -50,12 +50,12 @@ Products NoFaultFactory::produce() {
 }
 
 Products LinearSlipWeakeningFactory::produce() {
-  return {
-      std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
-      std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
-      std::make_unique<friction_law_impl::LinearSlipWeakeningLaw<friction_law::NoSpecialization>>(
-          drParameters),
-      std::make_unique<output::OutputManager>(new output::LinearSlipWeakening)};
+  return {std::make_unique<seissol::initializers::LTS_LinearSlipWeakening>(),
+          std::make_unique<initializers::LinearSlipWeakeningInitializer>(drParameters),
+          std::make_unique<
+              friction_law_impl::LinearSlipWeakeningLaw<friction_law_impl::NoSpecialization>>(
+              drParameters),
+          std::make_unique<output::OutputManager>(new output::LinearSlipWeakening)};
 }
 
 Products RateAndStateAgingFactory::produce() {
