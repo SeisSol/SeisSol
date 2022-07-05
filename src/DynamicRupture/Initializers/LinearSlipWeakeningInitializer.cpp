@@ -20,6 +20,7 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
     real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
     real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
+    bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
 
       // initialize padded elements for vectorization
@@ -29,7 +30,7 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
         slipRate2[ltsFace][pointIndex] = 0.0;
         // initial friction coefficient is static friction (no slip has yet occurred)
         mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
-        if (!this->faultProvides("forced_rupture_time")) {
+        if (!providesForcedRuptureTime) {
           forcedRuptureTime[ltsFace][pointIndex] = std::numeric_limits<real>::max();
         }
       }
