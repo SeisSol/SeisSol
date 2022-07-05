@@ -214,7 +214,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
 void seissol::time_stepping::TimeManager::scheduleCluster(TimeCluster* cluster) {
   assert(cluster != nullptr);
-  cluster->isScheduledAndWaiting = true;
+  cluster->setIsScheduledAndWaitingOn();
   // Optimization: Empty clusters are scheduled sequentially.
   // TODO(Lukas): Note: This adds a small serial part, maybe schedule at end of loop?
   if (cluster->isEmpty()) {
@@ -251,6 +251,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   // Does not involve any computations
   for (auto& cluster : clusters) {
     assert(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
+    cluster->setIsScheduledAndWaitingOn();
     cluster->act();
     assert(cluster->getState() == ActorState::Corrected);
   }

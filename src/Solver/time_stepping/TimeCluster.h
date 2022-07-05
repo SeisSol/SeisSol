@@ -388,17 +388,15 @@ private:
 
 
   // True if task is running
-  bool isRunning = false;
-  // Mutex to ensure that isRunning is accessed in a thread safe manner.
-  std::mutex isRunningMutex;
+  std::atomic<bool> isRunning = false;
+  // True if task is scheduled but has not started
+  std::atomic<bool> isScheduledAndWaiting = false;
 
 public:
-  // TODO Add setter for true
-  // True if task is scheduled but has not started
-  bool isScheduledAndWaiting = false;
+  void setIsScheduledAndWaitingOn();
+  [[nodiscard]] bool isScheduable() const;
 
   ActResult act() override;
-  [[nodiscard]] bool isScheduable() const;
 
   /**
    * Constructs a new LTS cluster.

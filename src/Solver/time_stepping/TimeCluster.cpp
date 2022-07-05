@@ -702,23 +702,28 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
 
 namespace seissol::time_stepping {
 
+void TimeCluster::setIsScheduledAndWaitingOn() {
+  isScheduledAndWaiting.store(true);
+}
+
 bool TimeCluster::isScheduable() const {
-  return !isScheduledAndWaiting && !isRunning;
+  return !isScheduledAndWaiting.load() && !isRunning.load();
 }
 
 ActResult TimeCluster::act() {
-  {
-    isScheduledAndWaiting = false;
-    std::lock_guard lock{isRunningMutex};
-    if (isRunning) {
-      logInfo() << "Cluster is already running, aborting";
-      auto result = ActResult();
-      result.isStateChanged = false;
-      return result;
-    }
+  assert(isScheduledAndWaiting.load());
+  isScheduledAndWaiting.store(false);
 
-    isRunning = true;
+  bool expected = false;
+  if (!isRunning.compare_exchange_strong(
+      expected, true
+  )) {
+    logInfo() << "Cluster is already running, aborting";
+    auto result = ActResult();
+    result.isStateChanged = false;
+    return result;
   }
+
   const auto rank = MPI::mpi.rank();
   const auto thread = omp_get_thread_num();
   if (layerType == LayerType::Interior) logInfo(rank) << "Starting cluster " << m_globalClusterId
@@ -729,10 +734,7 @@ ActResult TimeCluster::act() {
   if (layerType == LayerType::Interior) logInfo(rank) << "Stopping cluster " << m_globalClusterId
         << "with state" << actorStateToString(state) << "on thread" << thread;
 
-  {
-    std::lock_guard lock{isRunningMutex};
-    isRunning = false;
-  }
+  isRunning.store(false);
   return result;
 }
 
