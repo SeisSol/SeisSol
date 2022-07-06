@@ -4,7 +4,13 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {};
+class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
+  real computeLocalStrength() override {
+    using DrLtsDescrT = seissol::initializers::LTS_LinearSlipWeakeningBimaterial;
+    auto *regularisedStrengths = local.layer->var(static_cast<DrLtsDescrT *>(drDescr)->regularisedStrength);
+    return regularisedStrengths[local.ltsId][local.nearestGpIndex];
+  }
+};
 } // namespace seissol::dr::output
 
 #endif // SEISSOL_DR_OUTPUT_LSW_BIMATERIAL_HPP
