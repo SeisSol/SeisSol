@@ -101,10 +101,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                unsigned int ltsFace){};
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                std::array<real, misc::numPaddedPoints>& strengthBuffer,
-                unsigned int ltsFace) {
-    specialization.postHook(strengthBuffer, ltsFace);
-  };
+                unsigned int ltsFace) {};
 
   /**
    * evaluate friction law: updated mu -> friction law
@@ -238,15 +235,9 @@ class NoSpecialization {
                     real& localSlipRate,
                     real& deltaT,
                     unsigned int ltsFace,
-<<<<<<< HEAD
-                    unsigned int pointIndex){};
-=======
                     unsigned int pointIndex) {
     return strength;
   };
-
-  void postHook(std::array<real, misc::numPaddedPoints>& strengthBuffer, unsigned int ltsFace){};
->>>>>>> 1ae588ae (Fix Prakash-Clifton)
 };
 
 /**
@@ -264,7 +255,6 @@ class BiMaterialFault {
                     real& deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex);
-  void postHook(std::array<real, misc::numPaddedPoints>& strengthBuffer, unsigned int ltsFace);
 
   protected:
   DRParameters& drParameters;

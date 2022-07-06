@@ -57,7 +57,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                            timeIndex);
       }
 
-      static_cast<Derived*>(this)->postHook(stateVariableBuffer, strengthBuffer, ltsFace);
+      static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
       // output rupture front
       Common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],

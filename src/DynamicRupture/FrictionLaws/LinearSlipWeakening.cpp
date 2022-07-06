@@ -19,13 +19,9 @@ real BiMaterialFault::strengthHook(real& faultStrength,
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
   real newStrength =
       prak_clif_mod(regularisedStrength[ltsFace][pointIndex], faultStrength, localSlipRate, deltaT);
-  // regularisedStrength[ltsFace][pointIndex] = newStrength;
-  return newStrength;
-}
+  regularisedStrength[ltsFace][pointIndex] = newStrength;
 
-void BiMaterialFault::postHook(std::array<real, misc::numPaddedPoints>& strengthBuffer,
-                               unsigned int ltsFace) {
-  std::copy(strengthBuffer.begin(), strengthBuffer.end(), regularisedStrength[ltsFace]);
+  return newStrength;
 }
 
 real BiMaterialFault::prak_clif_mod(real& regularisedStrength,
