@@ -1,6 +1,13 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
 
+void NoSpecialization::resampleSlipRates(
+    real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+  resampleKrnl.originalQ = slipRateMagnitude;
+  resampleKrnl.resampledQ = resampledSlipRate;
+  resampleKrnl.execute();
+}
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                          seissol::initializers::DynamicRupture* dynRup,
                                          real fullUpdateTime) {
@@ -33,4 +40,5 @@ real BiMaterialFault::prak_clif_mod(real& regularisedStrength,
   real newstrength = regularisedStrength * expterm + faultStrength * (1.0 - expterm);
   return newstrength;
 }
+
 } // namespace seissol::dr::friction_law
