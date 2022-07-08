@@ -211,7 +211,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     const auto size = localContainVector.size();
     std::vector<short> globalContainVector(size);
 
-    auto* comm = MPI::mpi.comm();
+    auto comm = MPI::mpi.comm();
     MPI_Reduce(const_cast<short*>(&localContainVector[0]),
                const_cast<short*>(&globalContainVector[0]),
                size,
