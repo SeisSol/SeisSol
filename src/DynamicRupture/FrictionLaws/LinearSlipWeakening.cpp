@@ -24,21 +24,12 @@ real BiMaterialFault::strengthHook(real& faultStrength,
                                    unsigned int pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
+  real expterm = std::exp(-(std::abs(localSlipRate) + drParameters.vStar) * deltaT /
+                          drParameters.prakashLength);
   real newStrength =
-      prak_clif_mod(regularisedStrength[ltsFace][pointIndex], faultStrength, localSlipRate, deltaT);
+      regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
   regularisedStrength[ltsFace][pointIndex] = newStrength;
-
   return newStrength;
-}
-
-real BiMaterialFault::prak_clif_mod(real& regularisedStrength,
-                                    real& faultStrength,
-                                    real& localSlipRate,
-                                    real& dt) {
-  real expterm =
-      std::exp(-(std::abs(localSlipRate) + drParameters.vStar) * dt / drParameters.prakashLength);
-  real newstrength = regularisedStrength * expterm + faultStrength * (1.0 - expterm);
-  return newstrength;
 }
 
 } // namespace seissol::dr::friction_law

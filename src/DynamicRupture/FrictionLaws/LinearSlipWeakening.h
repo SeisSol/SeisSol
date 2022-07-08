@@ -270,10 +270,6 @@ class BiMaterialFault {
   protected:
   DRParameters& drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
-  /*
-   * Calculates Prakash-Clifton regularization
-   */
-  real prak_clif_mod(real& regularisedStrength, real& faultStrength, real& localSlipRate, real& dt);
 };
 
 } // namespace seissol::dr::friction_law
