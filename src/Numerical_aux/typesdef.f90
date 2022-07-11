@@ -685,8 +685,8 @@ MODULE TypesDef
      TYPE(tbackground_stress)               :: bg_stress                        !< includes background stress information for dynamic rupture
      INTEGER                                :: inst_healing                     !< instantaneous healing switch (1: on, 0: off)
      ! case(6) bimaterial with LSW
-     REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
-     REAL                                   :: L                                !< reference length of prakash-cliff regularization
+     REAL                                   :: vStar                            !< reference velocity of prakash-cliff regularization
+     REAL                                   :: prakashLength                    !< reference length of prakash-cliff regularization
      REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
      INTEGER                                :: thermalPress = 0                 !< thermal pressurization switch
      REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP

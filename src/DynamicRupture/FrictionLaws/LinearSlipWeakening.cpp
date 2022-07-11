@@ -1,7 +1,7 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
 
-void NoSpecialization::resampleSlipRates(
+void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::numPaddedPoints],
     real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
   resampleKrnl.originalQ = slipRateMagnitude;
@@ -17,14 +17,14 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
-real BiMaterialFault::strengthHook(real& faultStrength,
-                                   real& localSlipRate,
-                                   real& deltaT,
+real BiMaterialFault::strengthHook(real faultStrength,
+                                   real localSlipRate,
+                                   real deltaT,
                                    unsigned int ltsFace,
                                    unsigned int pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-  real expterm = std::exp(-(std::abs(localSlipRate) + drParameters.vStar) * deltaT /
+  real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters.vStar) * deltaT /
                           drParameters.prakashLength);
   real newStrength =
       regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);

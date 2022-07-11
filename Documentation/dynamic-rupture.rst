@@ -177,8 +177,12 @@ Friction parameters:
 Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
 If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter `forced_rupture_time` in the fault `yaml` file.
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
+For friction law :code:`16`, we resample the slip rate in every step to suppress spurious oscillations.
+In the case of Prakash-Clifton regularization, we do not resample the slilp rate.
 
-Examples of input files for the friction laws :code:`2` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.
+
+
+Examples of input files for the friction laws :code:`6` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.
 
 Linear slip weakening can be seen as a special case of rate-and-state friction with
 

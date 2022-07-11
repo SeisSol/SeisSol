@@ -170,13 +170,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              unsigned int timeIndex,
                              unsigned int ltsFace) {
     alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
-    specialization.resampleSlipRates(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
+    specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     real time = this->mFullUpdateTime + this->deltaT[timeIndex];
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
-          resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
+          std::max(static_cast<real>(0.0), resampledSlipRate[pointIndex]) * this->deltaT[timeIndex];
 
       // Actually slip is already the stateVariable for this FL, but to simplify the next equations
       // we divide it here by the critical distance.
@@ -228,11 +228,11 @@ class NoSpecialization {
    * the reference triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates
    * the polynomial at the quadrature points
    */
-  void resampleSlipRates(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                          real const (&slipRate)[dr::misc::numPaddedPoints]);
-  real strengthHook(real& strength,
-                    real& localSlipRate,
-                    real& deltaT,
+  real strengthHook(real strength,
+                    real localSlipRate,
+                    real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex) {
     return strength;
@@ -254,16 +254,16 @@ class BiMaterialFault {
                           real fullUpdateTime);
   /**
    * The bimaterial Fault FL has been implemented without resampling on the master branch.
-   * Resampling of the sliprate introduces artificial oszillations into the solution, if we use it
+   * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
    * together with Prakash-Clifton regularization.
    */
-  void resampleSlipRates(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                          real const (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
-  real strengthHook(real& strength,
-                    real& localSlipRate,
-                    real& deltaT,
+  real strengthHook(real strength,
+                    real localSlipRate,
+                    real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex);
 

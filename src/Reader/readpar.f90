@@ -1020,8 +1020,8 @@ CONTAINS
                DISC%DynRup%t_0 = t_0 
              ENDIF
            CASE(6) ! bimaterial with LSW
-             DISC%DynRup%v_star = vstar
-             DISC%DynRup%L = prakashLength
+             DISC%DynRup%vstar = vstar
+             DISC%DynRup%prakashLength = prakashLength
              CONTINUE
            CASE(33, 34) !ImposedSlipRateOnDRBoundary
              IF (EQN%FL.EQ.33) THEN
