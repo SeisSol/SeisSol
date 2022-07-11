@@ -229,7 +229,7 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                         real const (&slipRate)[dr::misc::numPaddedPoints]);
+                        real const (&slipRate)[dr::misc::numPaddedPoints]);
   real strengthHook(real strength,
                     real localSlipRate,
                     real deltaT,
@@ -258,7 +258,7 @@ class BiMaterialFault {
    * together with Prakash-Clifton regularization.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
-                         real const (&slipRate)[dr::misc::numPaddedPoints]) {
+                        real const (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
   real strengthHook(real strength,
