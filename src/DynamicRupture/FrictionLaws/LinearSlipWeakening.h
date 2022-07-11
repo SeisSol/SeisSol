@@ -175,8 +175,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     real time = this->mFullUpdateTime + this->deltaT[timeIndex];
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
-      this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
-          std::max(static_cast<real>(0.0), resampledSlipRate[pointIndex]) * this->deltaT[timeIndex];
+
+      real zero = 0.0;
+      auto update = std::max(zero, resampledSlipRate[pointIndex]) * this->deltaT[timeIndex];
+      this->accumulatedSlipMagnitude[ltsFace][pointIndex] += update;
 
       // Actually slip is already the stateVariable for this FL, but to simplify the next equations
       // we divide it here by the critical distance.
