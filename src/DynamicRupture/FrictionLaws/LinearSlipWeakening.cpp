@@ -4,6 +4,8 @@ namespace seissol::dr::friction_law {
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::numPaddedPoints],
     real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+  dynamicRupture::kernel::resampleParameter resampleKrnl;
+  resampleKrnl.resample = init::resample::Values; 
   resampleKrnl.originalQ = slipRateMagnitude;
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();

@@ -219,7 +219,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters& parameters) { resampleKrnl.resample = init::resample::Values; };
+  NoSpecialization(DRParameters& parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
@@ -239,9 +239,6 @@ class NoSpecialization {
                     unsigned int pointIndex) {
     return strength;
   };
-
-  private:
-  dynamicRupture::kernel::resampleParameter resampleKrnl;
 };
 
 /**
