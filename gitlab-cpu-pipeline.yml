@@ -140,11 +140,14 @@ tpv_run:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 16, 101, 101-slip, 104, 105, 33, 34]
+              tpv: [5, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/7bits-register/precomputed-seissol.git
         - ls
+        - cd precomputed-seissol
+        - git checkout 915b9d4
+        - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
         - ls
@@ -175,7 +178,7 @@ tpv_check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 16, 101, 101-slip, 104, 105, 33, 34]
+              tpv: [5, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -196,7 +199,7 @@ tpv_check_receivers:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 101, 101-slip, 104, 105, 33, 34]
+              tpv: [5, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls

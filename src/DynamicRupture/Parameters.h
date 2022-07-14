@@ -25,7 +25,6 @@ struct DRParameters {
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
   bool isThermalPressureOn{false};
-  bool isInstaHealingOn{false};
   real t0{0.0};
   real rsF0{0.0};
   real rsA{0.0};
@@ -63,7 +62,6 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlDrParams, "fl", drParameters.frictionLawType);
     initializers::updateIfExists(yamlDrParams, "backgroundtype", drParameters.backgroundType);
     initializers::updateIfExists(yamlDrParams, "thermalpress", drParameters.isThermalPressureOn);
-    initializers::updateIfExists(yamlDrParams, "inst_healing", drParameters.isInstaHealingOn);
     initializers::updateIfExists(yamlDrParams, "t_0", drParameters.t0);
     initializers::updateIfExists(yamlDrParams, "rs_f0", drParameters.rsF0);
     initializers::updateIfExists(yamlDrParams, "rs_a", drParameters.rsA);
