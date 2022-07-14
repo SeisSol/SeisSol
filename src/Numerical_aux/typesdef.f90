@@ -683,7 +683,6 @@ MODULE TypesDef
      REAL                                   :: r_s                              !< width of the smooth transition
      INTEGER                                :: BackgroundType                   !< Type of background stresses (0: homogeneous)
      TYPE(tbackground_stress)               :: bg_stress                        !< includes background stress information for dynamic rupture
-     INTEGER                                :: inst_healing                     !< instantaneous healing switch (1: on, 0: off)
      ! case(6) bimaterial with LSW
      REAL                                   :: vStar                            !< reference velocity of prakash-cliff regularization
      REAL                                   :: prakashLength                    !< reference length of prakash-cliff regularization

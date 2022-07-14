@@ -905,7 +905,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     TYPE (tMPI)                            :: MPI
     INTENT(INOUT)                          :: IO, EQN, DISC, BND, MPI
-    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
+    INTEGER                                :: FL, BackgroundType, Nucleation, RF_output_on, DS_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
                                               thermalPress, SlipRateOutputType, readStat
     LOGICAL                                :: fileExists
@@ -922,7 +922,7 @@ CONTAINS
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, &
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
-                                                GPwise, inst_healing, &
+                                                GPwise, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
                                                 RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, vstar, &
                                                 thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
@@ -947,7 +947,6 @@ CONTAINS
     ZRef = 0
     refPointMethod=0
     GPwise = 1 !1=GPwise and 0=elementwise
-    inst_healing = 0
     Mu_SNuc_ini=1.0
     H_Length = 0
     RS_f0 = 0
@@ -1015,7 +1014,6 @@ CONTAINS
            CASE(0)
              CONTINUE
            CASE(2,16)
-             DISC%DynRup%inst_healing = inst_healing ! instantaneous healing switch (1: on, 0: off)
              IF (EQN%FL.EQ.16) THEN
                DISC%DynRup%t_0 = t_0 
              ENDIF
