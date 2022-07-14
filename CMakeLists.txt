@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -74,9 +74,16 @@ set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
                                 src/generated_code/kernel.h
                                 src/generated_code/kernel.cpp)
 
+
+if(PROXY_PYBINDING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+else()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
+
 add_custom_command(
   COMMAND
-  "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
@@ -291,6 +298,14 @@ if(${EQUATIONS} STREQUAL "poroelastic")
   endif()
 endif()
 
+if (WITH_GPU)
+  add_subdirectory(submodules/Device)
+  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
+  target_link_libraries(SeisSol-lib PUBLIC device)
+  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
+
+  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
+endif()
 
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
@@ -298,22 +313,24 @@ endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-lib PUBLIC debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
   )
 endif()
 
-find_package(yaml-cpp 0.6.2 REQUIRED)
-target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
-target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-
-# Note: it is better to include `eigen3` `async` as
+# Note: it is better to include `async` as
 # system headers because they emit lot's of warnings
 # from clang. Most of them are issues with respect
 # to overriden virtual methods
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
+
+
+find_package(Eigen3 3.4 REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen)
+
+find_package(yaml-cpp REQUIRED
+        PATHS ${CMAKE_CURRENT_BINARY_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -462,7 +479,8 @@ install(TARGETS SeisSol-proxy DESTINATION ${CMAKE_INSTALL_PREFIX})
 if (LIKWID)
   find_package(likwid REQUIRED)
   target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-  target_link_libraries(SeisSol-proxy-core PRIVATE likwid::likwid)
+  target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
+  target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
 endif()
 
 if (TESTING)
@@ -493,6 +511,7 @@ if (TESTING)
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Pipeline/TestPipeline.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
+          src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp
           )
 

@@ -44,6 +44,20 @@ Then pumgen is run using the xml option:
 
    pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
 
+Note that ``<boundaryCondition tag="3">`` is equivalent to ``<dynamicRupture>``. Therefore, if you want to tag face 2 as 3, you can use either: 
+
+.. code-block:: xml
+
+   <boundaryCondition tag="3">2</boundaryCondition> 
+
+or
+
+.. code-block:: xml
+
+   <dynamicRupture>2</dynamicRupture> 
+
+Note also that if a face is tagged twice, only the first tag will be considered. 
+
 
 Using more than 189 dynamic rupture tags
 ----------------------------------------

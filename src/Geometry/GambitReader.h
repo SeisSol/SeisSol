@@ -331,7 +331,7 @@ private:
 			int element;
 			m_mesh >> element;
 			if (m_g2lElements.find(element-1) != m_g2lElements.end())
-				m_elements[m_g2lElements[element-1]].material = groupId;
+				m_elements[m_g2lElements[element-1]].group = groupId;
 		}
 
 		m_mesh >> std::ws;

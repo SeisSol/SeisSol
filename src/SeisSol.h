@@ -58,6 +58,7 @@
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "ResultWriter/FaultWriter.h"
+#include "ResultWriter/EnergyOutput.h"
 
 #include "ResultWriter/AnalysisWriter.h"
 #include <memory>
@@ -135,9 +136,11 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
+  //! Energy writer module
+  writer::EnergyOutput m_energyOutput;
+
   //! Input parameters
   std::shared_ptr<YAML::Node> m_inputParams;
-
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -250,6 +253,13 @@ public:
 		return m_receiverWriter;
 	}
 
+  /**
+   * Get the energy writer module
+   */
+   writer::EnergyOutput& energyOutput() {
+     return m_energyOutput;
+   }
+
 	/**
 	 * Set the mesh reader
 	 */
@@ -288,11 +298,11 @@ public:
 		return *m_meshReader;
 	}
 
-  void readInputParams();
+  	void readInputParams();
 
-  const std::shared_ptr<YAML::Node> getInputParams() {
-    return m_inputParams;
-  }
+  	const std::shared_ptr<YAML::Node> getInputParams() {
+    		return m_inputParams;
+ 	}
 
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and

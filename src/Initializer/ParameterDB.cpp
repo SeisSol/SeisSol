@@ -76,7 +76,7 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
       query.x(elem,dim) *= 0.25;
     }
     // Group
-    query.group(elem) = elements[elem].material;
+    query.group(elem) = elements[elem].group;
   }
   return query;
 }

@@ -51,7 +51,7 @@ typedef int ElemBoundaries[4];
 typedef int ElemNeighborRanks[4];
 /** The index of this element (side) in the communication array */
 typedef int ElemMPIIndices[4];
-typedef int ElemMaterial;
+typedef int ElemGroup;
 
 typedef int ElemFaultTags[4];
 
@@ -68,7 +68,7 @@ struct Element {
 	ElemMPIIndices mpiIndices;
 	ElemMPIIndices mpiFaultIndices;
 	/** Material of the element */
-	ElemMaterial material;
+	ElemGroup group;
    ElemFaultTags faultTags; // member of struct Element
 };
 

@@ -68,9 +68,12 @@ namespace seissol::writer {
           const seissol::initializers::LTS& lts,
           const GlobalData* global);
 
-      kernels::ReceiverCluster* receiverCluster(unsigned clusterId) {
-        if (clusterId < m_receiverClusters.size()) {
-          return &m_receiverClusters[clusterId];
+      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {
+        assert(layer != Ghost);
+        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
+        auto& clusters = m_receiverClusters[layer];
+        if (clusterId < clusters.size()) {
+          return &clusters[clusterId];
         }
         return nullptr;
       }
@@ -86,7 +89,8 @@ namespace seissol::writer {
       std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
-      std::vector<kernels::ReceiverCluster> m_receiverClusters;
+      // Map needed because LayerType enum casts weirdly to int.
+      std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
       Stopwatch   m_stopwatch;
     };
   }
