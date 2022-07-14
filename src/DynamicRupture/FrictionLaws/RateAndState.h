@@ -239,16 +239,26 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       const real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
+                            faultStresses.traction1[timeIndex][pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
-      // update stress change
-      this->traction1[ltsFace][pointIndex] =
-          (totalTraction1 / absoluteTraction[pointIndex]) * strength -
-          this->initialStressInFaultCS[ltsFace][pointIndex][3];
-      this->traction2[ltsFace][pointIndex] =
-          (totalTraction2 / absoluteTraction[pointIndex]) * strength -
-          this->initialStressInFaultCS[ltsFace][pointIndex][5];
+                            faultStresses.traction2[timeIndex][pointIndex];
+
+      const auto divisor =
+          strength + this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
+      this->slipRate1[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction1 / divisor;
+      this->slipRate2[ltsFace][pointIndex] =
+          this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction2 / divisor;
+
+      // calculate traction
+      tractionResults.traction1[timeIndex][pointIndex] =
+          faultStresses.traction1[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
+      tractionResults.traction2[timeIndex][pointIndex] =
+          faultStresses.traction2[timeIndex][pointIndex] -
+          this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
+      this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
+      this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
 
       // Compute slip
       // ABS of locSlipRate removed as it would be the accumulated slip that is usually not needed
@@ -256,35 +266,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
           this->slipRateMagnitude[ltsFace][pointIndex] * this->deltaT[timeIndex];
 
-      // Update slip rate (notice that locSlipRate(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate
-      // caused by a free surface!)
-      this->slipRate1[ltsFace][pointIndex] =
-          -this->impAndEta[ltsFace].invEtaS *
-          (this->traction1[ltsFace][pointIndex] - faultStresses.traction1[timeIndex][pointIndex]);
-      this->slipRate2[ltsFace][pointIndex] =
-          -this->impAndEta[ltsFace].invEtaS *
-          (this->traction2[ltsFace][pointIndex] - faultStresses.traction2[timeIndex][pointIndex]);
-
-      // correct slipRate1 and slipRate2 to avoid numerical errors
-      const real locSlipRateMagnitude = misc::magnitude(this->slipRate1[ltsFace][pointIndex],
-                                                        this->slipRate2[ltsFace][pointIndex]);
-      if (locSlipRateMagnitude != 0) {
-        this->slipRate1[ltsFace][pointIndex] *=
-            this->slipRateMagnitude[ltsFace][pointIndex] / locSlipRateMagnitude;
-        this->slipRate2[ltsFace][pointIndex] *=
-            this->slipRateMagnitude[ltsFace][pointIndex] / locSlipRateMagnitude;
-      }
-
-      // Save traction for flux computation
-      tractionResults.traction1[timeIndex][pointIndex] = this->traction1[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] = this->traction2[ltsFace][pointIndex];
-
       // update directional slip
       this->slip1[ltsFace][pointIndex] +=
           this->slipRate1[ltsFace][pointIndex] * this->deltaT[timeIndex];
       this->slip2[ltsFace][pointIndex] +=
           this->slipRate2[ltsFace][pointIndex] * this->deltaT[timeIndex];
-    } // End of BndGP-loop
+    }
   }
 
   void saveDynamicStressOutput(unsigned int face) {
