@@ -154,7 +154,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
-};
+}
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
 #ifndef NDEBUG
@@ -281,7 +281,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
     m_FrictionSolver->evaluate(layerData,
                                m_dynRup,
-                               m_fullUpdateTime,
+                               ct.correctionTime,
                                m_dynamicRuptureKernel.timeWeights);
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
