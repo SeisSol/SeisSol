@@ -1,6 +1,15 @@
 #include "LinearSlipWeakening.h"
 namespace seissol::dr::friction_law {
 
+void NoSpecialization::resampleSlipRate(
+    real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+    real const (&slipRateMagnitude)[dr::misc::numPaddedPoints]) {
+  dynamicRupture::kernel::resampleParameter resampleKrnl;
+  resampleKrnl.resample = init::resample::Values;
+  resampleKrnl.originalQ = slipRateMagnitude;
+  resampleKrnl.resampledQ = resampledSlipRate;
+  resampleKrnl.execute();
+}
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                          seissol::initializers::DynamicRupture* dynRup,
                                          real fullUpdateTime) {
@@ -10,27 +19,19 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
-void BiMaterialFault::strengthHook(real& strength,
-                                   real& localSlipRate,
-                                   real& sigma,
-                                   real& mu,
-                                   real& deltaT,
+real BiMaterialFault::strengthHook(real faultStrength,
+                                   real localSlipRate,
+                                   real deltaT,
                                    unsigned int ltsFace,
                                    unsigned int pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-  prak_clif_mod(strength, sigma, localSlipRate, mu, deltaT);
-  // save for output
-  regularisedStrength[ltsFace][pointIndex] = strength;
+  real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters.vStar) *
+                          deltaT / drParameters.prakashLength);
+  real newStrength =
+      regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
+  regularisedStrength[ltsFace][pointIndex] = newStrength;
+  return newStrength;
 }
 
-/*
- * calculates Prakash-Clifton regularization
- */
-void BiMaterialFault::prak_clif_mod(
-    real& strength, real& sigma, real& localSlipRate, real& mu, real& dt) {
-  real expterm =
-      std::exp(-(std::abs(localSlipRate) + drParameters.vStar) * dt / drParameters.prakashLength);
-  strength = strength * expterm - std::max(static_cast<real>(0.0), -mu * sigma) * (expterm - 1.0);
-}
 } // namespace seissol::dr::friction_law

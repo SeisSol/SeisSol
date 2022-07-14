@@ -157,13 +157,12 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
           -cohesion[ltsFace][pointIndex] -
           this->mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
 
-      specialization.strengthHook(strength[pointIndex],
-                                  this->slipRateMagnitude[ltsFace][pointIndex],
-                                  totalNormalStress,
-                                  this->mu[ltsFace][pointIndex],
-                                  this->deltaT[timeIndex],
-                                  ltsFace,
-                                  pointIndex);
+      strength[pointIndex] =
+          specialization.strengthHook(strength[pointIndex],
+                                      this->slipRateMagnitude[ltsFace][pointIndex],
+                                      this->deltaT[timeIndex],
+                                      ltsFace,
+                                      pointIndex);
     }
   }
 
@@ -171,22 +170,14 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              unsigned int timeIndex,
                              unsigned int ltsFace) {
     alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
-    dynamicRupture::kernel::resampleParameter resampleKrnl;
-    resampleKrnl.resample = init::resample::Values;
-    resampleKrnl.originalQ = this->slipRateMagnitude[ltsFace];
-    resampleKrnl.resampledQ = resampledSlipRate;
-
-    // Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
-    // the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
-    // the reference triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates
-    // the polynomial at the quadrature points
-    resampleKrnl.execute();
+    specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     real time = this->mFullUpdateTime + this->deltaT[timeIndex];
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
-      this->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
-          resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
+
+      auto update = resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
+      this->accumulatedSlipMagnitude[ltsFace][pointIndex] += update;
 
       // Actually slip is already the stateVariable for this FL, but to simplify the next equations
       // we divide it here by the critical distance.
@@ -232,19 +223,25 @@ class NoSpecialization {
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime){};
-  void strengthHook(real& strength,
-                    real& localSlipRate,
-                    real& sigma,
-                    real& mu,
-                    real& deltaT,
+  /**
+   * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
+   * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
+   * the reference triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates
+   * the polynomial at the quadrature points
+   */
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+                        real const (&slipRate)[dr::misc::numPaddedPoints]);
+  real strengthHook(real strength,
+                    real localSlipRate,
+                    real deltaT,
                     unsigned int ltsFace,
-                    unsigned int pointIndex){};
+                    unsigned int pointIndex) {
+    return strength;
+  };
 };
 
 /**
- * Law for Bimaterial faults, implements strength regularization (according to prakash clifton)
- * currently regularized strength is not used (bug)
- * State variable (slip) is not resampled in this friction law!
+ * Law for bimaterial faults, implements strength regularization (according to Prakash-Clifton)
  */
 class BiMaterialFault {
   public:
@@ -253,18 +250,24 @@ class BiMaterialFault {
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
                           real fullUpdateTime);
-  void strengthHook(real& strength,
-                    real& localSlipRate,
-                    real& sigma,
-                    real& mu,
-                    real& deltaT,
+  /**
+   * The bimaterial Fault FL has been implemented without resampling on the master branch.
+   * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
+   * together with Prakash-Clifton regularization.
+   */
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
+                        real const (&slipRate)[dr::misc::numPaddedPoints]) {
+    std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
+  };
+  real strengthHook(real strength,
+                    real localSlipRate,
+                    real deltaT,
                     unsigned int ltsFace,
                     unsigned int pointIndex);
 
   protected:
   DRParameters& drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
-  void prak_clif_mod(real& strength, real& sigma, real& locSlipRate, real& mu, real& dt);
 };
 
 } // namespace seissol::dr::friction_law

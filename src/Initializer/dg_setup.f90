@@ -437,8 +437,8 @@ CONTAINS
           materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:EQN%nBackgroundVar,MPIIndex) ! rho,mu,lambda
       ELSE
           SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
-          CASE(0)
-              iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
+          CASE(0, 3) ! For regular faces and dynamic rupture faces, use the values from the outer material.
+              iNeighbor = MESH%ELEM%SideNeighbor(iSide,iElem)
               materialVal = OptionalFields%BackgroundValue(iNeighbor,:)
           CASE DEFAULT ! For boundary conditions take inside material
               materialVal = OptionalFields%BackgroundValue(iElem,:)

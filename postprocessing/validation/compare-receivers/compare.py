@@ -100,10 +100,10 @@ def read_faultreceiver(filename):
     return receiver
 
 def faultreceiver_diff(args, i, quantities):
-    ref_filename = f"{args.output_ref}/tpv-faultreceiver-0000{i}-00000.dat"
+    ref_filename = f"{args.output_ref}/tpv-faultreceiver-{i:05d}-00000.dat"
     ref_receiver = read_faultreceiver(ref_filename)
 
-    sim_filename = f"{args.output}/tpv-faultreceiver-0000{i}-00000.dat"
+    sim_filename = f"{args.output}/tpv-faultreceiver-{i:05d}-00000.dat"
     sim_receiver = read_faultreceiver(sim_filename).iloc[1:]
     sim_receiver.reset_index(drop=True, inplace=True)
 

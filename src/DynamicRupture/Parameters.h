@@ -81,8 +81,8 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlDrParams, "inipressure", drParameters.initialPressure);
 
     // Prakash-Clifton regularization parameters
-    initializers::updateIfExists(yamlDrParams, "vStar", drParameters.vStar);
-    initializers::updateIfExists(yamlDrParams, "prakashLength", drParameters.prakashLength);
+    initializers::updateIfExists(yamlDrParams, "vstar", drParameters.vStar);
+    initializers::updateIfExists(yamlDrParams, "prakashlength", drParameters.prakashLength);
 
     // filename of the yaml file describing the fault parameters
     initializers::updateIfExists(yamlDrParams, "modelfilename", drParameters.faultFileName);
