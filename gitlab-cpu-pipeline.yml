@@ -170,7 +170,7 @@ check_energies:
     needs:
         - job: run_tpv
     variables:
-        energy_file: "tpv-energy.xdmf"
+        energy_file: "tpv-energy.csv"
         epsilon: "0.05"
     parallel:
         matrix:
