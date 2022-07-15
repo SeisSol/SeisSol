@@ -211,7 +211,7 @@ for q in receiver_errors.columns:
     broken_receivers = receiver_errors.index[receiver_errors[q] > args.epsilon].tolist()
     print(f"{q} exceeds relative error of {args.epsilon} at receveivers {broken_receivers}")
 
-quantities = ["absolute slip", "friction coefficient", "peak sliprate", "traction", "rupture time", "sliprate", "slip", "rupture velocity", "normal velocity"]
+quantities = ["absolute slip", "friction coefficient", "peak sliprate", "traction", "rupture time", "sliprate", "slip", "normal velocity"]
 if args.mode == "lsw":
     quantities.append("dynstress time")
 if args.mode == "rs":
