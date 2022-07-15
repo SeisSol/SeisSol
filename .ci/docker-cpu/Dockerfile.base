@@ -14,7 +14,7 @@ apt-get install -y unzip openmpi-bin openmpi-common libopenmpi-dev && \
 apt-get install -y hdf5-tools libhdf5-openmpi-dev libmetis-dev libparmetis-dev && \
 apt-get install -y cxxtest libyaml-cpp-dev && \
 pip3 install --upgrade pip && \
-pip3 install numpy>=1.12.0 lxml setuptools sphinx sphinx_rtd_theme
+pip3 install numpy>=1.12.0 lxml setuptools sphinx sphinx_rtd_theme seissolxdmf pandas
 
 
 # Install specific libraries
