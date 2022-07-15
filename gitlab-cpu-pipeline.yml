@@ -160,7 +160,7 @@ check_receivers:
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - if [ ${tpv} = 5 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
+        - if [ ${tpv} = 5 ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
           python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon} --mode $mode
 
 
