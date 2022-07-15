@@ -988,42 +988,14 @@ void seissol::Interoperability::initInitialConditions()
   auto initialConditionDescription = m_initialConditionType;
   if (m_initialConditionType == "Planarwave") {
     auto materialData = m_ltsLut.lookup(m_lts->material, 0);
-    std::array<double, 3> kVec = {M_PI, M_PI, M_PI};
-    std::vector<int> varField = {};
-    std::vector<std::complex<double>> ampField = {};
-#ifndef USE_POROELASTIC
-    if (materialData.local.mu <= 1e-15) {
-      //Elastic materials has the following wave modes:
-      //-P, N, N, N, N, N, N, N, P
-      //Here we impose the P mode
-      varField = {8} ;
-      ampField = {1.0};
-    } else {
-      //Elastic materials have the following wave modes:
-      //-P, -S2, -S1, N, N, N, S1, S2, P
-      //Here we impose the -S2 and P mode
-      varField = {1, 8};
-      ampField = {1.0, 1.0};
-    }
-#else
-    //Poroelastic materials have the following wave modes:
-    //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
-    //Here we impose -S1, -Ps and P
-    std::vector<int> varField = {2,3,12};
-    std::vector<std::complex<double>> ampField = {1.0, 1.0, 1.0};
-#endif
+
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       const double phase = (2.0*M_PI*s) / MULTIPLE_SIMULATIONS;
       m_iniConds.emplace_back(new physics::Planarwave(materialData, phase));
     }
 #else
-    double phase = 0.0;
-    m_iniConds.emplace_back(new physics::Planarwave(materialData,
-                            phase,
-                            kVec,
-                            varField,
-                            ampField));
+    m_iniConds.emplace_back(new physics::Planarwave(materialData));
 #endif
   } else if (m_initialConditionType == "SuperimposedPlanarwave") {
 #ifdef MULTIPLE_SIMULATIONS
