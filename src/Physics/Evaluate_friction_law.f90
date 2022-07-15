@@ -51,7 +51,6 @@ MODULE Eval_friction_law_mod
   IMPLICIT NONE
   PRIVATE
   !---------------------------------------------------------------------------!
-  REAL, PARAMETER :: u_0  = 10e-14 ! slip rate is considered as being zero for instaneous healing
   REAL, PARAMETER :: ZERO = 0.0D0
   !---------------------------------------------------------------------------!
   INTERFACE Eval_friction_law
@@ -310,15 +309,6 @@ MODULE Eval_friction_law_mod
 !         LocMu = LocMu_D
 !       ENDIF
 !
-!       ! instantaneous healing
-!       IF (DISC%DynRup%inst_healing == 1) THEN
-!           IF (LocSR .LT. u_0) THEN
-!               LocMu = LocMu_S
-!               ! reset slip history for LSW
-!               LocSlip = 0.0D0
-!           ENDIF
-!       ENDIF
-!       !
 !       !Save traction for flux computation
 !       TractionGP_XY(iBndGP,iTimeGP) = LocTracXY
 !       TractionGP_XZ(iBndGP,iTimeGP) = LocTracXZ
@@ -471,14 +461,6 @@ MODULE Eval_friction_law_mod
 !     ENDIF
 !
 !     DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace)-DISC%DynRup%Mu_D(:,iFace))*max(f1,f2)
-!
-!     ! instantaneous healing
-!     IF (DISC%DynRup%inst_healing == 1) THEN
-!        where (LocSR.LT. u_0)
-!           DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace)
-!           DISC%DynRup%Slip(:,iFace)  = 0.0
-!        endwhere
-!     ENDIF
 !
 !     TractionGP_XY(:,iTimeGP) = LocTracXY(:)
 !     TractionGP_XZ(:,iTimeGP) = LocTracXZ(:)

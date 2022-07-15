@@ -117,20 +117,6 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   /**
-   * Instantaneous healing option:
-   * Reset Mu and Slip, if slipRateMagnitude drops below threshold
-   * This function is currently not used, as we miss an appropriate benchmark.
-   */
-  void instantaneousHealing(unsigned int ltsFace) {
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      if (this->slipRateMagnitude[ltsFace][pointIndex] < u0) {
-        this->mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
-        this->accumulatedSlipMagnitude[ltsFace][pointIndex] = 0.0;
-      }
-    }
-  }
-
-  /**
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    */
   void saveDynamicStressOutput(unsigned int ltsFace) {
@@ -204,10 +190,6 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   protected:
-  /**
-   * critical velocity at which slip rate is considered as being zero for instaneous healing
-   */
-  static constexpr real u0 = 10e-14;
   real (*dC)[misc::numPaddedPoints];
   real (*muS)[misc::numPaddedPoints];
   real (*muD)[misc::numPaddedPoints];

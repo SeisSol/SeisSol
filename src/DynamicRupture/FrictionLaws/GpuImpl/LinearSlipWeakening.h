@@ -128,20 +128,6 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
     }
   }
 
-  /**
-   * Instantaneous healing option:
-   * Reset Mu and Slip, if slipRateMagnitude drops below threshold
-   * This function is currently not used, as we miss an appropriate benchmark.
-   */
-  void instantaneousHealing(unsigned int ltsFace) {
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      if (this->slipRateMagnitude[ltsFace][pointIndex] < u0) {
-        this->mu[ltsFace][pointIndex] = muS[ltsFace][pointIndex];
-        this->accumulatedSlipMagnitude[ltsFace][pointIndex] = 0.0;
-      }
-    }
-  }
-
   /*
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
