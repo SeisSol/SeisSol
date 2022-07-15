@@ -154,7 +154,5 @@ void seissol::Simulator::simulate() {
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
-  faultOutputManager->writePickpointOutput(m_currentTime, 0.0);
-
   printFlops();
 }
