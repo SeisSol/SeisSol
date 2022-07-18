@@ -1,4 +1,4 @@
-Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-unused-parameters,-llvm-header-guard,-misc-non-private-member-variables-in-classes,readability-identifier-naming,-llvm-else-after-return'
+Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-unused-parameters,-llvm-header-guard,-misc-non-private-member-variables-in-classes,readability-identifier-naming,-llvm-else-after-return,-llvm-qualified-auto'
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase
