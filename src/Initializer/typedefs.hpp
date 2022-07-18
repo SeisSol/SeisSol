@@ -59,7 +59,7 @@
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
-   * Number of lts clusters prensent throughout the entire domain.
+   * Number of lts clusters present throughout the entire domain.
    */
   unsigned int numberOfGlobalClusters;
 
@@ -421,10 +421,20 @@ struct DRFaceInformation {
   unsigned plusSide;
   unsigned minusSide;
   unsigned faceRelation;
+  bool     plusSideOnThisRank;
 };
 
 struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
+  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
+  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  double doubledSurfaceArea;
+};
+
+struct DREnergyOutput {
+  real slip[seissol::tensor::slipInterpolated::size()];
+  real accumulatedSlip[seissol::tensor::squaredNormSlipRateInterpolated::size()];
+  real frictionalEnergy;
 };
 
 struct CellDRMapping {

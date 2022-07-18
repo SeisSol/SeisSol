@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 # use <PackageName>_ROOT variables
 if(POLICY CMP0074)
@@ -74,9 +74,16 @@ set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
                                 src/generated_code/kernel.h
                                 src/generated_code/kernel.cpp)
 
+
+if(PROXY_PYBINDING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+else()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
+
 add_custom_command(
   COMMAND
-  "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
@@ -298,22 +305,23 @@ endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(SeisSol-lib PUBLIC debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
   )
 endif()
 
-find_package(yaml-cpp 0.6.2 REQUIRED)
-target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
-target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-
-# Note: it is better to include `eigen3` `async` as
+# Note: it is better to include `async` as
 # system headers because they emit lot's of warnings
 # from clang. Most of them are issues with respect
 # to overriden virtual methods
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
+
+find_package(Eigen3 3.4 REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
+target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen yaml-cpp)
+target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -350,7 +358,7 @@ if (WITH_GPU)
 
     target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
     target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
-    target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
+    target_link_libraries(SeisSol-omp-offloaded PRIVATE Eigen3::Eigen easi::easi)
 
     install(TARGETS SeisSol-omp-offloaded DESTINATION ${CMAKE_INSTALL_PREFIX})
   endif()
@@ -393,7 +401,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-    set(WARNINGS "--display_error_number --diag_suppress186")
+    set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
       set(WARNINGS "${WARNINGS} --diag_suppress1")
     endif()
@@ -462,7 +470,8 @@ install(TARGETS SeisSol-proxy DESTINATION ${CMAKE_INSTALL_PREFIX})
 if (LIKWID)
   find_package(likwid REQUIRED)
   target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-  target_link_libraries(SeisSol-proxy-core PRIVATE likwid::likwid)
+  target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
+  target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
 endif()
 
 if (TESTING)
@@ -493,6 +502,7 @@ if (TESTING)
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Pipeline/TestPipeline.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
+          src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp
           )
 

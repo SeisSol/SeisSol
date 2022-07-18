@@ -218,6 +218,7 @@ namespace proxy::cpu {
     seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
+    DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
     real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
     alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
@@ -231,6 +232,7 @@ namespace proxy::cpu {
       m_dynRupKernel.spaceTimeInterpolation(  faceInformation[face],
                                              &m_globalDataOnHost,
                                              &godunovData[face],
+                                             &drEnergyOutput[face],
                                               timeDerivativePlus[face],
                                               timeDerivativeMinus[face],
                                               QInterpolatedPlus,

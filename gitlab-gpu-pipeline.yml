@@ -2,7 +2,7 @@ default:
     tags:
         - atsccs68-docker-executor
     image:
-        name: ravilmobile/seissol-base:gcc-8_cuda-10
+        name: $CI_REGISTRY_USER/$gpu_image_name:$gpu_image_version
         entrypoint: [""]
 
 stages:

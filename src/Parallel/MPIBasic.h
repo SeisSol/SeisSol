@@ -66,8 +66,7 @@ public:
 
 protected:
 	MPIBasic()
-		: m_rank(0), m_size(1),
-		  m_threadsafe(false)
+		: m_rank(0), m_size(1)
 	{ }
 
 public:
@@ -88,11 +87,6 @@ public:
 	int size() const
 	{
 		return m_size;
-	}
-
-	void requireThreadsafe()
-	{
-		m_threadsafe = true;
 	}
 
 };

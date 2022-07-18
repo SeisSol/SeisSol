@@ -62,11 +62,8 @@ CONTAINS
     USE calc_deltaT_mod
 #ifdef HDF
     USE receiver_hdf_mod
-#else
-    USE energies_output_mod
 #endif
     USE ini_SeisSol_mod
-    USE magnitude_output_mod
     USE output_rupturefront_mod
     USE COMMON_operators_mod
 #ifdef PARALLEL
@@ -173,7 +170,7 @@ CONTAINS
     call c_interoperability_report_device_memory_status()
 
     ! do the simulation
-    call c_interoperability_simulate( i_finalTime = disc%endTime );
+    call c_interoperability_simulate( i_finalTime = disc%endTime, i_plasticity = eqn%Plasticity)
     ! End time is currently the only supported abort criteria by GK
     time = disc%endTime
 !no generated kernel
@@ -209,10 +206,7 @@ CONTAINS
 
 #ifdef USE_MPI
     CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
-#endif // USE_MPI
-
-    ! output magnitude for dynamic rupture simulations
-    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO,DR_comm)
+#endif /* USE_MPI */
 
     ! output GP-wise RF in extra files
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO, BND)

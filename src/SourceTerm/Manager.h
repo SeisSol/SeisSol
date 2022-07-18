@@ -71,14 +71,12 @@ namespace seissol {
 
 class seissol::sourceterm::Manager {
 private:
-  ClusterMapping* cmps;
-  PointSources* sources;
-
-  void freeSources();
+  std::unordered_map<LayerType, std::vector<ClusterMapping>> layeredClusterMapping;
+  std::unordered_map<LayerType, std::vector<PointSources>> layeredSources;
 
 public:
-  Manager() : cmps(NULL), sources(NULL) {}
-  ~Manager() { freeSources(); }
+  Manager() = default;
+  ~Manager() = default;
   
   void mapPointSourcesToClusters( unsigned const*                 meshIds,
                                   unsigned                        numberOfSources,

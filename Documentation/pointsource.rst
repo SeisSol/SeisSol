@@ -1,6 +1,8 @@
 Point Source
 ============
 
+.. _loh1:
+
 SISMOWINE WP2\_LOH1
 ~~~~~~~~~~~~~~~~~~~
 

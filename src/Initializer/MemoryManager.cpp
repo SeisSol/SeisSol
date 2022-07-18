@@ -742,7 +742,6 @@ seissol::initializers::MemoryManager::getMemoryLayout(unsigned int i_cluster) {
 void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (fileNameStr != "") {
-    std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
     m_easiBoundary = EasiBoundary(fileNameStr);
   }
 }

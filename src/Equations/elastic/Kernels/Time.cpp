@@ -130,7 +130,8 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
-  projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
+
 #endif //USE_STP
 }
 
@@ -230,10 +231,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     for (unsigned face = 0; face < 4; ++face) {
       if (data.faceDisplacements[face] != nullptr
           && data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-        std::fill(tmp.nodalAvgDisplacements[face].begin(), tmp.nodalAvgDisplacements[face].end(), 0.0);
         bc.evaluate(
             face,
-            projectRotatedKrnlPrototype,
+            projectDerivativeToNodalBoundaryRotated,
             data.boundaryMapping[face],
             data.faceDisplacements[face],
             tmp.nodalAvgDisplacements[face].data(),
@@ -519,6 +519,39 @@ void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
 #endif
 }
 
+void seissol::kernels::Time::computeDerivativeTaylorExpansion(real time,
+                                                     real expansionPoint,
+                                                     real const*  timeDerivatives,
+                                                     real timeEvaluated[tensor::Q::size()],
+                                                     unsigned order) {
+  /*
+   * assert alignments.
+   */
+  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+
+  // assert that this is a forward evaluation in time
+  assert( time >= expansionPoint );
+
+  real deltaT = time - expansionPoint;
+
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = timeEvaluated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+  }
+  intKrnl.power = 1.0;
+
+  // iterate over time derivatives
+  for(unsigned derivative = order; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.execute(derivative);
+    intKrnl.power *= deltaT / real(derivative+1);
+  }
+}
+
+
 void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0; hardwareFlops = 0;
@@ -528,4 +561,8 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
     nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }
+}
+
+unsigned int* seissol::kernels::Time::getDerivativesOffsets() {
+  return m_derivativesOffsets;
 }

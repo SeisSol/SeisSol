@@ -131,13 +131,22 @@ class seissol::kernels::Time : public TimeBase {
                                  real const*  timeDerivatives,
                                  real         timeEvaluated[tensor::Q::size()] );
 
+    void computeDerivativeTaylorExpansion(real time,
+                                          real expansionPoint,
+                                          real const*  timeDerivatives,
+                                          real timeEvaluated[tensor::Q::size()],
+                                          unsigned derivativeOrder);
+
+
   void computeBatchedTaylorExpansion(real time,
                                      real expansionPoint,
                                      real** timeDerivatives,
                                      real** timeEvaluated,
                                      size_t numElements);
 
-    void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+
+  unsigned int* getDerivativesOffsets();
 };
 
 #endif

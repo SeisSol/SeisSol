@@ -1,83 +1,44 @@
+default:
+    tags:
+        - 10core-docker-runner
+    image:
+        name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
+        entrypoint: [""]
+
 stages:
     - pre_build
     - build 
     - test
     - check
-    - performance_eval
         
-ci_builder_pre:
+fetch_submodules:
     stage: pre_build
-    tags:
-        - ci_testing_cc
     variables:
         GIT_STRATEGY: clone
     before_script:
         - git branch -vva
         - echo $commit_author_name
     script:
-        - echo "checking availability of ci_testing_cc"
-        - git --version
-        - git submodule set-url submodules/xdmfwriter https://github.com/TUM-I5/XdmfWriter.git
-        - git submodule set-url submodules/cxxtest https://github.com/CxxTest/cxxtest.git
-        - git submodule set-url submodules/utils https://github.com/TUM-I5/utils.git
-        - git submodule set-url submodules/async https://github.com/TUM-I5/ASYNC.git
-        - git submodule set-url submodules/scons-tools https://github.com/TUM-I5/scons-tools.git
-        - git submodule set-url submodules/PUML https://github.com/TUM-I5/PUML2.git
-        - git submodule set-url submodules/yateto https://github.com/SeisSol/yateto.git
-        - git submodule set-url submodules/eigen3 https://github.com/eigenteam/eigen-git-mirror
-        - git submodule set-url submodules/Device https://github.com/SeisSol/Device.git
-        - git submodule set-url submodules/fty https://github.com/ravil-mobile/fty.git
-        - git submodule --quiet update --init --recursive
-        - wget -q https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
-        - wget -q -O libxsmm-1.17.zip https://github.com/libxsmm/libxsmm/archive/refs/tags/1.17.zip
-        - sudo apt-get install -qq --yes gcc-8 g++-8 gfortran-8 pkg-config cmake cmake-data 
-        - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
-        - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
-        - sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
-        - sudo apt-get install -qq --yes unzip openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev cxxtest libarmadillo-dev libyaml-cpp-dev
-        - gfortran --version
-        - pip3 install --upgrade pip
-        - pip3 install 'numpy>=1.12.0'
-        - pip3 install pandas
-        - pip3 install lxml
-        - pip3 install setuptools
-        - pip3 install sphinx
-        - pip3 install sphinx_rtd_theme
-        - pip3 install 'seissolxdmf>=0.1.0'
-        - tar -xzf netcdf-4.6.1.tar.gz
-        - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
-        - unzip libxsmm-1.17.zip
-        - cd libxsmm-1.17 && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
-        - git clone https://github.com/uphoffc/ImpalaJIT.git &&
-          mkdir -p ImpalaJIT/build && cd ImpalaJIT/build && cmake .. && make -j $(nproc) &&
-          sudo make install && cd ../.. && rm -rf ./ImpalaJIT
-        - git clone --depth 1 https://github.com/SeisSol/easi.git &&
-          mkdir -p easi/build && cd easi/build && cmake -DASAGI=OFF -DIMPALAJIT=ON .. &&
-          make -j $(nproc) && sudo make install  && cd ../.. && rm -rf ./easi
+        - git submodule init
+        - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
+        - git submodule sync
+        - git submodule update --init --recursive
+    artifacts:
+        paths:
+            - submodules
         
-ci_builder_build:
+build_seissol:
     stage: build
-    tags:
-        - ci_testing_cc
     needs:
-        - job: ci_builder_pre
-    before_script:
-        - pwd
-        - cat .git/config
+        - job: fetch_submodules
     parallel:
         matrix:
-             - precision: double
-             - precision: single
+        - precision: [double, single]
     script:
-        - echo "now building"
-        - echo $CI_REGISTRY $CI_REGISTRY_IMAGE $CI_REGISTRY_USER
         - cmake --version
-        - set -euo pipefail
-        - export IFS=$'\n\t'
-        - export CTEST_OUTPUT_ON_FAILURE=1
         - equation=elastic
         - mechanisms=0
-        - for build_type in Release ; 
+        - for build_type in Debug Release ; 
              do for equation in elastic ;
                  do dirname="build_${equation}_${precision}_${build_type}";
                  echo "mkdir $dirname";
@@ -85,7 +46,7 @@ ci_builder_build:
                  mkdir -p $dirname && cd $dirname ;
                  pwd; 
                  CMAKE_PREFIX_PATH=~ ;
-                 cmake 
+                 cmake ..
                  -DNETCDF=OFF
                  -DMETIS=ON
                  -DCOMMTHREAD=ON
@@ -101,7 +62,7 @@ ci_builder_build:
                  -DNUMBER_OF_MECHANISMS=$mechanisms
                  -DDR_QUAD_RULE=stroud 
                  -DGEMM_TOOLS_LIST=LIBXSMM 
-                 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. ;
+                 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
                  make -j $(nproc);
                  cd .. ; 
              done; 
@@ -111,32 +72,30 @@ ci_builder_build:
         paths:
             - build_*
             
-ci_builder_test:
-        stage: test
-        tags:
-            - ci_testing_cc
-        allow_failure: true
-        needs:
-            - job: ci_builder_build
-        parallel:
-            matrix:
-                - DIR: build_elastic_double_Release
-                - DIR: build_elastic_single_Release
-        script: 
-            - echo "testing"
-            - pwd
-            - ls
-            - cd $DIR
-            - make test
-
-
-tpv_run:
+run_unit_tests:
     stage: test
-    tags:
-        - ci_testing_cc
+    allow_failure: true
+    needs:
+        - job: build_seissol
+    parallel:
+        matrix:
+            - DIR: build_elastic_double_Debug
+            - DIR: build_elastic_single_Debug
+            - DIR: build_elastic_double_Release
+            - DIR: build_elastic_single_Release
+    script: 
+        - echo "testing"
+        - pwd
+        - ls
+        - cd $DIR
+        - export CTEST_OUTPUT_ON_FAILURE=1
+        - make test
+
+run_tpv:
+    stage: test
     allow_failure: false
     needs:
-        - job: ci_builder_build
+        - job: build_seissol
     parallel:
         matrix:
             - precision: [double, single]
@@ -146,7 +105,7 @@ tpv_run:
         - git clone https://github.com/7bits-register/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 915b9d4
+        - git checkout 9d87291
         - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
@@ -164,13 +123,11 @@ tpv_run:
             - output-*
 
 
-tpv_check_faultoutput:
+check_faultoutput:
     stage: check
-    tags:
-        - ci_testing_cc
     allow_failure: false
     needs:
-        - job: tpv_run
+        - job: run_tpv
     variables:
         elastic_domain_file: "tpv.xdmf"
         fault_file: "tpv-fault.xdmf"
@@ -187,13 +144,11 @@ tpv_check_faultoutput:
         - python3 ../postprocessing/validation/compare-faults/compare.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
 
-tpv_check_receivers:
+check_receivers:
     stage: check
-    tags:
-        - ci_testing_cc
     allow_failure: false
     needs:
-        - job: tpv_run
+        - job: run_tpv
     variables:
         epsilon: "0.05"
     parallel:
@@ -205,5 +160,25 @@ tpv_check_receivers:
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - if [ ${tpv} = 5 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
+        - if [ ${tpv} = 5 ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
           python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon} --mode $mode
+
+
+check_energies:
+    stage: check
+    allow_failure: false
+    needs:
+        - job: run_tpv
+    variables:
+        energy_file: "tpv-energy.csv"
+        epsilon: "0.05"
+    parallel:
+        matrix:
+            - precision: [double, single]
+              tpv: [5, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+    script: 
+        - echo "check TPV${tpv}"
+        - ls
+        - cd output-tpv{$tpv}-${precision}
+        - ls
+        - python3 ../postprocessing/validation/compare-energies/compare.py ./${energy_file} ./precomputed/${energy_file} --epsilon ${epsilon}

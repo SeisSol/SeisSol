@@ -1,10 +1,29 @@
-SeisSol_CPU:
+stages:
+  - build
+  - test
+
+variables:
+  cpu_image_name: "cpu-ci-image"
+  cpu_image_version: "v0.0.3"
+  gpu_image_name: "gpu-ci-image"
+  gpu_image_version: "v0.0.1"
+
+Building_Docker_Images:
+  stage: build
+  trigger:
+    include:
+      - gitlab-docker-images.yml
+    strategy: depend 
+
+Testing_SeisSol_CPU:
+  stage: test
   trigger:
     include:
       - gitlab-cpu-pipeline.yml
     strategy: depend
 
-SeisSol_GPU:
+Testing_SeisSol_GPU:
+  stage: test
   trigger:
     include:
       - gitlab-gpu-pipeline.yml

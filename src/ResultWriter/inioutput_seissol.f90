@@ -155,12 +155,17 @@ CONTAINS
         i_outputMask= outputMaskInt,         &
         i_plasticityMask=io%PlasticityMask,     &
         i_outputRegionBounds = io%OutputRegionBounds, &
+        i_outputGroups = io%OutputGroups, &
+        i_outputGroupsSize = size(io%OutputGroups), &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
         receiverFileName = trim(io%RFileName) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
-        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
+        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval), &
+        isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
+        isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
+        energySyncInterval = IO%EnergyOutputInterval)
 
     ! DEPRECATED: can be removed
     ! Initialize the fault Xdmf Writer
