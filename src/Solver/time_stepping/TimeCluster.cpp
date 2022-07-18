@@ -275,10 +275,12 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   if (layerData.getNumberOfCells() > 0) {
     // compute space time interpolation part
+    m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
+    m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
+
     ConditionalBatchTableT &table = layerData.getCondBatchTable();
     m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
 
-    m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
     m_FrictionSolver->evaluate(layerData,
                                m_dynRup,
                                ct.correctionTime,

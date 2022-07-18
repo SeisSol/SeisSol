@@ -67,8 +67,7 @@ namespace seissol {
 #       define MEMKIND_STANDARD seissol::memory::Standard
 #else
 #	define MEMKIND_NEIGHBOUR_INTEGRATION seissol::memory::DeviceUnifiedMemory
-#	define MEMKIND_Q_INTERPOLATED seissol::memory::PinnedMemory
-#	define MEMKIND_IMPOSED_STATE seissol::memory::DeviceGlobalMemory
+#	define MEMKIND_IMPOSED_STATE seissol::memory::DeviceUnifiedMemory
 #       define MEMKIND_STANDARD seissol::memory::DeviceUnifiedMemory
 #endif
 
@@ -114,13 +113,6 @@ public:
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;
   ScratchpadMemory                        idofsMinusOnDevice;
-  ScratchpadMemory                        QInterpolatedPlusOnDevice;
-  ScratchpadMemory                        QInterpolatedMinusOnDevice;
-
-  ScratchpadMemory                        QInterpolatedPlusOnHost;
-  ScratchpadMemory                        QInterpolatedMinusOnHost;
-  ScratchpadMemory                        imposedStatePlusOnHost;
-  ScratchpadMemory                        imposedStateMinusOnHost;
 #endif
   
   virtual void addTo(LTSTree& tree) {
@@ -135,7 +127,7 @@ public:
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      seissol::memory::Standard );
+    tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      MEMKIND_STANDARD );
     tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
@@ -159,15 +151,8 @@ public:
     tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, MEMKIND_STANDARD);
 
 #ifdef ACL_DEVICE
-    tree.addScratchpadMemory(  idofsPlusOnDevice,              1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  idofsMinusOnDevice,             1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  QInterpolatedPlusOnDevice,      1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  QInterpolatedMinusOnDevice,     1,      seissol::memory::DeviceGlobalMemory);
-
-    tree.addScratchpadMemory(  QInterpolatedPlusOnHost,         1,      seissol::memory::PinnedMemory);
-    tree.addScratchpadMemory(  QInterpolatedMinusOnHost,        1,      seissol::memory::PinnedMemory);
-    tree.addScratchpadMemory(  imposedStatePlusOnHost,          1,      seissol::memory::PinnedMemory);
-    tree.addScratchpadMemory(  imposedStateMinusOnHost,         1,      seissol::memory::PinnedMemory);
+    tree.addScratchpadMemory(idofsPlusOnDevice,  1, seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(idofsMinusOnDevice, 1,  seissol::memory::DeviceGlobalMemory);
 #endif
   }
 };
@@ -197,7 +182,7 @@ struct seissol::initializers::LTS_LinearSlipWeakeningBimaterial : public seissol
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTS_LinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(regularisedStrength, mask, 1, seissol::memory::Standard);
+    tree.addVar(regularisedStrength, mask, 1, MEMKIND_STANDARD);
   }
 };
 

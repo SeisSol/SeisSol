@@ -15,18 +15,16 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   LinearSlipWeakeningBase<Derived>(dr::DRParameters& drParameters)
       : GpuFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
-  void updateFrictionAndSlip() {
-    for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-      // computes fault strength, which is the critical value whether active slip exists.
-      static_cast<Derived*>(this)->calcStrengthHook(
-          this->faultStresses, this->strengthBuffer, timeIndex);
-      // computes resulting slip rates, traction and slip dependent on current friction
-      // coefficient and strength
-      this->calcSlipRateAndTraction(
-          this->faultStresses, this->tractionResults, this->strengthBuffer, timeIndex);
-      static_cast<Derived*>(this)->calcStateVariableHook(this->stateVariableBuffer, timeIndex);
-      this->frictionFunctionHook(this->stateVariableBuffer);
-    }
+  void updateFrictionAndSlip(unsigned timeIndex) {
+    // computes fault strength, which is the critical value whether active slip exists.
+    static_cast<Derived*>(this)->calcStrengthHook(
+        this->faultStresses, this->strengthBuffer, timeIndex);
+    // computes resulting slip rates, traction and slip dependent on current friction
+    // coefficient and strength
+    this->calcSlipRateAndTraction(
+        this->faultStresses, this->tractionResults, this->strengthBuffer, timeIndex);
+    static_cast<Derived*>(this)->calcStateVariableHook(this->stateVariableBuffer, timeIndex);
+    this->frictionFunctionHook(this->stateVariableBuffer);
   }
 
   /**

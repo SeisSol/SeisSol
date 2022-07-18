@@ -47,7 +47,9 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       }
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      static_cast<Derived*>(this)->updateFrictionAndSlip();
+      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
+        static_cast<Derived*>(this)->updateFrictionAndSlip(timeIndex);
+      }
       static_cast<Derived*>(this)->postHook(stateVariableBuffer);
 
       auto* ruptureTimePending{this->ruptureTimePending};
