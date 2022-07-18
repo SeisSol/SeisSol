@@ -31,8 +31,13 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
                                          std::array<double, 3> kVec)
     : m_phase(phase), m_kVec(kVec) {
+
 #ifndef USE_POROELASTIC
-  if (materialData.local.mu <= 1e-15) {
+  bool isAcoustic = false;
+#ifndef USE_ANISOTROPIC
+  isAcoustic = materialData.local.mu <= 1e-15;
+#endif
+  if (isAcoustic) {
     // Acoustic materials has the following wave modes:
     // -P, N, N, N, N, N, N, N, P
     // Here we impose the P mode
