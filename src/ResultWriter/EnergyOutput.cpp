@@ -148,7 +148,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !defined(__NVCOMPILER)
 #pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drEnergyOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
@@ -194,7 +194,7 @@ void EnergyOutput::computeEnergies() {
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
-#ifdef _OPENMP
+#if defined(_OPENMP) && !defined(__NVCOMPILER)
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal, totalPlasticMoment) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {

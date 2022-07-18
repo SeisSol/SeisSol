@@ -298,14 +298,6 @@ if(${EQUATIONS} STREQUAL "poroelastic")
   endif()
 endif()
 
-if (WITH_GPU)
-  add_subdirectory(submodules/Device)
-  target_include_directories(SeisSol-lib PUBLIC submodules/Device)
-  target_link_libraries(SeisSol-lib PUBLIC device)
-  target_compile_definitions(SeisSol-lib PUBLIC ACL_DEVICE)
-
-  target_link_libraries(SeisSol-lib PUBLIC SeisSol-device-lib)
-endif()
 
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(SeisSol-lib PUBLIC INTEGRATE_QUANTITIES)
@@ -325,12 +317,11 @@ target_include_directories(SeisSol-lib SYSTEM PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-
 find_package(Eigen3 3.4 REQUIRED)
-target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen)
+find_package(yaml-cpp REQUIRED)
 
-find_package(yaml-cpp REQUIRED
-        PATHS ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen yaml-cpp)
+target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -367,7 +358,7 @@ if (WITH_GPU)
 
     target_include_directories(SeisSol-omp-offloaded PRIVATE ${SEISSOL_INCLUDES})
     target_include_directories(SeisSol-omp-offloaded SYSTEM PRIVATE ${SEISSOL_SYSTEM_INCLUDES})
-    target_link_libraries(SeisSol-omp-offloaded PRIVATE easi::easi)
+    target_link_libraries(SeisSol-omp-offloaded PRIVATE Eigen3::Eigen easi::easi)
 
     install(TARGETS SeisSol-omp-offloaded DESTINATION ${CMAKE_INSTALL_PREFIX})
   endif()
@@ -410,7 +401,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-    set(WARNINGS "--display_error_number --diag_suppress186")
+    set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
       set(WARNINGS "${WARNINGS} --diag_suppress1")
     endif()
