@@ -48,6 +48,7 @@
 #include <cmath>
 #include <map>
 #include <vector>
+#include <array>
 #include <unordered_map>
 #include "Parallel/MPI.h"
 
