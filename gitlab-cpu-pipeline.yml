@@ -99,13 +99,13 @@ run_tpv:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/7bits-register/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 9d87291
+        - git checkout 54f91c3
         - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
@@ -135,7 +135,7 @@ check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -154,13 +154,13 @@ check_receivers:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
         - cd output-tpv{$tpv}-${precision}
         - ls
-        - if [ ${tpv} = 5 ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
+        - if [ ${tpv} = 5 ] || [ ${tpv} = 5-nuc ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
           python3 ../postprocessing/validation/compare-receivers/compare.py . ./precomputed --epsilon ${epsilon} --mode $mode
 
 
@@ -175,7 +175,7 @@ check_energies:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
