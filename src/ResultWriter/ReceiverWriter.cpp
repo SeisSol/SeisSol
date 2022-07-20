@@ -220,6 +220,7 @@ void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
     if (contained[point] == 1) {
       unsigned meshId = meshIds[point];
       unsigned cluster = ltsLut.cluster(meshId);
+      LayerType layer = ltsLut.layer(meshId);
 
       auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
