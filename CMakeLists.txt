@@ -321,7 +321,8 @@ find_package(Eigen3 3.4 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 target_link_libraries(SeisSol-lib PUBLIC Eigen3::Eigen yaml-cpp)
-target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR} ${YAML_CPP_INCLUDE_DIR})
+message(${EIGEN3_INCLUDE_DIR})
 
 target_include_directories(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
