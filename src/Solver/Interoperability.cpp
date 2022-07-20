@@ -164,10 +164,6 @@ extern "C" {
                                         waveSpeeds );
   }
   
-  bool c_interoperability_faultParameterizedByTraction( char* modelFileName ) {
-    return seissol::initializers::FaultParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
-  }
-
   bool c_interoperability_nucleationParameterizedByTraction( char* modelFileName ) {
     return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
   }

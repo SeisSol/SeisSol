@@ -118,6 +118,8 @@ class BaseDRInitializer {
    * component of the stress in cartesian coordinates
    * @param stressXZ reference to std::vector of std::array<real, numPaddedPoints>, stores the XZ
    * component of the stress in cartesian coordinates
+   * @param faultParameterizedByTraction: Specifies, whether stress is parameterized by the traction
+   * the cartesian stress components.
    */
   void rotateStressToFaultCS(seissol::initializers::DynamicRupture* dynRup,
                              seissol::initializers::LTSTree::leaf_iterator& it,
@@ -127,7 +129,20 @@ class BaseDRInitializer {
                              std::vector<std::array<real, misc::numPaddedPoints>>& stressZZ,
                              std::vector<std::array<real, misc::numPaddedPoints>>& stressXY,
                              std::vector<std::array<real, misc::numPaddedPoints>>& stressYZ,
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ);
+                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ,
+                             bool faultParameterizedByTraction);
+
+  /**
+   * Checks how the initial stress (nucleation stress) is characterized. The user can either provide
+   * the traction "T_n", "T_s, "T_d" ("Tnuc_n", "Tnuc_s", "Tnuc_d") or the full stress tensor
+   * "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz" ("nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy",
+   * "nuc_yz", "nuc_xz"). The user either has to provide all three traction components or all six
+   * stress components, but no mixture.
+   * @param readNucleation if set to true, check the identifiers for the nucleation stress. If set
+   * to false, check identifiers for the initial stress
+   * @return vector of strings, with the identifiers for the initial stress.
+   */
+  std::vector<std::string> stressIdentifiers(bool readNucleation);
 };
 
 } // namespace seissol::dr::initializers

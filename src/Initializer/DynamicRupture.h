@@ -74,7 +74,6 @@ namespace seissol {
 struct seissol::initializers::DynamicRupture {
 public:
   virtual ~DynamicRupture() {}
-  bool isFaultParameterizedByTraction;        //true if Traction T_n , T_s, T_d is stored in iniBulk_XX, iniShearXY, iniShearXZ
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
