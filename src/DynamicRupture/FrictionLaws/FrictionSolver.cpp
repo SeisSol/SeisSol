@@ -16,6 +16,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                                         real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
+  nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS);
   mu = layerData.var(dynRup->mu);
   accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude);
   slip1 = layerData.var(dynRup->slip1);
@@ -38,21 +39,16 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
 }
 
-real FrictionSolver::calcSmoothStepIncrement(real currentTime, real dt) {
-  real gNuc = calcSmoothStep(currentTime);
-  real prevTime = currentTime - dt;
-  gNuc = gNuc - calcSmoothStep(prevTime);
-  return gNuc;
-}
-
-real FrictionSolver::calcSmoothStep(real currentTime) {
-  if (currentTime <= 0) {
-    return 0.0;
-  } else if (currentTime < drParameters.t0) {
-    return std::exp(misc::power<2>(currentTime - drParameters.t0) /
-                    (currentTime * (currentTime - 2.0 * drParameters.t0)));
-  } else {
-    return 1.0;
+void FrictionSolver::adjustInitialStress(size_t ltsFace, size_t timeIndex) {
+  if (this->mFullUpdateTime <= this->drParameters.t0) {
+    real gNuc = seissol::gaussianNucleationFunction::smoothStepIncrement(
+        this->mFullUpdateTime, this->deltaT[timeIndex], this->drParameters.t0);
+    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+      for (unsigned i = 0; i < 6; i++) {
+        this->initialStressInFaultCS[ltsFace][pointIndex][i] +=
+            nucleationStressInFaultCS[ltsFace][pointIndex][i] * gNuc;
+      }
+    }
   }
 }
 } // namespace seissol::dr::friction_law
