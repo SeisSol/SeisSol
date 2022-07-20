@@ -6,6 +6,7 @@
 #include <Physics/InitialField.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
+#include <utility>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
 #include <Solver/Interoperability.h>
@@ -18,11 +19,48 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                std::array<double, 3> kVec,
                std::vector<int> varField, 
                std::vector<std::complex<double>> ampField)
-  : m_varField(varField),
-    m_ampField(ampField),
+  : m_varField(std::move(varField)),
+    m_ampField(std::move(ampField)),
     m_phase(phase),
     m_kVec(kVec)
 {
+  init(materialData);
+}
+
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
+                                         double phase,
+                                         std::array<double, 3> kVec)
+    : m_phase(phase), m_kVec(kVec) {
+
+#ifndef USE_POROELASTIC
+  bool isAcoustic = false;
+#ifndef USE_ANISOTROPIC
+  isAcoustic = materialData.local.mu <= 1e-15;
+#endif
+  if (isAcoustic) {
+    // Acoustic materials has the following wave modes:
+    // -P, N, N, N, N, N, N, N, P
+    // Here we impose the P mode
+    m_varField = {8} ;
+    m_ampField = {1.0};
+  } else {
+    // Elastic materials have the following wave modes:
+    // -P, -S2, -S1, N, N, N, S1, S2, P
+    // Here we impose the -S2 and P mode
+    m_varField = {1, 8};
+    m_ampField = {1.0, 1.0};
+  }
+#else
+  //Poroelastic materials have the following wave modes:
+  //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+  //Here we impose -S1, -Ps and P
+  m_varField = {2,3,12};
+  m_ampField = {1.0, 1.0, 1.0};
+#endif
+  init(materialData);
+}
+
+void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   assert(m_varField.size() == m_ampField.size());
 
   std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> planeWaveOperator{};

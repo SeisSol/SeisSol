@@ -4,81 +4,22 @@
 SuperMUC-NG
 ===========
 
-Accessing github
-----------------
+Setting up GitHub on SuperMuc
+-------------------------------
 
-SuperMUC restricts access to outside sources and thus does not allow connections to https servers. 
-Nevertheless, GitHub can be used if remote port forwarding is correctly set.
-Here, we described the procedure to set up such port forwarding.
-
-
-1. On your local machine, add to your ~/.ssh/config the following lines:
-
-::
-
-  Host supermucNG
-     Hostname skx.supermuc.lrz.de
-     User <Your Login>    
-     RemoteForward ddddd github.com:22
-
-where ddddd is an arbitrary 5-digital port number, smaller than 65535.
-  
-2. Use the following command to login onto SuperMUC-NG:
-
-::
-
-  ssh supermucNG 
-  
-Add the following lines to your ~/.ssh/config (on supermucNG):
-
-:: 
-
-  Host github.com
-     HostName localhost
-     User git
-     Port ddddd
-    
-With ddddd the same port number as before.
-
-3. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
-
-::
-
-  ssh-keygen -t rsa 
-
-4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on supermucNG). You should now be able to clone SeisSol including the submodules using:
-
-::
-
-  git clone git@github.com:SeisSol/SeisSol.git
-
-Pay attention to the change in the git address ('https://github.com/' is now replaced by 'git@github.com:'). 
-If it works, you will see several lines, for example: 
-
-::
-
-  Cloning into 'SeisSol'...
-  remote: Enumerating objects: 25806, done.
-  remote: Counting objects: 100% (4435/4435), done.
-  remote: Compressing objects: 100% (1820/1820), done.
-  remote: Total 25806 (delta 2972), reused 3710 (delta 2551), pack-reused 21371
-  Receiving objects: 100% (25806/25806), 110.50 MiB | 9.79 MiB/s, done.
-  Resolving deltas: 100% (19382/19382), done.
-
+see :ref:`git_behind_firewall`.
 
 Building SeisSol
 ----------------
 
 1. clone SeisSol including the submodules using 
 
-::
+.. code-block:: bash
 
-  git clone git@github.com:SeisSol/SeisSol.git
-  cd SeisSol
-  git submodule update --init
+  git clone --recursive https://github.com/SeisSol/SeisSol.git
  
 
-2. Load module. Could add these lines to .bashrc (changing the order and adding additional modules may prevent a successful compilation):
+2. Load module. Add these lines to .bashrc:
 
 ::
 
@@ -86,73 +27,84 @@ Building SeisSol
   module load gcc
   module load cmake/3.21.4
   module load python/3.8.11-extended
-  module load libszip/2.1.1
-  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel21-impi
   module load numactl/2.0.14-intel21
-  module load yaml-cpp/0.7.0-intel21
+  #To use dependencies preinstalled with spack
+  module use /hppfs/work/pr63qo/di73yeq4/myLibs/spack-packages/modules/linux-sles15-skylake_avx512/
+  module load seissol-env/develop-intel21
+  export CC=mpicc 
+  export CXX=mpiCC 
+  export FC=mpif90
 
-  ####### for pspamm.py
-  export PATH=~/bin:$PATH
-  
-  ####  local setup for SeisSol. 
-  export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
-  export PKG_CONFIG_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
-
-
-3. Install metis, parmetis, libxsmm, PSpaMM, easi and ASAGI
-
-See :ref:`installing_parmetis`, :ref:`installing_libxsmm`, :ref:`installing_pspamm`, :ref:`installing_ASAGI` and `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
-Note that ASAGI needs to be compiled before easi.
-Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
-The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-If you need to compile ASAGI, first clone ASAGI with:
+ 
+3. Alternatively (and for reference), to compile seissol-env on supermuc, follow the procedure below:
 
 .. code-block:: bash
 
-  git clone git@github.com:TUM-I5/ASAGI
-  cd ASAGI
-  git submodule update --init
- 
-set compiler options, run cmake, and compile with:
+    # load spack
+    module load user_spack
+    # clone seissol-spack-aid and add the repository
+    # we use a supermuc specific branch as supermuc spack is too old (0.17.1) for the main branch
+    git clone --branch supermuc_NG https://github.com/SeisSol/seissol-spack-aid.git
+    cd seissol-spack-aid
+    spack repo add ./spack
+    # locate externally build pkg-config
+    spack external find pkg-config
 
-::
+    # install all dependencies of seissol.
+    # We specify the intel and intel-mpi version matching preinstalled version on supermuc
+    # These can be found with:
+    # >spack find intel-mpi
+    # >spack compiler list
+    spack install seissol-env %intel@21.4.0 ^intel-mpi@2019.12.320
+    # or
+    spack install seissol-env %gcc@11.2.0 ^intel-mpi@2019.12.320
 
-  export FC=mpif90
-  export CXX=mpiCC
-  export CC=mpicc
+    # now create a module:
+    spack module tcl refresh seissol-env@develop%intel@21.4.0
 
-  mkdir build && cd build
-  CMAKE_PREFIX_PATH=$NETCDF_BASE
-  cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
-  make -j 48
-  make install
-  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
+    #to access the module at start up, add to your ~/.bashrc
+    module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
+    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml 
+
+Custom install directory for packages and modules can be set with, by changing `` ~/.spack/config.yaml``:
+
+.. code-block:: yaml
+
+    config:
+      install_tree: path_2_packages
+
+and `` ~/.spack/modules.yaml``: 
+
+.. code-block:: yaml
+
+    modules:
+      default:
+        roots:
+         tcl: your_custom_path_2_modules
+
+This can be useful to share packages with other user of a supermuc project.
+
+3. Install SeisSol with cmake, e.g. with (more options with ccmake)
 
 
-4. Install SeisSol with cmake, e.g. with (more options with ccmake)
-
-::
+.. code-block:: bash
 
    mkdir build-release && cd build-release
-   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM ..
    make -j 48
 
 Note that to use sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
 For that modules and compiler need to be switched:
 
-::
+.. code-block:: bash
 
-    module load netcdf-hdf5-all/4.7_hdf5-1.10-gcc11-impi
-    module load numactl/2.0.14-gcc11
-    module load yaml-cpp/0.7.0
+    module switch seissol-env seissol-env/develop-gcc11
 
     export CC=mpigcc
     export CXX=mpigxx
     export FC=mpifc
 
-Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
-easi (and all its dependencies) also needs to be build with gcc compilers.
+Then cmake on a new build folder.
 To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
 Running SeisSol
@@ -213,42 +165,10 @@ Running SeisSol
   ulimit -Ss 2097152
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 
-
 Accessing PyPI
 --------------
 
 Many post-processing scripts of SeisSol require Python dependencies.
-We describe how to use pip on SuperMUC in the following.
+We describe how to use pip on SuperMUC at see :ref:`pypi_behind_firewall`.
 
 
-1. On your local machine in ~/.ssh/config add the following `RemoteForward` line:
-
-::
-
-    Host supermucNG
-        ...
-        RemoteForward ddddd localhost:8899
-
-where ddddd is an arbitrary port number with 5 digits.
-(This number should be different from port number used in other RemoteForward entries.)
-
-2. Install proxy.py on your local machine.
-
-::
-
-    pip install --upgrade --user proxy.py
-
-3. Start proxy.py on your local machine. (And keep it running.)
-
-
-::
-
-    ~/.local/bin/proxy --port 8899
-
-4. Login to SuperMUC with `ssh supermucNG`. Pip can be used with
-
-::
-
-    pip install <package name> --user --proxy localhost:ddddd
-
-where ddddd is your arbitrary port number.

@@ -22,8 +22,14 @@ src/Numerical_aux/Statistics.cpp
 src/Solver/Simulator.cpp
 src/Solver/FreeSurfaceIntegrator.cpp
 src/Solver/Interoperability.cpp
+
+src/Solver/time_stepping/AbstractTimeCluster.cpp
+src/Solver/time_stepping/ActorState.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
+src/Solver/time_stepping/GhostTimeCluster.cpp
+src/Solver/time_stepping/CommunicationManager.cpp
+
 src/Solver/time_stepping/TimeManager.cpp
 src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
@@ -99,10 +105,8 @@ src/Physics/InitialField.cpp
 src/Reader/readpar.f90
 src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90
-src/ResultWriter/magnitude_output.f90
 src/ResultWriter/output_rupturefront.f90
 src/ResultWriter/ini_faultoutput.f90
-src/ResultWriter/energies.f90
 src/ResultWriter/FaultWriterF.f90
 src/ResultWriter/faultoutput.f90
 src/ResultWriter/common_fault_receiver.f90

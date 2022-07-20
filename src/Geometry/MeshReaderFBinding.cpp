@@ -250,7 +250,7 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
 	logInfo(rank) << "Reading Gambit mesh using fast reader";
 	logInfo(rank) << "Parsing mesh and partition file:" << meshfile << ';' << partitionfile;
 
-	Stopwatch watch;
+    seissol::Stopwatch watch;
 	watch.start();
 
 	seissol::SeisSol::main.setMeshReader(new GambitReader(rank, meshfile, partitionfile));
@@ -268,7 +268,7 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 #ifdef USE_NETCDF
 	logInfo(rank) << "Reading netCDF mesh" << meshfile;
 
-	Stopwatch watch;
+    seissol::Stopwatch watch;
 	watch.start();
 
 	seissol::SeisSol::main.setMeshReader(new NetcdfReader(rank, nProcs, meshfile));
@@ -324,7 +324,7 @@ void read_mesh_puml_c(const char* meshfile,
 
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
-	Stopwatch watch;
+    seissol::Stopwatch watch;
 	watch.start();
 
 	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();

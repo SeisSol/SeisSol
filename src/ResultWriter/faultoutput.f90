@@ -70,7 +70,6 @@ CONTAINS
 
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
-      USE magnitude_output_mod
       !-------------------------------------------------------------------------!
       IMPLICIT NONE
       !-------------------------------------------------------------------------!
@@ -99,13 +98,6 @@ CONTAINS
       ! Note that this causes a dt timeshift in the DR output routines
       !
       !
-      IF (DISC%DynRup%energy_rate_output_on.EQ.1) THEN
-         IF ( MOD(DISC%iterationstep,DISC%DynRup%energy_rate_printtimeinterval).EQ.0 &
-         .OR. (DISC%EndTime-time).LE.(dt*1.005d0) ) THEN
-            CALL energy_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
-         ENDIF
-      ENDIF
-
 
       SELECT CASE(DISC%DynRup%OutputPointType)
        ! For historical reasons fault output DISC%DynRup%OutputPointType= 3 or 4 or 5
@@ -554,7 +546,7 @@ CONTAINS
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
 
               !add transient nucleation stress to fault output
-              IF ((EQN%FL.EQ.103) .OR. (EQN%FL.EQ.3) .OR. (EQN%FL.EQ.4)) THEN
+              IF ((EQN%FL == 2) .OR. (EQN%FL == 3) .OR. (EQN%FL == 4) .OR. (EQN%FL == 103)) THEN
                  NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
                  Tnuc = DISC%DynRup%t_0
                  Gnuc = Calc_SmoothStep(time, Tnuc)

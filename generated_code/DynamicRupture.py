@@ -103,7 +103,7 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3))
   slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3))
-  absoluteSlipInterpolated = Tensor('absoluteSlipInterpolated', (numberOfPoints,))
+  squaredNormSlipRateInterpolated = Tensor('squaredNormSlipRateInterpolated', (numberOfPoints,))
   tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3))
   frictionalEnergy = Tensor('frictionalEnergy', ())
   timeWeight = Scalar('timeWeight')
@@ -117,6 +117,9 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
 
   accumulateSlipInterpolated = slipInterpolated['kp'] <= slipInterpolated['kp'] + timeWeight * slipRateInterpolated['kp']
   generator.add('accumulateSlipInterpolated', accumulateSlipInterpolated)
+
+  computeSquaredNormSlipRateInterpolated = squaredNormSlipRateInterpolated['k'] <= slipRateInterpolated['kp'] * slipRateInterpolated['kp']
+  generator.add('computeSquaredNormSlipRateInterpolated', computeSquaredNormSlipRateInterpolated)
 
   accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)

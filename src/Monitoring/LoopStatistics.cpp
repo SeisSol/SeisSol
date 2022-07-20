@@ -48,6 +48,8 @@
 #endif // USE_NETCDF
 
 #include "Numerical_aux/Statistics.h"
+#include "Monitoring/Stopwatch.h"
+#include <utils/env.h>
 
 #ifdef USE_MPI  
 void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
@@ -60,10 +62,11 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
   
     for (auto const& sample : m_times[region]) {
       if (sample.numIters > 0) {
+        double time = seconds(difftime(sample.begin, sample.end));
         x  += sample.numIters;
         x2 += static_cast<double>(sample.numIters) * static_cast<double>(sample.numIters);
-        xy += static_cast<double>(sample.numIters) * sample.time;
-        y  += sample.time;
+        xy += static_cast<double>(sample.numIters) * time;
+        y  += time;
         ++N;
       }
     }
@@ -73,7 +76,10 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     sums[5*region + 2] = xy;
     sums[5*region + 3] = y;
     sums[5*region + 4] = N;
-    totalTimePerRank += y;
+    // Make sure that events that lead to duplicate accounting are ignored
+    if (m_includeInSummary[region]) {
+      totalTimePerRank += y;
+    }
   }
 
   int rank;
@@ -108,7 +114,8 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
 
     for (auto const& sample : m_times[region]) {
       if (sample.numIters > 0) {
-        double const error = sample.time - (constant + slope * sample.numIters);
+        double const error = seconds(difftime(sample.begin, sample.end))
+                                - (constant + slope * sample.numIters);
         stderror[region] += error * error;
       }
     }
@@ -156,6 +163,20 @@ static void check_err(const int stat, const int line, const char *file) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
 }
+
+template <typename T> struct type2nc {};
+template <> struct type2nc<int32_t> {
+    static constexpr auto type = NC_INT;
+};
+template <> struct type2nc<uint32_t> {
+    static constexpr auto type = NC_UINT;
+};
+template <> struct type2nc<int64_t> {
+    static constexpr auto type = NC_INT64;
+};
+template <> struct type2nc<uint64_t> {
+    static constexpr auto type = NC_UINT64;
+};
 #endif
   
 void seissol::LoopStatistics::writeSamples() {
@@ -176,15 +197,23 @@ void seissol::LoopStatistics::writeSamples() {
       int ncid, stat;
       stat = nc_create_par(fileName.c_str(), NC_MPIIO | NC_CLOBBER | NC_NETCDF4, seissol::MPI::mpi.comm(), MPI_INFO_NULL, &ncid); check_err(stat,__LINE__,__FILE__);
       
-      int sampledim, rankdim, sampletyp, offsetid, sampleid;
+      int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
       
       stat = nc_def_dim(ncid, "rank", 1+seissol::MPI::mpi.size(), &rankdim);             check_err(stat,__LINE__,__FILE__);
       stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim); check_err(stat,__LINE__,__FILE__);
-      
+
+      stat = nc_def_compound(ncid, sizeof(timespec), "timespec", &timespectyp); check_err(stat,__LINE__,__FILE__);
+      {
+        stat = nc_insert_compound(ncid, timespectyp, "sec", NC_COMPOUND_OFFSET(timespec,tv_sec), type2nc<decltype(timespec::tv_sec)>::type); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(ncid, timespectyp, "nsec", NC_COMPOUND_OFFSET(timespec,tv_nsec), type2nc<decltype(timespec::tv_nsec)>::type); check_err(stat,__LINE__,__FILE__);
+      }
+
       stat = nc_def_compound(ncid, sizeof(Sample), "Sample", &sampletyp); check_err(stat,__LINE__,__FILE__);
       {
-        stat = nc_insert_compound(ncid, sampletyp, "time", NC_COMPOUND_OFFSET(Sample,time), NC_DOUBLE);   check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(ncid, sampletyp, "begin", NC_COMPOUND_OFFSET(Sample,begin), timespectyp); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(ncid, sampletyp, "end", NC_COMPOUND_OFFSET(Sample,end), timespectyp); check_err(stat,__LINE__,__FILE__);
         stat = nc_insert_compound(ncid, sampletyp, "loopLength", NC_COMPOUND_OFFSET(Sample,numIters), NC_UINT); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(ncid, sampletyp, "subRegion", NC_COMPOUND_OFFSET(Sample,subRegion), NC_UINT); check_err(stat,__LINE__,__FILE__);
       }
       
       stat = nc_def_var(ncid, "offset", NC_INT,   1, &rankdim,   &offsetid); check_err(stat,__LINE__,__FILE__);
