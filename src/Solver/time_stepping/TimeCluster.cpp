@@ -268,26 +268,29 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 #else
 
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
-  device.api->putProfilingMark("computeDynamicRupture", device::ProfilingColors::Cyan);
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
   if (layerData.getNumberOfCells() > 0) {
     // compute space time interpolation part
+
+    device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
     m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
     ConditionalBatchTableT &table = layerData.getCondBatchTable();
     m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
+    device.api->popLastProfilingMark();
 
+    device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     m_FrictionSolver->evaluate(layerData,
                                m_dynRup,
                                ct.correctionTime,
                                m_dynamicRuptureKernel.timeWeights);
+    device.api->popLastProfilingMark();
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
-  device.api->popLastProfilingMark();
 }
 #endif
 
