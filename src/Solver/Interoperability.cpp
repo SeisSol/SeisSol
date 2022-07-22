@@ -785,13 +785,6 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
   memoryManager.initFrictionData();
   seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 
-  // TODO (Ravil and Sebastian): discuss and remove this comment (dr/cpp)
-  //memoryManager.getDRInitializer()->initializeFrictionMatrices(
-  //    seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
-  //    seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-  //    seissol::SeisSol::main.getMemoryManager().getFrictionLaw(),
-  //    m_ltsFaceToMeshFace);
-
   seissol::initializers::initializeBoundaryMappings(meshReader,
                                                     memoryManager.getEasiBoundaryReader(),
                                                     m_ltsTree,
