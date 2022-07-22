@@ -161,9 +161,9 @@ CONTAINS
     DISC%StartCPUTime = dwalltime()
 
     ! enable dynamic rupture if requested
-    if( eqn%dr==1 ) then
-      call c_interoperability_enableDynamicRupture()
-    endif
+    !if( eqn%dr==1 ) then
+    !  call c_interoperability_enableDynamicRupture()
+    !endif
 
     ! check whether the device memory allocated at this point
     ! exceeds the maximum avaliable on a current device

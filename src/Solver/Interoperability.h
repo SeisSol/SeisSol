@@ -196,7 +196,7 @@ class seissol::Interoperability {
   /**
    * Enables dynamic rupture.
    **/
-   void enableDynamicRupture();
+   //void enableDynamicRupture();
 
    /**
     * Set material parameters for cell
@@ -288,7 +288,7 @@ class seissol::Interoperability {
    /**
     * Copy dynamic rupture variables for output.
     **/
-   void copyDynamicRuptureState();
+   //void copyDynamicRuptureState();
 
   /**
    * Returns (possibly multiple) initial conditions
@@ -348,26 +348,26 @@ class seissol::Interoperability {
     * @param i_fullUpdateTime full update time of the respective DOFs.
     * @param i_timeStepWidth time step width of the next full update.
     **/
-   void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
+   //void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
 
 
    /*
     * Not in use any more
     * TODO(Ravil, Sebastian): remove this and all callees inside
     */
-   void evaluateFrictionLaw(  int face,
-                              real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real   imposedStatePlus[seissol::tensor::QInterpolated::size()],
-                              real   imposedStateMinus[seissol::tensor::QInterpolated::size()],
-                              double i_fullUpdateTime,
-                              double timePoints[CONVERGENCE_ORDER],
-                              double timeWeights[CONVERGENCE_ORDER],
-                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
-                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
+   //void evaluateFrictionLaw(  int face,
+   //                           real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+   //                           real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+   //                           real   imposedStatePlus[seissol::tensor::QInterpolated::size()],
+   //                           real   imposedStateMinus[seissol::tensor::QInterpolated::size()],
+   //                           double i_fullUpdateTime,
+   //                           double timePoints[CONVERGENCE_ORDER],
+   //                           double timeWeights[CONVERGENCE_ORDER],
+   //                           seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
+   //                           seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
 
 
-  void initializeFaultOutput();
+   //void initializeFaultOutput();
 
 
    /**
@@ -375,7 +375,7 @@ class seissol::Interoperability {
     *
     * @param time The current simulation time
     */
-   void calcElementwiseFaultoutput( double time );
+   //void calcElementwiseFaultoutput( double time );
 
    /**
     * Simulates until the final time is reached.

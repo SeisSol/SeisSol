@@ -169,9 +169,9 @@ extern "C" {
   }
 
 
-  void c_interoperability_enableDynamicRupture() {
-    e_interoperability.enableDynamicRupture();
-  }
+  //void c_interoperability_enableDynamicRupture() {
+  //  e_interoperability.enableDynamicRupture();
+  //}
 
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
@@ -703,9 +703,9 @@ void seissol::Interoperability::fitAttenuation( double rho,
 #endif
 }
 
-void seissol::Interoperability::enableDynamicRupture() {
-  // DR is always enabled if there are dynamic rupture cells
-}
+//void seissol::Interoperability::enableDynamicRupture() {
+//  // DR is always enabled if there are dynamic rupture cells
+//}
 
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)
 {
@@ -971,10 +971,10 @@ seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* s
 	    freeSurfaceFilename);
 }
 
-void seissol::Interoperability::copyDynamicRuptureState()
-{
-	f_interoperability_copyDynamicRuptureState(m_domain);
-}
+//void seissol::Interoperability::copyDynamicRuptureState()
+//{
+//	f_interoperability_copyDynamicRuptureState(m_domain);
+//}
 
 void seissol::Interoperability::initInitialConditions()
 {
@@ -1092,53 +1092,53 @@ void seissol::Interoperability::deallocateMemoryManager() {
   seissol::SeisSol::main.deleteMemoryManager();
 }
 
-void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
-                                             double i_timeStepWidth )
-{
-  f_interoperability_faultOutput( m_domain, &i_fullUpdateTime, &i_timeStepWidth );
-}
+//void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
+//                                             double i_timeStepWidth )
+//{
+//  f_interoperability_faultOutput( m_domain, &i_fullUpdateTime, &i_timeStepWidth );
+//}
 
-void seissol::Interoperability::evaluateFrictionLaw(  int face,
-                                                      real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                      real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                      real imposedStatePlus[seissol::tensor::QInterpolated::size()],
-                                                      real imposedStateMinus[seissol::tensor::QInterpolated::size()],
-                                                      double i_fullUpdateTime,
-                                                      double timePoints[CONVERGENCE_ORDER],
-                                                      double timeWeights[CONVERGENCE_ORDER],
-                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
-                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
-{
-  int fFace = face + 1;
-  int numberOfPoints = tensor::QInterpolated::Shape[0];
-  auto godunovLd = static_cast<int>(dr::misc::leadDim<init::QInterpolated>());
+//void seissol::Interoperability::evaluateFrictionLaw(  int face,
+//                                                      real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+//                                                      real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+//                                                      real imposedStatePlus[seissol::tensor::QInterpolated::size()],
+//                                                      real imposedStateMinus[seissol::tensor::QInterpolated::size()],
+//                                                      double i_fullUpdateTime,
+//                                                      double timePoints[CONVERGENCE_ORDER],
+//                                                      double timeWeights[CONVERGENCE_ORDER],
+//                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
+//                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
+//{
+//  int fFace = face + 1;
+//  int numberOfPoints = tensor::QInterpolated::Shape[0];
+//  auto godunovLd = static_cast<int>(dr::misc::leadDim<init::QInterpolated>());
+//
+//  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
+//
+//  f_interoperability_evaluateFrictionLaw( m_domain,
+//                                          fFace,
+//                                         &QInterpolatedPlus[0][0],
+//                                         &QInterpolatedMinus[0][0],
+//                                         &imposedStatePlus[0],
+//                                         &imposedStateMinus[0],
+//                                          numberOfPoints,
+//                                          godunovLd,
+//                                          &i_fullUpdateTime,
+//                                          &timePoints[0],
+//                                          &timeWeights[0],
+//                                          waveSpeedsPlus.density,
+//                                          waveSpeedsPlus.pWaveVelocity,
+//                                          waveSpeedsPlus.sWaveVelocity,
+//                                          waveSpeedsMinus.density,
+//                                          waveSpeedsMinus.pWaveVelocity,
+//                                          waveSpeedsMinus.sWaveVelocity,
+//                                          init::resample::Values );
+//}
 
-  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
-
-  f_interoperability_evaluateFrictionLaw( m_domain,
-                                          fFace,
-                                         &QInterpolatedPlus[0][0],
-                                         &QInterpolatedMinus[0][0],
-                                         &imposedStatePlus[0],
-                                         &imposedStateMinus[0],
-                                          numberOfPoints,
-                                          godunovLd,
-                                          &i_fullUpdateTime,
-                                          &timePoints[0],
-                                          &timeWeights[0],
-                                          waveSpeedsPlus.density,
-                                          waveSpeedsPlus.pWaveVelocity,
-                                          waveSpeedsPlus.sWaveVelocity,
-                                          waveSpeedsMinus.density,
-                                          waveSpeedsMinus.pWaveVelocity,
-                                          waveSpeedsMinus.sWaveVelocity,
-                                          init::resample::Values );
-}
-
-void seissol::Interoperability::calcElementwiseFaultoutput(double time)
-{
-	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
-}
+//void seissol::Interoperability::calcElementwiseFaultoutput(double time)
+//{
+//	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
+//}
 
 void seissol::Interoperability::reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
@@ -1162,7 +1162,7 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
 #endif
 }
 
-void Interoperability::initializeFaultOutput() {
-  f_interoperability_initializeFaultOutput(m_domain);
-}
+//void Interoperability::initializeFaultOutput() {
+//  f_interoperability_initializeFaultOutput(m_domain);
+//}
 
