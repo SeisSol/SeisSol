@@ -5,6 +5,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
+#include "Numerical_aux/GaussianNucleationFunction.h"
 
 namespace seissol::dr::friction_law {
 /**
@@ -39,15 +40,10 @@ class FrictionSolver {
 
   protected:
   /**
-   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
+   * Adjust initial stress by adding nucleation stress * nucleation function
+   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real calcSmoothStepIncrement(real currentTime, real dt);
-
-  /**
-   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
-   */
-  real calcSmoothStep(real currentTime);
-
+  void adjustInitialStress(size_t ltsFace, size_t timeIndex);
   real deltaT[CONVERGENCE_ORDER] = {};
 
   dr::DRParameters& drParameters;
@@ -55,6 +51,7 @@ class FrictionSolver {
   real mFullUpdateTime;
   // CS = coordinate system
   real (*initialStressInFaultCS)[misc::numPaddedPoints][6];
+  real (*nucleationStressInFaultCS)[misc::numPaddedPoints][6];
   real (*cohesion)[misc::numPaddedPoints];
   real (*mu)[misc::numPaddedPoints];
   real (*accumulatedSlipMagnitude)[misc::numPaddedPoints];

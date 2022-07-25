@@ -2,7 +2,6 @@
 #define SEISSOL_RATEANDSTATE_H
 
 #include "BaseFrictionLaw.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
 
 namespace seissol::dr::friction_law {
 // TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
@@ -80,11 +79,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
-    // compute time increments (Gnuc)
-    this->preCalcTime();
-
-    // compute initial stress
-    static_cast<Derived*>(this)->adjustInitialStress(ltsFace);
     // copy state variable from last time step
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       stateVariableBuffer[pointIndex] = this->stateVariable[ltsFace][pointIndex];
@@ -106,36 +100,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           real fullUpdateTime) {
     auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA);
-    nucleationStressInFaultCS = layerData.var(concreteLts->nucleationStressInFaultCS);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-  }
-  /*
-   * compute time increments (Gnuc)
-   */
-  void preCalcTime() {
-    dt = 0;
-    for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-      dt += this->deltaT[timeIndex];
-    }
-    gNuc = seissol::gaussianNucleationFunction::smoothStepIncrement(
-        this->mFullUpdateTime, dt, this->drParameters.t0);
-  }
-
-  /*
-   * compute initial stress from nucleation stress
-   */
-  void adjustInitialStress(unsigned int ltsFace) {
-    if (this->mFullUpdateTime <= this->drParameters.t0) {
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-        for (unsigned i = 0; i < 6; i++) {
-          this->initialStressInFaultCS[ltsFace][pointIndex][i] +=
-              nucleationStressInFaultCS[ltsFace][pointIndex][i] * gNuc;
-        }
-      }
-    }
   }
 
   /*
@@ -415,11 +383,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   protected:
   // Attributes
-  // CS = coordinate system
-  real (*nucleationStressInFaultCS)[misc::numPaddedPoints][6];
-  real dt = 0;
-  real gNuc = 0;
-
   real (*a)[misc::numPaddedPoints];
   real (*sl0)[misc::numPaddedPoints];
   real (*stateVariable)[misc::numPaddedPoints];

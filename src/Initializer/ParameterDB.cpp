@@ -324,24 +324,6 @@ bool seissol::initializers::FaultParameterDB::faultProvides(std::string& paramet
   return supplied.count(parameter) > 0;
 }
 
-bool seissol::initializers::FaultParameterDB::faultParameterizedByTraction(std::string const& fileName) {
-  easi::Component* model = loadEasiModel(fileName);
-  std::set<std::string> supplied = model->suppliedParameters();
-  delete model;
-
-  std::set<std::string> stress = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
-  std::set<std::string> traction =  {"T_n", "T_s", "T_d"};
-
-  bool containsStress = std::includes(supplied.begin(), supplied.end(), stress.begin(), stress.end());
-  bool containsTraction = std::includes(supplied.begin(), supplied.end(), traction.begin(), traction.end());
-
-  if (containsStress == containsTraction) {
-    logError() << "Both stress (s_xx, s_yy, s_zz, s_xy, s_yz, s_xz) and traction (T_n, T_s, T_d) are defined (or are missing), but only either of them must be defined.";
-  }
-
-  return containsTraction;
-}
-
 bool seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction(std::string const& fileName) {
   easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();

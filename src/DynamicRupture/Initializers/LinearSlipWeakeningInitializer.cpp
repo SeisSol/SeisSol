@@ -22,7 +22,6 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
     real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
     bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = drParameters.isDsOutputOn;

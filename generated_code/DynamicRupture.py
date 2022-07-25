@@ -67,7 +67,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   initialStress = Tensor("initialStress", (6, ))
   rotatedStress = Tensor("rotatedStress", (6, ))
   rotationKernel = rotatedStress['i'] <= stressRotationMatrix['ij'] * initialStress['j']
-  generator.add('rotateStressToFaultCS', rotationKernel)
+  generator.add('rotateStress', rotationKernel)
 
   reducedFaceAlignedMatrix = Tensor("reducedFaceAlignedMatrix", (6, 6))
   generator.add('rotateInitStress',
