@@ -594,33 +594,33 @@ MODULE TypesDef
   end type tDynRun_constants
 
 !< Dynamic Rupture output variables, without rupture front output
-  TYPE tDynRup_output
-     REAL, POINTER                          :: OutNodes(:,:)    => NULL()                !< Node output positions at fault
-     REAL, POINTER                          :: OutEval(:,:,:,:) => NULL()                !< Values for the automatic evaluation of DOFs at fault output nodes
-     REAL, POINTER                          :: OutVal(:,:,:)   => NULL()                 !< State variable used at Rate-and-state friction laws
-     REAL, POINTER                          :: OutInt(:,:)     => NULL()                 !< nearest BndGP from output faultreceiver
-     REAL, POINTER                          :: OutInt_dist(:)   => NULL()                !< distance from nearest BndGP from output faultreceiver
-     INTEGER                                :: nOutPoints                       !< Number of output points per element
-     INTEGER                                :: nOutVars
-        !< Number of output variables (calculated using OututMask)
-     INTEGER                                :: printtimeinterval                !< Iteration interval at which output will be written
-     INTEGER                                :: printIntervalCriterion           !< 1=iteration, 2=time
-     REAL                                   :: printtimeinterval_sec            !< Time interval at which output will be written
-     INTEGER                                :: OutputMask(1:12)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival 11/Dyn.ShearStress arrival 12/TP output
-     INTEGER                      , POINTER :: OutputLabel(:)    => NULL()      !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
-     LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
-     INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
-     TYPE(tUnstructPoint)         , POINTER :: RecPoint(:)    => NULL()                  !< DR pickpoint location
-     INTEGER                      , POINTER :: VFile(:)     => NULL()                    !< unit numbers for DR pickpoints
-     INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
-     INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
-     REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
-     REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
-     REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
-     REAL                                   :: p0
-     integer                                :: refinement
-     integer                                :: refinement_strategy
-  END TYPE tDynRup_output
+  !TYPE tDynRup_output
+  !   REAL, POINTER                          :: OutNodes(:,:)    => NULL()                !< Node output positions at fault
+  !   REAL, POINTER                          :: OutEval(:,:,:,:) => NULL()                !< Values for the automatic evaluation of DOFs at fault output nodes
+  !   REAL, POINTER                          :: OutVal(:,:,:)   => NULL()                 !< State variable used at Rate-and-state friction laws
+  !   REAL, POINTER                          :: OutInt(:,:)     => NULL()                 !< nearest BndGP from output faultreceiver
+  !   REAL, POINTER                          :: OutInt_dist(:)   => NULL()                !< distance from nearest BndGP from output faultreceiver
+  !   INTEGER                                :: nOutPoints                       !< Number of output points per element
+  !   INTEGER                                :: nOutVars
+  !      !< Number of output variables (calculated using OututMask)
+  !   INTEGER                                :: printtimeinterval                !< Iteration interval at which output will be written
+  !   INTEGER                                :: printIntervalCriterion           !< 1=iteration, 2=time
+  !   REAL                                   :: printtimeinterval_sec            !< Time interval at which output will be written
+  !   INTEGER                                :: OutputMask(1:12)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival 11/Dyn.ShearStress arrival 12/TP output
+  !   INTEGER                      , POINTER :: OutputLabel(:)    => NULL()      !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
+  !   LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
+  !   INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
+  !   TYPE(tUnstructPoint)         , POINTER :: RecPoint(:)    => NULL()                  !< DR pickpoint location
+  !   INTEGER                      , POINTER :: VFile(:)     => NULL()                    !< unit numbers for DR pickpoints
+  !   INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
+  !   INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
+  !   REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
+  !   REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
+  !   REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
+  !   REAL                                   :: p0
+  !   integer                                :: refinement
+  !   integer                                :: refinement_strategy
+  !END TYPE tDynRup_output
 
   TYPE tDynRup
      character(LEN=600)                     :: ModelFileName
