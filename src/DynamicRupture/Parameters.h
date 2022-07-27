@@ -69,18 +69,18 @@ inline DRParameters readParametersFromYaml(YAML::Node& params) {
     initializers::updateIfExists(yamlDrParams, "rs_sr0", drParameters.rsSr0);
     initializers::updateIfExists(yamlDrParams, "rs_inisliprate1", drParameters.rsInitialSlipRate1);
     initializers::updateIfExists(yamlDrParams, "rs_inisliprate2", drParameters.rsInitialSlipRate2);
-    initializers::updateIfExists(yamlDrParams, "mu_w", drParameters.muW);
+    initializers::updateIfExists(yamlDrParams, "rs_muw", drParameters.muW);
 
     // Thermal Pressurization parameters
-    initializers::updateIfExists(yamlDrParams, "alpha_th", drParameters.thermalDiffusivity);
-    initializers::updateIfExists(yamlDrParams, "rho_c", drParameters.heatCapacity);
-    initializers::updateIfExists(yamlDrParams, "tp_lambda", drParameters.undrainedTPResponse);
-    initializers::updateIfExists(yamlDrParams, "initemp", drParameters.initialTemperature);
-    initializers::updateIfExists(yamlDrParams, "inipressure", drParameters.initialPressure);
+    initializers::updateIfExists(yamlDrParams, "tp_thermaldiffusivity", drParameters.thermalDiffusivity);
+    initializers::updateIfExists(yamlDrParams, "tp_heatcapacity", drParameters.heatCapacity);
+    initializers::updateIfExists(yamlDrParams, "tp_undrainedtpresponse", drParameters.undrainedTPResponse);
+    initializers::updateIfExists(yamlDrParams, "tp_initemp", drParameters.initialTemperature);
+    initializers::updateIfExists(yamlDrParams, "tp_inipressure", drParameters.initialPressure);
 
     // Prakash-Clifton regularization parameters
-    initializers::updateIfExists(yamlDrParams, "vstar", drParameters.vStar);
-    initializers::updateIfExists(yamlDrParams, "prakashlength", drParameters.prakashLength);
+    initializers::updateIfExists(yamlDrParams, "pc_vstar", drParameters.vStar);
+    initializers::updateIfExists(yamlDrParams, "pc_prakashlength", drParameters.prakashLength);
 
     // filename of the yaml file describing the fault parameters
     initializers::updateIfExists(yamlDrParams, "modelfilename", drParameters.faultFileName);

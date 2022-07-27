@@ -684,8 +684,8 @@ MODULE TypesDef
      INTEGER                                :: BackgroundType                   !< Type of background stresses (0: homogeneous)
      TYPE(tbackground_stress)               :: bg_stress                        !< includes background stress information for dynamic rupture
      ! case(6) bimaterial with LSW
-     REAL                                   :: vStar                            !< reference velocity of prakash-cliff regularization
-     REAL                                   :: prakashLength                    !< reference length of prakash-cliff regularization
+     REAL                                   :: pc_vStar                         !< reference velocity of prakash-cliff regularization
+     REAL                                   :: pc_prakashLength                 !< reference length of prakash-cliff regularization
      REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
      INTEGER                                :: thermalPress = 0                 !< thermal pressurization switch
      REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP

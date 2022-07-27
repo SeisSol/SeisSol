@@ -273,7 +273,7 @@ MODULE Eval_friction_law_mod
 !       ! modify strength according to prakash clifton
 !       LocSR = SQRT(LocSR1**2 + LocSR2**2)
 !       sigma = LocP+P_0
-!       CALL prakash_cliff_fric(Strength_exp,sigma,LocSR,DISC%DynRup%vstar,DISC%DynRup%prakashlength,LocMu,time_inc)
+!       CALL prakash_cliff_fric(Strength_exp,sigma,LocSR,DISC%DynRup%pc_vstar,DISC%DynRup%pc_prakashlength,LocMu,time_inc)
 !
 !       ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
 !

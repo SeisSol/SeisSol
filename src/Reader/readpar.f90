@@ -915,8 +915,8 @@ CONTAINS
     REAL                                   :: RS_sv0, XRef, YRef, ZRef, GPwise,  &
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, vStar, prakashLength, t_0, Mu_W, &
-                                              alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                              RS_iniSlipRate2, pc_vStar, pc_prakashLength, t_0, RS_muW, &
+                                              TP_thermalDiffusivity, TP_heatCapacity, TP_undrainedTPResponse, TP_IniTemp, TP_IniPressure, &
                                               NucRS_sv0, r_s
 
     !------------------------------------------------------------------------
@@ -924,9 +924,9 @@ CONTAINS
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
-                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, vstar, &
-                                                thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
-                                                prakashLength, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
+                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, pc_vstar, &
+                                                thermalPress, TP_thermalDiffusivity, TP_heatCapacity, TP_undrainedTPResponse, TP_IniTemp, TP_IniPressure, &
+                                                pc_prakashLength, t_0, RS_muW, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
 
@@ -950,18 +950,18 @@ CONTAINS
     RS_b = 0
     RS_iniSlipRate1 = 0
     RS_iniSlipRate2 = 0
-    vstar = 0
+    pc_vstar = 0
     t_0 = 0
-    prakashLength = 0
-    Mu_W = 0
+    pc_prakashLength = 0
+    RS_muW = 0
     NucRS_sv0 = 0
     r_s = 0
     thermalPress = 0
-    alpha_th = 0
-    rho_c = 0
-    TP_lambda = 0
-    IniTemp = 0.0d0 
-    IniPressure = 0.0d0
+    TP_thermalDiffusivity = 0
+    TP_heatCapacity = 0
+    TP_undrainedTPResponse = 0
+    TP_IniTemp = 0.0d0
+    TP_IniPressure = 0.0d0
     ModelFileName = ''
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
@@ -1014,8 +1014,8 @@ CONTAINS
                DISC%DynRup%t_0 = t_0 
              ENDIF
            CASE(6) ! bimaterial with LSW
-             DISC%DynRup%vstar = vstar
-             DISC%DynRup%prakashLength = prakashLength
+             DISC%DynRup%pc_vstar = pc_vstar
+             DISC%DynRup%pc_prakashLength = pc_prakashLength
              CONTINUE
            CASE(33, 34) !ImposedSlipRateOnDRBoundary
              IF (EQN%FL.EQ.33) THEN
@@ -1032,7 +1032,7 @@ CONTAINS
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
              DISC%DynRup%RS_b = RS_b    ! b, evolution effect
              IF (EQN%FL.EQ.103) THEN
-                 DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
+                 DISC%DynRup%Mu_W = RS_muW    ! mu_w, weakening friction coefficient
              ENDIF
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
@@ -1041,11 +1041,11 @@ CONTAINS
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
                  logInfo0(*) 'Thermal pressurization assumed'
                  !physical
-                 DISC%DynRup%alpha_th = alpha_th
-                 DISC%DynRup%rho_c = rho_c
-                 DISC%DynRup%TP_lambda = TP_lambda
-                 EQN%Temp_0 = IniTemp
-                 EQN%Pressure_0 = IniPressure
+                 DISC%DynRup%alpha_th = TP_thermalDiffusivity
+                 DISC%DynRup%rho_c = TP_heatCapacity
+                 DISC%DynRup%TP_lambda = TP_undrainedTPResponse
+                 EQN%Temp_0 = TP_IniTemp
+                 EQN%Pressure_0 = TP_IniPressure
                  !numerical, currently fixed like that but requires further testing
                  DISC%DynRup%TP_log_dz = 0.3
                  DISC%DynRup%TP_max_wavenumber = 10.0
