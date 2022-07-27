@@ -76,7 +76,7 @@ CONTAINS
 
     use iso_c_binding
     use f_ftoc_bind_interoperability
-    use ini_faultoutput_mod
+    !use ini_faultoutput_mod
 
 #ifdef PARALLEL
     use iso_c_binding

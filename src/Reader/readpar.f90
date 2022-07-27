@@ -568,182 +568,182 @@ CONTAINS
   !------------------------------------------------------------------------
   !------------------------------------------------------------------------
 
-  subroutine readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
-    !------------------------------------------------------------------------
-    !------------------------------------------------------------------------
-    IMPLICIT NONE
-    !------------------------------------------------------------------------
-    TYPE (tEquations)          :: EQN
-    TYPE (tBoundary)           :: BND
-    TYPE (tInitialCondition)   :: IC
-    TYPE (tDiscretization)     :: DISC
-    TYPE (tInputOutput)        :: IO
-    TYPE (tMPI)                :: MPI
-    LOGICAL                    :: CalledFromStructCode
-    ! localVariables
-    INTEGER                    :: allocStat, OutputMask(16), i
-    INTEGER                    :: printtimeinterval
-    INTEGER                    :: nOutPoints
-    INTEGER                    :: readStat
-    REAL, DIMENSION(:), ALLOCATABLE ::X, Y, Z
-    CHARACTER(LEN=600)         :: PPFileName
-    !------------------------------------------------------------------------
-    INTENT(INOUT)              :: EQN, IO, DISC
-    INTENT(INOUT)              :: BND
-    !------------------------------------------------------------------------
-    NAMELIST                   /Pickpoint/ printtimeinterval, OutputMask, nOutPoints, PPFileName
-    !------------------------------------------------------------------------
-    !
-    !Setting default values
-    printtimeinterval = 1
-    OutputMask(1:3) = 1
-    OutputMask(4:12) = 0
-    !
-    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
-    IF (readStat.NE.0) THEN
-        CALL RaiseErrorNml(IO%UNIT%FileIn, "Pickpoint")
-    ENDIF
-    !
-     DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
-                                                                                ! position: 1/ slip rate 2/ stress 3/ normal velocity
-     DISC%DynRup%DynRup_out_atPickpoint%nOutPoints = nOutPoints                 ! 4/ in case of rate and state output friction and state variable
-     logInfo(*) '| '
-     logInfo(*) 'Record points for DR are allocated'
-     logInfo(*) 'Output interval:',DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval,'.'
-     logInfo0(*) 'Number of pickPoints = ', nOutPoints
+  !subroutine readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
+  !  !------------------------------------------------------------------------
+  !  !------------------------------------------------------------------------
+  !  IMPLICIT NONE
+  !  !------------------------------------------------------------------------
+  !  TYPE (tEquations)          :: EQN
+  !  TYPE (tBoundary)           :: BND
+  !  TYPE (tInitialCondition)   :: IC
+  !  TYPE (tDiscretization)     :: DISC
+  !  TYPE (tInputOutput)        :: IO
+  !  TYPE (tMPI)                :: MPI
+  !  LOGICAL                    :: CalledFromStructCode
+  !  ! localVariables
+  !  INTEGER                    :: allocStat, OutputMask(16), i
+  !  INTEGER                    :: printtimeinterval
+  !  INTEGER                    :: nOutPoints
+  !  INTEGER                    :: readStat
+  !  REAL, DIMENSION(:), ALLOCATABLE ::X, Y, Z
+  !  CHARACTER(LEN=600)         :: PPFileName
+  !  !------------------------------------------------------------------------
+  !  INTENT(INOUT)              :: EQN, IO, DISC
+  !  INTENT(INOUT)              :: BND
+  !  !------------------------------------------------------------------------
+  !  NAMELIST                   /Pickpoint/ printtimeinterval, OutputMask, nOutPoints, PPFileName
+  !  !------------------------------------------------------------------------
+  !  !
+  !  !Setting default values
+  !  printtimeinterval = 1
+  !  OutputMask(1:3) = 1
+  !  OutputMask(4:12) = 0
+  !  !
+  !  READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
+  !  IF (readStat.NE.0) THEN
+  !      CALL RaiseErrorNml(IO%UNIT%FileIn, "Pickpoint")
+  !  ENDIF
+  !  !
+  !   DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
+  !   DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
+  !                                                                              ! position: 1/ slip rate 2/ stress 3/ normal velocity
+  !   DISC%DynRup%DynRup_out_atPickpoint%nOutPoints = nOutPoints                 ! 4/ in case of rate and state output friction and state variable
+  !   logInfo(*) '| '
+  !   logInfo(*) 'Record points for DR are allocated'
+  !   logInfo(*) 'Output interval:',DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval,'.'
+  !   logInfo0(*) 'Number of pickPoints = ', nOutPoints
 
-     ALLOCATE(X(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
-     ALLOCATE(Y(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
-     ALLOCATE(Z(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
+  !   ALLOCATE(X(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
+  !   ALLOCATE(Y(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
+  !   ALLOCATE(Z(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
 
-      logInfo0(*) ' Pickpoints read from ', TRIM(PPFileName)
-      CALL OpenFile(                                 &
-            UnitNr       = IO%UNIT%other01         , &
-            Name         = PPFileName              , &
-            create       = .FALSE.                 , &
-            MPI          = MPI                       )
-        DO i = 1, nOutPoints
-          READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
+  !    logInfo0(*) ' Pickpoints read from ', TRIM(PPFileName)
+  !    CALL OpenFile(                                 &
+  !          UnitNr       = IO%UNIT%other01         , &
+  !          Name         = PPFileName              , &
+  !          create       = .FALSE.                 , &
+  !          MPI          = MPI                       )
+  !      DO i = 1, nOutPoints
+  !        READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
-            logInfo(*) 'Read in point :'
-            logInfo(*) 'x = ', X(i)
-            logInfo(*) 'y = ', Y(i)
-            logInfo(*) 'z = ', Z(i)
+  !          logInfo(*) 'Read in point :'
+  !          logInfo(*) 'x = ', X(i)
+  !          logInfo(*) 'y = ', Y(i)
+  !          logInfo(*) 'z = ', Z(i)
 
-       END DO
-       CLOSE(IO%UNIT%other01)
-      ALLOCATE ( DISC%DynRup%DynRup_out_atPickpoint%RecPoint(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints),     &
-                STAT = allocStat                             )
+  !     END DO
+  !     CLOSE(IO%UNIT%other01)
+  !    ALLOCATE ( DISC%DynRup%DynRup_out_atPickpoint%RecPoint(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints),     &
+  !              STAT = allocStat                             )
 
-      IF (allocStat .NE. 0) THEN
-            logError(*) 'could not allocate',&
-                 ' all variables! Ie. Unstructured record Points'
-            call exit(134)
-      END IF
-      !
-      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%X = X(:)
-      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Y = Y(:)
-      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Z = Z(:)
+  !    IF (allocStat .NE. 0) THEN
+  !          logError(*) 'could not allocate',&
+  !               ' all variables! Ie. Unstructured record Points'
+  !          call exit(134)
+  !    END IF
+  !    !
+  !    DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%X = X(:)
+  !    DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Y = Y(:)
+  !    DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Z = Z(:)
 
-      logInfo(*) 'In total:',DISC%DynRup%DynRup_out_atPickpoint%nOutPoints,'.'
+  !    logInfo(*) 'In total:',DISC%DynRup%DynRup_out_atPickpoint%nOutPoints,'.'
 
-  end SUBROUTINE readpar_faultAtPickpoint
+  !end SUBROUTINE readpar_faultAtPickpoint
   !------------------------------------------------------------------------
   !------------------------------------------------------------------------
 
-  subroutine readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
-  !------------------------------------------------------------------------
-  !------------------------------------------------------------------------
-  IMPLICIT NONE
-    !------------------------------------------------------------------------
-    TYPE (tEquations)          :: EQN
-    TYPE (tBoundary)           :: BND
-    TYPE (tInitialCondition)   :: IC
-    TYPE (tDiscretization)     :: DISC
-    TYPE (tInputOutput)        :: IO
-    LOGICAL                    :: CalledFromStructCode
-    ! localVariables
-    INTEGER                    :: OutputMask(12)
-    INTEGER                    :: printtimeinterval
-    INTEGER                    :: printIntervalCriterion
-    INTEGER                    :: refinement_strategy, refinement
-    INTEGER                    :: readStat
-    REAL                       :: printtimeinterval_sec
-    !-----------------------------------------------------------------------
-    INTENT(INOUT)              :: EQN, IO, DISC
-    INTENT(INOUT)              :: BND
-    NAMELIST                   /Elementwise/ printtimeinterval, OutputMask, refinement_strategy, &
-                                                refinement, printIntervalCriterion,printtimeinterval_sec
-    !Setting default values
-    printtimeinterval = 2
-    printtimeinterval_sec = 1d0
-    printIntervalCriterion = 1
-    OutputMask(:) = 1
-    OutputMask(4:12) = 0
-    refinement_strategy = 2
-    refinement = 2
-    !
-    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Elementwise)
-    IF (readStat.NE.0) THEN
-        CALL RaiseErrorNml(IO%UNIT%FileIn, "Elementwise")
-    ENDIF
-    !
-    DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
-    if (printIntervalCriterion.EQ.1) THEN
-        DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-        logError(*) 'The generated kernels version does no longer support printIntervalCriterion = 1 for elementwise fault output'
-        call exit(134)
-    else
-        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
-    endif
+  !subroutine readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+  !!------------------------------------------------------------------------
+  !!------------------------------------------------------------------------
+  !IMPLICIT NONE
+  !  !------------------------------------------------------------------------
+  !  TYPE (tEquations)          :: EQN
+  !  TYPE (tBoundary)           :: BND
+  !  TYPE (tInitialCondition)   :: IC
+  !  TYPE (tDiscretization)     :: DISC
+  !  TYPE (tInputOutput)        :: IO
+  !  LOGICAL                    :: CalledFromStructCode
+  !  ! localVariables
+  !  INTEGER                    :: OutputMask(12)
+  !  INTEGER                    :: printtimeinterval
+  !  INTEGER                    :: printIntervalCriterion
+  !  INTEGER                    :: refinement_strategy, refinement
+  !  INTEGER                    :: readStat
+  !  REAL                       :: printtimeinterval_sec
+  !  !-----------------------------------------------------------------------
+  !  INTENT(INOUT)              :: EQN, IO, DISC
+  !  INTENT(INOUT)              :: BND
+  !  NAMELIST                   /Elementwise/ printtimeinterval, OutputMask, refinement_strategy, &
+  !                                              refinement, printIntervalCriterion,printtimeinterval_sec
+  !  !Setting default values
+  !  printtimeinterval = 2
+  !  printtimeinterval_sec = 1d0
+  !  printIntervalCriterion = 1
+  !  OutputMask(:) = 1
+  !  OutputMask(4:12) = 0
+  !  refinement_strategy = 2
+  !  refinement = 2
+  !  !
+  !  READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Elementwise)
+  !  IF (readStat.NE.0) THEN
+  !      CALL RaiseErrorNml(IO%UNIT%FileIn, "Elementwise")
+  !  ENDIF
+  !  !
+  !  DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
+  !  if (printIntervalCriterion.EQ.1) THEN
+  !      DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
+  !      logError(*) 'The generated kernels version does no longer support printIntervalCriterion = 1 for elementwise fault output'
+  !      call exit(134)
+  !  else
+  !      DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
+  !  endif
 
-    ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
-                                                                                     ! position: 1/ slip rate 2/ stress 3/ normal velocity
-                                                                                     ! 4/ in case of rate and state output friction and state variable
-                                                                                     ! 5/ background values 6/Slip 7/rupture speed 8/final slip 9/peak SR
-                                                                                     ! 10/rupture arrival 11/dynamic shear stress arrival
-                                                                                     ! 12/TP output
-
-
-    DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
-
-    IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. &
-        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1 .AND. &
-        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.0) THEN
-        logError(*) 'Undefined refinement strategy for fault output!'
-        call exit(134)
-    ENDIF
-
-    DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
-
-    !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
-    IF (OutputMask(11).EQ.1) THEN
-        SELECT CASE (EQN%FL)
-               CASE(2,3,4,6,13,16,103) !LSW friction law cases
-                    !use only if RF_output=1
-                    IF (OutputMask(10).EQ.1) THEN
-                        ! set 'collecting DS time' to 1
-                        DISC%DynRup%DS_output_on = 1
-                    ELSE
-                        DISC%DynRup%DynRup_out_elementwise%OutputMask(10) = 1
-                        logInfo(*) 'RF output turned on when DS output is used'
-                        ! set 'collecting DS time' to 1
-                        DISC%DynRup%DS_output_on = 1
-                    ENDIF
-               CASE DEFAULT
-                    logError(*) 'Dynamic shear stress arrival output only for LSW friction laws.'
-        END SELECT
-    ENDIF
-
-    IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RFtime_on.EQ.0)) THEN
-        ! set 'collecting RF time' to 1
-        DISC%DynRup%RFtime_on = 1
-    ENDIF
+  !  ! if 2, printtimeinterval is set afterwards, when dt is known
+  !  DISC%DynRup%DynRup_out_elementwise%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
+  !                                                                                   ! position: 1/ slip rate 2/ stress 3/ normal velocity
+  !                                                                                   ! 4/ in case of rate and state output friction and state variable
+  !                                                                                   ! 5/ background values 6/Slip 7/rupture speed 8/final slip 9/peak SR
+  !                                                                                   ! 10/rupture arrival 11/dynamic shear stress arrival
+  !                                                                                   ! 12/TP output
 
 
-  end SUBROUTINE readpar_faultElementwise
+  !  DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
+
+  !  IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. &
+  !      DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1 .AND. &
+  !      DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.0) THEN
+  !      logError(*) 'Undefined refinement strategy for fault output!'
+  !      call exit(134)
+  !  ENDIF
+
+  !  DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
+
+  !  !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
+  !  IF (OutputMask(11).EQ.1) THEN
+  !      SELECT CASE (EQN%FL)
+  !             CASE(2,3,4,6,13,16,103) !LSW friction law cases
+  !                  !use only if RF_output=1
+  !                  IF (OutputMask(10).EQ.1) THEN
+  !                      ! set 'collecting DS time' to 1
+  !                      DISC%DynRup%DS_output_on = 1
+  !                  ELSE
+  !                      DISC%DynRup%DynRup_out_elementwise%OutputMask(10) = 1
+  !                      logInfo(*) 'RF output turned on when DS output is used'
+  !                      ! set 'collecting DS time' to 1
+  !                      DISC%DynRup%DS_output_on = 1
+  !                  ENDIF
+  !             CASE DEFAULT
+  !                  logError(*) 'Dynamic shear stress arrival output only for LSW friction laws.'
+  !      END SELECT
+  !  ENDIF
+
+  !  IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RFtime_on.EQ.0)) THEN
+  !      ! set 'collecting RF time' to 1
+  !      DISC%DynRup%RFtime_on = 1
+  !  ENDIF
+
+
+  !end SUBROUTINE readpar_faultElementwise
 
   !============================================================================
   ! B O U N D A R I E S
@@ -1083,24 +1083,24 @@ CONTAINS
            DISC%DynRup%SlipRateOutputType = SlipRateOutputType
 
            !
-           if (DISC%DynRup%OutputPointType .eq. 0) then
-                logInfo0(*) 'Disabling fault output'
-           elseif(DISC%DynRup%OutputPointType.EQ.3) THEN
-                ! in case of OutputPointType 3, read in receiver locations:
-                ! DISC%DynRup%DynRup_out_atPickpoint%nOutPoints is for option 3 the number of pickpoints
-                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
-           ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
-                ! elementwise output -> 2 dimensional fault output
-                call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
-           ELSEIF(DISC%DynRup%OutputPointType.EQ.5) THEN
-                ! ALICE: TO BE DONE
-                ! fault receiver + 2 dimensional fault output
-                call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
-                call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
-           ELSE
-               logError(*) 'Unkown fault output type (e.g.3,4,5)',DISC%DynRup%OutputPointType
-               call exit(134)
-           ENDIF ! DISC%DynRup%OutputPointType
+           !if (DISC%DynRup%OutputPointType .eq. 0) then
+           !     logInfo0(*) 'Disabling fault output'
+           !elseif(DISC%DynRup%OutputPointType.EQ.3) THEN
+           !     ! in case of OutputPointType 3, read in receiver locations:
+           !     ! DISC%DynRup%DynRup_out_atPickpoint%nOutPoints is for option 3 the number of pickpoints
+           !     call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
+           !ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
+           !     ! elementwise output -> 2 dimensional fault output
+           !     call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+           !ELSEIF(DISC%DynRup%OutputPointType.EQ.5) THEN
+           !     ! ALICE: TO BE DONE
+           !     ! fault receiver + 2 dimensional fault output
+           !     call readpar_faultElementwise(EQN,BND,IC,DISC,IO,CalledFromStructCode)
+           !     call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,MPI,CalledFromStructCode)
+           !ELSE
+           !    logError(*) 'Unkown fault output type (e.g.3,4,5)',DISC%DynRup%OutputPointType
+           !    call exit(134)
+           !ENDIF ! DISC%DynRup%OutputPointType
   !
   END SUBROUTINE
     !------------------------------------------------------------------------

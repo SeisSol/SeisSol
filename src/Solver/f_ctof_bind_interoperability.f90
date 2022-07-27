@@ -44,9 +44,9 @@
 module f_ctof_bind_interoperability
   implicit none
 
-  interface f_interoperability_faultOutput
-    module procedure f_interoperability_faultOutput
-  end interface
+  !interface f_interoperability_faultOutput
+  !  module procedure f_interoperability_faultOutput
+  !end interface
 
   !interface f_interoperability_evaluateFrictionLaw
   !  module procedure f_interoperability_evaluateFrictionLaw
@@ -77,37 +77,37 @@ module f_ctof_bind_interoperability
       call copyDynamicRuptureState(l_domain, 1, l_domain%mesh%Fault%nSide)
     end subroutine
 
-    subroutine f_interoperability_faultOutput( i_domain, i_time, i_timeStepWidth ) bind (c, name='f_interoperability_faultOutput')
-      use iso_c_binding
-      use typesDef
-      use f_ftoc_bind_interoperability
-      use faultoutput_mod
-      implicit none
+    !subroutine f_interoperability_faultOutput( i_domain, i_time, i_timeStepWidth ) bind (c, name='f_interoperability_faultOutput')
+    !  use iso_c_binding
+    !  use typesDef
+    !  use f_ftoc_bind_interoperability
+    !  use faultoutput_mod
+    !  implicit none
 
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
+    !  type(c_ptr), value                     :: i_domain
+    !  type(tUnstructDomainDescript), pointer :: l_domain
 
-      type(c_ptr), value                     :: i_time
-      real(kind=8), pointer                  :: l_time
+    !  type(c_ptr), value                     :: i_time
+    !  real(kind=8), pointer                  :: l_time
 
-      type(c_ptr), value                     :: i_timeStepWidth
-      real(kind=8), pointer                  :: l_timeStepWidth
+    !  type(c_ptr), value                     :: i_timeStepWidth
+    !  real(kind=8), pointer                  :: l_timeStepWidth
 
-      ! register scorep region dynamic rupture output (receiver)
-      SCOREP_USER_REGION_DEFINE( r_dr_output )
+    !  ! register scorep region dynamic rupture output (receiver)
+    !  SCOREP_USER_REGION_DEFINE( r_dr_output )
 
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,        l_domain)
-      call c_f_pointer( i_time,          l_time  )
-      call c_f_pointer( i_timeStepWidth, l_timeStepWidth )
+    !  ! convert c to fortran pointers
+    !  call c_f_pointer( i_domain,        l_domain)
+    !  call c_f_pointer( i_time,          l_time  )
+    !  call c_f_pointer( i_timeStepWidth, l_timeStepWidth )
 
-      SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output_receiver", SCOREP_USER_REGION_TYPE_COMMON )
-      ! NOTE: This will only handle faul receivers
-      call faultoutput(l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%io, l_domain%mpi, l_domain%optionalFields%BackgroundValue, l_domain%bnd, l_time, l_timeStepWidth)
-      SCOREP_USER_REGION_END( r_dr_output )
+    !  SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output_receiver", SCOREP_USER_REGION_TYPE_COMMON )
+    !  ! NOTE: This will only handle faul receivers
+    !  call faultoutput(l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%io, l_domain%mpi, l_domain%optionalFields%BackgroundValue, l_domain%bnd, l_time, l_timeStepWidth)
+    !  SCOREP_USER_REGION_END( r_dr_output )
 
-      l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
-    end subroutine
+    !  l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
+    !end subroutine
 
     !subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_QInterpolatedPlus, i_QInterpolatedMinus, &
     !  i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, &
@@ -232,42 +232,42 @@ module f_ctof_bind_interoperability
     !  SCOREP_USER_REGION_END( r_dr )
     !end subroutine
 
-    subroutine f_interoperability_initializeFaultOutput(i_domain) bind (c, name="f_interoperability_initializeFaultOutput")
-      use iso_c_binding
-      use typesDef
-      use ini_faultoutput_mod
-      implicit none
-      type( c_ptr ), value         :: i_domain
-      type(tUnstructDomainDescript), pointer :: domain
+    !subroutine f_interoperability_initializeFaultOutput(i_domain) bind (c, name="f_interoperability_initializeFaultOutput")
+    !  use iso_c_binding
+    !  use typesDef
+    !  use ini_faultoutput_mod
+    !  implicit none
+    !  type( c_ptr ), value         :: i_domain
+    !  type(tUnstructDomainDescript), pointer :: domain
 
-      call c_f_pointer(i_domain, domain)
+    !  call c_f_pointer(i_domain, domain)
 
-      call ini_fault_subsampled(domain%EQN,domain%MESH,domain%BND,domain%DISC,domain%IO,domain%MPI)
+    !  call ini_fault_subsampled(domain%EQN,domain%MESH,domain%BND,domain%DISC,domain%IO,domain%MPI)
 
-    end subroutine f_interoperability_initializeFaultOutput
+    !end subroutine f_interoperability_initializeFaultOutput
 
 
-    subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")
-      use iso_c_binding
-      use typesDef
-      use faultoutput_mod
-      implicit none
+    !subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")
+    !  use iso_c_binding
+    !  use typesDef
+    !  use faultoutput_mod
+    !  implicit none
 
-      type( c_ptr ), value         :: i_domain
-      real( kind=c_double ), value :: time
+    !  type( c_ptr ), value         :: i_domain
+    !  real( kind=c_double ), value :: time
 
-      type(tUnstructDomainDescript), pointer :: domain
-      integer :: OutputPointType
+    !  type(tUnstructDomainDescript), pointer :: domain
+    !  integer :: OutputPointType
 
-      ! convert c to fortran pointers
-      call c_f_pointer(i_domain, domain)
+    !  ! convert c to fortran pointers
+    !  call c_f_pointer(i_domain, domain)
 
-      OutputPointType = domain%DISC%DynRup%OutputPointType
-      domain%DISC%DynRup%OutputPointType = 4
-      call calc_FaultOutput(domain%DISC%DynRup%DynRup_out_elementwise, domain%DISC, domain%EQN, domain%MESH, &
-          domain%optionalFields%BackgroundValue, domain%BND, time)
-      domain%DISC%DynRup%OutputPointType = OutputPointType
-    end subroutine f_interoperability_calcElementwiseFaultoutput
+    !  OutputPointType = domain%DISC%DynRup%OutputPointType
+    !  domain%DISC%DynRup%OutputPointType = 4
+    !  call calc_FaultOutput(domain%DISC%DynRup%DynRup_out_elementwise, domain%DISC, domain%EQN, domain%MESH, &
+    !      domain%optionalFields%BackgroundValue, domain%BND, time)
+    !  domain%DISC%DynRup%OutputPointType = OutputPointType
+    !end subroutine f_interoperability_calcElementwiseFaultoutput
 
     subroutine f_interoperability_fitAttenuation( domain, rho, mu, lambda, Qp, Qs, materialFitted) bind( c, name='f_interoperability_fitAttenuation')
       use iso_c_binding

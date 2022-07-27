@@ -927,7 +927,7 @@ CONTAINS
     USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
-    USE ini_faultoutput_mod
+    !USE ini_faultoutput_mod
     USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
@@ -1166,52 +1166,52 @@ CONTAINS
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
         call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
-    DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
-    DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
+    !DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
+    !DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
     !
     !
     !
     ! Initialize fault rupture output
     ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
-    IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
-        ! Case 3
-        ! output at certain positions specified in the *.dyn file
-        IF(DISC%DynRup%OutputPointType.EQ.3) THEN
-            !
-            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
-            !
-            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
-
-#ifdef HDF
-            CALL ini_fault_receiver_hdf(EQN, MESH, DISC, IO, MPI)
-!#else
-#endif
-            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
-
-        ! Case 4
-        ! for full fault output without pickpoints
-        ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
-            !
-            DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
-        ! Case 5
-        ! for full fault output and pickpoints
-        ELSEIF(DISC%DynRup%OutputPointType.EQ.5) THEN
-            !
-            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
-            !
-            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
-            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
-            !
-            !
-            DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
-        ENDIF ! DISC%DynRup%OutputPointType
-    ENDIF ! end initialize fault output
+!    IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
+!        ! Case 3
+!        ! output at certain positions specified in the *.dyn file
+!        IF(DISC%DynRup%OutputPointType.EQ.3) THEN
+!            !
+!            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
+!            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
+!            !
+!            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
+!
+!#ifdef HDF
+!            CALL ini_fault_receiver_hdf(EQN, MESH, DISC, IO, MPI)
+!!#else
+!#endif
+!            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
+!
+!        ! Case 4
+!        ! for full fault output without pickpoints
+!        ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
+!            !
+!            DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
+!            DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
+!            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
+!        ! Case 5
+!        ! for full fault output and pickpoints
+!        ELSEIF(DISC%DynRup%OutputPointType.EQ.5) THEN
+!            !
+!            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
+!            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
+!            !
+!            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
+!            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
+!            !
+!            !
+!            !DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
+!            !DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
+!            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
+!        ENDIF ! DISC%DynRup%OutputPointType
+!    ENDIF ! end initialize fault output
     !
     !
     !
