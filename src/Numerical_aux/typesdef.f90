@@ -622,7 +622,7 @@ MODULE TypesDef
   !   integer                                :: refinement_strategy
   !END TYPE tDynRup_output
 
-  TYPE tDynRup
+  !TYPE tDynRup
   !   character(LEN=600)                     :: ModelFileName
   !   real, allocatable                      :: output_Mu(:,:)
   !   real, allocatable                      :: output_StateVar(:,:)
@@ -633,18 +633,18 @@ MODULE TypesDef
   !   real, allocatable                      :: output_rupture_time(:,:)
   !   real, allocatable                      :: output_PeakSR(:,:)
   !   real, allocatable                      :: output_dynStress_time(:,:)
-     REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
-     REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
-     REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
-     REAL, allocatable                      :: SlipRate1(:,:)                  !< Slip Rate at given fault node
-     REAL, allocatable                      :: SlipRate2(:,:)                  !< Slip Rate at given fault node
+  !   REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
+  !   REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
+  !   REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
+  !   REAL, allocatable                      :: SlipRate1(:,:)                  !< Slip Rate at given fault node
+  !   REAL, allocatable                      :: SlipRate2(:,:)                  !< Slip Rate at given fault node
   !   REAL, allocatable                      :: PeakSR(:,:)                     !< Slip Rate at given fault node
   !   REAL, allocatable                      :: TracXZ(:,:)                     !< Traction at given fault node
   !   REAL, allocatable                      :: TracXY(:,:)                     !< Traction at given fault node
-     REAL, allocatable                      :: Mu(:,:)                         !< Current friction coefficient at given fault node
+  !   REAL, allocatable                      :: Mu(:,:)                         !< Current friction coefficient at given fault node
   !   REAL, allocatable                      :: Mu_S(:,:)                       !< Static friction coefficient at given fault node
   !   REAL, allocatable                      :: Mu_D(:,:)                       !< Dynamic friction coefficient at given fault node
-     REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
+  !   REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
   !   REAL, allocatable                      :: cohesion(:,:)                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
   !   REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
   !   REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
@@ -686,7 +686,7 @@ MODULE TypesDef
   !   ! case(6) bimaterial with LSW
   !   REAL                                   :: vStar                            !< reference velocity of prakash-cliff regularization
   !   REAL                                   :: prakashLength                    !< reference length of prakash-cliff regularization
-     REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
+  !   REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
   !   INTEGER                                :: thermalPress = 0                 !< thermal pressurization switch
   !   REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
   !   REAL, ALLOCATABLE                      :: alpha_hy(:,:)                    !< spatial dependent hydraulic diffusion parameter for TP
@@ -725,7 +725,7 @@ MODULE TypesDef
   !#endif
 
   !   type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()
-   END TYPE tDynRup                                                        !<
+  ! END TYPE tDynRup                                                        !<
 
   !<--- Tracing with Intel Trace Tools, function handles -----------------------
   TYPE tTracing
@@ -852,7 +852,7 @@ MODULE TypesDef
      REAL                                   :: LoopCPUTime                      !< CPU-Time spent in a loop, resp. in the loops
      INTEGER                                :: GhostInterpolationOrder          !< Order used for Interpolating ghostvalues (Only in KOP environment)
      TYPE(tGalerkin)                        :: Galerkin                         !< Data for Discontinuous Galerkin scheme
-     TYPE(tDynRup)                          :: DynRup                           !< Data for Dynamic Rupture processes
+     !TYPE(tDynRup)                          :: DynRup                           !< Data for Dynamic Rupture processes
      TYPE(tAdjoint)                         :: Adjoint                          !< Data for adjoint inversions
      INTEGER                                :: SolverType                       !< Accuracy for integration of initial condition
      LOGICAL                                :: CalledFromStructCode             !< TRUE if called from struct Code

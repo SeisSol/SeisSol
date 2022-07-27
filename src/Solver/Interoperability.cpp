@@ -224,15 +224,16 @@ extern "C" {
     e_interoperability.getIntegrationMask( i_integrationMask );
   }
 
-  void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* slip1, double* slip2, double* state, double* strength,
+  void c_interoperability_initializeIO(
+      //double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  int* outputGroups, int outputGroupsSize,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
       const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
       bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
-    e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
+    e_interoperability.initializeIO(
+                                    //mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
                                     numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
                                     freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
@@ -382,7 +383,7 @@ double c_interoperability_M2invDiagonal(int no) {
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr) // reset domain pointer
+  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr), m_dynRupTree(nullptr), m_dynRup(nullptr) // reset domain pointer
 {
 }
 
@@ -476,6 +477,9 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
                         numberOfMeshCells );
 
   delete[] ltsToMesh;
+
+  m_dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
+  m_dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
 
   // derive lts setups
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
@@ -879,9 +883,10 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
 }
 
 void
-seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1,
-                                        double* slip2,
-                                        double* state, double* strength, int numSides, int numBndGP, int refinement,
+seissol::Interoperability::initializeIO(
+                                        //double* mu, double* slipRate1, double* slipRate2, double* slip,
+                                        //double* slip1, double* slip2, double* state, double* strength,
+                                        int numSides, int numBndGP, int refinement,
                                         int* outputMask,
                                         int* plasticityMask, double* outputRegionBounds,
                                         const std::unordered_set<int>& outputGroups,
@@ -896,10 +901,33 @@ seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* s
   
 	// Initialize checkpointing
 	int faultTimeStep;
-	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
+
+  // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip magnitude
+  real* stateVariable{nullptr};
+  if (dynamic_cast<seissol::initializers::LTS_RateAndState*>(m_dynRup)) {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTS_RateAndState*>(m_dynRup)->stateVariable));
+  } else {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->accumulatedSlipMagnitude));
+  }
+  // Only with prakash-clifton regularization, we store the fault strength, otherwise use the friction coefficient
+  real* strength{nullptr};
+  if (dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(m_dynRup)) {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(m_dynRup)->regularisedStrength));
+  } else {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->mu));
+  }
+
+  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
 			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * tensor::Q::size(),
-			mu, slipRate1, slipRate2, slip, slip1, slip2,
-			state, strength, numSides, numBndGP,
+			reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->mu)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slipRate1)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slipRate2)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->accumulatedSlipMagnitude)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slip1)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slip2)),
+      stateVariable,
+      strength,
+      numSides, numBndGP,
 			faultTimeStep);
 	if (hasCheckpoint) {
 		seissol::SeisSol::main.simulator().setCurrentTime(

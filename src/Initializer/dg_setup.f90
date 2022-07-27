@@ -509,23 +509,23 @@ CONTAINS
         DISC%LocalTime(:)       = 0.
     ENDIF
     !
-    IF(EQN%DR.EQ.1) THEN
+    !IF(EQN%DR.EQ.1) THEN
 
-      ALLOCATE(DISC%DynRup%SlipRate1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%SlipRate2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%SlipRate1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%SlipRate2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
     !  ALLOCATE(DISC%DynRup%TracXY(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
     !  ALLOCATE(DISC%DynRup%TracXZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
     !  ALLOCATE(DISC%DynRup%PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
     !  ALLOCATE(DISC%DynRup%rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
     !  ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
     !  ! TODO: Transpose StateVar
-      ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    !  ALLOCATE(DISC%DynRup%Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
     !  !
 
     !  ! Initialize w/ first-touch
@@ -569,20 +569,19 @@ CONTAINS
     !      disc%DynRup%output_StateVar(:,i) = 0.0
     !  END DO
 
-    else
+    !else
     !    ! Allocate dummy arrays to avoid debug errors
-        allocate(DISC%DynRup%SlipRate1(0,0), &
-            DISC%DynRup%SlipRate2(0,0),      &
-            DISC%DynRup%Slip(0,0),           &
-            DISC%DynRup%Slip1(0,0),          &
-            DISC%DynRup%Slip2(0,0),          &
-            DISC%DynRup%Mu(0,0),             &
-            DISC%DynRup%StateVar(0,0),       &
+    !    allocate(DISC%DynRup%SlipRate1(0,0), &
+    !        DISC%DynRup%SlipRate2(0,0),      &
+    !        DISC%DynRup%Slip(0,0),           &
+    !        DISC%DynRup%Slip1(0,0),          &
+    !        DISC%DynRup%Slip2(0,0),          &
+    !        DISC%DynRup%Mu(0,0),             &
+    !        DISC%DynRup%StateVar(0,0),       &
     !        DISC%DynRup%PeakSR(0,0),         &
-            DISC%DynRup%Strength(0,0),       &
+    !        DISC%DynRup%Strength(0,0),       &
     !        DISC%DynRup%rupture_time(0,0),   &
     !        DISC%DynRup%dynStress_time(0,0)  )
-      )
     !    allocate(DISC%DynRup%output_Mu(0,0),      &
     !        DISC%DynRup%output_StateVar(0,0),     &
     !        DISC%DynRup%output_Strength(0,0),     &
@@ -592,7 +591,7 @@ CONTAINS
     !        DISC%DynRup%output_rupture_time(0,0), &
     !        DISC%DynRup%output_PeakSR(0,0),       &
     !        DISC%DynRup%output_dynStress_time(0,0))
-    ENDIF
+    !ENDIF
     !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'

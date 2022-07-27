@@ -141,14 +141,14 @@ CONTAINS
     end do
 
     call c_interoperability_initializeIO(    &
-        i_mu        = disc%DynRup%mu,        &
-        i_slipRate1 = disc%DynRup%slipRate1, &
-        i_slipRate2 = disc%DynRup%slipRate2, &
-        i_slip     = disc%DynRup%slip,      &
-        i_slip1     = disc%DynRup%slip1,    &
-        i_slip2     = disc%DynRup%slip2,    &
-        i_state     = disc%DynRup%stateVar,  &
-        i_strength  = disc%DynRup%strength,  &
+        !i_mu        = disc%DynRup%mu,        &
+        !i_slipRate1 = disc%DynRup%slipRate1, &
+        !i_slipRate2 = disc%DynRup%slipRate2, &
+        !i_slip     = disc%DynRup%slip,      &
+        !i_slip1     = disc%DynRup%slip1,    &
+        !i_slip2     = disc%DynRup%slip2,    &
+        !i_state     = disc%DynRup%stateVar,  &
+        !i_strength  = disc%DynRup%strength,  &
         i_numSides  = mesh%fault%nSide,      &
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &

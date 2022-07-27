@@ -50,6 +50,7 @@
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
+#include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
@@ -96,8 +97,11 @@ class seissol::Interoperability {
 
     //! Lookup table relating faces to layers
     unsigned*                         m_ltsFaceToMeshFace;
-    
-    //! Vector of initial conditions
+
+    seissol::initializers::LTSTree* m_dynRupTree;
+    seissol::initializers::DynamicRupture* m_dynRup;
+
+  //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
     void initInitialConditions();
@@ -278,8 +282,10 @@ class seissol::Interoperability {
     **/
    void getIntegrationMask( int* i_integrationMask );
 
-   void initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-                     double* state, double* strength, int numSides, int numBndGP, int refinement, int* outputMask,
+   void initializeIO(
+                     //double* mu, double* slipRate1, double* slipRate2, double* slip,
+                     //double* slip1, double* slip2, double* state, double* strength,
+                     int numSides, int numBndGP, int refinement, int* outputMask,
                      int* plasticityMask, double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
                      double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
                      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
