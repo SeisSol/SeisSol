@@ -145,8 +145,8 @@ Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the 
 Friction laws
 ~~~~~~~~~~~~~
 
-Linear slip-weakening friction (:code:`FL=2`, :code:`FL=6`, :code:`FL=16`)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Linear slip-weakening friction (:code:`FL=6`, :code:`FL=16`)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The linear slip-weakening friction is widely used for dynamic rupture simulations.
 
@@ -229,13 +229,13 @@ Friction parameters:
 +==================+========================================+===============================+
 | :math:`a(x)`     | frictional evolution coefficient       | :code:`rs_a`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`b`        | frictional state coefficient           | :code:`RS_b`                  |
+| :math:`b`        | frictional state coefficient           | :code:`rs_b`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`L(x)`     | characteristic slip scale              | :code:`RS_sl0`                |
+| :math:`L(x)`     | characteristic slip scale              | :code:`rs_sl0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`V_0`      | reference slip velocity                | :code:`RS_sr0`                |
+| :math:`V_0`      | reference slip velocity                | :code:`rs_sr0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`f_0`      | reference friction coefficient         | :code:`RS_f0`                 |
+| :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math:: 
@@ -263,9 +263,9 @@ In addition to the ageing and the slip Law, strong velocity weakening requires t
 +------------------+----------------------------------------+-------------------------------+
 | symbol           | quantity                               | seisSol name                  |
 +==================+========================================+===============================+
-| :math:`V_w(x)`   | weakening slip velocity                | :code:`RS_srW`                |
+| :math:`V_w(x)`   | weakening slip velocity                | :code:`rs_srW`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`\mu_w`    | weakening friction coefficient         | :code:`Mu_W`                  |
+| :math:`\mu_w`    | weakening friction coefficient         | :code:`rs_muW`                |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math::
@@ -299,11 +299,11 @@ The TP parameters for which no spatial dependence has been implemented are defin
 
   &DynamicRupture
   thermalPress = 1                  ! Thermal pressurization 0: inactive; 1: active
-  IniTemp = 483.15                  ! Initial temperature [K]
-  IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
-  alpha_th = 1.0e-6                 ! Thermal diffusivity [m^2/s]
-  rho_c = 2.7e6                     ! Specific heat [Pa/K]
-  TP_lambda = 0.1e6                 ! Pore pressure change per unit temperature [Pa/K]
+  TP_IniTemp = 483.15                  ! Initial temperature [K]
+  TP_IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
+  TP_hydraulicDiffusivity = 1.0e-6     ! Thermal diffusivity [m^2/s]
+  TP_heatCapacity = 2.7e6              ! Specific heat [Pa/K]
+  TP_undraindedTPResponse = 0.1e6      ! Pore pressure change per unit temperature [Pa/K]
 
 Two additional thermal pressurization parameters are space-dependent and therefore have to be specified in the dynamic rupture yaml file:
 
@@ -311,8 +311,32 @@ Two additional thermal pressurization parameters are space-dependent and therefo
 
   !ConstantMap
   map:
-    alpha_hy: 1e-4                  # Hydraulic diffusivity [m^2/s]
-    TP_half_width_shear_zone: 0.01  # Half width of shearing zone [m]
+    tp_hydraulic_diffusivity: 1e-4   # Hydraulic diffusivity [m^2/s]
+    tp_half_width_shear_zone: 0.01   # Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
+
+Convert parameter files for new DR release
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For the reimplementation of Dynamic Rupture in C++, we refactored some parameter names to make things more consistent.
+
+Parameter File (`parameters.par`):
+
+- `0d0` -> `0.0`
+- `1d-16` -> `1e-16`
+- `v_star` -> `pc_vStar`
+- `L` -> `pc_prakashLength`
+- `mu_w` -> `rs_muW`
+- `alpha_th` -> `TP_thermalDiffusivity`
+- `rho_c` -> `TP_heatCapacity`
+- `tp_lambda` -> `TP_undrainedTPResponse`
+- `initemp` -> `TP_iniTemp`
+- `inipressure` -> `TP_iniPressure`
+
+Fault material file(`fault.yaml`):
+
+- `RS_sl0` -> `rs_sl0`
+- `alpha_hy` -> `tp_hydraulicDiffusivity`
+- `TP_half_width_shear_zone` -> `tp_halfWidthShearZone`
 
