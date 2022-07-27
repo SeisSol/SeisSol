@@ -825,7 +825,7 @@ CONTAINS
        logInfo(*) '-----------------------------------  '                     !
       !
       EQN%DR = 0 !By default no dynamic rupture
-      DISC%DynRup%OutputPointType = 0 !By default no Output
+      !DISC%DynRup%OutputPointType = 0 !By default no Output
       !
       !----------------------------------------------------------------------------------------!
       ! (Internal) boundaries at which dynamic rupture is allowed
@@ -979,7 +979,7 @@ CONTAINS
      call exit(134)
     endif
     !
-    DISC%DynRup%ModelFileName = ModelFileName
+    !DISC%DynRup%ModelFileName = ModelFileName
 
            !FRICTION LAW CHOICE
            EQN%FL = FL
@@ -996,91 +996,91 @@ CONTAINS
            ENDIF
 
            !BACKGROUND VALUES
-           DISC%DynRup%BackgroundType = BackgroundType
-           SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0)
-             EQN%RS_sv0 = RS_sv0
-           CASE DEFAULT
-             logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
-             call exit(134)
-           END SELECT
+           !DISC%DynRup%BackgroundType = BackgroundType
+           !SELECT CASE(DISC%DynRup%BackgroundType)
+           !CASE(0)
+           !  EQN%RS_sv0 = RS_sv0
+           !CASE DEFAULT
+           !  logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
+           !  call exit(134)
+           !END SELECT
 
            !FRICTION SETTINGS
-           SELECT CASE(EQN%FL)
-           CASE(0)
-             CONTINUE
-           CASE(2,16)
-             IF (EQN%FL.EQ.16) THEN
-               DISC%DynRup%t_0 = t_0 
-             ENDIF
-           CASE(6) ! bimaterial with LSW
-             DISC%DynRup%vstar = vstar
-             DISC%DynRup%prakashLength = prakashLength
-             CONTINUE
-           CASE(33, 34) !ImposedSlipRateOnDRBoundary
-             IF (EQN%FL.EQ.33) THEN
-                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
-             ELSE
-                logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
-             ENDIF
-             IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
-               logWarning(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
-               DISC%DynRup%SlipRateOutputType = 0
-             ENDIF
-           CASE(3,4,7,103)
-             DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
-             DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
-             DISC%DynRup%RS_b = RS_b    ! b, evolution effect
-             IF (EQN%FL.EQ.103) THEN
-                 DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
-             ENDIF
-             DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
-             DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
-             DISC%DynRup%t_0      = t_0       ! forced rupture decay time
-             DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
-             IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
-                 logInfo0(*) 'Thermal pressurization assumed'
-                 !physical
-                 DISC%DynRup%alpha_th = alpha_th
-                 DISC%DynRup%rho_c = rho_c
-                 DISC%DynRup%TP_lambda = TP_lambda
-                 EQN%Temp_0 = IniTemp
-                 EQN%Pressure_0 = IniPressure
-                 !numerical, currently fixed like that but requires further testing
-                 DISC%DynRup%TP_log_dz = 0.3
-                 DISC%DynRup%TP_max_wavenumber = 10.0
-                 DISC%DynRup%TP_grid_nz = 60
-             ENDIF
-           CASE DEFAULT
-             logError(*) 'Unknown friction law ',EQN%FL
-             call exit(134)
-           END SELECT
+           !SELECT CASE(EQN%FL)
+           !CASE(0)
+           !  CONTINUE
+           !CASE(2,16)
+           !  IF (EQN%FL.EQ.16) THEN
+           !    DISC%DynRup%t_0 = t_0
+           !  ENDIF
+           !CASE(6) ! bimaterial with LSW
+           !  DISC%DynRup%vstar = vstar
+           !  DISC%DynRup%prakashLength = prakashLength
+           !  CONTINUE
+           !CASE(33, 34) !ImposedSlipRateOnDRBoundary
+           !  IF (EQN%FL.EQ.33) THEN
+           !     logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with regularized Yoffe source time function'
+           !  ELSE
+           !     logInfo0(*) 'using kinematic source imposed on dynamic rupture boundary with Gaussian source time function'
+           !  ENDIF
+           !  IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
+           !    logWarning(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+           !    DISC%DynRup%SlipRateOutputType = 0
+           !  ENDIF
+           !CASE(3,4,7,103)
+           !  DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
+           !  DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
+           !  DISC%DynRup%RS_b = RS_b    ! b, evolution effect
+           !  IF (EQN%FL.EQ.103) THEN
+           !      DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
+           !  ENDIF
+           !  DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
+           !  DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
+           !  DISC%DynRup%t_0      = t_0       ! forced rupture decay time
+           !  DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
+           !  IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
+           !      logInfo0(*) 'Thermal pressurization assumed'
+           !      !physical
+           !      DISC%DynRup%alpha_th = alpha_th
+           !      DISC%DynRup%rho_c = rho_c
+           !      DISC%DynRup%TP_lambda = TP_lambda
+           !      EQN%Temp_0 = IniTemp
+           !      EQN%Pressure_0 = IniPressure
+           !      !numerical, currently fixed like that but requires further testing
+           !      DISC%DynRup%TP_log_dz = 0.3
+           !      DISC%DynRup%TP_max_wavenumber = 10.0
+           !      DISC%DynRup%TP_grid_nz = 60
+           !  ENDIF
+           !CASE DEFAULT
+           !  logError(*) 'Unknown friction law ',EQN%FL
+           !  call exit(134)
+           !END SELECT
 
            !OUTPUT
            ! rupture front (RF) output in extra files: on = 1, off = 0
-           DISC%DynRup%RF_output_on = RF_output_on
+           !DISC%DynRup%RF_output_on = RF_output_on
 
-           IF (DISC%DynRup%RF_output_on.EQ.1) THEN
-              ! set 'collecting RF time' to 1
-              DISC%DynRup%RFtime_on = 1
-              logInfo0(*) 'RF output in extra files on'
-           ELSE
-              DISC%DynRup%RFtime_on = 0
-           ENDIF
+           !IF (DISC%DynRup%RF_output_on.EQ.1) THEN
+           !   ! set 'collecting RF time' to 1
+           !   DISC%DynRup%RFtime_on = 1
+           !   logInfo0(*) 'RF output in extra files on'
+           !ELSE
+           !   DISC%DynRup%RFtime_on = 0
+           !ENDIF
            !
            ! dynamic stress output on = 1, off = 0
-           DISC%DynRup%DS_output_on = DS_output_on
-           IF ((DISC%DynRup%DS_output_on.EQ.1).AND. (DISC%DynRup%RF_output_on.EQ.1)) THEN
-               logInfo0(*) 'DS output on'
-           ELSE IF ((DISC%DynRup%DS_output_on.EQ.1).AND. (DISC%DynRup%RF_output_on.EQ.0)) THEN
-               logInfo0(*) 'DS output on. For ouput in files, RF_output is turned on.'
-               DISC%DynRup%RF_output_on = 1
-               DISC%DynRup%RFtime_on = 1
-           ENDIF
+           !DISC%DynRup%DS_output_on = DS_output_on
+           !IF ((DISC%DynRup%DS_output_on.EQ.1).AND. (DISC%DynRup%RF_output_on.EQ.1)) THEN
+           !    logInfo0(*) 'DS output on'
+           !ELSE IF ((DISC%DynRup%DS_output_on.EQ.1).AND. (DISC%DynRup%RF_output_on.EQ.0)) THEN
+           !    logInfo0(*) 'DS output on. For ouput in files, RF_output is turned on.'
+           !    DISC%DynRup%RF_output_on = 1
+           !    DISC%DynRup%RFtime_on = 1
+           !ENDIF
 
            !
-           DISC%DynRup%OutputPointType = OutputPointType
-           DISC%DynRup%SlipRateOutputType = SlipRateOutputType
+           !DISC%DynRup%OutputPointType = OutputPointType
+           !DISC%DynRup%SlipRateOutputType = SlipRateOutputType
 
            !
            !if (DISC%DynRup%OutputPointType .eq. 0) then
