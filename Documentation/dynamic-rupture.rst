@@ -298,10 +298,10 @@ The TP parameters for which no spatial dependence has been implemented are defin
 .. code-block:: Fortran
 
   &DynamicRupture
-  thermalPress = 1                  ! Thermal pressurization 0: inactive; 1: active
+  thermalPress = 1                     ! Thermal pressurization 0: inactive; 1: active
   TP_IniTemp = 483.15                  ! Initial temperature [K]
   TP_IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
-  TP_hydraulicDiffusivity = 1.0e-6     ! Thermal diffusivity [m^2/s]
+  TP_thearmalDiffusivity = 1.0e-6      ! Thermal diffusivity [m^2/s]
   TP_heatCapacity = 2.7e6              ! Specific heat [Pa/K]
   TP_undraindedTPResponse = 0.1e6      ! Pore pressure change per unit temperature [Pa/K]
 
