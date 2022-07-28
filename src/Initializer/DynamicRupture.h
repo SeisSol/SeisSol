@@ -73,7 +73,7 @@ namespace seissol {
 
 struct seissol::initializers::DynamicRupture {
 public:
-  virtual ~DynamicRupture() {}
+  virtual ~DynamicRupture() = default;
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
@@ -277,5 +277,4 @@ struct seissol::initializers::LTS_ImposedSlipRatesGaussian : public seissol::ini
   }
 };
 
-
-#endif
+#endif // INITIALIZER_DR_H_

@@ -30,7 +30,7 @@ class AbstractFactory {
 
   public:
   AbstractFactory(std::shared_ptr<dr::DRParameters> drParameters) : drParameters(drParameters){};
-  virtual ~AbstractFactory() {}
+  virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
 
@@ -49,7 +49,7 @@ class LinearSlipWeakeningFactory : public AbstractFactory {
 class RateAndStateAgingFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce();
+  DynamicRuptureTuple produce() override;
 };
 
 class RateAndStateSlipFactory : public AbstractFactory {
