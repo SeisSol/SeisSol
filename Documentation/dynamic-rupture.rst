@@ -316,27 +316,3 @@ Two additional thermal pressurization parameters are space-dependent and therefo
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
 
-Convert parameter files for new DR release
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For the reimplementation of Dynamic Rupture in C++, we refactored some parameter names to make things more consistent.
-
-Parameter File (`parameters.par`):
-
-- `0d0` -> `0.0`
-- `1d-16` -> `1e-16`
-- `v_star` -> `pc_vStar`
-- `L` -> `pc_prakashLength`
-- `mu_w` -> `rs_muW`
-- `alpha_th` -> `TP_thermalDiffusivity`
-- `rho_c` -> `TP_heatCapacity`
-- `tp_lambda` -> `TP_undrainedTPResponse`
-- `initemp` -> `TP_iniTemp`
-- `inipressure` -> `TP_iniPressure`
-
-Fault material file(`fault.yaml`):
-
-- `RS_sl0` -> `rs_sl0`
-- `alpha_hy` -> `tp_hydraulicDiffusivity`
-- `TP_half_width_shear_zone` -> `tp_halfWidthShearZone`
-
