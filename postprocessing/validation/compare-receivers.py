@@ -191,12 +191,14 @@ if __name__ == "__main__":
     sim_faultreceiver_ids = find_all_receivers(args.output, True)
     ref_faultreceiver_ids = find_all_receivers(args.output_ref, True)
     faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
-    # Make sure, we actually compare some fault receivers
-    assert len(faultreceiver_ids) > 0
+    # Make sure, we actually compare some faultreceivers
+    assert len(faultreceiver_ids) == len(ref_faultreceiver_ids)
 
     sim_receiver_ids = find_all_receivers(args.output, False)
     ref_receiver_ids = find_all_receivers(args.output_ref, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
+    # Make sure, we actually compare some receivers
+    assert len(receiver_ids) == len(ref_receiver_ids)
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
     for i in receiver_ids:
