@@ -14,20 +14,28 @@ The new Dynamic Rupture implementation has been accecpted in August 2022 (commit
 
 Parameter file (`parameters.par`):
 
-- `0d0` -> `0.0`
-- `1d-16` -> `1e-16`
-- `v_star` -> `pc_vStar`
-- `L` -> `pc_prakashLength`
-- `mu_w` -> `rs_muW`
-- `alpha_th` -> `TP_thermalDiffusivity`
-- `rho_c` -> `TP_heatCapacity`
-- `tp_lambda` -> `TP_undrainedTPResponse`
-- `initemp` -> `TP_iniTemp`
-- `inipressure` -> `TP_iniPressure`
++---------------+--------------------------+
+| old           | new                      |
++===============+==========================+
+| `0d0`         | `0.0`                    |
+| `1d-16`       | `1e-16`                  |
+| `v_star`      | `pc_vStar`               |
+| `L`           | `pc_prakashLength`       |
+| `mu_w`        | `rs_muW`                 |
+| `alpha_th`    | `TP_thermalDiffusivity`  |
+| `rho_c`       | `TP_heatCapacity`        |
+| `tp_lambda`   | `TP_undrainedTPResponse` |
+| `initemp`     | `TP_iniTemp`             |
+| `inipressure` | `TP_iniPressure`         |
++---------------+--------------------------+
 
 Fault material file (`fault.yaml`):
 
-- `RS_sl0` -> `rs_sl0`
-- `alpha_hy` -> `tp_hydraulicDiffusivity`
-- `TP_half_width_shear_zone` -> `tp_halfWidthShearZone`
++-----------------------------+----------------------------+
+| old                         | new                        |
++=============================+============================+
+| `RS_sl0`                    |  `rs_sl0`                  |
+| `alpha_hy`                  |  `tp_hydraulicDiffusivity` |
+| `TP_half_width_shear_zone`  |  `tp_halfWidthShearZone`   |
++-----------------------------+----------------------------+
 
