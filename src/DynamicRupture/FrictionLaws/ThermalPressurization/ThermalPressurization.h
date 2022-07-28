@@ -100,7 +100,7 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  ThermalPressurization(DRParameters& drParameters) : drParameters(drParameters){};
+  ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -137,7 +137,7 @@ class ThermalPressurization {
   real (*faultStrength)[misc::numPaddedPoints];
 
   private:
-  DRParameters& drParameters;
+  DRParameters* drParameters;
 
   /**
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one GausPoint

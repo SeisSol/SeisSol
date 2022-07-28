@@ -164,7 +164,7 @@ class seissol::initializers::MemoryManager {
     std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    dr::DRParameters m_dynRupParameter;
+    std::shared_ptr<dr::DRParameters> m_dynRupParameter = nullptr;
     std::shared_ptr<YAML::Node> m_inputParams = nullptr;
 
     LTSTree m_boundaryTree;

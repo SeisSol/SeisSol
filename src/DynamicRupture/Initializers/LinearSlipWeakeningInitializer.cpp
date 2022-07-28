@@ -24,7 +24,7 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        dynStressTimePending[ltsFace][pointIndex] = drParameters.isDsOutputOn;
+        dynStressTimePending[ltsFace][pointIndex] = drParameters->isDsOutputOn;
         slipRate1[ltsFace][pointIndex] = 0.0;
         slipRate2[ltsFace][pointIndex] = 0.0;
         // initial friction coefficient is static friction (no slip has yet occurred)

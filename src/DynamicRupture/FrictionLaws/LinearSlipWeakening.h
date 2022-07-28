@@ -14,7 +14,7 @@ namespace seissol::dr::friction_law {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw(DRParameters& drParameters)
+  LinearSlipWeakeningLaw(DRParameters* drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
@@ -173,7 +173,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters.t0 == 0) {
+      if (this->drParameters->t0 == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = 1.0 * (time >= this->forcedRuptureTime[ltsFace][pointIndex]);
@@ -183,7 +183,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
         f2 = std::max(static_cast<real>(0.0),
                       std::min(static_cast<real>(1.0),
                                (time - this->forcedRuptureTime[ltsFace][pointIndex]) /
-                                   this->drParameters.t0));
+                                   this->drParameters->t0));
       }
       stateVariable[pointIndex] = std::max(stateVariable[pointIndex], f2);
     }
@@ -200,7 +200,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters& parameters){};
+  NoSpecialization(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
@@ -227,7 +227,7 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  BiMaterialFault(DRParameters& parameters) : drParameters(parameters){};
+  BiMaterialFault(DRParameters* parameters) : drParameters(parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,
@@ -248,7 +248,7 @@ class BiMaterialFault {
                     unsigned int pointIndex);
 
   protected:
-  DRParameters& drParameters;
+  DRParameters* drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
 };
 

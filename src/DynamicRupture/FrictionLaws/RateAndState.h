@@ -25,7 +25,7 @@ constexpr real almostZero() {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  RateAndStateBase(DRParameters& drParameters)
+  RateAndStateBase(DRParameters* drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
@@ -287,8 +287,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
           this->ruptureTime[face][pointIndex] <= this->mFullUpdateTime &&
           this->dynStressTimePending[face][pointIndex] &&
           this->mu[face][pointIndex] <=
-              (this->drParameters.muW +
-               0.05 * (this->drParameters.rsF0 - this->drParameters.muW))) {
+              (this->drParameters->muW +
+               0.05 * (this->drParameters->rsF0 - this->drParameters->muW))) {
         this->dynStressTime[face][pointIndex] = this->mFullUpdateTime;
         this->dynStressTimePending[face][pointIndex] = false;
       }

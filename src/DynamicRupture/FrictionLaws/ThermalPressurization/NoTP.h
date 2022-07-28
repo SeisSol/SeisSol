@@ -4,7 +4,7 @@
 namespace seissol::dr::friction_law {
 class NoTP {
   public:
-  NoTP(DRParameters& drParameters){};
+  NoTP(DRParameters* drParameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup,

@@ -45,10 +45,10 @@ class SlowVelocityWeakeningLaw
                   double localStateVariable) {
     double localA = this->a[ltsFace][pointIndex];
     double localSl0 = this->sl0[ltsFace][pointIndex];
-    double log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
+    double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
-    double x = 0.5 * (localSlipRateMagnitude / this->drParameters.rsSr0) *
-               std::exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
+    double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
+               std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
     return localA * misc::asinh(x);
   }
 
@@ -67,9 +67,9 @@ class SlowVelocityWeakeningLaw
                             double localStateVariable) {
     double localA = this->a[ltsFace][pointIndex];
     double localSl0 = this->sl0[ltsFace][pointIndex];
-    double log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
-    double c = (0.5 / this->drParameters.rsSr0) *
-               std::exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
+    double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
+    double c = (0.5 / this->drParameters->rsSr0) *
+               std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
     return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
   }
 
@@ -85,11 +85,11 @@ class SlowVelocityWeakeningLaw
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
                              unsigned ltsFace) {
     [[maybe_unused]] real tmp =
-        0.5 / this->drParameters.rsSr0 *
+        0.5 / this->drParameters->rsSr0 *
         std::exp(
-            (this->drParameters.rsF0 +
-             this->drParameters.rsB * std::log(this->drParameters.rsSr0 * localStateVariable[0] /
-                                               this->drParameters.rsSr0)) /
+            (this->drParameters->rsF0 +
+             this->drParameters->rsB * std::log(this->drParameters->rsSr0 * localStateVariable[0] /
+                                                this->drParameters->rsSr0)) /
             this->a[ltsFace][0]);
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
