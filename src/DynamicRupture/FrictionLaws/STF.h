@@ -15,7 +15,7 @@ class YoffeSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime,
@@ -31,7 +31,7 @@ class GaussianSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);

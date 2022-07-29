@@ -39,8 +39,8 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
                                           const GeneralParamsT& generalParams,
                                           double time) {
 
-  size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
-  auto faultInfos = meshReader->getFault();
+  const size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
+  const auto faultInfos = meshReader->getFault();
 
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
@@ -51,7 +51,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     assert(faceIndex != -1 && "receiver is not initialized");
     local = LocalInfo{};
 
-    auto ltsMap = (*faceToLtsMap)[faceIndex];
+    const auto ltsMap = (*faceToLtsMap)[faceIndex];
     local.layer = ltsMap.first;
     local.ltsId = ltsMap.second;
     local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
@@ -60,7 +60,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
 
-    auto faultInfo = faultInfos[faceIndex];
+    const auto faultInfo = faultInfos[faceIndex];
 
     real dofsPlus[tensor::Q::size()]{};
     getDofs(dofsPlus, faultInfo.element);
@@ -72,8 +72,8 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
       getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 
-    auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
-    auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
+    const auto* initStresses = local.layer->var(drDescr->initialStressInFaultCS);
+    const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
     local.frictionCoefficient = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
     local.stateVariable = this->computeStateVariable();
@@ -106,7 +106,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     kernel.execute();
 
     this->computeLocalStresses();
-    real strength = this->computeLocalStrength();
+    const real strength = this->computeLocalStrength();
     this->updateLocalTractions(strength);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
@@ -227,8 +227,8 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
       VrtxCoords crossProduct = {0.0, 0.0, 0.0};
       MeshTools::cross(strike, tangent1, crossProduct);
 
-      double cos1 = MeshTools::dot(strike, tangent1);
-      double scalarProd = MeshTools::dot(crossProduct, normal);
+      const double cos1 = MeshTools::dot(strike, tangent1);
+      const double scalarProd = MeshTools::dot(crossProduct, normal);
 
       // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
@@ -253,9 +253,9 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 }
 
 void ReceiverBasedOutput::computeLocalStresses() {
-  auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  real norDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
-  real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
+  const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+  const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
+  const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
   auto diff = [this](int i) {
     return this->local.faceAlignedValuesMinus[i] - this->local.faceAlignedValuesPlus[i];
@@ -271,7 +271,7 @@ void ReceiverBasedOutput::computeLocalStresses() {
 
   local.transientNormalTraction =
       local.faceAlignedValuesPlus[0] +
-      ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * norDivisor;
+      ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * normalDivisor;
 
   local.faultNormalVelocity =
       local.faceAlignedValuesPlus[6] +
@@ -288,9 +288,9 @@ void ReceiverBasedOutput::computeLocalStresses() {
 }
 
 void ReceiverBasedOutput::updateLocalTractions(real strength) {
-  auto component1 = local.iniTraction1 + local.faceAlignedStress12;
-  auto component2 = local.iniTraction2 + local.faceAlignedStress13;
-  auto tracEla = misc::magnitude(component1, component2);
+  const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
+  const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
+  const auto tracEla = misc::magnitude(component1, component2);
 
   if (tracEla > std::abs(strength)) {
     local.updatedTraction1 =
@@ -310,7 +310,7 @@ void ReceiverBasedOutput::updateLocalTractions(real strength) {
 void ReceiverBasedOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStress,
                                           std::array<real, 6>& rotatedStress) {
 
-  auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+  const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[3] - rotatedStress[3]);
   local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[5] - rotatedStress[5]);
 }
@@ -323,11 +323,11 @@ void ReceiverBasedOutput::computeSlipRate(const double* tangent1,
   local.slipRateDip = static_cast<real>(0.0);
 
   for (size_t i = 0; i < 3; ++i) {
-    real factorMinus = (local.faceAlignedValuesMinus[7] * tangent1[i] +
-                        local.faceAlignedValuesMinus[8] * tangent2[i]);
+    const real factorMinus = (local.faceAlignedValuesMinus[7] * tangent1[i] +
+                              local.faceAlignedValuesMinus[8] * tangent2[i]);
 
-    real factorPlus = (local.faceAlignedValuesPlus[7] * tangent1[i] +
-                       local.faceAlignedValuesPlus[8] * tangent2[i]);
+    const real factorPlus = (local.faceAlignedValuesPlus[7] * tangent1[i] +
+                             local.faceAlignedValuesPlus[8] * tangent2[i]);
 
     local.slipRateStrike += (factorMinus - factorPlus) * strike[i];
     local.slipRateDip += (factorMinus - factorPlus) * dip[i];
@@ -375,8 +375,8 @@ real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jaco
       projectedRT[d] *= m2inv(d, d);
     }
 
-    real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
-    real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
+    const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
+    const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
 
     basisFunction::TriDubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
@@ -386,10 +386,10 @@ real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jaco
       dTdChi += projectedRT[d] * phiAtPoint[2 * d];
       dTdTau += projectedRT[d] * phiAtPoint[2 * d + 1];
     }
-    real dTdX = jacobiT2d(0, 0) * dTdChi + jacobiT2d(0, 1) * dTdTau;
-    real dTdY = jacobiT2d(1, 0) * dTdChi + jacobiT2d(1, 1) * dTdTau;
+    const real dTdX = jacobiT2d(0, 0) * dTdChi + jacobiT2d(0, 1) * dTdTau;
+    const real dTdY = jacobiT2d(1, 0) * dTdChi + jacobiT2d(1, 1) * dTdTau;
 
-    real slowness = misc::magnitude(dTdX, dTdY);
+    const real slowness = misc::magnitude(dTdX, dTdY);
     ruptureVelocity = (slowness == 0.0) ? 0.0 : 1.0 / slowness;
   }
 

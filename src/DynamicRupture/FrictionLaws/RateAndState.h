@@ -29,12 +29,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
-  void updateFrictionAndSlip(FaultStresses& faultStresses,
+  void updateFrictionAndSlip(FaultStresses const& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
-                             unsigned& ltsFace,
-                             unsigned& timeIndex) {
+                             unsigned ltsFace,
+                             unsigned timeIndex) {
     bool hasConverged = false;
 
     // compute initial slip rate and reference values
@@ -96,9 +96,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState*>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState const* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
@@ -131,10 +131,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                            faultStresses.traction1[timeIndex][pointIndex];
-      real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                            faultStresses.traction2[timeIndex][pointIndex];
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+                                  faultStresses.traction1[timeIndex][pointIndex];
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+                                  faultStresses.traction2[timeIndex][pointIndex];
       absoluteTraction[pointIndex] = misc::magnitude(totalTraction1, totalTraction2);
 
       // The following process is adapted from that described by Kaneko et al. (2008)
@@ -210,7 +210,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                std::array<real, misc::numPaddedPoints>& localStateVariable,
                                std::array<real, misc::numPaddedPoints> const& normalStress,
                                std::array<real, misc::numPaddedPoints> const& absoluteTraction,
-                               FaultStresses& faultStresses,
+                               FaultStresses const& faultStresses,
                                TractionResults& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
@@ -229,12 +229,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                 pointIndex,
                                                 this->slipRateMagnitude[ltsFace][pointIndex],
                                                 localStateVariable[pointIndex]);
-      real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
+      const real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
-      real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                            faultStresses.traction1[timeIndex][pointIndex];
-      real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                            faultStresses.traction2[timeIndex][pointIndex];
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+                                  faultStresses.traction1[timeIndex][pointIndex];
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+                                  faultStresses.traction2[timeIndex][pointIndex];
       // update stress change
       this->traction1[ltsFace][pointIndex] =
           (totalTraction1 / absoluteTraction[pointIndex]) * strength -
@@ -259,8 +259,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
           (this->traction2[ltsFace][pointIndex] - faultStresses.traction2[timeIndex][pointIndex]);
 
       // TU 07.07.16: correct slipRate1 and slipRate2 to avoid numerical errors
-      real locSlipRateMagnitude = misc::magnitude(this->slipRate1[ltsFace][pointIndex],
-                                                  this->slipRate2[ltsFace][pointIndex]);
+      const real locSlipRateMagnitude = misc::magnitude(this->slipRate1[ltsFace][pointIndex],
+                                                        this->slipRate2[ltsFace][pointIndex]);
       if (locSlipRateMagnitude != 0) {
         this->slipRate1[ltsFace][pointIndex] *=
             this->slipRateMagnitude[ltsFace][pointIndex] / locSlipRateMagnitude;
@@ -359,7 +359,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                               (fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
                           1.0;
         // ratio
-        real tmp3 = nr[pointIndex] / dNr[pointIndex];
+        const real tmp3 = nr[pointIndex] / dNr[pointIndex];
 
         // update slipRateTest
         slipRateTest[pointIndex] = std::max(almostZero(), slipRateTest[pointIndex] - tmp3);
@@ -370,7 +370,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   void updateNormalStress(std::array<real, misc::numPaddedPoints>& normalStress,
                           FaultStresses const& faultStresses,
-                          TPMethod tpMethod,
+                          TPMethod const& tpMethod,
                           size_t timeIndex,
                           size_t ltsFace) {
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {

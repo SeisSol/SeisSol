@@ -11,11 +11,11 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                         seissol::initializers::DynamicRupture* dynRup,
+                                         seissol::initializers::DynamicRupture const* const dynRup,
                                          real fullUpdateTime) {
   // maybe change later to const_cast?
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial const* const>(dynRup);
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
@@ -26,9 +26,10 @@ real BiMaterialFault::strengthHook(real faultStrength,
                                    unsigned int pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
-  real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters.vStar) *
-                          deltaT / drParameters.prakashLength);
-  real newStrength =
+  const real expterm =
+      std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters.vStar) * deltaT /
+               drParameters.prakashLength);
+  const real newStrength =
       regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
   regularisedStrength[ltsFace][pointIndex] = newStrength;
   return newStrength;

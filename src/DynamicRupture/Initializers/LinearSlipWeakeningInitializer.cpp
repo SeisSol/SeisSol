@@ -4,23 +4,24 @@
 
 namespace seissol::dr::initializers {
 
-void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                                                     seissol::initializers::LTSTree* dynRupTree) {
+void LinearSlipWeakeningInitializer::initializeFault(
+    seissol::initializers::DynamicRupture const* const dynRup,
+    seissol::initializers::LTSTree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRup, dynRupTree);
 
-  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+  auto* concreteLts =
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening const* const>(dynRup);
   for (seissol::initializers::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != dynRupTree->endLeaf();
        ++it) {
     bool(*dynStressTimePending)[misc::numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
-    real* averagedSlip = it->var(concreteLts->averagedSlip);
     real(*slipRate1)[misc::numPaddedPoints] = it->var(concreteLts->slipRate1);
     real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
     real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
     real(*forcedRuptureTime)[misc::numPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
-    bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
+    const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
@@ -33,16 +34,16 @@ void LinearSlipWeakeningInitializer::initializeFault(seissol::initializers::Dyna
           forcedRuptureTime[ltsFace][pointIndex] = std::numeric_limits<real>::max();
         }
       }
-      averagedSlip[ltsFace] = 0.0;
     }
   }
 }
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
-  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+  auto* concreteLts =
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening const* const>(dynRup);
   real(*dC)[misc::numPaddedPoints] = it->var(concreteLts->dC);
   real(*muS)[misc::numPaddedPoints] = it->var(concreteLts->muS);
   real(*muD)[misc::numPaddedPoints] = it->var(concreteLts->muD);
@@ -58,10 +59,11 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(
-    seissol::initializers::DynamicRupture* dynRup, seissol::initializers::LTSTree* dynRupTree) {
+    seissol::initializers::DynamicRupture const* const dynRup,
+    seissol::initializers::LTSTree* const dynRupTree) {
   LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(dynRup);
+      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial const* const>(dynRup);
 
   for (seissol::initializers::LTSTree::leaf_iterator it =
            dynRupTree->beginLeaf(seissol::initializers::LayerMask(Ghost));

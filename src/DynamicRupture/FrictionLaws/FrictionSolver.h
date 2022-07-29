@@ -21,21 +21,21 @@ class FrictionSolver {
   virtual ~FrictionSolver(){};
 
   virtual void evaluate(seissol::initializers::Layer& layerData,
-                        seissol::initializers::DynamicRupture* dynRup,
+                        seissol::initializers::DynamicRupture const* const dynRup,
                         real fullUpdateTime,
-                        double timeWeights[CONVERGENCE_ORDER]) = 0;
+                        const double timeWeights[CONVERGENCE_ORDER]) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(double timePoints[CONVERGENCE_ORDER]);
+  void computeDeltaT(const double timePoints[CONVERGENCE_ORDER]);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   protected:
@@ -69,7 +69,6 @@ class FrictionSolver {
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 
   // be careful only for some FLs initialized:
-  real* averagedSlip;
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
 
