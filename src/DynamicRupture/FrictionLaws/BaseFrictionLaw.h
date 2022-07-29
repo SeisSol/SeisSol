@@ -72,12 +72,6 @@ class BaseFrictionLaw : public FrictionSolver {
       // output peak slip rate
       Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
 
-      // output average slip
-      // TODO: What about outputSlip
-      // if (drParameters.isMagnitudeOutputOn) {
-      // Common::saveAverageSlipOutput(outputSlip, averagedSlip[ltsFace]);
-      //}
-
       // compute output
       Common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,

@@ -15,7 +15,6 @@ void RateAndStateInitializer::initializeFault(
        ++it) {
 
     bool(*dynStressTimePending)[misc::numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
-    real* averagedSlip = it->var(concreteLts->averagedSlip);
     real(*slipRate1)[misc::numPaddedPoints] = it->var(concreteLts->slipRate1);
     real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
@@ -46,7 +45,6 @@ void RateAndStateInitializer::initializeFault(
                                            drParameters.rsF0,
                                            initialSlipRate);
       }
-      averagedSlip[ltsFace] = 0.0;
     }
   }
 }

@@ -15,7 +15,6 @@ struct Common {
    * in the function inlining required for GPU impl.
    */
 
-  public:
   /**
    * Calculate traction and normal stress at the interface of a face.
    * Using equations (A2) from Pelties et al. 2014
@@ -199,22 +198,6 @@ struct Common {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
     }
-  }
-
-  /**
-   * Compute and store element-averaged slip to determine the magnitude of an earthquake.
-   * In calc_seissol.f90 this value will be multiplied by the element surface
-   * and the seismic moment is outputted once at the end of the simulation.
-   *
-   * @param[in] tmpSlip
-   * @param[out] averagedSlip
-   */
-  static void saveAverageSlipOutput(real tmpSlip[misc::numPaddedPoints], real& averagedSlip) {
-    real sumOfTmpSlip = 0;
-    for (unsigned pointIndex = 0; pointIndex < misc::numberOfBoundaryGaussPoints; pointIndex++) {
-      sumOfTmpSlip += tmpSlip[pointIndex];
-    }
-    averagedSlip += sumOfTmpSlip / misc::numberOfBoundaryGaussPoints;
   }
 };
 } // namespace seissol::dr::friction_law

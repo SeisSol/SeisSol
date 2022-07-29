@@ -69,7 +69,6 @@ class FrictionSolver {
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
 
   // be careful only for some FLs initialized:
-  real* averagedSlip;
   real (*dynStressTime)[misc::numPaddedPoints];
   bool (*dynStressTimePending)[misc::numPaddedPoints];
 

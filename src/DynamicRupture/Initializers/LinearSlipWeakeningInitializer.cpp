@@ -16,7 +16,6 @@ void LinearSlipWeakeningInitializer::initializeFault(
        it != dynRupTree->endLeaf();
        ++it) {
     bool(*dynStressTimePending)[misc::numPaddedPoints] = it->var(concreteLts->dynStressTimePending);
-    real* averagedSlip = it->var(concreteLts->averagedSlip);
     real(*slipRate1)[misc::numPaddedPoints] = it->var(concreteLts->slipRate1);
     real(*slipRate2)[misc::numPaddedPoints] = it->var(concreteLts->slipRate2);
     real(*mu)[misc::numPaddedPoints] = it->var(concreteLts->mu);
@@ -35,7 +34,6 @@ void LinearSlipWeakeningInitializer::initializeFault(
           forcedRuptureTime[ltsFace][pointIndex] = std::numeric_limits<real>::max();
         }
       }
-      averagedSlip[ltsFace] = 0.0;
     }
   }
 }

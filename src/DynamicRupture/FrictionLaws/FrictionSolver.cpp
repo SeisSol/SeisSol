@@ -32,7 +32,6 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   imposedStatePlus = layerData.var(dynRup->imposedStatePlus);
   imposedStateMinus = layerData.var(dynRup->imposedStateMinus);
   mFullUpdateTime = fullUpdateTime;
-  averagedSlip = layerData.var(dynRup->averagedSlip);
   dynStressTime = layerData.var(dynRup->dynStressTime);
   dynStressTimePending = layerData.var(dynRup->dynStressTimePending);
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
