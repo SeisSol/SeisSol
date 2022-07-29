@@ -69,26 +69,26 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
     VectorOfArraysT initialStressXY(it->getNumberOfCells());
     VectorOfArraysT initialStressXZ(it->getNumberOfCells());
     VectorOfArraysT initialStressYZ(it->getNumberOfCells());
-    bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStressXX,
-                                                                        initialStressYY,
-                                                                        initialStressZZ,
-                                                                        initialStressXY,
-                                                                        initialStressYZ,
-                                                                        initialStressXZ,
-                                                                        false);
+    const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStressXX,
+                                                                              initialStressYY,
+                                                                              initialStressZZ,
+                                                                              initialStressXY,
+                                                                              initialStressYZ,
+                                                                              initialStressXZ,
+                                                                              false);
     VectorOfArraysT nucleationStressXX(it->getNumberOfCells());
     VectorOfArraysT nucleationStressYY(it->getNumberOfCells());
     VectorOfArraysT nucleationStressZZ(it->getNumberOfCells());
     VectorOfArraysT nucleationStressXY(it->getNumberOfCells());
     VectorOfArraysT nucleationStressXZ(it->getNumberOfCells());
     VectorOfArraysT nucleationStressYZ(it->getNumberOfCells());
-    bool nucleationStressParameterizedByTraction = addStressesToStorageMap(nucleationStressXX,
-                                                                           nucleationStressYY,
-                                                                           nucleationStressZZ,
-                                                                           nucleationStressXY,
-                                                                           nucleationStressYZ,
-                                                                           nucleationStressXZ,
-                                                                           true);
+    const bool nucleationStressParameterizedByTraction = addStressesToStorageMap(nucleationStressXX,
+                                                                                 nucleationStressYY,
+                                                                                 nucleationStressZZ,
+                                                                                 nucleationStressXY,
+                                                                                 nucleationStressYZ,
+                                                                                 nucleationStressXZ,
+                                                                                 true);
 
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, it);

@@ -820,7 +820,7 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   // reading input provided by parameters.par
   m_dynRupParameter = dr::readParametersFromYaml(*m_inputParams);
 
-  auto factory = seissol::dr::factory::getFactory(m_dynRupParameter);
+  const auto factory = seissol::dr::factory::getFactory(m_dynRupParameter);
   auto product = factory->produce();
   m_dynRup = std::move(product.ltsTree);
   m_DRInitializer = std::move(product.initializer);

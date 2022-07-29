@@ -214,7 +214,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
       const auto& triangle = receiverPoints[pointIndex].globalTriangle;
-      auto& point = const_cast<ExtVrtxCoords&>(triangle.points[vertexIndex]);
+      const auto& point = const_cast<ExtVrtxCoords const&>(triangle.points[vertexIndex]);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {

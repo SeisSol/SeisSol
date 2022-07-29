@@ -130,7 +130,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& verticesInfo = meshReader->getVertices();
   const auto& elementsInfo = meshReader->getElements();
 
-  size_t nReceiverPoints = outputData->receiverPoints.size();
+  const size_t nReceiverPoints = outputData->receiverPoints.size();
   outputData->jacobianT2d.resize(nReceiverPoints);
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {

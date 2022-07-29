@@ -32,7 +32,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
                              unsigned int face,
                              double stateVarReference,
                              double timeIncrement,
-                             double localSlipRate) {
+                             double localSlipRate) const {
     const double localSl0 = this->sl0[face][pointIndex];
     const double exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
     return stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1);

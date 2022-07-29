@@ -254,7 +254,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
 void ReceiverBasedOutput::computeLocalStresses() {
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  const real norDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
+  const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
   auto diff = [this](int i) {
@@ -271,7 +271,7 @@ void ReceiverBasedOutput::computeLocalStresses() {
 
   local.transientNormalTraction =
       local.faceAlignedValuesPlus[0] +
-      ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * norDivisor;
+      ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * normalDivisor;
 
   local.faultNormalVelocity =
       local.faceAlignedValuesPlus[6] +

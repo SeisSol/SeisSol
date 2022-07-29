@@ -8,8 +8,8 @@ class LinearSlipWeakening : public ReceiverBasedOutput {
   protected:
   real computeLocalStrength() override {
     using DrLtsDescrT = seissol::initializers::LTS_LinearSlipWeakening;
-    auto* cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
-    auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
+    auto const* const cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
+    const auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
 
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;

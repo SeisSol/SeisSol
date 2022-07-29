@@ -61,7 +61,7 @@ class GaussianHeatSource {
     real factor = 1 / std::sqrt(2.0 * M_PI);
 
     for (size_t i = 0; i < N; ++i) {
-      real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
+      const real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
       values[i] = factor * heatGeneration;
     }
   }

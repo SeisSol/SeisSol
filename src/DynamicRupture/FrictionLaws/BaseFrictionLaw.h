@@ -34,7 +34,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       alignas(ALIGNMENT) FaultStresses faultStresses{};
-      Common::precomputeStressFromQInterpolated(faultStresses,
+      common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
@@ -61,7 +61,7 @@ class BaseFrictionLaw : public FrictionSolver {
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
       // output rupture front
-      Common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+      common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
                                      ruptureTime[ltsFace],
                                      slipRateMagnitude[ltsFace],
                                      mFullUpdateTime);
@@ -70,10 +70,10 @@ class BaseFrictionLaw : public FrictionSolver {
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
       // output peak slip rate
-      Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+      common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
 
       // compute output
-      Common::postcomputeImposedStateFromNewStress(faultStresses,
+      common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
                                                    imposedStatePlus[ltsFace],

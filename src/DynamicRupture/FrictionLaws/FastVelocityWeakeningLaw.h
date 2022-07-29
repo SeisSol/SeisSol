@@ -40,7 +40,7 @@ class FastVelocityWeakeningLaw
                            unsigned int face,
                            real stateVarReference,
                            real timeIncrement,
-                           real localSlipRate) {
+                           real localSlipRate) const {
     const double muW = this->drParameters.muW;
     const double localSrW = this->srW[face][pointIndex];
     const double localA = this->a[face][pointIndex];
@@ -81,7 +81,7 @@ class FastVelocityWeakeningLaw
   real updateMu(unsigned int ltsFace,
                 unsigned int pointIndex,
                 real localSlipRateMagnitude,
-                real localStateVariable) {
+                real localStateVariable) const {
     // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
     const real localA = this->a[ltsFace][pointIndex];
     // x in asinh(x) for mu calculation
@@ -101,7 +101,7 @@ class FastVelocityWeakeningLaw
   real updateMuDerivative(unsigned int ltsFace,
                           unsigned int pointIndex,
                           real localSlipRateMagnitude,
-                          real localStateVariable) {
+                          real localStateVariable) const {
     const real localA = this->a[ltsFace][pointIndex];
     const real c = 0.5 / this->drParameters.rsSr0 * std::exp(localStateVariable / localA);
     return localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
@@ -111,8 +111,8 @@ class FastVelocityWeakeningLaw
    * Resample the state variable.
    */
   std::array<real, misc::numPaddedPoints>
-      resampleStateVar(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                       unsigned int ltsFace) {
+      resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+                       unsigned int ltsFace) const {
     std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
     std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
     std::array<real, misc::numPaddedPoints> resampledStateVar = {0};
@@ -136,7 +136,7 @@ class FastVelocityWeakeningLaw
   }
 
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                             unsigned ltsFace) {
+                             unsigned ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters.rsSr0 *
                                       exp(localStateVariable[0] / this->a[ltsFace][0]) *
                                       this->slipRateMagnitude[ltsFace][0];

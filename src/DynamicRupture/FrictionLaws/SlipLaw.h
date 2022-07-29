@@ -35,7 +35,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
                              double timeIncrement,
                              double localSlipRate) {
     const double localSl0 = this->sl0[face][pointIndex];
-    const double exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
+    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
     return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
   }
 };

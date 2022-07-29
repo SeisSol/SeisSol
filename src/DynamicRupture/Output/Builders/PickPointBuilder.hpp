@@ -51,7 +51,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     // Therefore, we need to convert
     std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
-      auto& receiverPoint = potentialReceivers[receiverId];
+      const auto& receiverPoint = potentialReceivers[receiverId];
       eigenPoints[receiverId] = receiverPoint.global.getAsEigenVector();
     }
 
