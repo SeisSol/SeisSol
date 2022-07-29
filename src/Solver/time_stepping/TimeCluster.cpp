@@ -76,6 +76,18 @@
 #endif
 
 #include "SeisSol.h"
+#ifdef LIKWID_PERFMON
+#include <likwid-marker.h>
+#else
+#define LIKWID_MARKER_INIT
+#define LIKWID_MARKER_THREADINIT
+#define LIKWID_MARKER_SWITCH
+#define LIKWID_MARKER_REGISTER(regionTag)
+#define LIKWID_MARKER_START(regionTag)
+#define LIKWID_MARKER_STOP(regionTag)
+#define LIKWID_MARKER_CLOSE
+#define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
+#endif
 #include "TimeCluster.h"
 #include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
@@ -241,6 +253,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
   frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
+  LIKWID_MARKER_START("SpaceTimeInterpolation");
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -257,11 +270,14 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                   timeDerivativePlus[prefetchFace],
                                                   timeDerivativeMinus[prefetchFace]);
   }
+  LIKWID_MARKER_STOP("SpaceTimeInterpolation");
 
+  LIKWID_MARKER_START("FrictionLaw");
   frictionSolver->evaluate(layerData,
                            m_dynRup,
                            ct.correctionTime,
                            m_dynamicRuptureKernel.timeWeights);
+  LIKWID_MARKER_STOP("FrictionLaw");
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
 }

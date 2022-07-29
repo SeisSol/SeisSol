@@ -2,6 +2,18 @@
 #define SEISSOL_BASEFRICTIONLAW_H
 
 #include <yaml-cpp/yaml.h>
+#ifdef LIKWID_PERFMON
+#include <likwid-marker.h>
+#else
+#define LIKWID_MARKER_INIT
+#define LIKWID_MARKER_THREADINIT
+#define LIKWID_MARKER_SWITCH
+#define LIKWID_MARKER_REGISTER(regionTag)
+#define LIKWID_MARKER_START(regionTag)
+#define LIKWID_MARKER_STOP(regionTag)
+#define LIKWID_MARKER_CLOSE
+#define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
+#endif
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Parameters.h"
@@ -34,17 +46,22 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       alignas(ALIGNMENT) FaultStresses faultStresses{};
+      LIKWID_MARKER_START("PrecomputeStress");
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
+      LIKWID_MARKER_STOP("PrecomputeStress");
 
+      LIKWID_MARKER_START("PreHook");
       // define some temporary variables
       std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
       std::array<real, misc::numPaddedPoints> strengthBuffer{0};
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
+      LIKWID_MARKER_STOP("PreHook");
 
+      LIKWID_MARKER_START("UpdateFrictionAndSlip");
       TractionResults tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
@@ -57,7 +74,9 @@ class BaseFrictionLaw : public FrictionSolver {
                                                            ltsFace,
                                                            timeIndex);
       }
+      LIKWID_MARKER_STOP("UpdateFrictionAndSlip");
 
+      LIKWID_MARKER_START("PostHook");
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
       common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
@@ -68,7 +87,9 @@ class BaseFrictionLaw : public FrictionSolver {
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
       common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+      LIKWID_MARKER_STOP("PostHook");
 
+      LIKWID_MARKER_START("PostcomputeImposedState");
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
@@ -77,6 +98,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                    qInterpolatedPlus[ltsFace],
                                                    qInterpolatedMinus[ltsFace],
                                                    timeWeights);
+      LIKWID_MARKER_STOP("PostcomputeImposedState");
     }
   }
 };
