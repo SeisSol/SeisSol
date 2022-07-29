@@ -6,13 +6,13 @@
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
 
-namespace seissol::dr::friction_law::common {
 /**
  * Contains common functions required both for CPU and GPU impl.
  * of Dynamic Rupture solvers. The functions placed in
  * this class definition (of the header file) result
  * in the function inlining required for GPU impl.
  */
+namespace seissol::dr::friction_law::common {
 
 /**
  * Calculate traction and normal stress at the interface of a face.
@@ -53,6 +53,8 @@ inline void precomputeStressFromQInterpolated(
 
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)
+#else
+#pragma omp simd
 #endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       faultStresses.normalStress[o][i] =
