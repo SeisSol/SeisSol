@@ -106,7 +106,7 @@ class ThermalPressurization {
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   /**
@@ -114,8 +114,8 @@ class ThermalPressurization {
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
    */
   void calcFluidPressure(std::array<real, misc::numPaddedPoints> const& normalStress,
-                         real (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
+                         real const (*mu)[misc::numPaddedPoints],
+                         std::array<real, misc::numPaddedPoints> const& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          unsigned int timeIndex,

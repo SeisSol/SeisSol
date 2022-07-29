@@ -2,7 +2,7 @@
 
 namespace seissol::dr::friction_law {
 
-void FrictionSolver::computeDeltaT(double timePoints[CONVERGENCE_ORDER]) {
+void FrictionSolver::computeDeltaT(const double timePoints[CONVERGENCE_ORDER]) {
   deltaT[0] = timePoints[0];
   for (unsigned timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
@@ -12,7 +12,7 @@ void FrictionSolver::computeDeltaT(double timePoints[CONVERGENCE_ORDER]) {
 }
 
 void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                        seissol::initializers::DynamicRupture* dynRup,
+                                        seissol::initializers::DynamicRupture const* const dynRup,
                                         real fullUpdateTime) {
   impAndEta = layerData.var(dynRup->impAndEta);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
@@ -41,7 +41,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
 
 void FrictionSolver::adjustInitialStress(size_t ltsFace, size_t timeIndex) {
   if (this->mFullUpdateTime <= this->drParameters.t0) {
-    real gNuc = seissol::gaussianNucleationFunction::smoothStepIncrement(
+    const real gNuc = seissol::gaussianNucleationFunction::smoothStepIncrement(
         this->mFullUpdateTime, this->deltaT[timeIndex], this->drParameters.t0);
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       for (unsigned i = 0; i < 6; i++) {

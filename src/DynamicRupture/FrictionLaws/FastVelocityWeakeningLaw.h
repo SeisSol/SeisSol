@@ -15,12 +15,12 @@ class FastVelocityWeakeningLaw
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening*>(dynRup);
+        dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening const* const>(
+            dynRup);
 
-    this->averagedSlip = layerData.var(concreteLts->averagedSlip);
     this->srW = layerData.var(concreteLts->rsSrW);
   }
 
@@ -41,29 +41,30 @@ class FastVelocityWeakeningLaw
                            real stateVarReference,
                            real timeIncrement,
                            real localSlipRate) {
-    double muW = this->drParameters.muW;
-    double localSrW = this->srW[face][pointIndex];
-    double localA = this->a[face][pointIndex];
-    double localSl0 = this->sl0[face][pointIndex];
+    const double muW = this->drParameters.muW;
+    const double localSrW = this->srW[face][pointIndex];
+    const double localA = this->a[face][pointIndex];
+    const double localSl0 = this->sl0[face][pointIndex];
 
     // low-velocity steady state friction coefficient
-    real lowVelocityFriction =
+    const real lowVelocityFriction =
         this->drParameters.rsF0 -
         (this->drParameters.rsB - localA) * log(localSlipRate / this->drParameters.rsSr0);
-    real steadyStateFrictionCoefficient =
+    const real steadyStateFrictionCoefficient =
         muW + (lowVelocityFriction - muW) /
                   std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
     // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
     // Need double precision here, otherwise this will evaluate to infinity
-    real steadyStateStateVariable =
+    const real steadyStateStateVariable =
         localA * std::log(this->drParameters.rsSr0 / localSlipRate *
                           (std::exp(steadyStateFrictionCoefficient / localA) -
                            std::exp(-steadyStateFrictionCoefficient / localA)));
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
-    real exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
-    real localStateVariable = steadyStateStateVariable * (1.0 - exp1) + exp1 * stateVarReference;
+    const real exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
+    const real localStateVariable =
+        steadyStateStateVariable * (1.0 - exp1) + exp1 * stateVarReference;
     assert(!(std::isnan(localStateVariable) && pointIndex < misc::numberOfBoundaryGaussPoints) &&
            "NaN detected");
     return localStateVariable;
@@ -82,10 +83,10 @@ class FastVelocityWeakeningLaw
                 real localSlipRateMagnitude,
                 real localStateVariable) {
     // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
-    real localA = this->a[ltsFace][pointIndex];
+    const real localA = this->a[ltsFace][pointIndex];
     // x in asinh(x) for mu calculation
-    real x = 0.5 / this->drParameters.rsSr0 * std::exp(localStateVariable / localA) *
-             localSlipRateMagnitude;
+    const real x = 0.5 / this->drParameters.rsSr0 * std::exp(localStateVariable / localA) *
+                   localSlipRateMagnitude;
     return localA * misc::asinh(x);
   }
 
@@ -101,8 +102,8 @@ class FastVelocityWeakeningLaw
                           unsigned int pointIndex,
                           real localSlipRateMagnitude,
                           real localStateVariable) {
-    real localA = this->a[ltsFace][pointIndex];
-    real c = 0.5 / this->drParameters.rsSr0 * std::exp(localStateVariable / localA);
+    const real localA = this->a[ltsFace][pointIndex];
+    const real c = 0.5 / this->drParameters.rsSr0 * std::exp(localStateVariable / localA);
     return localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
   }
 
@@ -136,9 +137,9 @@ class FastVelocityWeakeningLaw
 
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
                              unsigned ltsFace) {
-    [[maybe_unused]] real tmp = 0.5 / this->drParameters.rsSr0 *
-                                exp(localStateVariable[0] / this->a[ltsFace][0]) *
-                                this->slipRateMagnitude[ltsFace][0];
+    [[maybe_unused]] const real tmp = 0.5 / this->drParameters.rsSr0 *
+                                      exp(localStateVariable[0] / this->a[ltsFace][0]) *
+                                      this->slipRateMagnitude[ltsFace][0];
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 

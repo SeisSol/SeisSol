@@ -49,7 +49,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
       // get a global element ID for the current fault face
       const auto& fault = faultInfo[faceIdx];
-      auto elementIdx = fault.element;
+      const auto elementIdx = fault.element;
 
       if (elementIdx >= 0) {
         const auto& element = elementsInfo[elementIdx];
@@ -62,7 +62,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
         }
 
-        auto faceSideIdx = fault.side;
+        const auto faceSideIdx = fault.side;
 
         // init reference coordinates of the fault face
         ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);

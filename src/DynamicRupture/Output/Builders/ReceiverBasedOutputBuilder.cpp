@@ -15,30 +15,30 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   constexpr size_t numVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
-      auto elementIndex = faultInfo[point.faultFaceIndex].element;
+      const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
 
-      auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+      const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
       const VrtxCoords* elemCoords[numVertices]{};
       for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
-        auto address = elementsInfo[elementIndex].vertices[vertexIdx];
+        const auto address = elementsInfo[elementIndex].vertices[vertexIdx];
         elemCoords[vertexIdx] = &(verticesInfo[address].coords);
       }
 
       const VrtxCoords* neighborElemCoords[numVertices]{};
       if (neighborElementIndex >= 0) {
         for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
-          auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
+          const auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
           neighborElemCoords[vertexIdx] = &(verticesInfo[address].coords);
         }
       } else {
-        auto faultSide = faultInfo[point.faultFaceIndex].side;
-        auto neighborRank = element.neighborRanks[faultSide];
+        const auto faultSide = faultInfo[point.faultFaceIndex].side;
+        const auto neighborRank = element.neighborRanks[faultSide];
         const auto& neighborVerticesItr = mpiNeighborVertices.find(neighborRank);
         assert(neighborVerticesItr != mpiNeighborVertices.end());
 
-        auto neighborIndex = element.mpiIndices[faultSide];
+        const auto neighborIndex = element.mpiIndices[faultSide];
         for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
           const auto& array3d = neighborVerticesItr->second[neighborIndex][vertexIdx];
           auto* data = const_cast<double*>(array3d.data());
@@ -53,12 +53,12 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 }
 
 void ReceiverBasedOutputBuilder::initFaultDirections() {
-  size_t nReceiverPoints = outputData->receiverPoints.size();
+  const size_t nReceiverPoints = outputData->receiverPoints.size();
   outputData->faultDirections.resize(nReceiverPoints);
   const auto& faultInfo = meshReader->getFault();
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    size_t globalIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
+    const size_t globalIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
 
     outputData->faultDirections[receiverId].faceNormal = faultInfo[globalIndex].normal;
     outputData->faultDirections[receiverId].tangent1 = faultInfo[globalIndex].tangent1;
@@ -75,7 +75,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 
   // allocate Rotation Matrices
   // Note: several receiver can share the same rotation matrix
-  size_t nReceiverPoints = outputData->receiverPoints.size();
+  const size_t nReceiverPoints = outputData->receiverPoints.size();
   outputData->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
   outputData->stressFaceAlignedToGlb.resize(nReceiverPoints);
   outputData->faceAlignedToGlbData.resize(nReceiverPoints);
@@ -134,13 +134,13 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   outputData->jacobianT2d.resize(nReceiverPoints);
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    auto side = outputData->receiverPoints[receiverId].localFaceSideId;
-    auto elementIndex = outputData->receiverPoints[receiverId].elementIndex;
+    const auto side = outputData->receiverPoints[receiverId].localFaceSideId;
+    const auto elementIndex = outputData->receiverPoints[receiverId].elementIndex;
 
     assert(elementIndex >= 0);
 
     const auto& element = elementsInfo[elementIndex];
-    auto face = getGlobalTriangle(side, element, verticesInfo);
+    const auto face = getGlobalTriangle(side, element, verticesInfo);
 
     VrtxCoords xab, xac;
     {
@@ -154,7 +154,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
       xac[z] = face.p3[z] - face.p1[z];
     }
 
-    auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
+    const auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 

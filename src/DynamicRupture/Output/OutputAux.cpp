@@ -52,8 +52,8 @@ ExtTriangle getGlobalTriangle(int localSideId,
   ExtTriangle triangle{};
 
   for (int vertexId = 0; vertexId < 3; ++vertexId) {
-    auto elementVertexId = getElementVertexId(localSideId, vertexId);
-    auto globalVertexId = element.vertices[elementVertexId];
+    const auto elementVertexId = getElementVertexId(localSideId, vertexId);
+    const auto globalVertexId = element.vertices[elementVertexId];
 
     triangle[vertexId] = verticesInfo[globalVertexId].coords;
   }
@@ -113,9 +113,9 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   double shortestDistance = std::numeric_limits<double>::max();
 
   for (unsigned index = 0; index < numFacePoints; ++index) {
-    double nextPoint[2] = {facePoints[index][0], facePoints[index][1]};
+    const double nextPoint[2] = {facePoints[index][0], facePoints[index][1]};
 
-    auto currentDistance = distance(targetPoint, nextPoint);
+    const auto currentDistance = distance(targetPoint, nextPoint);
     if (shortestDistance > currentDistance) {
       shortestDistance = currentDistance;
       nearestPoint = static_cast<int>(index);
@@ -166,9 +166,9 @@ int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
 void projectPointToFace(ExtVrtxCoords& point,
                         const ExtTriangle& face,
                         const VrtxCoords faceNormal) {
-  auto distance = getDistanceFromPointToFace(point, face, faceNormal);
-  double faceNormalLength = MeshTools::norm(faceNormal);
-  auto adjustedDistance = distance / faceNormalLength;
+  const auto distance = getDistanceFromPointToFace(point, face, faceNormal);
+  const double faceNormalLength = MeshTools::norm(faceNormal);
+  const auto adjustedDistance = distance / faceNormalLength;
 
   for (int i = 0; i < 3; ++i) {
     point.coords[i] += adjustedDistance * faceNormal[i];
@@ -183,7 +183,7 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
   MeshTools::sub(face.p1.coords, point.coords, diff);
 
   // Note: faceNormal may not be precisely a unit vector
-  double faceNormalLength = MeshTools::norm(faceNormal);
+  const double faceNormalLength = MeshTools::norm(faceNormal);
   return MeshTools::dot(faceNormal, diff) / faceNormalLength;
 }
 
@@ -238,13 +238,13 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {
-  auto p1 = triangle.p1.getAsEigenVector();
-  auto p2 = triangle.p2.getAsEigenVector();
-  auto p3 = triangle.p3.getAsEigenVector();
+  const auto p1 = triangle.p1.getAsEigenVector();
+  const auto p2 = triangle.p2.getAsEigenVector();
+  const auto p3 = triangle.p3.getAsEigenVector();
 
-  auto vector1 = p2 - p1;
-  auto vector2 = p3 - p1;
-  auto normal = vector1.cross(vector2);
+  const auto vector1 = p2 - p1;
+  const auto vector2 = p3 - p1;
+  const auto normal = vector1.cross(vector2);
   return 0.5 * normal.norm();
 }
 } // namespace seissol::dr

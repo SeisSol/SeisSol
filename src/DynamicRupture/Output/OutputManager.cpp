@@ -94,9 +94,10 @@ void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userM
     generalParams.isRfTimeOn = true;
   }
 
-  bool bothEnabled = generalParams.outputPointType == OutputType::AtPickpointAndElementwise;
-  bool pointEnabled = generalParams.outputPointType == OutputType::AtPickpoint || bothEnabled;
-  bool elementwiseEnabled = generalParams.outputPointType == OutputType::Elementwise || bothEnabled;
+  const bool bothEnabled = generalParams.outputPointType == OutputType::AtPickpointAndElementwise;
+  const bool pointEnabled = generalParams.outputPointType == OutputType::AtPickpoint || bothEnabled;
+  const bool elementwiseEnabled =
+      generalParams.outputPointType == OutputType::Elementwise || bothEnabled;
   const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
     logInfo(rank) << "Enabling on-fault receiver output";
@@ -134,13 +135,13 @@ void OutputManager::initElementwiseOutput() {
   ewOutputBuilder->build(&ewOutputData);
 
   const auto& receiverPoints = ewOutputData.receiverPoints;
-  auto cellConnectivity = getCellConnectivity(receiverPoints);
-  auto vertices = getAllVertices(receiverPoints);
+  const auto cellConnectivity = getCellConnectivity(receiverPoints);
+  const auto vertices = getAllVertices(receiverPoints);
   constexpr auto maxNumVars = std::tuple_size<DrVarsT>::value;
-  auto intMask = convertMaskFromBoolToInt<maxNumVars>(this->elementwiseParams.outputMask);
+  const auto intMask = convertMaskFromBoolToInt<maxNumVars>(this->elementwiseParams.outputMask);
 
-  double printTime = this->elementwiseParams.printTimeIntervalSec;
-  auto backendType = seissol::writer::backendType(generalParams.xdmfWriterBackend.c_str());
+  const double printTime = this->elementwiseParams.printTimeIntervalSec;
+  const auto backendType = seissol::writer::backendType(generalParams.xdmfWriterBackend.c_str());
 
   std::vector<real*> dataPointers;
   auto recordPointers = [&dataPointers](auto& var, int) {
@@ -200,7 +201,7 @@ void OutputManager::initPickpointOutput() {
         file << title.str() << '\n';
         file << baseHeader.str() << '\n';
 
-        auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
+        const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
         file << "# x1\t" << makeFormatted(point[0]) << '\n';
         file << "# x2\t" << makeFormatted(point[1]) << '\n';
         file << "# x3\t" << makeFormatted(point[2]) << '\n';
@@ -224,8 +225,8 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drTree) {
-    size_t readerFaultSize = meshReader->getFault().size();
-    size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
+    const size_t readerFaultSize = meshReader->getFault().size();
+    const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     for (auto it = drTree->beginLeaf(seissol::initializers::LayerMask(Ghost));
@@ -242,7 +243,7 @@ void OutputManager::initFaceToLtsMap() {
 }
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
-  bool isFirstStep = iterationStep == 0;
+  const bool isFirstStep = iterationStep == 0;
   const double abortTime = std::min(generalParams.endTime, generalParams.maxIteration * dt);
   const bool isCloseToTimeOut = (abortTime - time) < (dt * timeMargin);
 
@@ -256,7 +257,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
 
-      auto& outputData = ppOutputData;
+      const auto& outputData = ppOutputData;
       impl->calcFaultOutput(OutputType::AtPickpoint, ppOutputData, generalParams, time);
 
       const bool isMaxCacheLevel =
@@ -288,8 +289,8 @@ void OutputManager::flushPickpointDataToFile() {
       data << '\n';
     }
 
-    auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex + 1;
-    auto fileName = buildIndexedMPIFileName(
+    const auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex + 1;
+    const auto fileName = buildIndexedMPIFileName(
         generalParams.outputFilePrefix, globalIndex, "faultreceiver", "dat");
 
     std::ofstream file(fileName, std::ios_base::app);

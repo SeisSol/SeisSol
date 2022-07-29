@@ -1,4 +1,4 @@
-Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-unused-parameters,-llvm-header-guard,-misc-non-private-member-variables-in-classes,readability-identifier-naming,-llvm-else-after-return,-llvm-qualified-auto'
+Checks: '-*,clang-diagnostic-*,cppcoreguidelines-avoid-non-const-global-variables,llvm-*,-llvm-else-after-return,-llvm-header-guard,-llvm-qualified-auto,misc-*,misc-const-correctness,misc-misplaced-const,-misc-non-private-member-variables-in-classes,-misc-unused-parameters,performance-move-const-arg,readability-non-const-parameter,readability-const-return-type,readability-identifier-naming'
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase
@@ -18,7 +18,7 @@ CheckOptions:
 #  - key:             readability-identifier-naming.ClassConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ClassConstantSuffix
-#    value:           CamelCase-*,clang-diagnostic-*,llvm-*,misc-*,-misc-unused-parameters,-misc-non-private-member-variables-in-classes,
+#    value:           CamelCase
 #  - key:             readability-identifier-naming.ClassMemberCase
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ClassMemberPrefix

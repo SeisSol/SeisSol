@@ -22,9 +22,9 @@ class BaseFrictionLaw : public FrictionSolver {
    * evaluates the current friction model
    */
   void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture* dynRup,
+                seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER]) override {
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 

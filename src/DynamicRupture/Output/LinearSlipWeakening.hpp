@@ -11,7 +11,7 @@ class LinearSlipWeakening : public ReceiverBasedOutput {
     auto* cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
     auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
 
-    auto effectiveNormalStress =
+    const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return -1.0 * local.frictionCoefficient *
                std::min(effectiveNormalStress, static_cast<real>(0.0)) -

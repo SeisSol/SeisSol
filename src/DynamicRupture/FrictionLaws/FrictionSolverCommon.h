@@ -31,8 +31,8 @@ struct Common {
   static void precomputeStressFromQInterpolated(
       FaultStresses& faultStresses,
       const ImpedancesAndEta& impAndEta,
-      real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()]) {
+      const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()]) {
 
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                   "Different number of quadrature points?");
@@ -43,14 +43,14 @@ struct Common {
     // the kernel then could be a class attribute (but be careful of race conditions since this is
     // computed in parallel!!)
 
-    auto etaP = impAndEta.etaP;
-    auto etaS = impAndEta.etaS;
-    auto invZp = impAndEta.invZp;
-    auto invZs = impAndEta.invZs;
-    auto invZpNeig = impAndEta.invZpNeig;
-    auto invZsNeig = impAndEta.invZsNeig;
+    const auto etaP = impAndEta.etaP;
+    const auto etaS = impAndEta.etaS;
+    const auto invZp = impAndEta.invZp;
+    const auto invZs = impAndEta.invZs;
+    const auto invZpNeig = impAndEta.invZpNeig;
+    const auto invZsNeig = impAndEta.invZsNeig;
 
-    using QInterpolatedShapeT = real(*)[misc::numQuantities][misc::numPaddedPoints];
+    using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
     auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
     auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
@@ -94,9 +94,9 @@ struct Common {
       const ImpedancesAndEta& impAndEta,
       real imposedStatePlus[tensor::QInterpolated::size()],
       real imposedStateMinus[tensor::QInterpolated::size()],
-      real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      double timeWeights[CONVERGENCE_ORDER]) {
+      const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+      const double timeWeights[CONVERGENCE_ORDER]) {
 
     // this initialization of the kernel could be moved to the initializer
     // set inputParam could be extendent for this (or create own function)
@@ -112,16 +112,16 @@ struct Common {
       imposedStateMinus[i] = static_cast<real>(0.0);
     }
 
-    auto invZs = impAndEta.invZs;
-    auto invZp = impAndEta.invZp;
-    auto invZsNeig = impAndEta.invZsNeig;
-    auto invZpNeig = impAndEta.invZpNeig;
+    const auto invZs = impAndEta.invZs;
+    const auto invZp = impAndEta.invZp;
+    const auto invZsNeig = impAndEta.invZsNeig;
+    const auto invZpNeig = impAndEta.invZpNeig;
 
     using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
     auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
     auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-    using QInterpolatedShapeT = real(*)[misc::numQuantities][misc::numPaddedPoints];
+    using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
     auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
     auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -134,9 +134,9 @@ struct Common {
 #pragma omp simd
 #endif // ACL_DEVICE_OFFLOAD
       for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
-        auto normalStress = faultStresses.normalStress[o][i];
-        auto traction1 = tractionResults.traction1[o][i];
-        auto traction2 = tractionResults.traction2[o][i];
+        const auto normalStress = faultStresses.normalStress[o][i];
+        const auto traction1 = tractionResults.traction1[o][i];
+        const auto traction2 = tractionResults.traction2[o][i];
 
         imposedStateM[0][i] += weight * normalStress;
         imposedStateM[3][i] += weight * traction1;
@@ -170,7 +170,7 @@ struct Common {
    */
   static void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
                                      real ruptureTime[misc::numPaddedPoints],
-                                     real slipRateMagnitude[misc::numPaddedPoints],
+                                     const real slipRateMagnitude[misc::numPaddedPoints],
                                      real fullUpdateTime) {
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)

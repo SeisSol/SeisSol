@@ -71,25 +71,25 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                        contained.data(),
                                        localIds.data());
 
-    auto meshElements = meshReader->getElements();
-    auto meshVertices = meshReader->getVertices();
+    const auto& meshElements = meshReader->getElements();
+    const auto& meshVertices = meshReader->getVertices();
     const auto& faultInfos = meshReader->getFault();
 
     for (size_t receiverIdx{0}; receiverIdx < numReceiverPoints; ++receiverIdx) {
       auto& receiver = potentialReceivers[receiverIdx];
 
       if (static_cast<bool>(contained[receiverIdx])) {
-        auto localId = localIds[receiverIdx];
+        const auto localId = localIds[receiverIdx];
         const auto& faultIndices = elementToFault[localId];
-        auto firstFaultIdx = faultIndices[0];
+        const auto firstFaultIdx = faultIndices[0];
 
         // find the original element which contains a fault face
         // note: this allows to project a receiver to the plus side
         //       even if it was found in the negative one
-        auto element = meshElements[faultInfos[firstFaultIdx].element];
+        const auto element = meshElements[faultInfos[firstFaultIdx].element];
 
-        auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
-        auto faultItem = faultInfos[closest];
+        const auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
+        const auto faultItem = faultInfos[closest];
 
         receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
         projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
@@ -180,7 +180,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       return faultIndices[0];
     }
 
-    auto meshVertices = meshReader->getVertices();
+    const auto meshVertices = meshReader->getVertices();
     const auto& fault = meshReader->getFault();
 
     auto minDistance = std::numeric_limits<double>::max();
@@ -189,9 +189,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     for (auto faceIdx : faultIndices) {
       const auto& faultItem = fault[faceIdx];
 
-      auto face = getGlobalTriangle(faultItem.side, element, meshVertices);
+      const auto face = getGlobalTriangle(faultItem.side, element, meshVertices);
 
-      auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
+      const auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
       if (minDistance > distance) {
         minDistance = distance;
         closest = faceIdx;
@@ -223,7 +223,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     if (localRank == 0) {
       bool allReceiversFound{true};
       for (size_t idx{0}; idx < size; ++idx) {
-        auto isFound = globalContainVector[idx];
+        const auto isFound = globalContainVector[idx];
         if (!isFound) {
           logInfo(localRank) << "pickpoint fault output: "
                              << "receiver (" << idx + 1 << ") is not inside "
