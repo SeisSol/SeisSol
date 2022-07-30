@@ -11,7 +11,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class GpuFrictionSolver : public GpuBaseFrictionLaw {
   public:
-  GpuFrictionSolver<Derived>(dr::DRParameters& drParameters) : GpuBaseFrictionLaw(drParameters) {}
+  GpuFrictionSolver<Derived>(dr::DRParameters* drParameters) : GpuBaseFrictionLaw(drParameters) {}
 
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture* dynRup,

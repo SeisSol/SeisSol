@@ -9,7 +9,7 @@
 namespace seissol::dr::friction_law::gpu {
 class GpuBaseFrictionLaw : public FrictionSolver {
   public:
-  GpuBaseFrictionLaw(dr::DRParameters& drParameters);
+  GpuBaseFrictionLaw(dr::DRParameters* drParameters);
   ~GpuBaseFrictionLaw();
 
   void setDeviceId(int currDeviceId);

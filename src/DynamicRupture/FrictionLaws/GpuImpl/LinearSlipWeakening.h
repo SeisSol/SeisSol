@@ -12,7 +12,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
-  LinearSlipWeakeningBase<Derived>(dr::DRParameters& drParameters)
+  LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
       : GpuFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
   void updateFrictionAndSlip(unsigned timeIndex) {
@@ -172,7 +172,7 @@ template <class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw<SpecializationT>(dr::DRParameters& drParameters)
+  LinearSlipWeakeningLaw<SpecializationT>(dr::DRParameters* drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 
@@ -244,7 +244,7 @@ class LinearSlipWeakeningLaw
     auto* resample{this->resampleMatrix};
     auto deltaT{this->deltaT[timeIndex]};
     real tn = this->mFullUpdateTime + deltaT;
-    auto t0 = this->drParameters.t0;
+    auto t0 = this->drParameters->t0;
 
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();
@@ -305,7 +305,7 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters& parameters){};
+  NoSpecialization(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture* dynRup){};
