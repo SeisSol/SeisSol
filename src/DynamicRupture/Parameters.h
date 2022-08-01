@@ -45,9 +45,9 @@ struct DRParameters {
 
 inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   std::unique_ptr<DRParameters> drParameters = std::make_unique<DRParameters>();
-  const YAML::Node& yamlDrParams = params->operator[]("dynamicrupture");
+  const YAML::Node& yamlDrParams = (*params)["dynamicrupture"];
 
-  if (params->operator[]("dynamicrupture")) {
+  if ((*params)["dynamicrupture"]) {
     double xref = 0.0;
     initializers::updateIfExists(yamlDrParams, "xref", xref);
     double yref = 0.0;
@@ -86,16 +86,16 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     initializers::updateIfExists(yamlDrParams, "modelfilename", drParameters->faultFileName);
   }
 
-  const YAML::Node& yamlElementwiseParams = params->operator[]("elementwise");
-  if (params->operator[]("elementwise")) {
+  const YAML::Node& yamlElementwiseParams = (*params)["elementwise"];
+  if ((*params)["elementwise"]) {
     // check whether we need rupture time and dynamic stress time outputs
     std::array<bool, 12> mask;
     initializers::convertStringToMask(yamlElementwiseParams["outputmask"].as<std::string>(), mask);
     drParameters->isRfOutputOn = drParameters->isRfOutputOn || mask[9];
     drParameters->isDsOutputOn = drParameters->isDsOutputOn || mask[10];
   }
-  const YAML::Node& yamlPickpointParams = params->operator[]("pickpoint");
-  if (params->operator[]("pickpoint")) {
+  const YAML::Node& yamlPickpointParams = (*params)["pickpoint"];
+  if ((*params)["pickpoint"]) {
     std::array<bool, 12> mask;
     initializers::convertStringToMask(yamlPickpointParams["outputmask"].as<std::string>(), mask);
     drParameters->isRfOutputOn = drParameters->isRfOutputOn || mask[9];
