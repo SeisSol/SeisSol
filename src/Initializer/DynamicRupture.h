@@ -105,7 +105,6 @@ public:
   Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
   Variable<real[dr::misc::numPaddedPoints]> traction1;
   Variable<real[dr::misc::numPaddedPoints]> traction2;
-  Variable<real> averagedSlip;
   Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedPlus;
   Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
@@ -145,7 +144,6 @@ public:
     tree.addVar(peakSlipRate, mask, 1, MEMKIND_STANDARD);
     tree.addVar(traction1, mask, 1, MEMKIND_STANDARD);
     tree.addVar(traction2, mask, 1, MEMKIND_STANDARD);
-    tree.addVar(averagedSlip, mask, 1, MEMKIND_STANDARD);
     tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, MEMKIND_STANDARD);
     tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, MEMKIND_STANDARD);
 

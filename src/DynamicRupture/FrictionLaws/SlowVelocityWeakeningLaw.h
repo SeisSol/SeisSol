@@ -17,7 +17,7 @@ class SlowVelocityWeakeningLaw
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
@@ -43,12 +43,12 @@ class SlowVelocityWeakeningLaw
                   unsigned int pointIndex,
                   double localSlipRateMagnitude,
                   double localStateVariable) {
-    double localA = this->a[ltsFace][pointIndex];
-    double localSl0 = this->sl0[ltsFace][pointIndex];
-    double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
+    const double localA = this->a[ltsFace][pointIndex];
+    const double localSl0 = this->sl0[ltsFace][pointIndex];
+    const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
-    double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
-               std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
+    const double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
+                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
     return localA * misc::asinh(x);
   }
 
@@ -65,11 +65,11 @@ class SlowVelocityWeakeningLaw
                             unsigned int pointIndex,
                             double localSlipRateMagnitude,
                             double localStateVariable) {
-    double localA = this->a[ltsFace][pointIndex];
-    double localSl0 = this->sl0[ltsFace][pointIndex];
-    double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
-    double c = (0.5 / this->drParameters->rsSr0) *
-               std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
+    const double localA = this->a[ltsFace][pointIndex];
+    const double localSl0 = this->sl0[ltsFace][pointIndex];
+    const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
+    const double c = (0.5 / this->drParameters->rsSr0) *
+                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
     return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
   }
 
@@ -84,7 +84,7 @@ class SlowVelocityWeakeningLaw
 
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
                              unsigned ltsFace) {
-    [[maybe_unused]] real tmp =
+    [[maybe_unused]] const real tmp =
         0.5 / this->drParameters->rsSr0 *
         std::exp(
             (this->drParameters->rsF0 +

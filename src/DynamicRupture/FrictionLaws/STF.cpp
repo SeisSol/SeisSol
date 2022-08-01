@@ -2,9 +2,10 @@
 
 namespace seissol::dr::friction_law {
 void YoffeSTF::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                  seissol::initializers::DynamicRupture* dynRup,
+                                  seissol::initializers::DynamicRupture const* const dynRup,
                                   real fullUpdateTime) {
-  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe*>(dynRup);
+  auto* concreteLts =
+      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe const* const>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
   tauS = layerData.var(concreteLts->tauS);
   tauR = layerData.var(concreteLts->tauR);
@@ -20,9 +21,10 @@ real YoffeSTF::evaluate(real currentTime,
 }
 
 void GaussianSTF::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                                     seissol::initializers::DynamicRupture* dynRup,
+                                     seissol::initializers::DynamicRupture const* const dynRup,
                                      real fullUpdateTime) {
-  auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesGaussian*>(dynRup);
+  auto* concreteLts =
+      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesGaussian const* const>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
   riseTime = layerData.var(concreteLts->riseTime);
 }
@@ -31,7 +33,7 @@ real GaussianSTF::evaluate(real currentTime,
                            real timeIncrement,
                            size_t ltsFace,
                            size_t pointIndex) {
-  real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
+  const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
       currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, riseTime[ltsFace][pointIndex]);
   return smoothStepIncrement / timeIncrement;
 }
