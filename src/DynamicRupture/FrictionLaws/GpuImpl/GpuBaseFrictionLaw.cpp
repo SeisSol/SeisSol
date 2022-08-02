@@ -5,7 +5,7 @@
 #include <sstream>
 
 namespace seissol::dr::friction_law::gpu {
-GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters& drParameters)
+GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters* drParameters)
     : FrictionSolver(drParameters) {}
 
 GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {

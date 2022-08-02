@@ -23,14 +23,13 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
     // read initial stress and nucleation stress
     using VectorOfArraysT = std::vector<std::array<real, misc::numPaddedPoints>>;
 
-    auto addStressesToStorageMap = [&dynRup, &parameterToStorageMap, &it, this](
-                                       VectorOfArraysT& stressXX,
-                                       VectorOfArraysT& stressYY,
-                                       VectorOfArraysT& stressZZ,
-                                       VectorOfArraysT& stressXY,
-                                       VectorOfArraysT& stressYZ,
-                                       VectorOfArraysT& stressXZ,
-                                       bool readNucleation) {
+    auto addStressesToStorageMap = [&parameterToStorageMap, &it, this](VectorOfArraysT& stressXX,
+                                                                       VectorOfArraysT& stressYY,
+                                                                       VectorOfArraysT& stressZZ,
+                                                                       VectorOfArraysT& stressXY,
+                                                                       VectorOfArraysT& stressYZ,
+                                                                       VectorOfArraysT& stressXZ,
+                                                                       bool readNucleation) {
       // return pointer to first element
       auto getRawData = [](VectorOfArraysT& vectorOfArrays) {
         return vectorOfArrays.data()->data();
@@ -166,7 +165,7 @@ void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faul
                                    std::vector<unsigned> const& faceIDs) {
   // create a query and evaluate the model
   seissol::initializers::FaultGPGenerator queryGen(seissol::SeisSol::main.meshReader(), faceIDs);
-  faultParameterDB.evaluateModel(drParameters.faultFileName, queryGen);
+  faultParameterDB.evaluateModel(drParameters->faultFileName, queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(
@@ -283,7 +282,7 @@ void BaseDRInitializer::initializeOtherVariables(
   bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      ruptureTimePending[ltsFace][pointIndex] = drParameters.isRfOutputOn;
+      ruptureTimePending[ltsFace][pointIndex] = drParameters->isRfOutputOn;
     }
   }
 
@@ -316,7 +315,7 @@ void BaseDRInitializer::initializeOtherVariables(
 
 bool BaseDRInitializer::faultProvides(std::string&& parameter) {
   return seissol::initializers::FaultParameterDB::faultProvides(parameter,
-                                                                drParameters.faultFileName);
+                                                                drParameters->faultFileName);
 }
 
 std::vector<std::string> BaseDRInitializer::stressIdentifiers(bool readNucleation) {
@@ -336,13 +335,13 @@ std::vector<std::string> BaseDRInitializer::stressIdentifiers(bool readNucleatio
   bool anyCartesianParametersSupplied = false;
   for (size_t i = 0; i < 3; i++) {
     auto b = seissol::initializers::FaultParameterDB::faultProvides(tractionNames[i],
-                                                                    drParameters.faultFileName);
+                                                                    drParameters->faultFileName);
     allTractionParametersSupplied &= b;
     anyTractionParametersSupplied |= b;
   }
   for (size_t i = 0; i < 6; i++) {
     const auto b = seissol::initializers::FaultParameterDB::faultProvides(
-        cartesianNames[i], drParameters.faultFileName);
+        cartesianNames[i], drParameters->faultFileName);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
   }

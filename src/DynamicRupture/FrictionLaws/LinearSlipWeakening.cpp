@@ -27,8 +27,8 @@ real BiMaterialFault::strengthHook(real faultStrength,
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
   const real expterm =
-      std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters.vStar) * deltaT /
-               drParameters.prakashLength);
+      std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) * deltaT /
+               drParameters->prakashLength);
   const real newStrength =
       regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
   regularisedStrength[ltsFace][pointIndex] = newStrength;

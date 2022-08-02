@@ -26,23 +26,23 @@ void RateAndStateInitializer::initializeFault(
         it->var(concreteLts->initialStressInFaultCS);
 
     const real initialSlipRate =
-        misc::magnitude(drParameters.rsInitialSlipRate1, drParameters.rsInitialSlipRate2);
+        misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        dynStressTimePending[ltsFace][pointIndex] = drParameters.isDsOutputOn;
-        slipRate1[ltsFace][pointIndex] = drParameters.rsInitialSlipRate1;
-        slipRate2[ltsFace][pointIndex] = drParameters.rsInitialSlipRate2;
+        dynStressTimePending[ltsFace][pointIndex] = drParameters->isDsOutputOn;
+        slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
+        slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
         // compute initial friction and state
         std::tie(stateVariable[ltsFace][pointIndex], mu[ltsFace][pointIndex]) =
             computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][pointIndex][3],
                                            initialStressInFaultCS[ltsFace][pointIndex][5],
                                            initialStressInFaultCS[ltsFace][pointIndex][0],
                                            rsA[ltsFace][pointIndex],
-                                           drParameters.rsB,
+                                           drParameters->rsB,
                                            rsSl0[ltsFace][pointIndex],
-                                           drParameters.rsSr0,
-                                           drParameters.rsF0,
+                                           drParameters->rsSr0,
+                                           drParameters->rsF0,
                                            initialSlipRate);
       }
     }
@@ -137,8 +137,8 @@ void RateAndStateThermalPressurizationInitializer::initializeFault(
 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-        temperature[ltsFace][pointIndex] = drParameters.initialTemperature;
-        pressure[ltsFace][pointIndex] = drParameters.initialPressure;
+        temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
+        pressure[ltsFace][pointIndex] = drParameters->initialPressure;
         for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
              ++tpGridPointIndex) {
           theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;

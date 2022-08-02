@@ -39,9 +39,9 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
 }
 
 void FrictionSolver::adjustInitialStress(size_t ltsFace, size_t timeIndex) {
-  if (this->mFullUpdateTime <= this->drParameters.t0) {
+  if (this->mFullUpdateTime <= this->drParameters->t0) {
     const real gNuc = seissol::gaussianNucleationFunction::smoothStepIncrement(
-        this->mFullUpdateTime, this->deltaT[timeIndex], this->drParameters.t0);
+        this->mFullUpdateTime, this->deltaT[timeIndex], this->drParameters->t0);
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       for (unsigned i = 0; i < 6; i++) {
         this->initialStressInFaultCS[ltsFace][pointIndex][i] +=

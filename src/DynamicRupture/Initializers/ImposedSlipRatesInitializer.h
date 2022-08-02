@@ -17,8 +17,8 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
-                               seissol::initializers::LTSTree* const dynRupTree) override;
+  void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
+                       seissol::initializers::LTSTree* const dynRupTree) override;
 
   /**
    * Add additional parameters to be read from the easi file

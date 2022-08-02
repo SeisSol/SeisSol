@@ -70,8 +70,8 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
   const real tauV = faultStrength[ltsFace][pointIndex] * slipRateMagnitude;
   const real lambdaPrime =
-      drParameters.undrainedTPResponse * drParameters.thermalDiffusivity /
-      (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters.thermalDiffusivity);
+      drParameters->undrainedTPResponse * drParameters->thermalDiffusivity /
+      (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters->thermalDiffusivity);
 
   #pragma omp simd
   for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
@@ -83,7 +83,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
 
     // This is exp(-A dt) in equation (10)
     const real expTheta =
-        std::exp(-drParameters.thermalDiffusivity * deltaT * squaredNormalizedTPGrid);
+        std::exp(-drParameters->thermalDiffusivity * deltaT * squaredNormalizedTPGrid);
     const real expSigma =
         std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * squaredNormalizedTPGrid);
 
@@ -98,10 +98,10 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     const real omega = tauV * heatSource[tpGridPointIndex];
     const real thetaGeneration =
         omega /
-        (drParameters.heatCapacity * squaredNormalizedTPGrid * drParameters.thermalDiffusivity) *
+        (drParameters->heatCapacity * squaredNormalizedTPGrid * drParameters->thermalDiffusivity) *
         (1.0 - expTheta);
-    const real sigmaGeneration = omega * (drParameters.undrainedTPResponse + lambdaPrime) /
-                                 (drParameters.heatCapacity * squaredNormalizedTPGrid *
+    const real sigmaGeneration = omega * (drParameters->undrainedTPResponse + lambdaPrime) /
+                                 (drParameters->heatCapacity * squaredNormalizedTPGrid *
                                   hydraulicDiffusivity[ltsFace][pointIndex]) *
                                  (1.0 - expSigma);
 
@@ -122,8 +122,8 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   pressureUpdate = pressureUpdate - lambdaPrime * temperatureUpdate;
 
   // Temperature and pore pressure change at single GP on the fault + initial values
-  temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters.initialTemperature;
-  pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters.initialPressure;
+  temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters->initialTemperature;
+  pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
 }
 
 } // namespace seissol::dr::friction_law

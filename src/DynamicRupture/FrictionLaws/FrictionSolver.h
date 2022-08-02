@@ -17,8 +17,8 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  FrictionSolver(dr::DRParameters& userDrParameters) : drParameters(userDrParameters){};
-  virtual ~FrictionSolver(){};
+  FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters){};
+  virtual ~FrictionSolver() = default;
 
   virtual void evaluate(seissol::initializers::Layer& layerData,
                         seissol::initializers::DynamicRupture const* const dynRup,
@@ -46,7 +46,7 @@ class FrictionSolver {
   void adjustInitialStress(size_t ltsFace, size_t timeIndex);
   real deltaT[CONVERGENCE_ORDER] = {};
 
-  dr::DRParameters& drParameters;
+  dr::DRParameters* drParameters;
   ImpedancesAndEta* impAndEta;
   real mFullUpdateTime;
   // CS = coordinate system

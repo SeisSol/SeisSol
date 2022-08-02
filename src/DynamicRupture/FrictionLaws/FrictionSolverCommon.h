@@ -26,7 +26,7 @@ namespace seissol::dr::friction_law::common {
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
-static void precomputeStressFromQInterpolated(
+inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -93,7 +93,7 @@ static void precomputeStressFromQInterpolated(
  * @param[out] imposedStatePlus
  * @param[out] imposedStateMinus
  */
-static void postcomputeImposedStateFromNewStress(
+inline void postcomputeImposedStateFromNewStress(
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults,
     const ImpedancesAndEta& impAndEta,
@@ -179,7 +179,7 @@ static void postcomputeImposedStateFromNewStress(
  * param[in] slipRateMagnitude
  * param[in] fullUpdateTime
  */
-static void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
+inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime) {
@@ -201,7 +201,7 @@ static void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in] slipRateMagnitude
  * param[in, out] peakSlipRate
  */
-static void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
+inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
                                    real peakSlipRate[misc::numPaddedPoints]) {
 
 #ifdef ACL_DEVICE_OFFLOAD

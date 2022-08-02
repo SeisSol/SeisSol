@@ -20,16 +20,16 @@ class BaseDRInitializer {
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
-  DRParameters& drParameters;
+  std::shared_ptr<DRParameters> drParameters;
 
   public:
   /**
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
-  BaseDRInitializer(DRParameters& drParameters) : drParameters(drParameters){};
+  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters) : drParameters(drParameters){};
 
-  virtual ~BaseDRInitializer() {}
+  virtual ~BaseDRInitializer() = default;
 
   /**
    * Main function to initialize all fault dependent parameters.
