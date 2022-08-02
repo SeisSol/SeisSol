@@ -26,7 +26,7 @@ namespace seissol::dr::friction_law::common {
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
-static void precomputeStressFromQInterpolated(
+inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -52,13 +52,6 @@ static void precomputeStressFromQInterpolated(
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
-  constexpr size_t u = 6;
-  constexpr size_t v = 7;
-  constexpr size_t w = 8;
-  constexpr size_t n = 0;
-  constexpr size_t t1 = 3;
-  constexpr size_t t2 = 6;
-
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
 
 #ifdef ACL_DEVICE_OFFLOAD
@@ -66,16 +59,19 @@ static void precomputeStressFromQInterpolated(
 #endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       faultStresses.normalStress[o][i] =
-          etaP * (qIMinus[o][u][i] - qIPlus[o][u][i] + qIPlus[o][n][i] * invZp +
-                  qIMinus[o][n][i] * invZpNeig);
+          etaP * (qIMinus[o][misc::QuantityIndices::U][i] - qIPlus[o][misc::QuantityIndices::U][i] +
+                  qIPlus[o][misc::QuantityIndices::N][i] * invZp +
+                  qIMinus[o][misc::QuantityIndices::N][i] * invZpNeig);
 
       faultStresses.traction1[o][i] =
-          etaS * (qIMinus[o][v][i] - qIPlus[o][v][i] + qIPlus[o][t1][i] * invZs +
-                  qIMinus[o][t1][i] * invZsNeig);
+          etaS * (qIMinus[o][misc::QuantityIndices::V][i] - qIPlus[o][misc::QuantityIndices::V][i] +
+                  qIPlus[o][misc::QuantityIndices::T1][i] * invZs +
+                  qIMinus[o][misc::QuantityIndices::T1][i] * invZsNeig);
 
       faultStresses.traction2[o][i] =
-          etaS * (qIMinus[o][w][i] - qIPlus[o][w][i] + qIPlus[o][t2][i] * invZs +
-                  qIMinus[o][t2][i] * invZsNeig);
+          etaS * (qIMinus[o][misc::QuantityIndices::W][i] - qIPlus[o][misc::QuantityIndices::W][i] +
+                  qIPlus[o][misc::QuantityIndices::T2][i] * invZs +
+                  qIMinus[o][misc::QuantityIndices::T2][i] * invZsNeig);
     }
   }
 }
@@ -93,7 +89,7 @@ static void precomputeStressFromQInterpolated(
  * @param[out] imposedStatePlus
  * @param[out] imposedStateMinus
  */
-static void postcomputeImposedStateFromNewStress(
+inline void postcomputeImposedStateFromNewStress(
     const FaultStresses& faultStresses,
     const TractionResults& tractionResults,
     const ImpedancesAndEta& impAndEta,
@@ -130,13 +126,6 @@ static void postcomputeImposedStateFromNewStress(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  constexpr size_t u = 6;
-  constexpr size_t v = 7;
-  constexpr size_t w = 8;
-  constexpr size_t n = 0;
-  constexpr size_t t1 = 3;
-  constexpr size_t t2 = 6;
-
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
 
@@ -150,22 +139,31 @@ static void postcomputeImposedStateFromNewStress(
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
 
-      imposedStateM[n][i] += weight * normalStress;
-      imposedStateM[t1][i] += weight * traction1;
-      imposedStateM[t2][i] += weight * traction2;
-      imposedStateM[u][i] +=
-          weight * (qIMinus[o][u][i] - invZpNeig * (normalStress - qIMinus[o][n][i]));
-      imposedStateM[v][i] +=
-          weight * (qIMinus[o][v][i] - invZsNeig * (traction1 - qIMinus[o][t1][i]));
-      imposedStateM[w][i] +=
-          weight * (qIMinus[o][w][i] - invZsNeig * (traction2 - qIMinus[o][t2][i]));
+      imposedStateM[misc::QuantityIndices::N][i] += weight * normalStress;
+      imposedStateM[misc::QuantityIndices::T1][i] += weight * traction1;
+      imposedStateM[misc::QuantityIndices::T2][i] += weight * traction2;
+      imposedStateM[misc::QuantityIndices::U][i] +=
+          weight * (qIMinus[o][misc::QuantityIndices::U][i] -
+                    invZpNeig * (normalStress - qIMinus[o][misc::QuantityIndices::N][i]));
+      imposedStateM[misc::QuantityIndices::V][i] +=
+          weight * (qIMinus[o][misc::QuantityIndices::V][i] -
+                    invZsNeig * (traction1 - qIMinus[o][misc::QuantityIndices::T1][i]));
+      imposedStateM[misc::QuantityIndices::W][i] +=
+          weight * (qIMinus[o][misc::QuantityIndices::W][i] -
+                    invZsNeig * (traction2 - qIMinus[o][misc::QuantityIndices::T2][i]));
 
-      imposedStateP[0][i] += weight * normalStress;
-      imposedStateP[3][i] += weight * traction1;
-      imposedStateP[5][i] += weight * traction2;
-      imposedStateP[u][i] += weight * (qIPlus[o][u][i] + invZp * (normalStress - qIPlus[o][n][i]));
-      imposedStateP[v][i] += weight * (qIPlus[o][v][i] + invZs * (traction1 - qIPlus[o][t1][i]));
-      imposedStateP[w][i] += weight * (qIPlus[o][w][i] + invZs * (traction2 - qIPlus[o][t2][i]));
+      imposedStateP[misc::QuantityIndices::N][i] += weight * normalStress;
+      imposedStateP[misc::QuantityIndices::T1][i] += weight * traction1;
+      imposedStateP[misc::QuantityIndices::T2][i] += weight * traction2;
+      imposedStateP[misc::QuantityIndices::U][i] +=
+          weight * (qIPlus[o][misc::QuantityIndices::U][i] +
+                    invZp * (normalStress - qIPlus[o][misc::QuantityIndices::N][i]));
+      imposedStateP[misc::QuantityIndices::V][i] +=
+          weight * (qIPlus[o][misc::QuantityIndices::V][i] +
+                    invZs * (traction1 - qIPlus[o][misc::QuantityIndices::T1][i]));
+      imposedStateP[misc::QuantityIndices::W][i] +=
+          weight * (qIPlus[o][misc::QuantityIndices::W][i] +
+                    invZs * (traction2 - qIPlus[o][misc::QuantityIndices::T2][i]));
     }
   }
 }
@@ -179,7 +177,7 @@ static void postcomputeImposedStateFromNewStress(
  * param[in] slipRateMagnitude
  * param[in] fullUpdateTime
  */
-static void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
+inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime) {
@@ -201,7 +199,7 @@ static void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in] slipRateMagnitude
  * param[in, out] peakSlipRate
  */
-static void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
+inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
                                    real peakSlipRate[misc::numPaddedPoints]) {
 
 #ifdef ACL_DEVICE_OFFLOAD
