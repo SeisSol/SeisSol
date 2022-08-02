@@ -23,14 +23,13 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
     // read initial stress and nucleation stress
     using VectorOfArraysT = std::vector<std::array<real, misc::numPaddedPoints>>;
 
-    auto addStressesToStorageMap = [&dynRup, &parameterToStorageMap, &it, this](
-                                       VectorOfArraysT& stressXX,
-                                       VectorOfArraysT& stressYY,
-                                       VectorOfArraysT& stressZZ,
-                                       VectorOfArraysT& stressXY,
-                                       VectorOfArraysT& stressYZ,
-                                       VectorOfArraysT& stressXZ,
-                                       bool readNucleation) {
+    auto addStressesToStorageMap = [&parameterToStorageMap, &it, this](VectorOfArraysT& stressXX,
+                                                                       VectorOfArraysT& stressYY,
+                                                                       VectorOfArraysT& stressZZ,
+                                                                       VectorOfArraysT& stressXY,
+                                                                       VectorOfArraysT& stressYZ,
+                                                                       VectorOfArraysT& stressXZ,
+                                                                       bool readNucleation) {
       // return pointer to first element
       auto getRawData = [](VectorOfArraysT& vectorOfArrays) {
         return vectorOfArrays.data()->data();
