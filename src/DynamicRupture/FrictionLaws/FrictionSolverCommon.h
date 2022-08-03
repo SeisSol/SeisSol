@@ -184,6 +184,8 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
                                    real fullUpdateTime) {
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)
+#else
+#pragma omp simd
 #endif // ACL_DEVICE_OFFLOAD
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     constexpr real ruptureFrontThreshold = 0.001;
@@ -205,6 +207,8 @@ inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints]
 
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)
+#else
+#pragma omp simd
 #endif // ACL_DEVICE_OFFLOAD
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
