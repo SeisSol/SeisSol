@@ -93,14 +93,18 @@ inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
  */
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
 
+namespace quantity_indices {
 /**
- * Defines the indices under which one can find a specific quantity
- * U, V, W: Velocities in x, y, z direction
- * N, T1, T2: traction in normal and fault aligned directions
- * Note: can not be an enum class, otherwise we would need to use
- * static_cast<size_t>(dr::misc::QuanityIndices::X), whenever we want to use
- * one of the indices as an array subscript.
- */
+ * Defines the indices under which one can find a specific quantity.
+ * U, V, W: Velocities in x, y, z direction.
+ * N, T1, T2: traction in normal and fault aligned directions.
+ * Use as:
+ * ```
+ * using namepace dr::misc::quantity_indices;
+ * real quantities[9];
+ * real normalStress = quantities[N];
+ * ```
+ * */
 enum QuantityIndices : size_t {
   U = 6,
   V = 7,
@@ -109,6 +113,7 @@ enum QuantityIndices : size_t {
   T1 = 3,
   T2 = 5,
 };
+} // namespace quantity_indices
 } // namespace seissol::dr::misc
 
 #endif // SEISSOL_DR_MISC_H

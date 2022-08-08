@@ -52,6 +52,8 @@ inline void precomputeStressFromQInterpolated(
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
+  using namespace dr::misc::quantity_indices;
+
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
 
 #ifdef ACL_DEVICE_OFFLOAD
@@ -59,19 +61,16 @@ inline void precomputeStressFromQInterpolated(
 #endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       faultStresses.normalStress[o][i] =
-          etaP * (qIMinus[o][misc::QuantityIndices::U][i] - qIPlus[o][misc::QuantityIndices::U][i] +
-                  qIPlus[o][misc::QuantityIndices::N][i] * invZp +
-                  qIMinus[o][misc::QuantityIndices::N][i] * invZpNeig);
+          etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
+                  qIMinus[o][N][i] * invZpNeig);
 
       faultStresses.traction1[o][i] =
-          etaS * (qIMinus[o][misc::QuantityIndices::V][i] - qIPlus[o][misc::QuantityIndices::V][i] +
-                  qIPlus[o][misc::QuantityIndices::T1][i] * invZs +
-                  qIMinus[o][misc::QuantityIndices::T1][i] * invZsNeig);
+          etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
+                  qIMinus[o][T1][i] * invZsNeig);
 
       faultStresses.traction2[o][i] =
-          etaS * (qIMinus[o][misc::QuantityIndices::W][i] - qIPlus[o][misc::QuantityIndices::W][i] +
-                  qIPlus[o][misc::QuantityIndices::T2][i] * invZs +
-                  qIMinus[o][misc::QuantityIndices::T2][i] * invZsNeig);
+          etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
+                  qIMinus[o][T2][i] * invZsNeig);
     }
   }
 }
@@ -126,6 +125,8 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
+  using namespace dr::misc::quantity_indices;
+
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
 
@@ -139,31 +140,22 @@ inline void postcomputeImposedStateFromNewStress(
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
 
-      imposedStateM[misc::QuantityIndices::N][i] += weight * normalStress;
-      imposedStateM[misc::QuantityIndices::T1][i] += weight * traction1;
-      imposedStateM[misc::QuantityIndices::T2][i] += weight * traction2;
-      imposedStateM[misc::QuantityIndices::U][i] +=
-          weight * (qIMinus[o][misc::QuantityIndices::U][i] -
-                    invZpNeig * (normalStress - qIMinus[o][misc::QuantityIndices::N][i]));
-      imposedStateM[misc::QuantityIndices::V][i] +=
-          weight * (qIMinus[o][misc::QuantityIndices::V][i] -
-                    invZsNeig * (traction1 - qIMinus[o][misc::QuantityIndices::T1][i]));
-      imposedStateM[misc::QuantityIndices::W][i] +=
-          weight * (qIMinus[o][misc::QuantityIndices::W][i] -
-                    invZsNeig * (traction2 - qIMinus[o][misc::QuantityIndices::T2][i]));
+      imposedStateM[N][i] += weight * normalStress;
+      imposedStateM[T1][i] += weight * traction1;
+      imposedStateM[T2][i] += weight * traction2;
+      imposedStateM[U][i] +=
+          weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
+      imposedStateM[V][i] +=
+          weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
+      imposedStateM[W][i] +=
+          weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      imposedStateP[misc::QuantityIndices::N][i] += weight * normalStress;
-      imposedStateP[misc::QuantityIndices::T1][i] += weight * traction1;
-      imposedStateP[misc::QuantityIndices::T2][i] += weight * traction2;
-      imposedStateP[misc::QuantityIndices::U][i] +=
-          weight * (qIPlus[o][misc::QuantityIndices::U][i] +
-                    invZp * (normalStress - qIPlus[o][misc::QuantityIndices::N][i]));
-      imposedStateP[misc::QuantityIndices::V][i] +=
-          weight * (qIPlus[o][misc::QuantityIndices::V][i] +
-                    invZs * (traction1 - qIPlus[o][misc::QuantityIndices::T1][i]));
-      imposedStateP[misc::QuantityIndices::W][i] +=
-          weight * (qIPlus[o][misc::QuantityIndices::W][i] +
-                    invZs * (traction2 - qIPlus[o][misc::QuantityIndices::T2][i]));
+      imposedStateP[N][i] += weight * normalStress;
+      imposedStateP[T1][i] += weight * traction1;
+      imposedStateP[T2][i] += weight * traction2;
+      imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
+      imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
+      imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
 }
