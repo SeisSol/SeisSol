@@ -41,7 +41,7 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 
 #include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
