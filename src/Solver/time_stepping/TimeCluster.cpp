@@ -238,7 +238,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
 #ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
-  SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
+  SCOREP_USER_REGION( "computeDynamicRuptureSpaceTimeInterpolation", SCOREP_USER_REGION_TYPE_FUNCTION )
+  LIKWID_MARKER_START("SpaceTimeInterpolation");
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
@@ -253,7 +254,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
   frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
-  LIKWID_MARKER_START("SpaceTimeInterpolation");
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -272,6 +272,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   }
   LIKWID_MARKER_STOP("SpaceTimeInterpolation");
 
+  SCOREP_USER_REGION( "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_FUNCTION )
   LIKWID_MARKER_START("FrictionLaw");
   frictionSolver->evaluate(layerData,
                            m_dynRup,

@@ -46,6 +46,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       alignas(ALIGNMENT) FaultStresses faultStresses{};
+      SCOREP_USER_REGION( "computeDynamicPrecomputeStress", SCOREP_USER_REGION_TYPE_FUNCTION )
       LIKWID_MARKER_START("PrecomputeStress");
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
@@ -53,6 +54,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                 qInterpolatedMinus[ltsFace]);
       LIKWID_MARKER_STOP("PrecomputeStress");
 
+      SCOREP_USER_REGION( "computeDynamicPreHook", SCOREP_USER_REGION_TYPE_FUNCTION )
       LIKWID_MARKER_START("PreHook");
       // define some temporary variables
       std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
@@ -61,6 +63,7 @@ class BaseFrictionLaw : public FrictionSolver {
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
       LIKWID_MARKER_STOP("PreHook");
 
+      SCOREP_USER_REGION( "computeUpdateFrictionAndSlip", SCOREP_USER_REGION_TYPE_FUNCTION )
       LIKWID_MARKER_START("UpdateFrictionAndSlip");
       TractionResults tractionResults = {};
 
@@ -76,6 +79,7 @@ class BaseFrictionLaw : public FrictionSolver {
       }
       LIKWID_MARKER_STOP("UpdateFrictionAndSlip");
 
+      SCOREP_USER_REGION( "computeUpdatePostHook", SCOREP_USER_REGION_TYPE_FUNCTION )
       LIKWID_MARKER_START("PostHook");
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
@@ -89,6 +93,7 @@ class BaseFrictionLaw : public FrictionSolver {
       common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
       LIKWID_MARKER_STOP("PostHook");
 
+      SCOREP_USER_REGION( "computeUpdatePostcomputeImposedState", SCOREP_USER_REGION_TYPE_FUNCTION )
       LIKWID_MARKER_START("PostcomputeImposedState");
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
