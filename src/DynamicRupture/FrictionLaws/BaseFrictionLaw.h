@@ -37,6 +37,7 @@ class BaseFrictionLaw : public FrictionSolver {
                 seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[CONVERGENCE_ORDER]) override {
+    SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
@@ -46,15 +47,16 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       alignas(ALIGNMENT) FaultStresses faultStresses{};
-      SCOREP_USER_REGION( "computeDynamicPrecomputeStress", SCOREP_USER_REGION_TYPE_FUNCTION )
+      SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON )
       LIKWID_MARKER_START("PrecomputeStress");
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
       LIKWID_MARKER_STOP("PrecomputeStress");
+      SCOREP_USER_REGION_END(myRegionHandle)
 
-      SCOREP_USER_REGION( "computeDynamicPreHook", SCOREP_USER_REGION_TYPE_FUNCTION )
+      SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON )
       LIKWID_MARKER_START("PreHook");
       // define some temporary variables
       std::array<real, misc::numPaddedPoints> stateVariableBuffer{0};
@@ -62,8 +64,9 @@ class BaseFrictionLaw : public FrictionSolver {
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
       LIKWID_MARKER_STOP("PreHook");
+      SCOREP_USER_REGION_END(myRegionHandle)
 
-      SCOREP_USER_REGION( "computeUpdateFrictionAndSlip", SCOREP_USER_REGION_TYPE_FUNCTION )
+      SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureUpdateFrictionAndSlip", SCOREP_USER_REGION_TYPE_COMMON )
       LIKWID_MARKER_START("UpdateFrictionAndSlip");
       TractionResults tractionResults = {};
 
@@ -78,8 +81,9 @@ class BaseFrictionLaw : public FrictionSolver {
                                                            timeIndex);
       }
       LIKWID_MARKER_STOP("UpdateFrictionAndSlip");
+      SCOREP_USER_REGION_END(myRegionHandle)
 
-      SCOREP_USER_REGION( "computeUpdatePostHook", SCOREP_USER_REGION_TYPE_FUNCTION )
+      SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRupturePostHook", SCOREP_USER_REGION_TYPE_COMMON )
       LIKWID_MARKER_START("PostHook");
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
@@ -92,8 +96,9 @@ class BaseFrictionLaw : public FrictionSolver {
 
       common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
       LIKWID_MARKER_STOP("PostHook");
+      SCOREP_USER_REGION_END(myRegionHandle)
 
-      SCOREP_USER_REGION( "computeUpdatePostcomputeImposedState", SCOREP_USER_REGION_TYPE_FUNCTION )
+      SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRupturePostcomputeImposedState", SCOREP_USER_REGION_TYPE_COMMON )
       LIKWID_MARKER_START("PostcomputeImposedState");
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
@@ -104,6 +109,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                    qInterpolatedMinus[ltsFace],
                                                    timeWeights);
       LIKWID_MARKER_STOP("PostcomputeImposedState");
+      SCOREP_USER_REGION_END(myRegionHandle)
     }
   }
 };
