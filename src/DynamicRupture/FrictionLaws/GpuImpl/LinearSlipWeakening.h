@@ -177,9 +177,10 @@ class LinearSlipWeakeningLaw
         specialization(drParameters){};
 
   void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                      seissol::initializers::DynamicRupture* dynRup,
+                                      seissol::initializers::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+    auto* concreteLts =
+        dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -308,7 +309,7 @@ class NoSpecialization {
   NoSpecialization(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup){};
+                          seissol::initializers::DynamicRupture const* const dynRup){};
 
   static void strengthHook(real& strength,
                            real& localSlipRate,

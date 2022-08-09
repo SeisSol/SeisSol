@@ -143,8 +143,7 @@ set(DYNAMIC_RUPTURE_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp)
 
 set(DYNAMIC_RUPTURE_OMP_OFFLOADING_SRC_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp)
 
 target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)

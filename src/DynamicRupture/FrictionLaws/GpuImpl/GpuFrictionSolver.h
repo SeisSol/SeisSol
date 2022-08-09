@@ -14,9 +14,9 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
   GpuFrictionSolver<Derived>(dr::DRParameters* drParameters) : GpuBaseFrictionLaw(drParameters) {}
 
   void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture* dynRup,
+                seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER]) override {
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -40,7 +40,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       is_device_ptr(faultStresses, qInterpolatedPlus, qInterpolatedMinus, impAndEta) \
       device(deviceId) nowait
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        Common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
+        common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
                                                   impAndEta[ltsFace],
                                                   qInterpolatedPlus[ltsFace],
                                                   qInterpolatedMinus[ltsFace]);
@@ -61,7 +61,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       device(deviceId) nowait
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
         // output rupture front
-        Common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+        common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
                                        ruptureTime[ltsFace],
                                        slipRateMagnitude[ltsFace],
                                        fullUpdateTime);
@@ -88,8 +88,8 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
                     devTimeWeights)     \
       device(deviceId) nowait
       for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
-        Common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
+        common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+        common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
                                                      tractionResults[ltsFace],
                                                      impAndEta[ltsFace],
                                                      imposedStatePlus[ltsFace],

@@ -28,10 +28,10 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  virtual void addAdditionalParameters(
-      std::unordered_map<std::string, real*>& parameterToStorageMap,
-      seissol::initializers::DynamicRupture const* const dynRup,
-      seissol::initializers::LTSInternalNode::leaf_iterator& it) override = 0;
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               seissol::initializers::DynamicRupture const* const dynRup,
+                               seissol::initializers::LTSInternalNode::leaf_iterator& it) override =
+      0;
 
   /**
    * Ensure that all parameters are correct.

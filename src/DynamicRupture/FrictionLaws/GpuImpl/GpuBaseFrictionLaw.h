@@ -17,9 +17,10 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   void allocateAuxiliaryMemory();
   void copyStaticDataToDevice();
 
-  virtual void copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                              seissol::initializers::DynamicRupture* dynRup,
-                                              real fullUpdateTime) = 0;
+  virtual void
+      copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
+                                     seissol::initializers::DynamicRupture const* const dynRup,
+                                     real fullUpdateTime) = 0;
 
   protected:
   void checkOffloading();

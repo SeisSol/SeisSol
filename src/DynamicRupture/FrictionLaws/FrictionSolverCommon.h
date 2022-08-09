@@ -52,12 +52,7 @@ inline void precomputeStressFromQInterpolated(
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
-  constexpr size_t u = 6;
-  constexpr size_t v = 7;
-  constexpr size_t w = 8;
-  constexpr size_t n = 0;
-  constexpr size_t t1 = 3;
-  constexpr size_t t2 = 6;
+  using namespace dr::misc::quantity_indices;
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
 
@@ -66,16 +61,16 @@ inline void precomputeStressFromQInterpolated(
 #endif // ACL_DEVICE_OFFLOAD
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       faultStresses.normalStress[o][i] =
-          etaP * (qIMinus[o][u][i] - qIPlus[o][u][i] + qIPlus[o][n][i] * invZp +
-                  qIMinus[o][n][i] * invZpNeig);
+          etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
+                  qIMinus[o][N][i] * invZpNeig);
 
       faultStresses.traction1[o][i] =
-          etaS * (qIMinus[o][v][i] - qIPlus[o][v][i] + qIPlus[o][t1][i] * invZs +
-                  qIMinus[o][t1][i] * invZsNeig);
+          etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
+                  qIMinus[o][T1][i] * invZsNeig);
 
       faultStresses.traction2[o][i] =
-          etaS * (qIMinus[o][w][i] - qIPlus[o][w][i] + qIPlus[o][t2][i] * invZs +
-                  qIMinus[o][t2][i] * invZsNeig);
+          etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
+                  qIMinus[o][T2][i] * invZsNeig);
     }
   }
 }
@@ -130,12 +125,7 @@ inline void postcomputeImposedStateFromNewStress(
   auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  constexpr size_t u = 6;
-  constexpr size_t v = 7;
-  constexpr size_t w = 8;
-  constexpr size_t n = 0;
-  constexpr size_t t1 = 3;
-  constexpr size_t t2 = 6;
+  using namespace dr::misc::quantity_indices;
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
@@ -150,22 +140,22 @@ inline void postcomputeImposedStateFromNewStress(
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
 
-      imposedStateM[n][i] += weight * normalStress;
-      imposedStateM[t1][i] += weight * traction1;
-      imposedStateM[t2][i] += weight * traction2;
-      imposedStateM[u][i] +=
-          weight * (qIMinus[o][u][i] - invZpNeig * (normalStress - qIMinus[o][n][i]));
-      imposedStateM[v][i] +=
-          weight * (qIMinus[o][v][i] - invZsNeig * (traction1 - qIMinus[o][t1][i]));
-      imposedStateM[w][i] +=
-          weight * (qIMinus[o][w][i] - invZsNeig * (traction2 - qIMinus[o][t2][i]));
+      imposedStateM[N][i] += weight * normalStress;
+      imposedStateM[T1][i] += weight * traction1;
+      imposedStateM[T2][i] += weight * traction2;
+      imposedStateM[U][i] +=
+          weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
+      imposedStateM[V][i] +=
+          weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
+      imposedStateM[W][i] +=
+          weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      imposedStateP[0][i] += weight * normalStress;
-      imposedStateP[3][i] += weight * traction1;
-      imposedStateP[5][i] += weight * traction2;
-      imposedStateP[u][i] += weight * (qIPlus[o][u][i] + invZp * (normalStress - qIPlus[o][n][i]));
-      imposedStateP[v][i] += weight * (qIPlus[o][v][i] + invZs * (traction1 - qIPlus[o][t1][i]));
-      imposedStateP[w][i] += weight * (qIPlus[o][w][i] + invZs * (traction2 - qIPlus[o][t2][i]));
+      imposedStateP[N][i] += weight * normalStress;
+      imposedStateP[T1][i] += weight * traction1;
+      imposedStateP[T2][i] += weight * traction2;
+      imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
+      imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
+      imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
 }
