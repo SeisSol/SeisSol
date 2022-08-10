@@ -3,19 +3,6 @@
 
 #include "BaseFrictionLaw.h"
 
-#ifdef LIKWID_PERFMON
-#include <likwid-marker.h>
-#else
-#define LIKWID_MARKER_INIT
-#define LIKWID_MARKER_THREADINIT
-#define LIKWID_MARKER_SWITCH
-#define LIKWID_MARKER_REGISTER(regionTag)
-#define LIKWID_MARKER_START(regionTag)
-#define LIKWID_MARKER_STOP(regionTag)
-#define LIKWID_MARKER_CLOSE
-#define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
-#endif
-
 namespace seissol::dr::friction_law {
 // If the SR is too close to zero, we will have problems (NaN)
 // as a consequence, the SR is affected the AlmostZero value when too small

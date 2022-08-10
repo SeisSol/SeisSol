@@ -40,18 +40,6 @@
 #include "SeisSol.h"
 
 #include <yaml-cpp/yaml.h>
-#ifdef LIKWID_PERFMON
-#include <likwid-marker.h>
-#else
-#define LIKWID_MARKER_INIT
-#define LIKWID_MARKER_THREADINIT
-#define LIKWID_MARKER_SWITCH
-#define LIKWID_MARKER_REGISTER(regionTag)
-#define LIKWID_MARKER_START(regionTag)
-#define LIKWID_MARKER_STOP(regionTag)
-#define LIKWID_MARKER_CLOSE
-#define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
-#endif
 
 extern "C" {
   void fortran_main();
@@ -59,18 +47,13 @@ extern "C" {
 
 int main(int argc, char* argv[])
 {
-  LIKWID_MARKER_INIT;
-  LIKWID_MARKER_THREADINIT;
-  LIKWID_MARKER_REGISTER("SeisSol");
-  LIKWID_MARKER_REGISTER("SpaceTimeInterpolation");
-  LIKWID_MARKER_REGISTER("FrictionLaw");
-  LIKWID_MARKER_REGISTER("PrecomputeStress");
-  LIKWID_MARKER_REGISTER("PreHook");
-  LIKWID_MARKER_REGISTER("UpdateFrictionAndSlip");
-  LIKWID_MARKER_REGISTER("PostHook");
-  LIKWID_MARKER_REGISTER("PostcomputeImposedState");
+        LIKWID_MARKER_INIT;
+#pragma omp parallel
+        {
+        LIKWID_MARKER_THREADINIT;
+        LIKWID_MARKER_REGISTER("PrecomputeStress");
+        }
 
-  LIKWID_MARKER_START("SeisSol");
 	EPIK_TRACER("SeisSol");
 	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -81,8 +64,7 @@ int main(int argc, char* argv[])
 	if (runSeisSol)
 		fortran_main();
 
-  LIKWID_MARKER_STOP("SeisSol");
-  LIKWID_MARKER_CLOSE;
+        LIKWID_MARKER_CLOSE;
 	// Finalize SeisSol
 	seissol::SeisSol::main.finalize();
 }
