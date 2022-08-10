@@ -56,7 +56,7 @@ function(get_arch_flags architecture compiler)
 
     # IBM power 9
     elseif ("${HOST_ARCH}" STREQUAL "power9")
-        if (compiler STREQUAL "GNU|Clang")
+        if (compiler MATCHES "GNU|Clang")
             set(HAS_REDZONE OFF PARENT_SCOPE)
             set(CPU_ARCH_FLAGS "-mtune=power9" PARENT_SCOPE)
         endif()
