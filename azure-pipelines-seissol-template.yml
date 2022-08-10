@@ -23,7 +23,7 @@ jobs:
                         gcc --version
                         gcov-tool --version
                         gcov --version
-                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev libarmadillo-dev lcov clang-tidy libyaml-cpp-dev
+                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev libarmadillo-dev lcov clang-tidy
                         sudo pip3 install --upgrade pip
                         sudo pip3 install 'numpy>=1.12.0'
                         git clone --depth 1 --branch 1.17 https://github.com/hfp/libxsmm
@@ -33,6 +33,13 @@ jobs:
                         cp bin/libxsmm_gemm_generator $HOME/bin
                         export PATH=$HOME/bin:$PATH
                         cd ..
+
+                        git clone --depth 1 --branch yaml-cpp-0.7.0 https://github.com/jbeder/yaml-cpp.git
+                        mkdir -p yaml-cpp/build && cd yaml-cpp/build
+                        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DYAML_CPP_BUILD_TESTS=OFF
+                        make -j $(nproc)
+                        make install
+                        cd ../.. && rm -rf ./yaml-cpp
 
                         wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
                         tar -xf eigen-3.4.0.tar.gz
