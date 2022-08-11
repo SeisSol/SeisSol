@@ -82,6 +82,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
     // copy state variable from last time step
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       stateVariableBuffer[pointIndex] = this->stateVariable[ltsFace][pointIndex];
     }
@@ -219,6 +220,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                TractionResults& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
       localStateVariable[pointIndex] =
@@ -286,6 +288,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void saveDynamicStressOutput(unsigned int face) {
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 
       if (this->ruptureTime[face][pointIndex] > 0.0 &&
@@ -327,6 +330,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
 
     for (unsigned i = 0; i < maxNumberSlipRateUpdates; i++) {
+      #pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
         muF[pointIndex] = static_cast<Derived*>(this)->updateMu(
@@ -345,6 +349,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       if (hasConverged) {
         return hasConverged;
       }
+      #pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 
         // derivative of g
@@ -364,6 +369,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           TPMethod const& tpMethod,
                           size_t timeIndex,
                           size_t ltsFace) {
+    #pragma omp simd
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +

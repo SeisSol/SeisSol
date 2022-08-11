@@ -23,6 +23,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
    * @param localSlipRate \f$ V \f$
    * @return \f$ \Psi(t) \f$
    */
+  #pragma omp declare simd
   double updateStateVariable(int pointIndex,
                              unsigned int face,
                              double stateVarReference,
