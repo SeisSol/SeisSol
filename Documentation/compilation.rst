@@ -208,7 +208,7 @@ Compile with Score-P
 --------------------
 ```
 SCOREP_WRAPPER=off CXX=scorep-mpic++ CC=scorep-mpicc FC=scorep-mpif90 cmake ..
-SCOREP_WRAPPER_INSTRUMENTER_FLAGS="--user --thread=omp" make
+SCOREP_WRAPPER_INSTRUMENTER_FLAGS="--user --thread=omp --nomemory" make
 ```
 
 
