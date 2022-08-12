@@ -98,7 +98,7 @@ namespace quantity_indices {
  * Defines the indices under which one can find a specific quantity.
  * U, V, W: Velocities in x, y, z direction.
  * N, T1, T2: traction in normal and fault aligned directions.
- * XX, YY, ZZ, XY, YZ, XZ:
+ * XX, YY, ZZ, XY, YZ, XZ: Stress in cartesian coordinates
  * Use as:
  * ```
  * using namepace dr::misc::quantity_indices;
