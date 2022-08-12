@@ -191,9 +191,6 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 
 		allocfault(fault.size());
 
-		//if (meshReader.hasPlusFault())
-		//	hasplusfault();
-
 		if (fault.size() > 0) {
 			int* faultface;
 			double* faultnormals;

@@ -45,8 +45,6 @@ void allocbndobj(int i, int n);
 void allocbndobjfault(int i, int n);
 void allocfault(int n);
 
-//void hasplusfault();
-
 void getverticesxy(int* size, double** verticesXY);
 void getverticesnelements(int* size, int** nelements);
 void getverticeselements(int* size, int** elements);

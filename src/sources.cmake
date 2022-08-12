@@ -65,7 +65,6 @@ src/Checkpoint/posix/Fault.cpp
 src/ResultWriter/AnalysisWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/PostProcessor.cpp
-src/ResultWriter/FaultWriterC.cpp
 src/ResultWriter/ReceiverWriter.cpp
 src/ResultWriter/FaultWriterExecutor.cpp
 src/ResultWriter/FaultWriter.cpp
@@ -97,18 +96,10 @@ src/Numerical_aux/ODEVector.cpp
 src/Modules/ModulesF.f90
 src/seissolxx.f90
 src/Physics/ini_model.f90
-src/Physics/Evaluate_friction_law.f90
-src/Physics/ini_model_DR.f90
 src/Physics/NucleationFunctions.f90
-src/Physics/thermalpressure.f90
 src/Physics/InitialField.cpp
 src/Reader/readpar.f90
-src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90
-src/ResultWriter/output_rupturefront.f90
-src/ResultWriter/ini_faultoutput.f90
-src/ResultWriter/faultoutput.f90
-src/ResultWriter/common_fault_receiver.f90
 src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90

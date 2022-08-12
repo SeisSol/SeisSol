@@ -98,9 +98,6 @@ void seissol::Simulator::simulate() {
 
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
-  // Copy initial dynamic rupture in order to ensure correct initial fault output
-  //e_interoperability.copyDynamicRuptureState();
-
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
     Modules::callHook<SIMULATION_START>();

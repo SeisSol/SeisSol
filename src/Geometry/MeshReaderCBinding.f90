@@ -135,7 +135,6 @@ contains
         else
             hasFault = .false.
         endif
-        !disc%DynRup%DR_output = .false.
 
         write(str, *) mpi%nCPU
         if (io%meshgenerator .eq. 'Gambit3D-fast') then
@@ -397,12 +396,6 @@ contains
         allocate(m_mesh%Fault%geoTangent1(3, n))
         allocate(m_mesh%Fault%geoTangent2(3, n))
     end subroutine allocFault
-
-    !subroutine hasPlusFault() bind(C)
-    !    implicit none
-
-    !    m_disc%DynRup%DR_output = .true.
-    !end subroutine hasPlusFault
 
     subroutine allocBndObjFault(i, n) bind(C)
         implicit none

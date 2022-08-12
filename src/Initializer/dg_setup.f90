@@ -508,91 +508,6 @@ CONTAINS
         DISC%LocalIteration(:)  = 0.
         DISC%LocalTime(:)       = 0.
     ENDIF
-    !
-    !IF(EQN%DR.EQ.1) THEN
-
-    !  ALLOCATE(DISC%DynRup%SlipRate1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%SlipRate2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%TracXY(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%TracXZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-
-    !  ! TODO: Transpose StateVar
-    !  ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  ALLOCATE(DISC%DynRup%Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  !
-
-    !  ! Initialize w/ first-touch
-    !  !$omp parallel do schedule(static)
-    !  DO i=1,MESH%fault%nSide
-    !      DISC%DynRup%SlipRate1(:,i) = EQN%IniSlipRate1
-    !      DISC%DynRup%SlipRate2(:,i) = EQN%IniSlipRate2
-    !      DISC%DynRup%Slip(:,i) = 0.0
-    !      DISC%DynRup%Slip1(:,i) = 0.0
-    !      DISC%DynRup%Slip2(:,i) = 0.0
-    !      DISC%DynRup%TracXY(:,i) = 0.0
-    !      DISC%DynRup%TracXZ(:,i) = 0.0
-    !      DISC%DynRup%StateVar(:,i) = EQN%IniStateVar(:,i)
-    !      DISC%DynRup%Mu(:,i) = EQN%IniMu(:,i)
-    !      DISC%DynRup%PeakSR(:,i) = 0.0
-    !      DISC%DynRup%rupture_time(:,i) = 0.0
-    !      DISC%DynRup%dynStress_time(:,i) = 0.0
-    !  END DO
-
-    !  allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-    !  allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-
-    !  ! Initialize w/ first-touch
-    !  !$omp parallel do schedule(static)
-    !  DO i=1,MESH%fault%nSide
-    !      disc%DynRup%output_Mu(:,i) = 0.0
-    !      disc%DynRup%output_Strength(:,i) = 0.0
-    !      disc%DynRup%output_Slip(:,i) = 0.0
-    !      disc%DynRup%output_Slip1(:,i) = 0.0
-    !      disc%DynRup%output_Slip2(:,i) = 0.0
-    !      disc%DynRup%output_rupture_time(:,i) = 0.0
-    !      disc%DynRup%output_PeakSR(:,i) = 0.0
-    !      disc%DynRup%output_dynStress_time(:,i) = 0.0
-    !      disc%DynRup%output_StateVar(:,i) = 0.0
-    !  END DO
-
-    !else
-    !    ! Allocate dummy arrays to avoid debug errors
-    !    allocate(DISC%DynRup%SlipRate1(0,0), &
-    !        DISC%DynRup%SlipRate2(0,0),      &
-    !        DISC%DynRup%Slip(0,0),           &
-    !        DISC%DynRup%Slip1(0,0),          &
-    !        DISC%DynRup%Slip2(0,0),          &
-    !        DISC%DynRup%Mu(0,0),             &
-    !        DISC%DynRup%StateVar(0,0),       &
-    !        DISC%DynRup%PeakSR(0,0),         &
-    !        DISC%DynRup%Strength(0,0),       &
-    !        DISC%DynRup%rupture_time(0,0),   &
-    !        DISC%DynRup%dynStress_time(0,0)  )
-    !    allocate(DISC%DynRup%output_Mu(0,0),      &
-    !        DISC%DynRup%output_StateVar(0,0),     &
-    !        DISC%DynRup%output_Strength(0,0),     &
-    !        DISC%DynRup%output_Slip(0,0),         &
-    !        DISC%DynRup%output_Slip1(0,0),        &
-    !        DISC%DynRup%output_Slip2(0,0),        &
-    !        DISC%DynRup%output_rupture_time(0,0), &
-    !        DISC%DynRup%output_PeakSR(0,0),       &
-    !        DISC%DynRup%output_dynStress_time(0,0))
-    !ENDIF
-    !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
@@ -928,7 +843,6 @@ CONTAINS
     USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
-    !USE ini_faultoutput_mod
     USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
@@ -1167,56 +1081,6 @@ CONTAINS
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
         call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
-    !DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
-    !DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-    !
-    !
-    !
-    ! Initialize fault rupture output
-    ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
-!    IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
-!        ! Case 3
-!        ! output at certain positions specified in the *.dyn file
-!        IF(DISC%DynRup%OutputPointType.EQ.3) THEN
-!            !
-!            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
-!            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
-!            !
-!            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
-!
-!#ifdef HDF
-!            CALL ini_fault_receiver_hdf(EQN, MESH, DISC, IO, MPI)
-!!#else
-!#endif
-!            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
-!
-!        ! Case 4
-!        ! for full fault output without pickpoints
-!        ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
-!            !
-!            DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
-!            DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-!            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
-!        ! Case 5
-!        ! for full fault output and pickpoints
-!        ELSEIF(DISC%DynRup%OutputPointType.EQ.5) THEN
-!            !
-!            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
-!            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
-!            !
-!            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
-!            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
-!            !
-!            !
-!            !DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
-!            !DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-!            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
-!        ENDIF ! DISC%DynRup%OutputPointType
-!    ENDIF ! end initialize fault output
-    !
-    !
-    !
-    !
     ! Allocate rest of MPI communication structure
     logInfo(*) 'Allocation of remaining MPI communication structure '
     logInfo(*) '  General info: ', BND%NoMPIDomains,DISC%Galerkin%nDegFr,EQN%nVar

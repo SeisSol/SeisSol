@@ -168,11 +168,6 @@ extern "C" {
     return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
   }
 
-
-  //void c_interoperability_enableDynamicRupture() {
-  //  e_interoperability.enableDynamicRupture();
-  //}
-
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
@@ -225,7 +220,6 @@ extern "C" {
   }
 
   void c_interoperability_initializeIO(
-      //double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  int* outputGroups, int outputGroupsSize,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
@@ -233,7 +227,6 @@ extern "C" {
       bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
     e_interoperability.initializeIO(
-                                    //mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
                                     numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
                                     freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
@@ -707,10 +700,6 @@ void seissol::Interoperability::fitAttenuation( double rho,
 #endif
 }
 
-//void seissol::Interoperability::enableDynamicRupture() {
-//  // DR is always enabled if there are dynamic rupture cells
-//}
-
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)
 {
   int side = i_side - 1;
@@ -883,10 +872,7 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
 }
 
 void
-seissol::Interoperability::initializeIO(
-                                        //double* mu, double* slipRate1, double* slipRate2, double* slip,
-                                        //double* slip1, double* slip2, double* state, double* strength,
-                                        int numSides, int numBndGP, int refinement,
+seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refinement,
                                         int* outputMask,
                                         int* plasticityMask, double* outputRegionBounds,
                                         const std::unordered_set<int>& outputGroups,
@@ -998,11 +984,6 @@ seissol::Interoperability::initializeIO(
 	    &seissol::SeisSol::main.meshReader(),
 	    freeSurfaceFilename);
 }
-
-//void seissol::Interoperability::copyDynamicRuptureState()
-//{
-//	f_interoperability_copyDynamicRuptureState(m_domain);
-//}
 
 void seissol::Interoperability::initInitialConditions()
 {
@@ -1120,54 +1101,6 @@ void seissol::Interoperability::deallocateMemoryManager() {
   seissol::SeisSol::main.deleteMemoryManager();
 }
 
-//void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
-//                                             double i_timeStepWidth )
-//{
-//  f_interoperability_faultOutput( m_domain, &i_fullUpdateTime, &i_timeStepWidth );
-//}
-
-//void seissol::Interoperability::evaluateFrictionLaw(  int face,
-//                                                      real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-//                                                      real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-//                                                      real imposedStatePlus[seissol::tensor::QInterpolated::size()],
-//                                                      real imposedStateMinus[seissol::tensor::QInterpolated::size()],
-//                                                      double i_fullUpdateTime,
-//                                                      double timePoints[CONVERGENCE_ORDER],
-//                                                      double timeWeights[CONVERGENCE_ORDER],
-//                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
-//                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
-//{
-//  int fFace = face + 1;
-//  int numberOfPoints = tensor::QInterpolated::Shape[0];
-//  auto godunovLd = static_cast<int>(dr::misc::leadDim<init::QInterpolated>());
-//
-//  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
-//
-//  f_interoperability_evaluateFrictionLaw( m_domain,
-//                                          fFace,
-//                                         &QInterpolatedPlus[0][0],
-//                                         &QInterpolatedMinus[0][0],
-//                                         &imposedStatePlus[0],
-//                                         &imposedStateMinus[0],
-//                                          numberOfPoints,
-//                                          godunovLd,
-//                                          &i_fullUpdateTime,
-//                                          &timePoints[0],
-//                                          &timeWeights[0],
-//                                          waveSpeedsPlus.density,
-//                                          waveSpeedsPlus.pWaveVelocity,
-//                                          waveSpeedsPlus.sWaveVelocity,
-//                                          waveSpeedsMinus.density,
-//                                          waveSpeedsMinus.pWaveVelocity,
-//                                          waveSpeedsMinus.sWaveVelocity,
-//                                          init::resample::Values );
-//}
-
-//void seissol::Interoperability::calcElementwiseFaultoutput(double time)
-//{
-//	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
-//}
-
 void seissol::Interoperability::reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -1189,8 +1122,4 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
   }
 #endif
 }
-
-//void Interoperability::initializeFaultOutput() {
-//  f_interoperability_initializeFaultOutput(m_domain);
-//}
 
