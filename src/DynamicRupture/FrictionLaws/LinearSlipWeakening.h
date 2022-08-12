@@ -178,8 +178,6 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = 1.0 * (time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
-        // Note: In the fortran implementation on the master branch, this is
-        // m_fullUpdateTime, but this implementation is correct.
         f2 = std::max(static_cast<real>(0.0),
                       std::min(static_cast<real>(1.0),
                                (time - this->forcedRuptureTime[ltsFace][pointIndex]) /
@@ -233,9 +231,9 @@ class BiMaterialFault {
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
   /**
-   * The bimaterial Fault FL has been implemented without resampling on the master branch.
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
-   * together with Prakash-Clifton regularization.
+   * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
+   * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                         real const (&slipRate)[dr::misc::numPaddedPoints]) {

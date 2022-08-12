@@ -1,5 +1,5 @@
-#ifndef SEISSOL_STF_H
-#define SEISSOL_STF_H
+#ifndef SEISSOL_SOURCETIMEFUNCTION_H
+#define SEISSOL_SOURCETIMEFUNCTION_H
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
@@ -38,4 +38,4 @@ class GaussianSTF {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_STF_H
+#endif // SEISSOL_SOURCETIMEFUNCTION_H

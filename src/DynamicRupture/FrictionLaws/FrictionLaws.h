@@ -9,7 +9,7 @@
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"
 #include "RateAndState.h"
-#include "STF.h"
+#include "SourceTimeFunction.h"
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
 

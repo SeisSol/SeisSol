@@ -60,19 +60,15 @@ class BaseFrictionLaw : public FrictionSolver {
 
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
-      // output rupture front
       common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
                                      ruptureTime[ltsFace],
                                      slipRateMagnitude[ltsFace],
                                      mFullUpdateTime);
 
-      // output time when shear stress is equal to the dynamic stress after rupture arrived
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
-      // output peak slip rate
       common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
 
-      // compute output
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],

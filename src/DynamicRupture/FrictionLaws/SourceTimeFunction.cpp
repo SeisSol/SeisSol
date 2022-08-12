@@ -1,4 +1,4 @@
-#include "STF.h"
+#include "SourceTimeFunction.h"
 
 namespace seissol::dr::friction_law {
 void YoffeSTF::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,

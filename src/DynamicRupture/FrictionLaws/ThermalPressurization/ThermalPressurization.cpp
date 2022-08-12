@@ -10,7 +10,6 @@ void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializers::Layer& layerData,
     seissol::initializers::DynamicRupture const* const dynRup,
     real fullUpdateTime) {
-  // maybe change later to const_cast?
   auto* concreteLts =
       dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurization const* const>(
           dynRup);

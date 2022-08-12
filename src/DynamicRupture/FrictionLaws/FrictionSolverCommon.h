@@ -35,12 +35,6 @@ inline void precomputeStressFromQInterpolated(
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
-  // this initialization of the kernel could be moved to the initializer,
-  // since all inputs outside the j-loop are time independent
-  // set inputParam could be extendent for this
-  // the kernel then could be a class attribute (but be careful of race conditions since this is
-  // computed in parallel!!)
-
   const auto etaP = impAndEta.etaP;
   const auto etaS = impAndEta.etaS;
   const auto invZp = impAndEta.invZp;
@@ -97,11 +91,6 @@ inline void postcomputeImposedStateFromNewStress(
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const double timeWeights[CONVERGENCE_ORDER]) {
-
-  // this initialization of the kernel could be moved to the initializer
-  // set inputParam could be extendent for this (or create own function)
-  // the kernel then could be a class attribute and following values are only set once
-  //(but be careful of race conditions since this is computed in parallel for each face!!)
 
   // set imposed state to zero
 #ifdef ACL_DEVICE_OFFLOAD
