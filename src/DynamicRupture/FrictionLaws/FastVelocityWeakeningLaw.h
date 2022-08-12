@@ -18,7 +18,7 @@ class FastVelocityWeakeningLaw
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_RateAndStateFastVelocityWeakening const* const>(
+        dynamic_cast<seissol::initializers::LTSRateAndStateFastVelocityWeakening const* const>(
             dynRup);
 
     this->srW = layerData.var(concreteLts->rsSrW);
@@ -110,12 +110,10 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  std::array<real, misc::numPaddedPoints>
-      resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
-                       unsigned int ltsFace) const {
+  void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+                        unsigned int ltsFace) const {
     std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
     std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
-    std::array<real, misc::numPaddedPoints> resampledStateVar = {0};
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
@@ -127,12 +125,10 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      resampledStateVar[pointIndex] =
+      this->stateVariable[ltsFace][pointIndex] =
           std::max(static_cast<real>(0.0),
                    this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex]);
     }
-
-    return resampledStateVar;
   }
 
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,

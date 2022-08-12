@@ -17,7 +17,8 @@ namespace seissol::dr::friction_law::common {
 /**
  * Calculate traction and normal stress at the interface of a face.
  * Using equations (A2) from Pelties et al. 2014
- * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
+ * Definiton of eta and impedance Z are found in Carsten Uphoff's dissertation on page 47 and in
+ * equation (4.51) respectively.
  *
  * @param[out] faultStresses contains normalStress, traction1, traction2
  *             at the 2d face quadrature nodes evaluated at the time

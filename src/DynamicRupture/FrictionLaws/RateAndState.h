@@ -25,7 +25,7 @@ constexpr real almostZero() {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
-  RateAndStateBase(DRParameters* drParameters)
+  explicit RateAndStateBase(DRParameters* drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
@@ -88,17 +88,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
-    std::array<real, misc::numPaddedPoints> resampledStateVar =
-        static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      this->stateVariable[ltsFace][pointIndex] = resampledStateVar[pointIndex];
-    }
+    static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_RateAndState const* const>(dynRup);
+    auto* concreteLts = dynamic_cast<seissol::initializers::LTSRateAndState const* const>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
@@ -304,9 +300,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   /**
    * Solve for new slip rate (\f$\hat{s}\f$), applying the Newton-Raphson algorithm.
    * \f$\hat{s}\f$ has to fulfill
-   * \f[g := \frac{1}{\eta_s} \cdot (\sigma_n \cdot \mu - \Theta) - \hat{s} = 0.\f] c.f. Carsten's
-   * diss eq. (4.57). Find root of \f$g\f$ with \f$g^\prime = \partial g / \partial \hat{s}\f$:
-   * \f$\hat{s}_{i+1} = \hat{s}_i - ( g_i / g^\prime_i )\f$
+   * \f[g := \frac{1}{\eta_s} \cdot (\sigma_n \cdot \mu - \Theta) - \hat{s} = 0.\f] c.f. Carsten
+   * Uphoff's dissertation eq. (4.57). Find root of \f$g\f$ with \f$g^\prime = \partial g / \partial
+   * \hat{s}\f$: \f$\hat{s}_{i+1} = \hat{s}_i - ( g_i / g^\prime_i )\f$
    * @param ltsFace index of the face for which we invert the sliprate
    * @param localStateVariable \f$\psi\f$, needed to compute \f$\mu = f(\hat{s}, \psi)\f$
    * @param normalStress \f$\sigma_n\f$
@@ -369,7 +365,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
                                               this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              tpMethod.fluidPressure(ltsFace, pointIndex));
+                                              tpMethod.getFluidPressure(ltsFace, pointIndex));
     }
   }
 

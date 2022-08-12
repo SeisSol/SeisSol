@@ -161,8 +161,8 @@ private:
     seissol::initializers::Layer* dynRupCopyData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
-    dr::friction_law::FrictionSolver* m_FrictionSolver;
-    dr::output::OutputManager* m_faultOutputManager;
+    dr::friction_law::FrictionSolver* frictionSolver;
+    dr::output::OutputManager* faultOutputManager;
 
     //! Mapping of cells to point sources
     sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
@@ -429,7 +429,7 @@ public:
   }
 
   void setFaultOutputManager(dr::output::OutputManager* outputManager) {
-    m_faultOutputManager = outputManager;
+    faultOutputManager = outputManager;
   }
 
   /**

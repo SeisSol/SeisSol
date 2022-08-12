@@ -14,7 +14,7 @@ class RateAndState : public ReceiverBasedOutput {
   }
 
   real computeStateVariable() override {
-    const auto* descr = reinterpret_cast<seissol::initializers::LTS_RateAndState*>(drDescr);
+    const auto* descr = reinterpret_cast<seissol::initializers::LTSRateAndState*>(drDescr);
     assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
     return (local.layer->var(descr->stateVariable))[local.ltsId][local.nearestGpIndex];
   }

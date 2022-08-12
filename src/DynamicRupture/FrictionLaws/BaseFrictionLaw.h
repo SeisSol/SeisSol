@@ -16,7 +16,7 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
+  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
 
   /**
    * evaluates the current friction model

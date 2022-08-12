@@ -11,7 +11,7 @@ void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializers::DynamicRupture const* const dynRup,
     real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_RateAndStateThermalPressurization const* const>(
+      dynamic_cast<seissol::initializers::LTSRateAndStateThermalPressurization const* const>(
           dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
@@ -80,7 +80,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     const real squaredNormalizedTPGrid =
         misc::power<2>(tpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
-    // This is exp(-A dt) in equation (10)
+    // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
     const real expTheta =
         std::exp(-drParameters->thermalDiffusivity * deltaT * squaredNormalizedTPGrid);
     const real expSigma =
@@ -92,7 +92,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     const real sigmaDiffusion = sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] * expSigma;
 
     // Heat generation during timestep
-    // This is B/A * (1 - exp(-A dt)) in equation (10)
+    // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
     // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
     const real omega = tauV * heatSource[tpGridPointIndex];
     const real thetaGeneration =
@@ -118,7 +118,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
         scaledInverseFourierCoefficient * sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
   }
   // Update pore pressure change: sigma = pore pressure + lambda' * temperature
-  pressureUpdate = pressureUpdate - lambdaPrime * temperatureUpdate;
+  pressureUpdate -= lambdaPrime * temperatureUpdate;
 
   // Temperature and pore pressure change at single GP on the fault + initial values
   temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters->initialTemperature;

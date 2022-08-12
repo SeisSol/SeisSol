@@ -14,7 +14,7 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
                                          seissol::initializers::DynamicRupture const* const dynRup,
                                          real fullUpdateTime) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial const* const>(dynRup);
+      dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial const* const>(dynRup);
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
