@@ -60,13 +60,13 @@ public:
 	/**
 	 * @return Always false (never finds a valid checkpoint)
 	 */
-	bool init(double*, double*, double*, double*, double*, double*,
+	bool init(real*, real*, real*, real*, real*, real*,
 			unsigned int, unsigned int, unsigned int = 1)
 	{
 		return false;
 	}
 
-	void load(int&, double*, double*, double*, double*, double*, double*, double*, double*)
+	void load(int&, real*, real*, real*, real*, real*, real*, real*, real*)
 	{}
 
 	void write(int) {}

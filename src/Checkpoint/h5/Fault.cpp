@@ -64,8 +64,8 @@ bool seissol::checkpoint::h5::Fault::init(unsigned int numSides, unsigned int nu
 	return exists();
 }
 
-void seissol::checkpoint::h5::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
-	double* slip, double* slip1, double* slip2, double* state, double* strength)
+void seissol::checkpoint::h5::Fault::load(int &timestepFault, real* mu, real* slipRate1, real* slipRate2,
+	real* slip, real* slip1, real* slip2, real* state, real* strength)
 {
 	if (numSides() == 0)
 		return;
@@ -92,7 +92,7 @@ void seissol::checkpoint::h5::Fault::load(int &timestepFault, double* mu, double
 	// Offset for the file space
 	hsize_t fStart[2] = {fileOffset(), 0};
 
-	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
+	real* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
 
 	// Read the data
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
@@ -104,7 +104,7 @@ void seissol::checkpoint::h5::Fault::load(int &timestepFault, double* mu, double
 		// Read the data
 		checkH5Err(H5Sselect_hyperslab(h5fSpace, H5S_SELECT_SET, fStart, 0L, count, 0L));
 
-		checkH5Err(H5Dread(h5data, H5T_NATIVE_DOUBLE, h5memSpace, h5fSpace,
+		checkH5Err(H5Dread(h5data, HDF_C_REAL, h5memSpace, h5fSpace,
 				h5XferList(), data[i]));
 
 		checkH5Err(H5Sclose(h5fSpace));
@@ -143,7 +143,7 @@ void seissol::checkpoint::h5::Fault::write(int timestepFault)
 	checkH5Err(H5Sselect_hyperslab(m_h5fSpaceData, H5S_SELECT_SET, fStart, 0L, count, 0L));
 
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
-		checkH5Err(H5Dwrite(m_h5data[odd()][i], H5T_NATIVE_DOUBLE, h5memSpace, m_h5fSpaceData,
+		checkH5Err(H5Dwrite(m_h5data[odd()][i], HDF_C_REAL, h5memSpace, m_h5fSpaceData,
 				h5XferList(), data(i)));
 	}
 
