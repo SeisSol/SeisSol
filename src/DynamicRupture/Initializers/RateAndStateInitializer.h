@@ -27,8 +27,8 @@ class RateAndStateInitializer : public BaseDRInitializer {
                                seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
   struct StateAndFriction {
-    real stateVariable;
-    real frictionCoefficient;
+    double stateVariable;
+    double frictionCoefficient;
   };
 
   /**
