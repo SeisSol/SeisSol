@@ -57,9 +57,9 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
       return isFaultParameterizedByTraction;
     };
 
-    StressTensor initialStress;
+    StressTensor initialStress(it->getNumberOfCells());
     const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, false);
-    StressTensor nucleationStress;
+    StressTensor nucleationStress(it->getNumberOfCells());
     const bool nucleationStressParameterizedByTraction =
         addStressesToStorageMap(nucleationStress, true);
 

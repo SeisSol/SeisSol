@@ -31,6 +31,14 @@ class BaseDRInitializer {
    * Stores the initialStresses.
    */
   struct StressTensor {
+    StressTensor(size_t size) {
+      xx.reserve(size);
+      yy.reserve(size);
+      zz.reserve(size);
+      xy.reserve(size);
+      yz.reserve(size);
+      xz.reserve(size);
+    }
     using VectorOfArrays_t = std::vector<std::array<real, misc::numPaddedPoints>>;
     VectorOfArrays_t xx;
     VectorOfArrays_t yy;
