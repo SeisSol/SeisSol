@@ -180,7 +180,7 @@ class LinearSlipWeakeningLaw
                                       seissol::initializers::DynamicRupture const* const dynRup,
                                       real fullUpdateTime) override {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
