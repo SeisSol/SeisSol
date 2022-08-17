@@ -4,7 +4,6 @@
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.hpp"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
-#include <iostream>
 #include <memory>
 
 namespace seissol::dr::output {
