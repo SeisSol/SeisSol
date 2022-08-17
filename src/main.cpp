@@ -60,6 +60,10 @@ int main(int argc, char* argv[])
         LIKWID_MARKER_REGISTER("SpaceTimeInterpolation");
         LIKWID_MARKER_REGISTER("UpdateFrictionAndSlip");
         }
+#pragma omp parallel
+        {
+        LIKWID_MARKER_START("SeisSol");
+        }
 
 	EPIK_TRACER("SeisSol");
 	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -70,6 +74,10 @@ int main(int argc, char* argv[])
 	// Initialize Fortan Part and run SeisSol
 	if (runSeisSol)
 		fortran_main();
+#pragma omp parallel
+        {
+        LIKWID_MARKER_STOP("SeisSol");
+        }
 
         LIKWID_MARKER_CLOSE;
 	// Finalize SeisSol
