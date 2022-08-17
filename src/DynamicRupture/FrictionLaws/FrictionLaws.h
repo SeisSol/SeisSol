@@ -9,9 +9,9 @@
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"
 #include "RateAndState.h"
-#include "SourceTimeFunction.h"
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
+#include "SourceTimeFunction.h"
 
 #ifdef ACL_DEVICE_OFFLOAD
 #include "GpuImpl/LinearSlipWeakening.h"
