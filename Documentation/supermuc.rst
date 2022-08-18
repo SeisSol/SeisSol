@@ -30,7 +30,7 @@ Building SeisSol
   module load numactl/2.0.14-intel21
   #To use dependencies preinstalled with spack
   module use /hppfs/work/pr63qo/di73yeq4/myLibs/spack-packages/modules/linux-sles15-skylake_avx512/
-  module load seissol-env/develop-intel21
+  module load seissol-env/develop-intel21-impi-x2b
   export CC=mpicc 
   export CXX=mpiCC 
   export FC=mpif90

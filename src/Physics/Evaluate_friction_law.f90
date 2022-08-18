@@ -279,11 +279,11 @@ MODULE Eval_friction_law_mod
        ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
 
        !Coulomb's law (we use old mu value, as mu, S, SR and Traction are interdependent!)
-       IF(ShTest.GT.Strength) THEN
+       IF(ShTest.GT.Strength_exp) THEN
 
          ! 1 evaluate friction
-         LocTracXY = ((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-         LocTracXZ = ((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXY = ((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength_exp
+         LocTracXZ = ((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength_exp
            
          ! 2 update stress change
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)

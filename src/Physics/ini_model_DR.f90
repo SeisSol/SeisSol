@@ -734,7 +734,7 @@ MODULE ini_model_DR_mod
   EQN%IniMu(:,:) = DISC%DynRup%Mu_S(:,:)
   do iFace = 1, MESH%Fault%nSide
     do iBndGP = 1,DISC%Galerkin%nBndGP
-      DISC%DynRup%Strength(iBndGP,iFace) = EQN%IniMu(iBndGP,iFace) * EQN%InitialStressInFaultCS(iBndGP,1,iFace)
+      DISC%DynRup%Strength(iBndGP,iFace) = -DISC%DynRup%cohesion(iBndGP,iFace) -  EQN%IniMu(iBndGP,iFace) * min(0.0d0, EQN%InitialStressInFaultCS(iBndGP,1,iFace))
     enddo
   enddo
 

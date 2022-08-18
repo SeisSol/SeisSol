@@ -988,12 +988,15 @@ void seissol::Interoperability::initInitialConditions()
 {
   auto initialConditionDescription = m_initialConditionType;
   if (m_initialConditionType == "Planarwave") {
+    auto materialData = m_ltsLut.lookup(m_lts->material, 0);
+
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      const double phase = (2.0*M_PI*s) / MULTIPLE_SIMULATIONS;
+      m_iniConds.emplace_back(new physics::Planarwave(materialData, phase));
     }
 #else
-    m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0)));
+    m_iniConds.emplace_back(new physics::Planarwave(materialData));
 #endif
   } else if (m_initialConditionType == "SuperimposedPlanarwave") {
 #ifdef MULTIPLE_SIMULATIONS
