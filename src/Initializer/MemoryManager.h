@@ -86,7 +86,6 @@
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 
-//added by adrian
 #include <DynamicRupture/Factory.h>
 #include <yaml-cpp/yaml.h>
 

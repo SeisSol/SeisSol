@@ -40,6 +40,7 @@
 
 #include "Transformation.h"
 #include <Eigen/Dense>
+#include <utils/logger.h>
 
 void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
                                                              double const v1[3],
@@ -257,6 +258,6 @@ void seissol::transformations::XiEtaZeta2chiTau(unsigned face, double const xiEt
     break;
   }
   default:
-    break;
+    logError() << "Tried to get the XiEtaZeta2chiTau transformation for face" << face << ", which is not possible. Provide 0 <= face <= 3.";
   }
 }

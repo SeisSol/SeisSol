@@ -25,7 +25,7 @@ enum class FrictionLawType : unsigned int {
 
 /**
  * Stores the P and S wave impedances for an element and its neighbor as well as the eta values from
- * Uphoff equation (4.51)
+ * Carsten Uphoff's dissertation equation (4.51)
  */
 struct ImpedancesAndEta {
   real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;

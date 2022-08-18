@@ -515,7 +515,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
-      //code added by Adrian:
       //calculate Impedances Z and eta
       impAndEta[ltsFace].zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
       impAndEta[ltsFace].zpNeig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);

@@ -21,7 +21,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_ImposedSlipRates const* const>(dynRup);
+        dynamic_cast<seissol::initializers::LTSImposedSlipRates const* const>(dynRup);
     real(*imposedSlipDirection1)[misc::numPaddedPoints] =
         it->var(concreteLts->imposedSlipDirection1);
     real(*imposedSlipDirection2)[misc::numPaddedPoints] =
@@ -113,7 +113,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
     seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe const* const>(dynRup);
+      dynamic_cast<seissol::initializers::LTSImposedSlipRatesYoffe const* const>(dynRup);
   real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
   real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
   parameterToStorageMap.insert({"tau_S", (real*)tauS});
@@ -124,7 +124,7 @@ void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
     seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesYoffe const* const>(dynRup);
+      dynamic_cast<seissol::initializers::LTSImposedSlipRatesYoffe const* const>(dynRup);
   real(*tauS)[misc::numPaddedPoints] = it->var(concreteLts->tauS);
   real(*tauR)[misc::numPaddedPoints] = it->var(concreteLts->tauR);
   // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
@@ -142,7 +142,7 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
     seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   auto* concreteLts =
-      dynamic_cast<seissol::initializers::LTS_ImposedSlipRatesGaussian const* const>(dynRup);
+      dynamic_cast<seissol::initializers::LTSImposedSlipRatesGaussian const* const>(dynRup);
   real(*riseTime)[misc::numPaddedPoints] = it->var(concreteLts->riseTime);
   parameterToStorageMap.insert({"rupture_rise_time", (real*)riseTime});
 }

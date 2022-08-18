@@ -17,7 +17,8 @@ namespace seissol::dr::friction_law::common {
 /**
  * Calculate traction and normal stress at the interface of a face.
  * Using equations (A2) from Pelties et al. 2014
- * Definiton of eta and impedance Z are found in dissertation of Carsten Uphoff
+ * Definiton of eta and impedance Z are found in Carsten Uphoff's dissertation on page 47 and in
+ * equation (4.51) respectively.
  *
  * @param[out] faultStresses contains normalStress, traction1, traction2
  *             at the 2d face quadrature nodes evaluated at the time
@@ -34,12 +35,6 @@ inline void precomputeStressFromQInterpolated(
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
-
-  // this initialization of the kernel could be moved to the initializer,
-  // since all inputs outside the j-loop are time independent
-  // set inputParam could be extendent for this
-  // the kernel then could be a class attribute (but be careful of race conditions since this is
-  // computed in parallel!!)
 
   const auto etaP = impAndEta.etaP;
   const auto etaS = impAndEta.etaS;
@@ -97,11 +92,6 @@ inline void postcomputeImposedStateFromNewStress(
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const double timeWeights[CONVERGENCE_ORDER]) {
-
-  // this initialization of the kernel could be moved to the initializer
-  // set inputParam could be extendent for this (or create own function)
-  // the kernel then could be a class attribute and following values are only set once
-  //(but be careful of race conditions since this is computed in parallel for each face!!)
 
   // set imposed state to zero
 #ifdef ACL_DEVICE_OFFLOAD

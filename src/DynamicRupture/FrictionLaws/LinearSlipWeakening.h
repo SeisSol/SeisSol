@@ -14,7 +14,7 @@ namespace seissol::dr::friction_law {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw(DRParameters* drParameters)
+  explicit LinearSlipWeakeningLaw(DRParameters* drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
@@ -43,7 +43,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening const* const>(dynRup);
+        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -178,8 +178,6 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = 1.0 * (time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
-        // Note: In the fortran implementation on the master branch, this is
-        // m_fullUpdateTime, but this implementation is correct.
         f2 = std::max(static_cast<real>(0.0),
                       std::min(static_cast<real>(1.0),
                                (time - this->forcedRuptureTime[ltsFace][pointIndex]) /
@@ -200,7 +198,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters* parameters){};
+  explicit NoSpecialization(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
@@ -227,15 +225,15 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  BiMaterialFault(DRParameters* parameters) : drParameters(parameters){};
+  explicit BiMaterialFault(DRParameters* parameters) : drParameters(parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
   /**
-   * The bimaterial Fault FL has been implemented without resampling on the master branch.
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
-   * together with Prakash-Clifton regularization.
+   * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
+   * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                         real const (&slipRate)[dr::misc::numPaddedPoints]) {

@@ -26,6 +26,11 @@ class RateAndStateInitializer : public BaseDRInitializer {
                                seissol::initializers::DynamicRupture const* const dynRup,
                                seissol::initializers::LTSInternalNode::leaf_iterator& it) override;
 
+  struct StateAndFriction {
+    double stateVariable;
+    double frictionCoefficient;
+  };
+
   /**
    * Computes the initial stateVariable and frictionCoefficient
    * \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2} \f]
@@ -45,15 +50,15 @@ class RateAndStateInitializer : public BaseDRInitializer {
    * @param initialSlipRate \f$ rs_{ini} \f$
    * @return \f$ \left( \psi, \mu \right) \f$
    */
-  virtual std::pair<real, real> computeInitialStateAndFriction(real traction1,
-                                                               real traction2,
-                                                               real pressure,
-                                                               real rsA,
-                                                               real rsB,
-                                                               real rsSl0,
-                                                               real rsSr0,
-                                                               real rsF0,
-                                                               real initialSlipRate);
+  virtual StateAndFriction computeInitialStateAndFriction(real traction1,
+                                                          real traction2,
+                                                          real pressure,
+                                                          real rsA,
+                                                          real rsB,
+                                                          real rsSl0,
+                                                          real rsSr0,
+                                                          real rsF0,
+                                                          real initialSlipRate);
 };
 
 /**
@@ -88,15 +93,15 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    * @param initialSlipRate \f$ rs_{ini} \f$
    * @return \f$ \left( \psi, \mu \right) \f$
    */
-  std::pair<real, real> computeInitialStateAndFriction(real traction1,
-                                                       real traction2,
-                                                       real pressure,
-                                                       real rsA,
-                                                       real rsB,
-                                                       real rsSl0,
-                                                       real rsSr0,
-                                                       real rsF0,
-                                                       real initialSlipRate) override;
+  StateAndFriction computeInitialStateAndFriction(real traction1,
+                                                  real traction2,
+                                                  real pressure,
+                                                  real rsA,
+                                                  real rsB,
+                                                  real rsSl0,
+                                                  real rsSr0,
+                                                  real rsF0,
+                                                  real initialSlipRate) override;
 };
 
 /**

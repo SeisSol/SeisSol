@@ -4,9 +4,6 @@
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
-/**
- * This class was not tested and compared to the Fortran FL4.
- */
 template <class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
@@ -74,12 +71,14 @@ class SlowVelocityWeakeningLaw
   }
 
   /**
-   * Resample the state variable. For Slow Velocity Weakening Laws, we do nothing.
+   * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
+   * member variable.
    */
-  std::array<real, misc::numPaddedPoints>
-      resampleStateVar(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                       unsigned int ltsFace) {
-    return stateVariableBuffer;
+  void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+                        unsigned int ltsFace) const {
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+      this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
+    }
   }
 
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
