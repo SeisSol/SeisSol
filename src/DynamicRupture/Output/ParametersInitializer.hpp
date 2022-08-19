@@ -13,14 +13,13 @@ class ParametersInitializer {
   explicit ParametersInitializer(const YAML::Node& userData) : data(userData) {}
 
   GeneralParamsT getDrGeneralParams() {
-    using namespace initializers;
+    using namespace seissol::initializers;
     GeneralParamsT params{};
 
     if (!data["dynamicrupture"]) {
       logError() << "dynamic rupture params. is not provided in the namelist";
     }
 
-    using namespace seissol::initializers;
     const YAML::Node& drSettings = data["dynamicrupture"];
     auto outputPointID = static_cast<int>(OutputType::None);
     updateIfExists(drSettings, "outputpointtype", outputPointID);
@@ -46,7 +45,6 @@ class ParametersInitializer {
     updateIfExists(drSettings, "fl", params.frictionLawType);
     updateIfExists(drSettings, "thermalpress", params.isThermalPressurizationOn);
 
-    using namespace seissol::initializers;
     const YAML::Node& outputParams = data["output"];
     updateIfExists(outputParams, "faultoutputflag", params.faultOutputFlag);
     updateIfExists(outputParams, "outputfile", params.outputFilePrefix);
@@ -67,14 +65,13 @@ class ParametersInitializer {
   }
 
   PickpointParamsT getPickPointParams() {
-    using namespace initializers;
+    using namespace seissol::initializers;
     PickpointParamsT ppParams{};
 
     if (!data["pickpoint"]) {
       logError() << "pickpoint output parameters for dynamic rupture is not provided";
     }
 
-    using namespace seissol::initializers;
     const YAML::Node& ppData = data["pickpoint"];
     updateIfExists(ppData, "printtimeinterval", ppParams.printTimeInterval);
     updateIfExists(ppData, "ppfilename", ppParams.ppFileName);
@@ -87,7 +84,7 @@ class ParametersInitializer {
   }
 
   ElementwiseFaultParamsT getElementwiseFaultParams() {
-    using namespace initializers;
+    using namespace seissol::initializers;
 
     ElementwiseFaultParamsT ewParams{};
 
@@ -95,7 +92,6 @@ class ParametersInitializer {
       logError() << "elementwise fault output parameters for dynamic rupture is not provided";
     }
 
-    using namespace seissol::initializers;
     const YAML::Node& ewData = data["elementwise"];
     updateIfExists(ewData, "printtimeinterval_sec", ewParams.printTimeIntervalSec);
     updateIfExists(ewData, "refinement", ewParams.refinement);

@@ -289,6 +289,9 @@ public:
 		}
 	}
 
+        /*
+         * Exchanges halo tetrahedrons between MPI neighbors
+         * */
 	void exchangeVerticesWithMPINeighbors() {
 		size_t numMPIDomains = m_MPINeighbors.size();
 

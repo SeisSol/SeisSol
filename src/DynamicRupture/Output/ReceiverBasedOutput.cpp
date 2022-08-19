@@ -45,15 +45,16 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
   for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
 
     assert(outputData.receiverPoints[i].isInside == true &&
-           "A receiver must be inside of a fault. Error in pre-processing");
+           "A receiver must be on a fault. Error in pre-processing");
 
     const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
     local = LocalInfo{};
 
-    const auto ltsMap = (*faceToLtsMap)[faceIndex];
-    local.layer = ltsMap.first;
-    local.ltsId = ltsMap.second;
+    auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
+    local.layer = layer;
+    local.ltsId = ltsId;
+
     local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
     local.nearestInternalGpIndex = outputData.receiverPoints[i].nearestInternalGpIndex;
 
@@ -362,7 +363,7 @@ real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jaco
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
       real chi = chiTau2dPoints(jBndGP, 0);
       real tau = chiTau2dPoints(jBndGP, 1);
-      basisFunction::TriDubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
+      basisFunction::triDubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {
         projectedRT[d] += weights(jBndGP) * rt[local.ltsId][jBndGP] * phiAtPoint[d];
@@ -378,7 +379,7 @@ real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jaco
     const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
     const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
 
-    basisFunction::TriDubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
+    basisFunction::triDubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};
