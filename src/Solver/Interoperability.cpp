@@ -569,11 +569,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
 
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  if (plasticity || anisotropy || poroelasticity) {
-    seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
-  } else {
-    seissol::initializers::ElementAverageGenerator queryGen(seissol::SeisSol::main.meshReader());
-  }
+  seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
   auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
     waveSpeeds[pos] = material->getMaxWaveSpeed();
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();
@@ -638,6 +634,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       auto materials = std::vector<seissol::model::ViscoElasticMaterial>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial> parameterDB;
       parameterDB.setMaterialVector(&materials);
+      seissol::initializers::ElementAverageGenerator queryGen(seissol::SeisSol::main.meshReader());
       parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         materialVal[i] = materials[i].rho;
@@ -651,6 +648,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
       parameterDB.setMaterialVector(&materials);
+      seissol::initializers::ElementAverageGenerator queryGen(seissol::SeisSol::main.meshReader());
       parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         materialVal[i] = materials[i].rho;
