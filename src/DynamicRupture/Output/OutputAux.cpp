@@ -60,7 +60,7 @@ ExtTriangle getGlobalTriangle(int localSideId,
   return triangle;
 }
 
-ExtVrtxCoords getMidTrianglePoint(const ExtTriangle& triangle) {
+ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle) {
   ExtVrtxCoords avgPoint{};
   for (int axis = 0; axis < 3; ++axis) {
     avgPoint.coords[axis] =
@@ -77,27 +77,20 @@ ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   return midPoint;
 }
 
-std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
-    generateTriangleQuadrature(unsigned polyDegree) {
-
-  // allocate data
-  constexpr unsigned numQuadraturePoints = tensor::quadweights::Shape[0];
-  std::shared_ptr<double[]> weights(new double[numQuadraturePoints],
-                                    std::default_delete<double[]>());
-  std::shared_ptr<double[]> points(new double[2 * numQuadraturePoints],
-                                   std::default_delete<double[]>());
+TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
+  TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-  auto* reshapedPoints = reshape<2>(&points[0]);
-  for (size_t i = 0; i < numQuadraturePoints; ++i) {
+  auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
+  for (size_t i = 0; i < data.size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
-    weights[i] = weightsView(i);
+    data.weights[i] = weightsView(i);
   }
 
-  return std::make_tuple(numQuadraturePoints, weights, points);
+  return data;
 }
 
 double distance(const double v1[2], const double v2[2]) {
@@ -125,12 +118,8 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
-  std::shared_ptr<double[]> weights = nullptr;
-  std::shared_ptr<double[]> pointsData = nullptr;
-  unsigned numPoints{};
-
-  std::tie(numPoints, weights, pointsData) = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
-  double(*trianglePoints2D)[2] = reshape<2>(&pointsData[0]);
+  auto quadratureData = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
+  double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
 
   for (auto& geoPoint : geoPoints) {
 
@@ -141,7 +130,7 @@ void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, numPoints);
+        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }

@@ -4,10 +4,11 @@
 #include "DataTypes.hpp"
 #include "Geometry/MeshReader.h"
 #include <memory>
+#include <array>
 
 namespace seissol {
 template <int N, typename T>
-auto reshape(T* ptr) -> T (*)[N] {
+auto unsafe_reshape(T* ptr) -> T (*)[N] {
   return reinterpret_cast<T(*)[N]>(ptr);
 }
 } // namespace seissol
@@ -21,12 +22,17 @@ ExtTriangle getGlobalTriangle(int localSideId,
                               const Element& element,
                               const std::vector<Vertex>& verticesInfo);
 
-ExtVrtxCoords getMidTrianglePoint(const ExtTriangle& triangle);
+ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
-std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
-    generateTriangleQuadrature(unsigned polyDegree);
+struct TriangleQuadratureData {
+  static constexpr size_t size{tensor::quadweights::Shape[0]};
+  std::array<double, 2 * size> points{};
+  std::array<double, size> weights{};
+};
+
+TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
 
 void assignNearestGaussianPoints(ReceiverPointsT& geoPoints);
 

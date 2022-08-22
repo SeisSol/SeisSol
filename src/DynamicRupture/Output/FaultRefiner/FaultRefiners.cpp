@@ -51,8 +51,8 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   receiver.localFaceSideId = data.localFaceSideId;
   receiver.elementIndex = data.elementId;
   receiver.globalReceiverIndex = points.size();
-  receiver.global = getMidTrianglePoint(std::get<global>(face));
-  receiver.reference = getMidTrianglePoint(std::get<reference>(face));
+  receiver.global = getMidPointTriangle(std::get<global>(face));
+  receiver.reference = getMidPointTriangle(std::get<reference>(face));
   receiver.globalTriangle = std::get<global>(face);
 
   points.push_back(receiver);
@@ -69,7 +69,7 @@ void TripleFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
   auto& referenceFace = std::get<reference>(face);
 
   auto midPoint =
-      std::make_pair(getMidTrianglePoint(globalFace), getMidTrianglePoint(referenceFace));
+      std::make_pair(getMidPointTriangle(globalFace), getMidPointTriangle(referenceFace));
   std::array<PointsPair, 3> points{};
   for (size_t i = 0; i < 3; ++i) {
     points[i] = std::make_pair(globalFace[i], referenceFace[i]);
