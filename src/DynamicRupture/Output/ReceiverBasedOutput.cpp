@@ -9,11 +9,11 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverBasedOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
-                                     seissol::initializers::LTS* userWpDescr,
-                                     seissol::initializers::Lut* userWpLut,
-                                     seissol::initializers::LTSTree* userDrTree,
-                                     seissol::initializers::DynamicRupture* userDrDescr) {
+void ReceiverOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
+                                seissol::initializers::LTS* userWpDescr,
+                                seissol::initializers::Lut* userWpLut,
+                                seissol::initializers::LTSTree* userDrTree,
+                                seissol::initializers::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
   wpDescr = userWpDescr;
   wpLut = userWpLut;
@@ -21,7 +21,7 @@ void ReceiverBasedOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
   drDescr = userDrDescr;
 }
 
-void ReceiverBasedOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   // get DOFs from 0th derivatives
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
@@ -29,17 +29,17 @@ void ReceiverBasedOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverBasedOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
-                                          ReceiverOutputData& outputData,
-                                          const GeneralParams& generalParams,
-                                          double time) {
+void ReceiverOutput::calcFaultOutput(const OutputType type,
+                                     ReceiverOutputData& outputData,
+                                     const GeneralParams& generalParams,
+                                     double time) {
 
   const size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
@@ -257,7 +257,7 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
   }
 }
 
-void ReceiverBasedOutput::computeLocalStresses() {
+void ReceiverOutput::computeLocalStresses() {
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
   const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
@@ -297,7 +297,7 @@ void ReceiverBasedOutput::computeLocalStresses() {
   local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
 }
 
-void ReceiverBasedOutput::updateLocalTractions(real strength) {
+void ReceiverOutput::updateLocalTractions(real strength) {
   const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
   const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
   const auto tracEla = misc::magnitude(component1, component2);
@@ -317,8 +317,8 @@ void ReceiverBasedOutput::updateLocalTractions(real strength) {
   }
 }
 
-void ReceiverBasedOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStress,
-                                          std::array<real, 6>& rotatedStress) {
+void ReceiverOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStress,
+                                     std::array<real, 6>& rotatedStress) {
 
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
@@ -327,10 +327,10 @@ void ReceiverBasedOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStr
                                             rotatedStress[QuantityIndices::XZ]);
 }
 
-void ReceiverBasedOutput::computeSlipRate(const double* tangent1,
-                                          const double* tangent2,
-                                          const double* strike,
-                                          const double* dip) {
+void ReceiverOutput::computeSlipRate(const double* tangent1,
+                                     const double* tangent2,
+                                     const double* strike,
+                                     const double* dip) {
   local.slipRateStrike = static_cast<real>(0.0);
   local.slipRateDip = static_cast<real>(0.0);
 
@@ -346,7 +346,7 @@ void ReceiverBasedOutput::computeSlipRate(const double* tangent1,
   }
 }
 
-real ReceiverBasedOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
+real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
   auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
   real ruptureVelocity = 0.0;
 

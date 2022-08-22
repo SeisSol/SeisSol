@@ -4,7 +4,7 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class RateAndState : public ReceiverBasedOutput {
+class RateAndState : public ReceiverOutput {
   protected:
   real computeLocalStrength() override {
     const auto effectiveNormalStress =

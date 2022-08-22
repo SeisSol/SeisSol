@@ -8,9 +8,9 @@
 #include "Initializer/tree/Lut.hpp"
 
 namespace seissol::dr::output {
-class ReceiverBasedOutput {
+class ReceiverOutput {
   public:
-  virtual ~ReceiverBasedOutput() = default;
+  virtual ~ReceiverOutput() = default;
 
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,

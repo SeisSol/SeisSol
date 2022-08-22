@@ -4,7 +4,7 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class NoFault : public ReceiverBasedOutput {
+class NoFault : public ReceiverOutput {
   protected:
   real computeLocalStrength() override { return 0.0; }
 };

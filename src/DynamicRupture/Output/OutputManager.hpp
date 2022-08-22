@@ -11,7 +11,7 @@ class OutputManager {
   public:
   ~OutputManager();
   OutputManager() = delete;
-  OutputManager(ReceiverBasedOutput* concreteImpl) : impl(concreteImpl){};
+  OutputManager(ReceiverOutput* concreteImpl) : impl(concreteImpl){};
   void setInputParam(const YAML::Node& inputData, MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -52,7 +52,7 @@ class OutputManager {
   size_t iterationStep{0};
   static constexpr double timeMargin{1.005};
 
-  std::unique_ptr<ReceiverBasedOutput> impl{nullptr};
+  std::unique_ptr<ReceiverOutput> impl{nullptr};
 };
 } // namespace seissol::dr::output
 

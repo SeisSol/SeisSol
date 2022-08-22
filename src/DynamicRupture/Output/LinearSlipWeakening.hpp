@@ -4,7 +4,7 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 
 namespace seissol::dr::output {
-class LinearSlipWeakening : public ReceiverBasedOutput {
+class LinearSlipWeakening : public ReceiverOutput {
   protected:
   real computeLocalStrength() override {
     using DrLtsDescrT = seissol::initializers::LTSLinearSlipWeakening;

@@ -90,11 +90,11 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   }
 }
 
-using StringsT = std::list<std::string>;
+using StringsType = std::list<std::string>;
 class FileProcessor {
 public:
-  static StringsT getFileAsStrings(const std::string & fileName) {
-    StringsT content;
+  static StringsType getFileAsStrings(const std::string & fileName) {
+    StringsType content;
     std::fstream paramFile(fileName, std::ios_base::in);
     if (!paramFile.is_open()) {
       throw std::runtime_error("cannot open file: " + fileName);
@@ -109,7 +109,7 @@ public:
     return content;
   }
 
-  static void removeEmptyLines(StringsT & content) {
+  static void removeEmptyLines(StringsType& content) {
 
     const std::string WHITESPACE = " \n\r\t\f\v";
     auto isEmptyString = [&WHITESPACE](const std::string & string) -> bool {
@@ -117,7 +117,7 @@ public:
       return start == std::string::npos;
     };
 
-    std::vector<StringsT::iterator> deletees;
+    std::vector<StringsType::iterator> deletees;
     for (auto itr = content.begin(); itr != content.end(); ++itr) {
       if (isEmptyString(*itr))
         deletees.push_back(itr);
