@@ -6,6 +6,8 @@
 #include "generated_code/tensor.h"
 #include <unordered_map>
 
+using namespace seissol::dr::misc::quantity_indices;
+
 namespace seissol::dr::output {
 void ReceiverBasedOutput::setLtsData(seissol::initializers::LTSTree* userWpTree,
                                      seissol::initializers::LTS* userWpDescr,
@@ -79,9 +81,9 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
     local.frictionCoefficient = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
     local.stateVariable = this->computeStateVariable();
 
-    local.iniTraction1 = initStress[3];
-    local.iniTraction2 = initStress[5];
-    local.iniNormalTraction = initStress[0];
+    local.iniTraction1 = initStress[QuantityIndices::XY];
+    local.iniTraction2 = initStress[QuantityIndices::XZ];
+    local.iniNormalTraction = initStress[QuantityIndices::XX];
     local.fluidPressure = this->computeFluidPressure();
 
     const auto* const normal = outputData.faultDirections[i].faceNormal;
@@ -117,24 +119,24 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
         outputData.stressFaceAlignedToGlb[i].data();
 
     std::array<real, 6> tmpVector{};
-    tmpVector[0] = local.transientNormalTraction;
-    tmpVector[1] = local.faceAlignedStress22;
-    tmpVector[2] = local.faceAlignedStress33;
-    tmpVector[3] = local.updatedTraction1;
-    tmpVector[4] = local.faceAlignedStress23;
-    tmpVector[5] = local.updatedTraction2;
+    tmpVector[QuantityIndices::XX] = local.transientNormalTraction;
+    tmpVector[QuantityIndices::YY] = local.faceAlignedStress22;
+    tmpVector[QuantityIndices::ZZ] = local.faceAlignedStress33;
+    tmpVector[QuantityIndices::XY] = local.updatedTraction1;
+    tmpVector[QuantityIndices::YZ] = local.faceAlignedStress23;
+    tmpVector[QuantityIndices::XZ] = local.updatedTraction2;
 
     alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
     std::array<real, 6> rotatedUpdatedStress{};
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedUpdatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    tmpVector[0] = local.transientNormalTraction;
-    tmpVector[1] = local.faceAlignedStress22;
-    tmpVector[2] = local.faceAlignedStress33;
-    tmpVector[3] = local.faceAlignedStress12;
-    tmpVector[4] = local.faceAlignedStress23;
-    tmpVector[5] = local.faceAlignedStress13;
+    tmpVector[QuantityIndices::XX] = local.transientNormalTraction;
+    tmpVector[QuantityIndices::YY] = local.faceAlignedStress22;
+    tmpVector[QuantityIndices::ZZ] = local.faceAlignedStress33;
+    tmpVector[QuantityIndices::XY] = local.faceAlignedStress12;
+    tmpVector[QuantityIndices::YZ] = local.faceAlignedStress23;
+    tmpVector[QuantityIndices::XZ] = local.faceAlignedStress13;
 
     alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
     std::array<real, 6> rotatedStress{};
@@ -162,8 +164,8 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
 
     auto& transientTractions = std::get<VariableID::TransientTractions>(outputData.vars);
     if (transientTractions.isActive) {
-      transientTractions(DirectionID::Strike, level, i) = rotatedUpdatedStress[3];
-      transientTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[5];
+      transientTractions(DirectionID::Strike, level, i) = rotatedUpdatedStress[QuantityIndices::XY];
+      transientTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[QuantityIndices::XZ];
       transientTractions(DirectionID::Normal, level, i) =
           local.transientNormalTraction - local.fluidPressure;
     }
@@ -199,10 +201,12 @@ void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
       alignAlongDipAndStrikeKernel.execute();
 
       totalTractions(DirectionID::Strike, level, i) =
-          rotatedUpdatedStress[3] + rotatedInitStress[3];
-      totalTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[5] + rotatedInitStress[5];
-      totalTractions(DirectionID::Normal, level, i) =
-          local.transientNormalTraction - local.fluidPressure + rotatedInitStress[0];
+          rotatedUpdatedStress[QuantityIndices::XY] + rotatedInitStress[QuantityIndices::XY];
+      totalTractions(DirectionID::Dip, level, i) =
+          rotatedUpdatedStress[QuantityIndices::XZ] + rotatedInitStress[QuantityIndices::XZ];
+      totalTractions(DirectionID::Normal, level, i) = local.transientNormalTraction -
+                                                      local.fluidPressure +
+                                                      rotatedInitStress[QuantityIndices::XX];
     }
 
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData.vars);
@@ -263,29 +267,34 @@ void ReceiverBasedOutput::computeLocalStresses() {
   };
 
   local.faceAlignedStress12 =
-      local.faceAlignedValuesPlus[3] +
-      ((diff(3) + impAndEta.zsNeig * diff(7)) * impAndEta.zs) * shearDivisor;
+      local.faceAlignedValuesPlus[QuantityIndices::XY] +
+      ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
+          shearDivisor;
 
   local.faceAlignedStress13 =
-      local.faceAlignedValuesPlus[5] +
-      ((diff(5) + impAndEta.zsNeig * diff(8)) * impAndEta.zs) * shearDivisor;
+      local.faceAlignedValuesPlus[QuantityIndices::XZ] +
+      ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
+          shearDivisor;
 
   local.transientNormalTraction =
-      local.faceAlignedValuesPlus[0] +
-      ((diff(0) + impAndEta.zpNeig * diff(6)) * impAndEta.zp) * normalDivisor;
+      local.faceAlignedValuesPlus[QuantityIndices::XX] +
+      ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
+          normalDivisor;
 
   local.faultNormalVelocity =
-      local.faceAlignedValuesPlus[6] +
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[0]) * impAndEta.invZp;
+      local.faceAlignedValuesPlus[QuantityIndices::U] +
+      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
+          impAndEta.invZp;
 
-  real missingSigmaValues = (local.transientNormalTraction - local.faceAlignedValuesPlus[0]);
+  real missingSigmaValues =
+      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
   missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
                                                   local.waveSpeedsPlus->pWaveVelocity,
                                               2));
 
-  local.faceAlignedStress22 = local.faceAlignedValuesPlus[1] + missingSigmaValues;
-  local.faceAlignedStress33 = local.faceAlignedValuesPlus[2] + missingSigmaValues;
-  local.faceAlignedStress23 = local.faceAlignedValuesPlus[4];
+  local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
+  local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
+  local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
 }
 
 void ReceiverBasedOutput::updateLocalTractions(real strength) {
@@ -312,8 +321,10 @@ void ReceiverBasedOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStr
                                           std::array<real, 6>& rotatedStress) {
 
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[3] - rotatedStress[3]);
-  local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[5] - rotatedStress[5]);
+  local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
+                                               rotatedStress[QuantityIndices::XY]);
+  local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
+                                            rotatedStress[QuantityIndices::XZ]);
 }
 
 void ReceiverBasedOutput::computeSlipRate(const double* tangent1,
@@ -324,11 +335,11 @@ void ReceiverBasedOutput::computeSlipRate(const double* tangent1,
   local.slipRateDip = static_cast<real>(0.0);
 
   for (size_t i = 0; i < 3; ++i) {
-    const real factorMinus = (local.faceAlignedValuesMinus[7] * tangent1[i] +
-                              local.faceAlignedValuesMinus[8] * tangent2[i]);
+    const real factorMinus = (local.faceAlignedValuesMinus[QuantityIndices::V] * tangent1[i] +
+                              local.faceAlignedValuesMinus[QuantityIndices::W] * tangent2[i]);
 
-    const real factorPlus = (local.faceAlignedValuesPlus[7] * tangent1[i] +
-                             local.faceAlignedValuesPlus[8] * tangent2[i]);
+    const real factorPlus = (local.faceAlignedValuesPlus[QuantityIndices::V] * tangent1[i] +
+                             local.faceAlignedValuesPlus[QuantityIndices::W] * tangent2[i]);
 
     local.slipRateStrike += (factorMinus - factorPlus) * strike[i];
     local.slipRateDip += (factorMinus - factorPlus) * dip[i];
