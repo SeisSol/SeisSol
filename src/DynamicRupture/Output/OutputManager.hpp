@@ -33,12 +33,12 @@ class OutputManager {
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
 
-  ReceiverBasedOutputData ewOutputData{};
-  ReceiverBasedOutputData ppOutputData{};
+  ReceiverOutputData ewOutputData{};
+  ReceiverOutputData ppOutputData{};
 
-  GeneralParamsT generalParams;
-  ElementwiseFaultParamsT elementwiseParams{};
-  PickpointParamsT pickpointParams{};
+  GeneralParams generalParams;
+  ElementwiseFaultParams elementwiseParams{};
+  PickpointParams pickpointParams{};
 
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};
@@ -46,7 +46,7 @@ class OutputManager {
   seissol::initializers::LTSTree* drTree{nullptr};
   seissol::initializers::DynamicRupture* drDescr{nullptr};
 
-  FaceToLtsMapT faceToLtsMap{};
+  FaceToLtsMapType faceToLtsMap{};
   MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};

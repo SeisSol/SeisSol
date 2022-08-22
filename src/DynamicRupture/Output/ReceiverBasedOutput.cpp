@@ -37,8 +37,8 @@ void ReceiverBasedOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int mes
 }
 
 void ReceiverBasedOutput::calcFaultOutput(const OutputType type,
-                                          ReceiverBasedOutputData& outputData,
-                                          const GeneralParamsT& generalParams,
+                                          ReceiverOutputData& outputData,
+                                          const GeneralParams& generalParams,
                                           double time) {
 
   const size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;

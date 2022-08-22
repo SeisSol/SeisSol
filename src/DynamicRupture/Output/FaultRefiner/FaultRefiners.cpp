@@ -1,13 +1,10 @@
-#ifndef SEISSOL_TRIPLEFAULTFACEREFINER_HPP
-#define SEISSOL_TRIPLEFAULTFACEREFINER_HPP
-
 #include "FaultRefiners.hpp"
 #include "DynamicRupture/Output/OutputAux.hpp"
 #include "utils/logger.h"
 #include <memory>
 
 namespace seissol::dr::output::refiner {
-RefinerType convertToType(int strategy) {
+RefinerType castToRefinerType(int strategy) {
   switch (strategy) {
   case 1:
     return RefinerType::Triple;
@@ -23,29 +20,32 @@ RefinerType convertToType(int strategy) {
 std::unique_ptr<FaultRefiner> get(RefinerType strategy) {
   switch (strategy) {
   case RefinerType::Triple:
-    return std::make_unique<TripleFaultFaceRefiner>();
+    return std::make_unique<FaultFaceTripleRefiner>();
   case RefinerType::Quad:
-    return std::make_unique<QuadFaultFaceRefiner>();
+    return std::make_unique<FaultFaceQuadRefiner>();
   case RefinerType::Invalid:
   default:
     return nullptr;
   }
 }
 
-void FaultRefiner::repeat(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3) {
+void FaultRefiner::repeatRefinement(Data data,
+                                    PointsPair& point1,
+                                    PointsPair& point2,
+                                    PointsPair& point3) {
   ExtTriangle subGlobalFace(
       std::get<global>(point1), std::get<global>(point2), std::get<global>(point3));
 
   ExtTriangle subReferenceFace(
       std::get<reference>(point1), std::get<reference>(point2), std::get<reference>(point3));
 
-  refineAndAccumulate(
-      {data.refinementLevel - 1, data.faultFaceIndex, data.localFaceSideId, data.elementId},
-      std::make_pair(subGlobalFace, subReferenceFace));
+  auto updatedData = data;
+  updatedData.refinementLevel -= 1;
+  refineAndAccumulate(updatedData, std::make_pair(subGlobalFace, subReferenceFace));
 }
 
 void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
-  ReceiverPointT receiver{};
+  ReceiverPoint receiver{};
   receiver.isInside = true;
   receiver.faultFaceIndex = data.faultFaceIndex;
   receiver.localFaceSideId = data.localFaceSideId;
@@ -58,7 +58,7 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   points.push_back(receiver);
 }
 
-void TripleFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
+void FaultFaceTripleRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 
   if (data.refinementLevel == 0) {
     addReceiver(data, face);
@@ -75,12 +75,12 @@ void TripleFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
     points[i] = std::make_pair(globalFace[i], referenceFace[i]);
   }
 
-  repeat(data, points[0], points[1], midPoint);
-  repeat(data, midPoint, points[1], points[2]);
-  repeat(data, points[0], midPoint, points[2]);
+  repeatRefinement(data, points[0], points[1], midPoint);
+  repeatRefinement(data, midPoint, points[1], points[2]);
+  repeatRefinement(data, points[0], midPoint, points[2]);
 }
 
-void QuadFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
+void FaultFaceQuadRefiner::refineAndAccumulate(Data data, TrianglePair face) {
 
   if (data.refinementLevel == 0) {
     addReceiver(data, face);
@@ -100,16 +100,14 @@ void QuadFaultFaceRefiner::refineAndAccumulate(Data data, TrianglePair face) {
   auto midPoint3 = split(2, 0);
 
   PointsPair trianglePoint = std::make_pair(globalFace.p1, referenceFace.p1);
-  repeat(data, trianglePoint, midPoint1, midPoint3);
+  repeatRefinement(data, trianglePoint, midPoint1, midPoint3);
 
   trianglePoint = std::make_pair(globalFace.p2, referenceFace.p2);
-  repeat(data, midPoint1, trianglePoint, midPoint2);
+  repeatRefinement(data, midPoint1, trianglePoint, midPoint2);
 
-  repeat(data, midPoint1, midPoint2, midPoint3);
+  repeatRefinement(data, midPoint1, midPoint2, midPoint3);
 
   trianglePoint = std::make_pair(globalFace.p3, referenceFace.p3);
-  repeat(data, midPoint3, midPoint2, trianglePoint);
+  repeatRefinement(data, midPoint3, midPoint2, trianglePoint);
 }
 } // namespace seissol::dr::output::refiner
-
-#endif // SEISSOL_TRIPLEFAULTFACEREFINER_HPP

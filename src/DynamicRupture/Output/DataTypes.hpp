@@ -93,7 +93,7 @@ enum VariableID {
   PeakSlipRate,
   RuptureTime,
   DynamicStressTime,
-  TpVariables, // Thermal Pressurization
+  ThermalPressurizationVariables,
   Size
 };
 
@@ -106,10 +106,9 @@ enum class OutputType : int {
 
 enum class SlipRateOutputType { VelocityDifference, TractionsAndFailure };
 
-struct GeneralParamsT {
+struct GeneralParams {
   OutputType outputPointType{OutputType::None};
   SlipRateOutputType slipRateOutputType{SlipRateOutputType::TractionsAndFailure};
-  int frictionLawType{0};
   bool isRfOutputOn{false};
   bool isDsOutputOn{false};
   bool isThermalPressurizationOn{false};
@@ -122,9 +121,8 @@ struct GeneralParamsT {
   size_t maxIteration{1000000000};
 };
 
-struct PickpointParamsT {
-  std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{
-      true, true, true}; // the rest is false by default
+struct PickpointParams {
+  std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{true, true, true};
   int printTimeInterval{1};
   int maxPickStore{50};
   std::string ppFileName{};
@@ -132,27 +130,27 @@ struct PickpointParamsT {
 
 enum class RefinerType { Triple = 1, Quad = 2, Invalid = 3 };
 
-struct ElementwiseFaultParamsT {
+struct ElementwiseFaultParams {
   double printTimeIntervalSec{1.0};
   std::array<bool, std::tuple_size<DrVarsT>::value> outputMask{true, true, true, true};
   RefinerType refinementStrategy{RefinerType::Quad};
   int refinement{2};
 };
 
-using FaceToLtsMapT = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
+using FaceToLtsMapType = std::vector<std::pair<seissol::initializers::Layer*, size_t>>;
 
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
-struct PlusMinusBasisFunctionsT {
+struct PlusMinusBasisFunctions {
   std::vector<real> plusSide;
   std::vector<real> minusSide;
 };
 
-struct ReceiverBasedOutputData {
+struct ReceiverOutputData {
   output::DrVarsT vars;
-  std::vector<PlusMinusBasisFunctionsT> basisFunctions;
-  std::vector<ReceiverPointT> receiverPoints;
+  std::vector<PlusMinusBasisFunctions> basisFunctions;
+  std::vector<ReceiverPoint> receiverPoints;
   std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
       stressGlbToDipStrikeAligned;
   std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
@@ -160,7 +158,7 @@ struct ReceiverBasedOutputData {
   std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
   std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
   std::vector<Eigen::Matrix<real, 2, 2>> jacobianT2d;
-  std::vector<FaultDirectionsT> faultDirections{};
+  std::vector<FaultDirections> faultDirections{};
   std::vector<double> cachedTime{};
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};

@@ -12,9 +12,9 @@ class ParametersInitializer {
   public:
   explicit ParametersInitializer(const YAML::Node& userData) : data(userData) {}
 
-  GeneralParamsT getDrGeneralParams() {
+  GeneralParams getDrGeneralParams() {
     using namespace seissol::initializers;
-    GeneralParamsT params{};
+    GeneralParams params{};
 
     if (!data["dynamicrupture"]) {
       logError() << "dynamic rupture params. is not provided in the namelist";
@@ -42,7 +42,6 @@ class ParametersInitializer {
     }
     }
 
-    updateIfExists(drSettings, "fl", params.frictionLawType);
     updateIfExists(drSettings, "thermalpress", params.isThermalPressurizationOn);
 
     const YAML::Node& outputParams = data["output"];
@@ -64,9 +63,9 @@ class ParametersInitializer {
     return params;
   }
 
-  PickpointParamsT getPickPointParams() {
+  PickpointParams getPickPointParams() {
     using namespace seissol::initializers;
-    PickpointParamsT ppParams{};
+    PickpointParams ppParams{};
 
     if (!data["pickpoint"]) {
       logError() << "pickpoint output parameters for dynamic rupture is not provided";
@@ -83,10 +82,10 @@ class ParametersInitializer {
     return ppParams;
   }
 
-  ElementwiseFaultParamsT getElementwiseFaultParams() {
+  ElementwiseFaultParams getElementwiseFaultParams() {
     using namespace seissol::initializers;
 
-    ElementwiseFaultParamsT ewParams{};
+    ElementwiseFaultParams ewParams{};
 
     if (!data["elementwise"]) {
       logError() << "elementwise fault output parameters for dynamic rupture is not provided";
@@ -98,7 +97,7 @@ class ParametersInitializer {
 
     int refinementStrategy{2};
     updateIfExists(ewData, "refinement_strategy", refinementStrategy);
-    ewParams.refinementStrategy = refiner::convertToType(refinementStrategy);
+    ewParams.refinementStrategy = refiner::castToRefinerType(refinementStrategy);
 
     if (ewData["outputmask"]) {
       convertStringToMask(ewData["outputmask"].as<std::string>(), ewParams.outputMask);

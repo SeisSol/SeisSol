@@ -8,8 +8,8 @@ namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
-  void setParams(PickpointParamsT params) { pickpointParams = std::move(params); }
-  void build(ReceiverBasedOutputData* pickPointOutputData) override {
+  void setParams(PickpointParams params) { pickpointParams = std::move(params); }
+  void build(ReceiverOutputData* pickPointOutputData) override {
     outputData = pickPointOutputData;
     readCoordsFromFile();
     initReceiverLocations();
@@ -35,7 +35,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       std::array<real, 3> coords{};
       convertStringToMask(line, coords);
 
-      ReceiverPointT point{};
+      ReceiverPoint point{};
       for (int i = 0; i < 3; ++i) {
         point.global.coords[i] = coords[i];
       }
@@ -52,7 +52,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
       const auto& receiverPoint = potentialReceivers[receiverId];
-      eigenPoints[receiverId] = receiverPoint.global.getAsEigenVector();
+      eigenPoints[receiverId] = receiverPoint.global.getAsEigenLibVector();
     }
 
     std::vector<short> contained(numReceiverPoints);
@@ -105,7 +105,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                                           meshVertices[element.vertices[1]].coords,
                                                           meshVertices[element.vertices[2]].coords,
                                                           meshVertices[element.vertices[3]].coords,
-                                                          receiver.global.getAsEigenVector());
+                                                          receiver.global.getAsEigenLibVector());
       }
     }
 
@@ -237,8 +237,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   private:
-  PickpointParamsT pickpointParams;
-  std::vector<ReceiverPointT> potentialReceivers{};
+  PickpointParams pickpointParams;
+  std::vector<ReceiverPoint> potentialReceivers{};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP

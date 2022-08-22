@@ -14,7 +14,7 @@ namespace seissol::dr::output {
 class ReceiverBasedOutputBuilder {
   public:
   virtual ~ReceiverBasedOutputBuilder() = default;
-  virtual void build(ReceiverBasedOutputData* outputData) = 0;
+  virtual void build(ReceiverOutputData* outputData) = 0;
 
   void setMeshReader(const MeshReader* reader);
 
@@ -30,7 +30,7 @@ class ReceiverBasedOutputBuilder {
 
   protected:
   const MeshReader* meshReader{};
-  ReceiverBasedOutputData* outputData;
+  ReceiverOutputData* outputData;
   int localRank{-1};
 };
 } // namespace seissol::dr::output

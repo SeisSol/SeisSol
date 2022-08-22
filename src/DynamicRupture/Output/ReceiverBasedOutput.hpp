@@ -19,10 +19,10 @@ class ReceiverBasedOutput {
                   seissol::initializers::DynamicRupture* userDrDescr);
 
   void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
-  void setFaceToLtsMap(FaceToLtsMapT* map) { faceToLtsMap = map; }
+  void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(OutputType type,
-                       ReceiverBasedOutputData& state,
-                       const GeneralParamsT& generalParams,
+                       ReceiverOutputData& state,
+                       const GeneralParams& generalParams,
                        double time = 0.0);
 
   protected:
@@ -40,10 +40,10 @@ class ReceiverBasedOutput {
                        const double* dip);
 
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          std::array<real, 6>& rotatedStress){};
+                                          const std::array<real, 6>& rotatedStress){};
 
   virtual void
-      outputSpecifics(ReceiverBasedOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
+      outputSpecifics(ReceiverOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
 
   seissol::initializers::LTS* wpDescr{nullptr};
@@ -52,7 +52,7 @@ class ReceiverBasedOutput {
   seissol::initializers::LTSTree* drTree{nullptr};
   seissol::initializers::DynamicRupture* drDescr{nullptr};
   MeshReader* meshReader{nullptr};
-  FaceToLtsMapT* faceToLtsMap{nullptr};
+  FaceToLtsMapType* faceToLtsMap{nullptr};
 
   struct LocalInfo {
     seissol::initializers::Layer* layer{};

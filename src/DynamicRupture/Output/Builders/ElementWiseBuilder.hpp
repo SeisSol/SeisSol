@@ -8,8 +8,8 @@ namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
-  void setParams(const ElementwiseFaultParamsT& params) { elementwiseParams = params; }
-  void build(ReceiverBasedOutputData* elementwiseOutputData) override {
+  void setParams(const ElementwiseFaultParams& params) { elementwiseParams = params; }
+  void build(ReceiverOutputData* elementwiseOutputData) override {
     outputData = elementwiseOutputData;
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
@@ -83,7 +83,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   inline const static size_t maxAllowedCacheLevel = 1;
 
   private:
-  ElementwiseFaultParamsT elementwiseParams;
+  ElementwiseFaultParams elementwiseParams;
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP

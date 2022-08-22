@@ -117,7 +117,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(ReceiverPointsT& geoPoints) {
+void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   auto quadratureData = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
   double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
 
@@ -176,9 +176,9 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
   return MeshTools::dot(faceNormal, diff) / faceNormalLength;
 }
 
-PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
-                                                    const VrtxCoords* plusElementCoords[4],
-                                                    const VrtxCoords* minusElementCoords[4]) {
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
+                                                   const VrtxCoords* plusElementCoords[4],
+                                                   const VrtxCoords* minusElementCoords[4]) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
@@ -190,14 +190,14 @@ PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords pointCoords
     return sampler.m_data;
   };
 
-  PlusMinusBasisFunctionsT basisFunctions{};
+  PlusMinusBasisFunctions basisFunctions{};
   basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
   basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
 
   return basisFunctions;
 }
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverPoints) {
+std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
 
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
@@ -214,7 +214,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverP
   return vertices;
 }
 
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT& receiverPoints) {
+std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> cells(3 * receiverPoints.size());
 
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
@@ -227,9 +227,9 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {
-  const auto p1 = triangle.p1.getAsEigenVector();
-  const auto p2 = triangle.p2.getAsEigenVector();
-  const auto p3 = triangle.p3.getAsEigenVector();
+  const auto p1 = triangle.p1.getAsEigenLibVector();
+  const auto p2 = triangle.p2.getAsEigenLibVector();
+  const auto p3 = triangle.p3.getAsEigenLibVector();
 
   const auto vector1 = p2 - p1;
   const auto vector2 = p3 - p1;
