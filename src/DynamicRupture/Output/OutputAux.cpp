@@ -238,7 +238,7 @@ real computeTriangleArea(ExtTriangle& triangle) {
 }
 } // namespace seissol::dr
 
-namespace seissol::dr::os_support {
+namespace seissol::dr::filesystem_aux {
 std::string getTimeStamp() {
   std::time_t time = std::time(nullptr);
   std::tm tm = *std::localtime(&time);
@@ -262,4 +262,4 @@ void generateBackupFileIfNecessary(std::string fileName, std::string fileExtensi
     std::filesystem::rename(path, copyPath);
   }
 }
-} // namespace seissol::dr::os_support
+} // namespace seissol::dr::filesystem_aux

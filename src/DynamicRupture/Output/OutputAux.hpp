@@ -70,9 +70,9 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
 }
 } // namespace seissol::dr
 
-namespace seissol::dr::os_support {
+namespace seissol::dr::filesystem_aux {
 std::string getTimeStamp();
 void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension);
-} // namespace seissol::dr::os_support
+} // namespace seissol::dr::filesystem_aux
 
 #endif // SEISSOL_DR_OUTPUT_AUX_HPP

@@ -23,9 +23,9 @@ RefinerType convertToType(int strategy) {
 std::unique_ptr<FaultRefiner> get(RefinerType strategy) {
   switch (strategy) {
   case RefinerType::Triple:
-    return std::unique_ptr<FaultRefiner>(new TripleFaultFaceRefiner);
+    return std::make_unique<TripleFaultFaceRefiner>();
   case RefinerType::Quad:
-    return std::unique_ptr<FaultRefiner>(new QuadFaultFaceRefiner);
+    return std::make_unique<QuadFaultFaceRefiner>();
   case RefinerType::Invalid:
   default:
     return nullptr;

@@ -8,9 +8,9 @@ namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
-  void setParams(const PickpointParamsT& params) { pickpointParams = params; }
-  void build(ReceiverBasedOutputData* ppOutputData) override {
-    outputData = ppOutputData;
+  void setParams(PickpointParamsT params) { pickpointParams = std::move(params); }
+  void build(ReceiverBasedOutputData* pickPointOutputData) override {
+    outputData = pickPointOutputData;
     readCoordsFromFile();
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
@@ -58,11 +58,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<short> contained(numReceiverPoints);
     std::vector<unsigned> localIds(numReceiverPoints, std::numeric_limits<unsigned>::max());
 
-    std::vector<Vertex> faultVertices;
-    std::vector<Element> faultElements;
-    std::unordered_map<size_t, std::vector<size_t>> elementToFault{};
-
-    std::tie(faultVertices, faultElements, elementToFault) = getElementsAlongFault();
+    const auto [faultVertices, faultElements, elementToFault] = getElementsAlongFault();
 
     seissol::initializers::findMeshIds(eigenPoints.data(),
                                        faultVertices,
@@ -80,7 +76,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
       if (static_cast<bool>(contained[receiverIdx])) {
         const auto localId = localIds[receiverIdx];
-        const auto& faultIndices = elementToFault[localId];
+
+        const auto faultIndicesIt = elementToFault.find(localId);
+        assert(faultIndicesIt != elementToFault.end());
+        const auto& faultIndices = faultIndicesIt->second;
+
         const auto firstFaultIdx = faultIndices[0];
 
         // find the original element which contains a fault face
@@ -99,10 +99,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.localFaceSideId = faultItem.side;
         receiver.globalReceiverIndex = receiverIdx;
         receiver.elementIndex = element.localId;
-        receiver.isInside = true;
 
-        using namespace seissol::transformations;
-        receiver.reference = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
+        receiver.reference =
+            transformations::tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
                                                           meshVertices[element.vertices[1]].coords,
                                                           meshVertices[element.vertices[2]].coords,
                                                           meshVertices[element.vertices[3]].coords,

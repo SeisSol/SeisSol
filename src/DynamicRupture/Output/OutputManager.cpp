@@ -71,13 +71,7 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
-OutputManager::~OutputManager() {
-  flushPickpointDataToFile();
-
-  auto deallocateVars = [](auto& var, int) { var.releaseData(); };
-  misc::forEach(ppOutputData.vars, deallocateVars);
-  misc::forEach(ewOutputData.vars, deallocateVars);
-}
+OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
 void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userMesher) {
   using namespace initializers;
@@ -189,7 +183,7 @@ void OutputManager::initPickpointOutput() {
 
     auto fileName =
         buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "faultreceiver");
-    os_support::generateBackupFileIfNecessary(fileName, "dat");
+    filesystem_aux::generateBackupFileIfNecessary(fileName, "dat");
     fileName += ".dat";
 
     if (!std::filesystem::exists(fileName)) {

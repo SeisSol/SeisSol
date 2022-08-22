@@ -9,8 +9,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
   void setParams(const ElementwiseFaultParamsT& params) { elementwiseParams = params; }
-  void build(ReceiverBasedOutputData* ewOutputData) override {
-    outputData = ewOutputData;
+  void build(ReceiverBasedOutputData* elementwiseOutputData) override {
+    outputData = elementwiseOutputData;
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();
@@ -30,8 +30,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initReceiverLocations() {
-    std::unique_ptr<refiner::FaultRefiner> faultRefiner{nullptr};
-    faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
+    auto faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
 
     const auto numFaultElements = meshReader->getFault().size();
     const auto numSubTriangles = faultRefiner->getNumSubTriangles();

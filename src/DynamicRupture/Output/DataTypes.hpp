@@ -15,6 +15,7 @@
 namespace seissol::dr::output {
 template <int DIM>
 struct VarT {
+  ~VarT() { releaseData(); }
   constexpr int dim() { return DIM; }
 
   real* operator[](int dim) {
@@ -43,6 +44,7 @@ struct VarT {
     size = dataSize;
     if (isActive) {
       for (int dim = 0; dim < DIM; ++dim) {
+        assert(data[dim] == nullptr && "double allocation is not allowed");
         data[dim] = new real[size * maxCacheLevel];
         std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel * sizeof(real));
       }
@@ -54,8 +56,9 @@ struct VarT {
 
   void releaseData() {
     if (isActive) {
-      for (auto item : data) {
+      for (auto& item : data) {
         delete[] item;
+        item = nullptr;
       }
     }
   }
