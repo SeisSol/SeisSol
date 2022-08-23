@@ -5,7 +5,7 @@
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
-  real computeLocalStrength() override {
+  real computeLocalStrength(LocalInfo& local) override {
     using DrLtsDescrT = seissol::initializers::LTSLinearSlipWeakeningBimaterial;
     auto const* const regularisedStrengths =
         local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->regularisedStrength);

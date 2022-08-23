@@ -9,12 +9,13 @@ class RateAndStateThermalPressurization : public RateAndState {
   using RateAndState::RateAndState;
 
   protected:
-  real computeFluidPressure() override {
+  real computeFluidPressure(LocalInfo& local) override {
     using DrLtsDescrT = seissol::initializers::LTSRateAndStateThermalPressurization;
     auto const* const pressure = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->pressure);
     return pressure[local.ltsId][local.nearestGpIndex];
   }
   void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
+                       const LocalInfo& local,
                        size_t cacheLevel,
                        size_t receiverIdx) override {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);

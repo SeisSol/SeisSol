@@ -26,27 +26,6 @@ class ReceiverOutput {
                        double time = 0.0);
 
   protected:
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
-  void computeLocalStresses();
-  virtual real computeLocalStrength() = 0;
-  virtual real computeFluidPressure() { return 0.0; }
-  virtual real computeStateVariable() { return 0.0; }
-  void updateLocalTractions(real strength);
-  virtual void computeSlipRate(std::array<real, 6>&, std::array<real, 6>&);
-  void computeSlipRate(const double* tangent1,
-                       const double* tangent2,
-                       const double* strike,
-                       const double* dip);
-
-  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress){};
-
-  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
-                               size_t outputSpecifics,
-                               size_t receiverIdx) {}
-  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
-
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};
   seissol::initializers::Lut* wpLut{nullptr};
@@ -90,7 +69,30 @@ class ReceiverOutput {
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
-  } local{};
+  };
+
+  void getDofs(real dofs[tensor::Q::size()], int meshId);
+  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void computeLocalStresses(LocalInfo& local);
+  virtual real computeLocalStrength(LocalInfo& local) = 0;
+  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
+  void updateLocalTractions(LocalInfo& local, real strength);
+  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
+  virtual void computeLocalSlipRate(LocalInfo& local,
+                                    const std::array<real, 6>&,
+                                    const std::array<real, 6>&);
+  void computeLocalSlipRate(LocalInfo& local,
+                            const double* tangent1,
+                            const double* tangent2,
+                            const double* strike,
+                            const double* dip);
+  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+                               const LocalInfo& local,
+                               size_t outputSpecifics,
+                               size_t receiverIdx) {}
+  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
+                                          const std::array<real, 6>& rotatedStress){};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP

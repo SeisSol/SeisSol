@@ -44,6 +44,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
+  #pragma omp parallel for
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
     assert(outputData->receiverPoints[i].isInside == true &&
@@ -51,7 +52,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
-    local = LocalInfo{};
+    LocalInfo local{};
 
     auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
     local.layer = layer;
@@ -79,12 +80,12 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     const auto* initStress = initStresses[local.ltsId][local.nearestGpIndex];
 
     local.frictionCoefficient = (local.layer->var(drDescr->mu))[local.ltsId][local.nearestGpIndex];
-    local.stateVariable = this->computeStateVariable();
+    local.stateVariable = this->computeStateVariable(local);
 
     local.iniTraction1 = initStress[QuantityIndices::XY];
     local.iniTraction2 = initStress[QuantityIndices::XZ];
     local.iniNormalTraction = initStress[QuantityIndices::XX];
-    local.fluidPressure = this->computeFluidPressure();
+    local.fluidPressure = this->computeFluidPressure(local);
 
     const auto* const normal = outputData->faultDirections[i].faceNormal;
     const auto* const tangent1 = outputData->faultDirections[i].tangent1;
@@ -108,9 +109,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();
 
-    this->computeLocalStresses();
-    const real strength = this->computeLocalStrength();
-    this->updateLocalTractions(strength);
+    this->computeLocalStresses(local);
+    const real strength = this->computeLocalStrength(local);
+    this->updateLocalTractions(local, strength);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -145,11 +146,11 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     switch (generalParams.slipRateOutputType) {
     case SlipRateOutputType::TractionsAndFailure: {
-      this->computeSlipRate(rotatedUpdatedStress, rotatedStress);
+      this->computeLocalSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
     case SlipRateOutputType::VelocityDifference: {
-      this->computeSlipRate(tangent1, tangent2, strike, dip);
+      this->computeLocalSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
     }
@@ -212,7 +213,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData->vars);
     if (ruptureVelocity.isActive) {
       auto& jacobiT2d = outputData->jacobianT2d[i];
-      ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d);
+      ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d, local);
     }
 
     auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
@@ -248,7 +249,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       slipVectors(DirectionID::Dip, level, i) = sin1 * slip1[local.ltsId][local.nearestGpIndex] +
                                                 cos1 * slip2[local.ltsId][local.nearestGpIndex];
     }
-    this->outputSpecifics(outputData, level, i);
+    this->outputSpecifics(outputData, local, level, i);
   }
 
   if (type == OutputType::AtPickpoint) {
@@ -257,13 +258,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   }
 }
 
-void ReceiverOutput::computeLocalStresses() {
+void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
   const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
-  auto diff = [this](int i) {
-    return this->local.faceAlignedValuesMinus[i] - this->local.faceAlignedValuesPlus[i];
+  auto diff = [&local](int i) {
+    return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
   local.faceAlignedStress12 =
@@ -297,7 +298,7 @@ void ReceiverOutput::computeLocalStresses() {
   local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
 }
 
-void ReceiverOutput::updateLocalTractions(real strength) {
+void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
   const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
   const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
   const auto tracEla = misc::magnitude(component1, component2);
@@ -317,8 +318,9 @@ void ReceiverOutput::updateLocalTractions(real strength) {
   }
 }
 
-void ReceiverOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStress,
-                                     std::array<real, 6>& rotatedStress) {
+void ReceiverOutput::computeLocalSlipRate(LocalInfo& local,
+                                          const std::array<real, 6>& rotatedUpdatedStress,
+                                          const std::array<real, 6>& rotatedStress) {
 
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
@@ -327,10 +329,11 @@ void ReceiverOutput::computeSlipRate(std::array<real, 6>& rotatedUpdatedStress,
                                             rotatedStress[QuantityIndices::XZ]);
 }
 
-void ReceiverOutput::computeSlipRate(const double* tangent1,
-                                     const double* tangent2,
-                                     const double* strike,
-                                     const double* dip) {
+void ReceiverOutput::computeLocalSlipRate(LocalInfo& local,
+                                          const double* tangent1,
+                                          const double* tangent2,
+                                          const double* strike,
+                                          const double* dip) {
   local.slipRateStrike = static_cast<real>(0.0);
   local.slipRateDip = static_cast<real>(0.0);
 
@@ -346,7 +349,8 @@ void ReceiverOutput::computeSlipRate(const double* tangent1,
   }
 }
 
-real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d) {
+real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d,
+                                            const LocalInfo& local) {
   auto* ruptureTime = (local.layer->var(drDescr->ruptureTime))[local.ltsId];
   real ruptureVelocity = 0.0;
 

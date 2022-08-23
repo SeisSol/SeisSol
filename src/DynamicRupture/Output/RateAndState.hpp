@@ -6,14 +6,14 @@
 namespace seissol::dr::output {
 class RateAndState : public ReceiverOutput {
   protected:
-  real computeLocalStrength() override {
+  real computeLocalStrength(LocalInfo& local) override {
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return -1.0 * local.frictionCoefficient *
            std::min(effectiveNormalStress, static_cast<real>(0.0));
   }
 
-  real computeStateVariable() override {
+  real computeStateVariable(LocalInfo& local) override {
     const auto* descr = reinterpret_cast<seissol::initializers::LTSRateAndState*>(drDescr);
     assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
     return (local.layer->var(descr->stateVariable))[local.ltsId][local.nearestGpIndex];
