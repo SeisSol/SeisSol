@@ -36,7 +36,8 @@ namespace seissol::initializers {
    * @param value: Reference to the value, which we want to override
    */
   template <typename T>
-  void updateIfExists(const YAML::Node& param, std::string&& field, T& value) {
+  T getWithDefault(const YAML::Node& param, std::string&& field, T defaultValue) {
+    T value = defaultValue;
     if (param[field]) {
       try {
         // booleans are stored as integers
@@ -49,6 +50,7 @@ namespace seissol::initializers {
         logError() << "Error while reading field " << field << ": " << e.what();
       }
   }
+  return value;
 }
 /**
  * \brief Returns true if number elements in the input string (separated by the white space)

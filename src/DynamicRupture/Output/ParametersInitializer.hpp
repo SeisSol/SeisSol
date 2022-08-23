@@ -21,12 +21,11 @@ class ParametersInitializer {
     }
 
     const YAML::Node& drSettings = data["dynamicrupture"];
-    auto outputPointID = static_cast<int>(OutputType::None);
-    updateIfExists(drSettings, "outputpointtype", outputPointID);
+    const auto outputPointID =
+        getWithDefault(drSettings, "outputpointtype", static_cast<int>(OutputType::None));
     params.outputPointType = static_cast<OutputType>(outputPointID);
 
-    int slipRateOutputType{1};
-    updateIfExists(drSettings, "sliprateoutputtype", slipRateOutputType);
+    auto slipRateOutputType = getWithDefault(drSettings, "sliprateoutputtype", 1);
 
     switch (slipRateOutputType) {
     case 0: {
@@ -42,22 +41,25 @@ class ParametersInitializer {
     }
     }
 
-    updateIfExists(drSettings, "thermalpress", params.isThermalPressurizationOn);
+    params.isThermalPressurizationOn = getWithDefault(drSettings, "thermalpress", false);
 
     const YAML::Node& outputParams = data["output"];
-    updateIfExists(outputParams, "faultoutputflag", params.faultOutputFlag);
-    updateIfExists(outputParams, "outputfile", params.outputFilePrefix);
-    updateIfExists(outputParams, "checkpointbackend", params.checkPointBackend);
+    params.faultOutputFlag = getWithDefault(outputParams, "faultoutputflag", false);
+    params.outputFilePrefix = getWithDefault(outputParams, "outputfile", std::string("data"));
+    params.checkPointBackend =
+        getWithDefault(outputParams, "checkpointbackend", std::string("none"));
 
     const YAML::Node& abortCriteriaParams = data["abortcriteria"];
-    updateIfExists(abortCriteriaParams, "endtime", params.endTime);
-    updateIfExists(abortCriteriaParams, "maxiteration", params.maxIteration);
+    params.endTime = getWithDefault(abortCriteriaParams, "endtime", 15.0);
+    params.maxIteration =
+        getWithDefault(abortCriteriaParams, "maxiteration", static_cast<size_t>(1000000000));
 
 #ifdef USE_HDF
-    updateIfExists(outputParams, "xdmfwriterbackend", params.xdmfWriterBackend);
+    params.xdmfWriterBackend =
+        getWithDefault(outputParams, "xdmfwriterbackend", std::string("hdf5"));
 #else
-    params.xdmfWriterBackend = std::string("posix");
-    updateIfExists(outputParams, "xdmfwriterbackend", params.xdmfWriterBackend);
+    params.xdmfWriterBackend =
+        getWithDefault(outputParams, "xdmfwriterbackend", std::string("posix"));
 #endif
 
     return params;
@@ -72,8 +74,8 @@ class ParametersInitializer {
     }
 
     const YAML::Node& ppData = data["pickpoint"];
-    updateIfExists(ppData, "printtimeinterval", ppParams.printTimeInterval);
-    updateIfExists(ppData, "ppfilename", ppParams.ppFileName);
+    ppParams.printTimeInterval = getWithDefault(ppData, "printtimeinterval", 1);
+    ppParams.ppFileName = getWithDefault(ppData, "ppfilename", std::string(""));
 
     if (ppData["outputmask"]) {
       convertStringToMask(ppData["outputmask"].as<std::string>(), ppParams.outputMask);
@@ -92,11 +94,10 @@ class ParametersInitializer {
     }
 
     const YAML::Node& ewData = data["elementwise"];
-    updateIfExists(ewData, "printtimeinterval_sec", ewParams.printTimeIntervalSec);
-    updateIfExists(ewData, "refinement", ewParams.refinement);
+    ewParams.printTimeIntervalSec = getWithDefault(ewData, "printtimeinterval_sec", 1.0);
+    ewParams.refinement = getWithDefault(ewData, "refinement", 2);
 
-    int refinementStrategy{2};
-    updateIfExists(ewData, "refinement_strategy", refinementStrategy);
+    auto refinementStrategy = getWithDefault(ewData, "refinement_strategy", 2);
     ewParams.refinementStrategy = refiner::castToRefinerType(refinementStrategy);
 
     if (ewData["outputmask"]) {

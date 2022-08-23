@@ -398,6 +398,9 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+    # warning 186 - pointless comparison of unsigned integer with zero detected
+    # warning 612 - overloaded virtual function is only partially overridden
+    # warning 111 - statement is unreachable
     set(WARNINGS "--display_error_number --diag_suppress186 --diag_suppress612 --diag_suppress111")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.3.1")
       set(WARNINGS "${WARNINGS} --diag_suppress1")
