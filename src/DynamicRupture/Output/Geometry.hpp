@@ -64,23 +64,27 @@ struct ExtTriangle {
     for (int i = 0; i < 3; ++i)
       points[i] = other.points[i];
   }
+
   ExtTriangle& operator=(const ExtTriangle& other) {
     for (int i = 0; i < 3; ++i)
       points[i] = other.points[i];
     return *this;
   }
 
-  ExtVrtxCoords& operator[](size_t index) {
+  ExtVrtxCoords& point(size_t index) {
+    assert((index < 3) && "ExtTriangle index must be less than 3");
+    return points[index];
+  }
+
+  ExtVrtxCoords point(size_t index) const {
     assert((index < 3) && "ExtTriangle index must be less than 3");
     return points[index];
   }
 
   static int size() { return 3; }
 
+  private:
   std::array<ExtVrtxCoords, 3> points{};
-  ExtVrtxCoords& p1 = points[0];
-  ExtVrtxCoords& p2 = points[1];
-  ExtVrtxCoords& p3 = points[2];
 };
 
 struct ReceiverPoint {

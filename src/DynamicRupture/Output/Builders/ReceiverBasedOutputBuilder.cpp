@@ -140,18 +140,18 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     assert(elementIndex >= 0);
 
     const auto& element = elementsInfo[elementIndex];
-    const auto face = getGlobalTriangle(side, element, verticesInfo);
+    auto face = getGlobalTriangle(side, element, verticesInfo);
 
     VrtxCoords xab, xac;
     {
       constexpr size_t x{0}, y{1}, z{2};
-      xab[x] = face.p2[x] - face.p1[x];
-      xab[y] = face.p2[y] - face.p1[y];
-      xab[z] = face.p2[z] - face.p1[z];
+      xab[x] = face.point(1)[x] - face.point(0)[x];
+      xab[y] = face.point(1)[y] - face.point(0)[y];
+      xab[z] = face.point(1)[z] - face.point(0)[z];
 
-      xac[x] = face.p3[x] - face.p1[x];
-      xac[y] = face.p3[y] - face.p1[y];
-      xac[z] = face.p3[z] - face.p1[z];
+      xac[x] = face.point(2)[x] - face.point(0)[x];
+      xac[y] = face.point(2)[y] - face.point(0)[y];
+      xac[z] = face.point(2)[z] - face.point(0)[z];
     }
 
     const auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;

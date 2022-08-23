@@ -6,11 +6,6 @@
 #include <tuple>
 
 namespace seissol::dr::output::refiner {
-RefinerType castToRefinerType(int strategy);
-
-class FaultRefiner;
-std::unique_ptr<FaultRefiner> get(RefinerType strategy);
-
 class FaultRefiner {
   public:
   struct Data {
@@ -50,5 +45,8 @@ class FaultFaceQuadRefiner : public FaultRefiner {
   int getNumSubTriangles() final { return 4; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
+
+RefinerType castToRefinerType(int strategy);
+std::unique_ptr<FaultRefiner> get(RefinerType strategy);
 } // namespace seissol::dr::output::refiner
 #endif // SEISSOL_DR_OUTPUT_REFINERS_HPP

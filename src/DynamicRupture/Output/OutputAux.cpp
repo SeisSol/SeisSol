@@ -20,24 +20,24 @@ ExtTriangle getReferenceTriangle(int sideIdx) {
   ExtTriangle referenceFace;
   switch (sideIdx) {
   case 0:
-    referenceFace.p1 = {0.0, 0.0, 0.0};
-    referenceFace.p2 = {0.0, 1.0, 0.0};
-    referenceFace.p3 = {1.0, 0.0, 0.0};
+    referenceFace.point(0) = {0.0, 0.0, 0.0};
+    referenceFace.point(1) = {0.0, 1.0, 0.0};
+    referenceFace.point(2) = {1.0, 0.0, 0.0};
     break;
   case 1:
-    referenceFace.p1 = {0.0, 0.0, 0.0};
-    referenceFace.p2 = {1.0, 0.0, 0.0};
-    referenceFace.p3 = {0.0, 0.0, 1.0};
+    referenceFace.point(0) = {0.0, 0.0, 0.0};
+    referenceFace.point(1) = {1.0, 0.0, 0.0};
+    referenceFace.point(2) = {0.0, 0.0, 1.0};
     break;
   case 2:
-    referenceFace.p1 = {0.0, 0.0, 0.0};
-    referenceFace.p2 = {0.0, 0.0, 1.0};
-    referenceFace.p3 = {0.0, 1.0, 0.0};
+    referenceFace.point(0) = {0.0, 0.0, 0.0};
+    referenceFace.point(1) = {0.0, 0.0, 1.0};
+    referenceFace.point(2) = {0.0, 1.0, 0.0};
     break;
   case 3:
-    referenceFace.p1 = {1.0, 0.0, 0.0};
-    referenceFace.p2 = {0.0, 1.0, 0.0};
-    referenceFace.p3 = {0.0, 0.0, 1.0};
+    referenceFace.point(0) = {1.0, 0.0, 0.0};
+    referenceFace.point(1) = {0.0, 1.0, 0.0};
+    referenceFace.point(2) = {0.0, 0.0, 1.0};
     break;
   default:
     logError() << "Unknown Local Side Id. Must be 0, 1, 2 or 3";
@@ -55,16 +55,18 @@ ExtTriangle getGlobalTriangle(int localSideId,
     const auto elementVertexId = getElementVertexId(localSideId, vertexId);
     const auto globalVertexId = element.vertices[elementVertexId];
 
-    triangle[vertexId] = verticesInfo[globalVertexId].coords;
+    triangle.point(vertexId) = verticesInfo[globalVertexId].coords;
   }
   return triangle;
 }
 
 ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle) {
   ExtVrtxCoords avgPoint{};
+  const auto p0 = triangle.point(0);
+  const auto p1 = triangle.point(1);
+  const auto p2 = triangle.point(2);
   for (int axis = 0; axis < 3; ++axis) {
-    avgPoint.coords[axis] =
-        (triangle.p1.coords[axis] + triangle.p2.coords[axis] + triangle.p3.coords[axis]) / 3.0;
+    avgPoint.coords[axis] = (p0.coords[axis] + p1.coords[axis] + p2.coords[axis]) / 3.0;
   }
   return avgPoint;
 }
@@ -169,7 +171,7 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const VrtxCoords faceNormal) {
 
   VrtxCoords diff{0.0, 0.0, 0.0};
-  MeshTools::sub(face.p1.coords, point.coords, diff);
+  MeshTools::sub(face.point(0).coords, point.coords, diff);
 
   // Note: faceNormal may not be precisely a unit vector
   const double faceNormalLength = MeshTools::norm(faceNormal);
@@ -203,7 +205,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
   for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
       const auto& triangle = receiverPoints[pointIndex].globalTriangle;
-      const auto& point = const_cast<ExtVrtxCoords const&>(triangle.points[vertexIndex]);
+      const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
@@ -227,12 +229,12 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {
-  const auto p1 = triangle.p1.getAsEigenLibVector();
-  const auto p2 = triangle.p2.getAsEigenLibVector();
-  const auto p3 = triangle.p3.getAsEigenLibVector();
+  const auto p0 = triangle.point(0).getAsEigenLibVector();
+  const auto p1 = triangle.point(1).getAsEigenLibVector();
+  const auto p2 = triangle.point(2).getAsEigenLibVector();
 
-  const auto vector1 = p2 - p1;
-  const auto vector2 = p3 - p1;
+  const auto vector1 = p1 - p0;
+  const auto vector2 = p2 - p0;
   const auto normal = vector1.cross(vector2);
   return 0.5 * normal.norm();
 }

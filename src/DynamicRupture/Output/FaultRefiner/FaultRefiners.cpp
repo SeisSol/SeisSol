@@ -72,7 +72,7 @@ void FaultFaceTripleRefiner::refineAndAccumulate(Data data, TrianglePair face) {
       std::make_pair(getMidPointTriangle(globalFace), getMidPointTriangle(referenceFace));
   std::array<PointsPair, 3> points{};
   for (size_t i = 0; i < 3; ++i) {
-    points[i] = std::make_pair(globalFace[i], referenceFace[i]);
+    points[i] = std::make_pair(globalFace.point(i), referenceFace.point(i));
   }
 
   repeatRefinement(data, points[0], points[1], midPoint);
@@ -91,23 +91,24 @@ void FaultFaceQuadRefiner::refineAndAccumulate(Data data, TrianglePair face) {
   auto& referenceFace = std::get<reference>(face);
 
   auto split = [&globalFace, &referenceFace](size_t pointIndex1, size_t pointIndex2) {
-    return std::make_pair(getMidPoint(globalFace[pointIndex1], globalFace[pointIndex2]),
-                          getMidPoint(referenceFace[pointIndex1], referenceFace[pointIndex2]));
+    return std::make_pair(
+        getMidPoint(globalFace.point(pointIndex1), globalFace.point(pointIndex2)),
+        getMidPoint(referenceFace.point(pointIndex1), referenceFace.point(pointIndex2)));
   };
 
   auto midPoint1 = split(0, 1);
   auto midPoint2 = split(1, 2);
   auto midPoint3 = split(2, 0);
 
-  PointsPair trianglePoint = std::make_pair(globalFace.p1, referenceFace.p1);
+  PointsPair trianglePoint = std::make_pair(globalFace.point(0), referenceFace.point(0));
   repeatRefinement(data, trianglePoint, midPoint1, midPoint3);
 
-  trianglePoint = std::make_pair(globalFace.p2, referenceFace.p2);
+  trianglePoint = std::make_pair(globalFace.point(1), referenceFace.point(1));
   repeatRefinement(data, midPoint1, trianglePoint, midPoint2);
 
   repeatRefinement(data, midPoint1, midPoint2, midPoint3);
 
-  trianglePoint = std::make_pair(globalFace.p3, referenceFace.p3);
+  trianglePoint = std::make_pair(globalFace.point(2), referenceFace.point(2));
   repeatRefinement(data, midPoint3, midPoint2, trianglePoint);
 }
 } // namespace seissol::dr::output::refiner
