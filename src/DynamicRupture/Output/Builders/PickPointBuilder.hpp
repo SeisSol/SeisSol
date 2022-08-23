@@ -9,7 +9,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
   void setParams(PickpointParams params) { pickpointParams = std::move(params); }
-  void build(ReceiverOutputData* pickPointOutputData) override {
+  void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
     readCoordsFromFile();
     initReceiverLocations();

@@ -9,7 +9,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
   void setParams(const ElementwiseFaultParams& params) { elementwiseParams = params; }
-  void build(ReceiverOutputData* elementwiseOutputData) override {
+  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
     outputData = elementwiseOutputData;
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);

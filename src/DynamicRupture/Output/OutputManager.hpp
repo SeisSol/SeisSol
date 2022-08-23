@@ -11,7 +11,9 @@ class OutputManager {
   public:
   ~OutputManager();
   OutputManager() = delete;
-  OutputManager(ReceiverOutput* concreteImpl) : impl(concreteImpl){};
+  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl)
+      : ewOutputData(std::make_shared<ReceiverOutputData>()),
+        ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)){};
   void setInputParam(const YAML::Node& inputData, MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -33,8 +35,8 @@ class OutputManager {
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
 
-  ReceiverOutputData ewOutputData{};
-  ReceiverOutputData ppOutputData{};
+  std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
+  std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
 
   GeneralParams generalParams;
   ElementwiseFaultParams elementwiseParams{};

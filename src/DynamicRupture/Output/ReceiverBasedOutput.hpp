@@ -21,7 +21,7 @@ class ReceiverOutput {
   void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(OutputType type,
-                       ReceiverOutputData& state,
+                       std::shared_ptr<ReceiverOutputData> state,
                        const GeneralParams& generalParams,
                        double time = 0.0);
 
@@ -42,8 +42,9 @@ class ReceiverOutput {
   virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
                                           const std::array<real, 6>& rotatedStress){};
 
-  virtual void
-      outputSpecifics(ReceiverOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
+  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+                               size_t outputSpecifics,
+                               size_t receiverIdx) {}
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
 
   seissol::initializers::LTS* wpDescr{nullptr};

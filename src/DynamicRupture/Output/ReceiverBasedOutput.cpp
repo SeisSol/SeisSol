@@ -37,19 +37,19 @@ void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, 
 }
 
 void ReceiverOutput::calcFaultOutput(const OutputType type,
-                                     ReceiverOutputData& outputData,
+                                     std::shared_ptr<ReceiverOutputData> outputData,
                                      const GeneralParams& generalParams,
                                      double time) {
 
-  const size_t level = (type == OutputType::AtPickpoint) ? outputData.currentCacheLevel : 0;
+  const size_t level = (type == OutputType::AtPickpoint) ? outputData->currentCacheLevel : 0;
   const auto faultInfos = meshReader->getFault();
 
-  for (size_t i = 0; i < outputData.receiverPoints.size(); ++i) {
+  for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
-    assert(outputData.receiverPoints[i].isInside == true &&
+    assert(outputData->receiverPoints[i].isInside == true &&
            "A receiver must be on a fault. Error in pre-processing");
 
-    const auto faceIndex = outputData.receiverPoints[i].faultFaceIndex;
+    const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
     local = LocalInfo{};
 
@@ -57,8 +57,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     local.layer = layer;
     local.ltsId = ltsId;
 
-    local.nearestGpIndex = outputData.receiverPoints[i].nearestGpIndex;
-    local.nearestInternalGpIndex = outputData.receiverPoints[i].nearestInternalGpIndex;
+    local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
+    local.nearestInternalGpIndex = outputData->receiverPoints[i].nearestInternalGpIndex;
 
     local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
     local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
@@ -86,17 +86,17 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     local.iniNormalTraction = initStress[QuantityIndices::XX];
     local.fluidPressure = this->computeFluidPressure();
 
-    const auto* const normal = outputData.faultDirections[i].faceNormal;
-    const auto* const tangent1 = outputData.faultDirections[i].tangent1;
-    const auto* const tangent2 = outputData.faultDirections[i].tangent2;
-    const auto* strike = outputData.faultDirections[i].strike;
-    const auto* dip = outputData.faultDirections[i].dip;
+    const auto* const normal = outputData->faultDirections[i].faceNormal;
+    const auto* const tangent1 = outputData->faultDirections[i].tangent1;
+    const auto* const tangent2 = outputData->faultDirections[i].tangent2;
+    const auto* strike = outputData->faultDirections[i].strike;
+    const auto* dip = outputData->faultDirections[i].dip;
 
-    auto* phiPlusSide = outputData.basisFunctions[i].plusSide.data();
-    auto* phiMinusSide = outputData.basisFunctions[i].minusSide.data();
+    auto* phiPlusSide = outputData->basisFunctions[i].plusSide.data();
+    auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-    kernel.Tinv = outputData.glbToFaceAlignedData[i].data();
+    kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
     kernel.Q = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
@@ -114,9 +114,9 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
-        outputData.stressGlbToDipStrikeAligned[i].data();
+        outputData->stressGlbToDipStrikeAligned[i].data();
     alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-        outputData.stressFaceAlignedToGlb[i].data();
+        outputData->stressFaceAlignedToGlb[i].data();
 
     std::array<real, 6> tmpVector{};
     tmpVector[QuantityIndices::XX] = local.transientNormalTraction;
@@ -156,13 +156,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     adjustRotatedUpdatedStress(rotatedUpdatedStress, rotatedStress);
 
-    auto& slipRate = std::get<VariableID::SlipRate>(outputData.vars);
+    auto& slipRate = std::get<VariableID::SlipRate>(outputData->vars);
     if (slipRate.isActive) {
       slipRate(DirectionID::Strike, level, i) = local.slipRateStrike;
       slipRate(DirectionID::Dip, level, i) = local.slipRateDip;
     }
 
-    auto& transientTractions = std::get<VariableID::TransientTractions>(outputData.vars);
+    auto& transientTractions = std::get<VariableID::TransientTractions>(outputData->vars);
     if (transientTractions.isActive) {
       transientTractions(DirectionID::Strike, level, i) = rotatedUpdatedStress[QuantityIndices::XY];
       transientTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[QuantityIndices::XZ];
@@ -170,30 +170,30 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
           local.transientNormalTraction - local.fluidPressure;
     }
 
-    auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData.vars);
+    auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData->vars);
     if (frictionAndState.isActive) {
       frictionAndState(ParamID::FrictionCoefficient, level, i) = local.frictionCoefficient;
       frictionAndState(ParamID::State, level, i) = local.stateVariable;
     }
 
-    auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData.vars);
+    auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
     if (ruptureTime.isActive) {
       auto* rt = local.layer->var(drDescr->ruptureTime);
       ruptureTime(level, i) = rt[local.ltsId][local.nearestGpIndex];
     }
 
-    auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData.vars);
+    auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData->vars);
     if (normalVelocity.isActive) {
       normalVelocity(level, i) = local.faultNormalVelocity;
     }
 
-    auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData.vars);
+    auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
     if (accumulatedSlip.isActive) {
       auto* slip = local.layer->var(drDescr->accumulatedSlipMagnitude);
       accumulatedSlip(level, i) = slip[local.ltsId][local.nearestGpIndex];
     }
 
-    auto& totalTractions = std::get<VariableID::TotalTractions>(outputData.vars);
+    auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
     if (totalTractions.isActive) {
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
       alignAlongDipAndStrikeKernel.initialStress = initStress;
@@ -209,25 +209,25 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
                                                       rotatedInitStress[QuantityIndices::XX];
     }
 
-    auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData.vars);
+    auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData->vars);
     if (ruptureVelocity.isActive) {
-      auto& jacobiT2d = outputData.jacobianT2d[i];
+      auto& jacobiT2d = outputData->jacobianT2d[i];
       ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d);
     }
 
-    auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData.vars);
+    auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
     if (peakSlipsRate.isActive) {
       auto* peakSR = local.layer->var(drDescr->peakSlipRate);
       peakSlipsRate(level, i) = peakSR[local.ltsId][local.nearestGpIndex];
     }
 
-    auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData.vars);
+    auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData->vars);
     if (dynamicStressTime.isActive) {
       auto* dynStressTime = (local.layer->var(drDescr->dynStressTime));
       dynamicStressTime(level, i) = dynStressTime[local.ltsId][local.nearestGpIndex];
     }
 
-    auto& slipVectors = std::get<VariableID::Slip>(outputData.vars);
+    auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
     if (slipVectors.isActive) {
       VrtxCoords crossProduct = {0.0, 0.0, 0.0};
       MeshTools::cross(strike, tangent1, crossProduct);
@@ -252,8 +252,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   }
 
   if (type == OutputType::AtPickpoint) {
-    outputData.cachedTime[outputData.currentCacheLevel] = time;
-    outputData.currentCacheLevel += 1;
+    outputData->cachedTime[outputData->currentCacheLevel] = time;
+    outputData->currentCacheLevel += 1;
   }
 }
 
