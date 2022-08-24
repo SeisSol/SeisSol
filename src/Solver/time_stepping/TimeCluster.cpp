@@ -118,8 +118,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     dynRupCopyData(dynRupCopyData),
     m_lts(i_lts),
     m_dynRup(i_dynRup),
-    m_FrictionSolver(i_FrictionSolver),
-    m_faultOutputManager(i_faultOutputManager),
+    frictionSolver(i_FrictionSolver),
+    faultOutputManager(i_faultOutputManager),
     m_cellToPointSources(nullptr),
     m_numberOfCellToPointSourcesMappings(0),
     m_pointSources(nullptr),
@@ -235,11 +235,11 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup->drEnergyOutput);
   real** timeDerivativePlus = layerData.var(m_dynRup->timeDerivativePlus);
   real** timeDerivativeMinus = layerData.var(m_dynRup->timeDerivativeMinus);
-  auto *qInterpolatedPlus = layerData.var(m_dynRup->qInterpolatedPlus);
-  auto *qInterpolatedMinus = layerData.var(m_dynRup->qInterpolatedMinus);
+  auto* qInterpolatedPlus = layerData.var(m_dynRup->qInterpolatedPlus);
+  auto* qInterpolatedMinus = layerData.var(m_dynRup->qInterpolatedMinus);
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
-  m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
+  frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -258,10 +258,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                   timeDerivativeMinus[prefetchFace]);
   }
 
-  m_FrictionSolver->evaluate(layerData,
-                             m_dynRup,
-                             ct.correctionTime,
-                             m_dynamicRuptureKernel.timeWeights);
+  frictionSolver->evaluate(layerData,
+                           m_dynRup,
+                           ct.correctionTime,
+                           m_dynamicRuptureKernel.timeWeights);
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
 }
@@ -277,17 +277,17 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
-    m_FrictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
+    frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
     ConditionalBatchTableT &table = layerData.getCondBatchTable();
     m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
     device.api->popLastProfilingMark();
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    m_FrictionSolver->evaluate(layerData,
-                               m_dynRup,
-                               ct.correctionTime,
-                               m_dynamicRuptureKernel.timeWeights);
+    frictionSolver->evaluate(layerData,
+                             m_dynRup,
+                             ct.correctionTime,
+                             m_dynamicRuptureKernel.timeWeights);
     device.api->popLastProfilingMark();
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
@@ -679,7 +679,7 @@ void TimeCluster::correct() {
   // TODO: Change from iteration based to time based
   if (m_clusterId == 0
       && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    m_faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
 

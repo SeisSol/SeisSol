@@ -92,6 +92,35 @@ inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
  * @param dip
  */
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
+
+namespace quantity_indices {
+/**
+ * Defines the indices under which one can find a specific quantity.
+ * U, V, W: Velocities in x, y, z direction.
+ * N, T1, T2: traction in normal and fault aligned directions.
+ * XX, YY, ZZ, XY, YZ, XZ: Stress in cartesian coordinates
+ * Use as:
+ * ```
+ * using namepace dr::misc::quantity_indices;
+ * real quantities[9];
+ * real normalStress = quantities[N];
+ * ```
+ * */
+enum QuantityIndices : size_t {
+  U = 6,
+  V = 7,
+  W = 8,
+  N = 0,
+  T1 = 3,
+  T2 = 5,
+  XX = 0,
+  YY = 1,
+  ZZ = 2,
+  XY = 3,
+  YZ = 4,
+  XZ = 5,
+};
+} // namespace quantity_indices
 } // namespace seissol::dr::misc
 
 #endif // SEISSOL_DR_MISC_H

@@ -13,28 +13,29 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_ImposedSlipRates*>(dynRup);
+    auto* concreteLts =
+        dynamic_cast<seissol::initializers::LTSImposedSlipRates const* const>(dynRup);
     imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
     imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
-  void updateFrictionAndSlip(FaultStresses& faultStresses,
+  void updateFrictionAndSlip(FaultStresses const& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
-                             unsigned& ltsFace,
-                             unsigned& timeIndex) {
-    real timeIncrement = this->deltaT[timeIndex];
+                             unsigned ltsFace,
+                             unsigned timeIndex) {
+    const real timeIncrement = this->deltaT[timeIndex];
     real currentTime = this->mFullUpdateTime;
     for (unsigned i = 0; i <= timeIndex; i++) {
       currentTime += this->deltaT[i];
     }
 
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
+      const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       this->traction1[ltsFace][pointIndex] =
           faultStresses.traction1[timeIndex][pointIndex] -

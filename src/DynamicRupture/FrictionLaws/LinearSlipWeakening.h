@@ -14,11 +14,11 @@ namespace seissol::dr::friction_law {
 template <class SpecializationT>
 class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
   public:
-  LinearSlipWeakeningLaw(DRParameters& drParameters)
+  explicit LinearSlipWeakeningLaw(DRParameters* drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
-  void updateFrictionAndSlip(FaultStresses& faultStresses,
+  void updateFrictionAndSlip(FaultStresses const& faultStresses,
                              TractionResults& tractionResults,
                              std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::numPaddedPoints>& strengthBuffer,
@@ -40,9 +40,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<seissol::initializers::LTS_LinearSlipWeakening*>(dynRup);
+    auto* concreteLts =
+        dynamic_cast<seissol::initializers::LTSLinearSlipWeakening const* const>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -55,26 +56,26 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  void calcSlipRateAndTraction(FaultStresses& faultStresses,
+  void calcSlipRateAndTraction(FaultStresses const& faultStresses,
                                TractionResults& tractionResults,
                                std::array<real, misc::numPaddedPoints>& strength,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                            faultStresses.traction1[timeIndex][pointIndex];
-      real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                            faultStresses.traction2[timeIndex][pointIndex];
-      real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+                                  faultStresses.traction1[timeIndex][pointIndex];
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+                                  faultStresses.traction2[timeIndex][pointIndex];
+      const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
       // calculate slip rates
       this->slipRateMagnitude[ltsFace][pointIndex] =
           std::max(static_cast<real>(0.0),
                    (absoluteTraction - strength[pointIndex]) * this->impAndEta[ltsFace].invEtaS);
 
-      auto divisor = strength[pointIndex] +
-                     this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
+      const auto divisor = strength[pointIndex] + this->impAndEta[ltsFace].etaS *
+                                                      this->slipRateMagnitude[ltsFace][pointIndex];
       this->slipRate1[ltsFace][pointIndex] =
           this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction1 / divisor;
       this->slipRate2[ltsFace][pointIndex] =
@@ -121,7 +122,6 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    */
   void saveDynamicStressOutput(unsigned int ltsFace) {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-
       if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
               dC[ltsFace][pointIndex]) {
@@ -131,14 +131,14 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void calcStrengthHook(FaultStresses& faultStresses,
+  void calcStrengthHook(FaultStresses const& faultStresses,
                         std::array<real, misc::numPaddedPoints>& strength,
                         unsigned int timeIndex,
                         unsigned int ltsFace) {
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
-      real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
-                               faultStresses.normalStress[timeIndex][pointIndex];
+      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+                                     faultStresses.normalStress[timeIndex][pointIndex];
       strength[pointIndex] =
           -cohesion[ltsFace][pointIndex] -
           this->mu[ltsFace][pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
@@ -158,11 +158,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     alignas(ALIGNMENT) real resampledSlipRate[misc::numPaddedPoints]{};
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
-    real time = this->mFullUpdateTime + this->deltaT[timeIndex];
+    const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
 
-      auto update = resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
+      const auto update = resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
       this->accumulatedSlipMagnitude[ltsFace][pointIndex] += update;
 
       // Actually slip is already the stateVariable for this FL, but to simplify the next equations
@@ -173,17 +173,15 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters.t0 == 0) {
+      if (this->drParameters->t0 == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = 1.0 * (time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
-        // Note: In the fortran implementation on the master branch, this is
-        // m_fullUpdateTime, but this implementation is correct.
         f2 = std::max(static_cast<real>(0.0),
                       std::min(static_cast<real>(1.0),
                                (time - this->forcedRuptureTime[ltsFace][pointIndex]) /
-                                   this->drParameters.t0));
+                                   this->drParameters->t0));
       }
       stateVariable[pointIndex] = std::max(stateVariable[pointIndex], f2);
     }
@@ -200,10 +198,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  NoSpecialization(DRParameters& parameters){};
+  explicit NoSpecialization(DRParameters* parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime){};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
@@ -227,15 +225,15 @@ class NoSpecialization {
  */
 class BiMaterialFault {
   public:
-  BiMaterialFault(DRParameters& parameters) : drParameters(parameters){};
+  explicit BiMaterialFault(DRParameters* parameters) : drParameters(parameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
   /**
-   * The bimaterial Fault FL has been implemented without resampling on the master branch.
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
-   * together with Prakash-Clifton regularization.
+   * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
+   * replace the resampling with a simple copy.
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                         real const (&slipRate)[dr::misc::numPaddedPoints]) {
@@ -248,7 +246,7 @@ class BiMaterialFault {
                     unsigned int pointIndex);
 
   protected:
-  DRParameters& drParameters;
+  DRParameters* drParameters;
   real (*regularisedStrength)[misc::numPaddedPoints];
 };
 

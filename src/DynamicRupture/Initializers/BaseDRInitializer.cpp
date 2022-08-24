@@ -7,8 +7,8 @@
 #include <Eigen/Dense>
 
 namespace seissol::dr::initializers {
-void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                                        seissol::initializers::LTSTree* dynRupTree) {
+void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
+                                        seissol::initializers::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
                 << misc::numberOfBoundaryGaussPoints << " points.";
@@ -21,74 +21,47 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     // read initial stress and nucleation stress
-    using VectorOfArraysT = std::vector<std::array<real, misc::numPaddedPoints>>;
-
-    auto addStressesToStorageMap = [&dynRup, &parameterToStorageMap, &it, this](
-                                       VectorOfArraysT& stressXX,
-                                       VectorOfArraysT& stressYY,
-                                       VectorOfArraysT& stressZZ,
-                                       VectorOfArraysT& stressXY,
-                                       VectorOfArraysT& stressYZ,
-                                       VectorOfArraysT& stressXZ,
-                                       bool readNucleation) {
+    auto addStressesToStorageMap = [&parameterToStorageMap, &it, this](StressTensor& initialStress,
+                                                                       bool readNucleation) {
       // return pointer to first element
-      auto getRawData = [](VectorOfArraysT& vectorOfArrays) {
+      auto getRawData = [](StressTensor::VectorOfArrays_t& vectorOfArrays) {
         return vectorOfArrays.data()->data();
       };
       // fault can be either initialized by traction or by cartesian stress
       // this method reads either the nucleation stress or the initial stress
-      std::vector<std::string> identifiers = this->stressIdentifiers(readNucleation);
-      bool isFaultParameterizedByTraction = identifiers.size() == 3;
+      std::vector<std::string> identifiers;
+      Parametrization parametrization;
+      std::tie(identifiers, parametrization) = this->stressIdentifiers(readNucleation);
+      bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
       if (isFaultParameterizedByTraction) {
         // only read traction in normal, strike and dip direction
-        parameterToStorageMap.insert({identifiers[0], getRawData(stressXX)});
-        parameterToStorageMap.insert({identifiers[1], getRawData(stressXY)});
-        parameterToStorageMap.insert({identifiers[2], getRawData(stressXZ)});
+        parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
+        parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.xy)});
+        parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
         // set the rest to zero
         for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
           for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
-            stressYY[ltsFace][pointIndex] = 0.0;
-            stressZZ[ltsFace][pointIndex] = 0.0;
-            stressYZ[ltsFace][pointIndex] = 0.0;
+            initialStress.yy[ltsFace][pointIndex] = 0.0;
+            initialStress.zz[ltsFace][pointIndex] = 0.0;
+            initialStress.yz[ltsFace][pointIndex] = 0.0;
           }
         }
       } else { // read all stress components from the parameter file
-        parameterToStorageMap.insert({identifiers[0], getRawData(stressXX)});
-        parameterToStorageMap.insert({identifiers[1], getRawData(stressYY)});
-        parameterToStorageMap.insert({identifiers[2], getRawData(stressZZ)});
-        parameterToStorageMap.insert({identifiers[3], getRawData(stressXY)});
-        parameterToStorageMap.insert({identifiers[4], getRawData(stressYZ)});
-        parameterToStorageMap.insert({identifiers[5], getRawData(stressXZ)});
+        parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
+        parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.yy)});
+        parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.zz)});
+        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.xy)});
+        parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
+        parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
       }
       return isFaultParameterizedByTraction;
     };
 
-    VectorOfArraysT initialStressXX(it->getNumberOfCells());
-    VectorOfArraysT initialStressYY(it->getNumberOfCells());
-    VectorOfArraysT initialStressZZ(it->getNumberOfCells());
-    VectorOfArraysT initialStressXY(it->getNumberOfCells());
-    VectorOfArraysT initialStressXZ(it->getNumberOfCells());
-    VectorOfArraysT initialStressYZ(it->getNumberOfCells());
-    bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStressXX,
-                                                                        initialStressYY,
-                                                                        initialStressZZ,
-                                                                        initialStressXY,
-                                                                        initialStressYZ,
-                                                                        initialStressXZ,
-                                                                        false);
-    VectorOfArraysT nucleationStressXX(it->getNumberOfCells());
-    VectorOfArraysT nucleationStressYY(it->getNumberOfCells());
-    VectorOfArraysT nucleationStressZZ(it->getNumberOfCells());
-    VectorOfArraysT nucleationStressXY(it->getNumberOfCells());
-    VectorOfArraysT nucleationStressXZ(it->getNumberOfCells());
-    VectorOfArraysT nucleationStressYZ(it->getNumberOfCells());
-    bool nucleationStressParameterizedByTraction = addStressesToStorageMap(nucleationStressXX,
-                                                                           nucleationStressYY,
-                                                                           nucleationStressZZ,
-                                                                           nucleationStressXY,
-                                                                           nucleationStressYZ,
-                                                                           nucleationStressXZ,
-                                                                           true);
+    StressTensor initialStress(it->getNumberOfCells());
+    const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, false);
+    StressTensor nucleationStress(it->getNumberOfCells());
+    const bool nucleationStressParameterizedByTraction =
+        addStressesToStorageMap(nucleationStress, true);
 
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, it);
@@ -102,58 +75,29 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture* d
 
     // rotate initial stress to fault coordinate system
     if (initialStressParameterizedByTraction) {
-      rotateTractionToCartesianStress(dynRup,
-                                      it,
-                                      initialStressXX,
-                                      initialStressYY,
-                                      initialStressZZ,
-                                      initialStressXY,
-                                      initialStressYZ,
-                                      initialStressXZ);
+      rotateTractionToCartesianStress(dynRup, it, initialStress);
     }
     real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(dynRup->initialStressInFaultCS);
-    rotateStressToFaultCS(dynRup,
-                          it,
-                          initialStressInFaultCS,
-                          initialStressXX,
-                          initialStressYY,
-                          initialStressZZ,
-                          initialStressXY,
-                          initialStressYZ,
-                          initialStressXZ);
+    rotateStressToFaultCS(dynRup, it, initialStressInFaultCS, initialStress);
     // rotate nucleation stress to fault coordinate system
     if (nucleationStressParameterizedByTraction) {
-      rotateTractionToCartesianStress(dynRup,
-                                      it,
-                                      nucleationStressXX,
-                                      nucleationStressYY,
-                                      nucleationStressZZ,
-                                      nucleationStressXY,
-                                      nucleationStressYZ,
-                                      nucleationStressXZ);
+      rotateTractionToCartesianStress(dynRup, it, nucleationStress);
     }
     real(*nucleationStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
-    rotateStressToFaultCS(dynRup,
-                          it,
-                          nucleationStressInFaultCS,
-                          nucleationStressXX,
-                          nucleationStressYY,
-                          nucleationStressZZ,
-                          nucleationStressXY,
-                          nucleationStressYZ,
-                          nucleationStressXZ);
+    rotateStressToFaultCS(dynRup, it, nucleationStressInFaultCS, nucleationStress);
 
     initializeOtherVariables(dynRup, it);
   }
 }
 
-std::vector<unsigned>
-    BaseDRInitializer::getFaceIDsInIterator(seissol::initializers::DynamicRupture* dynRup,
-                                            seissol::initializers::LTSTree::leaf_iterator& it) {
+std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
+    seissol::initializers::DynamicRupture const* const dynRup,
+    seissol::initializers::LTSTree::leaf_iterator& it) {
   const auto& drFaceInformation = it->var(dynRup->faceInformation);
   std::vector<unsigned> faceIDs;
+  faceIDs.reserve(it->getNumberOfCells());
   // collect all face IDs within this lts leaf
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
@@ -162,21 +106,16 @@ std::vector<unsigned>
 }
 
 void BaseDRInitializer::queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
-                                   std::vector<unsigned> faceIDs) {
+                                   std::vector<unsigned> const& faceIDs) {
   // create a query and evaluate the model
   seissol::initializers::FaultGPGenerator queryGen(seissol::SeisSol::main.meshReader(), faceIDs);
-  faultParameterDB.evaluateModel(drParameters.faultFileName, queryGen);
+  faultParameterDB.evaluateModel(drParameters->faultFileName, queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(
-    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSTree::leaf_iterator& it,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressXX,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressYY,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressZZ,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressXY,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressYZ,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ) {
+    StressTensor& stress) {
   // create rotation kernel
   real faultTractionToCartesianMatrixValues[init::stressRotationMatrix::size()];
   auto faultTractionToCartesianMatrixView =
@@ -187,7 +126,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
-    unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
     const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
 
     // if we read the traction in strike, dip and normal direction, we first transform it to stress
@@ -198,41 +137,37 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
     seissol::transformations::symmetricTensor2RotationMatrix(
         fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
 
+    using namespace dr::misc::quantity_indices;
     for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      real initialTraction[init::initialStress::size()] = {stressXX[ltsFace][pointIndex],
-                                                           stressYY[ltsFace][pointIndex],
-                                                           stressZZ[ltsFace][pointIndex],
-                                                           stressXY[ltsFace][pointIndex],
-                                                           stressYZ[ltsFace][pointIndex],
-                                                           stressXZ[ltsFace][pointIndex]};
-      assert(std::abs(initialTraction[1]) < 1e-15);
-      assert(std::abs(initialTraction[2]) < 1e-15);
-      assert(std::abs(initialTraction[4]) < 1e-15);
+      const real initialTraction[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
+                                                                 stress.yy[ltsFace][pointIndex],
+                                                                 stress.zz[ltsFace][pointIndex],
+                                                                 stress.xy[ltsFace][pointIndex],
+                                                                 stress.yz[ltsFace][pointIndex],
+                                                                 stress.xz[ltsFace][pointIndex]};
+      assert(std::abs(initialTraction[YY]) < 1e-15);
+      assert(std::abs(initialTraction[ZZ]) < 1e-15);
+      assert(std::abs(initialTraction[YZ]) < 1e-15);
 
       real cartesianStress[init::initialStress::size()]{};
       faultTractionToCartesianRotationKernel.initialStress = initialTraction;
       faultTractionToCartesianRotationKernel.rotatedStress = cartesianStress;
       faultTractionToCartesianRotationKernel.execute();
-      stressXX[ltsFace][pointIndex] = cartesianStress[0];
-      stressYY[ltsFace][pointIndex] = cartesianStress[1];
-      stressZZ[ltsFace][pointIndex] = cartesianStress[2];
-      stressXY[ltsFace][pointIndex] = cartesianStress[3];
-      stressYZ[ltsFace][pointIndex] = cartesianStress[4];
-      stressXZ[ltsFace][pointIndex] = cartesianStress[5];
+      stress.xx[ltsFace][pointIndex] = cartesianStress[XX];
+      stress.yy[ltsFace][pointIndex] = cartesianStress[YY];
+      stress.zz[ltsFace][pointIndex] = cartesianStress[ZZ];
+      stress.xy[ltsFace][pointIndex] = cartesianStress[XY];
+      stress.yz[ltsFace][pointIndex] = cartesianStress[YZ];
+      stress.xz[ltsFace][pointIndex] = cartesianStress[XZ];
     }
   }
 }
 
 void BaseDRInitializer::rotateStressToFaultCS(
-    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSTree::leaf_iterator& it,
     real (*stressInFaultCS)[misc::numPaddedPoints][6],
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressXX,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressYY,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressZZ,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressXY,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressYZ,
-    std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ) {
+    StressTensor const& stress) {
   // create rotation kernel
   real cartesianToFaultCSMatrixValues[init::stressRotationMatrix::size()];
   auto cartesianToFaultCSMatrixView =
@@ -243,7 +178,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     constexpr unsigned int numberOfStressComponents = 6;
     const auto& drFaceInformation = it->var(dynRup->faceInformation);
-    unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
+    const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
     const Fault& fault = seissol::SeisSol::main.meshReader().getFault().at(meshFace);
 
     // now rotate the stress in cartesian coordinates to the element aligned coordinate system.
@@ -251,12 +186,12 @@ void BaseDRInitializer::rotateStressToFaultCS(
         fault.normal, fault.tangent1, fault.tangent2, cartesianToFaultCSMatrixView, 0, 0);
 
     for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      real initialStress[init::initialStress::size()] = {stressXX[ltsFace][pointIndex],
-                                                         stressYY[ltsFace][pointIndex],
-                                                         stressZZ[ltsFace][pointIndex],
-                                                         stressXY[ltsFace][pointIndex],
-                                                         stressYZ[ltsFace][pointIndex],
-                                                         stressXZ[ltsFace][pointIndex]};
+      const real initialStress[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
+                                                               stress.yy[ltsFace][pointIndex],
+                                                               stress.zz[ltsFace][pointIndex],
+                                                               stress.xy[ltsFace][pointIndex],
+                                                               stress.yz[ltsFace][pointIndex],
+                                                               stress.xz[ltsFace][pointIndex]};
       real rotatedStress[init::initialStress::size()]{};
       cartesianToFaultCSRotationKernel.initialStress = initialStress;
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
@@ -270,19 +205,19 @@ void BaseDRInitializer::rotateStressToFaultCS(
 
 void BaseDRInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // do nothing for base friction law
 }
 
 void BaseDRInitializer::initializeOtherVariables(
-    seissol::initializers::DynamicRupture* dynRup,
+    seissol::initializers::DynamicRupture const* const dynRup,
     seissol::initializers::LTSInternalNode::leaf_iterator& it) {
   // initialize rupture front flag
   bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
-      ruptureTimePending[ltsFace][pointIndex] = drParameters.isRfOutputOn;
+      ruptureTimePending[ltsFace][pointIndex] = drParameters->isRfOutputOn;
     }
   }
 
@@ -315,10 +250,11 @@ void BaseDRInitializer::initializeOtherVariables(
 
 bool BaseDRInitializer::faultProvides(std::string&& parameter) {
   return seissol::initializers::FaultParameterDB::faultProvides(parameter,
-                                                                drParameters.faultFileName);
+                                                                drParameters->faultFileName);
 }
 
-std::vector<std::string> BaseDRInitializer::stressIdentifiers(bool readNucleation) {
+std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
+    BaseDRInitializer::stressIdentifiers(bool readNucleation) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
   if (readNucleation) {
@@ -335,21 +271,21 @@ std::vector<std::string> BaseDRInitializer::stressIdentifiers(bool readNucleatio
   bool anyCartesianParametersSupplied = false;
   for (size_t i = 0; i < 3; i++) {
     auto b = seissol::initializers::FaultParameterDB::faultProvides(tractionNames[i],
-                                                                    drParameters.faultFileName);
+                                                                    drParameters->faultFileName);
     allTractionParametersSupplied &= b;
     anyTractionParametersSupplied |= b;
   }
   for (size_t i = 0; i < 6; i++) {
-    auto b = seissol::initializers::FaultParameterDB::faultProvides(cartesianNames[i],
-                                                                    drParameters.faultFileName);
+    const auto b = seissol::initializers::FaultParameterDB::faultProvides(
+        cartesianNames[i], drParameters->faultFileName);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
   }
 
   if (allCartesianParametersSupplied && !anyTractionParametersSupplied) {
-    return cartesianNames;
+    return {cartesianNames, Parametrization::Cartesian};
   } else if (allTractionParametersSupplied && !anyCartesianParametersSupplied) {
-    return tractionNames;
+    return {tractionNames, Parametrization::Traction};
   } else {
     logError() << "Please specify a correct parametrization of the "
                << (readNucleation ? "nucleation stress." : "initial stress.")

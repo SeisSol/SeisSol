@@ -127,7 +127,7 @@ set(DYNAMIC_RUPTURE_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/STF.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/SourceTimeFunction.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/NoFault.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
@@ -143,11 +143,10 @@ set(DYNAMIC_RUPTURE_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp)
 
 set(DYNAMIC_RUPTURE_OMP_OFFLOADING_SRC_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/LinearSlipWeakening.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp)
 
-target_compile_options(SeisSol-lib PUBLIC ${EXTRA_CXX_FLAGS})
-target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
+target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
+target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
 
 if (MPI)
   target_sources(SeisSol-lib PUBLIC
@@ -196,8 +195,8 @@ if ("${EQUATIONS}" STREQUAL "elastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
     )
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_ELASTIC)
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-lib PUBLIC
@@ -206,8 +205,8 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
     )
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC
@@ -215,8 +214,8 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
   )
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC2)
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_VISCOELASTIC2)
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(SeisSol-lib PUBLIC
@@ -225,8 +224,8 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
   )
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ANISOTROPIC)
 
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(SeisSol-lib PUBLIC
@@ -234,12 +233,12 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Time.cpp
   )
-  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_STP)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_POROELASTIC)
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_STP)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_POROELASTIC)
 endif()
 
-target_include_directories(SeisSol-lib PUBLIC
+target_include_directories(SeisSol-common-properties INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/BatchRecorders)
 
 

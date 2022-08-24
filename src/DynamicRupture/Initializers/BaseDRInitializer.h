@@ -13,23 +13,49 @@ namespace seissol::dr::initializers {
  * Base class for dynamic rupture initializers
  * This class reads space dependent parameters from an easi file through a FaultParameterDB and
  * global parameters from the parameters.par file Furthermore derived quantities (such as e.g.
- * intial friction) are computed.
+ * initial friction) are computed.
  */
 class BaseDRInitializer {
   protected:
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
-  DRParameters& drParameters;
+  std::shared_ptr<DRParameters> drParameters;
+
+  /**
+   * Characterizes how the initial stress on the fault is provided.
+   */
+  enum class Parametrization { Traction, Cartesian };
+
+  /**
+   * Stores the initialStresses.
+   */
+  struct StressTensor {
+    StressTensor(size_t size) {
+      xx.reserve(size);
+      yy.reserve(size);
+      zz.reserve(size);
+      xy.reserve(size);
+      yz.reserve(size);
+      xz.reserve(size);
+    }
+    using VectorOfArrays_t = std::vector<std::array<real, misc::numPaddedPoints>>;
+    VectorOfArrays_t xx;
+    VectorOfArrays_t yy;
+    VectorOfArrays_t zz;
+    VectorOfArrays_t xy;
+    VectorOfArrays_t yz;
+    VectorOfArrays_t xz;
+  };
 
   public:
   /**
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
-  BaseDRInitializer(DRParameters& drParameters) : drParameters(drParameters){};
+  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters) : drParameters(drParameters){};
 
-  virtual ~BaseDRInitializer() {}
+  virtual ~BaseDRInitializer() = default;
 
   /**
    * Main function to initialize all fault dependent parameters.
@@ -39,8 +65,8 @@ class BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(seissol::initializers::DynamicRupture* dynRup,
-                               seissol::initializers::LTSTree* dynRupTree);
+  virtual void initializeFault(seissol::initializers::DynamicRupture const* const dynRup,
+                               seissol::initializers::LTSTree* const dynRupTree);
 
   protected:
   /**
@@ -53,7 +79,7 @@ class BaseDRInitializer {
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializers::DynamicRupture* dynRup,
+                              seissol::initializers::DynamicRupture const* const dynRup,
                               seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
@@ -63,7 +89,7 @@ class BaseDRInitializer {
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
   std::vector<unsigned>
-      getFaceIDsInIterator(seissol::initializers::DynamicRupture* dynRup,
+      getFaceIDsInIterator(seissol::initializers::DynamicRupture const* const dynRup,
                            seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
@@ -81,7 +107,7 @@ class BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  void initializeOtherVariables(seissol::initializers::DynamicRupture* dynRup,
+  void initializeOtherVariables(seissol::initializers::DynamicRupture const* const dynRup,
                                 seissol::initializers::LTSInternalNode::leaf_iterator& it);
 
   /**
@@ -90,7 +116,7 @@ class BaseDRInitializer {
    * @param faceIDs faceIDs of the cells which are to be read
    */
   void queryModel(seissol::initializers::FaultParameterDB& faultParameterDB,
-                  std::vector<unsigned> faceIDs);
+                  std::vector<unsigned> const& faceIDs);
 
   /**
    * Evaluates, whether the FaultParameterDB provides a certain parameter.
@@ -104,31 +130,13 @@ class BaseDRInitializer {
    * Rotates the fault-aligned traction to cartesian stress coordinates
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
-   * @param stressXX reference to std::vector of std::array<real, numPaddedPoints>
-   * IN: stores traction in normal direction, OUT: stores the XX component of the stress in
+   * @param stress reference to a StressTensor
+   * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
    * cartesian coordinates
-   * @param stressYY reference to std::vector of std::array<real, numPaddedPoints>
-   * IN: zero, OUT: stores the YY component of the stress in cartesian coordinates
-   * @param stressZZ reference to std::vector of std::array<real, numPaddedPoints>
-   * IN: zero, OUT: stores the ZZ component of the stress in cartesian coordinates
-   * @param stressXX reference to std::vector of std::array<real, numPaddedPoints>
-   * IN: stores traction in strike direction, OUT: stores the XY component of the stress in
-   * cartesian coordinates
-   * @param stressYZ reference to std::vector of std::array<real, numPaddedPoints>
-   * IN: zero, OUT: stores the YZ component of the stress in cartesian coordinates
-   * @param stressXZ reference to std::vector of std::array<real, numPaddedPoints>
-   * IN: stroes traction in dip direction, OUT: stores the XZ component of the stress in cartesian
-   * coordinates
    */
-  void rotateTractionToCartesianStress(
-      seissol::initializers::DynamicRupture* dynRup,
-      seissol::initializers::LTSTree::leaf_iterator& it,
-      std::vector<std::array<real, misc::numPaddedPoints>>& stressXX,
-      std::vector<std::array<real, misc::numPaddedPoints>>& stressYY,
-      std::vector<std::array<real, misc::numPaddedPoints>>& stressZZ,
-      std::vector<std::array<real, misc::numPaddedPoints>>& stressXY,
-      std::vector<std::array<real, misc::numPaddedPoints>>& stressYZ,
-      std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ);
+  void rotateTractionToCartesianStress(seissol::initializers::DynamicRupture const* const dynRup,
+                                       seissol::initializers::LTSTree::leaf_iterator& it,
+                                       StressTensor& stress);
 
   /**
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
@@ -136,28 +144,12 @@ class BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    * @param stressInFaultCS pointer to array of size [numCells][numPaddedPoints][6], stores rotated
    * stress
-   * @param stressXX reference to std::vector of std::array<real, numPaddedPoints>, stores the XX
-   * component of the stress in cartesian coordinates
-   * @param stressYY reference to std::vector of std::array<real, numPaddedPoints>, stores the YY
-   * component of the stress in cartesian coordinates
-   * @param stressZZ reference to std::vector of std::array<real, numPaddedPoints>, stores the ZZ
-   * component of the stress in cartesian coordinates
-   * @param stressXX reference to std::vector of std::array<real, numPaddedPoints>, stores the XY
-   * component of the stress in cartesian coordinates
-   * @param stressYZ reference to std::vector of std::array<real, numPaddedPoints>, stores the YZ
-   * component of the stress in cartesian coordinates
-   * @param stressXZ reference to std::vector of std::array<real, numPaddedPoints>, stores the XZ
-   * component of the stress in cartesian coordinates
+   * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
-  void rotateStressToFaultCS(seissol::initializers::DynamicRupture* dynRup,
+  void rotateStressToFaultCS(seissol::initializers::DynamicRupture const* const dynRup,
                              seissol::initializers::LTSTree::leaf_iterator& it,
                              real (*stressInFaultCS)[misc::numPaddedPoints][6],
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXX,
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressYY,
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressZZ,
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXY,
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressYZ,
-                             std::vector<std::array<real, misc::numPaddedPoints>>& stressXZ);
+                             StressTensor const& stress);
 
   /**
    * Checks how the initial stress (nucleation stress) is characterized. The user can either provide
@@ -169,7 +161,7 @@ class BaseDRInitializer {
    * to false, check identifiers for the initial stress
    * @return vector of strings, with the identifiers for the initial stress.
    */
-  std::vector<std::string> stressIdentifiers(bool readNucleation);
+  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(bool readNucleation);
 };
 
 } // namespace seissol::dr::initializers

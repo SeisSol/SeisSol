@@ -26,7 +26,7 @@ class GridPoints {
   real const& operator[](size_t i) const { return values[i]; };
 
   private:
-  real values[N]{0};
+  std::array<real, N> values;
 };
 
 /**
@@ -47,7 +47,7 @@ class InverseFourierCoefficients {
   real const& operator[](size_t i) const { return values[i]; };
 
   private:
-  real values[N]{0};
+  std::array<real, N> values;
 };
 
 /**
@@ -61,18 +61,18 @@ class GaussianHeatSource {
     real factor = 1 / std::sqrt(2.0 * M_PI);
 
     for (size_t i = 0; i < N; ++i) {
-      real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
+      const real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
       values[i] = factor * heatGeneration;
     }
   }
   real const& operator[](size_t i) const { return values[i]; };
 
   private:
-  real values[N]{0};
+  std::array<real, N> values;
 };
 
 /**
- * We follow Noda&Lapusta (2010).
+ * We follow Noda&Lapusta (2010) doi:10.1029/2010JB007780.
  * Define: \f$p, T\f$ pressure and temperature, \f$\Pi, \Theta\f$ fourier transform of pressure and
  * temperature respectively, \f$\Sigma = \Pi + \Lambda^\prime \Theta\f$. We solve equations (6) and
  * (7) with the method from equation(10).
@@ -100,13 +100,13 @@ class GaussianHeatSource {
  */
 class ThermalPressurization {
   public:
-  ThermalPressurization(DRParameters& drParameters) : drParameters(drParameters){};
+  explicit ThermalPressurization(DRParameters* drParameters) : drParameters(drParameters){};
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   /**
@@ -114,14 +114,14 @@ class ThermalPressurization {
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
    */
   void calcFluidPressure(std::array<real, misc::numPaddedPoints> const& normalStress,
-                         real (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
+                         real const (*mu)[misc::numPaddedPoints],
+                         std::array<real, misc::numPaddedPoints> const& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          unsigned int timeIndex,
                          unsigned int ltsFace);
 
-  real fluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
+  real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
     return pressure[ltsFace][pointIndex];
   }
 
@@ -137,10 +137,10 @@ class ThermalPressurization {
   real (*faultStrength)[misc::numPaddedPoints];
 
   private:
-  DRParameters& drParameters;
+  DRParameters* drParameters;
 
   /**
-   * Compute temperature and pressure update according to Noda&Lapusta (2010) on one GausPoint
+   * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   void updateTemperatureAndPressure(real slipRateMagnitude,
                                     real deltaT,

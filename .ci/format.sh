@@ -8,7 +8,7 @@
 
 format() {
     # don't use a directory with whitespace
-    local whitelist="src/DynamicRupture src/tests/DynamicRupture/Output"
+    local whitelist="src/DynamicRupture src/tests/DynamicRupture"
 
     local SEISSOL_SOURCE_DIR="${2}"
     local formatter="${1}"

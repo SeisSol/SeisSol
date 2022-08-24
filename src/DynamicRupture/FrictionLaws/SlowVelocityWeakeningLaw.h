@@ -4,9 +4,6 @@
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
-/**
- * This class was not tested and compared to the Fortran FL4.
- */
 template <class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
@@ -17,7 +14,7 @@ class SlowVelocityWeakeningLaw
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
@@ -43,12 +40,12 @@ class SlowVelocityWeakeningLaw
                   unsigned int pointIndex,
                   double localSlipRateMagnitude,
                   double localStateVariable) {
-    double localA = this->a[ltsFace][pointIndex];
-    double localSl0 = this->sl0[ltsFace][pointIndex];
-    double log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
+    const double localA = this->a[ltsFace][pointIndex];
+    const double localSl0 = this->sl0[ltsFace][pointIndex];
+    const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
-    double x = 0.5 * (localSlipRateMagnitude / this->drParameters.rsSr0) *
-               std::exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
+    const double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
+                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
     return localA * misc::asinh(x);
   }
 
@@ -65,31 +62,33 @@ class SlowVelocityWeakeningLaw
                             unsigned int pointIndex,
                             double localSlipRateMagnitude,
                             double localStateVariable) {
-    double localA = this->a[ltsFace][pointIndex];
-    double localSl0 = this->sl0[ltsFace][pointIndex];
-    double log1 = std::log(this->drParameters.rsSr0 * localStateVariable / localSl0);
-    double c = (0.5 / this->drParameters.rsSr0) *
-               std::exp((this->drParameters.rsF0 + this->drParameters.rsB * log1) / localA);
+    const double localA = this->a[ltsFace][pointIndex];
+    const double localSl0 = this->sl0[ltsFace][pointIndex];
+    const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
+    const double c = (0.5 / this->drParameters->rsSr0) *
+                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
     return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
   }
 
   /**
-   * Resample the state variable. For Slow Velocity Weakening Laws, we do nothing.
+   * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
+   * member variable.
    */
-  std::array<real, misc::numPaddedPoints>
-      resampleStateVar(std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                       unsigned int ltsFace) {
-    return stateVariableBuffer;
+  void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
+                        unsigned int ltsFace) const {
+    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+      this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
+    }
   }
 
   void executeIfNotConverged(std::array<real, misc::numPaddedPoints> const& localStateVariable,
                              unsigned ltsFace) {
-    [[maybe_unused]] real tmp =
-        0.5 / this->drParameters.rsSr0 *
+    [[maybe_unused]] const real tmp =
+        0.5 / this->drParameters->rsSr0 *
         std::exp(
-            (this->drParameters.rsF0 +
-             this->drParameters.rsB * std::log(this->drParameters.rsSr0 * localStateVariable[0] /
-                                               this->drParameters.rsSr0)) /
+            (this->drParameters->rsF0 +
+             this->drParameters->rsB * std::log(this->drParameters->rsSr0 * localStateVariable[0] /
+                                                this->drParameters->rsSr0)) /
             this->a[ltsFace][0]);
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }

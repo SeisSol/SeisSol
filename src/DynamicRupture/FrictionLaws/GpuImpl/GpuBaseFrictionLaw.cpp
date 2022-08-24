@@ -5,7 +5,7 @@
 #include <sstream>
 
 namespace seissol::dr::friction_law::gpu {
-GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters& drParameters)
+GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters* drParameters)
     : FrictionSolver(drParameters) {}
 
 GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
@@ -35,23 +35,32 @@ void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   tractionResults = reinterpret_cast<TractionResults*>(
       omp_target_alloc(maxClusterSize * sizeof(TractionResults), deviceId));
 
-  size_t requiredNumBytes = misc::numPaddedPoints * maxClusterSize * sizeof(real);
-  stateVariableBuffer =
-      reinterpret_cast<decltype(stateVariableBuffer)>(omp_target_alloc(requiredNumBytes, deviceId));
-  strengthBuffer =
-      reinterpret_cast<decltype(strengthBuffer)>(omp_target_alloc(requiredNumBytes, deviceId));
+  {
+    const size_t requiredNumBytes = misc::numPaddedPoints * maxClusterSize * sizeof(real);
+    using StateVariableType = decltype(stateVariableBuffer);
+    stateVariableBuffer =
+        reinterpret_cast<StateVariableType>(omp_target_alloc(requiredNumBytes, deviceId));
 
-  requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
-  devTimeWeights = static_cast<double*>(omp_target_alloc(requiredNumBytes, deviceId));
+    using StrengthBufferType = decltype(stateVariableBuffer);
+    strengthBuffer =
+        reinterpret_cast<StrengthBufferType>(omp_target_alloc(requiredNumBytes, deviceId));
+  }
 
-  requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
-  devDeltaT = static_cast<real*>(omp_target_alloc(requiredNumBytes, deviceId));
+  {
+    const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    devTimeWeights = static_cast<double*>(omp_target_alloc(requiredNumBytes, deviceId));
+  }
+
+  {
+    const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
+    devDeltaT = static_cast<real*>(omp_target_alloc(requiredNumBytes, deviceId));
+  }
 }
 
 void GpuBaseFrictionLaw::copyStaticDataToDevice() {
   constexpr auto dim0 = misc::dimSize<init::resample, 0>();
   constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-  size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
+  const size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
 
   resampleMatrix = reinterpret_cast<real*>(omp_target_alloc(requiredNumBytes, deviceId));
 

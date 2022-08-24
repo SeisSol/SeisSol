@@ -13,7 +13,7 @@ inline real smoothStep(real currentTime, real t0) {
   if (currentTime <= 0) {
     return 0.0;
   } else if (currentTime < t0) {
-    real tau = currentTime - t0;
+    const real tau = currentTime - t0;
     return std::exp(tau * tau /
                     (currentTime * (currentTime - 2.0 * t0)));
   } else {

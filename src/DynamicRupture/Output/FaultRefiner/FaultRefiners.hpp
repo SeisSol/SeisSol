@@ -24,7 +24,7 @@ class FaultRefiner {
 
   virtual int getNumSubTriangles() = 0;
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
-  virtual ~FaultRefiner(){};
+  virtual ~FaultRefiner() = default;
 
   ReceiverPointsT&& moveAllReceiverPoints() { return std::move(points); }
   ReceiverPointsT getAllReceiverPoints() { return points; }

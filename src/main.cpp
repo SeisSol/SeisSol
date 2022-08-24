@@ -39,10 +39,12 @@
 
 #include "SeisSol.h"
 
+#include <yaml-cpp/yaml.h>
+
 extern "C" {
   void fortran_main();
 }
-#include <yaml-cpp/yaml.h>
+
 int main(int argc, char* argv[])
 {
 	EPIK_TRACER("SeisSol");

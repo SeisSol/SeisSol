@@ -20,7 +20,7 @@ real yoffe(real time, real riseTime) {
  */
 real triangle(real time, real halfDuration) {
   assert(halfDuration > 0);
-  real halfDurationSquared = halfDuration * halfDuration;
+  const real halfDurationSquared = halfDuration * halfDuration;
   if (time > 0 && time < halfDuration) {
     return time / halfDurationSquared;
   } else if (time > halfDuration && time < 2 * halfDuration) {
@@ -40,9 +40,9 @@ real regularizedYoffe(real time, real tauS, real tauR) {
   } else {
     // use trapezoidal rule to compute integral
     real yoffeVal = 0.0;
-    size_t numberOfTrapezoids = 1e6;
+    const size_t numberOfTrapezoids = 1e6;
     // we integrate from -2*tauS until tauR + 2*tauS
-    real h = (tauR + 4 * tauS) / numberOfTrapezoids;
+    const real h = (tauR + 4 * tauS) / numberOfTrapezoids;
     // integrate yoffe(x) * triangle(time - x) dx
     auto integrand = [&time, &tauS, &tauR](real x) {
       return yoffe(x, tauR) * triangle(time - x, tauS);

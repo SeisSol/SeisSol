@@ -16,15 +16,15 @@ namespace seissol::dr::friction_law {
 template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
-  BaseFrictionLaw(dr::DRParameters& drParameters) : FrictionSolver(drParameters){};
+  explicit BaseFrictionLaw(dr::DRParameters* drParameters) : FrictionSolver(drParameters){};
 
   /**
    * evaluates the current friction model
    */
   void evaluate(seissol::initializers::Layer& layerData,
-                seissol::initializers::DynamicRupture* dynRup,
+                seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
-                double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER]) override {
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
@@ -34,7 +34,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       alignas(ALIGNMENT) FaultStresses faultStresses{};
-      Common::precomputeStressFromQInterpolated(faultStresses,
+      common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
                                                 qInterpolatedMinus[ltsFace]);
@@ -60,26 +60,16 @@ class BaseFrictionLaw : public FrictionSolver {
 
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
-      // output rupture front
-      Common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+      common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
                                      ruptureTime[ltsFace],
                                      slipRateMagnitude[ltsFace],
                                      mFullUpdateTime);
 
-      // output time when shear stress is equal to the dynamic stress after rupture arrived
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
-      // output peak slip rate
-      Common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+      common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
 
-      // output average slip
-      // TODO: What about outputSlip
-      // if (drParameters.isMagnitudeOutputOn) {
-      // Common::saveAverageSlipOutput(outputSlip, averagedSlip[ltsFace]);
-      //}
-
-      // compute output
-      Common::postcomputeImposedStateFromNewStress(faultStresses,
+      common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
                                                    imposedStatePlus[ltsFace],

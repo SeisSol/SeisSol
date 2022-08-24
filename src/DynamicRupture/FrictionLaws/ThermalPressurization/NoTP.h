@@ -4,10 +4,10 @@
 namespace seissol::dr::friction_law {
 class NoTP {
   public:
-  NoTP(DRParameters& drParameters){};
+  NoTP(DRParameters* drParameters){};
 
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
   void calcFluidPressure(std::array<real, misc::numPaddedPoints>& normalStress,
@@ -18,7 +18,7 @@ class NoTP {
                          unsigned int timeIndex,
                          unsigned int ltsFace) {}
 
-  real fluidPressure(unsigned, unsigned) const { return 0; };
+  real getFluidPressure(unsigned, unsigned) const { return 0; };
 };
 
 } // namespace seissol::dr::friction_law

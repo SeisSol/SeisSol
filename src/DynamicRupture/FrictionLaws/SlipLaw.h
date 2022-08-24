@@ -4,12 +4,6 @@
 #include "SlowVelocityWeakeningLaw.h"
 
 namespace seissol::dr::friction_law {
-
-/**
- * This class was not tested and compared to the Fortran FL4. Since FL4 initialization did not work
- * properly on the Master Branch. This class is also less optimized. It was left in here to have a
- * reference of how it could be implemented.
- */
 template <typename TPMethod>
 class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   public:
@@ -34,8 +28,8 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
                              double stateVarReference,
                              double timeIncrement,
                              double localSlipRate) {
-    double localSl0 = this->sl0[face][pointIndex];
-    double exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
+    const double localSl0 = this->sl0[face][pointIndex];
+    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
     return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
   }
 };

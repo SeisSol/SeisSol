@@ -1,5 +1,5 @@
-#ifndef SEISSOL_STF_H
-#define SEISSOL_STF_H
+#ifndef SEISSOL_SOURCETIMEFUNCTION_H
+#define SEISSOL_SOURCETIMEFUNCTION_H
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
@@ -15,7 +15,7 @@ class YoffeSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime,
@@ -31,11 +31,11 @@ class GaussianSTF {
 
   public:
   void copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
-                          seissol::initializers::DynamicRupture* dynRup,
+                          seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_STF_H
+#endif // SEISSOL_SOURCETIMEFUNCTION_H
