@@ -77,6 +77,8 @@ inline void precomputeStressFromQInterpolated(
 
   using namespace dr::misc::quantity_indices;
 
+  checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
+
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)
