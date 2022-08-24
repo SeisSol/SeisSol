@@ -101,7 +101,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   scaling
   basic-code-structure
   known-issues
-  breaking-changes-backward-compability
+  breaking-changes-backward-compatibility
 
 .. toctree::
   :maxdepth: 2
