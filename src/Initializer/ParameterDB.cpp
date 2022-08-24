@@ -90,7 +90,7 @@ seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshRead
     // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
     double quadraturePoints[NUM_QUADPOINTS][3];
     double quadratureWeights[NUM_QUADPOINTS];
-    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QUAD_DEG);
+    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, CONVERGENCE_ORDER);
     // Initialize const class members with results
     std::copy(std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
     for (int i = 0; i < NUM_QUADPOINTS; ++i) {
