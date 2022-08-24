@@ -100,12 +100,9 @@ class seissol::initializers::ElementAverageGenerator : public seissol::initializ
 public:
   explicit ElementAverageGenerator(MeshReader const& meshReader);
   virtual easi::Query generate() const;
-  const std::vector<double>& getElemVolumes() const { return m_elemVolumes; };
   const std::array<double, NUM_QUADPOINTS>& getQuadratureWeights() const { return m_quadratureWeights; };
 private:
-  const std::vector<double> elementVolumes();
   MeshReader const& m_meshReader;
-  std::vector<double> m_elemVolumes;
   std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
   std::array<std::array<double,3>, NUM_QUADPOINTS> m_quadraturePoints;
 };
@@ -150,7 +147,7 @@ public:
 template<class T>
 class seissol::initializers::MaterialParameterDB : seissol::initializers::ParameterDB {
 public: 
-  T computeAveragedMaterial(unsigned elementIdx, double elementVolume, std::array<double, NUM_QUADPOINTS> const& quadratureWeights, std::vector<T> const& materialsFromQuery);
+  T computeAveragedMaterial(unsigned elementIdx, std::array<double, NUM_QUADPOINTS> const& quadratureWeights, std::vector<T> const& materialsFromQuery);
   virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
