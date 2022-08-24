@@ -150,6 +150,7 @@ public:
 template<class T>
 class seissol::initializers::MaterialParameterDB : seissol::initializers::ParameterDB {
 public: 
+  T computeAveragedMaterial(unsigned elementIdx, double elementVolume, std::array<double, NUM_QUADPOINTS> const& quadratureWeights, std::vector<T> const& materialsFromQuery);
   virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
