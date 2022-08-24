@@ -229,9 +229,9 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {
-  const auto p0 = triangle.point(0).getAsEigenLibVector();
-  const auto p1 = triangle.point(1).getAsEigenLibVector();
-  const auto p2 = triangle.point(2).getAsEigenLibVector();
+  const auto p0 = triangle.point(0).getAsEigen3LibVector();
+  const auto p1 = triangle.point(1).getAsEigen3LibVector();
+  const auto p2 = triangle.point(2).getAsEigen3LibVector();
 
   const auto vector1 = p1 - p0;
   const auto vector2 = p2 - p0;

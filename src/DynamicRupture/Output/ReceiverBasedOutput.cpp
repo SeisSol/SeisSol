@@ -48,7 +48,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
 
     assert(outputData->receiverPoints[i].isInside == true &&
-           "A receiver must be on a fault. Error in pre-processing");
+           "a receiver is not within any tetrahedron adjacent to a fault");
 
     const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
@@ -146,11 +146,11 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     switch (generalParams.slipRateOutputType) {
     case SlipRateOutputType::TractionsAndFailure: {
-      this->computeLocalSlipRate(local, rotatedUpdatedStress, rotatedStress);
+      this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
     case SlipRateOutputType::VelocityDifference: {
-      this->computeLocalSlipRate(local, tangent1, tangent2, strike, dip);
+      this->computeSlipRate(local, tangent1, tangent2, strike, dip);
       break;
     }
     }
@@ -318,9 +318,9 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
   }
 }
 
-void ReceiverOutput::computeLocalSlipRate(LocalInfo& local,
-                                          const std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress) {
+void ReceiverOutput::computeSlipRate(LocalInfo& local,
+                                     const std::array<real, 6>& rotatedUpdatedStress,
+                                     const std::array<real, 6>& rotatedStress) {
 
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
@@ -329,11 +329,11 @@ void ReceiverOutput::computeLocalSlipRate(LocalInfo& local,
                                             rotatedStress[QuantityIndices::XZ]);
 }
 
-void ReceiverOutput::computeLocalSlipRate(LocalInfo& local,
-                                          const double* tangent1,
-                                          const double* tangent2,
-                                          const double* strike,
-                                          const double* dip) {
+void ReceiverOutput::computeSlipRate(LocalInfo& local,
+                                     const double* tangent1,
+                                     const double* tangent2,
+                                     const double* strike,
+                                     const double* dip) {
   local.slipRateStrike = static_cast<real>(0.0);
   local.slipRateDip = static_cast<real>(0.0);
 
@@ -378,7 +378,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     for (size_t jBndGP = 0; jBndGP < misc::numberOfBoundaryGaussPoints; ++jBndGP) {
       real chi = chiTau2dPoints(jBndGP, 0);
       real tau = chiTau2dPoints(jBndGP, 1);
-      basisFunction::triDubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
+      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
       for (size_t d = 0; d < numDegFr2d; ++d) {
         projectedRT[d] += weights(jBndGP) * rt[local.ltsId][jBndGP] * phiAtPoint[d];
@@ -394,7 +394,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
     const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
 
-    basisFunction::triDubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
+    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, numPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};

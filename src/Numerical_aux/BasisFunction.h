@@ -264,7 +264,7 @@ T TimeBasisFunctionGenerator<T>::operator()(unsigned int i) const {
   return functions::DubinerP<1>({i}, {tau_});
 }
 
-namespace triDubiner {
+namespace tri_dubiner {
 inline void evaluatePolynomials(double* phis, double xi, double eta, int numPoly) {
   assert(numPoly > 0);
   unsigned idx = 0;
@@ -287,7 +287,7 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, int num
     }
   }
 }
-} // namespace triDubiner
+} // namespace tri_dubiner
 } // namespace basisFunction
 } //namespace seissol
 

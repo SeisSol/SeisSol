@@ -112,7 +112,6 @@ public:
   }
 
   static void removeEmptyLines(StringsType& content) {
-
     const std::string WHITESPACE = " \n\r\t\f\v";
     auto isEmptyString = [&WHITESPACE](const std::string & string) -> bool {
       size_t start = string.find_first_not_of(WHITESPACE);

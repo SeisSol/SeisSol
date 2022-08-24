@@ -41,7 +41,7 @@
 #include <climits>
 #include <unistd.h>
 #include <sys/resource.h>
-#include <fty/include/Fty.hpp>
+#include <fty/fty.hpp>
 
 #ifdef ACL_DEVICE
 #include "device.h"

@@ -79,14 +79,13 @@ class ReceiverOutput {
   virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
   void updateLocalTractions(LocalInfo& local, real strength);
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
-  virtual void computeLocalSlipRate(LocalInfo& local,
-                                    const std::array<real, 6>&,
-                                    const std::array<real, 6>&);
-  void computeLocalSlipRate(LocalInfo& local,
-                            const double* tangent1,
-                            const double* tangent2,
-                            const double* strike,
-                            const double* dip);
+  virtual void
+      computeSlipRate(LocalInfo& local, const std::array<real, 6>&, const std::array<real, 6>&);
+  void computeSlipRate(LocalInfo& local,
+                       const double* tangent1,
+                       const double* tangent2,
+                       const double* strike,
+                       const double* dip);
   virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,

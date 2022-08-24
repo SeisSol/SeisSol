@@ -52,7 +52,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
       const auto& receiverPoint = potentialReceivers[receiverId];
-      eigenPoints[receiverId] = receiverPoint.global.getAsEigenLibVector();
+      eigenPoints[receiverId] = receiverPoint.global.getAsEigen3LibVector();
     }
 
     std::vector<short> contained(numReceiverPoints);
@@ -105,7 +105,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                                           meshVertices[element.vertices[1]].coords,
                                                           meshVertices[element.vertices[2]].coords,
                                                           meshVertices[element.vertices[3]].coords,
-                                                          receiver.global.getAsEigenLibVector());
+                                                          receiver.global.getAsEigen3LibVector());
       }
     }
 

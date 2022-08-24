@@ -42,7 +42,7 @@ struct ExtVrtxCoords {
     return coords[index];
   }
 
-  Eigen::Vector3d getAsEigenLibVector() const {
+  Eigen::Vector3d getAsEigen3LibVector() const {
     return Eigen::Vector3d(coords[0], coords[1], coords[2]);
   }
 
