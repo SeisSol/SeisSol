@@ -87,16 +87,14 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
 seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshReader const& meshReader)
   : m_meshReader(meshReader)
   {
-    // Generate subpoints and weights in reference tetrahedron using Gaussian quadrature
     double quadraturePoints[NUM_QUADPOINTS][3];
     double quadratureWeights[NUM_QUADPOINTS];
     seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, CONVERGENCE_ORDER);
-    // Initialize const class members with results
+
     std::copy(std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
     for (int i = 0; i < NUM_QUADPOINTS; ++i) {
       std::copy(std::begin(quadraturePoints[i]), std::end(quadraturePoints[i]), std::begin(m_quadraturePoints[i]));
     }
-    // Initialize element volumes
     m_elemVolumes = elementVolumes();
   }
 
@@ -104,10 +102,10 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
-  // Generate query using subpoints for each element
+  // Generate query using quadrature points for each element
   easi::Query query(elements.size() * NUM_QUADPOINTS, 3);
   
-  // Transform subpoints to global coordinates for all elements
+  // Transform quadrature points to global coordinates for all elements
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
       std::array<double, 3> xyz{};
@@ -116,7 +114,6 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(elem * NUM_QUADPOINTS + i,dim) = xyz[dim];
       }
-      // Group
       query.group(elem * NUM_QUADPOINTS + i) = elements[elem].group;
     }
   }
@@ -378,8 +375,9 @@ namespace seissol {
       double vERatioMean = 0.0;
 
       for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
-        double quadWeight = 6 * elementVolume * quadratureWeights[quadPointIdx];
-        unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
+        const double quadScale = 6 * elementVolume;
+        const double quadWeight = 6 * quadScale * quadratureWeights[quadPointIdx];
+        const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
         auto& elementMaterial = materialsFromQuery[globalPointIdx];
         muMeanInv += 1 / elementMaterial.mu * quadWeight;
         rhoMean += elementMaterial.rho * quadWeight;
@@ -407,8 +405,9 @@ namespace seissol {
       double QsMean = 0.0;
 
       for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
-        double quadWeight = 6 * elementVolume * quadratureWeights[quadPointIdx];
-        unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
+        const double quadScale = 6 * elementVolume;
+        const double quadWeight = quadScale * quadratureWeights[quadPointIdx];
+        const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
         auto& elementMaterial = materialsFromQuery[globalPointIdx];
         muMeanInv += 1 / elementMaterial.mu * quadWeight;
         rhoMean += elementMaterial.rho * quadWeight;
