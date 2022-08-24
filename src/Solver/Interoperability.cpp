@@ -890,15 +890,15 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
 
   // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip magnitude
   real* stateVariable{nullptr};
-  if (dynamic_cast<seissol::initializers::LTS_RateAndState*>(m_dynRup)) {
-    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTS_RateAndState*>(m_dynRup)->stateVariable));
+  if (dynamic_cast<seissol::initializers::LTSRateAndState*>(m_dynRup)) {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTSRateAndState*>(m_dynRup)->stateVariable));
   } else {
     stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->accumulatedSlipMagnitude));
   }
   // Only with prakash-clifton regularization, we store the fault strength, otherwise use the friction coefficient
   real* strength{nullptr};
-  if (dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(m_dynRup)) {
-    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTS_LinearSlipWeakeningBimaterial*>(m_dynRup)->regularisedStrength));
+  if (dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial*>(m_dynRup)) {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial*>(m_dynRup)->regularisedStrength));
   } else {
     stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->mu));
   }
