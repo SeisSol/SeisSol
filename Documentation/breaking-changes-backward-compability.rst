@@ -1,20 +1,21 @@
-Breaking changes in backwards compability
-=========================================
+Breaking changes in backward compatibility
+==========================================
 
-SeisSol has been around since the early 2000s.
-During this time, the code has undergone a lot of enhancements and refactorings to always keep up-to-date with what compute-centers offer and geoscientists need.
-Unfortunately, development of such a large software stack over such a long period of time, does not go without breaking conventions from time to time.
-In this page, we list breaking changes.
+To keep up-to-date with changes in compute-centers and geoscientists' needs, breaking changes sometimes needed to be introduced in SeisSol.
+They are listed here.
 
 Energy Output
 ~~~~~~~~~~~~~
-Todo(TU, LK): I realized, I have to remove some lines regarding the energy output from the parameter file, after the refactoring of the energy output file.
 
-Convert parameter files for latest DR implementation (dr/cpp)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since we merged GitHub pull request `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_ (April 2022), the seismic moment time history output, 
+from which the moment rate can be post-processed, is integrated into the energy output  (see :ref:`energy_output`).
+Therefore the parameters `magnitude_output_on`, `energy_rate_output_on` and `energy_rate_printtimeinterval` have been removed from the `DynamicRupture` namelist in the main parameter file.
 
-While porting Dynamic Rupture to C++, we changed a few parameter names to make things more consistent.
-The new Dynamic Rupture implementation has been accecpted in September 2022 (github pull request `#625 <https://github.com/SeisSol/SeisSol/pull/625>`_).
+C++ dynamic rupture implementation (dr/cpp)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+While porting dynamic rupture to C++, we changed a few parameter names to make things more consistent.
+The new dynamic rupture implementation has been merged in September 2022 (GitHub pull request `#625 <https://github.com/SeisSol/SeisSol/pull/625>`_).
 
 Parameter file (`parameters.par`):
 
@@ -54,5 +55,4 @@ Fault-specific yaml file (`fault.yaml`):
 | `TP_half_width_shear_zone`  |  `tp_halfWidthShearZone`   |
 +-----------------------------+----------------------------+
 
-Note that the identifiers in the `yaml` file are case sensitive.
-Maybe you also have to change e.g. `RS_b` to `rs_b`.
+Note that the list may not be exhaustive, as we harmonized the case of many parameters in dr/cpp (Identifiers in `yaml` files are case sensitive).
