@@ -8,9 +8,9 @@
 #include "Initializer/tree/Lut.hpp"
 
 namespace seissol::dr::output {
-class ReceiverBasedOutput {
+class ReceiverOutput {
   public:
-  virtual ~ReceiverBasedOutput() = default;
+  virtual ~ReceiverOutput() = default;
 
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -19,40 +19,20 @@ class ReceiverBasedOutput {
                   seissol::initializers::DynamicRupture* userDrDescr);
 
   void setMeshReader(MeshReader* userMeshReader) { meshReader = userMeshReader; }
-  void setFaceToLtsMap(FaceToLtsMapT* map) { faceToLtsMap = map; }
+  void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(OutputType type,
-                       ReceiverBasedOutputData& state,
-                       const GeneralParamsT& generalParams,
+                       std::shared_ptr<ReceiverOutputData> state,
+                       const GeneralParams& generalParams,
                        double time = 0.0);
 
   protected:
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
-  void computeLocalStresses();
-  virtual real computeLocalStrength() = 0;
-  virtual real computeFluidPressure() { return 0.0; }
-  virtual real computeStateVariable() { return 0.0; }
-  void updateLocalTractions(real strength);
-  virtual void computeSlipRate(std::array<real, 6>&, std::array<real, 6>&);
-  void computeSlipRate(const double* tangent1,
-                       const double* tangent2,
-                       const double* strike,
-                       const double* dip);
-
-  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          std::array<real, 6>& rotatedStress){};
-
-  virtual void
-      outputSpecifics(ReceiverBasedOutputData& data, size_t outputSpecifics, size_t receiverIdx) {}
-  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d);
-
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};
   seissol::initializers::Lut* wpLut{nullptr};
   seissol::initializers::LTSTree* drTree{nullptr};
   seissol::initializers::DynamicRupture* drDescr{nullptr};
   MeshReader* meshReader{nullptr};
-  FaceToLtsMapT* faceToLtsMap{nullptr};
+  FaceToLtsMapType* faceToLtsMap{nullptr};
 
   struct LocalInfo {
     seissol::initializers::Layer* layer{};
@@ -89,7 +69,29 @@ class ReceiverBasedOutput {
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
-  } local{};
+  };
+
+  void getDofs(real dofs[tensor::Q::size()], int meshId);
+  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void computeLocalStresses(LocalInfo& local);
+  virtual real computeLocalStrength(LocalInfo& local) = 0;
+  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
+  void updateLocalTractions(LocalInfo& local, real strength);
+  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
+  virtual void
+      computeSlipRate(LocalInfo& local, const std::array<real, 6>&, const std::array<real, 6>&);
+  void computeSlipRate(LocalInfo& local,
+                       const double* tangent1,
+                       const double* tangent2,
+                       const double* strike,
+                       const double* dip);
+  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+                               const LocalInfo& local,
+                               size_t outputSpecifics,
+                               size_t receiverIdx) {}
+  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
+                                          const std::array<real, 6>& rotatedStress){};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP

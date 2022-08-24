@@ -8,9 +8,9 @@ namespace seissol::dr::output {
 class PickPointBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~PickPointBuilder() override = default;
-  void setParams(const PickpointParamsT& params) { pickpointParams = params; }
-  void build(ReceiverBasedOutputData* ppOutputData) override {
-    outputData = ppOutputData;
+  void setParams(PickpointParams params) { pickpointParams = std::move(params); }
+  void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
+    outputData = pickPointOutputData;
     readCoordsFromFile();
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
@@ -27,7 +27,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   protected:
   void readCoordsFromFile() {
     using namespace seissol::initializers;
-    StringsT content = FileProcessor::getFileAsStrings(pickpointParams.ppFileName);
+    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.ppFileName);
     FileProcessor::removeEmptyLines(content);
 
     // iterate line by line and initialize DrRecordPoints
@@ -35,7 +35,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       std::array<real, 3> coords{};
       convertStringToMask(line, coords);
 
-      ReceiverPointT point{};
+      ReceiverPoint point{};
       for (int i = 0; i < 3; ++i) {
         point.global.coords[i] = coords[i];
       }
@@ -52,17 +52,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<Eigen::Vector3d> eigenPoints(numReceiverPoints);
     for (size_t receiverId{0}; receiverId < numReceiverPoints; ++receiverId) {
       const auto& receiverPoint = potentialReceivers[receiverId];
-      eigenPoints[receiverId] = receiverPoint.global.getAsEigenVector();
+      eigenPoints[receiverId] = receiverPoint.global.getAsEigen3LibVector();
     }
 
     std::vector<short> contained(numReceiverPoints);
     std::vector<unsigned> localIds(numReceiverPoints, std::numeric_limits<unsigned>::max());
 
-    std::vector<Vertex> faultVertices;
-    std::vector<Element> faultElements;
-    std::unordered_map<size_t, std::vector<size_t>> elementToFault{};
-
-    std::tie(faultVertices, faultElements, elementToFault) = getElementsAlongFault();
+    const auto [faultVertices, faultElements, elementToFault] = getElementsAlongFault();
 
     seissol::initializers::findMeshIds(eigenPoints.data(),
                                        faultVertices,
@@ -80,7 +76,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
       if (static_cast<bool>(contained[receiverIdx])) {
         const auto localId = localIds[receiverIdx];
-        const auto& faultIndices = elementToFault[localId];
+
+        const auto faultIndicesIt = elementToFault.find(localId);
+        assert(faultIndicesIt != elementToFault.end());
+        const auto& faultIndices = faultIndicesIt->second;
+
         const auto firstFaultIdx = faultIndices[0];
 
         // find the original element which contains a fault face
@@ -99,14 +99,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.localFaceSideId = faultItem.side;
         receiver.globalReceiverIndex = receiverIdx;
         receiver.elementIndex = element.localId;
-        receiver.isInside = true;
 
-        using namespace seissol::transformations;
-        receiver.reference = tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
+        receiver.reference =
+            transformations::tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
                                                           meshVertices[element.vertices[1]].coords,
                                                           meshVertices[element.vertices[2]].coords,
                                                           meshVertices[element.vertices[3]].coords,
-                                                          receiver.global.getAsEigenVector());
+                                                          receiver.global.getAsEigen3LibVector());
       }
     }
 
@@ -238,8 +237,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
 
   private:
-  PickpointParamsT pickpointParams;
-  std::vector<ReceiverPointT> potentialReceivers{};
+  PickpointParams pickpointParams;
+  std::vector<ReceiverPoint> potentialReceivers{};
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP

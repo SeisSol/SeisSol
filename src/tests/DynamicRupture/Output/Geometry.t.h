@@ -64,9 +64,7 @@ TEST_CASE("DR Geometry") {
     double targetPoint[2] = {-0.25, -0.25};
     double facePoints[4][2] = {{1.0, 1.0}, {-1.0, 1.0}, {-1.0, -1.0}, {1.0, -1.0}};
 
-    int testPointId{-1};
-    double testDistance{-1.0};
-    std::tie(testPointId, testDistance) = getNearestFacePoint(targetPoint, facePoints, 4);
+    auto [testPointId, testDistance] = getNearestFacePoint(targetPoint, facePoints, 4);
 
     constexpr double epsilon = 1e-6;
     REQUIRE(testPointId == 2);
@@ -91,7 +89,7 @@ TEST_CASE("DR Geometry") {
     ExtVrtxCoords point3{3.0, 1.0, -2.0};
     ExtTriangle triangle(point1, point2, point3);
 
-    auto testMiddle = getMidTrianglePoint(triangle);
+    auto testMiddle = getMidPointTriangle(triangle);
 
     constexpr double epsilon = 1e-6;
     REQUIRE(testMiddle[x] == AbsApprox(1.0).epsilon(epsilon));
@@ -100,10 +98,6 @@ TEST_CASE("DR Geometry") {
   }
 
   SUBCASE("TriangleQuadraturePoints") {
-    std::shared_ptr<double[]> weights = nullptr;
-    std::shared_ptr<double[]> pointsData = nullptr;
-    unsigned numPoints{};
-
     // Coordinates are taken from the Fortran implementation
     double chiFortran[] = {
         0.94373743946307787,     0.94373743946307787,     0.94373743946307787,
@@ -143,11 +137,11 @@ TEST_CASE("DR Geometry") {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    std::tie(numPoints, weights, pointsData) = generateTriangleQuadrature(7);
-    double(*testTrianglePoints)[2] = reshape<2>(&pointsData[0]);
+    auto data = generateTriangleQuadrature(7);
+    double(*testTrianglePoints)[2] = unsafe_reshape<2>(&data.points[0]);
 
     constexpr double epsilon = 1e-6;
-    for (unsigned i = 0; i < numPoints; ++i) {
+    for (unsigned i = 0; i < data.size; ++i) {
       REQUIRE(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(epsilon));
       REQUIRE(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(epsilon));
     }

@@ -42,7 +42,7 @@ struct ExtVrtxCoords {
     return coords[index];
   }
 
-  Eigen::Vector3d getAsEigenVector() const {
+  Eigen::Vector3d getAsEigen3LibVector() const {
     return Eigen::Vector3d(coords[0], coords[1], coords[2]);
   }
 
@@ -64,26 +64,30 @@ struct ExtTriangle {
     for (int i = 0; i < 3; ++i)
       points[i] = other.points[i];
   }
+
   ExtTriangle& operator=(const ExtTriangle& other) {
     for (int i = 0; i < 3; ++i)
       points[i] = other.points[i];
     return *this;
   }
 
-  ExtVrtxCoords& operator[](size_t index) {
+  ExtVrtxCoords& point(size_t index) {
+    assert((index < 3) && "ExtTriangle index must be less than 3");
+    return points[index];
+  }
+
+  ExtVrtxCoords point(size_t index) const {
     assert((index < 3) && "ExtTriangle index must be less than 3");
     return points[index];
   }
 
   static int size() { return 3; }
 
+  private:
   std::array<ExtVrtxCoords, 3> points{};
-  ExtVrtxCoords& p1 = points[0];
-  ExtVrtxCoords& p2 = points[1];
-  ExtVrtxCoords& p3 = points[2];
 };
 
-struct ReceiverPointT {
+struct ReceiverPoint {
   ExtVrtxCoords global{};       // physical coords of a receiver
   ExtVrtxCoords reference{};    // reference coords of a receiver
   ExtTriangle globalTriangle{}; // a surrounding triangle of a receiver
@@ -99,9 +103,9 @@ struct ReceiverPointT {
   // specifically for low-order elements
   int nearestInternalGpIndex{-1};
 };
-using ReceiverPointsT = std::vector<ReceiverPointT>;
+using ReceiverPoints = std::vector<ReceiverPoint>;
 
-struct FaultDirectionsT {
+struct FaultDirections {
   const double* faceNormal{};
   const double* tangent1{};
   const double* tangent2{};
