@@ -54,6 +54,7 @@
 #include "easi/ResultAdapter.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
+#include "Geometry/MeshTools.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
@@ -125,31 +126,9 @@ std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolum
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
   std::vector<double> elemVolumes(elements.size(), 0.0);
-  std::array<double, 3> a{};
-  std::array<double, 3> b{};
-  std::array<double, 3> c{};
-  std::array<double, 3> bxc{};
 
-  // Compute tetrahedron volumes as 1/6 * |triple product| = 1/6 * |a • (b x c)|
-  // where a := (v_1 − v_0) , b := (v_2 − v_0) and c := (v_3 − v_0)
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (int i = 0; i < 3; ++i) {
-      a[i] = vertices[ elements[elem].vertices[1] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
-      b[i] = vertices[ elements[elem].vertices[2] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
-      c[i] = vertices[ elements[elem].vertices[3] ].coords[i] - vertices[ elements[elem].vertices[0] ].coords[i];
-    }
-
-    // Cross product
-    bxc[0] = b[1] * c[2] - b[2] * c[1];
-    bxc[1] = b[2] * c[0] - b[0] * c[2];
-    bxc[2] = b[0] * c[1] - b[1] * c[0];
-
-    // Dot product
-    for (int i = 0; i < 3; ++i) {
-      elemVolumes[elem] += a[i] * bxc[i];
-    }
-    elemVolumes[elem] = abs(elemVolumes[elem]) / 6;
-
+    elemVolumes[elem] = MeshTools::volume(elements[elem], vertices);
     if (!elemVolumes[elem]) {
       logError() << "ElementAverageGenerator: Tetrahedron volume was 0.";
     }
