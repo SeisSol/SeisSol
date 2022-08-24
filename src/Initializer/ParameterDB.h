@@ -61,7 +61,7 @@
 namespace PUML {class TETPUML;}
 #endif // PUML_PUML_H
 
-#define NUM_QUADPOINTS (CONVERGENCE_ORDER * CONVERGENCE_ORDER * CONVERGENCE_ORDER)
+constexpr auto NUM_QUADPOINTS = CONVERGENCE_ORDER * CONVERGENCE_ORDER * CONVERGENCE_ORDER;
 
 namespace easi {class Component;}
 
@@ -100,10 +100,10 @@ class seissol::initializers::ElementAverageGenerator : public seissol::initializ
 public:
   explicit ElementAverageGenerator(MeshReader const& meshReader);
   virtual easi::Query generate() const;
-  std::vector<double> elementVolumes();
-  std::vector<double> getElemVolumes() const { return m_elemVolumes; };
-  std::array<double, NUM_QUADPOINTS> getQuadratureWeights() const { return m_quadratureWeights; };
+  const std::vector<double>& getElemVolumes() const { return m_elemVolumes; };
+  const std::array<double, NUM_QUADPOINTS>& getQuadratureWeights() const { return m_quadratureWeights; };
 private:
+  const std::vector<double> elementVolumes();
   MeshReader const& m_meshReader;
   std::vector<double> m_elemVolumes;
   std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
