@@ -9,7 +9,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare energy output csv files.")
     parser.add_argument("energy", type=str)
     parser.add_argument("energy_ref", type=str)
-    parser.add_argument("--epsilon", type=float, default=0.01, required=False)
+    parser.add_argument("--epsilon", type=float, default=0.01)
 
     args = parser.parse_args()
 
