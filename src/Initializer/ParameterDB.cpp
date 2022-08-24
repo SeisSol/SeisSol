@@ -344,7 +344,7 @@ namespace seissol {
         std::array<double, NUM_QUADPOINTS> quadratureWeights{ gen->getQuadratureWeights() };
         std::vector<double> elemVolumes{ gen->getElemVolumes() };
 
-        // Divide by volumes to obtain parameter mean values and store them in m_materials
+        // Compute homogenized material parameters for every element in a specialization for the particular material
         for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
           m_materials->at(elementIdx) = this->computeAveragedMaterial(elementIdx, elemVolumes[elementIdx], quadratureWeights, materialsFromQuery); 
         }
@@ -376,13 +376,14 @@ namespace seissol {
       double muMeanInv = 0.0;
       double rhoMean = 0.0;
       double vERatioMean = 0.0;
+
       for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
         double quadWeight = 6 * elementVolume * quadratureWeights[quadPointIdx];
         unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
-        auto& localMaterial = materialsFromQuery[globalPointIdx];
-        muMeanInv += 1 / localMaterial.mu * quadWeight;
-        rhoMean += localMaterial.rho * quadWeight;
-        vERatioMean += localMaterial.lambda / (2 * localMaterial.mu * (3 * localMaterial.lambda + 2 * localMaterial.mu)) * quadWeight;
+        auto& elementMaterial = materialsFromQuery[globalPointIdx];
+        muMeanInv += 1 / elementMaterial.mu * quadWeight;
+        rhoMean += elementMaterial.rho * quadWeight;
+        vERatioMean += elementMaterial.lambda / (2 * elementMaterial.mu * (3 * elementMaterial.lambda + 2 * elementMaterial.mu)) * quadWeight;
       }
 
       rhoMean /= elementVolume;
@@ -392,69 +393,48 @@ namespace seissol {
       double muMean = 1 / muMeanInv;
       // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
       double lambdaMean = (4 * std::pow(muMean, 2) * vERatioMean) / (1 - 6 * muMean * vERatioMean);
+
       std::array<double, 3> materialMean = {rhoMean, muMean, lambdaMean};
       return seissol::model::ElasticMaterial(materialMean.data(), 3);
     }
 
     template<>
     seissol::model::ViscoElasticMaterial MaterialParameterDB<seissol::model::ViscoElasticMaterial>::computeAveragedMaterial(unsigned elementIdx, double elementVolume, std::array<double, NUM_QUADPOINTS> const& quadratureWeights, std::vector<seissol::model::ViscoElasticMaterial> const& materialsFromQuery) {
-    //Todo(Marius)
-    //template<>
-    //void MaterialParameterDB<seissol::model::ViscoElasticMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
-    //  easi::Component* model = loadEasiModel(fileName);
-    //  easi::Query query = queryGen.generate();
-    //  const unsigned numPoints = query.numPoints();
+      double muMeanInv = 0.0;
+      double rhoMean = 0.0;
+      double vERatioMean = 0.0;
+      double QpMean = 0.0;
+      double QsMean = 0.0;
 
-    //  std::vector<seissol::model::ViscoElasticMaterial> elasticMaterials(numPoints);
-    //  easi::ArrayOfStructsAdapter<seissol::model::ViscoElasticMaterial> adapter(elasticMaterials.data());
-    //  MaterialParameterDB<seissol::model::ViscoElasticMaterial>().addBindingPoints(adapter);
-    //  model->evaluate(query, adapter);
+      for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
+        double quadWeight = 6 * elementVolume * quadratureWeights[quadPointIdx];
+        unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
+        auto& elementMaterial = materialsFromQuery[globalPointIdx];
+        muMeanInv += 1 / elementMaterial.mu * quadWeight;
+        rhoMean += elementMaterial.rho * quadWeight;
+        vERatioMean += elementMaterial.lambda / (2 * elementMaterial.mu * (3 * elementMaterial.lambda + 2 * elementMaterial.mu)) * quadWeight;
+        QpMean += elementMaterial.Qp * quadWeight;
+        QsMean += elementMaterial.Qs * quadWeight;
+      }
 
-    //  // Only use homogenization when ElementAverageGenerator has been supplied
-    //  if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
-    //    const unsigned numElems = numPoints / NUM_QUADPOINTS;
-    //    std::array<double, NUM_QUADPOINTS> quadratureWeights{ gen->getQuadratureWeights() };
-    //    std::vector<double> elemVolumes{ gen->getElemVolumes() };
-    //    std::vector<seissol::model::ViscoElasticMaterial> materialsMean(numElems);
-    //    std::vector<double> vERatioMean(numElems);
+      rhoMean /= elementVolume;
+      muMeanInv /= elementVolume;
+      vERatioMean /= elementVolume;
+      QpMean /= elementVolume;
+      QsMean /= elementVolume;
+      // Harmonic average is used for mu, so take the reciprocal
+      double muMean = 1 / muMeanInv;
+      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+      double lambdaMean = (4 * std::pow(muMean, 2) * vERatioMean) / (1 - 6 * muMean * vERatioMean);
 
-    //    // Approximate element volume integrals using Gaussian quadrature
-    //    for (unsigned i = 0; i < numPoints; ++i) {
-    //      // Scale up quadrature weights by (element volume / reference volume)
-    //      double quadWeight = 6 * elemVolumes[i / NUM_QUADPOINTS] * quadratureWeights[i % NUM_QUADPOINTS];
-    //      // Integrate rho and (1 / mu)
-    //      materialsMean[i / NUM_QUADPOINTS].rho += elasticMaterials[i].rho * quadWeight;
-    //      materialsMean[i / NUM_QUADPOINTS].mu += 1 / elasticMaterials[i].mu * quadWeight;
-    //      // Integrate (Poisson ratio / elastic modulus) to obtain lambda
-    //      vERatioMean[i / NUM_QUADPOINTS] += elasticMaterials[i].lambda / (2 * elasticMaterials[i].mu * (3 * elasticMaterials[i].lambda + 2 * elasticMaterials[i].mu)) * quadWeight;
-    //      // Integrate Qp and Qs
-    //      materialsMean[i / NUM_QUADPOINTS].Qp += elasticMaterials[i].Qp * quadWeight;
-    //      materialsMean[i / NUM_QUADPOINTS].Qs += elasticMaterials[i].Qs * quadWeight;
-    //    }
-
-    //    // Divide by volumes to obtain parameter mean values and store them in m_materials
-    //    for (unsigned i = 0; i < numElems; ++i) {
-    //      materialsMean[i].rho /= elemVolumes[i];
-    //      materialsMean[i].mu /= elemVolumes[i];
-    //      vERatioMean[i] /= elemVolumes[i];
-    //      materialsMean[i].Qp /= elemVolumes[i];
-    //      materialsMean[i].Qs /= elemVolumes[i];
-    //      // Harmonic average is used for mu, so take the reciprocal
-    //      materialsMean[i].mu = 1 / materialsMean[i].mu;
-    //      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-    //      materialsMean[i].lambda = (4 * pow(materialsMean[i].mu, 2) * vERatioMean[i]) / (1 - 6 * materialsMean[i].mu * vERatioMean[i]);
-
-    //      m_materials->at(i) = seissol::model::ViscoElasticMaterial(materialsMean[i]);
-    //    }
-    //  } else {
-    //    // Usual behavior without homogenization
-    //    for (unsigned i = 0; i < numPoints; ++i) {
-    //      m_materials->at(i) = seissol::model::ViscoElasticMaterial(elasticMaterials[i]);
-    //    }
-    //  }
-
-    //  delete model;
-    //}
+      seissol::model::ViscoElasticMaterial result{};
+      result.rho = rhoMean;
+      result.mu = muMean;
+      result.lambda = lambdaMean;
+      result.Qp = QpMean;
+      result.Qs = QsMean;
+      
+      return result;
     }
     
     template<>
