@@ -160,7 +160,7 @@ void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
 
   real(*halfWidthShearZone)[misc::numPaddedPoints] = it->var(concreteLts->halfWidthShearZone);
   real(*hydraulicDiffusivity)[misc::numPaddedPoints] = it->var(concreteLts->hydraulicDiffusivity);
-  parameterToStorageMap.insert({"tp_half_width_shear_zone", (real*)halfWidthShearZone});
-  parameterToStorageMap.insert({"tp_hydraulic_diffusivity", (real*)hydraulicDiffusivity});
+  parameterToStorageMap.insert({"tp_halfWidthShearZone", (real*)halfWidthShearZone});
+  parameterToStorageMap.insert({"tp_hydraulicDiffusivity", (real*)hydraulicDiffusivity});
 }
 } // namespace seissol::dr::initializers

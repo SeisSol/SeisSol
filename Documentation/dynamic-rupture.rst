@@ -299,11 +299,11 @@ The TP parameters for which no spatial dependence has been implemented are defin
 
   &DynamicRupture
   thermalPress = 1                     ! Thermal pressurization 0: inactive; 1: active
-  TP_IniTemp = 483.15                  ! Initial temperature [K]
-  TP_IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
-  TP_thearmalDiffusivity = 1.0e-6      ! Thermal diffusivity [m^2/s]
-  TP_heatCapacity = 2.7e6              ! Specific heat [Pa/K]
-  TP_undraindedTPResponse = 0.1e6      ! Pore pressure change per unit temperature [Pa/K]
+  tp_iniTemp = 483.15                  ! Initial temperature [K]
+  tp_iniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
+  tp_thermalDiffusivity = 1.0e-6       ! Thermal diffusivity [m^2/s]
+  tp_heatCapacity = 2.7e6              ! Specific heat [Pa/K]
+  tp_undrainedTPResponse = 0.1e6       ! Pore pressure change per unit temperature [Pa/K]
 
 Two additional thermal pressurization parameters are space-dependent and therefore have to be specified in the dynamic rupture yaml file:
 
@@ -311,8 +311,8 @@ Two additional thermal pressurization parameters are space-dependent and therefo
 
   !ConstantMap
   map:
-    tp_hydraulic_diffusivity: 1e-4   # Hydraulic diffusivity [m^2/s]
-    tp_half_width_shear_zone: 0.01   # Half width of shearing zone [m]
+    tp_hydraulicDiffusivity: 1e-4   # Hydraulic diffusivity [m^2/s]
+    tp_halfWidthShearZone: 0.01     # Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
 
