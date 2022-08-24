@@ -122,7 +122,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   return query;
 }
 
-std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolumes() {
+const std::vector<double> seissol::initializers::ElementAverageGenerator::elementVolumes() {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
   std::vector<double> elemVolumes(elements.size(), 0.0);
@@ -355,7 +355,7 @@ namespace seissol {
 
       for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
         const double quadScale = 6 * elementVolume;
-        const double quadWeight = 6 * quadScale * quadratureWeights[quadPointIdx];
+        const double quadWeight = quadScale * quadratureWeights[quadPointIdx];
         const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
         auto& elementMaterial = materialsFromQuery[globalPointIdx];
         muMeanInv += 1 / elementMaterial.mu * quadWeight;
