@@ -245,7 +245,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 #pragma omp parallel 
   {
-  LIKWID_MARKER_START("SpaceTimeInterpolation");
+  LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
   }
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -266,8 +266,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 
   {
-  LIKWID_MARKER_STOP("SpaceTimeInterpolation");
-  LIKWID_MARKER_START("FrictionLaw");
+  LIKWID_MARKER_STOP("computeDynamicRuptureSpaceTimeInterpolation");
+  LIKWID_MARKER_START("computeDynamicRuptureFrictionLaw");
   }
 
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON )
@@ -278,7 +278,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 
   {
-  LIKWID_MARKER_STOP("FrictionLaw");
+  LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
   }
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);

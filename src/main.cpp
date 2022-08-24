@@ -51,14 +51,14 @@ int main(int argc, char* argv[])
 #pragma omp parallel
         {
         LIKWID_MARKER_THREADINIT;
-        LIKWID_MARKER_REGISTER("FrictionLaw");
-        LIKWID_MARKER_REGISTER("PostHook");
-        LIKWID_MARKER_REGISTER("PostcomputeImposedState");
-        LIKWID_MARKER_REGISTER("PreHook");
-        LIKWID_MARKER_REGISTER("PrecomputeStress");
         LIKWID_MARKER_REGISTER("SeisSol");
-        LIKWID_MARKER_REGISTER("SpaceTimeInterpolation");
-        LIKWID_MARKER_REGISTER("UpdateFrictionAndSlip");
+        LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+        LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
+        LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
         }
 #pragma omp parallel
         {
