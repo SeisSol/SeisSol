@@ -12,14 +12,14 @@ see :ref:`git_behind_firewall`.
 Building SeisSol
 ----------------
 
-1. clone SeisSol including the submodules using 
+Clone SeisSol including the submodules using 
 
 .. code-block:: bash
 
   git clone --recursive https://github.com/SeisSol/SeisSol.git
  
 
-2. Load module. Add these lines to .bashrc:
+Load module. Add these lines to .bashrc:
 
 ::
 
@@ -36,7 +36,7 @@ Building SeisSol
   export FC=mpif90
 
  
-3. Alternatively (and for reference), to compile seissol-env on supermuc, follow the procedure below:
+Alternatively (and for reference), to compile seissol-env on supermuc, follow the procedure below:
 
 .. code-block:: bash
 
@@ -84,7 +84,7 @@ and `` ~/.spack/modules.yaml``:
 
 This can be useful to share packages with other user of a supermuc project.
 
-3. Install SeisSol with cmake, e.g. with (more options with ccmake)
+Install SeisSol with cmake, e.g. with (more options with ccmake)
 
 
 .. code-block:: bash
@@ -110,7 +110,7 @@ To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list o
 Running SeisSol
 ---------------
 
-5. Submission file for SeisSol on NG:
+Submission file for SeisSol on NG:
 
 ::
 
