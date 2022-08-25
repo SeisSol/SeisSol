@@ -226,8 +226,7 @@ extern "C" {
       const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
       bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
-    e_interoperability.initializeIO(
-                                    numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
+    e_interoperability.initializeIO(numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
                                     freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
                                     receiverFileName, receiverSamplingInterval, receiverSyncInterval,
