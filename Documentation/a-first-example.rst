@@ -43,22 +43,24 @@ where:
 -  ``<configuration>`` depends on your compilation setting (e.g.
    SeisSol_Release_dhsw_4_elastic for a Haswell architecture and order 4 accuracy in space and time).
 -  ``<n>`` is the number of MPI ranks / the number of compute nodes used.
--  ``<threads>`` is the number of OpenMP threads per MPI rank (we usually
-   use the number of CPUs - 1, to reserve one CPU for communication).
+-  ``<threads>`` is the number of OpenMP threads per MPI rank, typically the number of CPUS.
+   (If you compiled SeisSol with :code:`-DCOMMTHREAD=ON` use the number of CPUs - 1, to reserve one CPU for communication).
 
 **Hint:** Depending on the system you are using, the MPI launcher might
 be different from ``mpiexec`` (e.g. ``mpiexec.hydra``, ``mpirun``, ``srun``).
+For more infos about how to get optimal performance, have a look at the :ref:`optimal_environment_variables_on_supermuc_ng`.
 
 Result verification
 -------------------
 
 SeisSol produces various output files:
 
-* 3D :ref:`wave_field_output` (:code:`.xdmf`)
-* 2D :ref:`free_surface_output` (:code:`-surface.xdmf`)
-* 2D :ref:`Fault output<paraview_output>` (:code:`-fault.xdmf`)
+* :ref:`3D wave field output <wave_field_output>` (:code:`.xdmf`)
+* :ref:`2D free surface output <free_surface_output>` (:code:`-surface.xdmf`)
+* :ref:`2D fault output <paraview_output>` (:code:`-fault.xdmf`)
 * :ref:`off_fault_receivers` (:code:`-receiver-<id>.dat`)
-* :ref:`Fault receivers<fault_receivers>` (:code:`-faultreceiver-<id>.dat`)
+* :ref:`Fault receivers <fault_receivers>` (:code:`-faultreceiver-<id>.dat`)
+* :ref:`energy_output` (:code:`-energy.csv`)
 
 The :code:`xdmf` files can be visualized with `Paraview <https://www.paraview.org/>`__.
 For the :code:`dat` files, you can use `viewrec <https://github.com/SeisSol/SeisSol/blob/master/postprocessing/visualization/receiver/bin/viewrec>`__.
