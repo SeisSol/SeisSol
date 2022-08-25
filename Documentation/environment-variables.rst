@@ -51,3 +51,5 @@ Here are some proposed environment variables, to be added prior to invoking Seis
 
    export ASYNC_MODE=THREAD
    export ASYNC_BUFFER_ALIGNMENT=8388608
+
+A complete batch script for SuperMUC-NG can be found in the chapter about :ref:`SuperMUC-NG <running_seissol_on_supermuc>`.

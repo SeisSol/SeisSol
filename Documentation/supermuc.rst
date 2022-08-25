@@ -107,6 +107,8 @@ For that modules and compiler need to be switched:
 Then cmake on a new build folder.
 To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
+.. _running_seissol_on_supermuc:
+
 Running SeisSol
 ---------------
 
