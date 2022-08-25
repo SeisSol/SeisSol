@@ -1,3 +1,5 @@
+.. _off_fault_receivers:
+
 Off fault receivers
 ===================
 
