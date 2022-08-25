@@ -47,45 +47,42 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
   std::unique_ptr<DRParameters> drParameters = std::make_unique<DRParameters>();
   const YAML::Node& yamlDrParams = (*params)["dynamicrupture"];
 
+  using namespace seissol::initializers;
+
   if ((*params)["dynamicrupture"]) {
-    double xref = 0.0;
-    initializers::updateIfExists(yamlDrParams, "xref", xref);
-    double yref = 0.0;
-    initializers::updateIfExists(yamlDrParams, "yref", yref);
-    double zref = 0.0;
-    initializers::updateIfExists(yamlDrParams, "zref", zref);
+    double xref = getWithDefault(yamlDrParams, "xref", 0.0);
+    double yref = getWithDefault(yamlDrParams, "yref", 0.0);
+    double zref = getWithDefault(yamlDrParams, "zref", 0.0);
     drParameters->referencePoint = {xref, yref, zref};
 
-    initializers::updateIfExists(yamlDrParams, "outputpointtype", drParameters->outputPointType);
-    initializers::updateIfExists(
-        yamlDrParams, "sliprateoutputtype", drParameters->slipRateOutputType);
-    initializers::updateIfExists(yamlDrParams, "fl", drParameters->frictionLawType);
-    initializers::updateIfExists(yamlDrParams, "backgroundtype", drParameters->backgroundType);
-    initializers::updateIfExists(yamlDrParams, "thermalpress", drParameters->isThermalPressureOn);
-    initializers::updateIfExists(yamlDrParams, "t_0", drParameters->t0);
-    initializers::updateIfExists(yamlDrParams, "rs_f0", drParameters->rsF0);
-    initializers::updateIfExists(yamlDrParams, "rs_a", drParameters->rsA);
-    initializers::updateIfExists(yamlDrParams, "rs_b", drParameters->rsB);
-    initializers::updateIfExists(yamlDrParams, "rs_sr0", drParameters->rsSr0);
-    initializers::updateIfExists(yamlDrParams, "rs_inisliprate1", drParameters->rsInitialSlipRate1);
-    initializers::updateIfExists(yamlDrParams, "rs_inisliprate2", drParameters->rsInitialSlipRate2);
-    initializers::updateIfExists(yamlDrParams, "rs_muw", drParameters->muW);
+    drParameters->outputPointType = getWithDefault(yamlDrParams, "outputpointtype", 3);
+    drParameters->slipRateOutputType = getWithDefault(yamlDrParams, "sliprateoutputtype", 1);
+    drParameters->frictionLawType =
+        static_cast<FrictionLawType>(getWithDefault(yamlDrParams, "fl", 0));
+    drParameters->backgroundType = getWithDefault(yamlDrParams, "backgroundtype", 0);
+    drParameters->isThermalPressureOn = getWithDefault(yamlDrParams, "thermalpress", false);
+    drParameters->t0 = getWithDefault(yamlDrParams, "t_0", 0.0);
+    drParameters->rsF0 = getWithDefault(yamlDrParams, "rs_f0", 0.0);
+    drParameters->rsA = getWithDefault(yamlDrParams, "rs_a", 0.0);
+    drParameters->rsB = getWithDefault(yamlDrParams, "rs_b", 0.0);
+    drParameters->rsSr0 = getWithDefault(yamlDrParams, "rs_sr0", 0.0);
+    drParameters->rsInitialSlipRate1 = getWithDefault(yamlDrParams, "rs_inisliprate1", 0.0);
+    drParameters->rsInitialSlipRate2 = getWithDefault(yamlDrParams, "rs_inisliprate2", 0.0);
+    drParameters->muW = getWithDefault(yamlDrParams, "rs_muw", 0.0);
 
     // Thermal Pressurization parameters
-    initializers::updateIfExists(
-        yamlDrParams, "tp_thermaldiffusivity", drParameters->thermalDiffusivity);
-    initializers::updateIfExists(yamlDrParams, "tp_heatcapacity", drParameters->heatCapacity);
-    initializers::updateIfExists(
-        yamlDrParams, "tp_undrainedtpresponse", drParameters->undrainedTPResponse);
-    initializers::updateIfExists(yamlDrParams, "tp_initemp", drParameters->initialTemperature);
-    initializers::updateIfExists(yamlDrParams, "tp_inipressure", drParameters->initialPressure);
+    drParameters->thermalDiffusivity = getWithDefault(yamlDrParams, "tp_thermaldiffusivity", 0.0);
+    drParameters->heatCapacity = getWithDefault(yamlDrParams, "tp_heatcapacity", 0.0);
+    drParameters->undrainedTPResponse = getWithDefault(yamlDrParams, "tp_undrainedtpresponse", 0.0);
+    drParameters->initialTemperature = getWithDefault(yamlDrParams, "tp_initemp", 0.0);
+    drParameters->initialPressure = getWithDefault(yamlDrParams, "tp_inipressure", 0.0);
 
     // Prakash-Clifton regularization parameters
-    initializers::updateIfExists(yamlDrParams, "pc_vstar", drParameters->vStar);
-    initializers::updateIfExists(yamlDrParams, "pc_prakashlength", drParameters->prakashLength);
+    drParameters->vStar = getWithDefault(yamlDrParams, "pc_vstar", 0.0);
+    drParameters->prakashLength = getWithDefault(yamlDrParams, "pc_prakashlength", 0.0);
 
     // filename of the yaml file describing the fault parameters
-    initializers::updateIfExists(yamlDrParams, "modelfilename", drParameters->faultFileName);
+    drParameters->faultFileName = getWithDefault(yamlDrParams, "modelfilename", std::string(""));
   }
 
   const YAML::Node& yamlElementwiseParams = (*params)["elementwise"];

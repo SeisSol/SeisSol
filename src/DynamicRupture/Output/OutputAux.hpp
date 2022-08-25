@@ -4,10 +4,11 @@
 #include "DataTypes.hpp"
 #include "Geometry/MeshReader.h"
 #include <memory>
+#include <array>
 
 namespace seissol {
 template <int N, typename T>
-auto reshape(T* ptr) -> T (*)[N] {
+auto unsafe_reshape(T* ptr) -> T (*)[N] {
   return reinterpret_cast<T(*)[N]>(ptr);
 }
 } // namespace seissol
@@ -21,14 +22,19 @@ ExtTriangle getGlobalTriangle(int localSideId,
                               const Element& element,
                               const std::vector<Vertex>& verticesInfo);
 
-ExtVrtxCoords getMidTrianglePoint(const ExtTriangle& triangle);
+ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
-std::tuple<unsigned, std::shared_ptr<double[]>, std::shared_ptr<double[]>>
-    generateTriangleQuadrature(unsigned polyDegree);
+struct TriangleQuadratureData {
+  static constexpr size_t size{tensor::quadweights::Shape[0]};
+  std::array<double, 2 * size> points{};
+  std::array<double, size> weights{};
+};
 
-void assignNearestGaussianPoints(ReceiverPointsT& geoPoints);
+TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
+
+void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -42,13 +48,13 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
                                   const VrtxCoords faceNormal);
 
-PlusMinusBasisFunctionsT getPlusMinusBasisFunctions(const VrtxCoords point,
-                                                    const VrtxCoords* plusElementCoords[4],
-                                                    const VrtxCoords* minusElementCoords[4]);
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
+                                                   const VrtxCoords* plusElementCoords[4],
+                                                   const VrtxCoords* minusElementCoords[4]);
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPointsT& receiverPoints);
+std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPointsT& receiverPoints);
+std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
 
 real computeTriangleArea(ExtTriangle& triangle);
 
@@ -64,9 +70,9 @@ std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& bo
 }
 } // namespace seissol::dr
 
-namespace seissol::dr::os_support {
+namespace seissol::dr::filesystem_aux {
 std::string getTimeStamp();
 void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension);
-} // namespace seissol::dr::os_support
+} // namespace seissol::dr::filesystem_aux
 
 #endif // SEISSOL_DR_OUTPUT_AUX_HPP

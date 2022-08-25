@@ -11,7 +11,9 @@ class OutputManager {
   public:
   ~OutputManager();
   OutputManager() = delete;
-  OutputManager(ReceiverBasedOutput* concreteImpl) : impl(concreteImpl){};
+  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl)
+      : ewOutputData(std::make_shared<ReceiverOutputData>()),
+        ppOutputData(std::make_shared<ReceiverOutputData>()), impl(std::move(concreteImpl)){};
   void setInputParam(const YAML::Node& inputData, MeshReader& userMesher);
   void setLtsData(seissol::initializers::LTSTree* userWpTree,
                   seissol::initializers::LTS* userWpDescr,
@@ -33,12 +35,12 @@ class OutputManager {
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
 
-  ReceiverBasedOutputData ewOutputData{};
-  ReceiverBasedOutputData ppOutputData{};
+  std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
+  std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
 
-  GeneralParamsT generalParams;
-  ElementwiseFaultParamsT elementwiseParams{};
-  PickpointParamsT pickpointParams{};
+  GeneralParams generalParams;
+  ElementwiseFaultParams elementwiseParams{};
+  PickpointParams pickpointParams{};
 
   seissol::initializers::LTS* wpDescr{nullptr};
   seissol::initializers::LTSTree* wpTree{nullptr};
@@ -46,13 +48,13 @@ class OutputManager {
   seissol::initializers::LTSTree* drTree{nullptr};
   seissol::initializers::DynamicRupture* drDescr{nullptr};
 
-  FaceToLtsMapT faceToLtsMap{};
+  FaceToLtsMapType faceToLtsMap{};
   MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};
   static constexpr double timeMargin{1.005};
 
-  std::unique_ptr<ReceiverBasedOutput> impl{nullptr};
+  std::unique_ptr<ReceiverOutput> impl{nullptr};
 };
 } // namespace seissol::dr::output
 

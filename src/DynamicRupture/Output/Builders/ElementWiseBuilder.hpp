@@ -8,9 +8,9 @@ namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   public:
   ~ElementWiseBuilder() override = default;
-  void setParams(const ElementwiseFaultParamsT& params) { elementwiseParams = params; }
-  void build(ReceiverBasedOutputData* ewOutputData) override {
-    outputData = ewOutputData;
+  void setParams(const ElementwiseFaultParams& params) { elementwiseParams = params; }
+  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
+    outputData = elementwiseOutputData;
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();
@@ -30,8 +30,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initReceiverLocations() {
-    std::unique_ptr<refiner::FaultRefiner> faultRefiner{nullptr};
-    faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
+    auto faultRefiner = refiner::get(elementwiseParams.refinementStrategy);
 
     const auto numFaultElements = meshReader->getFault().size();
     const auto numSubTriangles = faultRefiner->getNumSubTriangles();
@@ -84,7 +83,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   inline const static size_t maxAllowedCacheLevel = 1;
 
   private:
-  ElementwiseFaultParamsT elementwiseParams;
+  ElementwiseFaultParams elementwiseParams;
 };
 } // namespace seissol::dr::output
 #endif // SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP

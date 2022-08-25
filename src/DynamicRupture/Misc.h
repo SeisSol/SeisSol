@@ -10,7 +10,7 @@
 #include <tuple>
 
 namespace seissol::dr::misc {
-// Note: this can be moved to yateto headers
+// TODO: this can be moved to yateto headers
 template <typename Tensor, int Dim>
 constexpr size_t dimSize() noexcept {
   return Tensor::Stop[Dim] - Tensor::Start[Dim];

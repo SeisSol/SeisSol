@@ -156,9 +156,8 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
 
     double time_DR = 0;
     unsigned int dynRup = getRegion("computeDynamicRupture");
-    for(std::vector<Sample>::iterator it = m_times[dynRup].begin() ; it !=  m_times[dynRup].end(); ++it){
-      //logInfo(rank) << "time spend in DR iteration: "<< it->numIters  << " time: "<< it->time;
-      time_DR += it->begin.tv_sec - it->end.tv_sec;
+    for (auto& timeSample: m_times[dynRup]) {
+      time_DR += timeSample.begin.tv_sec - timeSample.end.tv_sec;
     }
     logInfo(rank) << "Total time spent in Dynamic Rupture iteration: " << time_DR;
   }

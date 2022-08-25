@@ -71,13 +71,7 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
-OutputManager::~OutputManager() {
-  flushPickpointDataToFile();
-
-  auto deallocateVars = [](auto& var, int) { var.releaseData(); };
-  misc::forEach(ppOutputData.vars, deallocateVars);
-  misc::forEach(ewOutputData.vars, deallocateVars);
-}
+OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
 void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userMesher) {
   using namespace initializers;
@@ -132,9 +126,9 @@ void OutputManager::setLtsData(seissol::initializers::LTSTree* userWpTree,
 }
 
 void OutputManager::initElementwiseOutput() {
-  ewOutputBuilder->build(&ewOutputData);
+  ewOutputBuilder->build(ewOutputData);
 
-  const auto& receiverPoints = ewOutputData.receiverPoints;
+  const auto& receiverPoints = ewOutputData->receiverPoints;
   const auto cellConnectivity = getCellConnectivity(receiverPoints);
   const auto vertices = getAllVertices(receiverPoints);
   constexpr auto maxNumVars = std::tuple_size<DrVarsT>::value;
@@ -150,7 +144,7 @@ void OutputManager::initElementwiseOutput() {
         dataPointers.push_back(var.data[dim]);
     }
   };
-  misc::forEach(ewOutputData.vars, recordPointers);
+  misc::forEach(ewOutputData->vars, recordPointers);
 
   seissol::SeisSol::main.faultWriter().init(cellConnectivity.data(),
                                             vertices.data(),
@@ -166,7 +160,7 @@ void OutputManager::initElementwiseOutput() {
 }
 
 void OutputManager::initPickpointOutput() {
-  ppOutputBuilder->build(&ppOutputData);
+  ppOutputBuilder->build(ppOutputData);
 
   std::stringstream baseHeader;
   baseHeader << "VARIABLES = \"Time\"";
@@ -181,15 +175,15 @@ void OutputManager::initPickpointOutput() {
       labelCounter += var.dim();
     }
   };
-  misc::forEach(ppOutputData.vars, collectVariableNames);
+  misc::forEach(ppOutputData->vars, collectVariableNames);
 
   auto& outputData = ppOutputData;
-  for (const auto& receiver : outputData.receiverPoints) {
+  for (const auto& receiver : outputData->receiverPoints) {
     const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
     auto fileName =
         buildIndexedMPIFileName(generalParams.outputFilePrefix, globalIndex, "faultreceiver");
-    os_support::generateBackupFileIfNecessary(fileName, "dat");
+    filesystem_aux::generateBackupFileIfNecessary(fileName, "dat");
     fileName += ".dat";
 
     if (!std::filesystem::exists(fileName)) {
@@ -261,7 +255,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(OutputType::AtPickpoint, ppOutputData, generalParams, time);
 
       const bool isMaxCacheLevel =
-          outputData.currentCacheLevel >= static_cast<size_t>(this->pickpointParams.maxPickStore);
+          outputData->currentCacheLevel >= static_cast<size_t>(this->pickpointParams.maxPickStore);
       const bool isCloseToEnd = (generalParams.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
@@ -274,10 +268,10 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 
 void OutputManager::flushPickpointDataToFile() {
   auto& outputData = ppOutputData;
-  for (size_t pointId = 0; pointId < outputData.receiverPoints.size(); ++pointId) {
+  for (size_t pointId = 0; pointId < outputData->receiverPoints.size(); ++pointId) {
     std::stringstream data;
-    for (size_t level = 0; level < outputData.currentCacheLevel; ++level) {
-      data << makeFormatted(outputData.cachedTime[level]) << '\t';
+    for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
+      data << makeFormatted(outputData->cachedTime[level]) << '\t';
       auto recordResults = [pointId, level, &data](auto& var, int) {
         if (var.isActive) {
           for (int dim = 0; dim < var.dim(); ++dim) {
@@ -285,11 +279,11 @@ void OutputManager::flushPickpointDataToFile() {
           }
         }
       };
-      misc::forEach(outputData.vars, recordResults);
+      misc::forEach(outputData->vars, recordResults);
       data << '\n';
     }
 
-    const auto globalIndex = outputData.receiverPoints[pointId].globalReceiverIndex + 1;
+    const auto globalIndex = outputData->receiverPoints[pointId].globalReceiverIndex + 1;
     const auto fileName = buildIndexedMPIFileName(
         generalParams.outputFilePrefix, globalIndex, "faultreceiver", "dat");
 
@@ -301,7 +295,7 @@ void OutputManager::flushPickpointDataToFile() {
     }
     file.close();
   }
-  outputData.currentCacheLevel = 0;
+  outputData->currentCacheLevel = 0;
 }
 
 void OutputManager::updateElementwiseOutput() {

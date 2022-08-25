@@ -11,14 +11,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
     parser.add_argument("output", type=str)
     parser.add_argument("output_ref", type=str)
-    parser.add_argument("--epsilon", type=float, default=0.01, required=False)
+    parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument(
         "--mode", type=str, default="rs", required=False, choices=["rs", "lsw", "tp"]
     )
     args = parser.parse_args()
 
     def velocity_norm(receiver):
-        return np.sqrt(receiver["u"] ** 2 + receiver["v"] ** 2 + receiver["w"] ** 2)
+        if (
+            "u" in receiver.columns
+            and "v" in receiver.columns
+            and "w" in receiver.columns
+        ):
+            return np.sqrt(receiver["u"] ** 2 + receiver["v"] ** 2 + receiver["w"] ** 2)
+        elif (
+            "u1" in receiver.columns
+            and "u2" in receiver.columns
+            and "u3" in receiver.columns
+        ):
+            return np.sqrt(
+                receiver["u1"] ** 2 + receiver["u2"] ** 2 + receiver["u2"] ** 2
+            )
+        else:
+            raise ValueError("Could not find velocities in off-fault receiver.")
 
     def stress_norm(receiver):
         return np.sqrt(
@@ -115,9 +130,9 @@ if __name__ == "__main__":
         return receiver
 
     def receiver_diff(args, i):
-        sim_receiver = read_receiver(f"{args.output}/tpv-receiver-0000{i}-00000.dat")
+        sim_receiver = read_receiver(f"{args.output}/tpv-receiver-{i:05d}-00000.dat")
         ref_receiver = read_receiver(
-            f"{args.output_ref}/tpv-receiver-0000{i}-00000.dat"
+            f"{args.output_ref}/tpv-receiver-{i:05d}-00000.dat"
         )
         # both receivers must have the same time axis
         assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14

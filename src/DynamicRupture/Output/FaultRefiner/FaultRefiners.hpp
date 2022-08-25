@@ -6,11 +6,6 @@
 #include <tuple>
 
 namespace seissol::dr::output::refiner {
-RefinerType convertToType(int strategy);
-
-class FaultRefiner;
-std::unique_ptr<FaultRefiner> get(RefinerType strategy);
-
 class FaultRefiner {
   public:
   struct Data {
@@ -26,29 +21,32 @@ class FaultRefiner {
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
-  ReceiverPointsT&& moveAllReceiverPoints() { return std::move(points); }
-  ReceiverPointsT getAllReceiverPoints() { return points; }
+  ReceiverPoints&& moveAllReceiverPoints() { return std::move(points); }
 
   protected:
-  ReceiverPointsT points{};
+  ReceiverPoints points{};
 
   static constexpr size_t global = 0;
   static constexpr size_t reference = 1;
 
-  inline void repeat(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3);
+  inline void
+      repeatRefinement(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3);
   inline void addReceiver(Data data, TrianglePair& face);
 };
 
-class TripleFaultFaceRefiner : public FaultRefiner {
+class FaultFaceTripleRefiner : public FaultRefiner {
   public:
   int getNumSubTriangles() final { return 3; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
-class QuadFaultFaceRefiner : public FaultRefiner {
+class FaultFaceQuadRefiner : public FaultRefiner {
   public:
   int getNumSubTriangles() final { return 4; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
+
+RefinerType castToRefinerType(int strategy);
+std::unique_ptr<FaultRefiner> get(RefinerType strategy);
 } // namespace seissol::dr::output::refiner
 #endif // SEISSOL_DR_OUTPUT_REFINERS_HPP

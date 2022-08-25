@@ -9,7 +9,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two faults.")
     parser.add_argument("fault", type=str)
     parser.add_argument("fault_ref", type=str)
-    parser.add_argument("--epsilon", type=float, default=0.01, required=False)
+    parser.add_argument("--epsilon", type=float, default=0.01)
 
     args = parser.parse_args()
     fault = sx.seissolxdmf(args.fault)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         ref_norm = l2_norm(quantity_ref)
         if ref_norm < 1e-10:
             absolute_error = l2_difference(quantity, quantity_ref)
-            print(f"{q:3}: {relative_error}")
+            print(f"{q:3}: {absolute_error}")
             errors[i] = absolute_error
         else:
             relative_error = l2_difference(quantity, quantity_ref) / ref_norm
