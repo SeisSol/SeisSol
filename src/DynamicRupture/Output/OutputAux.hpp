@@ -3,8 +3,8 @@
 
 #include "DataTypes.hpp"
 #include "Geometry/MeshReader.h"
-#include <memory>
 #include <array>
+#include <memory>
 
 namespace seissol {
 template <int N, typename T>
