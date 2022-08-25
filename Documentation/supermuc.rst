@@ -4,8 +4,8 @@
 SuperMUC-NG
 ===========
 
-Setting up GitHub on SuperMuc
--------------------------------
+Setting up GitHub on SuperMuc-NG
+--------------------------------
 
 see :ref:`git_behind_firewall`.
 
@@ -36,7 +36,7 @@ Load module. Add these lines to .bashrc:
   export FC=mpif90
 
  
-Alternatively (and for reference), to compile seissol-env on supermuc, follow the procedure below:
+Alternatively (and for reference), to compile seissol-env on SuperMUC-NG, follow the procedure below:
 
 .. code-block:: bash
 
@@ -51,7 +51,7 @@ Alternatively (and for reference), to compile seissol-env on supermuc, follow th
     spack external find pkg-config
 
     # install all dependencies of seissol.
-    # We specify the intel and intel-mpi version matching preinstalled version on supermuc
+    # We specify the intel and intel-mpi version matching preinstalled version on supermuc-ng
     # These can be found with:
     # >spack find intel-mpi
     # >spack compiler list
@@ -82,7 +82,7 @@ and `` ~/.spack/modules.yaml``:
         roots:
          tcl: your_custom_path_2_modules
 
-This can be useful to share packages with other user of a supermuc project.
+This can be useful to share packages with other user of a SuperMUC project.
 
 Install SeisSol with cmake, e.g. with (more options with ccmake)
 

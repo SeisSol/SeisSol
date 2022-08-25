@@ -28,10 +28,10 @@ Some environment variables related to checkpointing are described in the :ref:`C
 
 .. _optimal_environment_variables_on_supermuc_ng:
 
-Optimal environment variables on SuperMuc-NG
+Optimal environment variables on SuperMUC-NG
 --------------------------------------------
 
-On SuperMuc-NG, we recommend using SeisSol with async output in thread mode.
+On SuperMUC-NG, we recommend using SeisSol with async output in thread mode.
 That is SeisSol should be compiled with :code:`-DCOMMTHREAD=ON`, and then run with the environment variables proposed below.
 Also, we recommend using hyperthreading capabilities (that is using 96 CPUs instead of 48. 2 threads out of 96 are used as communication threads).
 Here are some proposed environment variables, to be added prior to invoking SeisSol in your batch file:
