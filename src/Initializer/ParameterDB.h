@@ -61,12 +61,12 @@
 namespace PUML {class TETPUML;}
 #endif // PUML_PUML_H
 
-constexpr auto NUM_QUADPOINTS = CONVERGENCE_ORDER * CONVERGENCE_ORDER * CONVERGENCE_ORDER;
-
 namespace easi {class Component;}
 
 namespace seissol {
   namespace initializers {
+    constexpr auto NUM_QUADPOINTS = CONVERGENCE_ORDER * CONVERGENCE_ORDER * CONVERGENCE_ORDER;
+
     class QueryGenerator;
     class ElementBarycentreGenerator;
     class ElementAverageGenerator;
@@ -85,6 +85,7 @@ namespace seissol {
 
 class seissol::initializers::QueryGenerator {
 public:
+  virtual ~QueryGenerator() = default;
   virtual easi::Query generate() const = 0;
 };
 
@@ -140,7 +141,7 @@ private:
 
 class seissol::initializers::ParameterDB {
 public:
-  virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) = 0;
+  virtual void evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen) = 0;
   static easi::Component* loadModel(std::string const& fileName);
 };
 
@@ -148,7 +149,7 @@ template<class T>
 class seissol::initializers::MaterialParameterDB : seissol::initializers::ParameterDB {
 public: 
   T computeAveragedMaterial(unsigned elementIdx, std::array<double, NUM_QUADPOINTS> const& quadratureWeights, std::vector<T> const& materialsFromQuery);
-  virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
+  void evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
   
@@ -160,7 +161,7 @@ private:
 class seissol::initializers::FaultParameterDB : seissol::initializers::ParameterDB {
 public:
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
-  virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
+  void evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen) override;
   static bool faultParameterizedByTraction(std::string const& fileName);
   static bool nucleationParameterizedByTraction(std::string const& fileName);
 private:

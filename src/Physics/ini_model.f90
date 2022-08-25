@@ -136,6 +136,7 @@ CONTAINS
                                             EQN%Plasticity, &
                                             EQN%Anisotropy, &
                                             EQN%Poroelasticity, &
+                                            EQN%UseMaterialAverage, &
                                             MaterialVal, &
                                             EQN%BulkFriction, &
                                             EQN%PlastCo, &

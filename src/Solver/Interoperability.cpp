@@ -141,6 +141,7 @@ extern "C" {
                                             int     plasticity,
                                             int     anisotropy,
                                             int     poroelasticity,
+                                            int     useMaterialAverage,
                                             double* materialVal,
                                             double* bulkFriction,
                                             double* plastCo,
@@ -152,6 +153,7 @@ extern "C" {
                                         plasticity,
                                         anisotropy,
                                         poroelasticity,
+                                        useMaterialAverage,
                                         materialVal,
                                         bulkFriction,
                                         plastCo,
@@ -553,6 +555,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   bool    plasticity,
                                                   bool    anisotropy,
                                                   bool    poroelasticity,
+                                                  bool    useMaterialAverage,
                                                   double* materialVal,
                                                   double* bulkFriction,
                                                   double* plastCo,
@@ -576,13 +579,17 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
   if (anisotropy) { 
-    if(anelasticity || plasticity) {
+    if (anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
     }
+    if (useMaterialAverage) {
+      logWarning() << "Material Averaging is not implemented for anisotropic materials. Use material sampled from the element barycenters instead.";
+    }
+    const seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
     auto materials = std::vector<seissol::model::AnisotropicMaterial>(nElements);
     seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
     parameterDB.setMaterialVector(&materials);
-    parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+    parameterDB.evaluateModel(std::string(materialFileName), &queryGen);
     for (unsigned int i = 0; i < nElements; i++) {
       materialVal[i] =                materials[i].rho;
       materialVal[nElements + i] =    materials[i].c11;
@@ -612,10 +619,14 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     if(anelasticity || plasticity) {
       logError() << "Poroelasticity can not be combined with anelasticity or plasticity";
     }
+    if (useMaterialAverage) {
+      logWarning() << "Material Averaging is not implemented for poroelastic materials. Use material sampled from the element barycenters instead.";
+    }
+    const seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
     auto materials = std::vector<seissol::model::PoroElasticMaterial>(nElements);
     seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial> parameterDB;
     parameterDB.setMaterialVector(&materials);
-    parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+    parameterDB.evaluateModel(std::string(materialFileName), &queryGen);
     for (unsigned int i = 0; i < nElements; i++) {
       materialVal[i] =                materials[i].bulkSolid;
       materialVal[nElements + i] =    materials[i].rho;
@@ -630,12 +641,18 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       calcWaveSpeeds(&materials[i], i);
     }
   } else {
+    const seissol::initializers::QueryGenerator* queryGen;
+    if (useMaterialAverage) {
+      queryGen = new seissol::initializers::ElementAverageGenerator(seissol::SeisSol::main.meshReader());
+    } else {
+      queryGen = new seissol::initializers::ElementBarycentreGenerator(seissol::SeisSol::main.meshReader());
+    }
     if (anelasticity) {
       auto materials = std::vector<seissol::model::ViscoElasticMaterial>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial> parameterDB;
       parameterDB.setMaterialVector(&materials);
       seissol::initializers::ElementAverageGenerator queryGen(seissol::SeisSol::main.meshReader());
-      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+      parameterDB.evaluateModel(std::string(materialFileName), &queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         materialVal[i] = materials[i].rho;
         materialVal[nElements + i] = materials[i].mu;
@@ -648,7 +665,6 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
       parameterDB.setMaterialVector(&materials);
-      seissol::initializers::ElementAverageGenerator queryGen(seissol::SeisSol::main.meshReader());
       parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         materialVal[i] = materials[i].rho;
@@ -657,13 +673,18 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         calcWaveSpeeds(&materials[i], i);
       }
     } 
+    delete queryGen;
 
     //now initialize the plasticity data
     if (plasticity) {
+      if (useMaterialAverage) {
+        logWarning() << "Material Averaging is not implemented for plastic materials. Use material sampled from the element barycenters instead.";
+      }
+      const seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
       auto materials = std::vector<seissol::model::Plasticity>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::Plasticity> parameterDB;
       parameterDB.setMaterialVector(&materials);
-      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+      parameterDB.evaluateModel(std::string(materialFileName), &queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         bulkFriction[i] = materials[i].bulkFriction;
         plastCo[i] = materials[i].plastCo;
@@ -707,11 +728,11 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
     seissol::initializers::FaultGPGenerator queryGen( seissol::SeisSol::main.meshReader(),
                                                       reinterpret_cast<double(*)[2]>(bndPoints),
                                                       numberOfBndPoints );
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
+    parameterDB.evaluateModel(std::string(modelFileName), &queryGen);
   } else {
     seissol::initializers::FaultBarycentreGenerator queryGen( seissol::SeisSol::main.meshReader(),
                                                               numberOfBndPoints );
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
+    parameterDB.evaluateModel(std::string(modelFileName), &queryGen);
   }
 }
 
