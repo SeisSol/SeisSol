@@ -78,14 +78,12 @@ src/Geometry/MeshReaderCBinding.f90
 src/Solver/close_seissol.f90
 src/Solver/calc_deltat.f90
 src/Solver/mpiexchangevalues.f90
-src/Solver/prak_clif_mod.f90
 src/Solver/calc_seissol.f90
 src/Solver/f_ctof_bind_interoperability.f90
 src/Solver/f_ftoc_bind_interoperability.f90
 src/Numerical_aux/quadpoints.f90
 src/Numerical_aux/jacobinormal.f90
 src/Numerical_aux/convertxieta2xy.f90
-src/Numerical_aux/create_fault_rotationmatrix.f90
 src/Numerical_aux/trilinearinterpolation.f90
 src/Numerical_aux/typesdef.f90
 src/Numerical_aux/dgbasis.f90
@@ -96,7 +94,6 @@ src/Numerical_aux/ODEVector.cpp
 src/Modules/ModulesF.f90
 src/seissolxx.f90
 src/Physics/ini_model.f90
-src/Physics/NucleationFunctions.f90
 src/Physics/InitialField.cpp
 src/Reader/readpar.f90
 src/ResultWriter/inioutput_seissol.f90

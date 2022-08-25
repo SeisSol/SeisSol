@@ -760,7 +760,6 @@ MODULE TypesDef
      INTEGER                                :: nMechanisms                      !< Number of attenuation mechanisms in each layer
      INTEGER                                :: nAneFuncperMech                  !< Number of anelastic functions per mechanisms
      INTEGER                                :: nNonZeroEV                       !< number of non-zero eigenvalues
-     INTEGER                                :: refPointMethod                   !< fault orientation: (0) using a reference point (1) using a reference vector
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
@@ -772,31 +771,6 @@ MODULE TypesDef
      REAL, POINTER                          :: MaterialGridSpace(:)             !< Specifications of structured grid spacing holding material values
      !< Dynamic Rupture variables
      INTEGER                                :: DR                               !< (0) = no, (1) = dynamic rupture is present
-     INTEGER                                :: FL                               !< Type of friction law used (0) = none, (1) = imposed rup vel, (2) = LSW, (3) = RS
-     REAL, allocatable                      :: IniBulk_xx(:,:)                  !< Initial bulk stress at fault
-     REAL, allocatable                      :: IniBulk_yy(:,:)                  !< Initial bulk stress at fault
-     REAL, allocatable                      :: IniBulk_zz(:,:)                  !< Initial bulk stress at fault
-     REAL, allocatable                      :: IniShearXY(:,:)                  !< Initial shear stress at fault
-     REAL, allocatable                      :: IniShearYZ(:,:)                  !< Initial shear stress at fault
-     REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
-     real, allocatable                      :: InitialStressInFaultCS(:,:,:)
-     real, allocatable                      :: NucleationStressInFaultCS(:,:,:)
-     REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
-     REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
-     REAL                                   :: IniSlipRate1                     !< Initial slip rate value at fault
-     REAL                                   :: IniSlipRate2                     !< Initial slip rate value at fault
-     REAL                                   :: ShearXY_0                        !< Initial shear stress
-     REAL                                   :: ShearYZ_0                        !< Initial shear stress
-     REAL                                   :: ShearXZ_0                        !< Initial shear stress
-     REAL                                   :: RS_sv0
-     REAL                                   :: Bulk_xx_0                        !< Initial bulk stress
-     REAL                                   :: Bulk_yy_0                        !< Initial bulk stress
-     REAL                                   :: Bulk_zz_0                        !< Initial bulk stress
-     REAL                                   :: Temp_0                           !< Initial temperature for TP
-     REAL                                   :: Pressure_0                       !< Initial pressure for TP
-     REAL                                   :: XRef, YRef, ZRef                 !< Location of reference point, which is used for fault orientation
-     INTEGER                                :: GPwise                           !< Switch for heterogeneous background field distribution: elementwise =0 ; GPwise =1
-
   END TYPE tEquations
 
   !< Check pointing configuration

@@ -797,20 +797,6 @@ CONTAINS
      logError(*) 'Dynamic rupture model file "', trim(ModelFileName), '" does not exist.'
      call exit(134)
     endif
-
-    !FRICTION LAW CHOICE
-    EQN%FL = FL
-    EQN%GPwise = GPwise
-    EQN%refPointMethod = refPointMethod
-    EQN%XRef = XRef
-    EQN%YRef = YRef
-    EQN%ZRef = ZRef
-
-    IF (EQN%GPwise .EQ.1) THEN
-        logInfo0(*) 'GPwise initialization. '
-    ELSE
-        logInfo0(*) 'elementwise initialization. '
-    ENDIF
   !
   END SUBROUTINE
     !------------------------------------------------------------------------

@@ -169,10 +169,9 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 	if (hasFault) {
 		logInfo(rank) << "Extracting fault information";
 
-		VrtxCoords center;
-		int refPointMethod;
-		getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
-		meshReader.findFault(center, refPointMethod);
+		auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
+		VrtxCoords center {drParameters->referencePoint[0], drParameters->referencePoint[1], drParameters->referencePoint[2]};
+		meshReader.findFault(center, drParameters->refPointMethod);
 
 		int* mpiNumberDr;
 		getmpinumberdr(&size, &mpiNumberDr);

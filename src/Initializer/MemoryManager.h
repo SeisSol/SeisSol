@@ -163,7 +163,7 @@ class seissol::initializers::MemoryManager {
     std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    std::shared_ptr<dr::DRParameters> m_dynRupParameter = nullptr;
+    std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
     std::shared_ptr<YAML::Node> m_inputParams = nullptr;
 
     LTSTree m_boundaryTree;
@@ -347,9 +347,13 @@ class seissol::initializers::MemoryManager {
     inline seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
     }
+    inline seissol::dr::DRParameters* getDRParameters() {
+        return m_dynRupParameters.get();
+    }
 
     void setInputParams(std::shared_ptr<YAML::Node> params) {
       m_inputParams = params;
+      m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
     }
 
 #ifdef ACL_DEVICE
