@@ -38,10 +38,6 @@ Here are some proposed environment variables, to be added prior to invoking Seis
 
 .. code:: bash
 
-   #SBATCH --nodes=<number of nodes>
-   #SBATCH --ntasks-per-node=1 
-   #SBATCH --cpus-per-task=96
-
    export MP_SINGLE_THREAD=no
    unset KMP_AFFINITY
    export OMP_NUM_THREADS=94
