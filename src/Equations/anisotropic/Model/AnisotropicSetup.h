@@ -41,7 +41,7 @@
 #ifndef ANISOTROPIC_SETUP_H_
 #define ANISOTROPIC_SETUP_H_
 
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
 #include <Model/common.hpp>

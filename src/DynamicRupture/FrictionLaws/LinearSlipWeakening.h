@@ -61,6 +61,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                                std::array<real, misc::numPaddedPoints>& strength,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
@@ -110,6 +111,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    */
   void frictionFunctionHook(std::array<real, misc::numPaddedPoints>& stateVariable,
                             unsigned int ltsFace) {
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       this->mu[ltsFace][pointIndex] =
           muS[ltsFace][pointIndex] -
@@ -121,6 +123,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    */
   void saveDynamicStressOutput(unsigned int ltsFace) {
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
@@ -135,6 +138,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                         std::array<real, misc::numPaddedPoints>& strength,
                         unsigned int timeIndex,
                         unsigned int ltsFace) {
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
       const real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
@@ -159,6 +163,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
 
@@ -211,6 +216,7 @@ class NoSpecialization {
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],
                         real const (&slipRate)[dr::misc::numPaddedPoints]);
+  #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
                     real deltaT,
@@ -239,6 +245,7 @@ class BiMaterialFault {
                         real const (&slipRate)[dr::misc::numPaddedPoints]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
+  #pragma omp declare simd
   real strengthHook(real strength,
                     real localSlipRate,
                     real deltaT,

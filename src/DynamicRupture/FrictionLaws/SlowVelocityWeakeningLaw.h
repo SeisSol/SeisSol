@@ -18,6 +18,7 @@ class SlowVelocityWeakeningLaw
                           real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
+  #pragma omp declare simd
   double updateStateVariable(int pointIndex,
                              unsigned int face,
                              double stateVarReference,
@@ -36,6 +37,7 @@ class SlowVelocityWeakeningLaw
    * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
+  #pragma omp declare simd
   double updateMu(unsigned int ltsFace,
                   unsigned int pointIndex,
                   double localSlipRateMagnitude,
@@ -58,6 +60,7 @@ class SlowVelocityWeakeningLaw
    * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
+  #pragma omp declare simd
   double updateMuDerivative(unsigned int ltsFace,
                             unsigned int pointIndex,
                             double localSlipRateMagnitude,
@@ -76,6 +79,7 @@ class SlowVelocityWeakeningLaw
    */
   void resampleStateVar(std::array<real, misc::numPaddedPoints> const& stateVariableBuffer,
                         unsigned int ltsFace) const {
+    #pragma omp simd
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
