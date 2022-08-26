@@ -1,3 +1,5 @@
+.. _off_fault_receivers:
+
 Off fault receivers
 ===================
 
@@ -41,11 +43,15 @@ realistic topography is used. The procedure to move receivers exactly to
 the surface is described
 `here <https://github.com/SeisSol/Meshing/tree/master/place_receivers>`__.
 
-compiling place_receivers on supermuc
+Compiling place_receivers on SuperMUC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: bash
+Load the relevant :ref:`modules <compile_run_supermuc>`.
 
-   module load netcdf/mpi
-   export PKG_CONFIG_PATH=$NETCDF_BASE/lib/pkgconfig/:$PKG_CONFIG_PATH
-   scons 
+.. code-block:: bash
+  
+  git submodule update --init
+  mkdir build && cd build
+  cmake ..
+  make -j
+
