@@ -817,10 +817,8 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
 void seissol::initializers::MemoryManager::initializeFrictionLaw() {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initialize Friction Model";
-  // reading input provided by parameters.par
-  m_dynRupParameter = dr::readParametersFromYaml(m_inputParams);
 
-  const auto factory = seissol::dr::factory::getFactory(m_dynRupParameter);
+  const auto factory = seissol::dr::factory::getFactory(m_dynRupParameters);
   auto product = factory->produce();
   m_dynRup = std::move(product.ltsTree);
   m_DRInitializer = std::move(product.initializer);
@@ -830,7 +828,7 @@ void seissol::initializers::MemoryManager::initializeFrictionLaw() {
 
 void seissol::initializers::MemoryManager::initFaultOutputManager() {
   // TODO: switch m_dynRup to shared or weak pointer
-  if (m_dynRupParameter->isDynamicRuptureEnabled) {
+  if (m_dynRupParameters->isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &m_lts,
@@ -844,7 +842,7 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
 
 
 void seissol::initializers::MemoryManager::initFrictionData() {
-  if (m_dynRupParameter->isDynamicRuptureEnabled) {
+  if (m_dynRupParameters->isDynamicRuptureEnabled) {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 

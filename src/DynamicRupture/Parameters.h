@@ -19,6 +19,7 @@ struct DRParameters {
   bool isDynamicRuptureEnabled{true};
   int outputPointType{3};
   Eigen::Vector3d referencePoint;
+  int refPointMethod{0};
   int slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
   int backgroundType{0};
@@ -54,6 +55,7 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     double yref = getWithDefault(yamlDrParams, "yref", 0.0);
     double zref = getWithDefault(yamlDrParams, "zref", 0.0);
     drParameters->referencePoint = {xref, yref, zref};
+    drParameters->refPointMethod = getWithDefault(yamlDrParams, "refpointmethod", 0);
 
     drParameters->outputPointType = getWithDefault(yamlDrParams, "outputpointtype", 3);
     drParameters->slipRateOutputType = getWithDefault(yamlDrParams, "sliprateoutputtype", 1);
