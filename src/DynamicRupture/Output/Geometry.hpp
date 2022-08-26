@@ -106,11 +106,11 @@ struct ReceiverPoint {
 using ReceiverPoints = std::vector<ReceiverPoint>;
 
 struct FaultDirections {
-  const double* faceNormal{};
-  const double* tangent1{};
-  const double* tangent2{};
-  VrtxCoords strike{0.0, 0.0, 0.0};
-  VrtxCoords dip{0.0, 0.0, 0.0};
+  std::array<double, 3> faceNormal{};
+  std::array<double, 3> tangent1{};
+  std::array<double, 3> tangent2{};
+  std::array<double, 3> strike{};
+  std::array<double, 3> dip{};
 };
 } // namespace seissol::dr
 

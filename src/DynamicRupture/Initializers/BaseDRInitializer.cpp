@@ -77,8 +77,8 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
     if (initialStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, it, initialStress);
     }
-    real(*initialStressInFaultCS)[misc::numPaddedPoints][6] =
-        it->var(dynRup->initialStressInFaultCS);
+
+    auto* initialStressInFaultCS = it->var(dynRup->initialStressInFaultCS);
     rotateStressToFaultCS(dynRup, it, initialStressInFaultCS, initialStress);
     // rotate nucleation stress to fault coordinate system
     if (nucleationStressParameterizedByTraction) {
