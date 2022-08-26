@@ -178,13 +178,6 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
   constexpr int numPoly = CONVERGENCE_ORDER - 1;
 
-#ifndef stroud
-  const int rank = seissol::MPI::mpi.rank();
-  logWarning(rank)
-      << "This quadrature rule does not move gaussian points away from cell edges when"
-      << "evaluating rupture speed. This may result in inacurrate rupture speeds there.";
-#endif
-
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
 #ifdef stroud
