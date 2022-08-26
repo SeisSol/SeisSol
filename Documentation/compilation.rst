@@ -1,3 +1,5 @@
+.. _compilation:
+
 Compilation
 ===========
 
@@ -199,7 +201,7 @@ You can also compile just the proxy by :command:`make SeisSol-proxy` or only Sei
 
 Note: CMake tries to detect the correct MPI wrappers.
 
-You can also run :command:`ccmake ..` to see all available options and toggle them.
+You can also run :code:`ccmake ..` to see all available options and toggle them.
 
 .. figure:: LatexFigures/ccmake.png
    :alt: An example of ccmake with some options
@@ -216,8 +218,8 @@ Running SeisSol
 ---------------
 
 1. Follow the instructions on :ref:`Configuration <Configuration>`.
-2. run SeisSol version of interest. To run the example:
-   :command:`./SeisSol_release_.... PARAMETER.PAR`
+2. Run SeisSol version of interest. To run the example:
+   :code:`./SeisSol_Release_.... parameter.par`
 
 Further information regarding meshing and parameter files etc. can be
 found in the documentation folder. See also :ref:`A first example <a_first_example>`.
