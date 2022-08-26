@@ -87,11 +87,11 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     local.iniNormalTraction = initStress[QuantityIndices::XX];
     local.fluidPressure = this->computeFluidPressure(local);
 
-    const auto* const normal = outputData->faultDirections[i].faceNormal;
-    const auto* const tangent1 = outputData->faultDirections[i].tangent1;
-    const auto* const tangent2 = outputData->faultDirections[i].tangent2;
-    const auto* strike = outputData->faultDirections[i].strike;
-    const auto* dip = outputData->faultDirections[i].dip;
+    const auto& normal = outputData->faultDirections[i].faceNormal;
+    const auto& tangent1 = outputData->faultDirections[i].tangent1;
+    const auto& tangent2 = outputData->faultDirections[i].tangent2;
+    const auto& strike = outputData->faultDirections[i].strike;
+    const auto& dip = outputData->faultDirections[i].dip;
 
     auto* phiPlusSide = outputData->basisFunctions[i].plusSide.data();
     auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
@@ -119,27 +119,28 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
         outputData->stressFaceAlignedToGlb[i].data();
 
-    std::array<real, 6> tmpVector{};
-    tmpVector[QuantityIndices::XX] = local.transientNormalTraction;
-    tmpVector[QuantityIndices::YY] = local.faceAlignedStress22;
-    tmpVector[QuantityIndices::ZZ] = local.faceAlignedStress33;
-    tmpVector[QuantityIndices::XY] = local.updatedTraction1;
-    tmpVector[QuantityIndices::YZ] = local.faceAlignedStress23;
-    tmpVector[QuantityIndices::XZ] = local.updatedTraction2;
+    std::array<real, 6> updatedStress{};
+    updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
+    updatedStress[QuantityIndices::YY] = local.faceAlignedStress22;
+    updatedStress[QuantityIndices::ZZ] = local.faceAlignedStress33;
+    updatedStress[QuantityIndices::XY] = local.updatedTraction1;
+    updatedStress[QuantityIndices::YZ] = local.faceAlignedStress23;
+    updatedStress[QuantityIndices::XZ] = local.updatedTraction2;
 
-    alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
+    alignAlongDipAndStrikeKernel.initialStress = updatedStress.data();
     std::array<real, 6> rotatedUpdatedStress{};
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedUpdatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
 
-    tmpVector[QuantityIndices::XX] = local.transientNormalTraction;
-    tmpVector[QuantityIndices::YY] = local.faceAlignedStress22;
-    tmpVector[QuantityIndices::ZZ] = local.faceAlignedStress33;
-    tmpVector[QuantityIndices::XY] = local.faceAlignedStress12;
-    tmpVector[QuantityIndices::YZ] = local.faceAlignedStress23;
-    tmpVector[QuantityIndices::XZ] = local.faceAlignedStress13;
+    std::array<real, 6> stress{};
+    stress[QuantityIndices::XX] = local.transientNormalTraction;
+    stress[QuantityIndices::YY] = local.faceAlignedStress22;
+    stress[QuantityIndices::ZZ] = local.faceAlignedStress33;
+    stress[QuantityIndices::XY] = local.faceAlignedStress12;
+    stress[QuantityIndices::YZ] = local.faceAlignedStress23;
+    stress[QuantityIndices::XZ] = local.faceAlignedStress13;
 
-    alignAlongDipAndStrikeKernel.initialStress = tmpVector.data();
+    alignAlongDipAndStrikeKernel.initialStress = stress.data();
     std::array<real, 6> rotatedStress{};
     alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
     alignAlongDipAndStrikeKernel.execute();
@@ -231,10 +232,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
     if (slipVectors.isActive) {
       VrtxCoords crossProduct = {0.0, 0.0, 0.0};
-      MeshTools::cross(strike, tangent1, crossProduct);
+      MeshTools::cross(strike.data(), tangent1.data(), crossProduct);
 
-      const double cos1 = MeshTools::dot(strike, tangent1);
-      const double scalarProd = MeshTools::dot(crossProduct, normal);
+      const double cos1 = MeshTools::dot(strike.data(), tangent1.data());
+      const double scalarProd = MeshTools::dot(crossProduct, normal.data());
 
       // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
@@ -330,10 +331,10 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
 }
 
 void ReceiverOutput::computeSlipRate(LocalInfo& local,
-                                     const double* tangent1,
-                                     const double* tangent2,
-                                     const double* strike,
-                                     const double* dip) {
+                                     const std::array<double, 3>& tangent1,
+                                     const std::array<double, 3>& tangent2,
+                                     const std::array<double, 3>& strike,
+                                     const std::array<double, 3>& dip) {
   local.slipRateStrike = static_cast<real>(0.0);
   local.slipRateDip = static_cast<real>(0.0);
 

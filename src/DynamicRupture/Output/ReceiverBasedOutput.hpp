@@ -82,10 +82,10 @@ class ReceiverOutput {
   virtual void
       computeSlipRate(LocalInfo& local, const std::array<real, 6>&, const std::array<real, 6>&);
   void computeSlipRate(LocalInfo& local,
-                       const double* tangent1,
-                       const double* tangent2,
-                       const double* strike,
-                       const double* dip);
+                       const std::array<double, 3>& tangent1,
+                       const std::array<double, 3>& tangent2,
+                       const std::array<double, 3>& strike,
+                       const std::array<double, 3>& dip);
   virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,
