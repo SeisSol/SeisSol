@@ -38,8 +38,8 @@ def main():
     im = ax.tripcolor(
         geo.T[0], geo.T[1], connect, data[0], cmap=args.cmap, vmin=-dmax,
         vmax=dmax)
-    ax.set_xlabel('Easting (m)')
-    ax.set_ylabel('Northing (m)')
+    ax.set_xlabel('x (m)')
+    ax.set_ylabel('y (m)')
     ax.set_xlim(args.bounds[0], args.bounds[1])
     ax.set_ylim(args.bounds[2], args.bounds[3])
     fig.colorbar(im, label=args.dataid)
