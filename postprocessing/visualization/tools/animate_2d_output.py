@@ -13,7 +13,9 @@ def main():
     wavefield from SeisSol free-surface XDMF output file.'''
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        'fname', help='SeisSol surface (XDMF) output file.')
+        'fin', help='SeisSol surface (XDMF) output file.')
+    parser.add_argument(
+        'fout', help='Output animation file.', default='animation.gif')
     parser.add_argument(
         'dataid', help='Which data component to use', default='v1')
     parser.add_argument(
@@ -24,7 +26,7 @@ def main():
         '--bounds', nargs='+', help='xmin xmax ymin ymax', type=float)
     args = parser.parse_args()
 
-    ds = sx(args.fname)
+    ds = sx(args.fin)
     data = ds.ReadData(args.dataid)
     geo = ds.ReadGeometry()
     connect = ds.ReadConnect()
@@ -54,7 +56,7 @@ def main():
     anim = animation.FuncAnimation(
         fig, animate, frames=data.shape[0],
         interval=dt * 1000)
-    anim.save('anim.gif', dpi=args.dpi, progress_callback=progress_callback)
+    anim.save(args.fout, dpi=args.dpi, progress_callback=progress_callback)
     plt.close('all')
 
 
