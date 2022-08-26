@@ -1,3 +1,5 @@
+.. _energy_output:
+
 Energy output
 ==============
 
