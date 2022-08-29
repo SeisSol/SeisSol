@@ -23,7 +23,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     auto* concreteLts =
         dynamic_cast<seissol::initializers::LTSImposedSlipRates const* const>(dynRup);
     auto* imposedSlipDirection1 = it->var(concreteLts->imposedSlipDirection1);
-    auto* imposedSlipDirection2 = it->var(concreteLts->imposedSlipDirection1);
+    auto* imposedSlipDirection2 = it->var(concreteLts->imposedSlipDirection2);
     auto* onsetTime = it->var(concreteLts->onsetTime);
 
     // First read slip in strike/dip direction. Later we will rotate this to the face aligned
