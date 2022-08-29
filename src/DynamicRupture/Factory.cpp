@@ -4,7 +4,7 @@
 #include "FrictionLaws/ThermalPressurization/NoTP.h"
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
 
-#ifdef ACL_DEVICE_OFFLOAD
+#ifdef GENERAL_SYCL_OFFLOADING
 namespace friction_law_impl = seissol::dr::friction_law::gpu;
 #else
 namespace friction_law_impl = seissol::dr::friction_law;

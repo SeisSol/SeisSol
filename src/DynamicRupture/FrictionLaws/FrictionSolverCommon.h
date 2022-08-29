@@ -59,7 +59,8 @@ inline void precomputeStressFromQInterpolated(
     FaultStresses& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()]) {
+    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    [[maybe_unused]] unsigned index = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
@@ -77,17 +78,17 @@ inline void precomputeStressFromQInterpolated(
 
   using namespace dr::misc::quantity_indices;
 
-#ifndef ACL_DEVICE_OFFLOAD
+#ifndef GENERAL_SYCL_OFFLOADING 
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-#ifdef ACL_DEVICE_OFFLOAD
-#pragma omp loop bind(parallel)
-#else
-#pragma omp simd
-#endif
+#ifndef GENERAL_SYCL_OFFLOADING
+    #pragma omp simd
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+#else
+    auto i{index};
+#endif
       faultStresses.normalStress[o][i] =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
@@ -99,7 +100,9 @@ inline void precomputeStressFromQInterpolated(
       faultStresses.traction2[o][i] =
           etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                   qIMinus[o][T2][i] * invZsNeig);
+#ifndef GENERAL_SYCL_OFFLOADING
     }
+#endif
   }
 }
 
@@ -171,13 +174,15 @@ inline void postcomputeImposedStateFromNewStress(
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const double timeWeights[CONVERGENCE_ORDER]) {
+    const double timeWeights[CONVERGENCE_ORDER],
+    [[maybe_unused]] unsigned index = 0) {
 
   // set imposed state to zero
-#ifdef ACL_DEVICE_OFFLOAD
-#pragma omp loop bind(parallel)
-#endif
+#ifndef GENERAL_SYCL_OFFLOADING
   for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
+#else
+  for (unsigned i = index; i < tensor::QInterpolated::size(); i += misc::numPaddedPoints) {
+#endif
     imposedStatePlus[i] = static_cast<real>(0.0);
     imposedStateMinus[i] = static_cast<real>(0.0);
   }
@@ -197,7 +202,7 @@ inline void postcomputeImposedStateFromNewStress(
 
   using namespace dr::misc::quantity_indices;
 
-#ifndef ACL_DEVICE_OFFLOAD
+#ifndef GENERAL_SYCL_OFFLOADING 
   checkAlignmentPostCompute(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
@@ -205,12 +210,12 @@ inline void postcomputeImposedStateFromNewStress(
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
 
-#ifdef ACL_DEVICE_OFFLOAD
-#pragma omp loop bind(parallel)
-#else
-#pragma omp simd
-#endif
+#ifndef GENERAL_SYCL_OFFLOADING
+    #pragma omp simd
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
+#else
+    auto i{index};
+#endif
       const auto normalStress = faultStresses.normalStress[o][i];
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
@@ -231,7 +236,9 @@ inline void postcomputeImposedStateFromNewStress(
       imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
       imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
       imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
+#ifndef GENERAL_SYCL_OFFLOADING
     }
+#endif
   }
 }
 
@@ -247,19 +254,22 @@ inline void postcomputeImposedStateFromNewStress(
 inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
-                                   real fullUpdateTime) {
-#ifdef ACL_DEVICE_OFFLOAD
-#pragma omp loop bind(parallel)
-#else
-#pragma omp simd
-#endif
+                                   real fullUpdateTime,
+                                   [[maybe_unused]] unsigned index = 0) {
+#ifndef GENERAL_SYCL_OFFLOADING
+  #pragma omp simd
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+#else
+  auto pointIndex{index};
+#endif
     constexpr real ruptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
       ruptureTime[pointIndex] = fullUpdateTime;
       ruptureTimePending[pointIndex] = false;
     }
+#ifndef GENERAL_SYCL_OFFLOADING
   }
+#endif
 }
 
 /**
@@ -269,16 +279,19 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in, out] peakSlipRate
  */
 inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
-                                   real peakSlipRate[misc::numPaddedPoints]) {
+                                   real peakSlipRate[misc::numPaddedPoints],
+                                   [[maybe_unused]] unsigned index = 0) {
 
-#ifdef ACL_DEVICE_OFFLOAD
-#pragma omp loop bind(parallel)
-#else
-#pragma omp simd
-#endif
+#ifndef GENERAL_SYCL_OFFLOADING
+  #pragma omp simd
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+#else
+  auto pointIndex{index};
+#endif
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
+#ifndef GENERAL_SYCL_OFFLOADING
   }
+#endif
 }
 } // namespace seissol::dr::friction_law::common
 

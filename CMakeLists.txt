@@ -184,31 +184,6 @@ if (OPENMP)
   target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_CXX)
   target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_Fortran)
   target_compile_definitions(SeisSol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
-
-  if (WITH_GPU)
-    find_package(OpenMP_Offloading QUIET)
-  else()
-    # Add DR source files to SeisSol-lib if we compile without any GPU support
-    target_sources(SeisSol-lib PUBLIC ${DYNAMIC_RUPTURE_SRC_FILES})
-  endif()
-
-  # Note: there may be a conflict between OpenMP offloading and libsxmm.
-  # A collision can happen due to -march flags for CPUs and OpenMP GPU target
-  # (e.g. with clang -Xopenmp-target -march=sm_75). Therefore, we separate
-  # compilations for the source and generated codes and apply different
-  # imported OpenMP targets to them.
-  if (OpenMP_Offloading_FOUND)
-    message(STATUS "Found OpenMP Offloading: TRUE")
-    add_library(SeisSol-omp-offloaded SHARED ${DYNAMIC_RUPTURE_SRC_FILES} ${DYNAMIC_RUPTURE_OMP_OFFLOADING_SRC_FILES})
-    target_link_libraries(SeisSol-omp-offloaded PRIVATE OpenMP::OpenMP_CXX_with_offloading)
-    target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE_OFFLOAD)
-
-    target_link_libraries(SeisSol-omp-offloaded PRIVATE SeisSol-common-properties)
-    add_dependencies(SeisSol-omp-offloaded SeisSol-codegen)
-  else()
-    # Add DR source files to SeisSol-lib if the compiler doesn't support GPU offloading
-    target_sources(SeisSol-lib PUBLIC ${DYNAMIC_RUPTURE_SRC_FILES})
-  endif()
 endif()
 
 if (MPI)
@@ -350,17 +325,52 @@ target_compile_definitions(SeisSol-common-properties INTERFACE
 
 
 if (WITH_GPU)
+  # set SeisSol GPU definitions
+  target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE GENERAL_SYCL_OFFLOADING)
+
+  # add device submodule
   add_subdirectory(submodules/Device)
   target_include_directories(SeisSol-common-properties INTERFACE submodules/Device)
   target_link_libraries(SeisSol-common-properties INTERFACE device)
+  
+  # add SeisSol GPU part
   target_link_libraries(SeisSol-common-properties INTERFACE SeisSol-device-lib)
-  target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
 
-  if (OpenMP_Offloading_FOUND)
-    install(TARGETS SeisSol-omp-offloaded DESTINATION ${CMAKE_INSTALL_PREFIX})
+  # add GPU dynamic rupture target
+  set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}")
+  find_package(hipSYCL CONFIG REQUIRED)
+  message(STATUS "Found SYCL: TRUE")
+
+  add_library(general-sycl-offloading SHARED
+      ${DYNAMIC_RUPTURE_SRC_FILES}
+      ${DYNAMIC_RUPTURE_SYCL_SRC_FILES})
+
+  if (DEVICE_ARCH MATCHES "sm_*")
+    target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
+    target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
+  elseif(DEVICE_ARCH MATCHES "gfx*")
+    target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
+  else()
+    target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
   endif()
+
+  target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
+
+  # note, we need to add openmp as a link option explicitly for some compilers.
+  # it is probably an issue of `add_sycl_to_target` macro
+  target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
+  add_sycl_to_target(TARGET general-sycl-offloading SOURCES
+      ${DYNAMIC_RUPTURE_SYCL_SRC_FILES})
+
+  add_dependencies(general-sycl-offloading SeisSol-codegen)
+
+  # set up GPU install targets
+  install(TARGETS general-sycl-offloading DESTINATION ${CMAKE_INSTALL_PREFIX})
   install(TARGETS SeisSol-device-lib DESTINATION ${CMAKE_INSTALL_PREFIX})
   install(TARGETS device DESTINATION ${CMAKE_INSTALL_PREFIX})
+else()
+  # add DR source files to SeisSol-lib if we are compiling without any GPU support
+  target_sources(SeisSol-lib PUBLIC ${DYNAMIC_RUPTURE_SRC_FILES})
 endif()
 
 
@@ -395,7 +405,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -pedantic -Wno-unused-parameter")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # warning 186 - pointless comparison of unsigned integer with zero detected
@@ -409,7 +419,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     # NOTE:
     # 1. --pending_instantiations=0 allows an infinite recursive template instantiation
     # 2. EIGEN_DONT_VECTORIZE=1 waiting for eigen3 support for nvhpc compiler collection w.r.t. vectorization
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wc,--pending_instantiations=0 ${WARNINGS} -DEIGEN_DONT_VECTORIZE=0")
 endif()
 
 find_package(FILESYSTEM REQUIRED)
@@ -452,13 +462,8 @@ endif()
 
 
 if (WITH_GPU)
-  if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-    target_link_options(SeisSol-bin PRIVATE "-mp=gpu")
-  endif()
-  if (OpenMP_Offloading_FOUND)
-    target_link_libraries(SeisSol-bin PUBLIC SeisSol-omp-offloaded)
-    target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-omp-offloaded)
-  endif()
+  target_link_libraries(SeisSol-bin PUBLIC general-sycl-offloading)
+  target_link_libraries(SeisSol-proxy-core PUBLIC general-sycl-offloading)
 endif()
 
 # C/C++ proxy interface
@@ -554,5 +559,17 @@ if (TESTING)
 endif()
 
 install(TARGETS SeisSol-bin DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+if (WITH_GPU)
+  string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+  set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
+  configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
+                 ${PROJECT_BINARY_DIR}/launch
+                 @ONLY)
+  file(CHMOD ${PROJECT_BINARY_DIR}/launch PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+  install(FILES ${PROJECT_BINARY_DIR}/launch DESTINATION ${CMAKE_INSTALL_PREFIX}
+          PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+endif()
+
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/

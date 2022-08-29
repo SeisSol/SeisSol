@@ -48,27 +48,16 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
     auto* slip2{this->slip2};
     auto deltaT{this->deltaT[timeIndex]};
 
-    #pragma omp target teams loop                \
-    is_device_ptr(faultStressesPtr,              \
-                  tractionResultsPtr,            \
-                  strengthBuffer,                \
-                  initialStressInFaultCS,        \
-                  impAndEta,                     \
-                  slipRateMagnitude,             \
-                  slipRate1,                     \
-                  slipRate2,                     \
-                  traction1,                     \
-                  traction2,                     \
-                  slip1,                         \
-                  slip2)                         \
-    device(deviceId) nowait
-    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-      auto& faultStresses = faultStressesPtr[ltsFace];
-      auto& tractionResults = tractionResultsPtr[ltsFace];
-      auto& strength = strengthBuffer[ltsFace];
+    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    this->queue.submit([&](sycl::handler& cgh) {
+      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+        const auto ltsFace = item.get_group().get_group_id(0);
+        const auto pointIndex = item.get_local_id(0);
 
-      #pragma omp loop bind(parallel)
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+        auto& faultStresses = faultStressesPtr[ltsFace];
+        auto& tractionResults = tractionResultsPtr[ltsFace];
+        auto& strength = strengthBuffer[ltsFace];
+
         // calculate absolute value of stress in Y and Z direction
         const real totalStress1 = initialStressInFaultCS[ltsFace][pointIndex][3] +
                                   faultStresses.traction1[timeIndex][pointIndex];
@@ -97,8 +86,8 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
         // update directional slip
         slip1[ltsFace][pointIndex] += slipRate1[ltsFace][pointIndex] * deltaT;
         slip2[ltsFace][pointIndex] += slipRate2[ltsFace][pointIndex] * deltaT;
-      }
-    }
+      });
+    });
   }
 
   /**
@@ -111,19 +100,18 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
     auto* muS{this->muS};
     auto* muD{this->muD};
 
-    #pragma omp target teams loop \
-    is_device_ptr(stateVariableBuffer, mu, muS, muD) \
-    device(deviceId) nowait
-    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-      auto& stateVariable = stateVariableBuffer[ltsFace];
+    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    this->queue.submit([&](sycl::handler& cgh) {
+      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+        const auto ltsFace = item.get_group().get_group_id(0);
+        const auto pointIndex = item.get_local_id(0);
 
-      #pragma omp loop bind(parallel)
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+        auto& stateVariable = stateVariableBuffer[ltsFace];
         mu[ltsFace][pointIndex] =
             muS[ltsFace][pointIndex] -
             (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
-      }
-    }
+      });
+    });
   }
 
   /*
@@ -138,22 +126,19 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
     auto* accumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto* dC{this->dC};
 
-    #pragma omp target teams loop           \
-    is_device_ptr(dynStressTime,            \
-                  dynStressTimePending,     \
-                  accumulatedSlipMagnitude, \
-                  dC)                       \
-    device(deviceId) nowait
-    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-      #pragma omp loop bind(parallel)
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    this->queue.submit([&](sycl::handler& cgh) {
+      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+        const auto ltsFace = item.get_group().get_group_id(0);
+        const auto pointIndex = item.get_local_id(0);
+
         if (dynStressTimePending[ltsFace][pointIndex] &&
             std::fabs(accumulatedSlipMagnitude[ltsFace][pointIndex]) >= dC[ltsFace][pointIndex]) {
           dynStressTime[ltsFace][pointIndex] = fullUpdateTime;
           dynStressTimePending[ltsFace][pointIndex] = false;
         }
-      }
-    }
+      });
+    });
   }
 
   void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
@@ -200,23 +185,15 @@ class LinearSlipWeakeningLaw
     auto* cohesion{this->cohesion};
     auto* mu{this->mu};
 
-    #pragma omp target teams loop              \
-    is_device_ptr(faultStressesPtr,            \
-                  strengthBuffer,              \
-                  initialStressInFaultCS,      \
-                  slipRateMagnitude,           \
-                  cohesion,                    \
-                  mu)                          \
-    device(deviceId) nowait
-    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-      auto& faultStresses = faultStressesPtr[ltsFace];
-      auto& strength = strengthBuffer[ltsFace];
+    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    this->queue.submit([&](sycl::handler& cgh) {
+      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+        const auto ltsFace = item.get_group().get_group_id(0);
+        const auto pointIndex = item.get_local_id(0);
 
-      #pragma omp loop bind(parallel)
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-        //-------------------------------------
-        // calculate Fault Strength
-        // fault strength (Uphoff eq 2.44) with addition cohesion term
+        auto& faultStresses = faultStressesPtr[ltsFace];
+        auto& strength = strengthBuffer[ltsFace];
+
         const real totalNormalStress = initialStressInFaultCS[ltsFace][pointIndex][0] +
                                        faultStresses.normalStress[timeIndex][pointIndex];
         strength[pointIndex] =
@@ -230,8 +207,8 @@ class LinearSlipWeakeningLaw
                                                              deltaT,
                                                              ltsFace,
                                                              pointIndex);
-      }
-    }
+      });
+    });
   }
 
   void calcStateVariableHook(real (*stateVariableBuffer)[misc::numPaddedPoints],
@@ -252,31 +229,24 @@ class LinearSlipWeakeningLaw
     static_assert(dim0 == misc::numPaddedPoints);
     static_assert(dim0 >= dim1);
 
-    #pragma omp target teams loop                 \
-    is_device_ptr(stateVariableBuffer,            \
-                  slipRateMagnitude,              \
-                  forcedRuptureTime,              \
-                  resample,                       \
-                  accumulatedSlipMagnitude,       \
-                  dC)                             \
-    device(deviceId) nowait
-    for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-      real resampledSlipRate[misc::numPaddedPoints]{};
+    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    this->queue.submit([&](sycl::handler& cgh) {
+      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
+          resampledSlipRate(misc::numPaddedPoints, cgh);
+      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+        auto ltsFace = item.get_group().get_group_id(0);
+        auto pointIndex = item.get_local_id(0);
 
-      // perform matrix vector multiplication
-      #pragma omp loop bind(parallel)
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+        // perform matrix vector multiplication
         real result{0.0};
         for (size_t i{0}; i < dim1; ++i) {
           result += resample[pointIndex + i * dim0] * slipRateMagnitude[ltsFace][i];
         }
         resampledSlipRate[pointIndex] = result;
-      }
 
-      auto& stateVariable = stateVariableBuffer[ltsFace];
+        item.barrier(sycl::access::fence_space::local_space);
+        auto& stateVariable = stateVariableBuffer[ltsFace];
 
-      #pragma omp loop bind(parallel)
-      for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // integrate slip rate to get slip = state variable
         accumulatedSlipMagnitude[ltsFace][pointIndex] += resampledSlipRate[pointIndex] * deltaT;
 
@@ -296,8 +266,8 @@ class LinearSlipWeakeningLaw
               std::min(static_cast<real>(1.0), (tn - forcedRuptureTime[ltsFace][pointIndex]) / t0));
         }
         stateVariable[pointIndex] = std::max(localStateVariable, f2);
-      }
-    }
+      });
+    });
   }
 
   protected:

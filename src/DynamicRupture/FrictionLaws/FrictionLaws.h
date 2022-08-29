@@ -13,7 +13,7 @@
 #include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"
 
-#ifdef ACL_DEVICE_OFFLOAD
+#ifdef GENERAL_SYCL_OFFLOADING
 #include "GpuImpl/LinearSlipWeakening.h"
 #endif
 

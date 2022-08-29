@@ -88,10 +88,10 @@
 #include <Solver/Pipeline/DrPipeline.h>
 #endif //ACL_DEVICE
 
-#ifdef ACL_DEVICE_OFFLOAD
+#ifdef GENERAL_SYCL_OFFLOADING 
 #include "device.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
-#endif
+#endif // GENERAL_SYCL_OFFLOADING
 
 
 void seissol::initializers::MemoryManager::initialize()
@@ -846,7 +846,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
-#ifdef ACL_DEVICE_OFFLOAD
+#ifdef GENERAL_SYCL_OFFLOADING
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
       impl->setDeviceId(device.api->getDeviceId());
@@ -858,7 +858,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
       impl->allocateAuxiliaryMemory();
       impl->copyStaticDataToDevice();
     }
-#endif // ACL_DEVICE_OFFLOAD
+#endif // GENERAL_SYCL_OFFLOADING
   }
 }
 

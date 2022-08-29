@@ -3,7 +3,6 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
-#include <omp.h>
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -23,10 +22,10 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
     this->currLayerSize = layerData.getNumberOfCells();
 
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
-    omp_target_memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes, 0, 0, deviceId, hostId);
+    this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
 
     requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
-    omp_target_memcpy(devDeltaT, &deltaT[0], requiredNumBytes, 0, 0, deviceId, hostId);
+    this->queue.memcpy(devDeltaT, &deltaT[0], requiredNumBytes).wait();
 
     {
       auto layerSize{this->currLayerSize};
@@ -36,15 +35,18 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       auto* qInterpolatedMinus{this->qInterpolatedMinus};
       auto* faultStresses{this->faultStresses};
 
-      #pragma omp target teams loop \
-      is_device_ptr(faultStresses, qInterpolatedPlus, qInterpolatedMinus, impAndEta) \
-      device(deviceId) nowait
-      for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
-                                                  impAndEta[ltsFace],
-                                                  qInterpolatedPlus[ltsFace],
-                                                  qInterpolatedMinus[ltsFace]);
-      }
+      sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+      this->queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+          auto ltsFace = item.get_group().get_group_id(0);
+          auto pointIndex = item.get_local_id(0);
+          common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
+                                                    impAndEta[ltsFace],
+                                                    qInterpolatedPlus[ltsFace],
+                                                    qInterpolatedMinus[ltsFace],
+                                                    pointIndex);
+        });
+      });
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
@@ -56,16 +58,17 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       auto* slipRateMagnitude{this->slipRateMagnitude};
       auto* ruptureTime{this->ruptureTime};
 
-      #pragma omp target teams loop \
-      is_device_ptr(ruptureTimePending, slipRateMagnitude, ruptureTime) \
-      device(deviceId) nowait
-      for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        // output rupture front
-        common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
-                                       ruptureTime[ltsFace],
-                                       slipRateMagnitude[ltsFace],
-                                       fullUpdateTime);
-      }
+      this->queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+          auto ltsFace = item.get_group().get_group_id(0);
+          auto pointIndex = item.get_local_id(0);
+          common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+                                         ruptureTime[ltsFace],
+                                         slipRateMagnitude[ltsFace],
+                                         fullUpdateTime,
+                                         pointIndex);
+        });
+      });
 
       static_cast<Derived*>(this)->saveDynamicStressOutput();
 
@@ -75,31 +78,26 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       auto* tractionResults{this->tractionResults};
       auto* devTimeWeights{this->devTimeWeights};
 
-      #pragma omp target teams loop     \
-      is_device_ptr(faultStresses,      \
-                    tractionResults,    \
-                    peakSlipRate,       \
-                    slipRateMagnitude,  \
-                    imposedStatePlus,   \
-                    imposedStateMinus,  \
-                    qInterpolatedPlus,  \
-                    qInterpolatedMinus, \
-                    impAndEta,          \
-                    devTimeWeights)     \
-      device(deviceId) nowait
-      for (unsigned ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
-        common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
-        common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
-                                                     tractionResults[ltsFace],
-                                                     impAndEta[ltsFace],
-                                                     imposedStatePlus[ltsFace],
-                                                     imposedStateMinus[ltsFace],
-                                                     qInterpolatedPlus[ltsFace],
-                                                     qInterpolatedMinus[ltsFace],
-                                                     devTimeWeights);
-      }
+      this->queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+          auto ltsFace = item.get_group().get_group_id(0);
+          auto pointIndex = item.get_local_id(0);
 
-      #pragma omp taskwait
+          common::savePeakSlipRateOutput(
+              slipRateMagnitude[ltsFace], peakSlipRate[ltsFace], pointIndex);
+
+          common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
+                                                       tractionResults[ltsFace],
+                                                       impAndEta[ltsFace],
+                                                       imposedStatePlus[ltsFace],
+                                                       imposedStateMinus[ltsFace],
+                                                       qInterpolatedPlus[ltsFace],
+                                                       qInterpolatedMinus[ltsFace],
+                                                       devTimeWeights,
+                                                       pointIndex);
+        });
+      });
+      queue.wait_and_throw();
     }
   }
 };
