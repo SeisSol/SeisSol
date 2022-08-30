@@ -41,6 +41,7 @@
 #include <climits>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <fty/fty.hpp>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -167,6 +168,11 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
   m_memoryManager->initialize();
+  // read parameter file input
+  readInputParams();
+
+  m_memoryManager->setInputParams(m_inputParams);
+
   return true;
 }
 
@@ -185,6 +191,24 @@ void seissol::SeisSol::finalize()
 	MPI::mpi.finalize();
 
 	logInfo(rank) << "SeisSol done. Goodbye.";
+}
+
+void seissol::SeisSol::readInputParams() {
+  // Read parameter file input from file
+  fty::Loader<fty::AsLowercase> Loader{};
+  try {
+    m_inputParams = std::make_shared<YAML::Node>(Loader.load(m_parameterFile));
+  }
+  catch (const std::exception& Error) {
+    std::cerr << Error.what() << std::endl;
+    finalize();
+  }
+
+  const int rank = MPI::mpi.rank();
+  if (rank == 0) {
+    logInfo(rank) << "Input Parameters:\n"
+                  << m_inputParams;
+  }
 }
 
 seissol::SeisSol seissol::SeisSol::main;

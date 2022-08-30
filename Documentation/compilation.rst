@@ -206,6 +206,13 @@ You can also run :code:`ccmake ..` to see all available options and toggle them.
 .. figure:: LatexFigures/ccmake.png
    :alt: An example of ccmake with some options
 
+Compile with Score-P
+--------------------
+```
+SCOREP_WRAPPER=off CXX=scorep-mpic++ CC=scorep-mpicc FC=scorep-mpif90 cmake ..
+SCOREP_WRAPPER_INSTRUMENTER_FLAGS="--user --thread=omp --nomemory" make
+```
+
 
 Running SeisSol
 ---------------

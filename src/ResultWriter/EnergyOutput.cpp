@@ -144,21 +144,21 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     real** timeDerivativeMinus = it->var(dynRup->timeDerivativeMinus);
     DRGodunovData* godunovData = it->var(dynRup->godunovData);
     DRFaceInformation* faceInformation = it->var(dynRup->faceInformation);
-    DROutput* drOutput = it->var(dynRup->drOutput);
+    DREnergyOutput* drEnergyOutput = it->var(dynRup->drEnergyOutput);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = it->var(dynRup->waveSpeedsMinus);
 
-#ifdef _OPENMP
-#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
+#if defined(_OPENMP) && !defined(__NVCOMPILER)
+#pragma omp parallel for reduction(+ : totalFrictionalWork, staticFrictionalWork, seismicMoment) default(none) shared(it, drEnergyOutput, faceInformation, timeDerivativeMinus, timeDerivativePlus, godunovData, waveSpeedsPlus, waveSpeedsMinus)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        totalFrictionalWork += drOutput[i].frictionalEnergy;
+        totalFrictionalWork += drEnergyOutput[i].frictionalEnergy;
         staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
                                                   timeDerivativeMinus[i],
                                                   faceInformation[i],
                                                   godunovData[i],
-                                                  drOutput[i].slip);
+                                                  drEnergyOutput[i].slip);
 
         real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
                       waveSpeedsPlus[i].sWaveVelocity;
@@ -167,7 +167,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
         real seismicMomentIncrease = 0.0;
         for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::size(); ++k) {
-          seismicMomentIncrease += drOutput[i].accumulatedSlip[k];
+          seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
         seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
                                  seissol::tensor::squaredNormSlipRateInterpolated::size();
@@ -194,7 +194,7 @@ void EnergyOutput::computeEnergies() {
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
-#ifdef _OPENMP
+#if defined(_OPENMP) && !defined(__NVCOMPILER)
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal, totalAcousticEnergyLocal, totalAcousticKineticEnergyLocal, totalElasticEnergyLocal, totalElasticKineticEnergyLocal, totalPlasticMoment) shared(elements, vertices, lts, ltsLut, global)
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {

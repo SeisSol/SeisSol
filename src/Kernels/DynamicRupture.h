@@ -77,16 +77,16 @@ class seissol::kernels::DynamicRupture {
     
     void setTimeStepWidth(double timestep);
 
-    void spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
-                                  GlobalData const*           global,
-                                  DRGodunovData const*        godunovData,
-                                  DROutput*                   drOutput,
-                                  real const*                 timeDerivativePlus,
-                                  real const*                 timeDerivativeMinus,
-                                  real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                  real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                  real const*                 timeDerivativePlus_prefetch,
-                                  real const*                 timeDerivativeMinus_prefetch);
+    void spaceTimeInterpolation(DRFaceInformation const&    faceInfo,
+                                GlobalData const*           global,
+                                DRGodunovData const*        godunovData,
+                                DREnergyOutput*             drEnergyOutput,
+                                real const*                 timeDerivativePlus,
+                                real const*                 timeDerivativeMinus,
+                                real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                real const*                 timeDerivativePlus_prefetch,
+                                real const*                 timeDerivativeMinus_prefetch);
 
   void batchedSpaceTimeInterpolation(ConditionalBatchTableT& table);
 

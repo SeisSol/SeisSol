@@ -48,6 +48,7 @@ module MeshReaderCBinding
     use QuadPoints_mod
 
     use iso_c_binding
+    use f_ftoc_bind_interoperability
 
     implicit none
 
@@ -134,7 +135,6 @@ contains
         else
             hasFault = .false.
         endif
-        disc%DynRup%DR_output = .false.
 
         write(str, *) mpi%nCPU
         if (io%meshgenerator .eq. 'Gambit3D-fast') then
@@ -184,11 +184,7 @@ contains
             endif
         endif
 
-#ifdef USE_DR_CELLAVERAGE
-        DISC%Galerkin%nBndGP = 4**ceiling(log( real((DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2) / 2) )/log(4.))
-#else
-        DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
-#endif
+        call c_interoperability_numberOfTriangleQuadraturePoints(disc%galerkin%nbndgp)
         disc%Galerkin%nIntGP = (disc%Galerkin%nPoly+2)**3
 
         allocate(mesh%LocalVrtxType(nElements))
@@ -198,10 +194,6 @@ contains
 
         allocate(mesh%ELEM%BndGP_Tri(2, DISC%Galerkin%nBndGP), &
                  mesh%ELEM%BndGW_Tri(DISC%Galerkin%nBndGP))
-#ifdef USE_DR_CELLAVERAGE
-        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, mesh%ELEM%BndGP_Tri)
-        mesh%ELEM%BndGW_Tri = 1.e99 ! blow up solution if used
-#else
         call TriangleQuadraturePoints(                    &
                   nIntGP     = disc%Galerkin%nBndGP,      &
                   IntGaussP  = mesh%ELEM%BndGP_Tri,       &
@@ -210,7 +202,6 @@ contains
                   IO         = io,                        &
                   quiet      = .true.,                    &
                   MPI        = MPI                     )
-#endif
 
         call computeAdditionalMeshInfo()
 
@@ -406,12 +397,6 @@ contains
         allocate(m_mesh%Fault%geoTangent2(3, n))
     end subroutine allocFault
 
-    subroutine hasPlusFault() bind(C)
-        implicit none
-
-        m_disc%DynRup%DR_output = .true.
-    end subroutine hasPlusFault
-
     subroutine allocBndObjFault(i, n) bind(C)
         implicit none
 
@@ -595,20 +580,6 @@ contains
         s = size(m_bnd%ObjMPI(i)%DomainElements)
         ptr = c_loc(m_bnd%ObjMPI(i)%DomainElements(1))
     end subroutine getBndDomainElements
-
-    subroutine getFaultReferencePoint(x, y, z, method) bind(C)
-        implicit none
-
-        real( kind=c_double ), intent(out) :: x
-        real( kind=c_double ), intent(out) :: y
-        real( kind=c_double ), intent(out) :: z
-        integer( kind=c_int ), intent(out) :: method
-
-        x = m_eqn%XRef
-        y = m_eqn%YRef
-        z = m_eqn%ZRef
-        method = m_eqn%refPointMethod
-    end subroutine getFaultReferencePoint
 
     subroutine getFaultFace(s, ptr) bind(C)
         implicit none

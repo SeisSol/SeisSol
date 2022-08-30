@@ -65,7 +65,7 @@ class FaultAsync : public Fault
 {
 private:
 	/** Buffer for storing a copy of the data */
-	double* m_dataCopy;
+	real* m_dataCopy;
 
 	/** True if a checkpoint was started */
 	bool m_started;

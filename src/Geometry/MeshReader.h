@@ -48,6 +48,9 @@
 #include <cmath>
 #include <map>
 #include <vector>
+#include <array>
+#include <unordered_map>
+#include "Parallel/MPI.h"
 
 class MeshReader
 {
@@ -72,6 +75,9 @@ protected:
 
 	/** Fault information */
 	std::vector<Fault> m_fault;
+
+	/** Vertices of MPI Neighbors*/
+	std::unordered_map<int, std::vector<std::array<std::array<double, 3>, 4>>> m_MPINeighborVertices;
 
 	/** Has a plus fault side */
 	bool m_hasPlusFault;
@@ -104,6 +110,11 @@ public:
 	const std::map<int, std::vector<MPINeighborElement> >& getMPIFaultNeighbors() const
 	{
 		return m_MPIFaultNeighbors;
+	}
+
+	const std::unordered_map<int, std::vector<std::array<std::array<double, 3>, 4>>>&
+	getMPINeighborVertices() const {
+		return m_MPINeighborVertices;
 	}
 
 	const std::vector<Fault>& getFault() const
@@ -274,6 +285,92 @@ public:
 			// Set the MPI fault number of all elements
 			for (int j = 0; j < static_cast<int>(i->second.size()); j++) {
 				m_elements[i->second[j].localElement].mpiFaultIndices[i->second[j].localSide] = j;
+			}
+		}
+	}
+
+        /*
+         * Exchanges halo tetrahedrons between MPI neighbors
+         * */
+	void exchangeVerticesWithMPINeighbors() {
+		size_t numMPIDomains = m_MPINeighbors.size();
+
+		std::unordered_map<int, std::vector<double>> sendData;
+		std::vector<MPI_Request> sendRequests(numMPIDomains);
+		std::vector<MPI_Request> recvRequests(numMPIDomains);
+
+		constexpr int exchangeTag{10};
+		auto communicator = seissol::MPI::mpi.comm();
+
+		constexpr size_t numDims{3};
+		constexpr size_t numVertices{4};
+		auto &domainVertices = m_vertices;
+		auto &domainElements = m_elements;
+
+		std::unordered_map<int, std::vector<double>> recvData;
+
+		size_t counter{};
+		for (auto it = m_MPINeighbors.begin(); it != m_MPINeighbors.end(); ++it, ++counter) {
+
+			auto neighborRank = it->first;
+			auto numElements = it->second.elements.size();
+			const size_t messageSize = numDims * numVertices * numElements;
+
+			sendData[neighborRank].resize(messageSize);
+			recvData[neighborRank].resize(messageSize);
+
+			auto* startAddress = &(recvData[neighborRank][0]);
+			MPI_Irecv(const_cast<double*>(startAddress),
+								messageSize,
+								MPI_DOUBLE,
+								neighborRank,
+								exchangeTag,
+								communicator,
+								&recvRequests[counter]);
+
+			for (size_t elementIdx = 0; elementIdx < numElements; ++elementIdx) {
+				auto localElementIdx = it->second.elements[elementIdx].localElement;
+				auto& element = domainElements[localElementIdx];
+
+				for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+					auto address = element.vertices[vertexIdx];
+					for (size_t dim = 0; dim < numDims; ++dim) {
+						size_t linearIdx = dim + numDims * (vertexIdx + numVertices * elementIdx);
+						sendData[neighborRank][linearIdx] = domainVertices[address].coords[dim];
+					}
+				}
+			}
+
+			MPI_Isend(const_cast<double*>(&sendData[neighborRank][0]),
+								messageSize,
+								MPI_DOUBLE,
+								neighborRank,
+								exchangeTag,
+								communicator,
+								&sendRequests[counter]);
+		}
+
+		std::vector<MPI_Status> sendStatus{numMPIDomains};
+		std::vector<MPI_Status> recvStatus{numMPIDomains};
+
+		MPI_Waitall(numMPIDomains, &sendRequests[0], &sendStatus[0]);
+		MPI_Waitall(numMPIDomains, &recvRequests[0], &recvStatus[0]);
+
+
+		for (auto it = recvData.begin(); it != recvData.end(); ++it) {
+			auto neighborRank = it->first;
+			auto &message = it->second;
+
+			const auto numElements = m_MPINeighbors[neighborRank].elements.size();
+			m_MPINeighborVertices[neighborRank].resize(numElements);
+
+			for (size_t elementIdx = 0; elementIdx < numElements; ++elementIdx) {
+				for (size_t vertexIdx = 0; vertexIdx < numVertices; ++vertexIdx) {
+					for (size_t dim = 0; dim < numDims; ++dim) {
+						size_t linearIdx = dim + numDims * (vertexIdx + numVertices * elementIdx);
+						m_MPINeighborVertices[neighborRank][elementIdx][vertexIdx][dim] = message[linearIdx];
+					}
+				}
 			}
 		}
 	}

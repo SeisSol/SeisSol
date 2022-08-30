@@ -14,7 +14,7 @@ apt-get install -y unzip openmpi-bin openmpi-common libopenmpi-dev && \
 apt-get install -y hdf5-tools libhdf5-openmpi-dev libmetis-dev libparmetis-dev && \
 apt-get install -y cxxtest libyaml-cpp-dev && \
 pip3 install --upgrade pip && \
-pip3 install numpy>=1.12.0 lxml setuptools sphinx sphinx_rtd_theme
+pip3 install numpy>=1.12.0 lxml setuptools sphinx sphinx_rtd_theme seissolxdmf pandas
 
 
 # Install specific libraries
@@ -26,8 +26,10 @@ wget --progress=bar:force:noscroll https://github.com/libxsmm/libxsmm/archive/re
 unzip 1.17.zip && \
 cd libxsmm-1.17 && make generator && cp bin/libxsmm_gemm_generator /usr/bin && cd .. && \
 rm -rf ./1.17.zip && rm -rf ./libxsmm-1.17 && \
+git clone https://github.com/uphoffc/ImpalaJIT.git && mkdir impala_build && cd impala_build && \
+cmake ../ImpalaJIT && make -j $(nproc) install && cd .. && \
 git clone --depth 1 --branch v1.0.0 https://github.com/SeisSol/easi.git && \ 
-mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=OFF ../easi && \
+mkdir easi_build && cd easi_build && cmake -DASAGI=OFF -DIMPALAJIT=ON ../easi && \
 make -j $(nproc) install && cd .. && rm -rf ./easi* && \
 wget --progress=bar:force:noscroll https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz && \
 tar -xf eigen-3.4.0.tar.gz && \

@@ -47,6 +47,7 @@
 #include <string>
 
 #include "CheckPoint.h"
+#include "Kernels/precision.hpp"
 
 namespace seissol
 {
@@ -64,7 +65,7 @@ protected:
 
 private:
 	/** Pointers to fault data */
-	const double* m_data[NUM_VARIABLES];
+	const real* m_data[NUM_VARIABLES];
 
 	/** Number of dynamic rupture sides on this rank */
 	unsigned int m_numSides;
@@ -116,14 +117,14 @@ public:
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
 	 *  (if the fault writer was active)
 	 */
-	virtual void load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
-		double* slip, double* slip1, double* slip2, double* state, double* strength) = 0;
+	virtual void load(int &timestepFault, real* mu, real* slipRate1, real* slipRate2,
+		real* slip, real* slip1, real* slip2, real* state, real* strength) = 0;
 
 	/**
 	 * @copydoc CheckPoint::initLate
 	 */
-	virtual void initLate(const double* mu, const double* slipRate1, const double* slipRate2,
-		const double* slip, const double* slip1, const double* slip2, const double* state, const double* strength)
+	virtual void initLate(const real* mu, const real* slipRate1, const real* slipRate2,
+		const real* slip, const real* slip1, const real* slip2, const real* state, const real* strength)
 	{
 		if (numSides() == 0)
 			return;
@@ -179,9 +180,9 @@ protected:
 		return "cp-f";
 	}
 
-	void setData(const double* mu, const double* slipRate1, const double* slipRate2,
-			const double* slip, const double* slip1, const double* slip2,
-			const double* state, const double* strength)
+	void setData(const real* mu, const real* slipRate1, const real* slipRate2,
+			const real* slip, const real* slip1, const real* slip2,
+			const real* state, const real* strength)
 	{
 		m_data[0] = mu;
 		m_data[1] = slipRate1;
@@ -193,7 +194,7 @@ protected:
 		m_data[7] = strength;
 	}
 
-	const double* data(unsigned int var) const
+	const real* data(unsigned int var) const
 	{
 		assert(var < NUM_VARIABLES);
 		return m_data[var];

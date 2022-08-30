@@ -169,10 +169,9 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 	if (hasFault) {
 		logInfo(rank) << "Extracting fault information";
 
-		VrtxCoords center;
-		int refPointMethod;
-		getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
-		meshReader.findFault(center, refPointMethod);
+		auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
+		VrtxCoords center {drParameters->referencePoint[0], drParameters->referencePoint[1], drParameters->referencePoint[2]};
+		meshReader.findFault(center, drParameters->refPointMethod);
 
 		int* mpiNumberDr;
 		getmpinumberdr(&size, &mpiNumberDr);
@@ -190,9 +189,6 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		const std::map<int, std::vector<MPINeighborElement> >& mpiFaultNeighbors = meshReader.getMPIFaultNeighbors();
 
 		allocfault(fault.size());
-
-		if (meshReader.hasPlusFault())
-			hasplusfault();
 
 		if (fault.size() > 0) {
 			int* faultface;
@@ -231,6 +227,8 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 			}
 		}
 	}
+
+	meshReader.exchangeVerticesWithMPINeighbors();
 
 	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
 

@@ -45,6 +45,7 @@
 
 #include <vector>
 #include <cmath>
+#include <cassert>
 
 class MeshTools
 {
@@ -207,7 +208,8 @@ public:
    */
   static void pointOnPlane(Element const& e, int face, std::vector<Vertex> const& vertices, VrtxCoords result)
   {
-    int index = e.vertices[FACE2NODES[face][0]];
+    const size_t index = e.vertices[FACE2NODES[face][0]];
+    assert(index < vertices.size());
     for (int i = 0; i < 3; i++) {
 			result[i] = vertices[index].coords[i];
     }

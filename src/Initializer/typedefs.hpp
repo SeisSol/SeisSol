@@ -52,6 +52,7 @@
 #include <Kernels/equations.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
+#include <DynamicRupture/Typedefs.hpp>
 
 #include <cstddef>
 
@@ -430,7 +431,7 @@ struct DRGodunovData {
   double doubledSurfaceArea;
 };
 
-struct DROutput {
+struct DREnergyOutput {
   real slip[seissol::tensor::slipInterpolated::size()];
   real accumulatedSlip[seissol::tensor::squaredNormSlipRateInterpolated::size()];
   real frictionalEnergy;
@@ -459,6 +460,7 @@ struct BoundaryFaceInformation {
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
+
 
 /*
  * \class MemoryProperties

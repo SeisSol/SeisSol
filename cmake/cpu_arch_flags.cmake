@@ -52,13 +52,14 @@ function(get_arch_flags architecture compiler)
             set(CPU_ARCH_FLAGS "-march=core-avx2" "-fma" PARENT_SCOPE)
         elseif(compiler MATCHES "GNU|Clang|IntelLLVM")
             set(CPU_ARCH_FLAGS "-march=znver2" "-mtune=znver2" PARENT_SCOPE)
-    endif()
+        endif()
 
     # IBM power 9
     elseif ("${HOST_ARCH}" STREQUAL "power9")
-        set(HAS_REDZONE OFF PARENT_SCOPE)
-        set(CPU_ARCH_FLAGS "-mtune=power9" PARENT_SCOPE)
-
+        if (compiler MATCHES "GNU|Clang")
+            set(HAS_REDZONE OFF PARENT_SCOPE)
+            set(CPU_ARCH_FLAGS "-mtune=power9" PARENT_SCOPE)
+        endif()
     endif()
 
     if (compiler MATCHES "NVHPC|PGI")

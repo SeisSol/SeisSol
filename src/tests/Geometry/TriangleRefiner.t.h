@@ -120,6 +120,6 @@ TEST_CASE("Triangle Refiner") {
       assertTriangle(tr.subTris.at(i), expectedTriangles[i], area, epsilon);
     }
   }
-};
+}
 
 } // namespace seissol::unit_test
