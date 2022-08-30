@@ -70,18 +70,18 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     drParameters->rsSr0 = getWithDefault(yamlDrParams, "rs_sr0", 0.0);
     drParameters->rsInitialSlipRate1 = getWithDefault(yamlDrParams, "rs_inisliprate1", 0.0);
     drParameters->rsInitialSlipRate2 = getWithDefault(yamlDrParams, "rs_inisliprate2", 0.0);
-    drParameters->muW = getWithDefault(yamlDrParams, "mu_w", 0.0);
+    drParameters->muW = getWithDefault(yamlDrParams, "rs_muw", 0.0);
 
     // Thermal Pressurization parameters
-    drParameters->thermalDiffusivity = getWithDefault(yamlDrParams, "alpha_th", 0.0);
-    drParameters->heatCapacity = getWithDefault(yamlDrParams, "rho_c", 0.0);
-    drParameters->undrainedTPResponse = getWithDefault(yamlDrParams, "tp_lambda", 0.0);
-    drParameters->initialTemperature = getWithDefault(yamlDrParams, "initemp", 0.0);
-    drParameters->initialPressure = getWithDefault(yamlDrParams, "inipressure", 0.0);
+    drParameters->thermalDiffusivity = getWithDefault(yamlDrParams, "tp_thermaldiffusivity", 0.0);
+    drParameters->heatCapacity = getWithDefault(yamlDrParams, "tp_heatcapacity", 0.0);
+    drParameters->undrainedTPResponse = getWithDefault(yamlDrParams, "tp_undrainedtpresponse", 0.0);
+    drParameters->initialTemperature = getWithDefault(yamlDrParams, "tp_initemp", 0.0);
+    drParameters->initialPressure = getWithDefault(yamlDrParams, "tp_inipressure", 0.0);
 
     // Prakash-Clifton regularization parameters
-    drParameters->vStar = getWithDefault(yamlDrParams, "vstar", 0.0);
-    drParameters->prakashLength = getWithDefault(yamlDrParams, "prakashlength", 0.0);
+    drParameters->vStar = getWithDefault(yamlDrParams, "pc_vstar", 0.0);
+    drParameters->prakashLength = getWithDefault(yamlDrParams, "pc_prakashlength", 0.0);
 
     // filename of the yaml file describing the fault parameters
     drParameters->faultFileName = getWithDefault(yamlDrParams, "modelfilename", std::string(""));

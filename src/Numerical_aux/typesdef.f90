@@ -586,7 +586,6 @@ MODULE TypesDef
                                                  ! forced_rupture_time
   END TYPE tbackground_stress
 
-!< constants
 
   !<--- Tracing with Intel Trace Tools, function handles -----------------------
   TYPE tTracing

@@ -734,8 +734,8 @@ CONTAINS
     REAL                                   :: RS_sv0, XRef, YRef, ZRef, GPwise,  &
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, vStar, prakashLength, t_0, Mu_W, &
-                                              alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                              RS_iniSlipRate2, pc_vStar, pc_prakashLength, t_0, RS_muW, &
+                                              TP_thermalDiffusivity, TP_heatCapacity, TP_undrainedTPResponse, TP_IniTemp, TP_IniPressure, &
                                               NucRS_sv0, r_s
 
     !------------------------------------------------------------------------
@@ -743,9 +743,9 @@ CONTAINS
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
-                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, vstar, &
-                                                thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
-                                                prakashLength, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
+                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, pc_vstar, &
+                                                thermalPress, TP_thermalDiffusivity, TP_heatCapacity, TP_undrainedTPResponse, TP_IniTemp, TP_IniPressure, &
+                                                pc_prakashLength, t_0, RS_muW, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
 
@@ -769,18 +769,18 @@ CONTAINS
     RS_b = 0
     RS_iniSlipRate1 = 0
     RS_iniSlipRate2 = 0
-    vstar = 0
+    pc_vstar = 0
     t_0 = 0
-    prakashLength = 0
-    Mu_W = 0
+    pc_prakashLength = 0
+    RS_muW = 0
     NucRS_sv0 = 0
     r_s = 0
     thermalPress = 0
-    alpha_th = 0
-    rho_c = 0
-    TP_lambda = 0
-    IniTemp = 0.0d0 
-    IniPressure = 0.0d0
+    TP_thermalDiffusivity = 0
+    TP_heatCapacity = 0
+    TP_undrainedTPResponse = 0
+    TP_IniTemp = 0.0d0
+    TP_IniPressure = 0.0d0
     ModelFileName = ''
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
