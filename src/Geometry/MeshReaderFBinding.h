@@ -45,8 +45,6 @@ void allocbndobj(int i, int n);
 void allocbndobjfault(int i, int n);
 void allocfault(int n);
 
-void hasplusfault();
-
 void getverticesxy(int* size, double** verticesXY);
 void getverticesnelements(int* size, int** nelements);
 void getverticeselements(int* size, int** elements);
@@ -68,7 +66,6 @@ void getbndnelem(int i, int* nelem);
 void setbndnelem(int i, int nelem);
 void getbnddomainelements(int i, int* size, int** domainelements);
 
-void getfaultreferencepoint(double* x, double* y, double* z, int* method);
 void getfaultface(int* size, int** faultface);
 void getfaultnormals(int* size, double** normals);
 void getfaulttangent1(int *size, double** tangent);

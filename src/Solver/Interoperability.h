@@ -50,6 +50,7 @@
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
+#include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
@@ -96,8 +97,11 @@ class seissol::Interoperability {
 
     //! Lookup table relating faces to layers
     unsigned*                         m_ltsFaceToMeshFace;
-    
-    //! Vector of initial conditions
+
+    seissol::initializers::LTSTree* m_dynRupTree;
+    seissol::initializers::DynamicRupture* m_dynRup;
+
+  //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
     void initInitialConditions();
@@ -192,12 +196,6 @@ class seissol::Interoperability {
                           double Qs,
                           seissol::model::ViscoElasticMaterial& material );
 
-
-  /**
-   * Enables dynamic rupture.
-   **/
-   void enableDynamicRupture();
-
    /**
     * Set material parameters for cell
     **/
@@ -278,17 +276,11 @@ class seissol::Interoperability {
     **/
    void getIntegrationMask( int* i_integrationMask );
 
-   void initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-                     double* state, double* strength, int numSides, int numBndGP, int refinement, int* outputMask,
+   void initializeIO(int numSides, int numBndGP, int refinement, int* outputMask,
                      int* plasticityMask, double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
                      double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
                      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
                      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval);
-
-   /**
-    * Copy dynamic rupture variables for output.
-    **/
-   void copyDynamicRuptureState();
 
   /**
    * Returns (possibly multiple) initial conditions
@@ -341,41 +333,6 @@ class seissol::Interoperability {
     * Gets the type of the initial conditions.
     */
    std::string getInitialConditionType();
-
-   /**
-    * Compute fault output.
-    *
-    * @param i_fullUpdateTime full update time of the respective DOFs.
-    * @param i_timeStepWidth time step width of the next full update.
-    **/
-   void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
-
-
-   /*
-    * Not in use any more
-    * TODO(Ravil, Sebastian): remove this and all callees inside
-    */
-   void evaluateFrictionLaw(  int face,
-                              real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real   imposedStatePlus[seissol::tensor::QInterpolated::size()],
-                              real   imposedStateMinus[seissol::tensor::QInterpolated::size()],
-                              double i_fullUpdateTime,
-                              double timePoints[CONVERGENCE_ORDER],
-                              double timeWeights[CONVERGENCE_ORDER],
-                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
-                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
-
-
-  void initializeFaultOutput();
-
-
-   /**
-    * Prepare element wise faultoutput
-    *
-    * @param time The current simulation time
-    */
-   void calcElementwiseFaultoutput( double time );
 
    /**
     * Simulates until the final time is reached.

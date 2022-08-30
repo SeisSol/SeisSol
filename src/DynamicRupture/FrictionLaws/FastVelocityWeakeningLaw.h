@@ -36,6 +36,7 @@ class FastVelocityWeakeningLaw
    * @param localSlipRate \f$ V \f$
    * @return \f$ \Psi(t) \f$
    */
+  #pragma omp declare simd
   real updateStateVariable(unsigned int pointIndex,
                            unsigned int face,
                            real stateVarReference,
@@ -78,6 +79,7 @@ class FastVelocityWeakeningLaw
    * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
+  #pragma omp declare simd
   real updateMu(unsigned int ltsFace,
                 unsigned int pointIndex,
                 real localSlipRateMagnitude,
@@ -98,6 +100,7 @@ class FastVelocityWeakeningLaw
    * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
+  #pragma omp declare simd
   real updateMuDerivative(unsigned int ltsFace,
                           unsigned int pointIndex,
                           real localSlipRateMagnitude,
@@ -114,6 +117,7 @@ class FastVelocityWeakeningLaw
                         unsigned int ltsFace) const {
     std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
     std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
@@ -124,6 +128,7 @@ class FastVelocityWeakeningLaw
     resampleKrnl.resampledQ = resampledDeltaStateVar.data();
     resampleKrnl.execute();
 
+    #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
           std::max(static_cast<real>(0.0),

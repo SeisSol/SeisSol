@@ -133,8 +133,8 @@ public:
 	 * @return True is a checkpoint was loaded, false otherwise
 	 */
 	bool init(real* dofs, unsigned int numDofs,
-			double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-			double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
+			real* mu, real* slipRate1, real* slipRate2, real* slip, real* slip1, real* slip2,
+			real* state, real* strength, unsigned int numSides, unsigned int numBndGP,
 			int &faultTimeStep);
 
 	/**
@@ -169,7 +169,7 @@ public:
 		sendBuffer(HEADER);
 		sendBuffer(DOFS, m_numDofs * sizeof(real));
 		for (unsigned int i = 0; i < 8; i++)
-			sendBuffer(DR_DOFS0+i, m_numDRDofs * sizeof(double));
+			sendBuffer(DR_DOFS0+i, m_numDRDofs * sizeof(real));
 
 
 		SCOREP_USER_REGION_DEFINE(r_call);

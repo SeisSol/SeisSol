@@ -22,7 +22,7 @@ real gaussianNucleation(real time, real dt, real tau) {
 TEST_CASE("Gaussian Nucleation Function") {
   constexpr real dt = 0.01;
   constexpr real epsilon = 1e-4;
-  for (real const& effectiveRiseTime : {0.8, 1.0}) {
+  for (real const effectiveRiseTime : {0.8, 1.0}) {
       for (int i = -10; i < 111; i++) {
         const real stfEvaluated = seissol::gaussianNucleationFunction::smoothStepIncrement(i * dt, dt, effectiveRiseTime);
         const real referenceEvaluated = gaussianNucleation(i * dt, dt, effectiveRiseTime);

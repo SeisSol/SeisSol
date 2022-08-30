@@ -60,12 +60,17 @@ void ReceiverBasedOutputBuilder::initFaultDirections() {
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
     const size_t globalIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
 
-    outputData->faultDirections[receiverId].faceNormal = faultInfo[globalIndex].normal;
-    outputData->faultDirections[receiverId].tangent1 = faultInfo[globalIndex].tangent1;
-    outputData->faultDirections[receiverId].tangent2 = faultInfo[globalIndex].tangent2;
-    misc::computeStrikeAndDipVectors(outputData->faultDirections[receiverId].faceNormal,
-                                     outputData->faultDirections[receiverId].strike,
-                                     outputData->faultDirections[receiverId].dip);
+    auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
+    auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
+    auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+
+    std::copy_n(&faultInfo[globalIndex].normal[0], 3, faceNormal.begin());
+    std::copy_n(&faultInfo[globalIndex].tangent1[0], 3, tangent1.begin());
+    std::copy_n(&faultInfo[globalIndex].tangent2[0], 3, tangent2.begin());
+
+    auto& strike = outputData->faultDirections[receiverId].strike;
+    auto& dip = outputData->faultDirections[receiverId].dip;
+    misc::computeStrikeAndDipVectors(faceNormal.data(), strike.data(), dip.data());
   }
 }
 
@@ -83,21 +88,23 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto* const faceNormal = outputData->faultDirections[receiverId].faceNormal;
-    const auto* const strike = outputData->faultDirections[receiverId].strike;
-    const auto* const dip = outputData->faultDirections[receiverId].dip;
-    const auto* const tangent1 = outputData->faultDirections[receiverId].tangent1;
-    const auto* const tangent2 = outputData->faultDirections[receiverId].tangent2;
+    const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
+    const auto& strike = outputData->faultDirections[receiverId].strike;
+    const auto& dip = outputData->faultDirections[receiverId].dip;
+    const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
+    const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
 
     {
       auto* memorySpace = outputData->stressGlbToDipStrikeAligned[receiverId].data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
+      inverseSymmetricTensor2RotationMatrix(
+          faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
     }
     {
       auto* memorySpace = outputData->stressFaceAlignedToGlb[receiverId].data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
+      symmetricTensor2RotationMatrix(
+          faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
     }
     {
       auto faceAlignedToGlb =
@@ -106,7 +113,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
           init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
 
       seissol::model::getFaceRotationMatrix(
-          faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
+          faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
     }
   }
 }
@@ -170,13 +177,6 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
   constexpr int numPoly = CONVERGENCE_ORDER - 1;
-
-#ifndef stroud
-  const int rank = seissol::MPI::mpi.rank();
-  logWarning(rank)
-      << "This quadrature rule does not move gaussian points away from cell edges when"
-      << "evaluating rupture speed. This may result in inacurrate rupture speeds there.";
-#endif
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
