@@ -77,14 +77,16 @@ inline void precomputeStressFromQInterpolated(
 
   using namespace dr::misc::quantity_indices;
 
+#ifndef ACL_DEVICE_OFFLOAD
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
+#endif
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)
 #else
 #pragma omp simd
-#endif // ACL_DEVICE_OFFLOAD
+#endif
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       faultStresses.normalStress[o][i] =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
@@ -174,7 +176,7 @@ inline void postcomputeImposedStateFromNewStress(
   // set imposed state to zero
 #ifdef ACL_DEVICE_OFFLOAD
 #pragma omp loop bind(parallel)
-#endif // ACL_DEVICE_OFFLOAD
+#endif
   for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
     imposedStatePlus[i] = static_cast<real>(0.0);
     imposedStateMinus[i] = static_cast<real>(0.0);
@@ -195,8 +197,10 @@ inline void postcomputeImposedStateFromNewStress(
 
   using namespace dr::misc::quantity_indices;
 
+#ifndef ACL_DEVICE_OFFLOAD
   checkAlignmentPostCompute(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
+#endif
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
@@ -205,7 +209,7 @@ inline void postcomputeImposedStateFromNewStress(
 #pragma omp loop bind(parallel)
 #else
 #pragma omp simd
-#endif // ACL_DEVICE_OFFLOAD
+#endif
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
       const auto normalStress = faultStresses.normalStress[o][i];
       const auto traction1 = tractionResults.traction1[o][i];
@@ -248,7 +252,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
 #pragma omp loop bind(parallel)
 #else
 #pragma omp simd
-#endif // ACL_DEVICE_OFFLOAD
+#endif
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     constexpr real ruptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
@@ -271,7 +275,7 @@ inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints]
 #pragma omp loop bind(parallel)
 #else
 #pragma omp simd
-#endif // ACL_DEVICE_OFFLOAD
+#endif
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
