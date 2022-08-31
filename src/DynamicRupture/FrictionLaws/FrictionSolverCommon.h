@@ -78,7 +78,7 @@ inline void precomputeStressFromQInterpolated(
 
   using namespace dr::misc::quantity_indices;
 
-#ifndef GENERAL_SYCL_OFFLOADING 
+#ifndef GENERAL_SYCL_OFFLOADING
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
@@ -202,7 +202,7 @@ inline void postcomputeImposedStateFromNewStress(
 
   using namespace dr::misc::quantity_indices;
 
-#ifndef GENERAL_SYCL_OFFLOADING 
+#ifndef GENERAL_SYCL_OFFLOADING
   checkAlignmentPostCompute(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif

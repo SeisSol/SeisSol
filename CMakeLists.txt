@@ -332,30 +332,31 @@ if (WITH_GPU)
   add_subdirectory(submodules/Device)
   target_include_directories(SeisSol-common-properties INTERFACE submodules/Device)
   target_link_libraries(SeisSol-common-properties INTERFACE device)
-  
+
   # add SeisSol GPU part
   target_link_libraries(SeisSol-common-properties INTERFACE SeisSol-device-lib)
-
-  # add GPU dynamic rupture target
-  set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}")
-  find_package(hipSYCL CONFIG REQUIRED)
-  message(STATUS "Found SYCL: TRUE")
 
   add_library(general-sycl-offloading SHARED
       ${DYNAMIC_RUPTURE_SRC_FILES}
       ${DYNAMIC_RUPTURE_SYCL_SRC_FILES})
 
   if (DEVICE_ARCH MATCHES "sm_*")
+    set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
     target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
   elseif(DEVICE_ARCH MATCHES "gfx*")
+    set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
   else()
+    set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
   endif()
 
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
 
+  # add GPU dynamic rupture target
+  find_package(hipSYCL CONFIG REQUIRED)
+  message(STATUS "Found SYCL: TRUE")
   # note, we need to add openmp as a link option explicitly for some compilers.
   # it is probably an issue of `add_sycl_to_target` macro
   target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})

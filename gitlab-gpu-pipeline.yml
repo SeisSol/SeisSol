@@ -39,22 +39,11 @@ gpu_pre_build:
         paths:
             - ./self_usr
 
-# gcc@9 is required to compile and run hipSYCL@0.9.1. It is based on llvm and emits nvptx code by itself.
-# gcc@8 is required for cuda@10.2
-# Note: currently we cannot switch to cuda@11 because an old version of the nvidia driver is installed
-#       on our GPU CI runner (atsccs68-docker-executor). Once it is updated we will be able
-#       to switch to cuda@11 and thus to gcc@9
 .common_gpu_test_script: &common_gpu_steps
     - export CTEST_OUTPUT_ON_FAILURE=1
     - if [[ "${BACKEND}" == "hipsycl" ]]; then
-        export CC=/usr/bin/gcc-9 ;
-        export CXX=/usr/bin/g++-9 ;
-        export FC=/usr/bin/gfortran-9 ;
         export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH ;
         export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH ;
-      else
-        export CC=/usr/bin/gcc-8 ;
-        export CXX=/usr/bin/g++-8 ;
       fi ;
     - if [[ "${BACKEND}" == "hip" ]]; then
         . /etc/profile.d/rocm.sh ;
