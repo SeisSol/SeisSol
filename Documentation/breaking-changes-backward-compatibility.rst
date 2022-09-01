@@ -17,6 +17,7 @@ C++ dynamic rupture implementation (dr/cpp)
 While porting dynamic rupture to C++, we changed a few parameter names to make things more consistent.
 The new dynamic rupture implementation has been merged in September 2022 (GitHub pull request `#625 <https://github.com/SeisSol/SeisSol/pull/625>`_).
 The linear slip weakening friction laws FL=2 (nucleation by stress increase) and FL=16 (forced time rupture nucleation) have been merged (the new friction law is FL=16).
+Because of this change, FL=16 now requires nucleation stress or tractions to be specified in the fault-specific yaml file.
 
 Parameter file (`parameters.par`):
 
@@ -24,8 +25,6 @@ Parameter file (`parameters.par`):
 | old           | new                      |
 +===============+==========================+
 | `0d0`         | `0.0`                    |
-+---------------+--------------------------+
-| `1d-16`       | `1e-16`                  |
 +---------------+--------------------------+
 | `v_star`      | `pc_vStar`               |
 +---------------+--------------------------+
@@ -54,4 +53,10 @@ Fault-specific yaml file (`fault.yaml`):
 | `alpha_hy`                  |  `tp_hydraulicDiffusivity` |
 +-----------------------------+----------------------------+
 | `TP_half_width_shear_zone`  |  `tp_halfWidthShearZone`   |
++-----------------------------+----------------------------+
+| `Ts0`                       |  `T_s`                     |
++-----------------------------+----------------------------+
+| `Td0`                       |  `T_d`                     |
++-----------------------------+----------------------------+
+| `Pn0`                       |  `T_n`                     |
 +-----------------------------+----------------------------+
