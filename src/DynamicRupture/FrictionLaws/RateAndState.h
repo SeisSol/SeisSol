@@ -239,9 +239,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       const real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
-                            faultStresses.traction1[timeIndex][pointIndex];
+                                  faultStresses.traction1[timeIndex][pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
-                            faultStresses.traction2[timeIndex][pointIndex];
+                                  faultStresses.traction2[timeIndex][pointIndex];
 
       const auto divisor =
           strength + this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
