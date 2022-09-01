@@ -257,6 +257,7 @@ inline void postcomputeImposedStateFromNewStress(
       imposedStateM[N][i] += weight * normalStress;
       imposedStateM[T1][i] += weight * traction1;
       imposedStateM[T2][i] += weight * traction2;
+      // This is eq (4.60) from Carsten's thesis
       imposedStateM[U][i] +=
           weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
       imposedStateM[V][i] +=
@@ -267,6 +268,7 @@ inline void postcomputeImposedStateFromNewStress(
       imposedStateP[N][i] += weight * normalStress;
       imposedStateP[T1][i] += weight * traction1;
       imposedStateP[T2][i] += weight * traction2;
+      // This is eq (4.60) from Carsten's thesis
       imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
       imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
       imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
