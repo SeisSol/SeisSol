@@ -168,6 +168,11 @@ class PoroelasticADERDG(LinearADERDG):
       rhs += minus * self.starMatrix(d)['qo'] * self.db.kDivMT[d]['lm'] * spaceTimePredictor['mqu']
     generator.add('stpTestRhs', testRhs['lou'] <= rhs)
 
+    QAtTimeSTP = OptionalDimTensor('QAtTimeSTP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self.Q.shape(), alignStride=True)
+    timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (self.order,))
+    evaluateDOFSAtTimeSTP = QAtTimeSTP['kp'] <= spaceTimePredictor['kpt'] * timeBasisFunctionsAtPoint['t']
+    generator.add('evaluateDOFSAtTimeSTP', evaluateDOFSAtTimeSTP)
+
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
     include_tensors.add(self.db.Z)

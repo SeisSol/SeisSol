@@ -78,6 +78,10 @@
 #include <Kernels/Interface.hpp>
 #include <Kernels/TimeBase.h>
 #include <generated_code/tensor.h>
+#ifdef USE_STP
+#include <Numerical_aux/BasisFunction.h>
+#include <memory>
+#endif
 
 namespace seissol {
   namespace kernels {
@@ -103,6 +107,9 @@ class seissol::kernels::Time : public TimeBase {
                      LocalData& data,
                      real       o_timeIntegrated[tensor::I::size()],
                      real*      stp );
+    void evaluateAtTime(std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions, real const* timeDerivatives, real timeEvaluated[tensor::Q::size()]);
+    void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
+
 #endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
