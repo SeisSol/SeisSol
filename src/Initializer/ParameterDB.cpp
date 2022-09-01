@@ -328,7 +328,7 @@ namespace seissol {
     T MaterialParameterDB<T>::computeAveragedMaterial(unsigned elementIdx,
         std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
         std::vector<T> const& materialsFromQuery) {
-      logInfo() << "You want me to compute an average material for a generic type. In general, this function should never be called, but always a proper specialization!";
+      logWarning() << "You want me to compute an average material for a generic type. In general, this function should never be called, but always a proper specialization!";
       unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx;
       return T(materialsFromQuery[globalPointIdx]);
     }
@@ -339,21 +339,23 @@ namespace seissol {
      std::vector<ElasticMaterial> const& materialsFromQuery) {
       double muMeanInv = 0.0;
       double rhoMean = 0.0;
+      // Average of v / E with v: Poisson's ratio, E: Young's modulus
       double vERatioMean = 0.0;
 
       for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
+        // Divide by volume of reference tetrahedron (1/6)
         const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
         const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
         const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-        muMeanInv += 1 / elementMaterial.mu * quadWeight;
+        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
         rhoMean += elementMaterial.rho * quadWeight;
-        vERatioMean += elementMaterial.lambda / (2 * elementMaterial.mu * (3 * elementMaterial.lambda + 2 * elementMaterial.mu)) * quadWeight;
+        vERatioMean += elementMaterial.lambda / (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) * quadWeight;
       }
 
       // Harmonic average is used for mu, so take the reciprocal
-      double muMean = 1 / muMeanInv;
+      double muMean = 1.0 / muMeanInv;
       // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-      double lambdaMean = (4 * std::pow(muMean, 2) * vERatioMean) / (1 - 6 * muMean * vERatioMean);
+      double lambdaMean = (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
       ElasticMaterial result{};
       result.rho = rhoMean;
@@ -376,17 +378,17 @@ namespace seissol {
         const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
         const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
         const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-        muMeanInv += 1 / elementMaterial.mu * quadWeight;
+        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
         rhoMean += elementMaterial.rho * quadWeight;
-        vERatioMean += elementMaterial.lambda / (2 * elementMaterial.mu * (3 * elementMaterial.lambda + 2 * elementMaterial.mu)) * quadWeight;
+        vERatioMean += elementMaterial.lambda / (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) * quadWeight;
         QpMean += elementMaterial.Qp * quadWeight;
         QsMean += elementMaterial.Qs * quadWeight;
       }
 
       // Harmonic average is used for mu, so take the reciprocal
-      double muMean = 1 / muMeanInv;
+      double muMean = 1.0 / muMeanInv;
       // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-      double lambdaMean = (4 * std::pow(muMean, 2) * vERatioMean) / (1 - 6 * muMean * vERatioMean);
+      double lambdaMean = (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
       ViscoElasticMaterial result{};
       result.rho = rhoMean;
