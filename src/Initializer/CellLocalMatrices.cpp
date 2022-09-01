@@ -537,8 +537,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           break;
         }
         case seissol::model::MaterialType::poroelastic: {
-          logError() << "Dynamic Rupture does not work with poroelasticity yet.";
-          //TODO(SW): Make DR work with poroelasticity
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
         }
         case seissol::model::MaterialType::anisotropic: {
