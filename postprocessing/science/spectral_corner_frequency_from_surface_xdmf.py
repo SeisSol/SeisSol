@@ -245,7 +245,7 @@ def ApproximateEventDurationAndHypocenter(faultxdmf, faultxyz):
     ASR = np.abs(np.gradient(ASl, dtFault, axis=1))
     slippingElement = np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0)
     if np.all(slippingElement == 1):
-        print("Warning: at least one element is constantly slipping")
+        print("Warning: at least one element is always slipping")
         print("eventDuration is set to the entire length of the time series")
         duration = (slippingElement.size - 1) * dtFault
     elif np.argmax(np.flip(slippingElement)) == 0:
