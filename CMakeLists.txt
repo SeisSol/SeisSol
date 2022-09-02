@@ -337,8 +337,8 @@ if (WITH_GPU)
   target_link_libraries(SeisSol-common-properties INTERFACE SeisSol-device-lib)
 
   add_library(general-sycl-offloading SHARED
-      ${DYNAMIC_RUPTURE_SRC_FILES}
-      ${DYNAMIC_RUPTURE_SYCL_SRC_FILES})
+      ${SYCL_DEPENDENT_SRC_FILES}
+      ${SYCL_ONLY_SRC_FILES})
 
   if (DEVICE_ARCH MATCHES "sm_*")
     set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
@@ -360,8 +360,7 @@ if (WITH_GPU)
   # note, we need to add openmp as a link option explicitly for some compilers.
   # it is probably an issue of `add_sycl_to_target` macro
   target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
-  add_sycl_to_target(TARGET general-sycl-offloading SOURCES
-      ${DYNAMIC_RUPTURE_SYCL_SRC_FILES})
+  add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
 
   add_dependencies(general-sycl-offloading SeisSol-codegen)
 
@@ -371,7 +370,7 @@ if (WITH_GPU)
   install(TARGETS device DESTINATION ${CMAKE_INSTALL_PREFIX})
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
-  target_sources(SeisSol-lib PUBLIC ${DYNAMIC_RUPTURE_SRC_FILES})
+  target_sources(SeisSol-lib PUBLIC ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
 

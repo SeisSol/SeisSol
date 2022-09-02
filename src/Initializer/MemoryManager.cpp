@@ -848,8 +848,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
 
 #ifdef GENERAL_SYCL_OFFLOADING
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
-      device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      impl->setDeviceId(device.api->getDeviceId());
+      impl->initSyclQueue();
 
       LayerMask mask = seissol::initializers::LayerMask(Ghost);
       auto maxSize = m_dynRupTree.getMaxClusterSize(mask);

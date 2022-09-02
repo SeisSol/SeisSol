@@ -51,13 +51,6 @@
 
 #include "MPIBasic.h"
 
-#ifdef ACL_DEVICE
-#include <cstdlib>
-#include <string>
-#include <sstream>
-#include <device.h>
-#endif  // ACL_DEVICE
-
 #endif // USE_MPI
 
 namespace seissol
@@ -76,12 +69,6 @@ class MPI : public MPIBasic
 {
 private:
 	MPI_Comm m_comm;
-
-#ifdef ACL_DEVICE
-    int m_deviceId{};
-#endif // ACL_DEVICE
-
-private:
 	MPI()
 		: m_comm(MPI_COMM_NULL)
 	{ }
@@ -106,23 +93,7 @@ public:
      * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
      * OMPI_COMM_WORLD_LOCAL_RANK env. variables
      * */
-    void  bindRankToDevice() {
-      device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      m_deviceId = 0;
-
-#ifdef _OPENMP
-      #pragma omp parallel
-      {
-        #pragma omp critical
-        {
-          device.api->setDevice(m_deviceId);
-        }
-      }
-#else
-      device.api->setDevice(m_deviceId);
-#endif
-    }
-    int getDeviceID() { return m_deviceId; }
+    void  bindAcceleratorDevice();
 #endif // ACL_DEVICE
 
 	/**

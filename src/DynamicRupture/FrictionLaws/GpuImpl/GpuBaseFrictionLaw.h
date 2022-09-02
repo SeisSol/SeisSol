@@ -15,7 +15,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   GpuBaseFrictionLaw(dr::DRParameters* drParameters);
   ~GpuBaseFrictionLaw();
 
-  void setDeviceId(int currDeviceId);
+  void initSyclQueue();
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }
   void allocateAuxiliaryMemory();
   void copyStaticDataToDevice();

@@ -1,5 +1,5 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
-#include "Parallel/MPI.h"
+#include "Parallel/AcceleratorDevice.h"
 #include "utils/logger.h"
 #include <device.h>
 #include <sstream>
@@ -18,32 +18,9 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   free(resampleMatrix, queue);
 }
 
-void GpuBaseFrictionLaw::setDeviceId(int currDeviceId) {
-  std::ostringstream info;
-
-  try {
-#if defined(SYCL_PLATFORM_NVIDIA)
-    device = sycl::make_device<sycl::backend::cuda>(currDeviceId);
-#elif defined(SYCL_PLATFORM_AMD)
-    device = sycl::make_device<sycl::backend::hip>(currDeviceId);
-#else
-    device = sycl::device(sycl::cpu_selector());
-#endif
-    device::DeviceInstance& nativeDevice = device::DeviceInstance::getInstance();
-    nativeDevice.api->setDevice(currDeviceId);
-  } catch (sycl::exception const& err) {
-    info << "[SYCL] " << err.what() << "; ";
-    device = sycl::device(sycl::cpu_selector());
-  }
-
-  info << "[SYCL] GPU device: " << std::boolalpha << device.is_gpu() << "; ";
-  info << "[SYCL] Using Device: " << device.get_info<sycl::info::device::name>();
-
-  const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << info.str();
-
-  sycl::property_list property{sycl::property::queue::in_order()};
-  queue = sycl::queue(device, property);
+void GpuBaseFrictionLaw::initSyclQueue() {
+  auto& instance = seissol::AcceleratorDevice::getInstance();
+  queue = instance.getSyclDefaultQueue();
 }
 
 void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
