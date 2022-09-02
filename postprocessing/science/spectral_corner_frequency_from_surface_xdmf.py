@@ -129,7 +129,7 @@ def ComputeCornerFrequency(tuples):
     
     fc_arr = np.zeros(tuples[0].shape[0])
     endfreq = args.maxFreq[0]
-    startfreq = np.max(minFreq, 0.01)
+    startfreq = np.max([minFreq, 0.01])
     
     for i in range(0, fc_arr.size):
         
@@ -246,13 +246,9 @@ def ApproximateEventDurationAndHypocenter(faultxdmf, faultxyz):
     slippingElement = np.where(np.amax(ASR, axis=0) > slipRateThreshold, 1, 0)
     if np.all(slippingElement == 1):
         print("Warning: at least one element is always slipping")
-        print("eventDuration is set to the entire length of the time series")
-        duration = (slippingElement.size - 1) * dtFault
     elif np.argmax(np.flip(slippingElement)) == 0:
         print("Warning: at least one element is still slipping at the last time step")
-        duration = slippingElement[np.argmax(slippingElement):-1].size * dtFault
-    else:
-        duration = slippingElement[np.argmax(slippingElement):-np.argmax(np.flip(slippingElement))].size * dtFault
+    duration = np.trim_zeros(slippingElement).size * dtFault
     slippingFault = np.where(ASR > slipRateThreshold, 1, 0)
     indHypocenter = np.argmax(slippingFault[:,np.argmax(np.amax(slippingFault, axis=0))])
     hypocenter = faultxyz[indHypocenter,:]
