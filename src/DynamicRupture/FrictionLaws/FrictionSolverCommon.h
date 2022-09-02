@@ -92,8 +92,8 @@ inline void precomputeStressFromQInterpolated(
   krnl.extractTractions = init::extractTractions::Values;
 
   // Compute Theta from eq (4.53) in Carsten's thesis
-  krnl.Zplus = impedanceMatrices.impedanceNeig.data();
-  krnl.Zminus = impedanceMatrices.impedance.data();
+  krnl.Zplus = impedanceMatrices.impedance.data();
+  krnl.Zminus = impedanceMatrices.impedanceNeig.data();
   krnl.eta = impedanceMatrices.eta.data();
 
   real thetaBuffer[tensor::theta::size()] = {};
@@ -158,7 +158,7 @@ inline void postcomputeImposedStateFromNewStress(
   krnlM.extractTractions = init::extractTractions::Values;
   krnlM.mapToVelocities = init::mapToVelocities::Values;
   krnlM.mapToTractions = init::mapToTractions::Values;
-  krnlM.Zminus = impedanceMatrices.impedance.data();
+  krnlM.Zminus = impedanceMatrices.impedanceNeig.data();
   krnlM.imposedState = imposedStateMinus;
 
   seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
@@ -166,7 +166,7 @@ inline void postcomputeImposedStateFromNewStress(
   krnlP.extractTractions = init::extractTractions::Values;
   krnlP.mapToVelocities = init::mapToVelocities::Values;
   krnlP.mapToTractions = init::mapToTractions::Values;
-  krnlP.Zplus = impedanceMatrices.impedanceNeig.data();
+  krnlP.Zplus = impedanceMatrices.impedance.data();
   krnlP.imposedState = imposedStatePlus;
 
   real thetaBuffer[tensor::theta::size()] = {};
