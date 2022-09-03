@@ -132,13 +132,13 @@ Installing GemmForge (for GPU)
 
 .. code-block:: bash
 
-   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
 
 Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
 
 .. code-block:: bash
 
-   pip3 install https://github.com/ravil-mobile/chainforge.git
+   pip3 install --user https://github.com/ravil-mobile/chainforge.git
 
 
 
