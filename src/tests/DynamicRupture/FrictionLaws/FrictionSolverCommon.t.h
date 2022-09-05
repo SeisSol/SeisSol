@@ -22,7 +22,7 @@ TEST_CASE("Friction Solver Common") {
   alignas(ALIGNMENT) real imposedStateMinus[tensor::QInterpolated::size()];
   double timeWeights[CONVERGENCE_ORDER];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
-  constexpr real epsilon = 1e-8;
+  constexpr real epsilon = 1e4 * std::numeric_limits<real>::epsilon();
 
   using QInterpolatedShapeT = real(*)[misc::numQuantities][misc::numPaddedPoints];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
