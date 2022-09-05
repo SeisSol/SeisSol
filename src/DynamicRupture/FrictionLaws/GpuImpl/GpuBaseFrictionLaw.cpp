@@ -1,8 +1,6 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
 #include "Parallel/AcceleratorDevice.h"
-#include "utils/logger.h"
 #include <device.h>
-#include <sstream>
 
 namespace seissol::dr::friction_law::gpu {
 GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters* drParameters)

@@ -243,6 +243,42 @@ inline void postcomputeImposedStateFromNewStress(
 }
 
 /**
+ * adjusts initial stresses based on the given nucleation ones
+ *
+ * @param[out] initialStressInFaultCS
+ * @param[in] nucleationStressInFaultCS
+ * @param[in] t0
+ * @param[in] dt
+ * @param[in] expFunction - exp function. std::exp for the host, sycl::exp for the device
+ * @param[in] index - device iteration index
+ */
+inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
+                                const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
+                                real fullUpdateTime,
+                                real t0,
+                                real dt,
+                                real (*expFunction)(real) = std::exp,
+                                [[maybe_unused]] unsigned index = 0) {
+  if (fullUpdateTime <= t0) {
+    const real gNuc =
+        gaussianNucleationFunction::smoothStepIncrement(fullUpdateTime, dt, t0, expFunction);
+
+#ifndef GENERAL_SYCL_OFFLOADING
+    #pragma omp simd
+    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+#else
+    auto pointIndex{index};
+#endif
+      for (unsigned i = 0; i < 6; i++) {
+        initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
+      }
+#ifndef GENERAL_SYCL_OFFLOADING
+    }
+#endif
+  }
+}
+
+/**
  * output rupture front, saves update time of the rupture front
  * rupture front is the first registered change in slip rates that exceeds 0.001
  *

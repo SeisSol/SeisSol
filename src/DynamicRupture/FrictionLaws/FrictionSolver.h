@@ -43,7 +43,6 @@ class FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  void adjustInitialStress(size_t ltsFace, size_t timeIndex);
   real deltaT[CONVERGENCE_ORDER] = {};
 
   dr::DRParameters* drParameters;

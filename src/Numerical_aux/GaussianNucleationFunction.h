@@ -9,12 +9,12 @@ namespace seissol::gaussianNucleationFunction {
 /**
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
-inline real smoothStep(real currentTime, real t0) {
+inline real smoothStep(real currentTime, real t0, real (*expFunction)(real) = std::exp) {
   if (currentTime <= 0) {
     return 0.0;
   } else if (currentTime < t0) {
     const real tau = currentTime - t0;
-    return std::exp(tau * tau /
+    return expFunction(tau * tau /
                     (currentTime * (currentTime - 2.0 * t0)));
   } else {
     return 1.0;
@@ -24,8 +24,8 @@ inline real smoothStep(real currentTime, real t0) {
 /**
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
-inline real smoothStepIncrement(real currentTime, real dt, real t0) {
-  return smoothStep(currentTime, t0) - smoothStep(currentTime - dt, t0);
+inline real smoothStepIncrement(real currentTime, real dt, real t0, real (*expFunction)(real) = std::exp) {
+  return smoothStep(currentTime, t0, expFunction) - smoothStep(currentTime - dt, t0, expFunction);
 }
 
 } // namespace seissol::gaussianNucleationFunction

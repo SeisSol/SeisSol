@@ -38,8 +38,8 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
+          const auto ltsFace = item.get_group().get_group_id(0);
+          const auto pointIndex = item.get_local_id(0);
           common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
                                                     impAndEta[ltsFace],
                                                     qInterpolatedPlus[ltsFace],
@@ -50,6 +50,26 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
+        const real t0{this->drParameters->t0};
+        const real dt = deltaT[timeIndex];
+        auto* initialStressInFaultCS{this->initialStressInFaultCS};
+        const auto* nucleationStressInFaultCS{this->nucleationStressInFaultCS};
+
+        this->queue.submit([&](sycl::handler& cgh) {
+          cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+            auto ltsFace = item.get_group().get_group_id(0);
+            auto pointIndex = item.get_local_id(0);
+
+            common::adjustInitialStress(initialStressInFaultCS[ltsFace],
+                                        nucleationStressInFaultCS[ltsFace],
+                                        fullUpdateTime,
+                                        t0,
+                                        dt,
+                                        sycl::exp,
+                                        pointIndex);
+          });
+        });
+
         static_cast<Derived*>(this)->updateFrictionAndSlip(timeIndex);
       }
       static_cast<Derived*>(this)->postHook(stateVariableBuffer);
