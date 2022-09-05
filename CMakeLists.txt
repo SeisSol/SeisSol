@@ -326,7 +326,7 @@ target_compile_definitions(SeisSol-common-properties INTERFACE
 
 if (WITH_GPU)
   # set SeisSol GPU definitions
-  target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE GENERAL_SYCL_OFFLOADING)
+  target_compile_definitions(SeisSol-common-properties INTERFACE ACL_DEVICE)
 
   # add device submodule
   add_subdirectory(submodules/Device)

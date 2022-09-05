@@ -79,12 +79,12 @@ inline void precomputeStressFromQInterpolated(
 
   using namespace dr::misc::quantity_indices;
 
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
     #pragma omp simd
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
 #else
@@ -101,7 +101,7 @@ inline void precomputeStressFromQInterpolated(
       faultStresses.traction2[o][i] =
           etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                   qIMinus[o][T2][i] * invZsNeig);
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
     }
 #endif
   }
@@ -179,7 +179,7 @@ inline void postcomputeImposedStateFromNewStress(
     [[maybe_unused]] unsigned index = 0) {
 
   // set imposed state to zero
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   for (unsigned int i = 0; i < tensor::QInterpolated::size(); i++) {
 #else
   for (unsigned i = index; i < tensor::QInterpolated::size(); i += misc::numPaddedPoints) {
@@ -203,7 +203,7 @@ inline void postcomputeImposedStateFromNewStress(
 
   using namespace dr::misc::quantity_indices;
 
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   checkAlignmentPostCompute(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
@@ -211,7 +211,7 @@ inline void postcomputeImposedStateFromNewStress(
   for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
     auto weight = timeWeights[o];
 
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
     #pragma omp simd
     for (unsigned i = 0; i < misc::numPaddedPoints; ++i) {
 #else
@@ -237,7 +237,7 @@ inline void postcomputeImposedStateFromNewStress(
       imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
       imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
       imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
     }
 #endif
   }
@@ -264,7 +264,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement(fullUpdateTime, dt, t0, expFunction);
 
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
     #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 #else
@@ -273,7 +273,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
       for (unsigned i = 0; i < 6; i++) {
         initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
       }
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
     }
 #endif
   }
@@ -293,7 +293,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime,
                                    [[maybe_unused]] unsigned index = 0) {
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   #pragma omp simd
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 #else
@@ -304,7 +304,7 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
       ruptureTime[pointIndex] = fullUpdateTime;
       ruptureTimePending[pointIndex] = false;
     }
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   }
 #endif
 }
@@ -319,14 +319,14 @@ inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints]
                                    real peakSlipRate[misc::numPaddedPoints],
                                    [[maybe_unused]] unsigned index = 0) {
 
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   #pragma omp simd
   for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 #else
   auto pointIndex{index};
 #endif
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
-#ifndef GENERAL_SYCL_OFFLOADING
+#ifndef ACL_DEVICE
   }
 #endif
 }
