@@ -122,11 +122,11 @@ It is then loaded with:
 
     module load seissol-env-gcc-11.1.0
 
-Then clone the dr/sycl branch of SeisSol with:
+Then clone SeisSol:
 
 .. code-block:: bash
 
-    git clone --branch dr/sycl https://github.com/SeisSol/SeisSol.git seissol-sycl
+    git clone https://github.com/SeisSol/SeisSol.git seissol-sycl
     cd seissol-sycl
     git submodule update --init --recursive
 
@@ -146,5 +146,4 @@ On 2 ranks, use:
 
 .. code-block:: bash
 
-    mpirun -n 2 SeisSol_Release_ssm_86_cuda_4_elastic parameters.par
-
+    mpirun -n 2 ./launch SeisSol_Release_ssm_86_cuda_4_elastic parameters.par

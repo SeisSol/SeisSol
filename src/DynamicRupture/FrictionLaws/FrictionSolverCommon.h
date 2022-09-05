@@ -5,6 +5,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
+#include "Numerical_aux/GaussianNucleationFunction.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.

@@ -5,7 +5,6 @@
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
 
 namespace seissol::dr::friction_law {
 /**
