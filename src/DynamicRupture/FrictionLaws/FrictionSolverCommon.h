@@ -250,19 +250,18 @@ inline void postcomputeImposedStateFromNewStress(
  * @param[in] nucleationStressInFaultCS
  * @param[in] t0
  * @param[in] dt
- * @param[in] expFunction - exp function. std::exp for the host, sycl::exp for the device
  * @param[in] index - device iteration index
  */
+template <typename MathFunctions = seissol::functions::HostStdFunctions>
 inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
                                 real fullUpdateTime,
                                 real t0,
                                 real dt,
-                                real (*expFunction)(real) = std::exp,
                                 [[maybe_unused]] unsigned index = 0) {
   if (fullUpdateTime <= t0) {
     const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement(fullUpdateTime, dt, t0, expFunction);
+        gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
 
 #ifndef ACL_DEVICE
     #pragma omp simd

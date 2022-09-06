@@ -2,6 +2,7 @@
 #define SEISSOL_GPU_FRICTION_SOLVER_H
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "Numerical_aux/SyclFunctions.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
@@ -60,13 +61,13 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
             auto ltsFace = item.get_group().get_group_id(0);
             auto pointIndex = item.get_local_id(0);
 
-            common::adjustInitialStress(initialStressInFaultCS[ltsFace],
-                                        nucleationStressInFaultCS[ltsFace],
-                                        fullUpdateTime,
-                                        t0,
-                                        dt,
-                                        sycl::exp,
-                                        pointIndex);
+            using StdMath = seissol::functions::SyclStdFunctions;
+            common::adjustInitialStress<StdMath>(initialStressInFaultCS[ltsFace],
+                                                 nucleationStressInFaultCS[ltsFace],
+                                                 fullUpdateTime,
+                                                 t0,
+                                                 dt,
+                                                 pointIndex);
           });
         });
 
