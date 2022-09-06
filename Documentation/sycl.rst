@@ -85,14 +85,12 @@ hipSYCL depends on 1.69.0 version of the Boost library.
 Installing hipSYCL
 ------------------
 
-SeisSol requires 0.9.2 version iof hipSYCL, however, the version contains a bug which effects a multi GPU setup.
-This is going to be fixed in version 0.9.3. Currently we are using `b21b73b` commit of the master branch of the
-corresponding github repository.
+SeisSol requires 0.9.3 version of hipSYCL for a correct multi GPU-setup.
 
 .. code-block:: bash
 
-  git clone https://github.com/illuhad/hipSYCL.git
-  cd hipSYCL && git reset --hard b21b73b
+  git clone --depth 1 --branch v0.9.3 https://github.com/illuhad/hipSYCL.git
+  cd hipSYCL
 
 Perform the following steps to configure and install hipSYCL for Nvidia GPUs
 

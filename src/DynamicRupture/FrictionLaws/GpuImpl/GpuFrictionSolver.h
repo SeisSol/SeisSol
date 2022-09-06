@@ -29,6 +29,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
     this->queue.memcpy(devDeltaT, &deltaT[0], requiredNumBytes).wait();
 
     {
+      constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
       auto layerSize{this->currLayerSize};
 
       auto* impAndEta{this->impAndEta};
@@ -41,11 +42,12 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           const auto ltsFace = item.get_group().get_group_id(0);
           const auto pointIndex = item.get_local_id(0);
-          common::precomputeStressFromQInterpolated(faultStresses[ltsFace],
-                                                    impAndEta[ltsFace],
-                                                    qInterpolatedPlus[ltsFace],
-                                                    qInterpolatedMinus[ltsFace],
-                                                    pointIndex);
+
+          common::precomputeStressFromQInterpolated<gpuRangeType>(faultStresses[ltsFace],
+                                                                  impAndEta[ltsFace],
+                                                                  qInterpolatedPlus[ltsFace],
+                                                                  qInterpolatedMinus[ltsFace],
+                                                                  pointIndex);
         });
       });
 
@@ -62,12 +64,12 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
             auto pointIndex = item.get_local_id(0);
 
             using StdMath = seissol::functions::SyclStdFunctions;
-            common::adjustInitialStress<StdMath>(initialStressInFaultCS[ltsFace],
-                                                 nucleationStressInFaultCS[ltsFace],
-                                                 fullUpdateTime,
-                                                 t0,
-                                                 dt,
-                                                 pointIndex);
+            common::adjustInitialStress<gpuRangeType, StdMath>(initialStressInFaultCS[ltsFace],
+                                                               nucleationStressInFaultCS[ltsFace],
+                                                               fullUpdateTime,
+                                                               t0,
+                                                               dt,
+                                                               pointIndex);
           });
         });
 
@@ -83,11 +85,11 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
           auto pointIndex = item.get_local_id(0);
-          common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
-                                         ruptureTime[ltsFace],
-                                         slipRateMagnitude[ltsFace],
-                                         fullUpdateTime,
-                                         pointIndex);
+          common::saveRuptureFrontOutput<gpuRangeType>(ruptureTimePending[ltsFace],
+                                                       ruptureTime[ltsFace],
+                                                       slipRateMagnitude[ltsFace],
+                                                       fullUpdateTime,
+                                                       pointIndex);
         });
       });
 
@@ -104,18 +106,18 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
           auto ltsFace = item.get_group().get_group_id(0);
           auto pointIndex = item.get_local_id(0);
 
-          common::savePeakSlipRateOutput(
+          common::savePeakSlipRateOutput<gpuRangeType>(
               slipRateMagnitude[ltsFace], peakSlipRate[ltsFace], pointIndex);
 
-          common::postcomputeImposedStateFromNewStress(faultStresses[ltsFace],
-                                                       tractionResults[ltsFace],
-                                                       impAndEta[ltsFace],
-                                                       imposedStatePlus[ltsFace],
-                                                       imposedStateMinus[ltsFace],
-                                                       qInterpolatedPlus[ltsFace],
-                                                       qInterpolatedMinus[ltsFace],
-                                                       devTimeWeights,
-                                                       pointIndex);
+          common::postcomputeImposedStateFromNewStress<gpuRangeType>(faultStresses[ltsFace],
+                                                                     tractionResults[ltsFace],
+                                                                     impAndEta[ltsFace],
+                                                                     imposedStatePlus[ltsFace],
+                                                                     imposedStateMinus[ltsFace],
+                                                                     qInterpolatedPlus[ltsFace],
+                                                                     qInterpolatedMinus[ltsFace],
+                                                                     devTimeWeights,
+                                                                     pointIndex);
         });
       });
       queue.wait_and_throw();

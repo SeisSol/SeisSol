@@ -186,6 +186,30 @@ check_faultoutput:
         - python3 ../postprocessing/validation/compare-faults.py ./${fault_file} ./precomputed/${fault_file} --epsilon ${epsilon}
 
 
+check_receivers:
+    stage: check
+    allow_failure: false
+    needs:
+        - job: gpu_run_tpv
+    variables:
+        epsilon: "0.05"
+    parallel:
+        matrix:
+            - precision: [single]
+              tpv: [5, 5-nuc]
+              backend: [cuda]
+            - precision: [double]
+              tpv: [16]
+              backend: [cuda]
+    script:
+        - echo "check TPV${tpv}"
+        - ls
+        - cd output-tpv{$tpv}-${precision}
+        - ls
+        - if [ ${tpv} = 5 ] || [ ${tpv} = 5-nuc ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
+            python3 ../postprocessing/validation/compare-receivers.py . ./precomputed --epsilon ${epsilon} --mode $mode
+
+
 gpu_performance_test:
     stage: performance_eval
     allow_failure: true
