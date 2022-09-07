@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - post-test
 
 variables:
   cpu_image_name: "cpu-ci-image"
@@ -28,3 +29,26 @@ Testing_SeisSol_GPU:
     include:
       - gitlab-gpu-pipeline.yml
     strategy: depend
+
+pages:
+    stage: post-test
+    tags:
+        - 10core-docker-runner
+    allow_failure: false
+    image:
+        name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
+        entrypoint: [""]
+    before_script:
+        - mkdir -p ./public/${CI_COMMIT_BRANCH}
+    script:
+        - apt update
+        - apt install -y doxygen graphviz fonts-freefont-ttf
+        - cd Documentation/doxygen
+        - doxygen ./Doxyfile
+        - mv html/* ../../public/${CI_COMMIT_BRANCH}/
+    artifacts:
+        paths:
+            - public
+    only:
+        - master
+

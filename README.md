@@ -20,6 +20,6 @@ Please follow the rules when participating in our community.
 
 
 # Contributing
-We will be happy if you plan to contribute new features, extensions or bug fixes to SeisSol. To start off, please, open a new issue and discuss your feature with us before diving into coding. Visit our [doxygen documentation](https://ci_seissol.pages.gitlab.lrz.de/SeisSol/dr/cpp) to learn more about the source code structure.
+We will be happy if you plan to contribute new features, extensions or bug fixes to SeisSol. To start off, please, open a new issue and discuss your feature with us before diving into coding. Visit our [doxygen documentation](https://ci_seissol.pages.gitlab.lrz.de/SeisSol/master) to learn more about the source code structure.
 
 To learn more about contributing to SeisSol, please read our [**Contribution page**](CONTRIBUTING.md).
