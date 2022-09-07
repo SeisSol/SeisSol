@@ -1,3 +1,5 @@
+.. _compilation:
+
 Compilation
 ===========
 
@@ -7,12 +9,19 @@ In order to run SeisSol, you need to first install:
 -  Numpy (>= 1.12.0)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
+-  Intel compiler (>= 2021, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
 -  CMake (>3.10) for the compilation of SeisSol
+
+In addition, the following packages need to be installed for the GPU version of SeisSol:
+
+- CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
+- SYCL: either hipSYCL >= 0.9.3 or DPC++
+- gemmforge (>= 0.0.207)
+- chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -123,22 +132,6 @@ Instead of linking, you could also add the following line to your .bashrc:
 
    export PATH=<Your_Path_to_PSpaMM>:$PATH
 
-Installing GemmForge (for GPU)
-------------------------------
-
-.. _gemmforge_installation:
-
-.. code-block:: bash
-
-   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
-
-Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
-
-.. code-block:: bash
-
-   pip3 install https://github.com/ravil-mobile/chainforge.git
-
-
 
 .. _installing_parmetis:
 
@@ -147,7 +140,7 @@ Installing ParMetis
 
 .. code-block:: bash
 
-  wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
+  wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
   tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
@@ -170,7 +163,26 @@ See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 Installing easi
 ---------------------------
+
 Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
+
+
+Installing GemmForge, ChainForge (for GPUs)
+-------------------------------------------
+
+.. _gemmforge_installation:
+
+.. code-block:: bash
+
+   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
+   pip3 install --user https://github.com/ravil-mobile/chainforge.git
+
+
+Installing SYCL (for GPUs)
+---------------------------
+
+See section :ref:`Installing SYCL <installing_SYCL>`.
+
 
 Compiling SeisSol
 -----------------
@@ -199,18 +211,25 @@ You can also compile just the proxy by :command:`make SeisSol-proxy` or only Sei
 
 Note: CMake tries to detect the correct MPI wrappers.
 
-You can also run :command:`ccmake ..` to see all available options and toggle them.
+You can also run :code:`ccmake ..` to see all available options and toggle them.
 
 .. figure:: LatexFigures/ccmake.png
    :alt: An example of ccmake with some options
+
+Compile with Score-P
+--------------------
+```
+SCOREP_WRAPPER=off CXX=scorep-mpic++ CC=scorep-mpicc FC=scorep-mpif90 cmake ..
+SCOREP_WRAPPER_INSTRUMENTER_FLAGS="--user --thread=omp --nomemory" make
+```
 
 
 Running SeisSol
 ---------------
 
 1. Follow the instructions on :ref:`Configuration <Configuration>`.
-2. run SeisSol version of interest. To run the example:
-   :command:`./SeisSol_release_.... PARAMETER.PAR`
+2. Run SeisSol version of interest. To run the example:
+   :code:`./SeisSol_Release_.... parameter.par`
 
 Further information regarding meshing and parameter files etc. can be
 found in the documentation folder. See also :ref:`A first example <a_first_example>`.

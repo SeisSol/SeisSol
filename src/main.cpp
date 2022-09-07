@@ -39,12 +39,32 @@
 
 #include "SeisSol.h"
 
+#include <yaml-cpp/yaml.h>
+
 extern "C" {
   void fortran_main();
 }
 
 int main(int argc, char* argv[])
 {
+        LIKWID_MARKER_INIT;
+#pragma omp parallel
+        {
+        LIKWID_MARKER_THREADINIT;
+        LIKWID_MARKER_REGISTER("SeisSol");
+        LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
+        LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+        LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
+        LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+        }
+#pragma omp parallel
+        {
+        LIKWID_MARKER_START("SeisSol");
+        }
+
 	EPIK_TRACER("SeisSol");
 	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -54,7 +74,12 @@ int main(int argc, char* argv[])
 	// Initialize Fortan Part and run SeisSol
 	if (runSeisSol)
 		fortran_main();
+#pragma omp parallel
+        {
+        LIKWID_MARKER_STOP("SeisSol");
+        }
 
+        LIKWID_MARKER_CLOSE;
 	// Finalize SeisSol
 	seissol::SeisSol::main.finalize();
 }

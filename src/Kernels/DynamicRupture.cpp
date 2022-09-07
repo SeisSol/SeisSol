@@ -117,7 +117,7 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
                                                                 GlobalData const*           global,
                                                                 DRGodunovData const*        godunovData,
-                                                                DROutput*                   drOutput,
+                                                                DREnergyOutput*             drEnergyOutput,
                                                                 real const*                 timeDerivativePlus,
                                                                 real const*                 timeDerivativeMinus,
                                                                 real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
@@ -150,7 +150,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   trKrnl.tractionMinusMatrix = godunovData->tractionMinusMatrix;
 
   dynamicRupture::kernel::accumulateSlipInterpolated addKrnl;
-  addKrnl.slipInterpolated = drOutput->slip;
+  addKrnl.slipInterpolated = drEnergyOutput->slip;
   addKrnl.slipRateInterpolated = slipRateInterpolated;
 
   dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated sqKrnl;
@@ -161,7 +161,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   feKrnl.slipRateInterpolated = slipRateInterpolated;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = &drOutput->frictionalEnergy;
+  feKrnl.frictionalEnergy = &drEnergyOutput->frictionalEnergy;
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
 
@@ -199,7 +199,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 
     sqKrnl.execute();
     for (unsigned i = 0; i < tensor::squaredNormSlipRateInterpolated::size(); ++i) {
-      drOutput->accumulatedSlip[i] += timeWeights[timeInterval] * std::sqrt(squaredNormSlipRateInterpolated[i]);
+      drEnergyOutput->accumulatedSlip[i] += timeWeights[timeInterval] * std::sqrt(squaredNormSlipRateInterpolated[i]);
     }
 
     feKrnl.timeWeight = - timeWeights[timeInterval] * godunovData->doubledSurfaceArea;

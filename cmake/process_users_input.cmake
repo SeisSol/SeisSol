@@ -45,7 +45,7 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 set(DEVICE_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86
-        gfx906 gfx908
+        gfx906 gfx908 gfx90a
         dg1 bdw skl Gen8 Gen9 Gen11 Gen12LP)
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
@@ -55,14 +55,14 @@ set(PRECISION_OPTIONS single double)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
 
-set(DYNAMIC_RUPTURE_METHOD "quadrature" CACHE STRING "Dynamic rupture method")
-set(RUPTURE_OPTIONS quadrature cellaverage)
-set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS ${RUPTURE_OPTIONS})
-
-
-set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
+set(PLASTICITY_METHOD "nb" CACHE STRING "Plasticity method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
+
+
+set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
+set(DR_QUAD_RULE_OPTIONS stroud dunavant)
+set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
@@ -111,7 +111,6 @@ check_parameter("DEVICE_BACKEND" ${DEVICE_BACKEND} "${DEVICE_BACKEND_OPTIONS}")
 check_parameter("DEVICE_ARCH" ${DEVICE_ARCH} "${DEVICE_ARCH_OPTIONS}")
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
-check_parameter("DYNAMIC_RUPTURE_METHOD" ${DYNAMIC_RUPTURE_METHOD} "${RUPTURE_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
@@ -135,6 +134,8 @@ endif()
 if (NOT ${DEVICE_BACKEND} STREQUAL "none")
     set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
     set(WITH_GPU on)
+else()
+    set(WITH_GPU off)
 endif()
 message(STATUS "GEMM TOOLS are: ${GEMM_TOOLS_LIST}")
 

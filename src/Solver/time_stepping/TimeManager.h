@@ -116,6 +116,9 @@ class seissol::time_stepping::TimeManager {
     LoopStatistics m_loopStatistics;
     ActorStateStatisticsManager actorStateStatisticsManager;
     
+    //! c++ impl. of dynamic rupture output
+    dr::output::OutputManager* m_faultOutputManager{};
+
   public:
     /**
      * Construct a new time manager.
@@ -139,6 +142,9 @@ class seissol::time_stepping::TimeManager {
                      MeshStructure* i_meshStructure,
                      initializers::MemoryManager& memoryManager,
                      bool usePlasticity);
+
+    void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
+    seissol::dr::output::OutputManager* getFaultOutputManager();
 
     /**
      * Advance in time until all clusters reach the next synchronization time.

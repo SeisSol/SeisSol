@@ -187,6 +187,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   // Triangle quadrature points and weights
   auto points = new double[numQuadraturePoints][2];
   auto weights = new double[numQuadraturePoints];
+  // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
   seissol::quadrature::TriangleQuadrature(points, weights, polyDegree);
 
   auto points3D = std::array<std::array<double, 3>, numQuadraturePoints>{}; // Points for eval of 3D basis

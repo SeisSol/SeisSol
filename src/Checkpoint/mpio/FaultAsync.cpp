@@ -49,7 +49,7 @@ bool seissol::checkpoint::mpio::FaultAsync::init(unsigned int numSides, unsigned
 	bool exists = Fault::init(numSides, numBndGP, groupSize);
 
 	if (numSides != 0)
-		m_dataCopy = new double[NUM_VARIABLES * numSides * numBndGP];
+		m_dataCopy = new real[NUM_VARIABLES * numSides * numBndGP];
 
 	return exists;
 }
@@ -68,7 +68,7 @@ void seissol::checkpoint::mpio::FaultAsync::writePrepare(int timestepFault)
 	// Create copy of the data
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		memcpy(&m_dataCopy[i*numSides()*numBndGP()],
-				data(i), numSides()*numBndGP()*sizeof(double));
+				data(i), numSides()*numBndGP()*sizeof(real));
 
 	// Save data
 	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_begin_fault");
@@ -77,7 +77,7 @@ void seissol::checkpoint::mpio::FaultAsync::writePrepare(int timestepFault)
 	SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_begin_fault", SCOREP_USER_REGION_TYPE_COMMON);
 
 	checkMPIErr(setDataView(file()));
-	checkMPIErr(MPI_File_write_all_begin(file(), m_dataCopy, numSides() * numBndGP() * NUM_VARIABLES, MPI_DOUBLE));
+	checkMPIErr(MPI_File_write_all_begin(file(), m_dataCopy, numSides() * numBndGP() * NUM_VARIABLES, MPI_C_REAL));
 
 	EPIK_USER_END(r_write_fault);
 	SCOREP_USER_REGION_END(r_write_fault);

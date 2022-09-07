@@ -86,6 +86,9 @@
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 
+#include <DynamicRupture/Factory.h>
+#include <yaml-cpp/yaml.h>
+
 namespace seissol {
   namespace initializers {
     class MemoryManager;
@@ -155,8 +158,13 @@ class seissol::initializers::MemoryManager {
     LTSTree               m_ltsTree;
     LTS                   m_lts;
     
-    LTSTree               m_dynRupTree;
-    DynamicRupture        m_dynRup;
+    LTSTree m_dynRupTree;
+    std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
+    std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
+    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
+    std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
+    std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
+    std::shared_ptr<YAML::Node> m_inputParams = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -313,7 +321,7 @@ class seissol::initializers::MemoryManager {
     }
                           
     inline DynamicRupture* getDynamicRupture() {
-      return &m_dynRup;
+      return m_dynRup.get();
     }
 
     inline LTSTree* getBoundaryTree() {
@@ -330,9 +338,31 @@ class seissol::initializers::MemoryManager {
       return &m_easiBoundary;
     }
 
+    inline dr::friction_law::FrictionSolver* getFrictionLaw() {
+        return m_FrictionLaw.get();
+    }
+    inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
+        return m_DRInitializer.get();
+    }
+    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
+        return m_faultOutputManager.get();
+    }
+    inline seissol::dr::DRParameters* getDRParameters() {
+        return m_dynRupParameters.get();
+    }
+
+    void setInputParams(std::shared_ptr<YAML::Node> params) {
+      m_inputParams = params;
+      m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
+    }
+
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
 #endif
+
+  void initializeFrictionLaw();
+  void initFaultOutputManager();
+  void initFrictionData();
 };
 
 

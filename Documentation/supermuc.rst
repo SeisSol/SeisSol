@@ -4,22 +4,22 @@
 SuperMUC-NG
 ===========
 
-Setting up GitHub on SuperMuc
--------------------------------
+Setting up GitHub on SuperMuc-NG
+--------------------------------
 
 see :ref:`git_behind_firewall`.
 
 Building SeisSol
 ----------------
 
-1. clone SeisSol including the submodules using 
+Clone SeisSol including the submodules using 
 
 .. code-block:: bash
 
   git clone --recursive https://github.com/SeisSol/SeisSol.git
  
 
-2. Load module. Add these lines to .bashrc:
+Load module. Add these lines to .bashrc:
 
 ::
 
@@ -30,13 +30,13 @@ Building SeisSol
   module load numactl/2.0.14-intel21
   #To use dependencies preinstalled with spack
   module use /hppfs/work/pr63qo/di73yeq4/myLibs/spack-packages/modules/linux-sles15-skylake_avx512/
-  module load seissol-env/develop-intel21
+  module load seissol-env/develop-intel21-impi-x2b
   export CC=mpicc 
   export CXX=mpiCC 
   export FC=mpif90
 
  
-3. Alternatively (and for reference), to compile seissol-env on supermuc, follow the procedure below:
+Alternatively (and for reference), to compile seissol-env on SuperMUC-NG, follow the procedure below:
 
 .. code-block:: bash
 
@@ -51,7 +51,7 @@ Building SeisSol
     spack external find pkg-config
 
     # install all dependencies of seissol.
-    # We specify the intel and intel-mpi version matching preinstalled version on supermuc
+    # We specify the intel and intel-mpi version matching preinstalled version on supermuc-ng
     # These can be found with:
     # >spack find intel-mpi
     # >spack compiler list
@@ -82,9 +82,9 @@ and `` ~/.spack/modules.yaml``:
         roots:
          tcl: your_custom_path_2_modules
 
-This can be useful to share packages with other user of a supermuc project.
+This can be useful to share packages with other user of a SuperMUC project.
 
-3. Install SeisSol with cmake, e.g. with (more options with ccmake)
+Install SeisSol with cmake, e.g. with (more options with ccmake)
 
 
 .. code-block:: bash
@@ -107,10 +107,12 @@ For that modules and compiler need to be switched:
 Then cmake on a new build folder.
 To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
+.. _running_seissol_on_supermuc:
+
 Running SeisSol
 ---------------
 
-5. Submission file for SeisSol on NG:
+Submission file for SeisSol on NG:
 
 ::
 

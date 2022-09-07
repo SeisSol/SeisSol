@@ -55,7 +55,7 @@ namespace seissol {
       /**
       * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
       **/
-     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,                                                    
+     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,
                                        LTSTree*               io_ltsTree,
                                        LTS*                   i_lts,
                                        Lut*                   i_ltsLut,
