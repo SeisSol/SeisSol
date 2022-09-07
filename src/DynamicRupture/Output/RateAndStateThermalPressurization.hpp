@@ -10,8 +10,8 @@ class RateAndStateThermalPressurization : public RateAndState {
 
   protected:
   real computeFluidPressure(LocalInfo& local) override {
-    using DrLtsDescrT = seissol::initializers::LTSRateAndStateThermalPressurization;
-    auto const* const pressure = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->pressure);
+    using DrLtsDescrType = seissol::initializers::LTSRateAndStateThermalPressurization;
+    auto const* const pressure = local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->pressure);
     return pressure[local.ltsId][local.nearestGpIndex];
   }
   void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
@@ -20,13 +20,14 @@ class RateAndStateThermalPressurization : public RateAndState {
                        size_t receiverIdx) override {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
-      using DrLtsDescrT = seissol::initializers::LTSRateAndStateThermalPressurization;
+      using DrLtsDescrType = seissol::initializers::LTSRateAndStateThermalPressurization;
       auto const* const temperature =
-          local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->temperature);
+          local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->temperature);
       tpVariables(TPID::Temperature, cacheLevel, receiverIdx) =
           temperature[local.ltsId][local.nearestGpIndex];
 
-      auto const* const pressure = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->pressure);
+      auto const* const pressure =
+          local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->pressure);
       tpVariables(TPID::Pressure, cacheLevel, receiverIdx) =
           pressure[local.ltsId][local.nearestGpIndex];
     }

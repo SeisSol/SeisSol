@@ -5,6 +5,9 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Parameters.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include <CL/sycl.hpp>
+
+namespace sycl = cl::sycl;
 
 namespace seissol::dr::friction_law::gpu {
 class GpuBaseFrictionLaw : public FrictionSolver {
@@ -12,7 +15,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   GpuBaseFrictionLaw(dr::DRParameters* drParameters);
   ~GpuBaseFrictionLaw();
 
-  void setDeviceId(int currDeviceId);
+  void initSyclQueue();
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }
   void allocateAuxiliaryMemory();
   void copyStaticDataToDevice();
@@ -23,12 +26,8 @@ class GpuBaseFrictionLaw : public FrictionSolver {
                                      real fullUpdateTime) = 0;
 
   protected:
-  void checkOffloading();
-
   size_t maxClusterSize{};
   size_t currLayerSize{};
-  int hostId{};
-  int deviceId{};
 
   FaultStresses* faultStresses{nullptr};
   TractionResults* tractionResults{nullptr};
@@ -37,6 +36,9 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devDeltaT{nullptr};
+
+  sycl::device device;
+  sycl::queue queue;
 };
 } // namespace seissol::dr::friction_law::gpu
 

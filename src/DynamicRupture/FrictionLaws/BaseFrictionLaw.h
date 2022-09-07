@@ -65,7 +65,12 @@ class BaseFrictionLaw : public FrictionSolver {
 
       // loop over sub time steps (i.e. quadrature points in time)
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
-        this->adjustInitialStress(ltsFace, timeIndex);
+        common::adjustInitialStress(initialStressInFaultCS[ltsFace],
+                                    nucleationStressInFaultCS[ltsFace],
+                                    this->mFullUpdateTime,
+                                    this->drParameters->t0,
+                                    this->deltaT[timeIndex]);
+
         static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
                                                            tractionResults,
                                                            stateVariableBuffer,
