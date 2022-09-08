@@ -79,6 +79,7 @@ void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& g
   m_timeKernel.setGlobalData(global);
 #endif
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
+  std::fill_n(spaceWeights, dr::misc::numPaddedPoints, static_cast<real>(0.0));
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER+1);
 }
 
@@ -142,29 +143,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   alignas(ALIGNMENT) real squaredNormSlipRateInterpolated[tensor::squaredNormSlipRateInterpolated::size()];
   alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
 
-  dynamicRupture::kernel::computeSlipRateInterpolated srKrnl;
-  srKrnl.selectVelocity = init::selectVelocity::Values;
-
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
-  trKrnl.tractionPlusMatrix = godunovData->tractionPlusMatrix;
-  trKrnl.tractionMinusMatrix = godunovData->tractionMinusMatrix;
-
-  dynamicRupture::kernel::accumulateSlipInterpolated addKrnl;
-  addKrnl.slipInterpolated = drEnergyOutput->slip;
-  addKrnl.slipRateInterpolated = slipRateInterpolated;
-
-  dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated sqKrnl;
-  sqKrnl.squaredNormSlipRateInterpolated = squaredNormSlipRateInterpolated;
-  sqKrnl.slipRateInterpolated = slipRateInterpolated;
-
-  dynamicRupture::kernel::accumulateFrictionalEnergy feKrnl;
-  feKrnl.slipRateInterpolated = slipRateInterpolated;
-  feKrnl.tractionInterpolated = tractionInterpolated;
-  feKrnl.spaceWeights = spaceWeights;
-  feKrnl.frictionalEnergy = &drEnergyOutput->frictionalEnergy;
-
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
-
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
@@ -183,27 +162,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
-
-    srKrnl.QInterpolatedPlus = &QInterpolatedPlus[timeInterval][0];
-    srKrnl.QInterpolatedMinus = &QInterpolatedMinus[timeInterval][0];
-    srKrnl.slipRateInterpolated = slipRateInterpolated;
-    srKrnl.execute();
-
-    trKrnl.QInterpolatedPlus = &QInterpolatedPlus[timeInterval][0];
-    trKrnl.QInterpolatedMinus = &QInterpolatedMinus[timeInterval][0];
-    trKrnl.tractionInterpolated = tractionInterpolated;
-    trKrnl.execute();
-
-    addKrnl.timeWeight = timeWeights[timeInterval];
-    addKrnl.execute();
-
-    sqKrnl.execute();
-    for (unsigned i = 0; i < tensor::squaredNormSlipRateInterpolated::size(); ++i) {
-      drEnergyOutput->accumulatedSlip[i] += timeWeights[timeInterval] * std::sqrt(squaredNormSlipRateInterpolated[i]);
-    }
-
-    feKrnl.timeWeight = - timeWeights[timeInterval] * godunovData->doubledSurfaceArea;
-    feKrnl.execute();
   }
 }
 

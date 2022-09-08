@@ -1,6 +1,7 @@
 #include "EnergyOutput.h"
 #include <Kernels/DynamicRupture.h>
 #include <Numerical_aux/Quadrature.h>
+#include "DynamicRupture/Misc.h"
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
 
@@ -153,7 +154,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        totalFrictionalWork += drEnergyOutput[i].frictionalEnergy;
+        for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
+          totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
+        }
         staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
                                                   timeDerivativeMinus[i],
                                                   faceInformation[i],
@@ -166,11 +169,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                        waveSpeedsMinus[i].sWaveVelocity;
         real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
         real seismicMomentIncrease = 0.0;
-        for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::size(); ++k) {
+        for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
           seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
         seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                 seissol::tensor::squaredNormSlipRateInterpolated::size();
+                                 seissol::dr::misc::numberOfBoundaryGaussPoints;
         seismicMoment += seismicMomentIncrease;
       }
     }

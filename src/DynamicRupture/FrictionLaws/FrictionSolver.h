@@ -22,7 +22,8 @@ class FrictionSolver {
   virtual void evaluate(seissol::initializers::Layer& layerData,
                         seissol::initializers::DynamicRupture const* const dynRup,
                         real fullUpdateTime,
-                        const double timeWeights[CONVERGENCE_ORDER]) = 0;
+                        const double timeWeights[CONVERGENCE_ORDER],
+                        const real spaceWeights[misc::numPaddedPoints]) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
@@ -65,6 +66,8 @@ class FrictionSolver {
   real (*traction2)[misc::numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
+  DREnergyOutput* energyData{};
+  DRGodunovData* godunovData{};
 
   // be careful only for some FLs initialized:
   real (*dynStressTime)[misc::numPaddedPoints];

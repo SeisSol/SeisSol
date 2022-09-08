@@ -25,7 +25,8 @@ class BaseFrictionLaw : public FrictionSolver {
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[CONVERGENCE_ORDER],
+                const real spaceWeights[misc::numPaddedPoints]) override {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -111,6 +112,14 @@ class BaseFrictionLaw : public FrictionSolver {
                                                    timeWeights);
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
+
+      common::computeFrictionEnergy(energyData[ltsFace],
+                                    qInterpolatedPlus[ltsFace],
+                                    qInterpolatedMinus[ltsFace],
+                                    impAndEta[ltsFace],
+                                    timeWeights,
+                                    spaceWeights,
+                                    godunovData[ltsFace]);
     }
   }
 };

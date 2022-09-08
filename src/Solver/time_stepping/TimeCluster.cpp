@@ -274,7 +274,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   frictionSolver->evaluate(layerData,
                            m_dynRup,
                            ct.correctionTime,
-                           m_dynamicRuptureKernel.timeWeights);
+                           m_dynamicRuptureKernel.timeWeights,
+                           m_dynamicRuptureKernel.spaceWeights);
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel 
   {
@@ -305,7 +306,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     frictionSolver->evaluate(layerData,
                              m_dynRup,
                              ct.correctionTime,
-                             m_dynamicRuptureKernel.timeWeights);
+                             m_dynamicRuptureKernel.timeWeights,
+                             m_dynamicRuptureKernel.spaceWeights);
     device.api->popLastProfilingMark();
   }
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);

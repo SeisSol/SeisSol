@@ -119,13 +119,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3))
-  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3))
-  squaredNormSlipRateInterpolated = Tensor('squaredNormSlipRateInterpolated', (numberOfPoints,))
-  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3))
+  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
+  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3), alignStride=True)
+  squaredNormSlipRateInterpolated = Tensor('squaredNormSlipRateInterpolated', (numberOfPoints,), alignStride=True)
+  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
   frictionalEnergy = Tensor('frictionalEnergy', ())
   timeWeight = Scalar('timeWeight')
-  spaceWeights = Tensor('spaceWeights', (numberOfPoints,))
+  spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeSlipRateInterpolated = slipRateInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.selectVelocity['qp'] - QInterpolatedPlus['kq'] * aderdg.selectVelocity['qp']
   generator.add('computeSlipRateInterpolated', computeSlipRateInterpolated)

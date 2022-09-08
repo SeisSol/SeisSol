@@ -77,6 +77,14 @@ inline auto power(T base) -> T {
 inline real magnitude(real x, real y) { return std::sqrt(x * x + y * y); }
 
 /**
+ * Computes the magnitude of the vector (x, y)
+ * @param x First component of the vector
+ * @param y Second component of the vector
+ * @return magnitude of the vector
+ */
+inline real magnitude(real x, real y, real z) { return std::sqrt(x * x + y * y + z * z); }
+
+/**
  * Computes the arcus sinus hyperbolicus of x.
  * Note: precision has to be double, otherwise we would loose too much precision.
  * @param x

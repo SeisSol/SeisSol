@@ -12,6 +12,7 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   free(stateVariableBuffer, queue);
   free(strengthBuffer, queue);
   free(devTimeWeights, queue);
+  free(devSpaceWeights, queue);
   free(devDeltaT, queue);
   free(resampleMatrix, queue);
 }
@@ -42,6 +43,11 @@ void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   {
     const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
     devTimeWeights = static_cast<double*>(sycl::malloc_shared(requiredNumBytes, queue));
+  }
+
+  {
+    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    devSpaceWeights = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
   }
 
   {

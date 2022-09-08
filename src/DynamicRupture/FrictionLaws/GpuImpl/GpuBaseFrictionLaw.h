@@ -35,6 +35,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   real (*strengthBuffer)[misc::numPaddedPoints]{nullptr};
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
+  real* devSpaceWeights{nullptr};
   real* devDeltaT{nullptr};
 
   sycl::device device;
