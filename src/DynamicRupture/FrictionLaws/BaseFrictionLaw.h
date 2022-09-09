@@ -96,6 +96,9 @@ class BaseFrictionLaw : public FrictionSolver {
                                "computeDynamicRupturePostcomputeImposedState",
                                SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
+      
+      std::cout << "ltsFace = " << ltsFace << ", mFullUpdateTime = " << mFullUpdateTime << std::endl;
+
       common::postcomputeImposedStateFromNewStress(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],

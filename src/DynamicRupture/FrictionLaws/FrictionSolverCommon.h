@@ -5,6 +5,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
+#include <iomanip>
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -233,6 +234,18 @@ inline void postcomputeImposedStateFromNewStress(
       imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   }
+  std::cout << "ImposedStateP[N] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateP[N][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateP[T1] = "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateP[T1][i] << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateP[T2] = "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateP[T2][i] << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateP[U] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateP[U][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateP[V] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateP[V][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateP[W] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateP[W][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateM[N] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateM[N][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateM[T1] = "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateM[T1][i] << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateM[T2] = "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateM[T2][i] << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateM[U] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateM[U][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateM[V] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateM[V][i]  << ", "; } std::cout << std::endl;
+  std::cout << "ImposedStateM[W] =  "; for (size_t i = 0; i < misc::numPaddedPoints; i++) { std::cout << std::setw(21) << std::setprecision(15) << imposedStateM[W][i]  << ", "; } std::cout << std::endl;
 }
 
 /**

@@ -56,6 +56,7 @@
 #endif
 #include "utils/logger.h"
 
+#include <iomanip>
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
@@ -169,6 +170,18 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
     for (unsigned v = 0; v < 4; ++v) {
       coords[v] = vertices[ elements[element].vertices[ v ] ].coords;
     }
+    std::cout << faultId << " : (" << std::setw(21) << std::setprecision(15) << coords[0][0] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[0][1] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[0][2] << std::setw(1) << ")" << std::endl;
+    std::cout << faultId << " : (" << std::setw(21) << std::setprecision(15) << coords[1][0] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[1][1] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[1][2] << std::setw(1) << ")" << std::endl;
+    std::cout << faultId << " : (" << std::setw(21) << std::setprecision(15) << coords[2][0] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[2][1] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[2][2] << std::setw(1) << ")" << std::endl;
+    std::cout << faultId << " : (" << std::setw(21) << std::setprecision(15) << coords[3][0] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[3][1] << std::setw(2) << ", " 
+                                   << std::setw(21) << std::setprecision(15) << coords[3][2] << std::setw(1) << ")" << std::endl;
     for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3], xyz[3];
       double localPoints[2] = {pointsView(n,0), pointsView(n,1)};
@@ -180,6 +193,9 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
 
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       seissol::transformations::tetrahedronReferenceToGlobal(coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
+      std::cout << faultId << " - " << n << " : (" << std::setw(21) << std::setprecision(15) << xyz[0] << std::setw(2) << ", " 
+                                                   << std::setw(21) << std::setprecision(15) << xyz[1] << std::setw(2) << ", " 
+                                                   << std::setw(21) << std::setprecision(15) << xyz[2] << std::setw(1) << ")" << std::endl;
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = xyz[dim];
       }
