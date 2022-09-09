@@ -13,7 +13,7 @@ namespace seissol::dr::friction_law::gpu {
 class GpuBaseFrictionLaw : public FrictionSolver {
   public:
   GpuBaseFrictionLaw(dr::DRParameters* drParameters);
-  ~GpuBaseFrictionLaw();
+  ~GpuBaseFrictionLaw() override;
 
   void initSyclQueue();
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }
@@ -36,7 +36,6 @@ class GpuBaseFrictionLaw : public FrictionSolver {
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
-  real* devDeltaT{nullptr};
 
   sycl::device device;
   sycl::queue queue;

@@ -139,10 +139,6 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   alignas(PAGESIZE_STACK) real degreesOfFreedomPlus[tensor::Q::size()] ;
   alignas(PAGESIZE_STACK) real degreesOfFreedomMinus[tensor::Q::size()];
 
-  alignas(ALIGNMENT) real slipRateInterpolated[tensor::slipRateInterpolated::size()];
-  alignas(ALIGNMENT) real squaredNormSlipRateInterpolated[tensor::squaredNormSlipRateInterpolated::size()];
-  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
-
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
@@ -271,20 +267,6 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
   o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
 
-  o_nonZeroFlops += dynamicRupture::kernel::computeSlipRateInterpolated::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::computeSlipRateInterpolated::HardwareFlops;
-
-  o_nonZeroFlops += dynamicRupture::kernel::computeTractionInterpolated::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::computeTractionInterpolated::HardwareFlops;
-
-  o_nonZeroFlops += dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::computeSquaredNormSlipRateInterpolated::HardwareFlops;
-  o_nonZeroFlops += 2*tensor::squaredNormSlipRateInterpolated::size();
-  o_hardwareFlops += 2*tensor::squaredNormSlipRateInterpolated::size();
-
-  o_nonZeroFlops += dynamicRupture::kernel::accumulateFrictionalEnergy::NonZeroFlops;
-  o_hardwareFlops += dynamicRupture::kernel::accumulateFrictionalEnergy::HardwareFlops;
-  
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;
 }

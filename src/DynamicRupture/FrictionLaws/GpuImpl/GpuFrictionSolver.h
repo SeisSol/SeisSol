@@ -16,8 +16,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER],
-                const real spaceWeights[misc::numPaddedPoints]) override {
+                const double timeWeights[CONVERGENCE_ORDER]) override {
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -25,12 +24,6 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
     this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
-
-    requiredNumBytes = misc::numPaddedPoints * sizeof(real);
-    this->queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes).wait();
-
-    requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
-    this->queue.memcpy(devDeltaT, &deltaT[0], requiredNumBytes).wait();
 
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};

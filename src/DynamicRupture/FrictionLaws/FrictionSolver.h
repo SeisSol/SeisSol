@@ -16,14 +16,17 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters){};
+  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
+    real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
+    std::fill_n(spaceWeights, dr::misc::numPaddedPoints, static_cast<real>(0.0));
+    seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+  }
   virtual ~FrictionSolver() = default;
 
   virtual void evaluate(seissol::initializers::Layer& layerData,
                         seissol::initializers::DynamicRupture const* const dynRup,
                         real fullUpdateTime,
-                        const double timeWeights[CONVERGENCE_ORDER],
-                        const real spaceWeights[misc::numPaddedPoints]) = 0;
+                        const double timeWeights[CONVERGENCE_ORDER]) = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate
@@ -66,6 +69,7 @@ class FrictionSolver {
   real (*traction2)[misc::numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
+  real spaceWeights[misc::numPaddedPoints];
   DREnergyOutput* energyData{};
   DRGodunovData* godunovData{};
 
