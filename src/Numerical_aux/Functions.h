@@ -31,12 +31,21 @@
 #ifndef FUNCTIONS_20201026_H
 #define FUNCTIONS_20201026_H
 
+#include <cmath>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
 namespace seissol {
 namespace functions {
+
+/**
+ * @brief host standard math functions used in template metaprogramming
+ */
+struct HostStdFunctions {
+  template <typename T>
+  static T exp(T value) { return std::exp(value); }
+};
 
 /**
  * @brief Computes \prod_{i=from}^{to} i. Returns 1 if from > to.
