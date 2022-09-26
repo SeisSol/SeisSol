@@ -78,9 +78,6 @@ void seissol::kernels::DynamicRupture::setGlobalData(const CompoundGlobalData& g
   m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
   m_timeKernel.setGlobalData(global);
 #endif
-  real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
-  std::fill_n(spaceWeights, dr::misc::numPaddedPoints, static_cast<real>(0.0));
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER+1);
 }
 
 

@@ -62,7 +62,7 @@ void GpuBaseFrictionLaw::copyStaticDataToDevice() {
 
   {
     const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
-    this->queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes).wait();
+    queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes).wait();
   }
 }
 } // namespace seissol::dr::friction_law::gpu

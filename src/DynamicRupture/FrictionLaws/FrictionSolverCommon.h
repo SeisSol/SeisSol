@@ -400,28 +400,28 @@ inline void computeFrictionEnergy(
     for (size_t index = Range::start; index < Range::end; index += Range::step) {
       const size_t i{startIndex + index};
 
-      const real interpolatedSlipU = qIMinus[o][U][i] - qIPlus[o][U][i];
-      const real interpolatedSlipV = qIMinus[o][V][i] - qIPlus[o][V][i];
-      const real interpolatedSlipW = qIMinus[o][W][i] - qIPlus[o][W][i];
+      const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
+      const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
+      const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
 
-      const real interpolatedSlipMagnitude =
-          misc::magnitude(interpolatedSlipU, interpolatedSlipV, interpolatedSlipW);
+      const real interpolatedSlipRateMagnitude =
+          misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
-      accumulatedSlip[i] += timeWeight * interpolatedSlipMagnitude;
+      accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
 
-      slip[0][i] += timeWeight * interpolatedSlipU;
-      slip[1][i] += timeWeight * interpolatedSlipV;
-      slip[2][i] += timeWeight * interpolatedSlipW;
+      slip[0][i] += timeWeight * interpolatedSlipRate1;
+      slip[1][i] += timeWeight * interpolatedSlipRate2;
+      slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTractionXX = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTractionXY = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTractionXZ = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
 
       const auto spaceWeight = spaceWeights[i];
       const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      frictionalEnergy[i] += weight * (interpolatedTractionXX * interpolatedSlipU +
-                                       interpolatedTractionXY * interpolatedSlipV +
-                                       interpolatedTractionXZ * interpolatedSlipW);
+      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
+                                       interpolatedTraction12 * interpolatedSlipRate2 +
+                                       interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
 }
