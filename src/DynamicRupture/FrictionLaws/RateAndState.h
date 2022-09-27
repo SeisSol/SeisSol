@@ -195,11 +195,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
-        localSlipRate[pointIndex] =
-            0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] + fabs(testSlipRate[pointIndex]));
+        localSlipRate[pointIndex] = 0.5 * (this->slipRateMagnitude[ltsFace][pointIndex] +
+                                           std::fabs(testSlipRate[pointIndex]));
 
         // solve again for Vnew
-        this->slipRateMagnitude[ltsFace][pointIndex] = fabs(testSlipRate[pointIndex]);
+        this->slipRateMagnitude[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
 
         // update friction coefficient based on new state variable and slip rate
         this->mu[ltsFace][pointIndex] =
@@ -337,10 +337,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
         dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
             ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
-        g[pointIndex] =
-            -this->impAndEta[ltsFace].invEtaS * (fabs(normalStress[pointIndex]) * muF[pointIndex] -
-                                                 absoluteShearStress[pointIndex]) -
-            slipRateTest[pointIndex];
+        g[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
+                            (std::fabs(normalStress[pointIndex]) * muF[pointIndex] -
+                             absoluteShearStress[pointIndex]) -
+                        slipRateTest[pointIndex];
       }
 
       // max element of g must be smaller than newtonTolerance
@@ -354,7 +354,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         // derivative of g
         dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
-                             (fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
+                             (std::fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
                          1.0;
         // newton update
         const real tmp3 = g[pointIndex] / dG[pointIndex];

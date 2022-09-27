@@ -39,4 +39,16 @@
 
 #include "MPI.h"
 
+#ifdef ACL_DEVICE
+#include "Parallel/AcceleratorDevice.h"
+#endif
+
+
+#ifdef ACL_DEVICE
+void seissol::MPI::bindAcceleratorDevice() {
+  auto& instance = seissol::AcceleratorDevice::getInstance();
+  instance.bindAcceleratorDevice(0);
+}
+#endif
+
 seissol::MPI seissol::MPI::mpi;

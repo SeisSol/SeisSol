@@ -32,7 +32,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
     cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local> isAdjusted(1, cgh);
 
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-      auto wid = item.get_group().get_id(0);
+      auto wid = item.get_group().get_group_id(0);
       auto tid = item.get_local_id(0);
 
       real *elementTensors = nodalStressTensors[wid];
@@ -137,7 +137,7 @@ void computePstrains(real **pstrains,
 
   queue->submit([&](cl::sycl::handler &cgh) {
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-      auto wid = item.get_group().get_id(0);
+      auto wid = item.get_group().get_group_id(0);
       auto lid = item.get_local_id(0);
 
       if (isAdjustableVector[wid]) {
@@ -175,7 +175,7 @@ void pstrainToQEtaModal(real **pstrains,
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
       static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
 
-      auto wid = item.get_group().get_id(0);
+      auto wid = item.get_group().get_group_id(0);
       auto lid = item.get_local_id(0);
       if (isAdjustableVector[wid]) {
         real *localQEtaModal = QEtaModalPtrs[wid];
@@ -199,7 +199,7 @@ void qEtaModalToPstrain(real **QEtaModalPtrs,
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
       static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
 
-      auto wid = item.get_group().get_id(0);
+      auto wid = item.get_group().get_group_id(0);
       auto lid = item.get_local_id(0);
       if (isAdjustableVector[wid]) {
         real *localQEtaModal = QEtaModalPtrs[wid];
@@ -222,7 +222,7 @@ void updateQEtaNodal(real **QEtaNodalPtrs,
 
   queue->submit([&](cl::sycl::handler &cgh) {
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-      auto wid = item.get_group().get_id(0);
+      auto wid = item.get_group().get_group_id(0);
       auto lid = item.get_local_id(0);
 
       if (isAdjustableVector[wid]) {

@@ -7,8 +7,8 @@ namespace seissol::dr::output {
 class LinearSlipWeakening : public ReceiverOutput {
   protected:
   real computeLocalStrength(LocalInfo& local) override {
-    using DrLtsDescrT = seissol::initializers::LTSLinearSlipWeakening;
-    auto const* const cohesions = local.layer->var(static_cast<DrLtsDescrT*>(drDescr)->cohesion);
+    using DrLtsDescrType = seissol::initializers::LTSLinearSlipWeakening;
+    auto const* const cohesions = local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->cohesion);
     const auto cohesion = cohesions[local.ltsId][local.nearestGpIndex];
 
     const auto effectiveNormalStress =

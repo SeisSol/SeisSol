@@ -76,7 +76,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 	seissol::Modules::callHook<seissol::PRE_MPI>();
 
 #if defined(ACL_DEVICE) && defined(USE_MPI)
-  MPI::mpi.bindRankToDevice();
+  MPI::mpi.bindAcceleratorDevice();
 #endif
 
 	MPI::mpi.init(argc, argv);

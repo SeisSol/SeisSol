@@ -153,4 +153,3 @@ On 2 ranks, use:
     export OMP_PLACES="cores"
     export OMP_PROC_BIND=spread
     mpirun -n 2 --map-by ppr:1:numa:pe=2 --report-bindings ./launch ./SeisSol_RelWithDebInfo_ssm_86_cuda_6_elastic ./parameters.par
-

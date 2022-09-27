@@ -4,7 +4,7 @@
 #include "FrictionLaws/ThermalPressurization/NoTP.h"
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
 
-#ifdef ACL_DEVICE_OFFLOAD
+#ifdef ACL_DEVICE
 namespace friction_law_impl = seissol::dr::friction_law::gpu;
 #else
 namespace friction_law_impl = seissol::dr::friction_law;
@@ -90,10 +90,12 @@ DynamicRuptureTuple RateAndStateSlipFactory::produce() {
 }
 
 DynamicRuptureTuple LinearSlipWeakeningBimaterialFactory::produce() {
+  using Specialization = friction_law_impl::BiMaterialFault;
+  using FrictionLawType = friction_law_impl::LinearSlipWeakeningLaw<Specialization>;
+
   return {std::make_unique<seissol::initializers::LTSLinearSlipWeakeningBimaterial>(),
           std::make_unique<initializers::LinearSlipWeakeningBimaterialInitializer>(drParameters),
-          std::make_unique<friction_law::LinearSlipWeakeningLaw<friction_law::BiMaterialFault>>(
-              drParameters.get()),
+          std::make_unique<FrictionLawType>(drParameters.get()),
           std::make_unique<output::OutputManager>(
               std::make_unique<output::LinearSlipWeakeningBimaterial>())};
 }

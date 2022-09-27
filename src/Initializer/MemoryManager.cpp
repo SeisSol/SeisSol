@@ -85,13 +85,9 @@
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
-#include <Solver/Pipeline/DrPipeline.h>
-#endif //ACL_DEVICE
-
-#ifdef ACL_DEVICE_OFFLOAD
 #include "device.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
-#endif
+#endif // ACL_DEVICE
 
 
 void seissol::initializers::MemoryManager::initialize()
@@ -846,10 +842,9 @@ void seissol::initializers::MemoryManager::initFrictionData() {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
-#ifdef ACL_DEVICE_OFFLOAD
+#ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
-      device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      impl->setDeviceId(device.api->getDeviceId());
+      impl->initSyclQueue();
 
       LayerMask mask = seissol::initializers::LayerMask(Ghost);
       auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
@@ -858,7 +853,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
       impl->allocateAuxiliaryMemory();
       impl->copyStaticDataToDevice();
     }
-#endif // ACL_DEVICE_OFFLOAD
+#endif // ACL_DEVICE
   }
 }
 

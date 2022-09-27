@@ -16,6 +16,13 @@ In order to run SeisSol, you need to first install:
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
 -  CMake (>3.10) for the compilation of SeisSol
 
+In addition, the following packages need to be installed for the GPU version of SeisSol:
+
+- CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
+- SYCL: either hipSYCL >= 0.9.3 or DPC++
+- gemmforge (>= 0.0.207)
+- chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
+
 Initial Adjustments to .bashrc
 ------------------------------
 
@@ -125,22 +132,6 @@ Instead of linking, you could also add the following line to your .bashrc:
 
    export PATH=<Your_Path_to_PSpaMM>:$PATH
 
-Installing GemmForge (for GPU)
-------------------------------
-
-.. _gemmforge_installation:
-
-.. code-block:: bash
-
-   pip3 install git+https://github.com/ravil-mobile/gemmforge.git
-
-Additionally, one can install *chainforge* GEMM generator which can result in better GPU performance.
-
-.. code-block:: bash
-
-   pip3 install https://github.com/ravil-mobile/chainforge.git
-
-
 
 .. _installing_parmetis:
 
@@ -149,7 +140,7 @@ Installing ParMetis
 
 .. code-block:: bash
 
-  wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
+  wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
   tar -xvf parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
@@ -172,7 +163,26 @@ See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 Installing easi
 ---------------------------
+
 Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
+
+
+Installing GemmForge, ChainForge (for GPUs)
+-------------------------------------------
+
+.. _gemmforge_installation:
+
+.. code-block:: bash
+
+   pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
+   pip3 install --user https://github.com/ravil-mobile/chainforge.git
+
+
+Installing SYCL (for GPUs)
+---------------------------
+
+See section :ref:`Installing SYCL <installing_SYCL>`.
+
 
 Compiling SeisSol
 -----------------
