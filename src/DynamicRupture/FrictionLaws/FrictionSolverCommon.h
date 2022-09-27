@@ -361,6 +361,71 @@ inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints]
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
 }
+
+template <RangeType Type = RangeType::CPU>
+inline void computeFrictionEnergy(
+    DREnergyOutput& energyData,
+    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const ImpedancesAndEta& impAndEta,
+    const double timeWeights[CONVERGENCE_ORDER],
+    const real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
+    const DRGodunovData& godunovData,
+    size_t startIndex = 0) {
+
+  auto* slip = reinterpret_cast<real(*)[misc::numPaddedPoints]>(energyData.slip);
+  auto* accumulatedSlip = energyData.accumulatedSlip;
+  auto* frictionalEnergy = energyData.frictionalEnergy;
+  const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
+
+  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
+  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+
+  const auto aPlus = impAndEta.etaP * impAndEta.invZp;
+  const auto bPlus = impAndEta.etaS * impAndEta.invZs;
+
+  const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
+  const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
+
+  using Range = typename NumPoints<Type>::Range;
+
+  using namespace dr::misc::quantity_indices;
+  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
+    const auto timeWeight = timeWeights[o];
+
+#ifndef ACL_DEVICE
+    #pragma omp simd
+#endif
+    for (size_t index = Range::start; index < Range::end; index += Range::step) {
+      const size_t i{startIndex + index};
+
+      const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
+      const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
+      const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
+
+      const real interpolatedSlipRateMagnitude =
+          misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
+
+      accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+
+      slip[0][i] += timeWeight * interpolatedSlipRate1;
+      slip[1][i] += timeWeight * interpolatedSlipRate2;
+      slip[2][i] += timeWeight * interpolatedSlipRate3;
+
+      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+
+      const auto spaceWeight = spaceWeights[i];
+      const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
+      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
+                                       interpolatedTraction12 * interpolatedSlipRate2 +
+                                       interpolatedTraction13 * interpolatedSlipRate3);
+    }
+  }
+}
+
 } // namespace seissol::dr::friction_law::common
 
 #endif // SEISSOL_FRICTIONSOLVER_COMMON_H

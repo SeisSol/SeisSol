@@ -202,6 +202,27 @@ check_receivers:
         - if [ ${tpv} = 5 ] || [ ${tpv} = 5-nuc ] || [ ${tpv} = 6 ] || [ ${tpv} = 16 ]; then mode=lsw; elif [ ${tpv} = 105 ]; then mode=tp; else mode=rs; fi;
             python3 ../postprocessing/validation/compare-receivers.py . ./precomputed --epsilon ${epsilon} --mode $mode
 
+gpu_check_energies:
+    stage: check
+    allow_failure: false
+    needs:
+        - job: gpu_run_tpv
+    variables:
+        energy_file: "tpv-energy.csv"
+        epsilon: "0.05"
+    parallel:
+        matrix:
+            - precision: [single]
+              tpv: [5, 5-nuc, 6]
+              backend: [cuda]
+    before_script:
+        - pip3 install pandas
+    script:
+        - echo "check TPV${tpv}"
+        - ls
+        - cd output-tpv{$tpv}-${precision}-${backend}
+        - ls
+        - python3 ../postprocessing/validation/compare-energies.py ./${energy_file} ./precomputed/${energy_file} --epsilon ${epsilon}
 
 gpu_performance_test:
     stage: performance_eval

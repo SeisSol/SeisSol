@@ -12,7 +12,7 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   free(stateVariableBuffer, queue);
   free(strengthBuffer, queue);
   free(devTimeWeights, queue);
-  free(devDeltaT, queue);
+  free(devSpaceWeights, queue);
   free(resampleMatrix, queue);
 }
 
@@ -45,17 +45,24 @@ void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   }
 
   {
-    const size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
-    devDeltaT = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
+    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    devSpaceWeights = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
   }
 }
 
 void GpuBaseFrictionLaw::copyStaticDataToDevice() {
-  constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-  constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-  const size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
+  {
+    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
+    const size_t requiredNumBytes = dim0 * dim1 * sizeof(real);
 
-  resampleMatrix = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
-  queue.memcpy(resampleMatrix, &init::resample::Values[0], requiredNumBytes).wait();
+    resampleMatrix = static_cast<real*>(sycl::malloc_shared(requiredNumBytes, queue));
+    queue.memcpy(resampleMatrix, &init::resample::Values[0], requiredNumBytes).wait();
+  }
+
+  {
+    const size_t requiredNumBytes = misc::numPaddedPoints * sizeof(real);
+    queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes).wait();
+  }
 }
 } // namespace seissol::dr::friction_law::gpu
