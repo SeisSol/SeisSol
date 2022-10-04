@@ -29,7 +29,8 @@ Load module. Add these lines to .bashrc:
   module load python/3.8.11-extended
   module load numactl/2.0.14-intel21
   #To use dependencies preinstalled with spack
-  module use /hppfs/work/pr63qo/di73yeq4/myLibs/spack-packages/modules/linux-sles15-skylake_avx512/
+  module use /hppfs/work/pn49ha/ru76tuj2/modules/linux-sles15-skylake_avx512/
+  # you need to have access to project pn49ha
   module load seissol-env/develop-intel21-impi-x2b
   export CC=mpicc 
   export CXX=mpiCC 

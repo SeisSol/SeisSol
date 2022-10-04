@@ -119,25 +119,14 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # where the normal points from the plus side to the minus side
   QInterpolatedPlus = OptionalDimTensor('QInterpolatedPlus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMinus = OptionalDimTensor('QInterpolatedMinus', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
-  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3))
-  slipInterpolated = Tensor('slipInterpolated', (numberOfPoints,3))
-  squaredNormSlipRateInterpolated = Tensor('squaredNormSlipRateInterpolated', (numberOfPoints,))
-  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3))
+  slipRateInterpolated = Tensor('slipRateInterpolated', (numberOfPoints,3), alignStride=True)
+  tractionInterpolated = Tensor('tractionInterpolated', (numberOfPoints,3), alignStride=True)
   frictionalEnergy = Tensor('frictionalEnergy', ())
   timeWeight = Scalar('timeWeight')
-  spaceWeights = Tensor('spaceWeights', (numberOfPoints,))
-
-  computeSlipRateInterpolated = slipRateInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.selectVelocity['qp'] - QInterpolatedPlus['kq'] * aderdg.selectVelocity['qp']
-  generator.add('computeSlipRateInterpolated', computeSlipRateInterpolated)
+  spaceWeights = Tensor('spaceWeights', (numberOfPoints,), alignStride=True)
 
   computeTractionInterpolated = tractionInterpolated['kp'] <= QInterpolatedMinus['kq'] * aderdg.tractionMinusMatrix['qp'] + QInterpolatedPlus['kq'] * aderdg.tractionPlusMatrix['qp']
   generator.add('computeTractionInterpolated', computeTractionInterpolated)
-
-  accumulateSlipInterpolated = slipInterpolated['kp'] <= slipInterpolated['kp'] + timeWeight * slipRateInterpolated['kp']
-  generator.add('accumulateSlipInterpolated', accumulateSlipInterpolated)
-
-  computeSquaredNormSlipRateInterpolated = squaredNormSlipRateInterpolated['k'] <= slipRateInterpolated['kp'] * slipRateInterpolated['kp']
-  generator.add('computeSquaredNormSlipRateInterpolated', computeSquaredNormSlipRateInterpolated)
 
   accumulateFrictionalEnergy = frictionalEnergy[''] <= frictionalEnergy[''] + timeWeight * tractionInterpolated['kp'] * slipRateInterpolated['kp'] * spaceWeights['k']
   generator.add('accumulateFrictionalEnergy', accumulateFrictionalEnergy)

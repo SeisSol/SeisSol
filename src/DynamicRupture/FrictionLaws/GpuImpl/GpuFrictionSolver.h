@@ -25,9 +25,6 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
     this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
 
-    requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
-    this->queue.memcpy(devDeltaT, &deltaT[0], requiredNumBytes).wait();
-
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
       auto layerSize{this->currLayerSize};
@@ -100,6 +97,9 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       auto* imposedStateMinus{this->imposedStateMinus};
       auto* tractionResults{this->tractionResults};
       auto* devTimeWeights{this->devTimeWeights};
+      auto* devSpaceWeights{this->devSpaceWeights};
+      auto* energyData{this->energyData};
+      auto* godunovData{this->godunovData};
 
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -118,6 +118,15 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
                                                                      qInterpolatedMinus[ltsFace],
                                                                      devTimeWeights,
                                                                      pointIndex);
+
+          common::computeFrictionEnergy<gpuRangeType>(energyData[ltsFace],
+                                                      qInterpolatedPlus[ltsFace],
+                                                      qInterpolatedMinus[ltsFace],
+                                                      impAndEta[ltsFace],
+                                                      devTimeWeights,
+                                                      devSpaceWeights,
+                                                      godunovData[ltsFace],
+                                                      pointIndex);
         });
       });
       queue.wait_and_throw();

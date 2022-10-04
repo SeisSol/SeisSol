@@ -65,9 +65,7 @@ class seissol::kernels::DynamicRupture {
 
   public:
     double timePoints[CONVERGENCE_ORDER];
-    double timeSteps[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
-    real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
 
   DynamicRupture() {}
 
