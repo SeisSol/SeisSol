@@ -114,8 +114,10 @@ Running SeisSol
 ---------------
 
 This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change 
-:: #SBATCH --nodes= 
+#SBATCH --nodes= 
 to the amount of nodes you want to run on. A rule of thumb for opmital performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes. 
+
+::
 
   #!/bin/bash
   # Job Name and Files (also --job-name)
