@@ -113,7 +113,9 @@ To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list o
 Running SeisSol
 ---------------
 
-Submission file for SeisSol on NG:
+This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change 
+#SBATCH --nodes= 
+to the amount of nodes you want to run on. A rule of thumb for optimal performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes. 
 
 ::
 
