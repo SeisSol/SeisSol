@@ -106,7 +106,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #ifdef USE_COMM_THREAD
   logInfo(rank) << "Running with communication thread";
   auto freeCpus = pinning.getFreeCPUsMask();
-  logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+  logInfo(rank) << "Communication thread affinity        :" << parallel::Pinning::maskToString(freeCpus);
   if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }
