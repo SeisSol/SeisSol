@@ -2295,6 +2295,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
       ! Setting default values
       OutputFile = 'data'
+      printIntervalCriterion = 2
       iOutputMaskMaterial(:) =  0
       IntegrationMask(:) = 0
       Rotation = 0
