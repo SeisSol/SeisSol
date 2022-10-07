@@ -2162,18 +2162,12 @@ ALLOCATE( SpacePositionx(nDirac), &
      ENDSELECT
     !
 
-    DISC%SpaceOrder = Order
-    if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
-         logWarning0(*) 'Ignoring min space order from parameter file, using', CONVERGENCE_ORDER
-    endif
-    DISC%SpaceOrder = CONVERGENCE_ORDER
-    DISC%Galerkin%nMinPoly = DISC%SpaceOrder - 1
-
     if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
          logWarning0(*) 'Ignoring space order from parameter file, using', CONVERGENCE_ORDER
     endif
     DISC%SpaceOrder = CONVERGENCE_ORDER
     DISC%Galerkin%nPoly    = DISC%SpaceOrder - 1
+    DISC%Galerkin%nMinPoly = DISC%SpaceOrder - 1
 
     ! The choice for p-adaptivity is not possible anymore
     DISC%Galerkin%pAdaptivity = 0
