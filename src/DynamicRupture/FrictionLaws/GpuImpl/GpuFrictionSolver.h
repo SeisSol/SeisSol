@@ -123,7 +123,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
           common::computeFrictionEnergy<gpuRangeType>(energyData[ltsFace],
                                                       qInterpolatedPlus[ltsFace],
                                                       qInterpolatedMinus[ltsFace],
-                                                      impedanceMatrices[ltsFace],
+                                                      impAndEta[ltsFace],
                                                       devTimeWeights,
                                                       devSpaceWeights,
                                                       godunovData[ltsFace],
