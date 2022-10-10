@@ -95,23 +95,22 @@ bool seissol::SeisSol::init(int argc, char* argv[])
       logInfo() << "Running on:" << hostname;
   }
 
+#ifdef USE_MPI
+  logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+#endif
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
   logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
       pinning.getWorkerUnionMask());
   logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
       pinning.getNodeMask());
-#ifdef USE_MPI
-  logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+#endif
 #ifdef USE_COMM_THREAD
-  logInfo(rank) << "Running with communication thread";
   auto freeCpus = pinning.getFreeCPUsMask();
-  logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+  logInfo(rank) << "Communication thread affinity        :" << parallel::Pinning::maskToString(freeCpus);
   if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }
-#endif
-#endif
 #endif // _OPENMP
 
 #ifdef ACL_DEVICE

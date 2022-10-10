@@ -340,13 +340,6 @@ MODULE TypesDef
  END TYPE tPMLayer
 
   TYPE tGalerkin
-    INTEGER           :: DGMethod                    !<0 = RKDG with quadrature
-                                                     !<1 = quadrature free RKDG
-                                                     !<2 = ADER DG
-                                                     !<3 = rec ADER DG
-                                                     !< 4 = rec RK DG
-                                                     !< 5 = Nonlinear ADER DG
-                                                     !< 6 = local RK-DG, ADD eqn.
     INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
     INTEGER           :: ltsWeightTypeId             !< 0 = exponential, 1 = balanced exponential, 2 = encoded
     INTEGER           :: CKMethod                    !< 0 = regular CK
