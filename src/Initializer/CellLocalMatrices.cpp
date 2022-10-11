@@ -581,9 +581,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
           Eigen::Matrix<real, N, N> etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
 
-          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance.data());
-          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig.data());
-          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta.data());
+          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
+          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
+          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
 
           copyEigenToYateto(impedanceMatrix, impedanceView);
           copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
@@ -607,9 +607,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
           Eigen::Matrix<real, N, N> etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
 
-          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance.data());
-          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig.data());
-          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta.data());
+          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
+          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
+          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
 
           copyEigenToYateto(impedanceMatrix, impedanceView);
           copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);

@@ -37,9 +37,9 @@ struct ImpedancesAndEta {
  * This generalizes equation (4.51) from Carsten's thesis
  */
 struct ImpedanceMatrices {
-  std::array<real, tensor::Zplus::size()> impedance;
-  std::array<real, tensor::Zplus::size()> impedanceNeig;
-  std::array<real, tensor::Zplus::size()> eta;
+  alignas(ALIGNMENT) real impedance[tensor::Zplus::size()] = {};
+  alignas(ALIGNMENT) real impedanceNeig[tensor::Zminus::size()] = {};
+  alignas(ALIGNMENT) real eta[tensor::eta::size()] = {};
 };
 
 /**
