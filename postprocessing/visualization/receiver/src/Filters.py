@@ -132,7 +132,7 @@ class Deconvolve(Filter):
   
   def apply(self, wf):
     dt = wf.time[1] - wf.time[0]
-    keys = ['v{i+1}' for i in range(3)]
+    keys = [f'v{i+1}' for i in range(3)]
     for k in keys:
       if k in wf.waveforms:
         wf.waveforms[k] = self.deconv(wf.waveforms[k], dt)
@@ -188,7 +188,7 @@ class Pick(Filter):
     super(Pick, self).__init__('Pick components', parent)
     self.cb_widget_list = []
 
-  def initialize_checkboxes(self, wf):
+  def create_checkboxes(self, wf):
     for name in wf.waveforms.keys():
         widget = QCheckBox(name)
         widget.stateChanged.connect(self.filterChanged)
@@ -202,7 +202,7 @@ class Pick(Filter):
 
   def apply(self, wf):
     if not self.cb_widget_list:
-        self.initialize_checkboxes(wf)
+        self.create_checkboxes(wf)
 
     for widget in self.cb_widget_list:
         var_name = widget.text()
