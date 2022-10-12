@@ -51,6 +51,12 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
+if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
+  # Note: hip 4.x has a bug during setting rpath while compiling
+  #       device code for nvidia gpus. This scenario is used in
+  #       SeisSol's GPU CI pipeline.
+  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX})
+endif()
 
 # Generate version.h
 
