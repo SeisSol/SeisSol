@@ -74,4 +74,4 @@ class Waveform:
   def differentiate(self):
     dt = self.time[1] - self.time[0]
     for name, wf in self.waveforms.items():
-      self.waveforms[name] = numpy.diff(wf, prepend=0.0) / dt
+      self.waveforms[name] = numpy.gradient(wf, dt)
