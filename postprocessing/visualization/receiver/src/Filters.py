@@ -180,3 +180,26 @@ class Rotate(Filter):
       wf.waveforms['radial'] = math.cos(phi) * u + math.sin(phi) * v
       wf.waveforms['transverse'] = -math.sin(phi) * u + math.cos(phi) * v
       wf.waveforms['vertical'] = w
+
+class Pick(Filter):
+  def __init__(self, parent = None):
+    super(Pick, self).__init__('Pick', parent)
+    self.cb_widget_list = []
+
+  def initialize_checkboxes(self, wf):
+    for name in wf.waveforms.keys():
+        widget = QCheckBox(name)
+        widget.stateChanged.connect(self.filterChanged)
+        self.cb_widget_list.append(widget)
+    layout = QVBoxLayout()
+    for widget in self.cb_widget_list:
+        layout.addWidget(widget)
+    self.setLayout(layout)
+
+  def apply(self, wf):
+    if not self.cb_widget_list:
+        self.initialize_checkboxes(wf)
+
+    for widget in self.cb_widget_list:
+        var_name = widget.text()
+        wf.show[var_name] = widget.isChecked()

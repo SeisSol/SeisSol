@@ -77,7 +77,7 @@ class View(QWidget):
     self.navigations = []
     self.addNavigation(True)
     
-    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate() ]
+    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate(), Filters.Pick() ]
     filterLayout = QVBoxLayout()    
     for f in self.filters:
       filterLayout.addWidget(f)
@@ -114,6 +114,10 @@ class View(QWidget):
     self.normalize.setCheckable(True)
     self.normalize.clicked.connect(self.plot)
 
+    self.differentiate = QPushButton('Differentiate', self) 
+    self.differentiate.setCheckable(True)
+    self.differentiate.clicked.connect(self.plot)
+
     toolLayout = QHBoxLayout()
     toolLayout.addWidget(addNaviButton)
     toolLayout.addWidget(self.diff)
@@ -122,6 +126,7 @@ class View(QWidget):
     toolLayout.addWidget(autoRefresh)
     toolLayout.addWidget(saveAll)
     toolLayout.addWidget(self.normalize)
+    toolLayout.addWidget(self.differentiate)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
     plotLayout.addLayout(toolLayout)
@@ -165,12 +170,17 @@ class View(QWidget):
       for nWf, wf in enumerate(wfc):
         wfc[nWf].normalize()
 
+    if self.differentiate.isChecked():
+      #differentiate traces
+      for nWf, wf in enumerate(wfc):
+        wfc[nWf].differentiate()
+
     if self.diff.isChecked() and len(wfc) > 0:
       wf0 = wfc.pop()
       for nWf, wf in enumerate(wfc):
         wfc[nWf].subtract(wf0)
 
-    names = set([name for wf in wfc for name in wf.waveforms.keys()])
+    names = set([name for wf in wfc for name in wf.waveforms.keys() if wf.show[name]])
     numPlots = len(names)
 
     self.figure.clear()
@@ -181,12 +191,14 @@ class View(QWidget):
       numRows = math.ceil(math.sqrt(numPlots));
       numCols = math.ceil(numPlots / numRows)
       subplots = dict()
-      for i in range(len(names)):
+      for i in range(numPlots):
         subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
 
       wf_ref = wfc[0]
       for nWf, wf in enumerate(wfc):
         for name, waveform in wf.waveforms.items():
+          if not wf.show[name]:
+             continue
           p = subplots[name]
           if self.spectrum.isChecked():
             n = len(waveform)
@@ -220,7 +232,8 @@ class View(QWidget):
       self.figure.tight_layout()
 
     for i in range(len(names)):
-      subplots[ names[i] ].legend(prop={'size':8}, frameon=False)
+      if subplots[ names[i] ]:
+        subplots[ names[i] ].legend(prop={'size':8}, frameon=False)
     self.canvas.draw()
   
   def savePlots(self):
