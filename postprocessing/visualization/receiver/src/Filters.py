@@ -132,7 +132,7 @@ class Deconvolve(Filter):
   
   def apply(self, wf):
     dt = wf.time[1] - wf.time[0]
-    keys = 'uvw'
+    keys = [f'v{i+1}' for i in range(3)]
     for k in keys:
       if k in wf.waveforms:
         wf.waveforms[k] = self.deconv(wf.waveforms[k], dt)
@@ -164,14 +164,14 @@ class Rotate(Filter):
     filterLayout.addRow(epicenterYLabel, self.epicenterY)
     
   def apply(self, wf):
-    if 'u' in wf.waveforms and 'v' in wf.waveforms and 'w' in wf.waveforms:
+    if 'v1' in wf.waveforms and 'v2' in wf.waveforms and 'v3' in wf.waveforms:
       epicenter = numpy.array([self.epicenterX.value(), self.epicenterY.value(), 0.0])
       radial = wf.coordinates - epicenter
       phi = math.acos(radial[0] / numpy.linalg.norm(radial))
       
-      u = wf.waveforms.pop('u')
-      v = wf.waveforms.pop('v')
-      w = wf.waveforms.pop('w')
+      u = wf.waveforms.pop('v1')
+      v = wf.waveforms.pop('v2')
+      w = wf.waveforms.pop('v3')
       
       if self.coordsys.currentText() == 'seu':
         u = -u
@@ -180,3 +180,30 @@ class Rotate(Filter):
       wf.waveforms['radial'] = math.cos(phi) * u + math.sin(phi) * v
       wf.waveforms['transverse'] = -math.sin(phi) * u + math.cos(phi) * v
       wf.waveforms['vertical'] = w
+      for new_comp in ['radial', 'transverse', 'vertical']:
+        wf.show[new_comp] = True
+
+class Pick(Filter):
+  def __init__(self, parent = None):
+    super(Pick, self).__init__('Pick components', parent)
+    self.cb_widget_list = []
+
+  def create_checkboxes(self, wf):
+    for name in wf.waveforms.keys():
+        widget = QCheckBox(name)
+        widget.stateChanged.connect(self.filterChanged)
+        self.cb_widget_list.append(widget)
+    layout = QGridLayout()
+    nwidget_over_3 = len(self.cb_widget_list)/3
+    for k, widget in enumerate(self.cb_widget_list):
+        col = k // nwidget_over_3
+        layout.addWidget(widget, k - col * nwidget_over_3, col)
+    self.setLayout(layout)
+
+  def apply(self, wf):
+    if not self.cb_widget_list:
+        self.create_checkboxes(wf)
+
+    for widget in self.cb_widget_list:
+        var_name = widget.text()
+        wf.show[var_name] = widget.isChecked()
