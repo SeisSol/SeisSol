@@ -261,9 +261,9 @@ class LinearSlipWeakeningLaw
         if (t0 == 0) {
           f2 = 1.0 * (tn >= forcedRuptureTime[ltsFace][pointIndex]);
         } else {
-          f2 = std::max(
-              static_cast<real>(0.0),
-              std::min(static_cast<real>(1.0), (tn - forcedRuptureTime[ltsFace][pointIndex]) / t0));
+          f2 = std::clamp((tn - forcedRuptureTime[ltsFace][pointIndex]) / t0,
+                          static_cast<real>(0.0),
+                          static_cast<real>(1.0));
         }
         stateVariable[pointIndex] = std::max(localStateVariable, f2);
       });
