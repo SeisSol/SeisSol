@@ -68,7 +68,7 @@ DynamicRuptureTuple RateAndStateAgingFactory::produce() {
   } else {
     return {std::make_unique<seissol::initializers::LTSRateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
-            std::make_unique<friction_law::AgingLaw<friction_law::NoTP>>(drParameters.get()),
+            std::make_unique<friction_law_impl::AgingLaw<friction_law::NoTP>>(drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }
 }
@@ -84,7 +84,7 @@ DynamicRuptureTuple RateAndStateSlipFactory::produce() {
   } else {
     return {std::make_unique<seissol::initializers::LTSRateAndState>(),
             std::make_unique<initializers::RateAndStateInitializer>(drParameters),
-            std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
+            std::make_unique<friction_law_impl::SlipLaw<friction_law::NoTP>>(drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }
 }

@@ -15,6 +15,8 @@ class LinearSlipWeakeningBase : public GpuFrictionSolver<LinearSlipWeakeningBase
   LinearSlipWeakeningBase<Derived>(dr::DRParameters* drParameters)
       : GpuFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
 
+  void allocateAuxiliaryMemory() override { GpuBaseFrictionLaw::allocateAuxiliaryMemory(); }
+
   void updateFrictionAndSlip(unsigned timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     static_cast<Derived*>(this)->calcStrengthHook(

@@ -17,7 +17,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
 
   void initSyclQueue();
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }
-  void allocateAuxiliaryMemory();
+  virtual void allocateAuxiliaryMemory();
   void copyStaticDataToDevice();
 
   virtual void

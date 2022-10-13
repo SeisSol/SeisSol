@@ -12,6 +12,7 @@ template <typename Derived>
 class GpuFrictionSolver : public GpuBaseFrictionLaw {
   public:
   GpuFrictionSolver<Derived>(dr::DRParameters* drParameters) : GpuBaseFrictionLaw(drParameters) {}
+  ~GpuFrictionSolver<Derived>() = default;
 
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture const* const dynRup,

@@ -15,6 +15,8 @@
 
 #ifdef ACL_DEVICE
 #include "GpuImpl/LinearSlipWeakening.h"
+#include "GpuImpl/AgingLaw.h"
+#include "GpuImpl/SlipLaw.h"
 #endif
 
 #endif // SEISSOL_FRICTIONLAWS_H
