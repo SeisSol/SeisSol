@@ -52,17 +52,21 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     this->a = layerData.var(concreteLts->rsA);
     this->sl0 = layerData.var(concreteLts->rsSl0);
     this->stateVariable = layerData.var(concreteLts->stateVariable);
-    // tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    this->tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
   void updateFrictionAndSlip(unsigned timeIndex) {
     // compute initial slip rate and reference values
-    static_cast<Derived*>(this)->calcInitialVariables(tpMethod, timeIndex);
+    static_cast<Derived*>(this)->calcInitialVariables(timeIndex);
 
     this->updateStateVariableIterative(timeIndex);
     static_cast<Derived*>(this)->executeIfNotConverged();
 
-    // tpMethod.calcFluidPressure
+    tpMethod.calcFluidPressure(this->initialVariables.normalStress,
+                               this->mu,
+                               this->initialVariables.localSlipRate,
+                               this->deltaT[timeIndex],
+                               true);
     updateNormalStress(timeIndex);
     this->calcSlipRateAndTraction(timeIndex);
   }
@@ -110,7 +114,7 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
    * Compute shear stress magnitude, localSlipRate, effective normal stress, reference state
    * variable. Also sets slipRateMagnitude member to reference value.
    */
-  void calcInitialVariables(TPMethod const& tpMethod, unsigned int timeIndex) {
+  void calcInitialVariables(unsigned int timeIndex) {
     auto* devStateVariableBuffer{this->stateVariableBuffer};
     auto* devFaultStresses{this->faultStresses};
     auto* devSlipRateMagnitude{this->slipRateMagnitude};
@@ -167,8 +171,9 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     for (unsigned j = 0; j < this->settings.numberStateVariableUpdates; j++) {
 
-      static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
-      // skipped tpMethod.calcFluidPressure
+      const auto dt{this->deltaT[timeIndex]};
+      static_cast<Derived*>(this)->updateStateVariable(dt);
+      this->tpMethod.calcFluidPressure(devNormalStress, devMu, devLocalSlipRate, dt, false);
       updateNormalStress(timeIndex);
 
       this->queue.submit([&](sycl::handler& cgh) {
@@ -367,6 +372,8 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devNormalStress{this->initialVariables.normalStress};
 
+    auto tpCurrentLayerDetails = tpMethod.getCurrentLayerDetails();
+
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -377,14 +384,13 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
         devNormalStress[ltsFace][pointIndex] =
             std::min(static_cast<real>(0.0),
                      faultStresses.normalStress[timeIndex][pointIndex] +
-                         devInitialStressInFaultCS[ltsFace][pointIndex][0]); // -
-        // tpMethod.getFluidPressure(ltsFace, pointIndex));
+                         devInitialStressInFaultCS[ltsFace][pointIndex][0] -
+                         TPMethod::getFluidPressure(tpCurrentLayerDetails, ltsFace, pointIndex));
       });
     });
   }
 
   protected:
-  // Attributes
   real (*a)[misc::numPaddedPoints];
   real (*sl0)[misc::numPaddedPoints];
   real (*stateVariable)[misc::numPaddedPoints];
