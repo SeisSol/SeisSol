@@ -17,6 +17,7 @@
 #include "GpuImpl/LinearSlipWeakening.h"
 #include "GpuImpl/AgingLaw.h"
 #include "GpuImpl/SlipLaw.h"
+#include "GpuImpl/FastVelocityWeakeningLaw.h"
 #endif
 
 #endif // SEISSOL_FRICTIONLAWS_H

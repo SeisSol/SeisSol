@@ -27,7 +27,7 @@ class SlowVelocityWeakeningLaw
     decltype(dr::DRParameters::rsB) rsB;
   };
 
-  Details getDetails() {
+  Details getCurrentLtsLayerDetails() {
     Details details{};
     details.a = this->a;
     details.sl0 = this->sl0;

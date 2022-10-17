@@ -129,7 +129,7 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
   } else {
     return {std::make_unique<seissol::initializers::LTSRateAndStateFastVelocityWeakening>(),
             std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
-            std::make_unique<friction_law::FastVelocityWeakeningLaw<friction_law::NoTP>>(
+            std::make_unique<friction_law_impl::FastVelocityWeakeningLaw<friction_law::NoTP>>(
                 drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }

@@ -21,7 +21,6 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     sycl::free(initialVariables.localSlipRate, this->queue);
     sycl::free(initialVariables.normalStress, this->queue);
     sycl::free(initialVariables.stateVarReference, this->queue);
-
     sycl::free(hasConverged, this->queue);
   }
 
@@ -64,7 +63,7 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     static_cast<Derived*>(this)->executeIfNotConverged();
 
     // tpMethod.calcFluidPressure
-    updateNormalStress(tpMethod, timeIndex);
+    updateNormalStress(timeIndex);
     this->calcSlipRateAndTraction(timeIndex);
   }
 
@@ -123,7 +122,7 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
 
-    updateNormalStress(tpMethod, timeIndex);
+    updateNormalStress(timeIndex);
 
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
@@ -164,13 +163,13 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     auto* devImpAndEta{this->impAndEta};
     auto solverSettings{this->settings};
 
-    auto details = static_cast<Derived*>(this)->getDetails();
+    auto details = static_cast<Derived*>(this)->getCurrentLtsLayerDetails();
     sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
     for (unsigned j = 0; j < this->settings.numberStateVariableUpdates; j++) {
 
       static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
       // skipped tpMethod.calcFluidPressure
-      updateNormalStress(tpMethod, timeIndex);
+      updateNormalStress(timeIndex);
 
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -230,7 +229,7 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto deltaTime{this->deltaT[timeIndex]};
 
-    auto details = static_cast<Derived*>(this)->getDetails();
+    auto details = static_cast<Derived*>(this)->getCurrentLtsLayerDetails();
 
     static_cast<Derived*>(this)->updateStateVariable(this->deltaT[timeIndex]);
 
@@ -363,7 +362,7 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
     return false;
   }
 
-  void updateNormalStress(TPMethod const& tpMethod, size_t timeIndex) {
+  void updateNormalStress(size_t timeIndex) {
     auto* devFaultStresses{this->faultStresses};
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
     auto* devNormalStress{this->initialVariables.normalStress};

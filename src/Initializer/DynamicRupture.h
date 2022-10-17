@@ -204,7 +204,7 @@ struct seissol::initializers::LTSRateAndStateFastVelocityWeakening : public seis
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTSRateAndState::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rsSrW, mask, 1, seissol::memory::Standard);
+    tree.addVar(rsSrW, mask, 1, MEMKIND_STANDARD);
   }
 };
 
