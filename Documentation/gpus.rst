@@ -52,7 +52,7 @@ Supported SeisSol Features
 
 - elastic wave propagation model 
 - kinematic point sources
-- dynamic source (only for the linear slip weakening friction law)
+- dynamic rupture: linear slip weakening, slow and fast velocity weakening friction laws
 - off-fault plasticity model
 
 
