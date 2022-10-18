@@ -113,7 +113,11 @@ inline void precomputeStressFromQInterpolated(
       faultStresses.traction2[o][i] = thetaView(i, 2);
 #ifdef USE_POROELASTIC
       faultStresses.fluidPressure[o][i] = thetaView(i, 3);
+#else
+      faultStresses.fluidPressure[o][i] = 0.0;
 #endif
+      faultStresses.effectiveNormalStress[o][i] =
+          faultStresses.normalStress[o][i] - faultStresses.fluidPressure[o][i];
     }
   }
 }

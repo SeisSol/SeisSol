@@ -356,12 +356,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           TPMethod const& tpMethod,
                           size_t timeIndex,
                           size_t ltsFace) {
+    // Todo(SW): consider poroelastic materials together with thermal pressurisation
     #pragma omp simd
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
-      normalStress[pointIndex] = std::min(static_cast<real>(0.0),
-                                          faultStresses.normalStress[timeIndex][pointIndex] +
-                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              tpMethod.getFluidPressure(ltsFace, pointIndex));
+      normalStress[pointIndex] =
+          std::min(static_cast<real>(0.0),
+                   faultStresses.effectiveNormalStress[timeIndex][pointIndex] +
+                       this->initialStressInFaultCS[ltsFace][pointIndex][0] -
+                       tpMethod.getFluidPressure(ltsFace, pointIndex));
     }
   }
 
