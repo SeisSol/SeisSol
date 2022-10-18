@@ -67,14 +67,14 @@ Alternatively (and for reference), to compile seissol-env on SuperMUC-NG, follow
     module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
     # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml 
 
-Custom install directory for packages and modules can be set with, by changing `` ~/.spack/config.yaml``:
+Custom install directory for packages and modules can be set with, by changing ``~/.spack/config.yaml``:
 
 .. code-block:: yaml
 
     config:
       install_tree: path_2_packages
 
-and `` ~/.spack/modules.yaml``: 
+and ``~/.spack/modules.yaml``: 
 
 .. code-block:: yaml
 
@@ -84,6 +84,20 @@ and `` ~/.spack/modules.yaml``:
          tcl: your_custom_path_2_modules
 
 This can be useful to share packages with other user of a SuperMUC project.
+
+The seissol-env compilation can also be reduced by adding the python module to ``~/.spack/packages.yaml``:
+
+.. code-block:: yaml
+
+    packages:
+      python:
+        externals:
+        - spec: python@3.8.11
+          buildable: False
+          modules:
+           - python/3.8.11-extended
+
+
 
 Install SeisSol with cmake, e.g. with (more options with ccmake)
 
