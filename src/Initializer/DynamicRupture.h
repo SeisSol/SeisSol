@@ -191,9 +191,9 @@ struct seissol::initializers::LTSRateAndState : public seissol::initializers::Dy
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rsA, mask, 1, seissol::memory::Standard);
-    tree.addVar(rsSl0, mask, 1, seissol::memory::Standard);
-    tree.addVar(stateVariable, mask, 1, seissol::memory::Standard);
+    tree.addVar(rsA, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(rsSl0, mask, 1, MEMKIND_STANDARD);
+    tree.addVar(stateVariable, mask, 1, MEMKIND_STANDARD);
   }
 };
 
@@ -204,7 +204,7 @@ struct seissol::initializers::LTSRateAndStateFastVelocityWeakening : public seis
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::LTSRateAndState::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(rsSrW, mask, 1, seissol::memory::Standard);
+    tree.addVar(rsSrW, mask, 1, MEMKIND_STANDARD);
   }
 };
 

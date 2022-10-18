@@ -2,22 +2,9 @@
 #define SEISSOL_RATEANDSTATE_H
 
 #include "BaseFrictionLaw.h"
+#include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 
 namespace seissol::dr::friction_law {
-// If the SR is too close to zero, we will have problems (NaN)
-// as a consequence, the SR is affected the AlmostZero value when too small
-// For double precision 1e-45 is a chosen by trial and error. For single precision, this value is
-// too small, so we use 1e-35
-constexpr real almostZero() {
-  if constexpr (std::is_same<real, double>()) {
-    return 1e-45;
-  } else if constexpr (std::is_same<real, float>()) {
-    return 1e-35;
-  } else {
-    return std::numeric_limits<real>::min();
-  }
-}
-
 /**
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
@@ -39,7 +26,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
-        faultStresses, stateVariableBuffer, tpMethod, timeIndex, ltsFace);
+        faultStresses, stateVariableBuffer, timeIndex, ltsFace);
     std::array<real, misc::numPaddedPoints> absoluteShearStress =
         std::move(initialVariables.absoluteShearTraction);
     std::array<real, misc::numPaddedPoints> localSlipRate =
@@ -52,7 +39,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                        stateVarReference,
                                        localSlipRate,
                                        stateVariableBuffer,
-                                       tpMethod,
                                        normalStress,
                                        absoluteShearStress,
                                        faultStresses,
@@ -66,7 +52,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // compute final thermal pressure and normalStress
     tpMethod.calcFluidPressure(
         normalStress, this->mu, localSlipRate, this->deltaT[timeIndex], true, timeIndex, ltsFace);
-    updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
+    updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
     this->calcSlipRateAndTraction(stateVarReference,
@@ -120,7 +106,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   InitialVariables
       calcInitialVariables(FaultStresses const& faultStresses,
                            std::array<real, misc::numPaddedPoints> const& localStateVariable,
-                           TPMethod const& tpMethod,
                            unsigned int timeIndex,
                            unsigned int ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
@@ -132,7 +117,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::array<real, misc::numPaddedPoints> normalStress;
     std::array<real, misc::numPaddedPoints> temporarySlipRate;
 
-    updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
+    updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
     #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
@@ -146,7 +131,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       this->slipRateMagnitude[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1[ltsFace][pointIndex], this->slipRate2[ltsFace][pointIndex]);
       this->slipRateMagnitude[ltsFace][pointIndex] =
-          std::max(almostZero(), this->slipRateMagnitude[ltsFace][pointIndex]);
+          std::max(rs::almostZero(), this->slipRateMagnitude[ltsFace][pointIndex]);
       temporarySlipRate[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     } // End of pointIndex-loop
     return {absoluteTraction, temporarySlipRate, normalStress, stateVarReference};
@@ -157,14 +142,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       std::array<real, misc::numPaddedPoints> const& stateVarReference,
       std::array<real, misc::numPaddedPoints>& localSlipRate,
       std::array<real, misc::numPaddedPoints>& localStateVariable,
-      TPMethod& tpMethod,
       std::array<real, misc::numPaddedPoints>& normalStress,
       std::array<real, misc::numPaddedPoints> const& absoluteShearStress,
       FaultStresses const& faultStresses,
       unsigned int timeIndex,
       unsigned int ltsFace) {
     std::array<real, misc::numPaddedPoints> testSlipRate{0};
-    for (unsigned j = 0; j < numberStateVariableUpdates; j++) {
+    for (unsigned j = 0; j < settings.numberStateVariableUpdates; j++) {
       #pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
@@ -176,15 +160,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                              this->deltaT[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
-      tpMethod.calcFluidPressure(normalStress,
-                                 this->mu,
-                                 localSlipRate,
-                                 this->deltaT[timeIndex],
-                                 false,
-                                 timeIndex,
-                                 ltsFace);
+      this->tpMethod.calcFluidPressure(normalStress,
+                                       this->mu,
+                                       localSlipRate,
+                                       this->deltaT[timeIndex],
+                                       false,
+                                       timeIndex,
+                                       ltsFace);
 
-      updateNormalStress(normalStress, faultStresses, tpMethod, timeIndex, ltsFace);
+      updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
 
       // solve for new slip rate
       hasConverged = this->invertSlipRateIterative(
@@ -329,7 +313,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
     }
 
-    for (unsigned i = 0; i < maxNumberSlipRateUpdates; i++) {
+    for (unsigned i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
       #pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
@@ -344,8 +328,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       }
 
       // max element of g must be smaller than newtonTolerance
-      const bool hasConverged = std::all_of(
-          std::begin(g), std::end(g), [&](auto val) { return std::fabs(val) < newtonTolerance; });
+      const bool hasConverged = std::all_of(std::begin(g), std::end(g), [&](auto val) {
+        return std::fabs(val) < settings.newtonTolerance;
+      });
       if (hasConverged) {
         return hasConverged;
       }
@@ -358,7 +343,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                          1.0;
         // newton update
         const real tmp3 = g[pointIndex] / dG[pointIndex];
-        slipRateTest[pointIndex] = std::max(almostZero(), slipRateTest[pointIndex] - tmp3);
+        slipRateTest[pointIndex] = std::max(rs::almostZero(), slipRateTest[pointIndex] - tmp3);
       }
     }
     return false;
@@ -366,7 +351,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   void updateNormalStress(std::array<real, misc::numPaddedPoints>& normalStress,
                           FaultStresses const& faultStresses,
-                          TPMethod const& tpMethod,
                           size_t timeIndex,
                           size_t ltsFace) {
     #pragma omp simd
@@ -374,7 +358,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
                                               this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                                              tpMethod.getFluidPressure(ltsFace, pointIndex));
+                                              this->tpMethod.getFluidPressure(ltsFace, pointIndex));
     }
   }
 
@@ -385,16 +369,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   real (*stateVariable)[misc::numPaddedPoints];
 
   TPMethod tpMethod;
-
-  /**
-   * Parameters of the optimisation loops
-   * absolute tolerance on the function to be optimized
-   * This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be
-   * the most adapted Number of iteration in the loops
-   */
-  const unsigned int maxNumberSlipRateUpdates = 60;
-  const unsigned int numberStateVariableUpdates = 2;
-  const double newtonTolerance = 1e-8;
+  rs::Settings settings{};
 };
 
 } // namespace seissol::dr::friction_law
