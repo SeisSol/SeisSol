@@ -6,8 +6,7 @@ A first example
 This tutorial will guide you through the steps of your first SeisSol
 simulation. We will use the `SCEC TPV33
 benchmark <http://scecdata.usc.edu/cvws/tpv33docs.html>`__ as an example
-in this tutorial. We assume that you have successfully compiled SeisSol
-(see :ref:`compilation`).
+in this tutorial. We assume that you have successfully compiled SeisSol.
 
 Setup
 -----
