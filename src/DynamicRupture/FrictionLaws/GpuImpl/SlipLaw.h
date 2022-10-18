@@ -10,17 +10,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
-  double updateStateVariable(int pointIndex,
-                             unsigned int face,
-                             double stateVarReference,
-                             double timeIncrement,
-                             double localSlipRate) {
-    const double localSl0 = this->sl0[face][pointIndex];
-    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
-    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
-  }
-
-  void updateStateVariableImpl(double timeIncrement) {
+  void updateStateVariable(double timeIncrement) {
     auto* devSl0{this->sl0};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};

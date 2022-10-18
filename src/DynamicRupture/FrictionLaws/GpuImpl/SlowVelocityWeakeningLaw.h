@@ -16,7 +16,7 @@ class SlowVelocityWeakeningLaw
 
   // Note that we need double precision here, since single precision led to NaNs.
   void updateStateVariable(double timeIncrement) {
-    static_cast<Derived*>(this)->updateStateVariableImpl(timeIncrement);
+    static_cast<Derived*>(this)->updateStateVariable(timeIncrement);
   }
 
   struct Details {

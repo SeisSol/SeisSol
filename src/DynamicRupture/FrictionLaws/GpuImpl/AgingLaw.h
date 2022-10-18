@@ -5,18 +5,13 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-/**
- * This class was not tested and compared to the Fortran FL3. Since FL3 initialization did not work
- * properly on the Master Branch. This class is also less optimized. It was left in here to have a
- * reference of how it could be implemented.
- */
 template <class TPMethod>
 class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   public:
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
-  void updateStateVariableImpl(double timeIncrement) {
+  void updateStateVariable(double timeIncrement) {
     auto* devSl0{this->sl0};
     auto* devStateVarReference{this->initialVariables.stateVarReference};
     auto* devLocalSlipRate{this->initialVariables.localSlipRate};
