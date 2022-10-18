@@ -12,9 +12,14 @@
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"
+#include "ThermalPressurization/NoTP.h"
 
 #ifdef ACL_DEVICE
 #include "GpuImpl/LinearSlipWeakening.h"
+#include "GpuImpl/AgingLaw.h"
+#include "GpuImpl/SlipLaw.h"
+#include "GpuImpl/FastVelocityWeakeningLaw.h"
+#include "GpuImpl/ThermalPressurization/NoTP.h"
 #endif
 
 #endif // SEISSOL_FRICTIONLAWS_H
