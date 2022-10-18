@@ -25,7 +25,7 @@ In case of a manual installation of dependencies, you may have to prepend :code:
 
     CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH CC=...
 
-It is also important that the executables of the matrix mutiplication generators (Libxsmm, PSpaMM) have to be in :code:`$PATH`.
+It is also important that the executables of the matrix multiplication generators (Libxsmm, PSpaMM) have to be in :code:`$PATH`.
 
 
 You can also compile just the proxy by ``make SeisSol-proxy`` or only SeisSol with ``make SeisSol-bin`` 
