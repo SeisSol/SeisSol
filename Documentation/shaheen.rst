@@ -17,7 +17,7 @@ Add these lines to ``~/.bashrc``:
     module unload intel
     # to use preinstall seissol-env module
     module use /project/k1587/ulrich/spack/share/spack/modules/cray-cnl7-ivybridge/
-    module load seissol-env-develop-gcc-11.2.0-fs3j6rf
+    module load seissol-env-develop-gcc-11.2.0-rckyrcj
     export cc=cc
     export CXX=CC
     export FN=ftn
