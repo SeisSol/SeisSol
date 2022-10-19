@@ -25,9 +25,10 @@ In addition, the following packages need to be installed for the GPU version of 
 These dependencies can be installed automatically with spack or can be installed manually one by one.
 
 
+.. _spack_installation:
 
 Spack installation
--------------------
+------------------
 
 `Spack <https://github.com/spack/spack/wiki>`_ is a HPC software package manager.
 It automates the process of installing, upgrading, configuring, and removing computer programs.
@@ -37,10 +38,10 @@ See also for reference our documentation on how to compile seissol-env on :ref:`
 
 
 Manual installation
-------------------------------
+-------------------
 
 Initial Adjustments to .bashrc
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add the following lines to your .bashrc (vi ~/.bashrc).
 
@@ -60,7 +61,7 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
   # run "exec bash" or "source ~/.bashrc" to apply environment to the current shell
 
 Installing CMake
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -75,7 +76,7 @@ Installing CMake
 Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
   
 Installing HDF5
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -88,7 +89,7 @@ Installing HDF5
   cd ..
 
 Installing netCDF
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -105,7 +106,7 @@ Installing netCDF
 .. _installing_eigen3:
 
 Installing Eigen3
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -120,7 +121,7 @@ Installing Eigen3
 .. _installing_libxsmm:
 
 Installing Libxsmm
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -133,7 +134,7 @@ Installing Libxsmm
 .. _installing_pspamm:
 
 Installing PSpaMM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 
 
@@ -153,7 +154,7 @@ Instead of linking, you could also add the following line to your .bashrc:
 .. _installing_parmetis:
 
 Installing ParMetis
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 
 .. code-block:: bash
@@ -173,20 +174,20 @@ libmetis.a. Otherwise, compile error: cannot find parmetis.)
 
 
 Installing ASAGI (Optional)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 .. _compiling-seissol:
 
 Installing easi
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 
 
 Installing GemmForge, ChainForge (for GPUs)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. _gemmforge_installation:
 
@@ -197,7 +198,7 @@ Installing GemmForge, ChainForge (for GPUs)
 
 
 Installing SYCL (for GPUs)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 See section :ref:`Installing SYCL <installing_SYCL>`.
 

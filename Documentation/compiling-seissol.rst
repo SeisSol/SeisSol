@@ -10,7 +10,7 @@ including all submodules:
 
    git clone --recursive https://github.com/SeisSol/SeisSol.git
 
-If you have compiled with spack seissol-env and created a module, you can load the module and compile SeisSol with (e.g.):
+If you have compiled :ref:`seissol-env with spack<spack_installation>`, load the module and compile SeisSol with (e.g.):
 
 .. code-block:: bash
 
