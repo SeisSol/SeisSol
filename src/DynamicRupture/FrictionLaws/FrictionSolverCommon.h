@@ -96,7 +96,7 @@ inline void precomputeStressFromQInterpolated(
   krnl.Zminus = impedanceMatrices.impedanceNeig;
   krnl.eta = impedanceMatrices.eta;
 
-  real thetaBuffer[tensor::theta::size()] = {};
+  alignas(ALIGNMENT) real thetaBuffer[tensor::theta::size()] = {};
   krnl.theta = thetaBuffer;
   auto thetaView = init::theta::view::create(thetaBuffer);
 

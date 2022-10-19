@@ -16,10 +16,12 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses faultStresses{};
   TractionResults tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(ALIGNMENT) real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real imposedStatePlus[tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real imposedStateMinus[tensor::QInterpolated::size()];
+  alignas(ALIGNMENT)
+      real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()] = {{}};
+  alignas(ALIGNMENT)
+      real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()] = {{}};
+  alignas(ALIGNMENT) real imposedStatePlus[tensor::QInterpolated::size()] = {};
+  alignas(ALIGNMENT) real imposedStateMinus[tensor::QInterpolated::size()] = {};
   double timeWeights[CONVERGENCE_ORDER];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
   constexpr real epsilon = 1e4 * std::numeric_limits<real>::epsilon();
