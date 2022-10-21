@@ -287,13 +287,17 @@ template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
 inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
+                                const real nucleationStressInFaultCS2[misc::numPaddedPoints][6],
                                 real fullUpdateTime,
                                 real t0,
                                 real dt,
                                 unsigned startIndex = 0) {
-  if (fullUpdateTime <= t0) {
+  const real t02 = 100.0;
+  if ((fullUpdateTime <= t0) or (abs(fullUpdateTime - (t02 + 0.5 * t0)) <= 0.5 * t0)) {
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
+    const real gNuc2 = gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(
+        fullUpdateTime - t02, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 
@@ -303,7 +307,8 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
     for (auto index = Range::start; index < Range::end; index += Range::step) {
       auto pointIndex{startIndex + index};
       for (unsigned i = 0; i < 6; i++) {
-        initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
+        initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc +
+                                                 nucleationStressInFaultCS2[pointIndex][i] * gNuc2;
       }
     }
   }
