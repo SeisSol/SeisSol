@@ -12,9 +12,9 @@ Add these lines to ``~/.bashrc``:
     module switch python3 python3/3.9.2
     module use /work2/09160/ulrich/frontera/spack/share/spack/modules/linux-centos7-cascadelake
     module load seissol-env-develop-intel-19.1.1.217-x52n3zf
-    export cc=mpiicc    
+    export cc=mpiicc
     export CXX=mpiicpc
-    export FN=mpiifort
+    export FC=mpiifort
 
 This will load a preinstalled seissol-env module.
 

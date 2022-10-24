@@ -34,7 +34,7 @@ Spack installation
 It automates the process of installing, upgrading, configuring, and removing computer programs.
 In particular, our spack package `seissol-env` allows automatically installing all dependencies of SeisSol (e.g. mpi, hdf5, netcdf, easi, asagi, etc).
 See https://github.com/SeisSol/seissol-spack-aid/tree/main/spack for details on the installation with spack.
-See also for reference our documentation on how to compile seissol-env on :ref:`supermuc <compile_run_supermuc>` and :ref:`shaheen <compile_run_shaheen>`.
+See also for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
 
 
 Manual installation
