@@ -452,14 +452,19 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
 
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+    if (tc >= i_timeStepping.numberOfLocalClusters) {
+        cluster.child<Copy>().setNumberOfCells(0);
+        cluster.child<Interior>().setNumberOfCells(0);
+    } else {
+        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+    }
   }
 
   m_dynRupTree.allocateVariables();
