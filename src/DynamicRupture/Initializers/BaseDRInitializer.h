@@ -23,6 +23,11 @@ class BaseDRInitializer {
   std::shared_ptr<DRParameters> drParameters;
 
   /**
+   * Set which contains all parameteres, which are provided by easi for the fault
+   */
+  std::set<std::string> faultParameterNames;
+
+  /**
    * Characterizes how the initial stress on the fault is provided.
    */
   enum class Parametrization { Traction, Cartesian };
@@ -53,7 +58,10 @@ class BaseDRInitializer {
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
-  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters) : drParameters(drParameters){};
+  BaseDRInitializer(std::shared_ptr<DRParameters> drParameters)
+      : drParameters(drParameters),
+        faultParameterNames(
+            seissol::initializers::FaultParameterDB::faultProvides(drParameters->faultFileName)){};
 
   virtual ~BaseDRInitializer() = default;
 
@@ -123,7 +131,7 @@ class BaseDRInitializer {
    * @param parameter
    * @return true if the FaultParameterDB provides parameter.
    */
-  bool faultProvides(std::string&& parameter);
+  bool faultProvides(const std::string& parameter);
 
   private:
   /**

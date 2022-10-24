@@ -164,10 +164,6 @@ extern "C" {
                                         waveSpeeds );
   }
   
-  bool c_interoperability_nucleationParameterizedByTraction( char* modelFileName ) {
-    return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
-  }
-
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
