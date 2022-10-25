@@ -1,6 +1,6 @@
 default:
     tags:
-        - atsccs68-docker-executor
+        - tum05-k8s-4cores-16gb-gpu
     image:
         name: $CI_REGISTRY_USER/$gpu_image_name:$gpu_image_version
         entrypoint: [""]
@@ -81,7 +81,7 @@ gpu_build:
             -DHOST_ARCH=${HOST}
             -DPRECISION=${precision}
             -DPROXY_PYBINDING=ON ;
-            make -j 2 ;
+            make -j $(nproc) ;
             cd .. ;
           done;
         - set +u
@@ -228,7 +228,11 @@ gpu_performance_test:
     stage: performance_eval
     allow_failure: true
     needs:
-        - job: gpu_convergence_test
+        - job: gpu_build
+          artifacts: true
+        - job: gpu_run_tpv
+          artifacts: false
+
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
