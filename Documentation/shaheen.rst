@@ -20,7 +20,7 @@ Add these lines to ``~/.bashrc``:
     module load seissol-env-develop-gcc-11.2.0-rckyrcj
     export cc=cc
     export CXX=CC
-    export FN=ftn
+    export FC=ftn
 
 This will load a preinstalled seissol-env module.
 
