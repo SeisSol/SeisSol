@@ -132,6 +132,12 @@ Here is an example job submission script for SeisSol on Shaheen (to be launched 
 
   export XDMFWRITER_ALIGNMENT=8388608
   export XDMFWRITER_BLOCK_SIZE=8388608
+  export SC_CHECKPOINT_ALIGNMENT=8388608
+
+  export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
+  export SEISSOL_CHECKPOINT_DIRECT=1
+  export ASYNC_MODE=THREAD
+  export ASYNC_BUFFER_ALIGNMENT=8388608
 
   # required for using with commthread
   export MPICH_MAX_THREAD_SAFETY=multiple
