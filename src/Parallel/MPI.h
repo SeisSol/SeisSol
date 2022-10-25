@@ -111,9 +111,13 @@ public:
 		setComm(MPI_COMM_WORLD);
 
 		// Test this after setComm() to get the correct m_rank
-		if (required < provided)
+		if (provided < required) {
 			logWarning(m_rank) << utils::nospace << "Required MPI thread support (" << required
 				<< ") is smaller than provided thread support (" << provided << ").";
+#ifdef USE_COMM_THREAD
+			logError() << "Level of threading support unsufficient for using communication thread.";
+#endif
+		}
 	}
 
 	void setComm(MPI_Comm comm)

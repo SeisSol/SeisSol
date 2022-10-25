@@ -88,4 +88,53 @@ To access the module at start up, add to your ``~/.bashrc``:
 
     module use $SPACK_ROOT/share/spack/modules/cray-cnl7-ivybridge/
 
-Finally, install SeisSol with cmake, as usual, with ``-DHOST_ARCH=hsw`` and ``-DCOMMTHREAD=OFF``.
+Finally, install SeisSol with cmake, as usual, with ``-DHOST_ARCH=hsw`` and ``-DCOMMTHREAD=ON``.
+
+Here is an example job submission script for SeisSol on Shaheen (to be launched from the ``/scratch/`` folder):
+
+::
+
+  #!/bin/bash
+  # Job Name and Files (also --job-name)
+
+  #SBATCH -J <job name>
+  #Output and error (also --output, --error):
+  #SBATCH -o ./%j.%x.out
+  #SBATCH -e ./%j.%x.err
+
+  #Initial working directory:
+  #SBATCH --chdir=<work directory>
+
+  #Notification and type
+  #SBATCH --mail-type=END
+  #SBATCH --mail-user=<your email address>
+
+  # Wall clock limit:
+  #SBATCH --time=00:30:00
+  #SBATCH --no-requeue
+
+  #Setup of execution environment
+  #SBATCH --export=ALL
+  #SBATCH --account=<project id>
+  #SBATCH --partition=debug
+
+  #Number of nodes and MPI tasks per node:
+  #SBATCH --nodes=2
+  #SBATCH --ntasks-per-node=1
+
+  export MP_SINGLE_THREAD=no
+  unset KMP_AFFINITY
+  export OMP_NUM_THREADS=31
+  # you could also consider OMP_NUM_THREADS=62 for high order
+  export OMP_PLACES="cores(31)"
+  #Prevents errors such as experience in Issue #691
+  export I_MPI_SHM_HEAP_VSIZE=8192
+
+  export XDMFWRITER_ALIGNMENT=8388608
+  export XDMFWRITER_BLOCK_SIZE=8388608
+
+  # required for using with commthread
+  export MPICH_MAX_THREAD_SAFETY=multiple
+  # update to output folder
+  lfs setstripe -c 32 output
+  srun path_2_SeisSol_Release_dhsw_4_elastic parameters.par
