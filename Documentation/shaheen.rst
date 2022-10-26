@@ -139,7 +139,6 @@ Here is an example job submission script for SeisSol on Shaheen (to be launched 
   export ASYNC_MODE=THREAD
   export ASYNC_BUFFER_ALIGNMENT=8388608
 
-  # required for using with commthread or with ASYNC_MODE=THREAD
   export MPICH_MAX_THREAD_SAFETY=multiple
   # update to output folder
   lfs setstripe -c 32 output
