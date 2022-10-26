@@ -112,11 +112,8 @@ public:
 
 		// Test this after setComm() to get the correct m_rank
 		if (provided < required) {
-			logWarning(m_rank) << utils::nospace << "Required MPI thread support (" << required
-				<< ") is smaller than provided thread support (" << provided << ").";
-#ifdef USE_COMM_THREAD
-			logError() << "Level of threading support unsufficient for using communication thread.";
-#endif
+			logError() << utils::nospace << "Provided MPI thread support (" << provided
+				<< ") is smaller than required thread support (" << required << ").";
 		}
 	}
 
