@@ -317,32 +317,15 @@ namespace seissol {
   }
 }
 
-bool seissol::initializers::FaultParameterDB::faultProvides(std::string& parameter, std::string const& fileName) {
-  easi::Component* model = loadEasiModel(fileName);
-  std::set<std::string> supplied = model->suppliedParameters();
-  delete model;
-  return supplied.count(parameter) > 0;
-}
-
-bool seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction(std::string const& fileName) {
-  easi::Component* model = loadEasiModel(fileName);
-  std::set<std::string> supplied = model->suppliedParameters();
-  delete model;
-
-  std::set<std::string> stress = {"nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy", "nuc_yz", "nuc_xz"};
-  std::set<std::string> traction =  {"Tnuc_n", "Tnuc_s", "Tnuc_d"};
-
-  bool containsStress = std::includes(supplied.begin(), supplied.end(), stress.begin(), stress.end());
-  bool containsTraction = std::includes(supplied.begin(), supplied.end(), traction.begin(), traction.end());
-
-  if (containsStress == containsTraction) {
-    logError() << "Both nucleation stress (nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz) and nucleation traction (Tnuc_n, Tnuc_s, Tnuc_d) are defined (or are missing), but only either of them must be defined.";
+std::set<std::string> seissol::initializers::FaultParameterDB::faultProvides(std::string const& fileName) {
+  if (fileName.length() == 0) {
+    return std::set<std::string>();
   }
-
-  return containsTraction;
+  easi::Component* model = loadEasiModel(fileName);
+  std::set<std::string> supplied = model->suppliedParameters();
+  delete model;
+  return supplied;
 }
-
-
 
 seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
   : model(loadEasiModel(fileName)) {

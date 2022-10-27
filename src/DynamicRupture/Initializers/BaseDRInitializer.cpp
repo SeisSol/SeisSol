@@ -248,9 +248,9 @@ void BaseDRInitializer::initializeOtherVariables(
   }
 }
 
-bool BaseDRInitializer::faultProvides(std::string&& parameter) {
-  return seissol::initializers::FaultParameterDB::faultProvides(parameter,
-                                                                drParameters->faultFileName);
+bool BaseDRInitializer::faultProvides(const std::string& parameter) {
+  // TODO: Use C++20 contains
+  return faultParameterNames.count(parameter) > 0;
 }
 
 std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
@@ -270,14 +270,12 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   bool anyTractionParametersSupplied = false;
   bool anyCartesianParametersSupplied = false;
   for (size_t i = 0; i < 3; i++) {
-    auto b = seissol::initializers::FaultParameterDB::faultProvides(tractionNames[i],
-                                                                    drParameters->faultFileName);
+    const auto b = faultProvides(tractionNames[i]);
     allTractionParametersSupplied &= b;
     anyTractionParametersSupplied |= b;
   }
   for (size_t i = 0; i < 6; i++) {
-    const auto b = seissol::initializers::FaultParameterDB::faultProvides(
-        cartesianNames[i], drParameters->faultFileName);
+    const auto b = faultProvides(cartesianNames[i]);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
   }

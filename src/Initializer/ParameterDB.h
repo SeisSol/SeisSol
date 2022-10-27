@@ -145,8 +145,7 @@ class seissol::initializers::FaultParameterDB : seissol::initializers::Parameter
 public:
   void addParameter(std::string const& parameter, real* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
   virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
-  static bool faultProvides(std::string& parameter, std::string const& fileName);
-  static bool nucleationParameterizedByTraction(std::string const& fileName);
+  static std::set<std::string> faultProvides(std::string const& fileName);
 private:
   std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
 };
