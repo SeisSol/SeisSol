@@ -318,6 +318,9 @@ namespace seissol {
 }
 
 std::set<std::string> seissol::initializers::FaultParameterDB::faultProvides(std::string const& fileName) {
+  if (fileName.length() == 0) {
+    return std::set<std::string>();
+  }
   easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
