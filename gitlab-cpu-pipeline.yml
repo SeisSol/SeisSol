@@ -1,9 +1,12 @@
 default:
     tags:
-        - lrzcc-k8s-4cores-16gb 
+        - lrzcc-k8s-4cores-10gb 
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
         entrypoint: [""]
+
+variables:
+    HOST: "hsw"
 
 stages:
     - pre_build
@@ -56,7 +59,7 @@ build_seissol:
             -DTESTING=ON
             -DLOG_LEVEL=warning
             -DLOG_LEVEL_MASTER=info
-            -DHOST_ARCH=hsw
+            -DHOST_ARCH=${HOST}
             -DPRECISION=$precision
             -DEQUATIONS=$equation
             -DNUMBER_OF_MECHANISMS=$mechanisms

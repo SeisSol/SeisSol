@@ -1,9 +1,14 @@
 default:
     tags:
-        - tum05-k8s-4cores-16gb-gpu
+        - tum05-k8s-4cores-16gb
     image:
         name: $CI_REGISTRY_USER/$gpu_image_name:$gpu_image_version
         entrypoint: [""]
+
+variables:
+    HOST: "snb"
+    GPU_VENDOR: "nvidia"
+    GPU_MODEL: "sm_60"
 
 stages:
     - pre_build
@@ -24,7 +29,6 @@ gpu_pre_build:
     script:
         - echo "HOST arch.:" $HOST
         - echo "GPU model:" $GPU_MODEL
-        - nvidia-smi
         - mkdir ./self_usr
         - git clone https://github.com/uphoffc/ImpalaJIT.git impalajit &&
           mkdir -p impalajit/build && cd impalajit/build &&
@@ -95,6 +99,8 @@ gpu_convergence_test:
     allow_failure: false
     needs:
         - job: gpu_build
+    tags:
+        - tum05-k8s-1core-8gb-gpu
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
@@ -128,6 +134,8 @@ gpu_run_tpv:
     allow_failure: false
     needs:
         - job: gpu_build
+    tags:
+        - tum05-k8s-1core-8gb-gpu
     parallel:
         matrix:
             - precision: [single]
@@ -232,7 +240,8 @@ gpu_performance_test:
           artifacts: true
         - job: gpu_run_tpv
           artifacts: false
-
+    tags:
+        - tum05-k8s-1core-8gb-gpu
     parallel:
         matrix:
         - BACKEND: [cuda, hipsycl, hip]
