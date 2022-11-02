@@ -1,9 +1,12 @@
 default:
     tags:
-        - 10core-docker-runner
+        - lrzcc-k8s-4cores-10gb 
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
         entrypoint: [""]
+
+variables:
+    HOST: "hsw"
 
 stages:
     - pre_build
@@ -34,38 +37,37 @@ build_seissol:
     parallel:
         matrix:
         - precision: [double, single]
+          build_type: [Debug, Release]
     script:
         - cmake --version
         - equation=elastic
         - mechanisms=0
-        - for build_type in Debug Release ; 
-             do for equation in elastic ;
-                 do dirname="build_${equation}_${precision}_${build_type}";
-                 echo "mkdir $dirname";
-                 if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
-                 mkdir -p $dirname && cd $dirname ;
-                 pwd; 
-                 CMAKE_PREFIX_PATH=~ ;
-                 cmake ..
-                 -DNETCDF=OFF
-                 -DMETIS=ON
-                 -DCOMMTHREAD=ON
-                 -DASAGI=OFF
-                 -DHDF5=ON
-                 -DCMAKE_BUILD_TYPE=$build_type
-                 -DTESTING=ON
-                 -DLOG_LEVEL=warning
-                 -DLOG_LEVEL_MASTER=info
-                 -DHOST_ARCH=hsw
-                 -DPRECISION=$precision
-                 -DEQUATIONS=$equation
-                 -DNUMBER_OF_MECHANISMS=$mechanisms
-                 -DDR_QUAD_RULE=stroud 
-                 -DGEMM_TOOLS_LIST=LIBXSMM 
-                 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
-                 make -j $(nproc);
-                 cd .. ; 
-             done; 
+        - for equation in elastic ;
+            do dirname="build_${equation}_${precision}_${build_type}";
+            echo "mkdir $dirname";
+            if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
+            mkdir -p $dirname && cd $dirname ;
+            pwd;
+            CMAKE_PREFIX_PATH=~ ;
+            cmake ..
+            -DNETCDF=OFF
+            -DMETIS=ON
+            -DCOMMTHREAD=ON
+            -DASAGI=OFF
+            -DHDF5=ON
+            -DCMAKE_BUILD_TYPE=$build_type
+            -DTESTING=ON
+            -DLOG_LEVEL=warning
+            -DLOG_LEVEL_MASTER=info
+            -DHOST_ARCH=${HOST}
+            -DPRECISION=$precision
+            -DEQUATIONS=$equation
+            -DNUMBER_OF_MECHANISMS=$mechanisms
+            -DDR_QUAD_RULE=stroud
+            -DGEMM_TOOLS_LIST=LIBXSMM
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
+            make -j $(nproc);
+            cd .. ;
           done;
           
     artifacts:
