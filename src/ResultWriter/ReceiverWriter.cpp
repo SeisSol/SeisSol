@@ -1,42 +1,3 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2019, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
-
 #include "ReceiverWriter.h"
 
 #include <cctype>
@@ -53,7 +14,8 @@
 #include <fstream>
 #include <regex>
 
-Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
+namespace seissol::writer {
+Eigen::Vector3d parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
   std::sregex_token_iterator iter(line.begin(),
                                   line.end(),
@@ -74,7 +36,7 @@ Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   return coordinates;
 }
 
-std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::string& receiverFileName) {
+std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName) {
   std::vector<Eigen::Vector3d> points{};
 
   std::ifstream file{receiverFileName};
@@ -88,7 +50,32 @@ std::vector<Eigen::Vector3d> seissol::writer::parseReceiverFile(const std::strin
   return points;
 }
 
-std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
+void ReceiverWriterExecutor::execInit(const async::ExecInfo& info,
+                                      const ReceiverWriterInitParam& param) {
+  // TODO
+
+  unsigned int numberOfPoints = info.bufferSize(static_cast<int>(BufferIds::POINTS)) /
+                                (sizeof(Eigen::Vector3d));
+
+  logInfo() << "Receiver writer executor received" << numberOfPoints << "points";
+  const auto* pointsPtr = static_cast<const Eigen::Vector3d*>(
+      info.buffer(static_cast<int>(BufferIds::POINTS)));
+  // But then, is the original ptr aligned?
+  // Why does this segfault?
+  points.resize(numberOfPoints);
+  points = std::move(std::vector< Eigen::Vector3d>(pointsPtr, pointsPtr + numberOfPoints));
+}
+
+void ReceiverWriterExecutor::exec(const async::ExecInfo& info,
+                                  const seissol::writer::ReceiverWriterParam& param) {
+  stopwatch.start();
+
+  // TODO(Lukas) Write output
+
+  stopwatch.pause();
+}
+
+std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId+1);
 #ifdef PARALLEL
@@ -98,7 +85,7 @@ std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
   return fns.str();
 }
 
-void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointId,
+void ReceiverWriter::writeHeader( unsigned               pointId,
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
@@ -135,13 +122,14 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   }
 }
 
-void seissol::writer::ReceiverWriter::syncPoint(double)
+void ReceiverWriter::syncPoint(double time)
 {
+  write(time);
   if (m_receiverClusters.empty()) {
     return;
   }
 
-  m_stopwatch.start();
+  stopwatch.start();
 
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
@@ -165,25 +153,61 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
     }
   }
 
-  auto time = m_stopwatch.stop();
+  auto timeToWriteReceiver = stopwatch.stop();
   int const rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Wrote receivers in" << time << "seconds.";
+  logInfo(rank) << "Wrote receivers in" << timeToWriteReceiver << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(std::string receiverFileName, std::string fileNamePrefix,
-                                           double syncPointInterval, double samplingInterval)
-{
+void ReceiverWriter::init(std::string receiverFileName, std::string fileNamePrefix,
+                double syncPointInterval, double samplingInterval,
+                const MeshReader& mesh,
+                const seissol::initializers::Lut& ltsLut,
+                const seissol::initializers::LTS& lts,
+                const GlobalData* global) {
   m_receiverFileName = std::move(receiverFileName);
   m_fileNamePrefix = std::move(fileNamePrefix);
   m_samplingInterval = samplingInterval;
+
+  addPoints(mesh, ltsLut, lts, global);
+
+  // Add buffers
+  int bufferIdPoints = addSyncBuffer(points.data(), points.size() * sizeof(points[0]));
+  // Or maybe just remove/add new buffer when size doesn't work
+
+  sendBuffer(bufferIdPoints);
+
+  ReceiverWriterInitParam param{};
+  // TODO(Lukas) Add following?
+  // param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
+  callInit(param);
+
+  removeBuffer(bufferIdPoints);
+
+  // Note: Buffer size not nec. constant due to sync points
+  // Hence, need to check if size changed (and potentially point)
+
   setSyncInterval(syncPointInterval);
+  // TODO(Lukas) Sim start?
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 
-void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
+void ReceiverWriter::write(double time) {
+  // ??
+}
+void ReceiverWriter::close() {
+  wait();
+  finalize();
+  stopwatch.printTime("Receiver writer frontend:");
+  // ?
+}
+void ReceiverWriter::tearDown() {
+  // ?
+}
+
+
+void ReceiverWriter::addPoints(MeshReader const& mesh,
                                                 const seissol::initializers::Lut& ltsLut,
                                                 const seissol::initializers::LTS& lts,
                                                 const GlobalData* global ) {
-  std::vector<Eigen::Vector3d> points;
   const auto rank = seissol::MPI::mpi.rank();
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
@@ -229,4 +253,5 @@ void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
       m_receiverClusters[layer][cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
     }
   }
+}
 }

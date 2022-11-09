@@ -950,12 +950,11 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
   receiverWriter.init(std::string(receiverFileName),
                       std::string(freeSurfaceFilename),
                       receiverSyncInterval,
-                      receiverSamplingInterval);
-  receiverWriter.addPoints(
-    seissol::SeisSol::main.meshReader(),
-    m_ltsLut,
-    *m_lts,
-    m_globalData
+                      receiverSamplingInterval,
+                     seissol::SeisSol::main.meshReader(),
+                      m_ltsLut,
+                      *m_lts,
+                      m_globalData
   );
   seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
 
