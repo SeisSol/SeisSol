@@ -15,26 +15,28 @@ installing the *hipSYCL* implementation of the SYCL standard. If you want to use
 Installing LLVM
 ---------------
 
-A preparation step:
+First download and prepare LLVM for building.
+We recommend LLVM14 for modern architectures.
+Note that unpacking the tar archive takes a long time.
 
 .. code-block:: bash
 
-  wget https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-12.0.0.tar.gz
-  tar -xvf ./llvmorg-12.0.0.tar.gz
-  mkdir -p llvm-project-llvmorg-12.0.0/build && cd llvm-project-llvmorg-12.0.0/build
+  wget https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-14.0.6.tar.gz
+  tar -xvf llvmorg-14.0.6.tar.gz
+  mkdir -p llvm-project-llvmorg-14.0.6/build && cd llvm-project-llvmorg-14.0.6/build
 
 LLVM comes with many backends. The most common CPU ones are X86, ARM, PowerPC. Below are the instructions for
 installing LLVM with X86 and NVPTX backends for CPUs and GPUs, respectively.
 
 .. code-block:: bash
 
-  GCC_ROOT=$(dirname $(dirname $(which gcc)))
-  CUDA_ROOT=${CUDA_PATH} # or CUDA_ROOT=$(dirname $(dirname $(which nvcc)))
+  export GCC_ROOT=$(dirname $(dirname $(which gcc)))
+  export CUDA_ROOT=${CUDA_PATH} # or CUDA_ROOT=$(dirname $(dirname $(which nvcc)))
   cmake ../llvm -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;compiler-rt;openmp;libunwind;polly" \
   -DGCC_INSTALL_PREFIX="${GCC_ROOT}" \
   -DCUDA_TOOLKIT_ROOT_DIR="${CUDA_ROOT}" \
-  -DCMAKE_INSTRALL_PREFIX="${HOME}"" \
+  -DCMAKE_INSTALL_PREFIX="${HOME}" \
   -DLLVM_TARGETS_TO_BUILD="X86;NVPTX"
   make -j $(nproc)
   make install
@@ -44,12 +46,12 @@ Follow the instructions listed below if you need to configure LLVM with AMD GPU 
 
 .. code-block:: bash
 
-  GCC_ROOT=$(dirname $(dirname $(which gcc)))
-  CUDA_ROOT=${CUDA_PATH} # or CUDA_ROOT=$(dirname $(dirname $(which nvcc)))
+  export GCC_ROOT=$(dirname $(dirname $(which gcc)))
+  export CUDA_ROOT=${CUDA_PATH} # or CUDA_ROOT=$(dirname $(dirname $(which nvcc)))
   cmake ../llvm -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;compiler-rt;openmp;polly" \
   -DGCC_INSTALL_PREFIX="${GCC_ROOT}" \
-  -DCMAKE_INSTRALL_PREFIX="${HOME}"" \
+  -DCMAKE_INSTALL_PREFIX="${HOME}" \
   -DLLVM_TARGETS_TO_BUILD="X86;AMDGPU"
 
   make -j $(nproc)
@@ -91,14 +93,16 @@ SeisSol requires 0.9.3 version of hipSYCL for a correct multi GPU-setup.
 
   git clone --depth 1 --branch v0.9.3 https://github.com/illuhad/hipSYCL.git
   cd hipSYCL
+  mkdir build && cd build
 
-Perform the following steps to configure and install hipSYCL for Nvidia GPUs
+Perform the following steps to configure and install hipSYCL for Nvidia GPUs.
+Make sure that the clang from the correct LLVM installation is used and check the paths carefully.
 
 .. code-block:: bash
 
   export CUDA_PATH=$CUDA_HOME
-  CLANG_DIR=$(dirname $(dirname $(which clang)))
-  CLANG_EXE=$(which clang++)
+  export CLANG_DIR=$(dirname $(dirname $(which clang)))
+  export CLANG_EXE=$(which clang++)
 
   CC=gcc CXX=g++ cmake .. \
   -DCMAKE_BUILD_TYPE:STRING=Release \
@@ -127,8 +131,8 @@ set by system administrators. Please, makes sure that this environment variable 
 
 .. code-block:: bash
 
-  CLANG_DIR=$(dirname $(dirname $(which clang)))
-  CLANG_EXEC=$(which clang++)
+  export CLANG_DIR=$(dirname $(dirname $(which clang)))
+  export CLANG_EXEC=$(which clang++)
 
   cmake .. -DCMAKE_BUILD_TYPE:STRING=Release \
   -DCMAKE_INSTALL_PREFIX="${HOME}" \
@@ -150,7 +154,7 @@ set by system administrators. Please, makes sure that this environment variable 
 
   cd ../..
 
-Add the following durint the CMake configuration step if you want to enable the OpenMP backend of SYCL device kernels:
+Add the following during the CMake configuration step if you want to enable the OpenMP backend of SYCL device kernels:
 `-DWITH_ACCELERATED_CPU=ON`
 
 
