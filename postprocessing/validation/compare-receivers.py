@@ -25,12 +25,12 @@ if __name__ == "__main__":
         ):
             return np.sqrt(receiver["u"] ** 2 + receiver["v"] ** 2 + receiver["w"] ** 2)
         elif (
-            "u1" in receiver.columns
-            and "u2" in receiver.columns
-            and "u3" in receiver.columns
+            "v1" in receiver.columns
+            and "v2" in receiver.columns
+            and "v3" in receiver.columns
         ):
             return np.sqrt(
-                receiver["u1"] ** 2 + receiver["u2"] ** 2 + receiver["u2"] ** 2
+                receiver["v1"] ** 2 + receiver["v2"] ** 2 + receiver["v3"] ** 2
             )
         else:
             raise ValueError("Could not find velocities in off-fault receiver.")
