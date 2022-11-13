@@ -12,7 +12,7 @@ In order to run SeisSol, you need to first install:
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.10) for the compilation of SeisSol
+-  CMake (>= 3.20) for the compilation of SeisSol
 
 In addition, the following packages need to be installed for the GPU version of SeisSol:
 
