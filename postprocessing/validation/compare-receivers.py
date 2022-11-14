@@ -6,6 +6,7 @@ import pandas as pd
 import sys
 import os
 import re
+import glob
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two sets of receivers.")
@@ -15,6 +16,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode", type=str, default="rs", required=False, choices=["rs", "lsw", "tp"]
     )
+
+    parser.add_argument(
+        "--prefix", type=str, default='tpv13', required=False
+        )
+    parser.add_argument(
+        "--compare_fault_receivers", type=bool, default=True, required=False
+        )
     args = parser.parse_args()
 
     def velocity_norm(receiver):
@@ -80,7 +88,7 @@ if __name__ == "__main__":
     def temperature_norm(receiver):
         return np.sqrt(receiver["Tmp"] ** 2)
 
-    def rupture_velocity_norm(receiver):
+    def fault_velocity_norm(receiver):
         return np.sqrt(receiver["Vr"] ** 2)
 
     def normal_velocity_norm(receiver):
@@ -130,10 +138,14 @@ if __name__ == "__main__":
         return receiver
 
     def receiver_diff(args, i):
-        sim_receiver = read_receiver(f"{args.output}/tpv-receiver-{i:05d}-00000.dat")
-        ref_receiver = read_receiver(
-            f"{args.output_ref}/tpv-receiver-{i:05d}-00000.dat"
+        sim_files = glob.glob(f"{args.output}/{args.prefix}-receiver-{i:05d}-*.dat")
+        ref_files = glob.glob(
+            f"{args.output_ref}/{args.prefix}-receiver-{i:05d}-*.dat"
         )
+        assert(len(sim_files) == 1)
+        assert(len(ref_files) == 1)
+        sim_receiver = read_receiver(sim_files[0])
+        ref_receiver = read_receiver(ref_files[0])
         # both receivers must have the same time axis
         assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14
         time = sim_receiver["Time"]
@@ -151,10 +163,10 @@ if __name__ == "__main__":
         )
 
     def faultreceiver_diff(args, i, quantities):
-        ref_filename = f"{args.output_ref}/tpv-faultreceiver-{i:05d}-00000.dat"
+        ref_filename = f"{args.output_ref}/{args.prefix}-faultreceiver-{i:05d}-00000.dat"
         ref_receiver = read_receiver(ref_filename)
 
-        sim_filename = f"{args.output}/tpv-faultreceiver-{i:05d}-00000.dat"
+        sim_filename = f"{args.output}/{args.prefix}-faultreceiver-{i:05d}-00000.dat"
         sim_receiver = read_receiver(sim_filename).iloc[1:]
         sim_receiver.reset_index(drop=True, inplace=True)
 
@@ -191,11 +203,11 @@ if __name__ == "__main__":
 
         return errors
 
-    def find_all_receivers(directory, faultreceiver=False):
+    def find_all_receivers(directory, prefix, faultreceiver=False):
         if faultreceiver:
-            receiver_re = re.compile("tpv-faultreceiver-(\d+)-\d+\.dat")
+            receiver_re = re.compile(f"{prefix}-faultreceiver-(\d+)-\d+\.dat")
         else:
-            receiver_re = re.compile("tpv-receiver-(\d+)-\d+\.dat")
+            receiver_re = re.compile(f"{prefix}-receiver-(\d+)-\d+\.dat")
         receiver_ids = []
         for fn in os.listdir(directory):
             match = receiver_re.match(fn)
@@ -203,17 +215,23 @@ if __name__ == "__main__":
                 receiver_ids.append(int(match.groups()[0]))
         return np.array(sorted(receiver_ids))
 
-    sim_faultreceiver_ids = find_all_receivers(args.output, True)
-    ref_faultreceiver_ids = find_all_receivers(args.output_ref, True)
-    faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
-    # Make sure, we actually compare some faultreceivers
-    assert len(faultreceiver_ids) == len(ref_faultreceiver_ids)
+    if args.compare_fault_receivers:
+        sim_faultreceiver_ids = find_all_receivers(args.output, True)
+        ref_faultreceiver_ids = find_all_receivers(args.output_ref, True)
+        faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
+        # Make sure, we actually compare some faultreceivers
+        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids)
+    else:
+        sim_faultreceiver_ids = []
+        ref_faultreceiver_ids = []
+        faultreceiver_ids = []
 
-    sim_receiver_ids = find_all_receivers(args.output, False)
-    ref_receiver_ids = find_all_receivers(args.output_ref, False)
+    sim_receiver_ids = find_all_receivers(args.output, args.prefix, False)
+    ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
     # Make sure, we actually compare some receivers
     assert len(receiver_ids) == len(ref_receiver_ids)
+
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
     for i in receiver_ids:
@@ -228,6 +246,8 @@ if __name__ == "__main__":
         print(
             f"{q} exceeds relative error of {args.epsilon} at receveivers {broken_receivers}"
         )
+        if len(broken_receivers) > 0:
+            sys.exit(1)
 
     quantities = [
         "absolute slip",
@@ -253,20 +273,19 @@ if __name__ == "__main__":
         faultreceiver_errors.loc[i, :] = local_errors.loc[i, :]
 
     print("")
-    print(
-        "Relative L2 error of the different quantities at the different faultreceivers"
-    )
+    print("Relative L2 error of the different quantities at the different faultreceivers")
     print(faultreceiver_errors)
 
     for q in faultreceiver_errors.columns:
         broken_faultreceivers = faultreceiver_errors.index[
             faultreceiver_errors[q] > args.epsilon
         ].tolist()
-        print(
-            f"{q} exceeds relative error of {args.epsilon} at faultreceveivers {broken_faultreceivers}"
-        )
+        print(f"{q} exceeds relative error of {args.epsilon} at faultreceveivers {broken_faultreceivers}")
+ 
 
     if (receiver_errors > args.epsilon).any().any() or (
         faultreceiver_errors > args.epsilon
     ).any().any():
         sys.exit(1)
+
+    sys.exit(0)
