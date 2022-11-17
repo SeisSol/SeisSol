@@ -17,9 +17,9 @@ class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
-    real points[dr::misc::numPaddedPoints][2];
-    std::fill_n(spaceWeights, dr::misc::numPaddedPoints, static_cast<real>(0.0));
-    seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+    std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
+              &init::quadweights::Values[init::quadweights::Stop[0]],
+              &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
 
