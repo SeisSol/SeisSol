@@ -54,6 +54,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        const auto* devNucleationStressInFaultCS2{this->nucleationStressInFaultCS2};
 
         this->queue.submit([&](sycl::handler& cgh) {
           cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -64,6 +65,7 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
             common::adjustInitialStress<gpuRangeType, StdMath>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
+                devNucleationStressInFaultCS2[ltsFace],
                 fullUpdateTime,
                 t0,
                 dt,
