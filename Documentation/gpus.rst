@@ -134,6 +134,9 @@ Then clone SeisSol with:
 To compile the GPU version of SeisSol on heisenbug, use the following cmake options ``-DDEVICE_ARCH=sm_86 -DHOST_ARCH=hsw -DDEVICE_BACKEND=cuda -DPRECISION=single``.
 Use ``-DCOMMTHREAD=ON`` for multiple GPUs, and ``-DCOMMTHREAD=OFF`` for one GPU.
 
+As there is no queuing system on heisenbug, you need to make sure that nobody is running anything on the GPUs.
+You can check that by running ``nvidia-smi`` (it should return ``No running processes found``).
+
 To run on one GPU (here with order 4, elastic), use simply:
 
 .. code-block:: bash
