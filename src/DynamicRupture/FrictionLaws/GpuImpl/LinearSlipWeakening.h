@@ -236,8 +236,8 @@ class LinearSlipWeakeningLaw
         auto ltsFace = item.get_group().get_group_id(0);
         auto pointIndex = item.get_local_id(0);
 
-        resampledSlipRate[pointIndex] =
-            specialization.resampleSlipRate(devResample, devSlipRateMagnitude[ltsFace], pointIndex);
+        resampledSlipRate[pointIndex] = SpecializationT::resampleSlipRate(
+            devResample, devSlipRateMagnitude[ltsFace], pointIndex);
 
         item.barrier(sycl::access::fence_space::local_space);
         auto& stateVariable = devStateVariableBuffer[ltsFace];
@@ -278,9 +278,9 @@ class NoSpecialization {
                           seissol::initializers::DynamicRupture const* const dynRup,
                           real fullUpdateTime) {}
 
-  real resampleSlipRate(real const* resampleMatrix,
-                        real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-                        size_t pointIndex) {
+  static real resampleSlipRate(real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               size_t pointIndex) {
 
     // perform matrix vector multiplication
 
@@ -322,9 +322,9 @@ class BiMaterialFault {
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
   }
 
-  real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
-                        real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
-                        size_t pointIndex) {
+  static real resampleSlipRate([[maybe_unused]] real const* resampleMatrix,
+                               real const (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
 

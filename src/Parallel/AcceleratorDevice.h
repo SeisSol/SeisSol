@@ -12,7 +12,9 @@
 #include <device.h>
 #include <CL/sycl.hpp>
 
+#ifndef __DPCPP_COMPILER
 namespace sycl = cl::sycl;
+#endif
 
 namespace seissol {
 class AcceleratorDevice {

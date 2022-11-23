@@ -39,7 +39,9 @@ set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
 # TODO: Move one dir up.
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" "${CMAKE_ROOT}/Modules")
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
+                      "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
+                      "${CMAKE_ROOT}/Modules")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -345,7 +347,9 @@ if (WITH_GPU)
   add_library(general-sycl-offloading SHARED
       ${SYCL_DEPENDENT_SRC_FILES}
       ${SYCL_ONLY_SRC_FILES})
+  target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
 
+  # add GPU dynamic rupture target
   if (DEVICE_ARCH MATCHES "sm_*")
     set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
@@ -358,15 +362,22 @@ if (WITH_GPU)
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
   endif()
 
-  target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
+  find_package(hipSYCL QUIET)
+  if (hipSYCL_FOUND)
+    message(STATUS "Using HipSYCL for general SYCL offloading")
 
-  # add GPU dynamic rupture target
-  find_package(hipSYCL CONFIG REQUIRED)
-  message(STATUS "Found SYCL: TRUE")
-  # note, we need to add openmp as a link option explicitly for some compilers.
-  # it is probably an issue of `add_sycl_to_target` macro
-  target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
-  add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
+    # note, we need to add openmp as a link option explicitly for some compilers.
+    # it is probably an issue of `add_sycl_to_target` macro
+    target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
+    add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
+  else()
+    unset(HIPSYCL_TARGETS)
+
+    find_package(DpcppFlags REQUIRED)
+    message(STATUS "Using DPC++ for general SYCL offloading")
+    target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
+    target_link_libraries(SeisSol-common-properties INTERFACE dpcpp::interface)
+  endif()
 
   add_dependencies(general-sycl-offloading SeisSol-codegen)
 
