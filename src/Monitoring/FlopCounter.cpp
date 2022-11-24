@@ -89,8 +89,6 @@ void FlopCounter::printPerformance(double wallTime) {
     const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
     logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS"
     << "(rank 0:" << gflopsPerSecond << "GFLOPS, average over ranks:" << flopsPerRank << "GFLOPS)";
-    std::ofstream out;
-    out.open("flops.csv");
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
       out << gflopsPerSecondOnRanks[i] << ",";
