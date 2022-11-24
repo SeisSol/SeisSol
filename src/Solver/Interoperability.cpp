@@ -975,6 +975,8 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                     freeSurfaceFilename,
                     energySyncInterval);
 
+  seissol::SeisSol::main.flopCounter().init(freeSurfaceFilename);
+
 	seissol::SeisSol::main.analysisWriter().init(
 	    &seissol::SeisSol::main.meshReader(),
 	    freeSurfaceFilename);

@@ -49,6 +49,7 @@
 #include "Checkpoint/Manager.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
+#include "Monitoring/FlopCounter.hpp"
 #include "Parallel/Pin.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
@@ -138,6 +139,9 @@ private:
 
   //! Input parameters
   std::shared_ptr<YAML::Node> m_inputParams;
+
+  //! Flop Counter
+  monitoring::FlopCounter m_flopCounter;
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -256,6 +260,13 @@ public:
    writer::EnergyOutput& energyOutput() {
      return m_energyOutput;
    }
+
+  /**
+   * Get the flop counter
+   */
+  monitoring::FlopCounter& flopCounter() {
+    return m_flopCounter;
+  }
 
 	/**
 	 * Set the mesh reader

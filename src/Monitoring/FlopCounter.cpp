@@ -48,22 +48,20 @@
 
 #include <utils/logger.h>
 
-// Define the FLOP counter.
-long long libxsmm_num_total_flops = 0;
-long long pspamm_num_total_flops = 0;
+namespace seissol::monitoring {
 
-long long g_SeisSolNonZeroFlopsLocal = 0;
-long long g_SeisSolHardwareFlopsLocal = 0;
-long long g_SeisSolNonZeroFlopsNeighbor = 0;
-long long g_SeisSolHardwareFlopsNeighbor = 0;
-long long g_SeisSolNonZeroFlopsOther = 0;
-long long g_SeisSolHardwareFlopsOther = 0;
-long long g_SeisSolNonZeroFlopsDynamicRupture = 0;
-long long g_SeisSolHardwareFlopsDynamicRupture = 0;
-long long g_SeisSolNonZeroFlopsPlasticity = 0;
-long long g_SeisSolHardwareFlopsPlasticity = 0;
+void FlopCounter::init(std::string outputFileNamePrefix) {
+  const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
+  const int worldSize = seissol::MPI::mpi.size();
+  out.open(outputFileName);
+  out << "time,";
+  for (size_t i = 0; i < worldSize - 1; ++i) {
+    out << "rank_" << i << ",";
+  }
+  out << "rank_" << worldSize - 1 << std::endl;
+}
 
-void printPerformance(double wallTime) {
+void FlopCounter::printPerformance(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
   const int worldSize = seissol::MPI::mpi.size();
   const long long flops = g_SeisSolHardwareFlopsLocal
@@ -74,7 +72,14 @@ void printPerformance(double wallTime) {
   const double gflopsPerSecond = flops * 1.e-9 / wallTime;
 
   double gflopsPerSecondOnRanks[worldSize];
-  MPI_Gather(&gflopsPerSecond, 1, MPI_DOUBLE, gflopsPerSecondOnRanks, 1, MPI_DOUBLE, 0, seissol::MPI::mpi.comm());
+  MPI_Gather(&gflopsPerSecond,
+             1,
+             MPI_DOUBLE,
+             gflopsPerSecondOnRanks,
+             1,
+             MPI_DOUBLE,
+             0,
+             seissol::MPI::mpi.comm());
 
   double flopsSum = 0;
   MPI_Reduce(
@@ -96,14 +101,14 @@ void printPerformance(double wallTime) {
     for (size_t i = 0; i < worldSize - 1; i++) {
       out << gflopsPerSecondOnRanks[i] << ",";
     }
-    out << gflopsPerSecondOnRanks[worldSize - 1];
+    out << gflopsPerSecondOnRanks[worldSize - 1] << std::endl;
   }
 }
   
 /**
  * Prints the measured FLOPS.
  */
-void printFlops() {
+void FlopCounter::printFlops() {
   const int rank = seissol::MPI::mpi.rank();
 
   enum Counter {
@@ -143,4 +148,5 @@ void printFlops() {
   logInfo(rank) << "DR calculated NZ-GFLOP: " << (totalFlops[DRNonZeroFlops])  * 1.e-9;
   logInfo(rank) << "PL calculated HW-GFLOP: " << (totalFlops[PLHardwareFlops]) * 1.e-9;
   logInfo(rank) << "PL calculated NZ-GFLOP: " << (totalFlops[PLNonZeroFlops])  * 1.e-9;
+}
 }

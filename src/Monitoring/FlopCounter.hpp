@@ -41,24 +41,35 @@
 #ifndef FLOPCOUNTER_HPP
 #define FLOPCOUNTER_HPP
 
-//! floating point operations performed in the matrix kernels.
-//!   Remark: This variable is updated by the matrix kernels.
-extern long long libxsmm_num_total_flops;
-extern long long pspamm_num_total_flops;
+#include <fstream>
 
-// global variables for summing-up SeisSol internal counters
-extern long long g_SeisSolNonZeroFlopsLocal;
-extern long long g_SeisSolHardwareFlopsLocal;
-extern long long g_SeisSolNonZeroFlopsNeighbor;
-extern long long g_SeisSolHardwareFlopsNeighbor;
-extern long long g_SeisSolNonZeroFlopsOther;
-extern long long g_SeisSolHardwareFlopsOther;
-extern long long g_SeisSolNonZeroFlopsDynamicRupture;
-extern long long g_SeisSolHardwareFlopsDynamicRupture;
-extern long long g_SeisSolNonZeroFlopsPlasticity;
-extern long long g_SeisSolHardwareFlopsPlasticity;
+namespace seissol::monitoring {
+class FlopCounter {
+  public:
+  //! floating point operations performed in the matrix kernels.
+  //!   Remark: This variable is updated by the matrix kernels.
+  long long libxsmm_num_total_flops = 0;
+  long long pspamm_num_total_flops = 0;
 
-void printPerformance(double wallTime);
-void printFlops();
+  // global variables for summing-up SeisSol internal counters
+  long long g_SeisSolNonZeroFlopsLocal = 0;
+  long long g_SeisSolHardwareFlopsLocal = 0;
+  long long g_SeisSolNonZeroFlopsNeighbor = 0;
+  long long g_SeisSolHardwareFlopsNeighbor = 0;
+  long long g_SeisSolNonZeroFlopsOther = 0;
+  long long g_SeisSolHardwareFlopsOther = 0;
+  long long g_SeisSolNonZeroFlopsDynamicRupture = 0;
+  long long g_SeisSolHardwareFlopsDynamicRupture = 0;
+  long long g_SeisSolNonZeroFlopsPlasticity = 0;
+  long long g_SeisSolHardwareFlopsPlasticity = 0;
+
+  void init(std::string outputFileNamePrefix);
+  void printPerformance(double wallTime);
+  void printFlops();
+
+  private:
+  std::ofstream out;
+};
+}
 
 #endif
