@@ -133,9 +133,9 @@ void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
     i_time.computeBatchedIntegral(i_timeStepStart,
                                   i_timeStepStart,
                                   i_timeStepStart + i_timeStepWidth,
-                                  const_cast<const real **>((entry.get(EntityId::Derivatives))->getDeviceDataPtr()),
-                                  (entry.get(EntityId::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(EntityId::Idofs))->getSize());
+                                  const_cast<const real **>((entry.get(inner_keys::Wp::Derivatives))->getDeviceDataPtr()),
+                                  (entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr(),
+                                  (entry.get(inner_keys::Wp::Idofs))->getSize());
   }
 
   // Compute time integrated dofs using neighbours derivatives using the LTS relation,
@@ -146,9 +146,9 @@ void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
     i_time.computeBatchedIntegral(0.0,
                                   i_timeStepStart,
                                   i_timeStepStart + i_timeStepWidth,
-                                  const_cast<const real **>((entry.get(EntityId::Derivatives))->getDeviceDataPtr()),
-                                  (entry.get(EntityId::Idofs))->getDeviceDataPtr(),
-                                  (entry.get(EntityId::Idofs))->getSize());
+                                  const_cast<const real **>((entry.get(inner_keys::Wp::Derivatives))->getDeviceDataPtr()),
+                                  (entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr(),
+                                  (entry.get(inner_keys::Wp::Idofs))->getSize());
   }
 #else
   assert(false && "no implementation provided");

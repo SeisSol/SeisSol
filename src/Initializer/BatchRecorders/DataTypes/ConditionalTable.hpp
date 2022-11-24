@@ -10,6 +10,9 @@ namespace seissol::initializers::recording {
 using ConditionalPointersToRealsTable =
     std::unordered_map<ConditionalKey, PointersToRealsTable, ConditionalHash<ConditionalKey>>;
 
+using DrConditionalPointersToRealsTable =
+    std::unordered_map<ConditionalKey, DrPointersToRealsTable, ConditionalHash<ConditionalKey>>;
+
 using ConditionalIndicesTable =
     std::unordered_map<ConditionalKey, IndicesTable, ConditionalHash<ConditionalKey>>;
 } // namespace seissol::initializers::recording

@@ -158,7 +158,7 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
   }
 }
 
-void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(ConditionalPointersToRealsTable& table) {
+void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table) {
 #ifdef ACL_DEVICE
 
   real** degreesOfFreedomPlus{nullptr};
@@ -178,9 +178,9 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
     if (table.find(timeIntegrationKey) != table.end()) {
       auto &entry = table[timeIntegrationKey];
 
-      unsigned maxNumElements = (entry.get(EntityId::DrDerivativesPlus))->getSize();
-      real** timeDerivativePlus = (entry.get(EntityId::DrDerivativesPlus))->getDeviceDataPtr();
-      degreesOfFreedomPlus = (entry.get(EntityId::DrIdofsPlus))->getDeviceDataPtr();
+      unsigned maxNumElements = (entry.get(inner_keys::Dr::DerivativesPlus))->getSize();
+      real** timeDerivativePlus = (entry.get(inner_keys::Dr::DerivativesPlus))->getDeviceDataPtr();
+      degreesOfFreedomPlus = (entry.get(inner_keys::Dr::IdofsPlus))->getDeviceDataPtr();
 
       m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
                                                  0.0,
@@ -188,8 +188,8 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
                                                  degreesOfFreedomPlus,
                                                  maxNumElements);
 
-      real** timeDerivativeMinus = (entry.get(EntityId::DrDerivativesMinus))->getDeviceDataPtr();
-      degreesOfFreedomMinus = (entry.get(EntityId::DrIdofsMinus))->getDeviceDataPtr();
+      real** timeDerivativeMinus = (entry.get(inner_keys::Dr::DerivativesMinus))->getDeviceDataPtr();
+      degreesOfFreedomMinus = (entry.get(inner_keys::Dr::IdofsMinus))->getDeviceDataPtr();
       m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
                                                  0.0,
                                                  timeDerivativeMinus,
@@ -203,7 +203,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
       ConditionalKey plusSideKey(*KernelNames::DrSpaceMap, side);
       if (table.find(plusSideKey) != table.end()) {
         auto& entry = table[plusSideKey];
-        const size_t numElements = (entry.get(EntityId::DrIdofsPlus))->getSize();
+        const size_t numElements = (entry.get(inner_keys::Dr::IdofsPlus))->getSize();
 
         auto krnl = m_gpuKrnlPrototype;
         real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
@@ -212,10 +212,10 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
         krnl.streamPtr = device.api->getNextCircularStream();
         krnl.numElements = numElements;
 
-        krnl.QInterpolated = (entry.get(EntityId::DrQInterpolatedPlus))->getDeviceDataPtr();
+        krnl.QInterpolated = (entry.get(inner_keys::Dr::QInterpolatedPlus))->getDeviceDataPtr();
         krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-        krnl.Q = const_cast<real const **>((entry.get(EntityId::DrIdofsPlus))->getDeviceDataPtr());
-        krnl.TinvT = const_cast<real const **>((entry.get(EntityId::DrTinvT))->getDeviceDataPtr());
+        krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::IdofsPlus))->getDeviceDataPtr());
+        krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::TinvT))->getDeviceDataPtr());
         krnl.execute(side, 0);
       }
 
@@ -223,7 +223,7 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
         ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
         if (table.find(minusSideKey) != table.end()) {
           auto &entry = table[minusSideKey];
-          const size_t numElements = (entry.get(EntityId::DrIdofsMinus))->getSize();
+          const size_t numElements = (entry.get(inner_keys::Dr::IdofsMinus))->getSize();
 
           auto krnl = m_gpuKrnlPrototype;
           real *tmpMem = (real *) (device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
@@ -232,10 +232,10 @@ void seissol::kernels::DynamicRupture::batchedSpaceTimeInterpolation(Conditional
           krnl.streamPtr = device.api->getNextCircularStream();
           krnl.numElements = numElements;
 
-          krnl.QInterpolated = (entry.get(EntityId::DrQInterpolatedMinus))->getDeviceDataPtr();
+          krnl.QInterpolated = (entry.get(inner_keys::Dr::QInterpolatedMinus))->getDeviceDataPtr();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<real const **>((entry.get(EntityId::DrIdofsMinus))->getDeviceDataPtr());
-          krnl.TinvT = const_cast<real const **>((entry.get(EntityId::DrTinvT))->getDeviceDataPtr());
+          krnl.Q = const_cast<real const **>((entry.get(inner_keys::Dr::IdofsMinus))->getDeviceDataPtr());
+          krnl.TinvT = const_cast<real const **>((entry.get(inner_keys::Dr::TinvT))->getDeviceDataPtr());
           krnl.execute(side, faceRelation);
         }
       }

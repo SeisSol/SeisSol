@@ -106,6 +106,7 @@ private:
   void** m_scratchpads{};
   size_t* m_scratchpadSizes{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
+  DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
 #endif
 
 public:
@@ -259,17 +260,33 @@ public:
   }
 
 #ifdef ACL_DEVICE
-  template<typename T = real*>
+  template<typename VariableType = inner_keys::Wp, typename RecordedDataType = real*>
   auto& getConditionalTable() {
-    if constexpr (std::is_same_v<T, real*>) {
-      return m_conditionalPointersToRealsTable;
+    if constexpr (std::is_same_v<VariableType, inner_keys::Wp>) {
+      if constexpr (std::is_same_v<RecordedDataType, real*>) {
+        return m_conditionalPointersToRealsTable;
+      }
+    }
+
+    if constexpr (std::is_same_v<VariableType, inner_keys::Dr>) {
+      if constexpr (std::is_same_v<RecordedDataType, real*>) {
+        return m_drConditionalPointersToRealsTable;
+      }
     }
   }
 
-  template<typename T = real*>
-  const ConditionalPointersToRealsTable& getConditionalTable() const {
-    if constexpr (std::is_same_v<T, real*>) {
-      return m_conditionalPointersToRealsTable;
+  template<typename VariableType = inner_keys::Wp, typename RecordedDataType = real*>
+  const auto& getConditionalTable() const {
+    if constexpr (std::is_same_v<VariableType, inner_keys::Wp>) {
+      if constexpr (std::is_same_v<RecordedDataType, real*>) {
+        return m_conditionalPointersToRealsTable;
+      }
+    }
+
+    if constexpr (std::is_same_v<VariableType, inner_keys::Dr>) {
+      if constexpr (std::is_same_v<RecordedDataType, real*>) {
+        return m_drConditionalPointersToRealsTable;
+      }
     }
   }
 #endif // ACL_DEVICE
