@@ -46,7 +46,7 @@
 #include <bitset>
 #include <limits>
 #include <cstring>
-
+#include <type_traits>
 
 enum LayerType {
   Ghost    = (1 << 0),
@@ -105,7 +105,7 @@ private:
 #ifdef ACL_DEVICE
   void** m_scratchpads{};
   size_t* m_scratchpadSizes{};
-  ConditionalBatchTableT m_conditionalBatchTable{};
+  ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
 #endif
 
 public:
@@ -259,12 +259,18 @@ public:
   }
 
 #ifdef ACL_DEVICE
-  ConditionalBatchTableT& getCondBatchTable() {
-    return m_conditionalBatchTable;
+  template<typename T = real*>
+  auto& getConditionalTable() {
+    if constexpr (std::is_same_v<T, real*>) {
+      return m_conditionalPointersToRealsTable;
+    }
   }
 
-  const ConditionalBatchTableT& getCondBatchTable() const {
-    return m_conditionalBatchTable;
+  template<typename T = real*>
+  const ConditionalPointersToRealsTable& getConditionalTable() const {
+    if constexpr (std::is_same_v<T, real*>) {
+      return m_conditionalPointersToRealsTable;
+    }
   }
 #endif // ACL_DEVICE
 };

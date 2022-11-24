@@ -3,9 +3,7 @@
 
 #include <cstdlib>
 
-namespace seissol {
-namespace initializers {
-namespace recording {
+namespace seissol::initializers::recording {
 
 enum struct EntityId : size_t {
   Dofs = 0,
@@ -34,9 +32,7 @@ enum struct EntityId : size_t {
 };
 
 constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
-constexpr size_t encodeAny(unsigned count) {
-  return ~(ALL_BITS << count);
-}
+constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
 
 enum struct KernelNames : size_t {
   Time = 1 << 0,
@@ -83,8 +79,6 @@ enum struct ExchangeInfo : size_t {
   Any = encodeAny(Count)
 };
 
-} // namespace recording
-} // namespace initializers
-} // namespace seissol
+} // namespace seissol::initializers::recording
 
 #endif // SEISSOL_ENCODINGCONSTANTS_HPP

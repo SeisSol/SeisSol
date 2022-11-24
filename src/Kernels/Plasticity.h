@@ -69,7 +69,7 @@ public:
                                            double timeStepWidth,
                                            double T_v,
                                            GlobalData const *global,
-                                           initializers::recording::ConditionalBatchTableT &table,
+                                           initializers::recording::ConditionalPointersToRealsTable &table,
                                            PlasticityData *plasticity);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,

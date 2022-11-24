@@ -123,32 +123,32 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
 void seissol::kernels::TimeCommon::computeBatchedIntegrals(Time& i_time,
                                                            const double i_timeStepStart,
                                                            const double i_timeStepWidth,
-                                                           ConditionalBatchTableT &table) {
+                                                           ConditionalPointersToRealsTable &table) {
 #ifdef ACL_DEVICE
   // Compute time integrated dofs using neighbours derivatives using the GTS relation,
   // i.e. the expansion point is around 'i_timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
   if(table.find(key) != table.end()) {
-    BatchTable &entry = table[key];
+    auto& entry = table[key];
     i_time.computeBatchedIntegral(i_timeStepStart,
                                   i_timeStepStart,
                                   i_timeStepStart + i_timeStepWidth,
-                                  const_cast<const real **>((entry.content[*EntityId::Derivatives])->getPointers()),
-                                  (entry.content[*EntityId::Idofs])->getPointers(),
-                                  (entry.content[*EntityId::Idofs])->getSize());
+                                  const_cast<const real **>((entry.get(EntityId::Derivatives))->getDeviceDataPtr()),
+                                  (entry.get(EntityId::Idofs))->getDeviceDataPtr(),
+                                  (entry.get(EntityId::Idofs))->getSize());
   }
 
   // Compute time integrated dofs using neighbours derivatives using the LTS relation,
   // i.e. the expansion point is around '0'
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
   if(table.find(key) != table.end()) {
-    BatchTable &entry = table[key];
+    auto& entry = table[key];
     i_time.computeBatchedIntegral(0.0,
                                   i_timeStepStart,
                                   i_timeStepStart + i_timeStepWidth,
-                                  const_cast<const real **>((entry.content[*EntityId::Derivatives])->getPointers()),
-                                  (entry.content[*EntityId::Idofs])->getPointers(),
-                                  (entry.content[*EntityId::Idofs])->getSize());
+                                  const_cast<const real **>((entry.get(EntityId::Derivatives))->getDeviceDataPtr()),
+                                  (entry.get(EntityId::Idofs))->getDeviceDataPtr(),
+                                  (entry.get(EntityId::Idofs))->getSize());
   }
 #else
   assert(false && "no implementation provided");

@@ -6,26 +6,26 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-
-void DynamicRuptureRecorder::record(DynamicRupture &handler, Layer &layer) {
+void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
   setUpContext(handler, layer);
   recordDofsTimeEvaluation();
   recordSpaceInterpolation();
 }
 
-
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
   real** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlus);
   real** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinus);
-  real* idofsPlus = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
-  real* idofsMinus = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
+  real* idofsPlus =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
+  real* idofsMinus =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::vector<real *> timeDerivativePlusPtrs(size, nullptr);
-    std::vector<real *> timeDerivativeMinusPtrs(size, nullptr);
-    std::vector<real *> idofsPlusPtrs(size, nullptr);
-    std::vector<real *> idofsMinusPtrs(size, nullptr);
+    std::vector<real*> timeDerivativePlusPtrs(size, nullptr);
+    std::vector<real*> timeDerivativeMinusPtrs(size, nullptr);
+    std::vector<real*> idofsPlusPtrs(size, nullptr);
+    std::vector<real*> idofsMinusPtrs(size, nullptr);
 
     const size_t idofsSize = tensor::Q::size();
     for (unsigned faceId = 0; faceId < size; ++faceId) {
@@ -38,33 +38,34 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
     ConditionalKey key(*KernelNames::DrTime);
     checkKey(key);
 
-    (*currentTable)[key].content[*EntityId::DrDerivativesPlus] = new BatchPointers(timeDerivativePlusPtrs);
-    (*currentTable)[key].content[*EntityId::DrDerivativesMinus] = new BatchPointers(timeDerivativeMinusPtrs);
-    (*currentTable)[key].content[*EntityId::DrIdofsPlus] = new BatchPointers(idofsPlusPtrs);
-    (*currentTable)[key].content[*EntityId::DrIdofsMinus] = new BatchPointers(idofsMinusPtrs);
+    (*currentTable)[key].set(EntityId::DrDerivativesPlus, timeDerivativePlusPtrs);
+    (*currentTable)[key].set(EntityId::DrDerivativesMinus, timeDerivativeMinusPtrs);
+    (*currentTable)[key].set(EntityId::DrIdofsPlus, idofsPlusPtrs);
+    (*currentTable)[key].set(EntityId::DrIdofsMinus, idofsMinusPtrs);
   }
 }
-
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
   auto* qInterpolatedPlus = currentLayer->var(currentHandler->qInterpolatedPlus);
   auto* qInterpolatedMinus = currentLayer->var(currentHandler->qInterpolatedMinus);
 
-  real* idofsPlus = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
-  real* idofsMinus = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
+  real* idofsPlus =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsPlusOnDevice));
+  real* idofsMinus =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsMinusOnDevice));
 
   DRGodunovData* godunovData = currentLayer->var(currentHandler->godunovData);
   DRFaceInformation* faceInfo = currentLayer->var(currentHandler->faceInformation);
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::array<std::vector<real *>, *FaceId::Count> qInterpolatedPlusPtr {};
-    std::array<std::vector<real *>, *FaceId::Count> idofsPlusPtr {};
-    std::array<std::vector<real *>, *FaceId::Count> TinvTPlusPtr {};
+    std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
+    std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
+    std::array<std::vector<real*>, *FaceId::Count> TinvTPlusPtr{};
 
-    std::array<std::vector<real *>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
-    std::array<std::vector<real *>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real *>[*FaceId::Count], *FaceId::Count> TinvTMinusPtr {};
+    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
+    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
+    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> TinvTMinusPtr {};
 
     const size_t idofsSize = tensor::Q::size();
     for (unsigned faceId = 0; faceId < size; ++faceId) {
@@ -83,16 +84,17 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     for (unsigned side = 0; side < 4; ++side) {
       if (!qInterpolatedPlusPtr[side].empty()) {
         ConditionalKey key(*KernelNames::DrSpaceMap, side);
-        (*currentTable)[key].content[*EntityId::DrQInterpolatedPlus] = new BatchPointers(qInterpolatedPlusPtr[side]);
-        (*currentTable)[key].content[*EntityId::DrIdofsPlus] = new BatchPointers(idofsPlusPtr[side]);
-        (*currentTable)[key].content[*EntityId::DrTinvT] = new BatchPointers(TinvTPlusPtr[side]);
+        (*currentTable)[key].set(EntityId::DrQInterpolatedPlus, qInterpolatedPlusPtr[side]);
+        (*currentTable)[key].set(EntityId::DrIdofsPlus, idofsPlusPtr[side]);
+        (*currentTable)[key].set(EntityId::DrTinvT, TinvTPlusPtr[side]);
       }
       for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentTable)[key].content[*EntityId::DrQInterpolatedMinus] = new BatchPointers(qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentTable)[key].content[*EntityId::DrIdofsMinus] = new BatchPointers(idofsMinusPtr[side][faceRelation]);
-          (*currentTable)[key].content[*EntityId::DrTinvT] = new BatchPointers(TinvTMinusPtr[side][faceRelation]);
+          (*currentTable)[key].set(EntityId::DrQInterpolatedMinus,
+                                   qInterpolatedMinusPtr[side][faceRelation]);
+          (*currentTable)[key].set(EntityId::DrIdofsMinus, idofsMinusPtr[side][faceRelation]);
+          (*currentTable)[key].set(EntityId::DrTinvT, TinvTMinusPtr[side][faceRelation]);
         }
       }
     }

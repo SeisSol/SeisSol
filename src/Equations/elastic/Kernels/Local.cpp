@@ -245,7 +245,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   }
 }
 
-void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &table, LocalTmp& tmp) {
+void seissol::kernels::Local::computeBatchedIntegral(ConditionalPointersToRealsTable &table, LocalTmp& tmp) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -257,20 +257,20 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
 
   real* tmpMem = nullptr;
   if (table.find(key) != table.end()) {
-    BatchTable &entry = table[key];
+    auto &entry = table[key];
 
-    unsigned maxNumElements = (entry.content[*EntityId::Dofs])->getSize();
+    unsigned maxNumElements = (entry.get(EntityId::Dofs))->getSize();
     volKrnl.numElements = maxNumElements;
 
     // volume kernel always contains more elements than any local one
     tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * maxNumElements));
 
-    volKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-    volKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
+    volKrnl.Q = (entry.get(EntityId::Dofs))->getDeviceDataPtr();
+    volKrnl.I = const_cast<const real **>((entry.get(EntityId::Idofs))->getDeviceDataPtr());
 
     unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real **>((entry.content[*EntityId::Star])->getPointers());
+      volKrnl.star(i) = const_cast<const real **>((entry.get(EntityId::Star))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
@@ -284,11 +284,11 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalBatchTableT &tab
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
     if (table.find(key) != table.end()) {
-      BatchTable &entry = table[key];
-      localFluxKrnl.numElements = entry.content[*EntityId::Dofs]->getSize();
-      localFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-      localFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
-      localFluxKrnl.AplusT = const_cast<const real **>(entry.content[*EntityId::AplusT]->getPointers());
+      auto &entry = table[key];
+      localFluxKrnl.numElements = entry.get(EntityId::Dofs)->getSize();
+      localFluxKrnl.Q = (entry.get(EntityId::Dofs))->getDeviceDataPtr();
+      localFluxKrnl.I = const_cast<const real **>((entry.get(EntityId::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const real **>(entry.get(EntityId::AplusT)->getDeviceDataPtr());
       localFluxKrnl.linearAllocator.initialize(tmpMem);
       localFluxKrnl.streamPtr = device.api->getDefaultStream();
       localFluxKrnl.execute(face);

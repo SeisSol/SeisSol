@@ -106,7 +106,7 @@ class seissol::kernels::Time : public TimeBase {
 #endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
-                            ConditionalBatchTableT &table);
+                            ConditionalPointersToRealsTable &table);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
