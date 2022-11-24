@@ -81,17 +81,11 @@ void FlopCounter::printPerformance(double wallTime) {
              0,
              seissol::MPI::mpi.comm());
 
-  double flopsSum = 0;
-  MPI_Reduce(
-      &gflopsPerSecond,
-      &flopsSum,
-      1,
-      MPI_DOUBLE,
-      MPI_SUM,
-      0,
-      seissol::MPI::mpi.comm()
-  );
   if (rank == 0) {
+    double flopsSum = 0;
+    for (size_t i = 0; i < worldSize; i++) {
+      flopsSum += gflopsPerSecondOnRanks[i];
+    }
     const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
     logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS"
     << "(rank 0:" << gflopsPerSecond << "GFLOPS, average over ranks:" << flopsPerRank << "GFLOPS)";
