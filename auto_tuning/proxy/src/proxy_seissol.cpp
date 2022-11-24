@@ -56,9 +56,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-extern long long libxsmm_num_total_flops;
-extern long long pspamm_num_total_flops;
-
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -81,6 +78,7 @@ extern long long pspamm_num_total_flops;
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include <Monitoring/FlopCounter.hpp>
 #include "utils/logger.h"
 #include <cassert>
 
@@ -185,9 +183,8 @@ ProxyOutput runProxy(ProxyConfig config) {
 
   // init OpenMP and LLC
   testKernel(config.kernel, 1);
-  
-  libxsmm_num_total_flops = 0;
-  pspamm_num_total_flops = 0;
+
+  seissol::monitoring::FlopCounter flopCounter;
 
   gettimeofday(&start_time, NULL);
 #ifdef __USE_RDTSC
@@ -248,9 +245,9 @@ ProxyOutput runProxy(ProxyConfig config) {
   ProxyOutput output{};
   output.time = total;
   output.cycles = total_cycles;
-  output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
-  output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
-  output.libxsmmAndpspammNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9;
+  output.libxsmmNumTotalGFlop = static_cast<double>(flopCounter.libxsmm_num_total_flops) * 1.e-9;
+  output.pspammNumTotalGFlop = static_cast<double>(flopCounter.pspamm_num_total_flops) * 1.e-9;
+  output.libxsmmAndpspammNumTotalGFlop = static_cast<double>(flopCounter.libxsmm_num_total_flops + flopCounter.pspamm_num_total_flops) * 1.e-9;
   output.actualNonZeroGFlop = static_cast<double>(actual_flops.d_nonZeroFlops)  * 1.e-9;
   output.actualHardwareGFlop = static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9;
   output.gib = bytes_estimate/(1024.0*1024.0*1024.0);
