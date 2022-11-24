@@ -40,6 +40,8 @@
  * Counts the floating point operations in SeisSol.
  **/
 
+#include <fstream>
+
 #include "Parallel/MPI.h"
 
 #include "FlopCounter.hpp"
@@ -63,6 +65,7 @@ long long g_SeisSolHardwareFlopsPlasticity = 0;
 
 void printPerformance(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
+  const int worldSize = seissol::MPI::mpi.size();
   const long long flops = g_SeisSolHardwareFlopsLocal
                     + g_SeisSolHardwareFlopsNeighbor
                     + g_SeisSolHardwareFlopsOther
@@ -70,6 +73,8 @@ void printPerformance(double wallTime) {
                     + g_SeisSolHardwareFlopsPlasticity;
   const double gflopsPerSecond = flops * 1.e-9 / wallTime;
 
+  double gflopsPerSecondOnRanks[worldSize];
+  MPI_Gather(&gflopsPerSecond, 1, MPI_DOUBLE, gflopsPerSecondOnRanks, 1, MPI_DOUBLE, 0, seissol::MPI::mpi.comm());
 
   double flopsSum = 0;
   MPI_Reduce(
@@ -85,6 +90,13 @@ void printPerformance(double wallTime) {
     const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
     logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS"
     << "(rank 0:" << gflopsPerSecond << "GFLOPS, average over ranks:" << flopsPerRank << "GFLOPS)";
+    std::ofstream out;
+    out.open("flops.csv");
+    out << wallTime << ",";
+    for (size_t i = 0; i < worldSize - 1; i++) {
+      out << gflopsPerSecondOnRanks[i] << ",";
+    }
+    out << gflopsPerSecondOnRanks[worldSize - 1];
   }
 }
   
