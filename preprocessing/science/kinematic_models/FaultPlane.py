@@ -539,8 +539,8 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         km2m = 1e3
         coords = np.array([self.x, self.y, -km2m * self.depth])
         ny, nx = coords.shape[1:3]
-        center_raw = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
-        dx1 = np.linalg.norm(center_raw, axis=0)
+        center_row = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
+        dx1 = np.linalg.norm(center_row, axis=0)
         # with this convention the first data point is in local coordinate (0,0)
         xb = np.cumsum(dx1) - dx1[0]
 
