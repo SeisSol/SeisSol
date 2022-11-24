@@ -55,7 +55,6 @@ class GenericTableEntry {
   }
 
   std::vector<Type> getHostData() { return hostVector; }
-
   const std::vector<Type>& getHostData() const { return hostVector; }
 
   size_t getSize() { return hostVector.size(); }
@@ -71,7 +70,7 @@ class GenericTableEntry {
  * zero initialization of std::array. Note, there are some circumstances
  * when it is not zero-initialized
  * */
-template <typename T>
+template <typename VariableNameType, typename DataType>
 struct GenericTable {
   public:
   GenericTable() {
@@ -85,18 +84,19 @@ struct GenericTable {
     }
   }
 
-  void set(enum EntityId id, std::vector<T>& data) {
-    content[*id] = new GenericTableEntry<T>(data);
+  void set(VariableNameType id, std::vector<DataType>& data) {
+    content[*id] = new GenericTableEntry<DataType>(data);
   }
 
-  auto get(enum EntityId id) { return content[*id]; }
+  auto get(VariableNameType id) { return content[*id]; }
 
   private:
-  std::array<GenericTableEntry<T>*, *EntityId::Count> content{};
+  std::array<GenericTableEntry<DataType>*, *VariableNameType::Count> content{};
 };
 
-using PointersToRealsTable = GenericTable<real*>;
-using IndicesTable = GenericTable<unsigned>;
+using PointersToRealsTable = GenericTable<inner_keys::Wp, real*>;
+using DrPointersToRealsTable = GenericTable<inner_keys::Dr, real*>;
+using IndicesTable = GenericTable<inner_keys::Wp, unsigned>;
 
 } // namespace seissol::initializers::recording
 
@@ -104,6 +104,7 @@ using IndicesTable = GenericTable<unsigned>;
 namespace seissol::initializers::recording {
 // Provide a dummy implementation for a pure CPU execution
 struct PointersToRealsTable {};
+struct DrPointersToRealsTable {};
 struct IndicesTable {};
 } // namespace seissol::initializers::recording
 #endif // ACL_DEVICE

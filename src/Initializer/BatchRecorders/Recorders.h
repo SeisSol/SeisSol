@@ -26,12 +26,14 @@ class AbstractRecorder {
   }
 
   void setUpContext(LtsT& handler, Layer& layer) {
-    currentTable = &(layer.getConditionalTable());
+    currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
+    currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
     currentHandler = &(handler);
     currentLayer = &(layer);
   }
 
   ConditionalPointersToRealsTable* currentTable{nullptr};
+  DrConditionalPointersToRealsTable* currentDrTable{nullptr};
   LtsT* currentHandler{nullptr};
   Layer* currentLayer{nullptr};
 };

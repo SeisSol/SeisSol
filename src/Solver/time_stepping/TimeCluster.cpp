@@ -297,7 +297,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
     frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
-    auto &table = layerData.getConditionalTable();
+    auto &table = layerData.getConditionalTable<inner_keys::Dr>();
     m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
     device.api->popLastProfilingMark();
 
@@ -445,12 +445,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       // it is 6th, 7the and 8th columns of integrated dofs
 
       kernel::gpu_addVelocity displacementKrnl;
-      displacementKrnl.faceDisplacement = entry.get(EntityId::FaceDisplacement)->getDeviceDataPtr();
-      displacementKrnl.integratedVelocities = const_cast<real const**>(entry.get(EntityId::Ivelocities)->getDeviceDataPtr());
+      displacementKrnl.faceDisplacement = entry.get(inner_keys::Wp::FaceDisplacement)->getDeviceDataPtr();
+      displacementKrnl.integratedVelocities = const_cast<real const**>(entry.get(inner_keys::Wp::Ivelocities)->getDeviceDataPtr());
       displacementKrnl.V3mTo2nFace = m_globalDataOnDevice->V3mTo2nFace;
 
       // Note: this kernel doesn't require tmp. memory
-      displacementKrnl.numElements = entry.get(EntityId::FaceDisplacement)->getSize();
+      displacementKrnl.numElements = entry.get(inner_keys::Wp::FaceDisplacement)->getSize();
       displacementKrnl.streamPtr = device.api->getDefaultStream();
       displacementKrnl.execute(face);
     }
@@ -461,17 +461,17 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     auto &entry = table[key];
 
     if (resetBuffers) {
-      device.algorithms.streamBatchedData((entry.get(EntityId::Idofs))->getDeviceDataPtr(),
-                                          (entry.get(EntityId::Buffers))->getDeviceDataPtr(),
+      device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr(),
+                                          (entry.get(inner_keys::Wp::Buffers))->getDeviceDataPtr(),
                                           tensor::I::Size,
-                                          (entry.get(EntityId::Idofs))->getSize(),
+                                          (entry.get(inner_keys::Wp::Idofs))->getSize(),
                                           defaultStream);
     }
     else {
-      device.algorithms.accumulateBatchedData((entry.get(EntityId::Idofs))->getDeviceDataPtr(),
-                                              (entry.get(EntityId::Buffers))->getDeviceDataPtr(),
+      device.algorithms.accumulateBatchedData((entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr(),
+                                              (entry.get(inner_keys::Wp::Buffers))->getDeviceDataPtr(),
                                               tensor::I::Size,
-                                              (entry.get(EntityId::Idofs))->getSize(),
+                                              (entry.get(inner_keys::Wp::Idofs))->getSize(),
                                               defaultStream);
     }
   }

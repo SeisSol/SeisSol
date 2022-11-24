@@ -195,12 +195,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
       if(table.find(key) != table.end()) {
         auto &entry = table[key];
 
-        const auto numElements = (entry.get(EntityId::Dofs))->getSize();
+        const auto numElements = (entry.get(inner_keys::Wp::Dofs))->getSize();
         neighFluxKrnl.numElements = numElements;
 
-        neighFluxKrnl.Q = (entry.get(EntityId::Dofs))->getDeviceDataPtr();
-        neighFluxKrnl.I = const_cast<const real **>((entry.get(EntityId::Idofs))->getDeviceDataPtr());
-        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(EntityId::AminusT))->getDeviceDataPtr());
+        neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr();
+        neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr());
+        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::AminusT))->getDeviceDataPtr());
 
         tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
@@ -222,12 +222,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
       if(table.find(Key) != table.end()) {
         auto &entry = table[Key];
 
-        const auto numElements = (entry.get(EntityId::Dofs))->getSize();
+        const auto numElements = (entry.get(inner_keys::Wp::Dofs))->getSize();
         drKrnl.numElements = numElements;
 
-        drKrnl.fluxSolver = const_cast<const real **>((entry.get(EntityId::FluxSolver))->getDeviceDataPtr());
-        drKrnl.QInterpolated = const_cast<real const**>((entry.get(EntityId::Godunov))->getDeviceDataPtr());
-        drKrnl.Q = (entry.get(EntityId::Dofs))->getDeviceDataPtr();
+        drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::FluxSolver))->getDeviceDataPtr());
+        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Godunov))->getDeviceDataPtr());
+        drKrnl.Q = (entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr();
 
         tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
         drKrnl.linearAllocator.initialize(tmpMem);

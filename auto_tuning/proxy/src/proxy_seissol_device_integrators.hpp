@@ -99,7 +99,7 @@ namespace proxy::device {
   void computeDynRupGodunovState() {
     auto& layer = m_dynRupTree->child(0).child<Interior>();
 
-    auto &table = layer.getConditionalTable();
+    auto &table = layer.getConditionalTable<inner_keys::Dr>();
     m_dynRupKernel.batchedSpaceTimeInterpolation(table);
   }
 } // namespace proxy::device

@@ -3,9 +3,8 @@
 
 #include <cstdlib>
 
-namespace seissol::initializers::recording {
-
-enum struct EntityId : size_t {
+namespace seissol::initializers::recording::inner_keys {
+enum struct Wp : size_t {
   Dofs = 0,
   Idofs,
   Star,
@@ -19,18 +18,23 @@ enum struct EntityId : size_t {
   FaceDisplacement,
   NodalStressTensor,
   Pstrains,
-  ElementsIds,
   InitialLoad,
-  DrDerivativesPlus,
-  DrDerivativesMinus,
-  DrIdofsPlus,
-  DrIdofsMinus,
-  DrQInterpolatedPlus,
-  DrQInterpolatedMinus,
-  DrTinvT,
   Count
 };
 
+enum struct Dr : size_t {
+  DerivativesPlus,
+  DerivativesMinus,
+  IdofsPlus,
+  IdofsMinus,
+  QInterpolatedPlus,
+  QInterpolatedMinus,
+  TinvT,
+  Count
+};
+} // namespace seissol::initializers::recording::inner_keys
+
+namespace seissol::initializers::recording {
 constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
 constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
 

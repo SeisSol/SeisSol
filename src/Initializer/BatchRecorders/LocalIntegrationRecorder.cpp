@@ -93,16 +93,16 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     checkKey(key);
 
-    (*currentTable)[key].set(EntityId::Dofs, dofsPtrs);
-    (*currentTable)[key].set(EntityId::Star, starPtrs);
-    (*currentTable)[key].set(EntityId::Idofs, idofsPtrs);
-    (*currentTable)[key].set(EntityId::Derivatives, dQPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Dofs, dofsPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Star, starPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Idofs, idofsPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Derivatives, dQPtrs);
 
     if (!idofsForLtsBuffers.empty()) {
       ConditionalKey key(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
 
-      (*currentTable)[key].set(EntityId::Buffers, ltsBuffers);
-      (*currentTable)[key].set(EntityId::Idofs, idofsForLtsBuffers);
+      (*currentTable)[key].set(inner_keys::Wp::Buffers, ltsBuffers);
+      (*currentTable)[key].set(inner_keys::Wp::Idofs, idofsForLtsBuffers);
     }
   }
 }
@@ -133,9 +133,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     if (!dofsPtrs.empty()) {
       ConditionalKey key(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
       checkKey(key);
-      (*currentTable)[key].set(EntityId::Idofs, idofsPtrs);
-      (*currentTable)[key].set(EntityId::Dofs, dofsPtrs);
-      (*currentTable)[key].set(EntityId::AplusT, aplusTPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::Idofs, idofsPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::Dofs, dofsPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::AplusT, aplusTPtrs);
     }
   }
 }
@@ -168,8 +168,8 @@ void LocalIntegrationRecorder::recordDisplacements() {
     if (!displacementsPtrs[face].empty()) {
       ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
       checkKey(key);
-      (*currentTable)[key].set(EntityId::Ivelocities, iVelocitiesPtrs[face]);
-      (*currentTable)[key].set(EntityId::FaceDisplacement, displacementsPtrs[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Ivelocities, iVelocitiesPtrs[face]);
+      (*currentTable)[key].set(inner_keys::Wp::FaceDisplacement, displacementsPtrs[face]);
     }
   }
 }

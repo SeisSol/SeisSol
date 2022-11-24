@@ -8,10 +8,11 @@
 namespace seissol::initializers::recording {
 template <typename T>
 constexpr bool isEncodedConstant() {
-  return std::is_same<FaceKinds, T>::value || std::is_same<KernelNames, T>::value ||
-         std::is_same<FaceId, T>::value || std::is_same<FaceRelations, T>::value ||
-         std::is_same<DrFaceRelations, T>::value || std::is_same<ComputationKind, T>::value ||
-         std::is_same<EntityId, T>::value || std::is_same<ExchangeInfo, T>::value;
+  return std::is_same_v<FaceKinds, T> || std::is_same_v<KernelNames, T> ||
+         std::is_same_v<FaceId, T> || std::is_same_v<FaceRelations, T> ||
+         std::is_same_v<DrFaceRelations, T> || std::is_same_v<ComputationKind, T> ||
+         std::is_same_v<ExchangeInfo, T> || std::is_same_v<inner_keys::Wp, T> ||
+         std::is_same_v<inner_keys::Dr, T>;
 }
 
 template <class T, typename std::enable_if<isEncodedConstant<T>()>::type>
