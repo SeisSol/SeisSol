@@ -1,18 +1,17 @@
 #ifndef SEISSOL_CONDITIONALTABLE_HPP
 #define SEISSOL_CONDITIONALTABLE_HPP
 
-#include "BatchTable.hpp"
+#include "Table.hpp"
 #include "Condition.hpp"
 #include "ConditionalKey.hpp"
 #include "EncodedConstants.hpp"
 
-namespace seissol {
-namespace initializers {
-namespace recording {
-using ConditionalBatchTableT =
-    std::unordered_map<ConditionalKey, BatchTable, ConditionalHash<ConditionalKey>>;
-}
-} // namespace initializers
-} // namespace seissol
+namespace seissol::initializers::recording {
+using ConditionalPointersToRealsTable =
+    std::unordered_map<ConditionalKey, PointersToRealsTable, ConditionalHash<ConditionalKey>>;
+
+using ConditionalIndicesTable =
+    std::unordered_map<ConditionalKey, IndicesTable, ConditionalHash<ConditionalKey>>;
+} // namespace seissol::initializers::recording
 
 #endif // SEISSOL_CONDITIONALTABLE_HPP

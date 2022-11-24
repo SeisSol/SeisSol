@@ -104,7 +104,7 @@ namespace seissol {
       void computeBatchedIntegrals(Time& i_time,
                                    const double i_timeStepStart,
                                    const double i_timeStepWidth,
-                                   ConditionalBatchTableT &table);
+                                   ConditionalPointersToRealsTable &table);
     }
   }
 }

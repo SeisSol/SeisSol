@@ -297,7 +297,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
     frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
-    ConditionalBatchTableT &table = layerData.getCondBatchTable();
+    auto &table = layerData.getConditionalTable();
     m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table);
     device.api->popLastProfilingMark();
 
@@ -430,7 +430,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-  ConditionalBatchTableT& table = i_layerData.getCondBatchTable();
+  auto& table = i_layerData.getConditionalTable();
   kernels::LocalTmp tmp;
 
   m_timeKernel.computeBatchedAder(timeStepSize(), tmp, table);
@@ -440,17 +440,17 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   for (unsigned face = 0; face < 4; ++face) {
     ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
     if (table.find(key) != table.end()) {
-      BatchTable &entry = table[key];
+      auto &entry = table[key];
       // NOTE: integrated velocities have been computed implicitly, i.e
       // it is 6th, 7the and 8th columns of integrated dofs
 
       kernel::gpu_addVelocity displacementKrnl;
-      displacementKrnl.faceDisplacement = entry.content[*EntityId::FaceDisplacement]->getPointers();
-      displacementKrnl.integratedVelocities = const_cast<real const**>(entry.content[*EntityId::Ivelocities]->getPointers());
+      displacementKrnl.faceDisplacement = entry.get(EntityId::FaceDisplacement)->getDeviceDataPtr();
+      displacementKrnl.integratedVelocities = const_cast<real const**>(entry.get(EntityId::Ivelocities)->getDeviceDataPtr());
       displacementKrnl.V3mTo2nFace = m_globalDataOnDevice->V3mTo2nFace;
 
       // Note: this kernel doesn't require tmp. memory
-      displacementKrnl.numElements = entry.content[*EntityId::FaceDisplacement]->getSize();
+      displacementKrnl.numElements = entry.get(EntityId::FaceDisplacement)->getSize();
       displacementKrnl.streamPtr = device.api->getDefaultStream();
       displacementKrnl.execute(face);
     }
@@ -458,20 +458,20 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
   ConditionalKey key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
   if (table.find(key) != table.end()) {
-    BatchTable &entry = table[key];
+    auto &entry = table[key];
 
     if (resetBuffers) {
-      device.algorithms.streamBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
-                                          (entry.content[*EntityId::Buffers])->getPointers(),
+      device.algorithms.streamBatchedData((entry.get(EntityId::Idofs))->getDeviceDataPtr(),
+                                          (entry.get(EntityId::Buffers))->getDeviceDataPtr(),
                                           tensor::I::Size,
-                                          (entry.content[*EntityId::Idofs])->getSize(),
+                                          (entry.get(EntityId::Idofs))->getSize(),
                                           defaultStream);
     }
     else {
-      device.algorithms.accumulateBatchedData((entry.content[*EntityId::Idofs])->getPointers(),
-                                              (entry.content[*EntityId::Buffers])->getPointers(),
+      device.algorithms.accumulateBatchedData((entry.get(EntityId::Idofs))->getDeviceDataPtr(),
+                                              (entry.get(EntityId::Buffers))->getDeviceDataPtr(),
                                               tensor::I::Size,
-                                              (entry.content[*EntityId::Idofs])->getSize(),
+                                              (entry.get(EntityId::Idofs))->getSize(),
                                               defaultStream);
     }
   }
@@ -499,7 +499,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
-  ConditionalBatchTableT &table = i_layerData.getCondBatchTable();
+  auto& table = i_layerData.getConditionalTable();
 
   seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                         subTimeStart,

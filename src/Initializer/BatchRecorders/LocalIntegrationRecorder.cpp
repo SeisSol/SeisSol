@@ -2,7 +2,7 @@
 #include <Kernels/Interface.hpp>
 #include <yateto.h>
 
-#include "DataTypes/BatchTable.hpp"
+#include "DataTypes/Table.hpp"
 #include "DataTypes/Condition.hpp"
 #include "DataTypes/ConditionalTable.hpp"
 #include "DataTypes/EncodedConstants.hpp"
@@ -11,8 +11,7 @@ using namespace device;
 using namespace seissol::initializers;
 using namespace seissol::initializers::recording;
 
-
-void LocalIntegrationRecorder::record(LTS &handler, Layer &layer) {
+void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
   kernels::LocalData::Loader loader;
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
@@ -23,36 +22,36 @@ void LocalIntegrationRecorder::record(LTS &handler, Layer &layer) {
   recordDisplacements();
 }
 
-
 void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
-  real *idofsScratch = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
-  real *derivativesScratch = static_cast<real *>(currentLayer->getScratchpadMemory(currentHandler->derivativesScratch));
+  real* idofsScratch =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
+  real* derivativesScratch =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->derivativesScratch));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::vector<real *> dofsPtrs(size, nullptr);
-    std::vector<real *> starPtrs(size, nullptr);
-    std::vector<real *> idofsPtrs{};
-    std::vector<real *> dQPtrs(size, nullptr);
-    std::vector<real *> ltsBuffers{};
-    std::vector<real *> idofsForLtsBuffers{};
+    std::vector<real*> dofsPtrs(size, nullptr);
+    std::vector<real*> starPtrs(size, nullptr);
+    std::vector<real*> idofsPtrs{};
+    std::vector<real*> dQPtrs(size, nullptr);
+    std::vector<real*> ltsBuffers{};
+    std::vector<real*> idofsForLtsBuffers{};
 
     idofsPtrs.reserve(size);
 
-    real **derivatives = currentLayer->var(currentHandler->derivatives);
-    real **buffers = currentLayer->var(currentHandler->buffers);
+    real** derivatives = currentLayer->var(currentHandler->derivatives);
+    real** buffers = currentLayer->var(currentHandler->buffers);
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
 
       // dofs
-      dofsPtrs[cell] = static_cast<real *>(data.dofs);
+      dofsPtrs[cell] = static_cast<real*>(data.dofs);
 
       // idofs
-      real *nextIdofPtr = &idofsScratch[integratedDofsAddressCounter];
+      real* nextIdofPtr = &idofsScratch[integratedDofsAddressCounter];
       bool isBuffersProvided = ((data.cellInformation.ltsSetup >> 8) % 2) == 1;
       bool isLtsBuffers = ((data.cellInformation.ltsSetup >> 10) % 2) == 1;
-
 
       if (isBuffersProvided) {
         if (isLtsBuffers) {
@@ -76,7 +75,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       }
 
       // stars
-      starPtrs[cell] = static_cast<real *>(data.localIntegrationOnDevice.starMatrices[0]);
+      starPtrs[cell] = static_cast<real*>(data.localIntegrationOnDevice.starMatrices[0]);
 
       // derivatives
       bool isDerivativesProvided = ((data.cellInformation.ltsSetup >> 9) % 2) == 1;
@@ -94,28 +93,26 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     checkKey(key);
 
-    (*currentTable)[key].content[*EntityId::Dofs] = new BatchPointers(dofsPtrs);
-    (*currentTable)[key].content[*EntityId::Star] = new BatchPointers(starPtrs);
-    (*currentTable)[key].content[*EntityId::Idofs] = new BatchPointers(idofsPtrs);
-    (*currentTable)[key].content[*EntityId::Derivatives] = new BatchPointers(dQPtrs);
-
+    (*currentTable)[key].set(EntityId::Dofs, dofsPtrs);
+    (*currentTable)[key].set(EntityId::Star, starPtrs);
+    (*currentTable)[key].set(EntityId::Idofs, idofsPtrs);
+    (*currentTable)[key].set(EntityId::Derivatives, dQPtrs);
 
     if (!idofsForLtsBuffers.empty()) {
       ConditionalKey key(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
 
-      (*currentTable)[key].content[*EntityId::Buffers] = new BatchPointers(ltsBuffers);
-      (*currentTable)[key].content[*EntityId::Idofs] = new BatchPointers(idofsForLtsBuffers);
+      (*currentTable)[key].set(EntityId::Buffers, ltsBuffers);
+      (*currentTable)[key].set(EntityId::Idofs, idofsForLtsBuffers);
     }
   }
 }
 
-
 void LocalIntegrationRecorder::recordLocalFluxIntegral() {
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned face = 0; face < 4; ++face) {
-    std::vector<real *> idofsPtrs{};
-    std::vector<real *> dofsPtrs{};
-    std::vector<real *> aplusTPtrs{};
+    std::vector<real*> idofsPtrs{};
+    std::vector<real*> dofsPtrs{};
+    std::vector<real*> aplusTPtrs{};
 
     idofsPtrs.reserve(size);
     dofsPtrs.reserve(size);
@@ -127,8 +124,8 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       // no element local contribution in the case of dynamic rupture boundary conditions
       if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
-        dofsPtrs.push_back(static_cast<real *>(data.dofs));
-        aplusTPtrs.push_back(static_cast<real *>(data.localIntegrationOnDevice.nApNm1[face]));
+        dofsPtrs.push_back(static_cast<real*>(data.dofs));
+        aplusTPtrs.push_back(static_cast<real*>(data.localIntegrationOnDevice.nApNm1[face]));
       }
     }
 
@@ -136,18 +133,17 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     if (!dofsPtrs.empty()) {
       ConditionalKey key(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
       checkKey(key);
-      (*currentTable)[key].content[*EntityId::Idofs] = new BatchPointers(idofsPtrs);
-      (*currentTable)[key].content[*EntityId::Dofs] = new BatchPointers(dofsPtrs);
-      (*currentTable)[key].content[*EntityId::AplusT] = new BatchPointers(aplusTPtrs);
+      (*currentTable)[key].set(EntityId::Idofs, idofsPtrs);
+      (*currentTable)[key].set(EntityId::Dofs, dofsPtrs);
+      (*currentTable)[key].set(EntityId::AplusT, aplusTPtrs);
     }
   }
 }
 
-
 void LocalIntegrationRecorder::recordDisplacements() {
-  real *(*faceDisplacements)[4] = currentLayer->var(currentHandler->faceDisplacements);
-  std::array<std::vector<real *>, 4> iVelocitiesPtrs{{}};
-  std::array<std::vector<real *>, 4> displacementsPtrs{};
+  real*(*faceDisplacements)[4] = currentLayer->var(currentHandler->faceDisplacements);
+  std::array<std::vector<real*>, 4> iVelocitiesPtrs{{}};
+  std::array<std::vector<real*>, 4> displacementsPtrs{};
 
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
@@ -155,7 +151,8 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
     for (unsigned face = 0; face < 4; ++face) {
       auto isRequired = faceDisplacements[cell][face] != nullptr;
-      auto notFreeSurfaceGravity = data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity;
+      auto notFreeSurfaceGravity =
+          data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
         auto Iview = init::I::view::create(idofsAddressRegistry[cell]);
@@ -171,8 +168,8 @@ void LocalIntegrationRecorder::recordDisplacements() {
     if (!displacementsPtrs[face].empty()) {
       ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
       checkKey(key);
-      (*currentTable)[key].content[*EntityId::Ivelocities] = new BatchPointers(iVelocitiesPtrs[face]);
-      (*currentTable)[key].content[*EntityId::FaceDisplacement] = new BatchPointers(displacementsPtrs[face]);
+      (*currentTable)[key].set(EntityId::Ivelocities, iVelocitiesPtrs[face]);
+      (*currentTable)[key].set(EntityId::FaceDisplacement, displacementsPtrs[face]);
     }
   }
 }

@@ -45,7 +45,7 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &table = layer.getConditionalTable();
 
     m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
     device.api->synchDevice();
@@ -58,7 +58,7 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &table = layer.getConditionalTable();
 
     m_localKernel.computeBatchedIntegral(table, tmp);
     device.api->synchDevice();
@@ -72,7 +72,7 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &table = layer.getConditionalTable();
 
     m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
     m_localKernel.computeBatchedIntegral(table, tmp);
@@ -86,7 +86,7 @@ namespace proxy::device {
     kernels::NeighborData::Loader loader;
     loader.load(m_lts, layer);
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &table = layer.getConditionalTable();
 
     seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                           0.0,
@@ -99,7 +99,7 @@ namespace proxy::device {
   void computeDynRupGodunovState() {
     auto& layer = m_dynRupTree->child(0).child<Interior>();
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &table = layer.getConditionalTable();
     m_dynRupKernel.batchedSpaceTimeInterpolation(table);
   }
 } // namespace proxy::device
