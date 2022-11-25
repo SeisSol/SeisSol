@@ -349,6 +349,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       for (unsigned clusterSource = 0; clusterSource < clusterMappings[cluster].numberOfSources; ++clusterSource) {
         unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         unsigned fsrmIndex = originalIndex[sourceIndex];
+        sources[cluster].originalIndex[clusterSource] =  fsrmIndex;
       
         computeMInvJInvPhisAtSources(centres3[fsrmIndex],
                                      sources[cluster].mInvJInvPhisAtSources[clusterSource],
