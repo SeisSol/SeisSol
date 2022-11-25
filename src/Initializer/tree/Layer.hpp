@@ -260,33 +260,25 @@ public:
   }
 
 #ifdef ACL_DEVICE
-  template<typename VariableType = inner_keys::Wp, typename RecordedDataType = real*>
+  template<typename KeyType>
   auto& getConditionalTable() {
-    if constexpr (std::is_same_v<VariableType, inner_keys::Wp>) {
-      if constexpr (std::is_same_v<RecordedDataType, real*>) {
-        return m_conditionalPointersToRealsTable;
-      }
+    if constexpr (std::is_same_v<KeyType, inner_keys::Wp>) {
+      return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<VariableType, inner_keys::Dr>) {
-      if constexpr (std::is_same_v<RecordedDataType, real*>) {
-        return m_drConditionalPointersToRealsTable;
-      }
+    if constexpr (std::is_same_v<KeyType, inner_keys::Dr>) {
+      return m_drConditionalPointersToRealsTable;
     }
   }
 
-  template<typename VariableType = inner_keys::Wp, typename RecordedDataType = real*>
+  template<typename KeyType>
   const auto& getConditionalTable() const {
-    if constexpr (std::is_same_v<VariableType, inner_keys::Wp>) {
-      if constexpr (std::is_same_v<RecordedDataType, real*>) {
-        return m_conditionalPointersToRealsTable;
-      }
+    if constexpr (std::is_same_v<KeyType, inner_keys::Wp>) {
+      return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<VariableType, inner_keys::Dr>) {
-      if constexpr (std::is_same_v<RecordedDataType, real*>) {
-        return m_drConditionalPointersToRealsTable;
-      }
+    if constexpr (std::is_same_v<KeyType, inner_keys::Dr>) {
+      return m_drConditionalPointersToRealsTable;
     }
   }
 #endif // ACL_DEVICE

@@ -195,12 +195,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
       if(table.find(key) != table.end()) {
         auto &entry = table[key];
 
-        const auto numElements = (entry.get(inner_keys::Wp::Dofs))->getSize();
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
         neighFluxKrnl.numElements = numElements;
 
-        neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr();
-        neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr());
-        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::AminusT))->getDeviceDataPtr());
+        neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+        neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
 
         tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
@@ -222,12 +222,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
       if(table.find(Key) != table.end()) {
         auto &entry = table[Key];
 
-        const auto numElements = (entry.get(inner_keys::Wp::Dofs))->getSize();
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
         drKrnl.numElements = numElements;
 
-        drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::FluxSolver))->getDeviceDataPtr());
-        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Godunov))->getDeviceDataPtr());
-        drKrnl.Q = (entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr();
+        drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+        drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
         tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
         drKrnl.linearAllocator.initialize(tmpMem);

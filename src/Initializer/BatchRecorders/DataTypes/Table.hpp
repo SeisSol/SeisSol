@@ -70,8 +70,11 @@ class GenericTableEntry {
  * zero initialization of std::array. Note, there are some circumstances
  * when it is not zero-initialized
  * */
-template <typename VariableNameType, typename DataType>
+template <typename KeyType>
 struct GenericTable {
+  using VariableIdType = typename KeyType::Id;
+  using DataType = typename KeyType::DataType;
+
   public:
   GenericTable() {
     for (auto& entry : content) {
@@ -84,19 +87,19 @@ struct GenericTable {
     }
   }
 
-  void set(VariableNameType id, std::vector<DataType>& data) {
+  void set(VariableIdType id, std::vector<DataType>& data) {
     content[*id] = new GenericTableEntry<DataType>(data);
   }
 
-  auto get(VariableNameType id) { return content[*id]; }
+  auto get(VariableIdType id) { return content[*id]; }
 
   private:
-  std::array<GenericTableEntry<DataType>*, *VariableNameType::Count> content{};
+  std::array<GenericTableEntry<DataType>*, *VariableIdType::Count> content{};
 };
 
-using PointersToRealsTable = GenericTable<inner_keys::Wp, real*>;
-using DrPointersToRealsTable = GenericTable<inner_keys::Dr, real*>;
-using IndicesTable = GenericTable<inner_keys::Wp, unsigned>;
+using PointersToRealsTable = GenericTable<inner_keys::Wp>;
+using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
+using IndicesTable = GenericTable<inner_keys::Wp>;
 
 } // namespace seissol::initializers::recording
 

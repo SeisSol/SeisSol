@@ -38,10 +38,10 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
     ConditionalKey key(*KernelNames::DrTime);
     checkKey(key);
 
-    (*currentDrTable)[key].set(inner_keys::Dr::DerivativesPlus, timeDerivativePlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::DerivativesMinus, timeDerivativeMinusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::IdofsPlus, idofsPlusPtrs);
-    (*currentDrTable)[key].set(inner_keys::Dr::IdofsMinus, idofsMinusPtrs);
+    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
+    (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesMinus, timeDerivativeMinusPtrs);
+    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtrs);
+    (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus, idofsMinusPtrs);
   }
 }
 
@@ -84,17 +84,19 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     for (unsigned side = 0; side < 4; ++side) {
       if (!qInterpolatedPlusPtr[side].empty()) {
         ConditionalKey key(*KernelNames::DrSpaceMap, side);
-        (*currentDrTable)[key].set(inner_keys::Dr::QInterpolatedPlus, qInterpolatedPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::IdofsPlus, idofsPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::TinvT, TinvTPlusPtr[side]);
+        (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
+                                   qInterpolatedPlusPtr[side]);
+        (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
+        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, TinvTPlusPtr[side]);
       }
       for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable)[key].set(inner_keys::Dr::QInterpolatedMinus,
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
                                      qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::IdofsMinus, idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::TinvT, TinvTMinusPtr[side][faceRelation]);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
+                                     idofsMinusPtr[side][faceRelation]);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, TinvTMinusPtr[side][faceRelation]);
         }
       }
     }

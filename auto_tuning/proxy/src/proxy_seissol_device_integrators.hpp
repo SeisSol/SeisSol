@@ -45,7 +45,7 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    auto &table = layer.getConditionalTable();
+    auto &table = layer.getConditionalTable<inner_keys::Wp>();
 
     m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
     device.api->synchDevice();
@@ -58,7 +58,7 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    auto &table = layer.getConditionalTable();
+    auto &table = layer.getConditionalTable<inner_keys::Wp>();
 
     m_localKernel.computeBatchedIntegral(table, tmp);
     device.api->synchDevice();
@@ -72,7 +72,7 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    auto &table = layer.getConditionalTable();
+    auto &table = layer.getConditionalTable<inner_keys::Wp>();
 
     m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
     m_localKernel.computeBatchedIntegral(table, tmp);
@@ -86,7 +86,7 @@ namespace proxy::device {
     kernels::NeighborData::Loader loader;
     loader.load(m_lts, layer);
 
-    auto &table = layer.getConditionalTable();
+    auto &table = layer.getConditionalTable<inner_keys::Wp>();
 
     seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                           0.0,

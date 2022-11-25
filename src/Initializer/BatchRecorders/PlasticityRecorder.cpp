@@ -34,9 +34,9 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
 
     ConditionalKey key(*KernelNames::Plasticity);
     checkKey(key);
-    (*currentTable)[key].set(inner_keys::Wp::Dofs, dofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::NodalStressTensor, qstressNodalPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Pstrains, pstransPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::InitialLoad, initialLoadPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qstressNodalPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstransPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
   }
 }
