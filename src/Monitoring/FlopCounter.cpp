@@ -64,12 +64,18 @@ void FlopCounter::init(std::string outputFileNamePrefix) {
 void FlopCounter::printPerformance(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
   const int worldSize = seissol::MPI::mpi.size();
-  const long long flops = g_SeisSolHardwareFlopsLocal
+  const long long newTotalFlops = g_SeisSolHardwareFlopsLocal
                     + g_SeisSolHardwareFlopsNeighbor
                     + g_SeisSolHardwareFlopsOther
                     + g_SeisSolHardwareFlopsDynamicRupture
                     + g_SeisSolHardwareFlopsPlasticity;
-  const double gflopsPerSecond = flops * 1.e-9 / wallTime;
+  const long long diffFlops = newTotalFlops - recentTotalFlops;
+  recentTotalFlops = newTotalFlops;
+
+  const double diffTime = wallTime - recentWallTime;
+  recentWallTime = wallTime;
+
+  const double gflopsPerSecond = diffFlops * 1.e-9 / diffTime;
 
   double gflopsPerSecondOnRanks[worldSize];
   MPI_Gather(&gflopsPerSecond,

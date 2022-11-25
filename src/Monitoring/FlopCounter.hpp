@@ -69,6 +69,8 @@ class FlopCounter {
 
   private:
   std::ofstream out;
+  long long recentTotalFlops = 0;
+  double recentWallTime = 0;
 };
 }
 
