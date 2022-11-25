@@ -99,7 +99,7 @@ struct GenericTable {
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;
 using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
-using IndicesTable = GenericTable<inner_keys::Wp>;
+using IndicesTable = GenericTable<inner_keys::Indices, unsigned>;
 
 } // namespace seissol::initializers::recording
 

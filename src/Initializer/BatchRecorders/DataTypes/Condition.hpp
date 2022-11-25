@@ -13,6 +13,7 @@ constexpr bool isEncodedConstant() {
          std::is_same_v<DrFaceRelations, T> || std::is_same_v<ComputationKind, T> ||
          std::is_same_v<ExchangeInfo, T> || std::is_same_v<inner_keys::Wp::Id, T> ||
          std::is_same_v<inner_keys::Dr::Id, T>;
+         std::is_same_v<inner_keys::Dr, T> || std::is_same_v<inner_keys::Indices, T>;
 }
 
 template <class T, typename std::enable_if<isEncodedConstant<T>()>::type>

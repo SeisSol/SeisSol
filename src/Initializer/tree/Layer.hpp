@@ -107,6 +107,7 @@ private:
   size_t* m_scratchpadSizes{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
   DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
+  ConditionalIndicesTable m_conditionalIndicesTable;
 #endif
 
 public:
@@ -269,6 +270,12 @@ public:
     if constexpr (std::is_same_v<KeyType, inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
+
+    if constexpr (std::is_same_v<VariableType, inner_keys::Indices>) {
+      if constexpr (std::is_same_v<RecordedDataType, unsigned>) {
+        return m_conditionalIndicesTable;
+      }
+    }
   }
 
   template<typename KeyType>
@@ -279,6 +286,12 @@ public:
 
     if constexpr (std::is_same_v<KeyType, inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
+    }
+
+    if constexpr (std::is_same_v<VariableType, inner_keys::Indices>) {
+      if constexpr (std::is_same_v<RecordedDataType, unsigned>) {
+        return m_conditionalIndicesTable;
+      }
     }
   }
 #endif // ACL_DEVICE

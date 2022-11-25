@@ -39,6 +39,8 @@ struct Dr {
     Count
   };
 };
+
+enum struct Indices : size_t { Elements, Count };
 } // namespace seissol::initializers::recording::inner_keys
 
 namespace seissol::initializers::recording {
