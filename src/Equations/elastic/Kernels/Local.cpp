@@ -259,18 +259,18 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalPointersToRealsT
   if (table.find(key) != table.end()) {
     auto &entry = table[key];
 
-    unsigned maxNumElements = (entry.get(inner_keys::Wp::Dofs))->getSize();
+    unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     volKrnl.numElements = maxNumElements;
 
     // volume kernel always contains more elements than any local one
     tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * maxNumElements));
 
-    volKrnl.Q = (entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr();
-    volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr());
+    volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Star))->getDeviceDataPtr());
+      volKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
@@ -285,10 +285,10 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalPointersToRealsT
 
     if (table.find(key) != table.end()) {
       auto &entry = table[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::AplusT)->getDeviceDataPtr());
+      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
       localFluxKrnl.linearAllocator.initialize(tmpMem);
       localFluxKrnl.streamPtr = device.api->getDefaultStream();
       localFluxKrnl.execute(face);

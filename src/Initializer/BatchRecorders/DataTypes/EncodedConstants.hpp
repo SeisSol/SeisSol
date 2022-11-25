@@ -1,36 +1,43 @@
 #ifndef SEISSOL_ENCODINGCONSTANTS_HPP
 #define SEISSOL_ENCODINGCONSTANTS_HPP
 
+#include "Kernels/precision.hpp"
 #include <cstdlib>
 
 namespace seissol::initializers::recording::inner_keys {
-enum struct Wp : size_t {
-  Dofs = 0,
-  Idofs,
-  Star,
-  Buffers,
-  Derivatives,
-  AplusT,
-  AminusT,
-  Godunov,
-  FluxSolver,
-  Ivelocities, // 6th, 7the and 8th columns of Idofs
-  FaceDisplacement,
-  NodalStressTensor,
-  Pstrains,
-  InitialLoad,
-  Count
+struct Wp {
+  using DataType = real*;
+  enum struct Id : size_t {
+    Dofs = 0,
+    Idofs,
+    Star,
+    Buffers,
+    Derivatives,
+    AplusT,
+    AminusT,
+    Godunov,
+    FluxSolver,
+    Ivelocities, // 6th, 7the and 8th columns of Idofs
+    FaceDisplacement,
+    NodalStressTensor,
+    Pstrains,
+    InitialLoad,
+    Count
+  };
 };
 
-enum struct Dr : size_t {
-  DerivativesPlus,
-  DerivativesMinus,
-  IdofsPlus,
-  IdofsMinus,
-  QInterpolatedPlus,
-  QInterpolatedMinus,
-  TinvT,
-  Count
+struct Dr {
+  using DataType = real*;
+  enum struct Id : size_t {
+    DerivativesPlus,
+    DerivativesMinus,
+    IdofsPlus,
+    IdofsMinus,
+    QInterpolatedPlus,
+    QInterpolatedMinus,
+    TinvT,
+    Count
+  };
 };
 } // namespace seissol::initializers::recording::inner_keys
 

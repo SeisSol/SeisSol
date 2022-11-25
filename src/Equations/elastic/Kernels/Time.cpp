@@ -261,23 +261,23 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
   if(table.find(key) != table.end()) {
     auto &entry = table[key];
 
-    const auto numElements = (entry.get(inner_keys::Wp::Dofs))->getSize();
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
     intKrnl.numElements = numElements;
 
-    intKrnl.I = (entry.get(inner_keys::Wp::Idofs))->getDeviceDataPtr();
+    intKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
     unsigned starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Star))->getDeviceDataPtr());
+      derivativesKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
       derivativesKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
 
     unsigned derivativesOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-      derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Derivatives))->getDeviceDataPtr();
-      intKrnl.dQ(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Derivatives))->getDeviceDataPtr());
+      derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      intKrnl.dQ(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr());
 
       derivativesKrnl.extraOffset_dQ(i) = derivativesOffset;
       intKrnl.extraOffset_dQ(i) = derivativesOffset;
@@ -286,8 +286,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     }
 
     // stream dofs to the zero derivative
-    device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Dofs))->getDeviceDataPtr(),
-                                        (entry.get(inner_keys::Wp::Derivatives))->getDeviceDataPtr(),
+    device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+                                        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
                                         tensor::Q::Size,
                                         derivativesKrnl.numElements,
                                         device.api->getDefaultStream());

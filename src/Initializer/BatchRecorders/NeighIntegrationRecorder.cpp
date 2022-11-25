@@ -74,15 +74,15 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     if (!gtsIDofsPtrs.empty()) {
       ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
       checkKey(key);
-      (*currentTable)[key].set(inner_keys::Wp::Derivatives, gtsDerivativesPtrs);
-      (*currentTable)[key].set(inner_keys::Wp::Idofs, gtsIDofsPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, gtsDerivativesPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, gtsIDofsPtrs);
     }
 
     if (!ltsIDofsPtrs.empty()) {
       ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
       checkKey(key);
-      (*currentTable)[key].set(inner_keys::Wp::Derivatives, ltsDerivativesPtrs);
-      (*currentTable)[key].set(inner_keys::Wp::Idofs, ltsIDofsPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, ltsDerivativesPtrs);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, ltsIDofsPtrs);
     }
   }
 }
@@ -173,9 +173,10 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
                            faceRelation);
         checkKey(key);
 
-        (*currentTable)[key].set(inner_keys::Wp::Idofs, regularPeriodicIDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Dofs, regularPeriodicDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::AminusT,
+        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
+                                 regularPeriodicIDofs[face][faceRelation]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face][faceRelation]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT,
                                  regularPeriodicAminusT[face][faceRelation]);
       }
     }
@@ -187,9 +188,9 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
             *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
         checkKey(key);
 
-        (*currentTable)[key].set(inner_keys::Wp::Dofs, drDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Godunov, drGodunov[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::FluxSolver, drFluxSolver[face][faceRelation]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
       }
     }
   }
