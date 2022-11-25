@@ -271,10 +271,8 @@ public:
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<VariableType, inner_keys::Indices>) {
-      if constexpr (std::is_same_v<RecordedDataType, unsigned>) {
-        return m_conditionalIndicesTable;
-      }
+    if constexpr (std::is_same_v<KeyType, inner_keys::Indices>) {
+      return m_conditionalIndicesTable;
     }
   }
 
@@ -288,10 +286,8 @@ public:
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<VariableType, inner_keys::Indices>) {
-      if constexpr (std::is_same_v<RecordedDataType, unsigned>) {
-        return m_conditionalIndicesTable;
-      }
+    if constexpr (std::is_same_v<KeyType, inner_keys::Indices>) {
+      return m_conditionalIndicesTable;
     }
   }
 #endif // ACL_DEVICE

@@ -28,7 +28,7 @@ class AbstractRecorder {
   void setUpContext(LtsT& handler, Layer& layer) {
     currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
     currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
-    currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices, unsigned>());
+    currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices>());
     currentHandler = &(handler);
     currentLayer = &(layer);
   }
@@ -80,6 +80,7 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializers::
 
   kernels::LocalData::Loader* currentLoader{nullptr};
   void recordTimeAndVolumeIntegrals();
+  void recordFreeSurfaceBc();
   void recordLocalFluxIntegral();
   void recordDisplacements();
   std::unordered_map<size_t, real*> idofsAddressRegistry{};

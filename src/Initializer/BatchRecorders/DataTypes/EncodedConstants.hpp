@@ -22,6 +22,7 @@ struct Wp {
     NodalStressTensor,
     Pstrains,
     InitialLoad,
+    NodalAvgDisplacements,
     Count
   };
 };
@@ -29,7 +30,7 @@ struct Wp {
 struct Dr {
   using DataType = real*;
   enum struct Id : size_t {
-    DerivativesPlus,
+    DerivativesPlus = 0,
     DerivativesMinus,
     IdofsPlus,
     IdofsMinus,
@@ -40,7 +41,10 @@ struct Dr {
   };
 };
 
-enum struct Indices : size_t { Elements, Count };
+struct Indices {
+  using DataType = unsigned;
+  enum struct Id : size_t { Cells = 0, Count };
+};
 } // namespace seissol::initializers::recording::inner_keys
 
 namespace seissol::initializers::recording {
@@ -56,7 +60,8 @@ enum struct KernelNames : size_t {
   Plasticity = 1 << 5,
   DrTime = 1 << 6,
   DrSpaceMap = 1 << 7,
-  Count = 8,
+  BoundaryConditions = 1 << 8,
+  Count = 9,
   Any = encodeAny(Count)
 };
 
@@ -67,7 +72,10 @@ enum struct ComputationKind : size_t {
   WithGtsDerivatives = 1 << 3,
   WithGtsBuffers = 1 << 4,
   WithLtsBuffers = 1 << 5,
-  Count = 6,
+  FreeSurfaceGravity = 1 << 6,
+  Dirichlet = 1 << 7,
+  Analytical = 1 << 8,
+  Count = 9,
   None = encodeAny(Count)
 };
 

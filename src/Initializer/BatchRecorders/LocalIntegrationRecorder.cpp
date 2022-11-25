@@ -18,6 +18,7 @@ void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
   idofsAddressRegistry.clear();
 
   recordTimeAndVolumeIntegrals();
+  recordFreeSurfaceBc();
   recordLocalFluxIntegral();
   recordDisplacements();
 }
@@ -170,6 +171,74 @@ void LocalIntegrationRecorder::recordDisplacements() {
       checkKey(key);
       (*currentTable)[key].set(inner_keys::Wp::Id::Ivelocities, iVelocitiesPtrs[face]);
       (*currentTable)[key].set(inner_keys::Wp::Id::FaceDisplacement, displacementsPtrs[face]);
+    }
+  }
+}
+
+void LocalIntegrationRecorder::recordFreeSurfaceBc() {
+  const auto size = currentLayer->getNumberOfCells();
+  constexpr size_t nodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
+
+  real* nodalAvgDisplacements =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->nodalAvgDisplacements));
+
+  if (size > 0) {
+    std::array<std::vector<unsigned>, 4> freeSurfaceGravityCells{};
+    std::array<std::vector<real*>, 4> nodalAvgDisplacementsPtrs{};
+
+    std::array<std::vector<unsigned>, 4> dirichletCells{};
+    std::array<std::vector<unsigned>, 4> analiticalSolutionCells{};
+
+    size_t nodalAvgDisplacementsCounter{0};
+
+    kernels::LocalTmp tmp;
+    for (unsigned cell = 0; cell < size; ++cell) {
+      auto data = currentLoader->entry(cell);
+
+      for (unsigned face = 0; face < 4; ++face) {
+        if (data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
+          assert(data.faceDisplacements[face] != nullptr);
+          freeSurfaceGravityCells[face].push_back(cell);
+
+          real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
+          nodalAvgDisplacementsPtrs[face].push_back(displ);
+          nodalAvgDisplacementsCounter += nodalAvgDisplacementsSize;
+        }
+
+        if (data.cellInformation.faceTypes[face] == FaceType::dirichlet) {
+          dirichletCells[face].push_back(cell);
+        }
+
+        if (data.cellInformation.faceTypes[face] == FaceType::analytical) {
+          analiticalSolutionCells[face].push_back(cell);
+        }
+      }
+    }
+
+    for (unsigned face = 0; face < 4; ++face) {
+      if (!freeSurfaceGravityCells[face].empty()) {
+        ConditionalKey key(
+            *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
+        checkKey(key);
+        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells,
+                                        freeSurfaceGravityCells[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::NodalAvgDisplacements,
+                                 nodalAvgDisplacementsPtrs[face]);
+      }
+
+      if (!dirichletCells[face].empty()) {
+        ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
+        checkKey(key);
+        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells, dirichletCells[face]);
+      }
+
+      if (!analiticalSolutionCells[face].empty()) {
+        ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+        checkKey(key);
+        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells,
+                                        analiticalSolutionCells[face]);
+      }
     }
   }
 }

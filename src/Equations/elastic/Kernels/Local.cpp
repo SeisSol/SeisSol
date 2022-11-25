@@ -245,12 +245,20 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   }
 }
 
-void seissol::kernels::Local::computeBatchedIntegral(ConditionalPointersToRealsTable &table, LocalTmp& tmp) {
+void seissol::kernels::Local::computeBatchedIntegral(
+  ConditionalPointersToRealsTable& table,
+  ConditionalIndicesTable& indicesTable,
+  kernels::LocalData::Loader& loader,
+  LocalTmp& tmp,
+  double time,
+  double timeStepWidth) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype;
   kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype;
+
+  std::vector<real*> iDofsPtrsOnHost{};
 
   constexpr size_t MAX_TMP_MEM = (volKrnl.TmpMaxMemRequiredInBytes > localFluxKrnl.TmpMaxMemRequiredInBytes) \
                                    ? volKrnl.TmpMaxMemRequiredInBytes : localFluxKrnl.TmpMaxMemRequiredInBytes;
@@ -267,6 +275,7 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalPointersToRealsT
 
     volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    iDofsPtrsOnHost = entry.get(inner_keys::Wp::Id::Idofs)->getHostData();
 
     unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
@@ -297,6 +306,168 @@ void seissol::kernels::Local::computeBatchedIntegral(ConditionalPointersToRealsT
   if (tmpMem != nullptr) {
     device.api->popStackMemory();
   }
+
+  {
+    device.api->synchDevice();
+    auto createNodalLfKrnl = [this](real* dofs, real* iNodal, real* aMinusT) {
+      auto nodalLfKrnl = this->m_nodalLfKrnlPrototype;
+      nodalLfKrnl.Q = dofs;
+      nodalLfKrnl.INodal = iNodal;
+      nodalLfKrnl.AminusT = aMinusT;
+      return nodalLfKrnl;
+    };
+
+    for (unsigned face = 0; face < 4; ++face) {
+
+      ConditionalKey fsgKey(*KernelNames::BoundaryConditions,
+                            *ComputationKind::FreeSurfaceGravity,
+                            face);
+      ConditionalKey fsgPtrKey(*KernelNames::BoundaryConditions,
+                               *ComputationKind::FreeSurfaceGravity,
+                               face);
+      if(indicesTable.find(fsgKey) != indicesTable.end()) {
+        auto cellIds = indicesTable[fsgKey].get(inner_keys::Indices::Id::Cells)->getHostData();
+        auto nodalAvgDisplacements = table[fsgPtrKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getHostData();
+        const size_t numElements = cellIds.size();
+
+        for (unsigned i{0}; i < numElements; ++i) {
+          auto cellId = cellIds[i];
+          auto data = loader.entry(cellId);
+
+          alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+          auto nodalLfKrnl = createNodalLfKrnl(
+            data.dofs,
+            dofsFaceBoundaryNodal,
+            data.neighboringIntegration.nAmNm1[face]
+          );
+
+          assert(cellBoundaryMapping != nullptr);
+          assert(data.material != nullptr);
+          auto* displ = nodalAvgDisplacements[i];
+          auto displacement = init::averageNormalDisplacement::view::create(displ);
+
+          auto applyFreeSurfaceBc = [&displacement, &data](
+              const real*, // nodes are unused
+              init::INodal::view::type& boundaryDofs) {
+            for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+              const double rho = data.material.local.rho;
+              const double g = getGravitationalAcceleration(); // [m/s^2]
+              const double pressureAtBnd = -1 * rho * g * displacement(i);
+
+              boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
+              boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
+              boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
+            }
+          };
+
+          dirichletBoundary.evaluate(iDofsPtrsOnHost[cellId],
+                                     face,
+                                     data.boundaryMapping[face],
+                                     m_projectRotatedKrnlPrototype,
+                                     applyFreeSurfaceBc,
+                                     dofsFaceBoundaryNodal);
+
+          nodalLfKrnl.execute(face);
+        }
+      }
+
+      ConditionalKey dirichletKey(*KernelNames::BoundaryConditions,
+                                  *ComputationKind::Dirichlet,
+                                  face);
+      if(indicesTable.find(dirichletKey) != indicesTable.end()) {
+        auto cellIds = indicesTable[dirichletKey].get(inner_keys::Indices::Id::Cells)->getHostData();
+        const size_t numElements = cellIds.size();
+
+        for (unsigned i{0}; i < numElements; ++i) {
+          auto cellId = cellIds[i];
+          auto data = loader.entry(cellId);
+
+          alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+          auto nodalLfKrnl = createNodalLfKrnl(
+            data.dofs,
+            dofsFaceBoundaryNodal,
+            data.neighboringIntegration.nAmNm1[face]
+          );
+
+          assert(data.boundaryMapping != nullptr);
+          auto* easiBoundaryMap = data.boundaryMapping[face].easiBoundaryMap;
+          auto* easiBoundaryConstant = data.boundaryMapping[face].easiBoundaryConstant;
+          assert(easiBoundaryConstant != nullptr);
+          assert(easiBoundaryMap != nullptr);
+          auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+              const real* nodes,
+              init::INodal::view::type& boundaryDofs) {
+            seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+            easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
+            easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
+            easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
+            easiBoundaryKernel.INodal = boundaryDofs.data();
+            easiBoundaryKernel.execute();
+          };
+
+          // Compute boundary in [n, t_1, t_2] basis
+          dirichletBoundary.evaluate(iDofsPtrsOnHost[cellId],
+                                     face,
+                                     data.boundaryMapping[face],
+                                     m_projectRotatedKrnlPrototype,
+                                     applyEasiBoundary,
+                                     dofsFaceBoundaryNodal);
+
+          nodalLfKrnl.execute(face);
+        }
+      }
+
+      ConditionalKey analyticalKey(*KernelNames::BoundaryConditions,
+                                   *ComputationKind::Analytical,
+                                   face);
+      if(indicesTable.find(analyticalKey) != indicesTable.end()) {
+        auto cellIds = indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
+        const size_t numElements = cellIds.size();
+
+        for (unsigned i{0}; i < numElements; ++i) {
+          auto cellId = cellIds[i];
+          auto data = loader.entry(cellId);
+
+          alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+          auto nodalLfKrnl = createNodalLfKrnl(
+            data.dofs,
+            dofsFaceBoundaryNodal,
+            data.neighboringIntegration.nAmNm1[face]
+          );
+
+          auto applyAnalyticalSolution = [&data, this](
+            const real* nodes,
+            double time,
+            init::INodal::view::type& boundaryDofs) {
+            auto nodesVec = std::vector<std::array<double, 3>>{};
+            int offset = 0;
+            for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
+              auto curNode = std::array<double, 3>{};
+              curNode[0] = nodes[offset++];
+              curNode[1] = nodes[offset++];
+              curNode[2] = nodes[offset++];
+              nodesVec.push_back(curNode);
+            }
+            assert(initConds != nullptr);
+            // TODO(Lukas) Support multiple init. conds?
+            assert(initConds->size() == 1);
+            (*initConds)[0]->evaluate(time, nodesVec, data.material, boundaryDofs);
+          };
+
+          dirichletBoundary.evaluateTimeDependent(iDofsPtrsOnHost[cellId],
+                                                  face,
+                                                  data.boundaryMapping[face],
+                                                  m_projectKrnlPrototype,
+                                                  applyAnalyticalSolution,
+                                                  dofsFaceBoundaryNodal,
+                                                  time,
+                                                  timeStepWidth);
+          nodalLfKrnl.execute(face);
+        }
+      }
+    }
+  }
+
 #else
   assert(false && "no implementation provided");
 #endif

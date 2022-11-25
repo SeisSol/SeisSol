@@ -252,14 +252,20 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
 void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                                 LocalTmp& tmp,
-                                                ConditionalPointersToRealsTable &table) {
+                                                ConditionalPointersToRealsTable &table,
+                                                ConditionalIndicesTable &indicesTable,
+                                                kernels::LocalData::Loader &loader,
+                                                double startTime,
+                                                bool updateDisplacement) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
   kernel::gpu_derivativeTaylorExpansion intKrnl;
 
-  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  if(table.find(key) != table.end()) {
-    auto &entry = table[key];
+  std::vector<real*> derivativesOnHostPtr{};
+  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  if(table.find(timeVolumeKernelKey) != table.end()) {
+    auto &entry = table[timeVolumeKernelKey];
+    derivativesOnHostPtr = entry.get(inner_keys::Wp::Id::Derivatives)->getHostData();
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
@@ -313,6 +319,44 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
       intKrnl.execute(Der);
     }
     device.api->popStackMemory();
+  }
+
+  if (updateDisplacement) {
+    device.api->synchDevice();
+    auto& bc = tmp.gravitationalFreeSurfaceBc;
+    for (unsigned face = 0; face < 4; ++face) {
+
+      ConditionalKey indicesKey(*KernelNames::BoundaryConditions,
+                                *ComputationKind::FreeSurfaceGravity,
+                                face);
+      ConditionalKey ptrKey(*KernelNames::BoundaryConditions,
+                            *ComputationKind::FreeSurfaceGravity,
+                            face);
+      if(indicesTable.find(indicesKey) != indicesTable.end()) {
+        auto cellIds = indicesTable[indicesKey].get(inner_keys::Indices::Id::Cells)->getHostData();
+        const size_t numElements = cellIds.size();
+        auto nodalAvgDisplacements = table[ptrKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getHostData();
+
+        for (unsigned i{0}; i < numElements; ++i) {
+          auto cellId = cellIds[i];
+          auto data = loader.entry(cellId);
+
+          bc.evaluateOnDevice(
+              face,
+              projectDerivativeToNodalBoundaryRotated,
+              data.boundaryMapping[face],
+              data.faceDisplacements[face],
+              nodalAvgDisplacements[i],
+              *this,
+              derivativesOnHostPtr[cellId],
+              startTime,
+              i_timeStepWidth,
+              data.material,
+              data.cellInformation.faceTypes[face]
+          );
+        }
+      }
+    }
   }
 #else
   assert(false && "no implementation provided");

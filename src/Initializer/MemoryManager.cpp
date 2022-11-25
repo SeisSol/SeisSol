@@ -584,6 +584,7 @@ void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
 #ifdef ACL_DEVICE
 void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto layer = m_ltsTree.beginLeaf(Ghost); layer != m_ltsTree.endLeaf(); ++layer) {
 
@@ -593,6 +594,7 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
 
     unsigned derivativesCounter{0};
     unsigned idofsCounter{0};
+    unsigned nodalDisplacementsCounter{0};
 
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
 
@@ -622,12 +624,19 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
             }
           }
         }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity) {
+          ++nodalDisplacementsCounter;
+        }
+
       }
     }
     layer->setScratchpadSize(m_lts.idofsScratch,
                              idofsCounter * tensor::I::size() * sizeof(real));
     layer->setScratchpadSize(m_lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
+    layer->setScratchpadSize(m_lts.nodalAvgDisplacements,
+                             nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
   }
 }
 #endif

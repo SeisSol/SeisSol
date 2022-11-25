@@ -141,18 +141,15 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         break;
       }
       case FaceType::outflow:
-        break;
-      case FaceType::analytical: {
-        logError() << "analytical boundary condition is not supported in batched computations";
-        break;
-      }
-      case FaceType::freeSurfaceGravity: {
-        logError()
-            << "freeSurfaceGravity boundary condition is not supported in batched computations";
-        break;
-      }
+        [[fallthrough]];
+      case FaceType::analytical:
+        [[fallthrough]];
+      case FaceType::freeSurfaceGravity:
+        [[fallthrough]];
       case FaceType::dirichlet: {
-        logError() << "dirichlet boundary condition is not supported in batched computations";
+        // Do not need to compute anything in the neighboring macro-kernel
+        // for outflow, analytical, freeSurfaceGravity and dirichlet
+        // boundary conditions
         break;
       }
       default: {

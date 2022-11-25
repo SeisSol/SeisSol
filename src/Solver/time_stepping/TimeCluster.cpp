@@ -431,10 +431,25 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
   real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
   auto& table = i_layerData.getConditionalTable<inner_keys::Wp>();
+  auto& indicesTable = i_layerData.getConditionalTable<inner_keys::Indices>();
+
+  kernels::LocalData::Loader loader;
+  loader.load(*m_lts, i_layerData);
   kernels::LocalTmp tmp;
 
-  m_timeKernel.computeBatchedAder(timeStepSize(), tmp, table);
-  m_localKernel.computeBatchedIntegral(table, tmp);
+  m_timeKernel.computeBatchedAder(timeStepSize(),
+                                  tmp,
+                                  table,
+                                  indicesTable,
+                                  loader,
+                                  ct.correctionTime,
+                                  true);
+  m_localKernel.computeBatchedIntegral(table,
+                                       indicesTable,
+                                       loader,
+                                       tmp,
+                                       ct.correctionTime,
+                                       timeStepSize());
   auto defaultStream = device.api->getDefaultStream();
 
   for (unsigned face = 0; face < 4; ++face) {

@@ -67,7 +67,12 @@ class seissol::kernels::Local : public LocalBase {
                          double time,
                          double timeStepWidth);
 
-    void computeBatchedIntegral(ConditionalPointersToRealsTable &table, LocalTmp& tmp);
+    void computeBatchedIntegral(ConditionalPointersToRealsTable& table,
+                                ConditionalIndicesTable& indicesTable,
+                                kernels::LocalData::Loader& loader,
+                                LocalTmp& tmp,
+                                double time,
+                                double timeStepWidth);
 
     void flopsIntegral(FaceType const i_faceTypes[4],
                        unsigned int &o_nonZeroFlops,
