@@ -67,7 +67,8 @@ class seissol::kernels::Local : public LocalBase {
                          double time,
                          double timeStepWidth);
 
-    void computeBatchedIntegral(ConditionalPointersToRealsTable& table,
+    void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                ConditionalMaterialTable& materialTable,
                                 ConditionalIndicesTable& indicesTable,
                                 kernels::LocalData::Loader& loader,
                                 LocalTmp& tmp,

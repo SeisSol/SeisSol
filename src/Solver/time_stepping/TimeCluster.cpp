@@ -423,14 +423,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
 }
 #else // ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initializers::Layer& i_layerData, bool resetBuffers ) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegration(
+  seissol::initializers::Layer& i_layerData,
+  bool resetBuffers) {
+
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-  auto& table = i_layerData.getConditionalTable<inner_keys::Wp>();
+  auto& dataTable = i_layerData.getConditionalTable<inner_keys::Wp>();
+  auto& materialTable = i_layerData.getConditionalTable<inner_keys::Material>();
   auto& indicesTable = i_layerData.getConditionalTable<inner_keys::Indices>();
 
   kernels::LocalData::Loader loader;
@@ -439,23 +443,25 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
 
   m_timeKernel.computeBatchedAder(timeStepSize(),
                                   tmp,
-                                  table,
-                                  indicesTable,
-                                  loader,
+                                  dataTable,
+                                  materialTable,
                                   ct.correctionTime,
                                   true);
-  m_localKernel.computeBatchedIntegral(table,
+
+  m_localKernel.computeBatchedIntegral(dataTable,
+                                       materialTable,
                                        indicesTable,
                                        loader,
                                        tmp,
                                        ct.correctionTime,
                                        timeStepSize());
+
   auto defaultStream = device.api->getDefaultStream();
 
   for (unsigned face = 0; face < 4; ++face) {
     ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
-    if (table.find(key) != table.end()) {
-      auto &entry = table[key];
+    if (dataTable.find(key) != dataTable.end()) {
+      auto &entry = dataTable[key];
       // NOTE: integrated velocities have been computed implicitly, i.e
       // it is 6th, 7the and 8th columns of integrated dofs
 
@@ -472,8 +478,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   }
 
   ConditionalKey key = ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
-  if (table.find(key) != table.end()) {
-    auto &entry = table[key];
+  if (dataTable.find(key) != dataTable.end()) {
+    auto &entry = dataTable[key];
 
     if (resetBuffers) {
       device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),

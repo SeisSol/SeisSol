@@ -23,6 +23,10 @@ struct Wp {
     Pstrains,
     InitialLoad,
     NodalAvgDisplacements,
+    T,
+    Tinv,
+    EasiBoundaryMap,
+    EasiBoundaryConstant,
     Count
   };
 };
@@ -39,6 +43,11 @@ struct Dr {
     TinvT,
     Count
   };
+};
+
+struct Material {
+  using DataType = double;
+  enum struct Id : size_t { Rho = 0, Lambda, Count };
 };
 
 struct Indices {

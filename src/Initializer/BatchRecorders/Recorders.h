@@ -28,6 +28,7 @@ class AbstractRecorder {
   void setUpContext(LtsT& handler, Layer& layer) {
     currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
     currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
+    currentMaterialTable = &(layer.getConditionalTable<inner_keys::Material>());
     currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices>());
     currentHandler = &(handler);
     currentLayer = &(layer);
@@ -35,6 +36,7 @@ class AbstractRecorder {
 
   ConditionalPointersToRealsTable* currentTable{nullptr};
   DrConditionalPointersToRealsTable* currentDrTable{nullptr};
+  ConditionalMaterialTable* currentMaterialTable{nullptr};
   ConditionalIndicesTable* currentIndicesTable{nullptr};
   LtsT* currentHandler{nullptr};
   Layer* currentLayer{nullptr};
@@ -80,10 +82,15 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializers::
 
   kernels::LocalData::Loader* currentLoader{nullptr};
   void recordTimeAndVolumeIntegrals();
-  void recordFreeSurfaceBc();
+  void recordFreeSurfaceGravityBc();
+  void recordDirichletBc();
+  void recordAnaliticalBc();
   void recordLocalFluxIntegral();
   void recordDisplacements();
+
   std::unordered_map<size_t, real*> idofsAddressRegistry{};
+  std::vector<real*> dQPtrs{};
+
   size_t integratedDofsAddressCounter{0};
   size_t derivativesAddressCounter{0};
 };

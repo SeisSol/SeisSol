@@ -107,6 +107,7 @@ private:
   size_t* m_scratchpadSizes{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
   DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
+  ConditionalMaterialTable m_conditionalMaterialTable{};
   ConditionalIndicesTable m_conditionalIndicesTable;
 #endif
 
@@ -261,32 +262,40 @@ public:
   }
 
 #ifdef ACL_DEVICE
-  template<typename KeyType>
+  template<typename InnerKeyType>
   auto& getConditionalTable() {
-    if constexpr (std::is_same_v<KeyType, inner_keys::Wp>) {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
       return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<KeyType, inner_keys::Dr>) {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<KeyType, inner_keys::Indices>) {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+      return m_conditionalMaterialTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
       return m_conditionalIndicesTable;
     }
   }
 
-  template<typename KeyType>
+  template<typename InnerKeyType>
   const auto& getConditionalTable() const {
-    if constexpr (std::is_same_v<KeyType, inner_keys::Wp>) {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
       return m_conditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<KeyType, inner_keys::Dr>) {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
       return m_drConditionalPointersToRealsTable;
     }
 
-    if constexpr (std::is_same_v<KeyType, inner_keys::Indices>) {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+      return m_conditionalMaterialTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
       return m_conditionalIndicesTable;
     }
   }

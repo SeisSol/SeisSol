@@ -13,6 +13,9 @@ using ConditionalPointersToRealsTable =
 using DrConditionalPointersToRealsTable =
     std::unordered_map<ConditionalKey, DrPointersToRealsTable, ConditionalHash<ConditionalKey>>;
 
+using ConditionalMaterialTable =
+    std::unordered_map<ConditionalKey, MaterialTable, ConditionalHash<ConditionalKey>>;
+
 using ConditionalIndicesTable =
     std::unordered_map<ConditionalKey, IndicesTable, ConditionalHash<ConditionalKey>>;
 } // namespace seissol::initializers::recording

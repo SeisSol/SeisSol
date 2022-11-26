@@ -9,6 +9,13 @@
 
 #include "Numerical_aux/Quadrature.h"
 
+#ifdef ACL_DEVICE
+#include "yateto.h"
+#include "device.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp"
+#include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
+#endif
+
 namespace {
 // Helper functions, needed because C++ doesnt allow partial func. template specialisation  
 template<typename MappingKrnl>
@@ -64,6 +71,69 @@ class DirichletBoundary {
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
     std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes, boundaryDofs);
   }
+
+#ifdef ACL_DEVICE
+  template<typename Func, typename MappingKrnl, typename InverseMappingKrnl>
+  void evaluateOnDevice(int faceIdx,
+                        ConditionalKey& key,
+                        MappingKrnl& projectKernelPrototype,
+                        InverseMappingKrnl& nodalLfKrnlPrototype,
+                        local_flux::aux::DirichletBoundaryAux<Func>& boundaryCondition,
+                        ConditionalPointersToRealsTable &dataTable,
+                        device::DeviceInstance& device) const {
+
+    const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
+
+    size_t memCounter{0};
+    auto* dofsFaceBoundaryNodalData = (real*)(device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
+    auto** dofsFaceBoundaryNodalPtrs = (real**)(device.api->getStackMemory(numElements * sizeof(real*)));
+    memCounter += 2;
+
+    auto* deviceStream = device.api->getDefaultStream();
+    device.algorithms.incrementalAdd(
+      dofsFaceBoundaryNodalPtrs,
+      dofsFaceBoundaryNodalData,
+      tensor::INodal::size(),
+      numElements,
+      deviceStream
+    );
+
+    constexpr auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
+    auto* auxTmpMem = (real*)(device.api->getStackMemory(auxTmpMemSize * numElements));
+    memCounter += 1;
+
+    auto** TinvData = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+    auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
+
+    auto projectKrnl = projectKernelPrototype;
+    projectKrnl.numElements = numElements;
+    projectKrnl.Tinv = const_cast<const real **>(TinvData);
+    projectKrnl.I = const_cast<const real **>(idofsPtrs);
+    projectKrnl.INodal = dofsFaceBoundaryNodalPtrs;
+    projectKrnl.linearAllocator.initialize(auxTmpMem);
+    projectKrnl.streamPtr = deviceStream;
+    projectKrnl.execute(faceIdx);
+
+
+    boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
+
+
+    auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    auto** nAmNm1 = dataTable[key].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr();
+
+    auto nodalLfKrnl = nodalLfKrnlPrototype;
+    nodalLfKrnl.numElements = numElements;
+    nodalLfKrnl.Q = dofsPtrs;
+    nodalLfKrnl.INodal = const_cast<const real **>(dofsFaceBoundaryNodalPtrs);
+    nodalLfKrnl.AminusT = const_cast<const real **>(nAmNm1);
+    nodalLfKrnl.linearAllocator.initialize(auxTmpMem);
+    nodalLfKrnl.streamPtr = deviceStream;
+    nodalLfKrnl.execute(faceIdx);
+
+    for (size_t i = 0; i < memCounter; ++i)
+      device.api->popStackMemory();
+  }
+#endif
 
   template<typename Func, typename MappingKrnl>
   void evaluateTimeDependent(const real* dofsVolumeInteriorModal,

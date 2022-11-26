@@ -45,14 +45,13 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    auto &table = layer.getConditionalTable<inner_keys::Wp>();
-    auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
 
     m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep),
                                     tmp,
-                                    table,
-                                    indicesTable,
-                                    loader);
+                                    dataTable,
+                                    materialTable);
     device.api->synchDevice();
   }
 
@@ -63,10 +62,11 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    auto &table = layer.getConditionalTable<inner_keys::Wp>();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
     auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-    m_localKernel.computeBatchedIntegral(table, indicesTable, loader, tmp, 0.0, 0.0);
+    m_localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0, 0.0);
     device.api->synchDevice();
   }
 
@@ -78,15 +78,22 @@ namespace proxy::device {
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    auto &table = layer.getConditionalTable<inner_keys::Wp>();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
     auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
     m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep),
                                     tmp,
-                                    table,
-                                    indicesTable,
-                                    loader);
-    m_localKernel.computeBatchedIntegral(table, indicesTable, loader, tmp, 0.0, 0.0);
+                                    dataTable,
+                                    materialTable);
+
+    m_localKernel.computeBatchedIntegral(dataTable,
+                                         materialTable,
+                                         indicesTable,
+                                         loader,
+                                         tmp,
+                                         0.0,
+                                         0.0);
     device.api->synchDevice();
   }
 
@@ -97,21 +104,21 @@ namespace proxy::device {
     kernels::NeighborData::Loader loader;
     loader.load(m_lts, layer);
 
-    auto &table = layer.getConditionalTable<inner_keys::Wp>();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
     seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                           0.0,
                                                          static_cast<double>(seissol::miniSeisSolTimeStep),
-                                                         table);
-    m_neighborKernel.computeBatchedNeighborsIntegral(table);
+                                                         dataTable);
+    m_neighborKernel.computeBatchedNeighborsIntegral(dataTable);
     device.api->synchDevice();
   }
 
   void computeDynRupGodunovState() {
     auto& layer = m_dynRupTree->child(0).child<Interior>();
 
-    auto &table = layer.getConditionalTable<inner_keys::Dr>();
-    m_dynRupKernel.batchedSpaceTimeInterpolation(table);
+    auto &dataTable = layer.getConditionalTable<inner_keys::Dr>();
+    m_dynRupKernel.batchedSpaceTimeInterpolation(dataTable);
   }
 } // namespace proxy::device
 

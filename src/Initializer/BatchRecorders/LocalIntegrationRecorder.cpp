@@ -18,7 +18,9 @@ void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
   idofsAddressRegistry.clear();
 
   recordTimeAndVolumeIntegrals();
-  recordFreeSurfaceBc();
+  recordFreeSurfaceGravityBc();
+  recordDirichletBc();
+  recordAnaliticalBc();
   recordLocalFluxIntegral();
   recordDisplacements();
 }
@@ -34,11 +36,11 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> starPtrs(size, nullptr);
     std::vector<real*> idofsPtrs{};
-    std::vector<real*> dQPtrs(size, nullptr);
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
 
     idofsPtrs.reserve(size);
+    dQPtrs.resize(size);
 
     real** derivatives = currentLayer->var(currentHandler->derivatives);
     real** buffers = currentLayer->var(currentHandler->buffers);
@@ -175,7 +177,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
   }
 }
 
-void LocalIntegrationRecorder::recordFreeSurfaceBc() {
+void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   const auto size = currentLayer->getNumberOfCells();
   constexpr size_t nodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -183,61 +185,145 @@ void LocalIntegrationRecorder::recordFreeSurfaceBc() {
       static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->nodalAvgDisplacements));
 
   if (size > 0) {
-    std::array<std::vector<unsigned>, 4> freeSurfaceGravityCells{};
+    std::array<std::vector<unsigned>, 4> cellIndices{};
     std::array<std::vector<real*>, 4> nodalAvgDisplacementsPtrs{};
+    std::array<std::vector<real*>, 4> displacementsPtrs{};
 
-    std::array<std::vector<unsigned>, 4> dirichletCells{};
-    std::array<std::vector<unsigned>, 4> analiticalSolutionCells{};
+    std::array<std::vector<real*>, 4> derivatives{};
+    std::array<std::vector<real*>, 4> dofsPtrs{};
+    std::array<std::vector<real*>, 4> idofsPtrs{};
+    std::array<std::vector<real*>, 4> aminusTPtrs{};
+    std::array<std::vector<real*>, 4> T{};
+    std::array<std::vector<real*>, 4> Tinv{};
+
+    std::array<std::vector<inner_keys::Material::DataType>, 4> rhos;
+    std::array<std::vector<inner_keys::Material::DataType>, 4> lambdas;
 
     size_t nodalAvgDisplacementsCounter{0};
 
-    kernels::LocalTmp tmp;
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
         if (data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
           assert(data.faceDisplacements[face] != nullptr);
-          freeSurfaceGravityCells[face].push_back(cell);
+          cellIndices[face].push_back(cell);
+
+          derivatives[face].push_back(dQPtrs[cell]);
+          dofsPtrs[face].push_back(static_cast<real*>(data.dofs));
+          idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
+
+          aminusTPtrs[face].push_back(data.neighIntegrationOnDevice.nAmNm1[face]);
+          displacementsPtrs[face].push_back(data.faceDisplacements[face]);
+          T[face].push_back(data.boundaryMapping[face].TData);
+          Tinv[face].push_back(data.boundaryMapping[face].TinvData);
+
+          rhos[face].push_back(data.material.local.rho);
+          lambdas[face].push_back(data.material.local.lambda);
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
           nodalAvgDisplacementsCounter += nodalAvgDisplacementsSize;
         }
+      }
+    }
 
+    for (unsigned face = 0; face < 4; ++face) {
+      if (!cellIndices[face].empty()) {
+        ConditionalKey key(
+            *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
+        checkKey(key);
+        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::Derivatives, derivatives[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT, aminusTPtrs[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::T, T[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Tinv, Tinv[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::FaceDisplacement, displacementsPtrs[face]);
+        (*currentMaterialTable)[key].set(inner_keys::Material::Id::Rho, rhos[face]);
+        (*currentMaterialTable)[key].set(inner_keys::Material::Id::Lambda, lambdas[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::NodalAvgDisplacements,
+                                 nodalAvgDisplacementsPtrs[face]);
+      }
+    }
+  }
+}
+
+void LocalIntegrationRecorder::recordDirichletBc() {
+  const auto size = currentLayer->getNumberOfCells();
+  if (size > 0) {
+    std::array<std::vector<real*>, 4> dofsPtrs{};
+    std::array<std::vector<real*>, 4> idofsPtrs{};
+    std::array<std::vector<real*>, 4> Tinv{};
+    std::array<std::vector<real*>, 4> aminusTPtrs{};
+
+    std::array<std::vector<real*>, 4> easiBoundaryMapPtrs{};
+    std::array<std::vector<real*>, 4> easiBoundaryConstantPtrs{};
+
+    for (unsigned cell = 0; cell < size; ++cell) {
+      auto data = currentLoader->entry(cell);
+
+      for (unsigned face = 0; face < 4; ++face) {
         if (data.cellInformation.faceTypes[face] == FaceType::dirichlet) {
-          dirichletCells[face].push_back(cell);
-        }
 
-        if (data.cellInformation.faceTypes[face] == FaceType::analytical) {
-          analiticalSolutionCells[face].push_back(cell);
+          dofsPtrs[face].push_back(static_cast<real*>(data.dofs));
+          idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
+
+          Tinv[face].push_back(data.boundaryMapping[face].TinvData);
+          aminusTPtrs[face].push_back(data.neighIntegrationOnDevice.nAmNm1[face]);
+
+          easiBoundaryMapPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryMap);
+          easiBoundaryConstantPtrs[face].push_back(data.boundaryMapping[face].easiBoundaryConstant);
         }
       }
     }
 
     for (unsigned face = 0; face < 4; ++face) {
-      if (!freeSurfaceGravityCells[face].empty()) {
-        ConditionalKey key(
-            *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
-        checkKey(key);
-        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells,
-                                        freeSurfaceGravityCells[face]);
-
-        (*currentTable)[key].set(inner_keys::Wp::Id::NodalAvgDisplacements,
-                                 nodalAvgDisplacementsPtrs[face]);
-      }
-
-      if (!dirichletCells[face].empty()) {
+      if (!dofsPtrs[face].empty()) {
         ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
         checkKey(key);
-        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells, dirichletCells[face]);
-      }
+        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT, aminusTPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::Tinv, Tinv[face]);
 
-      if (!analiticalSolutionCells[face].empty()) {
+        (*currentTable)[key].set(inner_keys::Wp::Id::EasiBoundaryMap, easiBoundaryMapPtrs[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::EasiBoundaryConstant,
+                                 easiBoundaryConstantPtrs[face]);
+      }
+    }
+  }
+}
+
+void LocalIntegrationRecorder::recordAnaliticalBc() {
+  const auto size = currentLayer->getNumberOfCells();
+  if (size > 0) {
+    std::array<std::vector<real*>, 4> idofsPtrs{};
+    std::array<std::vector<unsigned>, 4> cellIndices{};
+
+    for (unsigned cell = 0; cell < size; ++cell) {
+      auto data = currentLoader->entry(cell);
+
+      for (unsigned face = 0; face < 4; ++face) {
+        if (data.cellInformation.faceTypes[face] == FaceType::analytical) {
+          cellIndices[face].push_back(cell);
+          idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
+        }
+      }
+    }
+
+    for (unsigned face = 0; face < 4; ++face) {
+      if (!cellIndices[face].empty()) {
         ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
         checkKey(key);
-        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells,
-                                        analiticalSolutionCells[face]);
+        (*currentIndicesTable)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
+
+        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
       }
     }
   }

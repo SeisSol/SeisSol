@@ -141,12 +141,11 @@ struct seissol::initializers::LTS {
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE
-    // TODO: Ravil switch back to DeviceGlobalMemory
-    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceUnifiedMemory);
-    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceUnifiedMemory);
+    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
+    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(  idofsScratch,                      1,      seissol::memory::DeviceUnifiedMemory);
-    tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceUnifiedMemory);
-    tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceUnifiedMemory);
+    tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
 #endif
   }
 };

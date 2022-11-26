@@ -99,15 +99,17 @@ struct GenericTable {
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;
 using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
+using MaterialTable = GenericTable<inner_keys::Material>;
 using IndicesTable = GenericTable<inner_keys::Indices>;
 
 } // namespace seissol::initializers::recording
 
 #else  // ACL_DEVICE
 namespace seissol::initializers::recording {
-// Provide a dummy implementation for a pure CPU execution
+// Provide a dummy implementations for a pure CPU execution
 struct PointersToRealsTable {};
 struct DrPointersToRealsTable {};
+struct MaterialTable {};
 struct IndicesTable {};
 } // namespace seissol::initializers::recording
 #endif // ACL_DEVICE

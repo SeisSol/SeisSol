@@ -143,6 +143,8 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   checkGlobalData(global.onDevice, deviceAlignment);
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->V3mTo2nFace;
+
 #endif
 }
 
@@ -252,20 +254,17 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
 void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                                 LocalTmp& tmp,
-                                                ConditionalPointersToRealsTable &table,
-                                                ConditionalIndicesTable &indicesTable,
-                                                kernels::LocalData::Loader &loader,
+                                                ConditionalPointersToRealsTable &dataTable,
+                                                ConditionalMaterialTable &materialTable,
                                                 double startTime,
                                                 bool updateDisplacement) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
   kernel::gpu_derivativeTaylorExpansion intKrnl;
 
-  std::vector<real*> derivativesOnHostPtr{};
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
-  if(table.find(timeVolumeKernelKey) != table.end()) {
-    auto &entry = table[timeVolumeKernelKey];
-    derivativesOnHostPtr = entry.get(inner_keys::Wp::Id::Derivatives)->getHostData();
+  if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    auto &entry = dataTable[timeVolumeKernelKey];
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
@@ -298,9 +297,8 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                         derivativesKrnl.numElements,
                                         device.api->getDefaultStream());
 
-    constexpr size_t MAX_TMP_MEM = (intKrnl.TmpMaxMemRequiredInBytes > derivativesKrnl.TmpMaxMemRequiredInBytes) \
-                                   ? intKrnl.TmpMaxMemRequiredInBytes : derivativesKrnl.TmpMaxMemRequiredInBytes;
-    real* tmpMem = (real*)(device.api->getStackMemory(MAX_TMP_MEM * numElements));
+    constexpr auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
+    real* tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * numElements));
 
     intKrnl.power = i_timeStepWidth;
     intKrnl.linearAllocator.initialize(tmpMem);
@@ -322,40 +320,16 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
   }
 
   if (updateDisplacement) {
-    device.api->synchDevice();
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (unsigned face = 0; face < 4; ++face) {
-
-      ConditionalKey indicesKey(*KernelNames::BoundaryConditions,
-                                *ComputationKind::FreeSurfaceGravity,
-                                face);
-      ConditionalKey ptrKey(*KernelNames::BoundaryConditions,
-                            *ComputationKind::FreeSurfaceGravity,
-                            face);
-      if(indicesTable.find(indicesKey) != indicesTable.end()) {
-        auto cellIds = indicesTable[indicesKey].get(inner_keys::Indices::Id::Cells)->getHostData();
-        const size_t numElements = cellIds.size();
-        auto nodalAvgDisplacements = table[ptrKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getHostData();
-
-        for (unsigned i{0}; i < numElements; ++i) {
-          auto cellId = cellIds[i];
-          auto data = loader.entry(cellId);
-
-          bc.evaluateOnDevice(
-              face,
-              projectDerivativeToNodalBoundaryRotated,
-              data.boundaryMapping[face],
-              data.faceDisplacements[face],
-              nodalAvgDisplacements[i],
-              *this,
-              derivativesOnHostPtr[cellId],
-              startTime,
-              i_timeStepWidth,
-              data.material,
-              data.cellInformation.faceTypes[face]
-          );
-        }
-      }
+      bc.evaluateOnDevice(face,
+                          deviceDerivativeToNodalBoundaryRotated,
+                          *this,
+                          dataTable,
+                          materialTable,
+                          startTime,
+                          i_timeStepWidth,
+                          device);
     }
   }
 #else

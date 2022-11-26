@@ -2,7 +2,8 @@ if ("${DEVICE_BACKEND}" STREQUAL "hipsycl")
 
   set(DEVICE_SRC ${DEVICE_SRC}
           ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/sycl/KernelsAux.cpp)
 
   add_library(SeisSol-device-lib SHARED ${DEVICE_SRC})
 
