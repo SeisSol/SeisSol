@@ -43,14 +43,14 @@
 
 #include <fstream>
 
+// floating point operations performed in the matrix kernels.
+// Remark: This variable is updated by the matrix kernels.
+extern long long libxsmm_num_total_flops;
+extern long long pspamm_num_total_flops;
+
 namespace seissol::monitoring {
 class FlopCounter {
   public:
-  //! floating point operations performed in the matrix kernels.
-  //!   Remark: This variable is updated by the matrix kernels.
-  long long libxsmm_num_total_flops = 0;
-  long long pspamm_num_total_flops = 0;
-
   // global variables for summing-up SeisSol internal counters
   long long g_SeisSolNonZeroFlopsLocal = 0;
   long long g_SeisSolHardwareFlopsLocal = 0;

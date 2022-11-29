@@ -42,6 +42,9 @@
 
 #include <fstream>
 
+long long libxsmm_num_total_flops = 0;
+long long pspamm_num_total_flops = 0;
+
 #include "Parallel/MPI.h"
 
 #include "FlopCounter.hpp"
