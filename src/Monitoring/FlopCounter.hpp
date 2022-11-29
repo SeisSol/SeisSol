@@ -43,8 +43,8 @@
 
 #include <fstream>
 
-// floating point operations performed in the matrix kernels.
-// Remark: This variable is updated by the matrix kernels.
+// Floating point operations performed in the matrix kernels.
+// Remark: These variables are updated by the matrix kernels (subroutine.cpp) only in debug builds.
 extern long long libxsmm_num_total_flops;
 extern long long pspamm_num_total_flops;
 

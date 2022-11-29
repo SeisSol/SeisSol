@@ -142,8 +142,10 @@ void FlopCounter::printFlops() {
   double* totalFlops = &flops[0];
 #endif
 
+#ifndef NDEBUG
   logInfo(rank) << "Total    libxsmm HW-GFLOP: " << totalFlops[Libxsmm] * 1.e-9;
   logInfo(rank) << "Total     pspamm HW-GFLOP: " << totalFlops[Pspamm] * 1.e-9;
+#endif
   logInfo(rank) << "Total calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops]) * 1.e-9;
   logInfo(rank) << "Total calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops]  + totalFlops[DRNonZeroFlops]  + totalFlops[PLNonZeroFlops] ) * 1.e-9;
   logInfo(rank) << "WP calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops]) * 1.e-9;
