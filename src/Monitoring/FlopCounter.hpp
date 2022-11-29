@@ -64,8 +64,8 @@ class FlopCounter {
   long long g_SeisSolHardwareFlopsPlasticity = 0;
 
   void init(std::string outputFileNamePrefix);
-  void printPerformance(double wallTime);
-  void printFlops();
+  void printPerformanceUpdate(double wallTime);
+  void printPerformanceSummary(double wallTime);
 
   private:
   std::ofstream out;

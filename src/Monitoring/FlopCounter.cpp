@@ -64,7 +64,7 @@ void FlopCounter::init(std::string outputFileNamePrefix) {
   out << "rank_" << worldSize - 1 << std::endl;
 }
 
-void FlopCounter::printPerformance(double wallTime) {
+void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
   const int worldSize = seissol::MPI::mpi.size();
   const long long newTotalFlops = g_SeisSolHardwareFlopsLocal
@@ -96,8 +96,8 @@ void FlopCounter::printPerformance(double wallTime) {
       flopsSum += gflopsPerSecondOnRanks[i];
     }
     const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
-    logInfo(rank) << flopsSum * 1.e-3  << "TFLOPS"
-    << "(rank 0:" << gflopsPerSecond << "GFLOPS, average over ranks:" << flopsPerRank << "GFLOPS)";
+    logInfo(rank) << flopsSum * 1.e-3  << "TFLOP/s"
+    << "(rank 0:" << gflopsPerSecond << "GFLOP/s, average over ranks:" << flopsPerRank << "GFLOP/s)";
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
       out << gflopsPerSecondOnRanks[i] << ",";
@@ -107,9 +107,9 @@ void FlopCounter::printPerformance(double wallTime) {
 }
   
 /**
- * Prints the measured FLOPS.
+ * Prints the measured FLOP/s.
  */
-void FlopCounter::printFlops() {
+void FlopCounter::printPerformanceSummary(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
 
   enum Counter {
@@ -148,6 +148,8 @@ void FlopCounter::printFlops() {
 #endif
   logInfo(rank) << "Total calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops]) * 1.e-9;
   logInfo(rank) << "Total calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops]  + totalFlops[DRNonZeroFlops]  + totalFlops[PLNonZeroFlops] ) * 1.e-9;
+  logInfo(rank) << "Total calculated HW-GFLOP/s: " << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops]) * 1.e-9 / wallTime;
+  logInfo(rank) << "Total calculated NZ-GFLOP/s: " << (totalFlops[WPNonZeroFlops]  + totalFlops[DRNonZeroFlops]  + totalFlops[PLNonZeroFlops] ) * 1.e-9 / wallTime;
   logInfo(rank) << "WP calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops]) * 1.e-9;
   logInfo(rank) << "WP calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops])  * 1.e-9;
   logInfo(rank) << "DR calculated HW-GFLOP: " << (totalFlops[DRHardwareFlops]) * 1.e-9;
