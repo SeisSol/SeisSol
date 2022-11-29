@@ -114,6 +114,7 @@ void FlopCounter::printFlops() {
 
   enum Counter {
     Libxsmm = 0,
+    Pspamm,
     WPNonZeroFlops,
     WPHardwareFlops,
     DRNonZeroFlops,
@@ -126,6 +127,7 @@ void FlopCounter::printFlops() {
   double flops[NUM_COUNTERS];
 
   flops[Libxsmm]          = libxsmm_num_total_flops;
+  flops[Pspamm]           = pspamm_num_total_flops;
   flops[WPNonZeroFlops]   = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
   flops[WPHardwareFlops]  = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
   flops[DRNonZeroFlops]   = g_SeisSolNonZeroFlopsDynamicRupture;
@@ -140,7 +142,8 @@ void FlopCounter::printFlops() {
   double* totalFlops = &flops[0];
 #endif
 
-  logInfo(rank) << "Total   measured HW-GFLOP: " << totalFlops[Libxsmm] * 1.e-9;
+  logInfo(rank) << "Total    libxsmm HW-GFLOP: " << totalFlops[Libxsmm] * 1.e-9;
+  logInfo(rank) << "Total     pspamm HW-GFLOP: " << totalFlops[Pspamm] * 1.e-9;
   logInfo(rank) << "Total calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops]) * 1.e-9;
   logInfo(rank) << "Total calculated NZ-GFLOP: " << (totalFlops[WPNonZeroFlops]  + totalFlops[DRNonZeroFlops]  + totalFlops[PLNonZeroFlops] ) * 1.e-9;
   logInfo(rank) << "WP calculated HW-GFLOP: " << (totalFlops[WPHardwareFlops]) * 1.e-9;

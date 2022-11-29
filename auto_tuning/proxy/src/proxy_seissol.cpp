@@ -245,9 +245,9 @@ ProxyOutput runProxy(ProxyConfig config) {
   ProxyOutput output{};
   output.time = total;
   output.cycles = total_cycles;
-  output.libxsmmNumTotalGFlop = static_cast<double>(flopCounter.libxsmm_num_total_flops) * 1.e-9;
-  output.pspammNumTotalGFlop = static_cast<double>(flopCounter.pspamm_num_total_flops) * 1.e-9;
-  output.libxsmmAndpspammNumTotalGFlop = static_cast<double>(flopCounter.libxsmm_num_total_flops + flopCounter.pspamm_num_total_flops) * 1.e-9;
+  output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
+  output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
+  output.libxsmmAndpspammNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9;
   output.actualNonZeroGFlop = static_cast<double>(actual_flops.d_nonZeroFlops)  * 1.e-9;
   output.actualHardwareGFlop = static_cast<double>(actual_flops.d_hardwareFlops) * 1.e-9;
   output.gib = bytes_estimate/(1024.0*1024.0*1024.0);
