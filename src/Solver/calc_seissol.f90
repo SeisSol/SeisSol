@@ -64,7 +64,6 @@ CONTAINS
     USE receiver_hdf_mod
 #endif
     USE ini_SeisSol_mod
-    USE output_rupturefront_mod
     USE COMMON_operators_mod
 #ifdef PARALLEL
     USE MPIExchangeValues_mod
@@ -160,11 +159,6 @@ CONTAINS
 #endif
     DISC%StartCPUTime = dwalltime()
 
-    ! enable dynamic rupture if requested
-    if( eqn%dr==1 ) then
-      call c_interoperability_enableDynamicRupture()
-    endif
-
     ! check whether the device memory allocated at this point
     ! exceeds the maximum avaliable on a current device
     call c_interoperability_report_device_memory_status()
@@ -207,9 +201,6 @@ CONTAINS
 #ifdef USE_MPI
     CALL MPI_Comm_split(MPI%commWorld, EQN%DR, 1, DR_comm, iErr)
 #endif /* USE_MPI */
-
-    ! output GP-wise RF in extra files
-    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO, BND)
 
     logInfo(*)'<--------------------------------------------------------->'  !
     logInfo(*)'<     calc_SeisSol successfully finished                  >'  !

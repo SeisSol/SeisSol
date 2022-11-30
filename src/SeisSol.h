@@ -127,17 +127,20 @@ private:
   writer::AnalysisWriter m_analysisWriter;
 
 
-	/** Wavefield output module */
-	writer::WaveFieldWriter m_waveFieldWriter;
+  /** Wavefield output module */
+  writer::WaveFieldWriter m_waveFieldWriter;
 
-	/** Fault output module */
-	writer::FaultWriter m_faultWriter;
-    
+  /** Fault output module */
+  writer::FaultWriter m_faultWriter;
+
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
   //! Energy writer module
   writer::EnergyOutput m_energyOutput;
+
+  //! Input parameters
+  std::shared_ptr<YAML::Node> m_inputParams;
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -294,6 +297,12 @@ public:
 	{
 		return *m_meshReader;
 	}
+
+  	void readInputParams();
+
+  	const std::shared_ptr<YAML::Node> getInputParams() {
+    		return m_inputParams;
+ 	}
 
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and

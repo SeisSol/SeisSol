@@ -34,34 +34,28 @@ namespace seissol {
     public:
       //! Choose phase in [0, 2*pi]
     Planarwave(const CellMaterialData& materialData, 
-               double phase = 0.0, 
-               std::array<double, 3> kVec = {M_PI, M_PI, M_PI},
-#ifndef USE_POROELASTIC
-               //Elastic materials have the following wave modes:
-               //-P, -S2, -S1, N, N, N, S1, S2, P
-               //Here we impose the -S2 and P mode
-               std::vector<int> varField = {1,8}, 
-               std::vector<std::complex<double>> ampField = {1.0, 1.0}
-#else
-               //Poroelastic materials have the following wave modes:
-               //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
-               //Here we impose -S1, -Ps and P
-               std::vector<int> varField = {2,3,12}, 
-               std::vector<std::complex<double>> ampField = {1.0, 1.0, 1.0}
-#endif
+               double phase,
+               std::array<double, 3> kVec,
+               std::vector<int> varField,
+               std::vector<std::complex<double>> ampField
                );
+    explicit Planarwave(const CellMaterialData& materialData,
+                        double phase = 0.0,
+                        std::array<double, 3> kVec = {M_PI, M_PI, M_PI});
 
       void evaluate( double time,
                      std::vector<std::array<double, 3>> const& points,
                      const CellMaterialData& materialData,
                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const override;
     protected:
-      const std::vector<int>                                        m_varField;
-      const std::vector<std::complex<double>>                       m_ampField;
-      const double                                                  m_phase;
-      const std::array<double, 3>                                   m_kVec;
+      std::vector<int> m_varField;
+      std::vector<std::complex<double>> m_ampField;
+      const double m_phase;
+      const std::array<double, 3> m_kVec;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> m_eigenvectors;
+  private:
+      void init(const CellMaterialData& materialData);
     };
 
     //superimpose three planar waves travelling into different directions

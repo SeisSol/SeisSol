@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.2-devel-ubuntu18.04
+FROM nvidia/cuda:11.2.1-devel-ubuntu18.04
 
 
 RUN apt-get update -yqq && \
@@ -10,11 +10,10 @@ pip3 install pylint pep8 flake8
 
 # Install GCC compilers
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test && \
-apt-get install -yqq gcc-8 g++-8 gfortran-8 && \
 apt-get install -yqq gcc-9 g++-9 gfortran-9 && \
-update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100 && \
-update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100 && \
-update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
+update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100 && \
+update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100 && \
+update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-9 100
 
 
 # Install cmake
@@ -86,7 +85,7 @@ cd ../../ && rm -rf ./llvm-project
 
 
 # Install hipsycl
-RUN export VERSION=0.9.1 && \
+RUN export VERSION=0.9.2 && \
 apt install -yqq libomp-dev && \
 git clone --depth 1 --branch v${VERSION} https://github.com/illuhad/hipSYCL.git hipsycl && \
 cd hipsycl && \
@@ -106,4 +105,4 @@ make -j $(nproc) && make install && cd ../.. && rm -rf ./hipsycl
 
 
 # Clean-up
-RUN apt-get clean &&   rm -rf /var/lib/apt/lists/*
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*

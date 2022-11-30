@@ -112,10 +112,9 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     real** dofs = surfaceLayer->var(surfaceLts.dofs);
     real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
-    auto boundaryMapping = surfaceLayer->var(surfaceLts.boundaryMapping);
 
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, boundaryMapping, displacementDofs, side)
+    #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
       real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
@@ -188,6 +187,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   // Triangle quadrature points and weights
   auto points = new double[numQuadraturePoints][2];
   auto weights = new double[numQuadraturePoints];
+  // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
   seissol::quadrature::TriangleQuadrature(points, weights, polyDegree);
 
   auto points3D = std::array<std::array<double, 3>, numQuadraturePoints>{}; // Points for eval of 3D basis

@@ -70,8 +70,8 @@ public:
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
 	 *  (if the fault writer was active)
 	 */
-	void load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
-		double* slip, double* slip1, double* slip2, double* state, double* strength);
+	void load(int &timestepFault, real* mu, real* slipRate1, real* slipRate2,
+		real* slip, real* slip1, real* slip2, real* state, real* strength);
 
 	void write(int timestepFault);
 

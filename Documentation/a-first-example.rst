@@ -6,15 +6,11 @@ A first example
 This tutorial will guide you through the steps of your first SeisSol
 simulation. We will use the `SCEC TPV33
 benchmark <http://scecdata.usc.edu/cvws/tpv33docs.html>`__ as an example
-in this tutorial. We assume that you have successfully compiled SeisSol
-with the options ``parallelization=hybrid`` and ``generatedKernels=yes``
-(see :ref:`compiling-seissol`).
+in this tutorial. We assume that you have successfully compiled SeisSol.
 
 Setup
 -----
 
--  Follow steps 1. - 3. from the [[configuration
-   documentation|configuration]].
 -  Download the `parameter file and additional setup
    files <https://github.com/SeisSol/Examples/tree/master/tpv33>`__ and
    put them in your launch directory, hereafter named
@@ -40,20 +36,32 @@ Execution
 ---------
 
 To execute SeisSol, change to the ``launch_SeisSol`` directory and run:
-``OMP_NUM_THREADS=<threads> mpiexec  -np <n> ./SeisSol_<configuration> parameters_master.par``,
+``OMP_NUM_THREADS=<threads> mpiexec  -np <n> ./SeisSol_<configuration> parameters.par``,
 where:
 
 -  ``<configuration>`` depends on your compilation setting (e.g.
-   SeisSol_release_generatedKernels_dsnb_hybrid_none_9_4 for a Sandy
-   Bridge architecture and order 4 accuracy in space and time).
--  ``<n>`` is the number of processes/ the number of partitions used.
--  ``<threads>`` is the number of OpenMP threads per process (we usually
-   use the number of CPU per core).
+   SeisSol_Release_dhsw_4_elastic for a Haswell architecture and order 4 accuracy in space and time).
+-  ``<n>`` is the number of MPI ranks / the number of compute nodes used.
+-  ``<threads>`` is the number of OpenMP threads per MPI rank, typically the number of CPUS.
+   (If you compiled SeisSol with :code:`-DCOMMTHREAD=ON` use the number of CPUs - 1, to reserve one CPU for communication).
 
 **Hint:** Depending on the system you are using, the MPI launcher might
-be different from ``mpiexec`` (e.g. ``mpiexec.hydra``).
+be different from ``mpiexec`` (e.g. ``mpiexec.hydra``, ``mpirun``, ``srun``).
+For more infos about how to get optimal performance, have a look at the :ref:`optimal_environment_variables_on_supermuc_ng`.
 
 Result verification
 -------------------
+
+SeisSol produces various output files:
+
+* :ref:`3D wave field output <wave_field_output>` (:code:`.xdmf`)
+* :ref:`2D free surface output <free_surface_output>` (:code:`-surface.xdmf`)
+* :ref:`2D fault output <paraview_output>` (:code:`-fault.xdmf`)
+* :ref:`off_fault_receivers` (:code:`-receiver-<id>.dat`)
+* :ref:`Fault receivers <fault_receivers>` (:code:`-faultreceiver-<id>.dat`)
+* :ref:`energy_output` (:code:`-energy.csv`)
+
+The :code:`xdmf` files can be visualized with `Paraview <https://www.paraview.org/>`__.
+For the :code:`dat` files, you can use `viewrec <https://github.com/SeisSol/SeisSol/blob/master/postprocessing/visualization/receiver/bin/viewrec>`__.
 
 The outputs of your simulation can be compared with our outputs (using SeisSol) and the outputs of other codes by checking out the uploaded files for this SCEC benchmark on the SCEC Code Verification Project `website <http://scecdata.usc.edu/cvws/cgi-bin/cvws.cgi>`__.

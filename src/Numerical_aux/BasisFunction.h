@@ -264,6 +264,30 @@ T TimeBasisFunctionGenerator<T>::operator()(unsigned int i) const {
   return functions::DubinerP<1>({i}, {tau_});
 }
 
+namespace tri_dubiner {
+inline void evaluatePolynomials(double* phis, double xi, double eta, int numPoly) {
+  assert(numPoly > 0);
+  unsigned idx = 0;
+  for (unsigned int d = 0; d <= static_cast<unsigned>(numPoly); ++d) {
+    for (unsigned int j = 0; j <= d; ++j) {
+      phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+    }
+  }
+}
+
+inline void evaluateGradPolynomials(double* phis, double xi, double eta, int numPoly) {
+  assert(numPoly > 0);
+  unsigned idx = 0;
+  for (unsigned int d = 0; d <= static_cast<unsigned>(numPoly); ++d) {
+    for (unsigned int j = 0; j <= d; ++j) {
+      auto const grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
+      for (auto const& g : grad) {
+        phis[idx++] = g;
+      }
+    }
+  }
+}
+} // namespace tri_dubiner
 } // namespace basisFunction
 } //namespace seissol
 

@@ -196,35 +196,6 @@ CONTAINS
         OptionalFields%dt_convectiv(:) = DISC%FixTimeStep
     END WHERE
 
-    !
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-      DISC%LocalDt(:) = OptionalFields%dt_convectiv(:)
-      DO iElem = 1, MESH%nElem
-        OptionalFields%dtmin(iElem) = DISC%LocalDt(iElem)
-        DO iSide = 1, MESH%LocalElemType(iElem)
-            iNeighbor = MESH%ELEM%SideNeighbor(iSide,iElem)
-            IF(iNeighbor.LE.MESH%nElem) THEN
-                OptionalFields%dtmin(iElem) = MIN(OptionalFields%dtmin(iElem), DISC%LocalDt(iNeighbor))
-            ENDIF
-        ENDDO
-      ENDDO
-      DO iElem = 1, MESH%nElem
-        DISC%LocalDt(iElem) = OptionalFields%dtmin(iElem)
-      ENDDO
-      !
-      DO iElem = 1, MESH%nElem
-        ! Match printtime if necessary
-        IF(DISC%LocalTime(iElem)+DISC%LocalDt(iElem).GE.DISC%printtime) THEN
-            DISC%LocalDt(iElem) = DISC%printtime - DISC%LocalTime(iElem)
-        ENDIF
-        ! Match endtime if necessary
-        IF(DISC%LocalTime(iElem)+DISC%LocalDt(iElem).GE.DISC%EndTime) THEN
-            DISC%LocalDt(iElem) = DISC%EndTime - DISC%LocalTime(iElem)
-        ENDIF
-      ENDDO
-    ENDIF
-    !                                                                      
-    !                                                                         
     RETURN                                                                    
     !                                                                         
   END SUBROUTINE cfl_step

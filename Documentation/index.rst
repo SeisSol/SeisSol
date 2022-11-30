@@ -30,7 +30,8 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :caption: Introduction
 
   introduction
-  compilation
+  installing-dependencies
+  compiling-seissol
   a-first-example
   acknowledge
   reproducible-research
@@ -63,7 +64,10 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
+  behind_firewall
   supermuc
+  shaheen
+  frontera
   marconi
 
 .. toctree::
@@ -93,6 +97,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
   PUML-mesh-format
   asagi
+  sycl
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
@@ -100,6 +105,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   scaling
   basic-code-structure
   known-issues
+  breaking-changes-backward-compatibility
 
 .. toctree::
   :maxdepth: 2

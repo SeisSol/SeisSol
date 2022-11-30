@@ -250,7 +250,6 @@ CONTAINS
     INTEGER                         :: i, j, k, l, iElem, iDirac, iRicker
     INTEGER                         :: iDRFace
     INTEGER                         :: iCurElem
-    INTEGER                         :: nDGWorkVar
     INTEGER                         :: allocstat
     INTEGER                         :: iIntGP,iTimeGP,NestSize,BlockSize,iFace
     INTEGER                         :: iDegFr_xi,iDegFr_tau,iDegFr_tau2
@@ -377,13 +376,6 @@ CONTAINS
             usePlasticity = logical(EQN%Plasticity == 1, 1))
 
     !
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(3)
-        nDGWorkVar = EQN%nVar+EQN%nAneFuncperMech
-    CASE DEFAULT
-        nDGWorkVar = EQN%nVarTotal
-    END SELECT
-    !
     ! Allocation of arrays
     ALLOCATE(                                                                                   &
          DISC%Galerkin%dgvar( DISC%Galerkin%nDegFr,EQN%nVarTotal,MESH%nElem,DISC%Galerkin%nRK), &
@@ -393,14 +385,6 @@ CONTAINS
        call MPI_ABORT(MPI%commWorld, 134)
     END IF
     !
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        ALLOCATE( DISC%Galerkin%DGTaylor(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly,MESH%nElem), &
-                  STAT = allocstat )
-        IF(allocStat .NE. 0) THEN
-           logError(*) 'could not allocate DISC%Galerkin%DGTayl.'
-           call MPI_ABORT(MPI%commWorld, 134)
-        END IF
-    ENDIF
 
 #ifdef PARALLEL
     IF(MPI%nCPU.GT.1) THEN                                          !
@@ -437,8 +421,8 @@ CONTAINS
           materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:EQN%nBackgroundVar,MPIIndex) ! rho,mu,lambda
       ELSE
           SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
-          CASE(0)
-              iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
+          CASE(0, 3) ! For regular faces and dynamic rupture faces, use the values from the outer material.
+              iNeighbor = MESH%ELEM%SideNeighbor(iSide,iElem)
               materialVal = OptionalFields%BackgroundValue(iNeighbor,:)
           CASE DEFAULT ! For boundary conditions take inside material
               materialVal = OptionalFields%BackgroundValue(iElem,:)
@@ -462,6 +446,8 @@ CONTAINS
             clustering = disc%galerkin%clusteredLts, &
             enableFreeSurfaceIntegration = enableFreeSurfaceIntegration, &
             usePlasticity = logical(EQN%Plasticity == 1, 1))
+
+    call c_interoperability_initFaultOutputManager()
 
   ! Initialize source terms
   select case(SOURCE%Type)
@@ -498,106 +484,14 @@ CONTAINS
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
   call c_interoperability_initializeGravitationalAcceleration(EQN%GravitationalAcceleration)
 
-  logInfo0(*) 'Initializing element local matrices.'
-  call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
-
-  IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        ALLOCATE( DISC%LocalIteration(MESH%nElem) )
-        ALLOCATE( DISC%LocalTime(MESH%nElem)      )
-        ALLOCATE( DISC%LocalDt(MESH%nElem)        )
-        DISC%LocalIteration(:)  = 0.
-        DISC%LocalTime(:)       = 0.
-    ENDIF
-    !
-    IF(EQN%DR.EQ.1) THEN
-
-      ALLOCATE(DISC%DynRup%SlipRate1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%SlipRate2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%TracXY(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%TracXZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      
-      ! TODO: Transpose StateVar
-      ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      !
-
-      ! Initialize w/ first-touch
-      !$omp parallel do schedule(static)
-      DO i=1,MESH%fault%nSide
-          DISC%DynRup%SlipRate1(:,i) = EQN%IniSlipRate1
-          DISC%DynRup%SlipRate2(:,i) = EQN%IniSlipRate2
-          DISC%DynRup%Slip(:,i) = 0.0
-          DISC%DynRup%Slip1(:,i) = 0.0
-          DISC%DynRup%Slip2(:,i) = 0.0
-          DISC%DynRup%TracXY(:,i) = 0.0
-          DISC%DynRup%TracXZ(:,i) = 0.0
-          DISC%DynRup%StateVar(:,i) = EQN%IniStateVar(:,i)
-          DISC%DynRup%Mu(:,i) = EQN%IniMu(:,i)
-          DISC%DynRup%PeakSR(:,i) = 0.0
-          DISC%DynRup%rupture_time(:,i) = 0.0
-          DISC%DynRup%dynStress_time(:,i) = 0.0
-      END DO
-
-      allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
-      allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-
-      ! Initialize w/ first-touch
-      !$omp parallel do schedule(static)
-      DO i=1,MESH%fault%nSide
-          disc%DynRup%output_Mu(:,i) = 0.0
-          disc%DynRup%output_Strength(:,i) = 0.0
-          disc%DynRup%output_Slip(:,i) = 0.0
-          disc%DynRup%output_Slip1(:,i) = 0.0
-          disc%DynRup%output_Slip2(:,i) = 0.0
-          disc%DynRup%output_rupture_time(:,i) = 0.0
-          disc%DynRup%output_PeakSR(:,i) = 0.0
-          disc%DynRup%output_dynStress_time(:,i) = 0.0
-          disc%DynRup%output_StateVar(:,i) = 0.0
-      END DO
-
-    else
-        ! Allocate dummy arrays to avoid debug errors
-        allocate(DISC%DynRup%SlipRate1(0,0), &
-            DISC%DynRup%SlipRate2(0,0),      &
-            DISC%DynRup%Slip(0,0),           &
-            DISC%DynRup%Slip1(0,0),          &
-            DISC%DynRup%Slip2(0,0),          &
-            DISC%DynRup%Mu(0,0),             &
-            DISC%DynRup%StateVar(0,0),       &
-            DISC%DynRup%PeakSR(0,0),         &
-            DISC%DynRup%Strength(0,0),       &
-            DISC%DynRup%rupture_time(0,0),   &
-            DISC%DynRup%dynStress_time(0,0)  )
-        allocate(DISC%DynRup%output_Mu(0,0),      &
-            DISC%DynRup%output_StateVar(0,0),     &
-            DISC%DynRup%output_Strength(0,0),     &
-            DISC%DynRup%output_Slip(0,0),         &
-            DISC%DynRup%output_Slip1(0,0),        &
-            DISC%DynRup%output_Slip2(0,0),        &
-            DISC%DynRup%output_rupture_time(0,0), &
-            DISC%DynRup%output_PeakSR(0,0),       &
-            DISC%DynRup%output_dynStress_time(0,0))
-    ENDIF
-    !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
         call MPI_ABORT(MPI%commWorld, 134)
         !
     ENDIF
+    logInfo0(*) 'Initializing element local matrices.'
+    call c_interoperability_initializeCellLocalMatrices(logical(EQN%Plasticity == 1, 1))
   END SUBROUTINE iniGalerkin3D_us_level2_new
 
 
@@ -636,7 +530,7 @@ CONTAINS
     INTEGER :: iElem, iSide, iBndGP
     INTEGER :: iNeighbor, iLocalNeighborSide, iNeighborSide, iNeighborVertex
     INTEGER :: iLocalNeighborVrtx
-    INTEGER :: nDegFr, MaxDegFr, nDGWorkVar
+    INTEGER :: nDegFr, MaxDegFr
     INTEGER :: i,j,k,l,m,r,r1,r2,r3                       ! Loop counter      !
     INTEGER :: iPoly, iXi, iEta, iZeta, iIntGP            ! Loop counter      !
     REAL    :: xi, eta, zeta, tau, chi, tau1, chi1
@@ -749,19 +643,8 @@ CONTAINS
     ! Attention: Don't change Nr of GP here since some routine depend on these numbers
     DISC%Galerkin%nIntGP = (DISC%Galerkin%nPoly + 2)**3
 
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(3)
-        nDGWorkVar = EQN%nVar+EQN%nAneFuncperMech
-    CASE DEFAULT
-        nDGWorkVar = EQN%nVarTotal
-    END SELECT
-
     IF(MESH%nElem_Tet.GT.0) THEN
 
-#ifdef USE_DR_CELLAVERAGE
-        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, DISC%Galerkin%BndGaussP_Tet)
-        DISC%Galerkin%BndGaussW_Tet = 1.e99 ! blow up solution if used
-#else
         ! Compute and store surface gaussian integration points
         CALL TriangleQuadraturePoints(                         &
                  nIntGP     = DISC%Galerkin%nBndGP,            &
@@ -771,7 +654,6 @@ CONTAINS
                  IO         = IO,                              &
                  quiet      = .TRUE.,                          &
                  MPI        = MPI                              )
-#endif
 
 #ifndef NDEBUG
         ! assert contant material parameters per element
@@ -930,7 +812,6 @@ CONTAINS
     USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
-    USE ini_faultoutput_mod
     USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
@@ -1169,78 +1050,14 @@ CONTAINS
         logError(*) 'Element number and position : ', minl(1), MESH%ELEM%xyBary(:,minl(1))
         call MPI_ABORT(MPI%commWorld, 134)
     ENDIF
-    DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
-    DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-    !
-    !
-    !
-    ! Initialize fault rupture output
-    ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
-    IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
-        ! Case 3
-        ! output at certain positions specified in the *.dyn file
-        IF(DISC%DynRup%OutputPointType.EQ.3) THEN
-            !
-            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
-            !
-            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
-
-#ifdef HDF
-            CALL ini_fault_receiver_hdf(EQN, MESH, DISC, IO, MPI)
-!#else
-#endif
-            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
-
-        ! Case 4
-        ! for full fault output without pickpoints
-        ELSEIF(DISC%DynRup%OutputPointType.EQ.4) THEN
-            !
-            DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
-        ! Case 5
-        ! for full fault output and pickpoints
-        ELSEIF(DISC%DynRup%OutputPointType.EQ.5) THEN
-            !
-            DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_atPickpoint%nDR_pick       = DISC%DynRup%DynRup_out_atPickpoint%nOutPoints
-            !
-            ! test if fault pickpoints are on the fault (within a tolerance) and find corresponding "+"-element (iElem)
-            CALL ini_fault_receiver(EQN,MESH,BND,DISC,IO,MPI)
-            !
-            !
-            DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .TRUE.
-            DISC%DynRup%DynRup_out_elementwise%nDR_pick       = 0
-            CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
-        ENDIF ! DISC%DynRup%OutputPointType
-    ENDIF ! end initialize fault output
-    !
-    !
-    !
-    !
     ! Allocate rest of MPI communication structure
     logInfo(*) 'Allocation of remaining MPI communication structure '
     logInfo(*) '  General info: ', BND%NoMPIDomains,DISC%Galerkin%nDegFr,EQN%nVar
     DO iDomain = 1, BND%NoMPIDomains
         logInfo(*) 'Bnd elements for domain ', iDomain, ' : ',  BND%ObjMPI(iDomain)%nElem
-        IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrST,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
-        ELSE
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
-        ENDIF
+        ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
         ALLOCATE( BND%ObjMPI(iDomain)%NeighborBackground(EQN%nBackgroundVar,BND%ObjMPI(iDomain)%nElem)     )
         BND%ObjMPI(iDomain)%Init = .FALSE.
-        IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDuDt(DISC%Galerkin%nDegFr,EQN%nVar+EQN%nAneFuncperMech,BND%ObjMPI(iDomain)%nElem) )
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborTime( BND%ObjMPI(iDomain)%nElem) )
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDt(   BND%ObjMPI(iDomain)%nElem) )
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborUpdate(BND%ObjMPI(iDomain)%nElem))
-            BND%ObjMPI(iDomain)%NeighborDuDt(:,:,:) = 0.
-            BND%ObjMPI(iDomain)%NeighborTime(:)     = -1e10
-            BND%ObjMPI(iDomain)%NeighborDt(:)       = -2e10
-            BND%ObjMPI(iDomain)%NeighborUpdate(:)   = -1
-        ENDIF
     ENDDO ! iDomain
     !
     IF(DISC%Galerkin%ZoneOrderFlag.EQ.1) THEN

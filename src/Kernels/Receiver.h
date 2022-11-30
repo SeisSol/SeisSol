@@ -55,14 +55,18 @@ struct GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
-      Receiver(unsigned pointId, double xi, double eta, double zeta, kernels::LocalData data, size_t reserved)
-        : pointId(pointId),
-          basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
-          data(data)
-      {
+      Receiver(unsigned pointId,
+               Eigen::Vector3d coordinates,
+               double xi, double eta, double zeta,
+               kernels::LocalData data, size_t reserved)
+          : pointId(pointId),
+            coordinates(std::move(coordinates)),
+            basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
+            data(data) {
         output.reserve(reserved);
       }
       unsigned pointId;
+      Eigen::Vector3d coordinates;
       basisFunction::SampledBasisFunctions<real> basisFunctions;
       kernels::LocalData data;
       std::vector<real> output;

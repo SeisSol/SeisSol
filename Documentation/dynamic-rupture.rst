@@ -145,8 +145,8 @@ Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the 
 Friction laws
 ~~~~~~~~~~~~~
 
-Linear slip-weakening friction (:code:`FL=2`, :code:`FL=6`, :code:`FL=16`)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Linear slip-weakening friction (:code:`FL=6`, :code:`FL=16`)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The linear slip-weakening friction is widely used for dynamic rupture simulations.
 
@@ -171,12 +171,18 @@ Friction parameters:
 +------------------+----------------------------------------+-------------------------------+
 | :math:`C(x)`     | cohesion                               | :code:`cohesion`              |
 +------------------+----------------------------------------+-------------------------------+
+| :math:`T(x)`     | forced rupture time                    | :code:`forced_rupture_time`   |
++------------------+----------------------------------------+-------------------------------+
 
-Friction law :code:`2` implements such classical linear slip-weakening, 
-while friction law :code:`16` combines linear slip-weakening with a forced rupture time.
+Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
+If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter `forced_rupture_time` in the fault `yaml` file.
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
+For friction law :code:`16`, we resample the slip rate in every step to suppress spurious oscillations.
+In the case of Prakash-Clifton regularization, we do not resample the slip rate.
 
-Examples of input files for the friction laws :code:`2` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.
+
+
+Examples of input files for the friction laws :code:`6` and :code:`16` are availbable in the :ref:`cookbook<cookbook overview>`.
 
 Linear slip weakening can be seen as a special case of rate-and-state friction with
 
@@ -223,13 +229,13 @@ Friction parameters:
 +==================+========================================+===============================+
 | :math:`a(x)`     | frictional evolution coefficient       | :code:`rs_a`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`b`        | frictional state coefficient           | :code:`RS_b`                  |
+| :math:`b`        | frictional state coefficient           | :code:`rs_b`                  |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`L(x)`     | characteristic slip scale              | :code:`RS_sl0`                |
+| :math:`L(x)`     | characteristic slip scale              | :code:`rs_sl0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`V_0`      | reference slip velocity                | :code:`RS_sr0`                |
+| :math:`V_0`      | reference slip velocity                | :code:`rs_sr0`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`f_0`      | reference friction coefficient         | :code:`RS_f0`                 |
+| :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math:: 
@@ -257,9 +263,9 @@ In addition to the ageing and the slip Law, strong velocity weakening requires t
 +------------------+----------------------------------------+-------------------------------+
 | symbol           | quantity                               | seisSol name                  |
 +==================+========================================+===============================+
-| :math:`V_w(x)`   | weakening slip velocity                | :code:`RS_srW`                |
+| :math:`V_w(x)`   | weakening slip velocity                | :code:`rs_srW`                |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`\mu_w`    | weakening friction coefficient         | :code:`Mu_W`                  |
+| :math:`\mu_w`    | weakening friction coefficient         | :code:`rs_muW`                |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math::
@@ -292,12 +298,12 @@ The TP parameters for which no spatial dependence has been implemented are defin
 .. code-block:: Fortran
 
   &DynamicRupture
-  thermalPress = 1                  ! Thermal pressurization 0: inactive; 1: active
-  IniTemp = 483.15                  ! Initial temperature [K]
-  IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
-  alpha_th = 1.0e-6                 ! Thermal diffusivity [m^2/s]
-  rho_c = 2.7e6                     ! Specific heat [Pa/K]
-  TP_lambda = 0.1e6                 ! Pore pressure change per unit temperature [Pa/K]
+  thermalPress = 1                     ! Thermal pressurization 0: inactive; 1: active
+  tp_iniTemp = 483.15                  ! Initial temperature [K]
+  tp_iniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
+  tp_thermalDiffusivity = 1.0e-6       ! Thermal diffusivity [m^2/s]
+  tp_heatCapacity = 2.7e6              ! Specific heat [Pa/K]
+  tp_undrainedTPResponse = 0.1e6       ! Pore pressure change per unit temperature [Pa/K]
 
 Two additional thermal pressurization parameters are space-dependent and therefore have to be specified in the dynamic rupture yaml file:
 
@@ -305,8 +311,8 @@ Two additional thermal pressurization parameters are space-dependent and therefo
 
   !ConstantMap
   map:
-    alpha_hy: 1e-4                  # Hydraulic diffusivity [m^2/s]
-    TP_half_width_shear_zone: 0.01  # Half width of shearing zone [m]
+    tp_hydraulicDiffusivity: 1e-4   # Hydraulic diffusivity [m^2/s]
+    tp_halfWidthShearZone: 0.01     # Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
 

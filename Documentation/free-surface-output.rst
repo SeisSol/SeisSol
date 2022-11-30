@@ -1,3 +1,5 @@
+.. _free_surface_output:
+
 Free surface output
 ===================
 

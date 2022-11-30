@@ -47,7 +47,7 @@ First clone ASAGI with:
   cd ASAGI
   git submodule update --init
 
-Set compiler options, e.g. for intel compilers on SuperMuc:
+Set compiler options, e.g. for intel compilers on SuperMUC:
 
 .. code-block:: bash
 

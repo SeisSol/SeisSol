@@ -102,9 +102,9 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
+  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"});
 #ifdef USE_POROELASTIC
-  std::array<std::string, 4> additionalNames({"p", "u_f", "v_f", "w_f"});
+  std::array<std::string, 4> additionalNames({"p", "v1_f", "v2_f", "v3_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
 

@@ -101,6 +101,13 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface c_interoperability_initFaultOutputManager
+    subroutine c_interoperability_initFaultOutputManager() bind( C, name='c_interoperability_initFaultOutputManager' )
+      use iso_c_binding
+      implicit none
+    end subroutine
+  end interface
+
   interface
     subroutine c_interoperability_initializeEasiBoundaries(fileName) bind( C, name='c_interoperability_initializeEasiBoundaries' )
       use iso_c_binding
@@ -174,15 +181,6 @@ module f_ftoc_bind_interoperability
   ! Don't forget to add // c_null_char to modelFileName when using this interface
   interface
     logical(kind=c_bool) function c_interoperability_faultParameterizedByTraction(modelFileName) bind( C, name='c_interoperability_faultParameterizedByTraction' )
-      use iso_c_binding, only: c_char, c_bool
-      implicit none
-      character(kind=c_char), dimension(*), intent(in)  :: modelFileName
-    end function
-  end interface
-
-  ! Don't forget to add // c_null_char to modelFileName when using this interface
-  interface
-    logical(kind=c_bool) function c_interoperability_nucleationParameterizedByTraction(modelFileName) bind( C, name='c_interoperability_nucleationParameterizedByTraction' )
       use iso_c_binding, only: c_char, c_bool
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: modelFileName
@@ -292,7 +290,7 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), dimension(*), intent(out) :: i_integrationMask
     end subroutine
 
-    subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
+    subroutine c_interoperability_initializeIO( &
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, i_outputGroups, i_outputGroupsSize, &
         freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
         receiverFileName, receiverSamplingInterval, receiverSyncInterval, &
@@ -301,14 +299,6 @@ module f_ftoc_bind_interoperability
       use iso_c_binding
       implicit none
 
-      real(kind=c_double), dimension(*), intent(in) :: i_mu
-      real(kind=c_double), dimension(*), intent(in) :: i_slipRate1
-      real(kind=c_double), dimension(*), intent(in) :: i_slipRate2
-      real(kind=c_double), dimension(*), intent(in) :: i_slip
-      real(kind=c_double), dimension(*), intent(in) :: i_slip1
-      real(kind=c_double), dimension(*), intent(in) :: i_slip2
-      real(kind=c_double), dimension(*), intent(in) :: i_state
-      real(kind=c_double), dimension(*), intent(in) :: i_strength
       integer(kind=c_int), value                    :: i_numSides
       integer(kind=c_int), value                    :: i_numBndGP
       integer(kind=c_int), value                    :: i_refinement
@@ -412,11 +402,35 @@ module f_ftoc_bind_interoperability
       end subroutine
   end interface
 
+  interface c_interoperability_numberOfTriangleQuadraturePoints
+    subroutine c_interoperability_numberOfTriangleQuadraturePoints(n) bind ( C, name='c_interoperability_numberOfTriangleQuadraturePoints')
+      use iso_c_binding
+      implicit none
+      integer(kind=c_int), intent(out) :: n
+    end subroutine
+  end interface
+
+  interface c_interoperability_triangleQuadratureRule
+    subroutine c_interoperability_triangleQuadratureRule(points, weights) bind( C, name='c_interoperability_triangleQuadratureRule' )
+      use iso_c_binding
+      implicit none
+      real(kind=c_double), dimension(2,*) :: points
+      real(kind=c_double), dimension(*) :: weights
+    end subroutine
+  end interface
+
   interface
     real(kind=c_double) function c_interoperability_M2invDiagonal(no) bind( C, name='c_interoperability_M2invDiagonal' )
       use iso_c_binding, only: c_int, c_double
       implicit none
       integer(kind=c_int), intent(in), value  :: no
     end function
+  end interface
+
+  interface c_interoperability_write_moment_magnitude
+    subroutine c_interoperability_write_moment_magnitude() bind ( C, name='c_interoperability_write_moment_magnitude')
+      use iso_c_binding
+      implicit none
+    end subroutine
   end interface
 end module

@@ -63,12 +63,13 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 
   // (time + number of quantities) * number of samples until sync point
   size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  m_receivers.emplace_back( pointId,
-                            xiEtaZeta[0],
-                            xiEtaZeta[1],
-                            xiEtaZeta[2],
-                            kernels::LocalData::lookup(lts, ltsLut, meshId),
-                            reserved);
+  m_receivers.emplace_back(pointId,
+                           point,
+                           xiEtaZeta[0],
+                           xiEtaZeta[1],
+                           xiEtaZeta[2],
+                           kernels::LocalData::lookup(lts, ltsLut, meshId),
+                           reserved);
 }
 
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
@@ -156,7 +157,12 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
            if (!std::isfinite(qAtPoint(sim, quantity))) {
-            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+             logError()
+                 << "Detected Inf/NaN in receiver output at"
+                 << receiver.coordinates[0] << ","
+                 << receiver.coordinates[1] << ","
+                 << receiver.coordinates[2] << "."
+                 << "Aborting.";
           }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
@@ -164,7 +170,12 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
           if (!std::isfinite(qAtPoint(quantity))) {
-            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+            logError()
+                << "Detected Inf/NaN in receiver output at"
+                << receiver.coordinates[0] << ","
+                << receiver.coordinates[1] << ","
+                << receiver.coordinates[2] << "."
+                << "Aborting.";
           }
           receiver.output.push_back(qAtPoint(quantity));
         }

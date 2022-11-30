@@ -81,6 +81,11 @@ extern "C" {
     e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration, usePlasticity);
   }
 
+
+  void c_interoperability_initFaultOutputManager() {
+    e_interoperability.initFaultOutputManager();
+  }
+
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
   }
@@ -159,30 +164,6 @@ extern "C" {
                                         waveSpeeds );
   }
   
-  void c_interoperability_addFaultParameter(  char* name,
-                                              double* memory  ) {
-    e_interoperability.addFaultParameter(name, memory);
-  }
-  
-  bool c_interoperability_faultParameterizedByTraction( char* modelFileName ) {
-    return seissol::initializers::FaultParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
-  }
-
-  bool c_interoperability_nucleationParameterizedByTraction( char* modelFileName ) {
-    return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
-  }
-
-  void c_interoperability_initializeFault(  char*   modelFileName,
-                                            int     gpwise,
-                                            double* bndPoints,
-                                            int     numberOfBndPoints ) {    
-    e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
-  }
-
-  void c_interoperability_enableDynamicRupture() {
-    e_interoperability.enableDynamicRupture();
-  }
-
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
@@ -234,16 +215,14 @@ extern "C" {
     e_interoperability.getIntegrationMask( i_integrationMask );
   }
 
-  void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* slip1, double* slip2, double* state, double* strength,
+  void c_interoperability_initializeIO(
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  int* outputGroups, int outputGroupsSize,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
       const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
       bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
-    e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-                                    numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
+    e_interoperability.initializeIO(numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
                                     freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
                                     receiverFileName, receiverSamplingInterval, receiverSyncInterval,
@@ -321,7 +300,22 @@ void c_interoperability_report_device_memory_status() {
     }
   }
 
-  double c_interoperability_M2invDiagonal(int no) {
+void c_interoperability_numberOfTriangleQuadraturePoints(int* n) {
+  *n = dr::misc::numberOfBoundaryGaussPoints;
+}
+
+void c_interoperability_triangleQuadratureRule(double* points, double* weights) {
+  constexpr size_t numberOfPoints = dr::misc::numberOfBoundaryGaussPoints;
+  auto pointsView = init::quadpoints::view::create(const_cast<real *>(init::quadpoints::Values));
+  auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  for (size_t i = 0; i < numberOfPoints; i++) {
+    points[2*i] = pointsView(i, 0);
+    points[2*i+1] = pointsView(i, 1);
+    weights[i] = weightsView(i);
+  }
+}
+
+double c_interoperability_M2invDiagonal(int no) {
       assert(no >= 0 && no < static_cast<int>(seissol::tensor::M2inv::Shape[0]));
       auto M2inv = seissol::init::M2inv::view::create(
         const_cast<real*>(seissol::init::M2inv::Values));
@@ -359,6 +353,8 @@ void c_interoperability_report_device_memory_status() {
                                                       double  sWaveVelocityMinus,
                                                       real const* resampleMatrix );
 
+  extern void f_interoperability_initializeFaultOutput(void* i_domain);
+
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
 
@@ -375,7 +371,7 @@ void c_interoperability_report_device_memory_status() {
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr) // reset domain pointer
+  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr), m_dynRupTree(nullptr), m_dynRup(nullptr) // reset domain pointer
 {
 }
 
@@ -436,6 +432,7 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
+  seissol::SeisSol::main.getMemoryManager().initializeFrictionLaw();
 
   unsigned* numberOfDRCopyFaces;
   unsigned* numberOfDRInteriorFaces;
@@ -469,12 +466,13 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
 
   delete[] ltsToMesh;
 
+  m_dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
+  m_dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+
   // derive lts setups
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
                                                          m_meshStructure,
                                                          m_ltsTree->var(m_lts->cellInformation) );
-
-
 }
 
 void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
@@ -495,6 +493,12 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
 
+void seissol::Interoperability::initFaultOutputManager() {
+  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager();
+
+  auto *faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
+  seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
+}
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::Interoperability::setupNRFPointSources( char const* fileName )
@@ -691,32 +695,6 @@ void seissol::Interoperability::fitAttenuation( double rho,
 #endif
 }
 
-void seissol::Interoperability::initializeFault( char*   modelFileName,
-                                                 int     gpwise,
-                                                 double* bndPoints,
-                                                 int     numberOfBndPoints )
-{
-  seissol::initializers::FaultParameterDB parameterDB;
-  for (auto const& kv : m_faultParameters) {
-    parameterDB.addParameter(kv.first, kv.second);
-  }
-  
-  if (gpwise != 0) {
-    seissol::initializers::FaultGPGenerator queryGen( seissol::SeisSol::main.meshReader(),
-                                                      reinterpret_cast<double(*)[2]>(bndPoints),
-                                                      numberOfBndPoints );
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
-  } else {
-    seissol::initializers::FaultBarycentreGenerator queryGen( seissol::SeisSol::main.meshReader(),
-                                                              numberOfBndPoints );
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
-  }
-}
-
-void seissol::Interoperability::enableDynamicRupture() {
-  // DR is always enabled if there are dynamic rupture cells
-}
-
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)
 {
   int side = i_side - 1;
@@ -791,6 +769,9 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
                                                            m_ltsFaceToMeshFace,
                                                            *memoryManager.getGlobalDataOnHost(),
                                                            m_timeStepping );
+
+  memoryManager.initFrictionData();
+  seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 
   seissol::initializers::initializeBoundaryMappings(meshReader,
                                                     memoryManager.getEasiBoundaryReader(),
@@ -886,9 +867,7 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
 }
 
 void
-seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1,
-                                        double* slip2,
-                                        double* state, double* strength, int numSides, int numBndGP, int refinement,
+seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refinement,
                                         int* outputMask,
                                         int* plasticityMask, double* outputRegionBounds,
                                         const std::unordered_set<int>& outputGroups,
@@ -903,10 +882,33 @@ seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* s
   
 	// Initialize checkpointing
 	int faultTimeStep;
-	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
+
+  // Only R&S friction explicitly stores the state variable, otherwise use the accumulated slip magnitude
+  real* stateVariable{nullptr};
+  if (dynamic_cast<seissol::initializers::LTSRateAndState*>(m_dynRup)) {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTSRateAndState*>(m_dynRup)->stateVariable));
+  } else {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->accumulatedSlipMagnitude));
+  }
+  // Only with prakash-clifton regularization, we store the fault strength, otherwise use the friction coefficient
+  real* strength{nullptr};
+  if (dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial*>(m_dynRup)) {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(dynamic_cast<seissol::initializers::LTSLinearSlipWeakeningBimaterial*>(m_dynRup)->regularisedStrength));
+  } else {
+    stateVariable = reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->mu));
+  }
+
+  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
 			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * tensor::Q::size(),
-			mu, slipRate1, slipRate2, slip, slip1, slip2,
-			state, strength, numSides, numBndGP,
+			reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->mu)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slipRate1)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slipRate2)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->accumulatedSlipMagnitude)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slip1)),
+      reinterpret_cast<real*>(m_dynRupTree->var(m_dynRup->slip2)),
+      stateVariable,
+      strength,
+      numSides, numBndGP,
 			faultTimeStep);
 	if (hasCheckpoint) {
 		seissol::SeisSol::main.simulator().setCurrentTime(
@@ -978,21 +980,19 @@ seissol::Interoperability::initializeIO(double* mu, double* slipRate1, double* s
 	    freeSurfaceFilename);
 }
 
-void seissol::Interoperability::copyDynamicRuptureState()
-{
-	f_interoperability_copyDynamicRuptureState(m_domain);
-}
-
 void seissol::Interoperability::initInitialConditions()
 {
   auto initialConditionDescription = m_initialConditionType;
   if (m_initialConditionType == "Planarwave") {
+    auto materialData = m_ltsLut.lookup(m_lts->material, 0);
+
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      const double phase = (2.0*M_PI*s) / MULTIPLE_SIMULATIONS;
+      m_iniConds.emplace_back(new physics::Planarwave(materialData, phase));
     }
 #else
-    m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0)));
+    m_iniConds.emplace_back(new physics::Planarwave(materialData));
 #endif
   } else if (m_initialConditionType == "SuperimposedPlanarwave") {
 #ifdef MULTIPLE_SIMULATIONS
@@ -1096,54 +1096,6 @@ void seissol::Interoperability::deallocateMemoryManager() {
   seissol::SeisSol::main.deleteMemoryManager();
 }
 
-void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
-                                             double i_timeStepWidth )
-{
-  f_interoperability_faultOutput( m_domain, &i_fullUpdateTime, &i_timeStepWidth );
-}
-
-void seissol::Interoperability::evaluateFrictionLaw(  int face,
-                                                      real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                      real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                                      real imposedStatePlus[seissol::tensor::QInterpolated::size()],
-                                                      real imposedStateMinus[seissol::tensor::QInterpolated::size()],
-                                                      double i_fullUpdateTime,
-                                                      double timePoints[CONVERGENCE_ORDER],
-                                                      double timeWeights[CONVERGENCE_ORDER],
-                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
-                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
-{
-  int fFace = face + 1;
-  int numberOfPoints = tensor::QInterpolated::Shape[0];
-  int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
-
-  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
-
-  f_interoperability_evaluateFrictionLaw( m_domain,
-                                          fFace,
-                                         &QInterpolatedPlus[0][0],
-                                         &QInterpolatedMinus[0][0],
-                                         &imposedStatePlus[0],
-                                         &imposedStateMinus[0],
-                                          numberOfPoints,
-                                          godunovLd,
-                                          &i_fullUpdateTime,
-                                          &timePoints[0],
-                                          &timeWeights[0],
-                                          waveSpeedsPlus.density,
-                                          waveSpeedsPlus.pWaveVelocity,
-                                          waveSpeedsPlus.sWaveVelocity,
-                                          waveSpeedsMinus.density,
-                                          waveSpeedsMinus.pWaveVelocity,
-                                          waveSpeedsMinus.sWaveVelocity,
-                                          init::resample::Values );
-}
-
-void seissol::Interoperability::calcElementwiseFaultoutput(double time)
-{
-	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
-}
-
 void seissol::Interoperability::reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -1165,3 +1117,4 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
   }
 #endif
 }
+

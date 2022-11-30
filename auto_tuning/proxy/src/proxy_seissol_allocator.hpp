@@ -257,21 +257,11 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   if (enableDynamicRupture) {
     auto &drLayer = m_dynRupTree->child(0).child<Interior>();
     const auto drLayerSize = drLayer.getNumberOfCells();
-    constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size() * sizeof(real);
-    constexpr size_t imposedStateSize = tensor::QInterpolated::size() * sizeof(real);
-    constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
 
-    drLayer.setScratchpadSize(m_dynRup.QInterpolatedPlusOnDevice, QInterpolatedSize * drLayerSize);
-    drLayer.setScratchpadSize(m_dynRup.QInterpolatedMinusOnDevice, QInterpolatedSize * drLayerSize);
+    constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
     drLayer.setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * drLayerSize);
     drLayer.setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * drLayerSize);
 
-    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
-    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
-    drLayer.setScratchpadSize(m_dynRup.QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
-    drLayer.setScratchpadSize(m_dynRup.QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
-    drLayer.setScratchpadSize(m_dynRup.imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
-    drLayer.setScratchpadSize(m_dynRup.imposedStateMinusOnHost, LowerStageFactor * imposedStateSize);
     m_dynRupTree->allocateScratchPads();
 
     CompositeRecorder <seissol::initializers::DynamicRupture> drRecorder;

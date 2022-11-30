@@ -162,6 +162,8 @@ private:
     seissol::initializers::Layer* dynRupCopyData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
+    dr::friction_law::FrictionSolver* frictionSolver;
+    dr::output::OutputManager* faultOutputManager;
 
     //! Mapping of cells to point sources
     sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
@@ -404,15 +406,6 @@ public:
    * @param i_clusterId id of this cluster with respect to the current rank.
    * @param i_globalClusterId global id of this cluster.
    * @param usePlasticity true if using plasticity
-   * @param i_timeKernel time integration kernel.
-   * @param i_volumeKernel volume integration kernel.
-   * @param i_boundaryKernel boundary integration kernel.
-   * @param i_copyCellInformation cell information in the copy layer.
-   * @param i_interiorCellInformation cell information in the interior.
-   * @param i_globalData global data.
-   * @param i_copyCellData cell data in the copy layer.
-   * @param i_interiorCellData cell data in the interior.
-   * @param i_cells degrees of freedom, time buffers, time derivatives.
    **/
   TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
               LayerType layerType, double maxTimeStepSize,
@@ -420,7 +413,9 @@ public:
               DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,
               seissol::initializers::Layer *i_clusterData, seissol::initializers::Layer* dynRupInteriorData,
               seissol::initializers::Layer* dynRupCopyData, seissol::initializers::LTS* i_lts,
-              seissol::initializers::DynamicRupture* i_dynRup, LoopStatistics* i_loopStatistics,
+              seissol::initializers::DynamicRupture* i_dynRup,
+              seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
+              dr::output::OutputManager* i_faultOutputManager, LoopStatistics* i_loopStatistics,
               ActorStateStatistics* actorStateStatistics);
 
   /**
@@ -442,6 +437,10 @@ public:
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
     m_receiverCluster = receiverCluster;
+  }
+
+  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+    faultOutputManager = outputManager;
   }
 
   /**

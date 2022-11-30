@@ -48,6 +48,7 @@
 #include "SeisSol.h"
 #include "Modules/Modules.h"
 #include "Solver/Interoperability.h"
+#include "DynamicRupture/Output/OutputManager.hpp"
 
 extern seissol::Interoperability e_interoperability;
 
@@ -175,6 +176,8 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime)
 {
 	SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-	e_interoperability.calcElementwiseFaultoutput(currentTime);
+	if (callbackObject) {
+		callbackObject->updateElementwiseOutput();
+	}
 	write(currentTime);
 }

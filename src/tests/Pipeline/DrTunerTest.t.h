@@ -45,5 +45,5 @@ TEST_CASE("Dr tuner") {
     }
     REQUIRE(batchSize == AbsApprox(midPoint).epsilon(eps));
   }
-};
+}
 } // namespace seissol::unit_test

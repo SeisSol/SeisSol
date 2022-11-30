@@ -392,6 +392,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
+    seissol::dr::ImpedancesAndEta*        impAndEta                                                 = it->var(dynRup->impAndEta);
+
 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
@@ -512,6 +514,22 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
+
+      //calculate Impedances Z and eta
+      impAndEta[ltsFace].zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].zpNeig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].zs = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
+      impAndEta[ltsFace].zsNeig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
+
+      impAndEta[ltsFace].invZp = 1/impAndEta[ltsFace].zp;
+      impAndEta[ltsFace].invZpNeig = 1/impAndEta[ltsFace].zpNeig;
+      impAndEta[ltsFace].invZs = 1/impAndEta[ltsFace].zs;
+      impAndEta[ltsFace].invZsNeig = 1/impAndEta[ltsFace].zsNeig;
+
+      impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+      impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
+      impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
+
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::acoustic: {
