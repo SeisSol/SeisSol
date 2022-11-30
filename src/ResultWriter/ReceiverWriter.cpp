@@ -62,8 +62,11 @@ void ReceiverWriterExecutor::execInit(const async::ExecInfo& info,
       info.buffer(static_cast<int>(BufferIds::POINTS)));
   // But then, is the original ptr aligned?
   // Why does this segfault?
-  points.resize(numberOfPoints);
-  points = std::move(std::vector< Eigen::Vector3d>(pointsPtr, pointsPtr + numberOfPoints));
+  auto points = std::move(std::vector< Eigen::Vector3d>(pointsPtr, pointsPtr + numberOfPoints));
+  for (const auto& point : points) {
+    std::cout << point << "\n";
+  }
+  this->points = points;
 }
 
 void ReceiverWriterExecutor::exec(const async::ExecInfo& info,

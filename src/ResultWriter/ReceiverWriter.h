@@ -61,7 +61,7 @@ public:
         private async::Module<ReceiverWriterExecutor, ReceiverWriterInitParam, ReceiverWriterParam>,
         public seissol::Module {
     public:
-      void setUp() {
+      void setUp() override {
         setExecutor(executor);
         // TODO(Lukas) Pin
         // TODO(Lukas) When is this called?
@@ -92,7 +92,7 @@ public:
 
       void write(double time);
       void close();
-      void tearDown();
+      void tearDown() override;
 
       //
       // Hooks
