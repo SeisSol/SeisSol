@@ -516,7 +516,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                                                       table,
                                                                                       plasticity);
 
-    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsPlasticity()
+    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsPlasticity(
         i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]
         + numAdjustedDofs * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)]);
     seissol::SeisSol::main.flopCounter().incrementHardwareFlopsPlasticity(
