@@ -49,28 +49,37 @@ extern long long libxsmm_num_total_flops;
 extern long long pspamm_num_total_flops;
 
 namespace seissol::monitoring {
-class FlopCounter {
+struct FlopCounter {
   public:
-  // global variables for summing-up SeisSol internal counters
-  long long g_SeisSolNonZeroFlopsLocal = 0;
-  long long g_SeisSolHardwareFlopsLocal = 0;
-  long long g_SeisSolNonZeroFlopsNeighbor = 0;
-  long long g_SeisSolHardwareFlopsNeighbor = 0;
-  long long g_SeisSolNonZeroFlopsOther = 0;
-  long long g_SeisSolHardwareFlopsOther = 0;
-  long long g_SeisSolNonZeroFlopsDynamicRupture = 0;
-  long long g_SeisSolHardwareFlopsDynamicRupture = 0;
-  long long g_SeisSolNonZeroFlopsPlasticity = 0;
-  long long g_SeisSolHardwareFlopsPlasticity = 0;
-
   void init(std::string outputFileNamePrefix);
   void printPerformanceUpdate(double wallTime);
   void printPerformanceSummary(double wallTime);
+  void incrementNonZeroFlopsLocal(long long update);
+  void incrementHardwareFlopsLocal(long long update);
+  void incrementNonZeroFlopsNeighbor(long long update);
+  void incrementHardwareFlopsNeighbor(long long update);
+  void incrementNonZeroFlopsOther(long long update);
+  void incrementHardwareFlopsOther(long long update);
+  void incrementNonZeroFlopsDynamicRupture(long long update);
+  void incrementHardwareFlopsDynamicRupture(long long update);
+  void incrementNonZeroFlopsPlasticity(long long update);
+  void incrementHardwareFlopsPlasticity(long long update);
 
   private:
   std::ofstream out;
-  long long recentTotalFlops = 0;
-  double recentWallTime = 0;
+  long long previousTotalFlops = 0;
+  double previousWallTime = 0;
+  // global variables for summing-up SeisSol internal counters
+  long long nonZeroFlopsLocal = 0;
+  long long hardwareFlopsLocal = 0;
+  long long nonZeroFlopsNeighbor = 0;
+  long long hardwareFlopsNeighbor = 0;
+  long long nonZeroFlopsOther = 0;
+  long long hardwareFlopsOther = 0;
+  long long nonZeroFlopsDynamicRupture = 0;
+  long long hardwareFlopsDynamicRupture = 0;
+  long long nonZeroFlopsPlasticity = 0;
+  long long hardwareFlopsPlasticity = 0;
 };
 }
 
