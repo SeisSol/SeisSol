@@ -59,14 +59,17 @@ void FlopCounter::init(std::string outputFileNamePrefix) {
   out.open(outputFileName);
   out << "time,";
   for (size_t i = 0; i < worldSize - 1; ++i) {
-    out << "rank_" << i << ",";
+    out << "rank_" << i << "_accumulated,";
+    out << "rank_" << i << "_current,";
   }
-  out << "rank_" << worldSize - 1 << std::endl;
+  out << "rank_" << worldSize - 1 << "_accumulated,";
+  out << "rank_" << worldSize - 1 << "_current" << std::endl;
 }
 
 void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
   const int worldSize = seissol::MPI::mpi.size();
+
   const long long newTotalFlops = g_SeisSolHardwareFlopsLocal
                     + g_SeisSolHardwareFlopsNeighbor
                     + g_SeisSolHardwareFlopsOther
@@ -78,31 +81,45 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const double diffTime = wallTime - recentWallTime;
   recentWallTime = wallTime;
 
-  const double gflopsPerSecond = diffFlops * 1.e-9 / diffTime;
+  const double accumulatedGflopsPerSecond = newTotalFlops * 1.e-9 / wallTime;
+  const double recentGflopsPerSecond = diffFlops * 1.e-9 / diffTime;
 
-  double gflopsPerSecondOnRanks[worldSize];
-  MPI_Gather(&gflopsPerSecond,
+  double accumulatedGflopsPerSecondOnRanks[worldSize];
+  double recentGflopsPerSecondOnRanks[worldSize];
+  MPI_Gather(&accumulatedGflopsPerSecond,
              1,
              MPI_DOUBLE,
-             gflopsPerSecondOnRanks,
+             accumulatedGflopsPerSecondOnRanks,
+             1,
+             MPI_DOUBLE,
+             0,
+             seissol::MPI::mpi.comm());
+  MPI_Gather(&recentGflopsPerSecond,
+             1,
+             MPI_DOUBLE,
+             recentGflopsPerSecondOnRanks,
              1,
              MPI_DOUBLE,
              0,
              seissol::MPI::mpi.comm());
 
   if (rank == 0) {
-    double flopsSum = 0;
+    double accumulatedGflopsSum = 0;
+    double recentGflopsSum = 0;
     for (size_t i = 0; i < worldSize; i++) {
-      flopsSum += gflopsPerSecondOnRanks[i];
+      accumulatedGflopsSum += accumulatedGflopsPerSecondOnRanks[i];
+      recentGflopsSum += recentGflopsPerSecondOnRanks[i];
     }
-    const auto flopsPerRank = flopsSum / seissol::MPI::mpi.size();
-    logInfo(rank) << flopsSum * 1.e-3  << "TFLOP/s"
-    << "(rank 0:" << gflopsPerSecond << "GFLOP/s, average over ranks:" << flopsPerRank << "GFLOP/s)";
+    const auto accumulatedGflopsPerRank = accumulatedGflopsSum / seissol::MPI::mpi.size();
+    const auto recentGflopsPerRank = recentGflopsSum / seissol::MPI::mpi.size();
+    logInfo(rank) << "Performance since the start:" << accumulatedGflopsSum * 1.e-3  << "TFLOP/s" << "(rank 0:" << accumulatedGflopsPerSecond << "GFLOP/s, average over ranks:" << accumulatedGflopsPerRank << "GFLOP/s)";
+    logInfo(rank) << "Performance since last sync point:" << recentGflopsSum * 1.e-3  << "TFLOP/s" << "(rank 0:" << recentGflopsPerSecond << "GFLOP/s, average over ranks:" << recentGflopsPerRank << "GFLOP/s)";
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
-      out << gflopsPerSecondOnRanks[i] << ",";
+      out << accumulatedGflopsPerSecondOnRanks[i] << ",";
+      out << recentGflopsPerSecondOnRanks[i] << ",";
     }
-    out << gflopsPerSecondOnRanks[worldSize - 1] << std::endl;
+    out << accumulatedGflopsPerSecondOnRanks[worldSize - 1] << "," << recentGflopsPerSecondOnRanks[worldSize-1] << std::endl;
   }
 }
   
