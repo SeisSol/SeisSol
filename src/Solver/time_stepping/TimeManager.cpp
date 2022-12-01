@@ -122,7 +122,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           memoryManager.getFrictionLaw(),
           memoryManager.getFaultOutputManager(),
           &m_loopStatistics,
-          &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
+          &actorStateStatisticsManager.addCluster(l_globalClusterId, type))
       );
     }
     auto& interior = clusters[clusters.size() - 1];
@@ -327,10 +327,10 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
       const auto rank = MPI::mpi.rank();
       if (scheduledTasks) {
-        logDebug(rank) << "Exit scheduling loop. Scheduled"
-        << scheduledTasks << "tasks";
+        //logDebug(rank) << "Exit scheduling loop. Scheduled"
+        //<< scheduledTasks << "tasks";
       } else {
-        logDebug(rank) << "Exit scheduling loop. Yielding.";
+        //logDebug(rank) << "Exit scheduling loop. Yielding.";
         // Note: Taskwait not needed for correctness.
 #pragma omp taskwait
       }
@@ -343,7 +343,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
 void seissol::time_stepping::TimeManager::printComputationTime()
 {
-  actorStateStatisticsManager.addToLoopStatistics(m_loopStatistics);
+  actorStateStatisticsManager.printSummary();
 #ifdef USE_MPI
   m_loopStatistics.printSummary(MPI::mpi.comm());
 #endif

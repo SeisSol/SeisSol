@@ -634,13 +634,12 @@ ActResult TimeCluster::act() {
   }
 
   const auto thread = omp_get_thread_num();
-  if (layerType == LayerType::Interior) logDebug(rank) << "Starting cluster " << m_globalClusterId
-        << "with state" << actorStateToString(state) << "on thread" << thread;
-  //actorStateStatistics->enter(state);
+
+  auto eventTemplate = ActorStateStatistics::Event{};
+  eventTemplate.state = state;
+  auto actorStateStatisticsGuard = actorStateStatistics->enterWithGuard(eventTemplate);
+
   const auto result = AbstractTimeCluster::act();
-  //actorStateStatistics->enter(state);
-  if (layerType == LayerType::Interior) logDebug(rank) << "Stopping cluster " << m_globalClusterId
-        << "with state" << actorStateToString(state) << "on thread" << thread;
 
   isRunning.store(false);
   return result;

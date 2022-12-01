@@ -2,7 +2,11 @@
 #define SEISSOL_ACTORSTATE_H
 
 #include <omp.h>
+#include <ostream>
 #include <queue>
+#include <limits>
+#include <memory>
+#include <string>
 #include <variant>
 
 namespace seissol::time_stepping {

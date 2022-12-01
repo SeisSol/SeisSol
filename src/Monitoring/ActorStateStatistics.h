@@ -1,85 +1,77 @@
 #ifndef SEISSOL_ACTORSTATESTATISTICS_H
 #define SEISSOL_ACTORSTATESTATISTICS_H
 
+#include "Initializer/tree/Layer.hpp"
+#include "Solver/time_stepping/ActorState.h"
+#include <chrono>
+#include <functional>
 #include <unordered_map>
 #include <vector>
-#include <optional>
-#include "Solver/time_stepping/ActorState.h"
+
+namespace seissol {
+using TimeClusterKey_t = std::pair<unsigned, LayerType>;
+}; // namespace seissol
+
+namespace std {
+
+template <>
+struct hash<seissol::TimeClusterKey_t> {
+  std::size_t operator()(const seissol::TimeClusterKey_t& k) const;
+};
+
+} // namespace std
 
 namespace seissol {
 class ActorStateStatistics {
-public:
-  ActorStateStatistics() : currentSample(time_stepping::ActorState::Synced) {
-  }
-
-  void enter(time_stepping::ActorState actorState) {
-    if (actorState == currentSample.state) {
-      ++currentSample.numEnteredRegion;
-    } else {
-      currentSample.finish();
-      samples.push_back(currentSample);
-      currentSample = Sample(actorState);
-    }
-  }
-
-  void addToLoopStatistics(unsigned globalClusterId, LoopStatistics& loopStatistics) {
-    currentSample.finish();
-    samples.push_back(currentSample);
-    for (const auto& sample : samples) {
-      const auto state = sample.state;
-      const auto region = loopStatistics.getRegion(
-          time_stepping::actorStateToString(state)
-          );
-      loopStatistics.addSample(region,
-                                sample.numEnteredRegion,
-                                globalClusterId,
-                                sample.begin,
-                                sample.end.value());
-    }
-  }
-private:
-
-  struct Sample {
-    explicit Sample(time_stepping::ActorState state) : state(state), end(std::nullopt), numEnteredRegion(0) {
-      clock_gettime(CLOCK_MONOTONIC, &begin);
-    }
-    void finish() {
-      timespec endTime;
-      clock_gettime(CLOCK_MONOTONIC, &endTime);
-      end = endTime;
-    }
+  public:
+  enum class EventType { Start, Stop };
+  struct Event {
+    Event();
+    void updateTime();
+    EventType type;
     time_stepping::ActorState state;
-    timespec begin;
-    std::optional<timespec> end;
-    int numEnteredRegion;
-    Sample() = delete;
+    // TODO(Lukas) Timestamp
+    unsigned threadId;
+    std::chrono::time_point<std::chrono::steady_clock> time;
   };
 
-  Sample currentSample;
-  std::vector<Sample> samples;
+  class Guard {
+public:
+    Guard(ActorStateStatistics& statistics, Event eventTemplate);
+    ~Guard();
 
+private:
+    ActorStateStatistics& statistics;
+    const Event eventTemplate;
+  };
 
+  ActorStateStatistics();
+  ActorStateStatistics(unsigned globalClusterId, LayerType type);
+
+  ~ActorStateStatistics();
+
+  void emitEvent(Event event);
+  [[nodiscard]] Guard enterWithGuard(Event eventTemplate);
+
+  std::string formatEvents();
+
+  private:
+  unsigned globalClusterId;
+  LayerType type;
+
+  omp_lock_t eventsLock;
+  std::vector<Event> events;
 };
 
 class ActorStateStatisticsManager {
-public:
+  public:
   ActorStateStatisticsManager() = default;
-  ActorStateStatistics& addCluster(unsigned globalClusterId) {
-    return stateStatisticsMap[globalClusterId];
-  }
+  ActorStateStatistics& addCluster(unsigned globalClusterId, LayerType type);
+  void printSummary();
 
-  void addToLoopStatistics(LoopStatistics& loopStatistics) {
-    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Synced), false);
-    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Corrected), false);
-    loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Predicted), false);
-
-    for (auto& [globalClusterId, stateStatistics] : stateStatisticsMap) {
-      stateStatistics.addToLoopStatistics(globalClusterId, loopStatistics);
-    }
-  }
-private:
-  std::unordered_map<unsigned, ActorStateStatistics> stateStatisticsMap{};
+  private:
+  std::unordered_map<TimeClusterKey_t, ActorStateStatistics> stateStatisticsMap{};
 };
-}
+} // namespace seissol
 
-#endif //SEISSOL_ACTORSTATESTATISTICS_H
+#endif // SEISSOL_ACTORSTATESTATISTICS_H
