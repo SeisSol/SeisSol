@@ -132,6 +132,6 @@ endif ()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(NetCDF
-  REQUIRED_VARS NetCDF_LIBRARY NetCDF_LIBRARY_DIR NetCDF_INCLUDE_DIR
+  REQUIRED_VARS NetCDF_LIBRARY NetCDF_INCLUDE_DIR
   VERSION_VAR NetCDF_VERSION)
 
