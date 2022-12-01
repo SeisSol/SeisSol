@@ -107,8 +107,10 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   std::array<std::string, 4> additionalNames({"p", "v1_f", "v2_f", "v3_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
-  std::array<std::string, 3> rotationNames({"rotX", "rotY", "rotZ"});
-  names.insert(names.end() ,rotationNames.begin(), rotationNames.end());
+  if (m_computeRotation) {
+    std::array<std::string, 3> rotationNames({"rotX", "rotY", "rotZ"});
+    names.insert(names.end(), rotationNames.begin(), rotationNames.end());
+  }
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
@@ -147,8 +149,7 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
 
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
-      // TODO(Sebastian) Remove hard coded 3
-      auto ncols = cluster.ncols() + 3;
+      auto ncols = cluster.ncols();
       for (auto &receiver : cluster) {
         assert(receiver.output.size() % ncols == 0);
         size_t nSamples = receiver.output.size() / ncols;
@@ -173,11 +174,12 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
 void seissol::writer::ReceiverWriter::init(std::string receiverFileName, std::string fileNamePrefix,
-                                           double syncPointInterval, double samplingInterval)
+                                           double syncPointInterval, double samplingInterval, bool computeRotation)
 {
   m_receiverFileName = std::move(receiverFileName);
   m_fileNamePrefix = std::move(fileNamePrefix);
   m_samplingInterval = samplingInterval;
+  m_computeRotation = computeRotation;
   setSyncInterval(syncPointInterval);
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
@@ -225,7 +227,7 @@ void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
       auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
       for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval());
+        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation);
       }
 
       writeHeader(point, points[point]);

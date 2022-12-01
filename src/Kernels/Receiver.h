@@ -88,9 +88,12 @@ namespace seissol {
       ReceiverCluster(  GlobalData const*             global,
                         std::vector<unsigned> const&  quantities,
                         double                        samplingInterval,
-                        double                        syncPointInterval )
+                        double                        syncPointInterval,
+                        bool                          computeRotation)
         : m_quantities(quantities),
-          m_samplingInterval(samplingInterval), m_syncPointInterval(syncPointInterval) {
+          m_samplingInterval(samplingInterval),
+          m_syncPointInterval(syncPointInterval),
+          m_computeRotation(computeRotation){
         m_timeKernel.setHostGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
@@ -117,6 +120,9 @@ namespace seissol {
 
       size_t ncols() const {
         size_t ncols = m_quantities.size();
+        if (m_computeRotation) {
+          ncols += 3;
+        }
 #ifdef MULTIPLE_SIMULATIONS
         ncols *= init::QAtPoint::Stop[0]-init::QAtPoint::Start[0];
 #endif
@@ -131,6 +137,7 @@ namespace seissol {
       unsigned m_hardwareFlops;
       double m_samplingInterval;
       double m_syncPointInterval;
+      bool m_computeRotation;
 
     };
   }

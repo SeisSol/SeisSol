@@ -950,7 +950,8 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
   receiverWriter.init(std::string(receiverFileName),
                       std::string(freeSurfaceFilename),
                       receiverSyncInterval,
-                      receiverSamplingInterval);
+                      receiverSamplingInterval,
+                      false);
   receiverWriter.addPoints(
     seissol::SeisSol::main.meshReader(),
     m_ltsLut,
