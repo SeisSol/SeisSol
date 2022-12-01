@@ -220,14 +220,10 @@ void seissol::time_stepping::TimeManager::scheduleCluster(TimeCluster* cluster) 
   assert(cluster != nullptr);
   cluster->setIsScheduledAndWaitingOn();
   // Optimization: Empty clusters are scheduled sequentially.
-  // TODO(Lukas): Note: This adds a small serial part, maybe schedule at end of loop?
-  if (cluster->isEmpty()) {
-    logDebug(MPI::mpi.rank()) << "Cluster is empty, execute immediately";
-    cluster->act();
-  } else {
-#pragma omp task
-    cluster->act();
-  }
+  // TODO(Lukas) This still spawns the task for empty clusters -> Maybe execute as function?
+  // TODO(Lukas) Maybe use mergeable. Need to check compiler support first.
+#pragma omp task if(!cluster->isEmpty()) final(!cluster->isEmpty())
+  cluster->act();
 }
 
 void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
