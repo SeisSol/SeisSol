@@ -47,6 +47,8 @@
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 
+extern seissol::Interoperability e_interoperability;
+
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
@@ -115,6 +117,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           &dynRupTree.child(Copy),
           memoryManager.getLts(),
           memoryManager.getDynamicRupture(),
+          memoryManager.getFrictionLaw(),
+          memoryManager.getFaultOutputManager(),
           &m_loopStatistics,
           &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
       );
@@ -210,7 +214,17 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   }
 }
 
+void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
+  m_faultOutputManager = faultOutputManager;
+  for(auto& cluster : clusters) {
+    cluster->setFaultOutputManager(faultOutputManager);
+  }
+}
 
+seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaultOutputManager() {
+  assert(m_faultOutputManager != nullptr);
+  return m_faultOutputManager;
+}
 
 void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
@@ -338,3 +352,4 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
     cluster->setTv(tv);
   }
 }
+

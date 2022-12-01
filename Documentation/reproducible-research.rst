@@ -115,6 +115,14 @@ A non-exhaustive list is given below:
      - 1
      - `Taufiqurrahman et al. (2022) <https://doi.org/10.1002/essoar.10510965.1>`_
      - `zenodo.org/record/6386938 <https://zenodo.org/record/6386938>`_
+     
+   * - 2016 Mw 6.5 Norcia |br| earthquake
+     - dynamic
+     - N
+     - LSW
+     - 1
+     - `Tinti et al. (2021) <https://doi.org/10.1016/j.epsl.2021.117237>`_
+     - `github repository <https://github.com/git-taufiq/NorciaMultiFault>`_  
 
    * - 2004 Mw 9.2 Sumatra |br| megathrust
      - dynamic

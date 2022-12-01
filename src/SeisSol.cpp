@@ -41,6 +41,7 @@
 #include <climits>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <fty/fty.hpp>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -75,7 +76,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 	seissol::Modules::callHook<seissol::PRE_MPI>();
 
 #if defined(ACL_DEVICE) && defined(USE_MPI)
-  MPI::mpi.bindRankToDevice();
+  MPI::mpi.bindAcceleratorDevice();
 #endif
 
 	MPI::mpi.init(argc, argv);
@@ -94,23 +95,22 @@ bool seissol::SeisSol::init(int argc, char* argv[])
       logInfo() << "Running on:" << hostname;
   }
 
+#ifdef USE_MPI
+  logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+#endif
 #ifdef _OPENMP
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
   logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
       pinning.getWorkerUnionMask());
   logInfo(rank) << "OpenMP worker affinity (this node)   :" << parallel::Pinning::maskToString(
       pinning.getNodeMask());
-#ifdef USE_MPI
-  logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+#endif
 #ifdef USE_COMM_THREAD
-  logInfo(rank) << "Running with communication thread";
   auto freeCpus = pinning.getFreeCPUsMask();
-  logInfo(rank) << "Communication thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+  logInfo(rank) << "Communication thread affinity        :" << parallel::Pinning::maskToString(freeCpus);
   if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
     logError() << "There are no free CPUs left. Make sure to leave one for the communication thread.";
   }
-#endif
-#endif
 #endif // _OPENMP
 
 #ifdef ACL_DEVICE
@@ -167,6 +167,11 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
   m_memoryManager->initialize();
+  // read parameter file input
+  readInputParams();
+
+  m_memoryManager->setInputParams(m_inputParams);
+
   return true;
 }
 
@@ -185,6 +190,24 @@ void seissol::SeisSol::finalize()
 	MPI::mpi.finalize();
 
 	logInfo(rank) << "SeisSol done. Goodbye.";
+}
+
+void seissol::SeisSol::readInputParams() {
+  // Read parameter file input from file
+  fty::Loader<fty::AsLowercase> Loader{};
+  try {
+    m_inputParams = std::make_shared<YAML::Node>(Loader.load(m_parameterFile));
+  }
+  catch (const std::exception& Error) {
+    std::cerr << Error.what() << std::endl;
+    finalize();
+  }
+
+  const int rank = MPI::mpi.rank();
+  if (rank == 0) {
+    logInfo(rank) << "Input Parameters:\n"
+                  << m_inputParams;
+  }
 }
 
 seissol::SeisSol seissol::SeisSol::main;

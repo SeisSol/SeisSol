@@ -56,15 +56,22 @@ struct GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
-      Receiver(unsigned pointId, double const* coords[4], Eigen::Vector3d const& point, kernels::LocalData data, size_t reserved)
-          : pointId(pointId), data(data) {
+      Receiver(unsigned pointId,
+               Eigen::Vector3d position,
+               double const* elementCoords[4],
+               kernels::LocalData data, size_t reserved)
+          : pointId(pointId),
+            position(std::move(position)),
+            data(data) {
         output.reserve(reserved);
-        auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(coords[0], coords[1], coords[2], coords[3], point);
+
+        auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
         basisFunctions = basisFunction::SampledBasisFunctions<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
         basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-        basisFunctionDerivatives.transformToGlobalCoordinates(coords);
+        basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
       }
       unsigned pointId;
+      Eigen::Vector3d position;
       basisFunction::SampledBasisFunctions<real> basisFunctions;
       basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
       kernels::LocalData data;

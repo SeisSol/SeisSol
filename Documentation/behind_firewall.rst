@@ -4,7 +4,7 @@
 Accessing github behind a firewall
 -----------------------------------
 
-Some HPC clusters (e.g. SuperMUC) restricts access to outside sources and thus does not allow connections to https servers. 
+Some HPC clusters (e.g. SuperMUC-NG) restricts access to outside sources and thus does not allow connections to https servers. 
 Nevertheless, GitHub can be used if remote port forwarding is correctly set.
 Here, we described the procedure to set up such port forwarding.
 
@@ -45,7 +45,7 @@ With ddddd the same port number as before.
 
 4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on the HPC cluster). 
    
-5. To allow cloning using ssh on supermucNG with the https address of git repository, add to ``~/.gitconfig``:
+5. To allow cloning using ssh on SuperMUC-NG with the https address of git repository, add to ``~/.gitconfig``:
 
 ::
 

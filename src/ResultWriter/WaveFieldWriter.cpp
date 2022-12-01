@@ -286,11 +286,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
     m_map = map;
   }
 
-  if (numElems == 0) {
-    logError() << "WaveFieldWriter: All elements have been filtered out (OutputRegionBounds and "
-                  "OutputGroups).";
-  }
-
   logInfo(rank) << "Refinement class initialized";
   logDebug() << "Cells : " << numElems << "refined-to ->" << meshRefiner->getNumCells();
   logDebug() << "Vertices : " << numVerts << "refined-to ->" << meshRefiner->getNumVertices();

@@ -76,7 +76,6 @@ CONTAINS
 
     use iso_c_binding
     use f_ftoc_bind_interoperability
-    use ini_faultoutput_mod
 
 #ifdef PARALLEL
     use iso_c_binding
@@ -141,14 +140,6 @@ CONTAINS
     end do
 
     call c_interoperability_initializeIO(    &
-        i_mu        = disc%DynRup%mu,        &
-        i_slipRate1 = disc%DynRup%slipRate1, &
-        i_slipRate2 = disc%DynRup%slipRate2, &
-        i_slip     = disc%DynRup%slip,      &
-        i_slip1     = disc%DynRup%slip1,    &
-        i_slip2     = disc%DynRup%slip2,    &
-        i_state     = disc%DynRup%stateVar,  &
-        i_strength  = disc%DynRup%strength,  &
         i_numSides  = mesh%fault%nSide,      &
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
@@ -166,11 +157,6 @@ CONTAINS
         isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
         isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
         energySyncInterval = IO%EnergyOutputInterval)
-
-    ! Initialize the fault Xdmf Writer
-    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
-     CALL ini_fault_xdmfwriter(DISC,IO)
-    ENDIF
 
     ! end epik/scorep function
     EPIK_FUNC_END()

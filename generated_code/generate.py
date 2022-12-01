@@ -66,9 +66,9 @@ cmdLineParser.add_argument('--order', type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--multipleSimulations', type=int)
-cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
+cmdLineParser.add_argument('--drQuadRule')
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
@@ -130,7 +130,7 @@ adg.add_include_tensors(include_tensors)
 include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, namespace="dynamicRupture"),
                                                  adg,
                                                  cmdLineArgs.matricesDir,
-                                                 cmdLineArgs.dynamicRuptureMethod,
+                                                 cmdLineArgs.drQuadRule,
                                                  targets))
 
 Plasticity.addKernels(generator, 

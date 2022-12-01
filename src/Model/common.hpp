@@ -41,7 +41,7 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 
 #include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
@@ -105,6 +105,12 @@ namespace seissol {
                         VrtxCoords const i_tangent1,
                         VrtxCoords const i_tangent2,
                         real* o_N );
+
+    void getFaceRotationMatrix( Eigen::Vector3d const i_normal,
+                                                Eigen::Vector3d const i_tangent1,
+                                                Eigen::Vector3d const i_tangent2,
+                                                init::T::view::type& o_T,
+                                                init::Tinv::view::type& o_Tinv );
 
     void getFaceRotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,

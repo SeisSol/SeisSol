@@ -85,8 +85,10 @@
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
-#include <Solver/Pipeline/DrPipeline.h>
-#endif //ACL_DEVICE
+#include "device.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#endif // ACL_DEVICE
+
 
 void seissol::initializers::MemoryManager::initialize()
 {
@@ -448,37 +450,32 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_ltsTree.touchVariables();
 
   /// Dynamic rupture tree
-  m_dynRup.addTo(m_dynRupTree);
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_dynRup->addTo(m_dynRupTree);
+
+  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+    if (tc >= i_timeStepping.numberOfLocalClusters) {
+        cluster.child<Copy>().setNumberOfCells(0);
+        cluster.child<Interior>().setNumberOfCells(0);
+    } else {
+        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+    }
   }
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
-  constexpr size_t QInterpolatedSize = CONVERGENCE_ORDER * tensor::QInterpolated::size() * sizeof(real);
-  constexpr size_t imposedStateSize = tensor::QInterpolated::size() * sizeof(real);
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto layer = m_dynRupTree.beginLeaf(); layer != m_dynRupTree.endLeaf(); ++layer) {
     const auto layerSize = layer->getNumberOfCells();
-    layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnDevice, QInterpolatedSize * layerSize);
-    layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnDevice, QInterpolatedSize * layerSize);
-    layer->setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * layerSize);
-    layer->setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * layerSize);
-
-    constexpr auto UpperStageFactor = dr::pipeline::DrPipeline::TailSize * dr::pipeline::DrPipeline::DefaultBatchSize;
-    constexpr auto LowerStageFactor = dr::pipeline::DrPipeline::NumStages * dr::pipeline::DrPipeline::DefaultBatchSize;
-    layer->setScratchpadSize(m_dynRup.QInterpolatedPlusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup.QInterpolatedMinusOnHost, UpperStageFactor * QInterpolatedSize);
-    layer->setScratchpadSize(m_dynRup.imposedStatePlusOnHost, LowerStageFactor * imposedStateSize);
-    layer->setScratchpadSize(m_dynRup.imposedStateMinusOnHost, LowerStageFactor *  imposedStateSize);
+    layer->setScratchpadSize(m_dynRup->idofsPlusOnDevice, idofsSize * layerSize);
+    layer->setScratchpadSize(m_dynRup->idofsMinusOnDevice, idofsSize * layerSize);
   }
   m_dynRupTree.allocateScratchPads();
 #endif
@@ -768,7 +765,7 @@ void seissol::initializers::MemoryManager::recordExecutionPaths(bool usePlastici
   recording::CompositeRecorder<seissol::initializers::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
   for (LTSTree::leaf_iterator it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
-    drRecorder.record(m_dynRup, *it);
+    drRecorder.record(*m_dynRup, *it);
   }
 }
 #endif // ACL_DEVICE
@@ -817,3 +814,51 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
           || f == FaceType::dirichlet
           || f == FaceType::analytical);
 }
+
+void seissol::initializers::MemoryManager::initializeFrictionLaw() {
+  const int rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "Initialize Friction Model";
+
+  const auto factory = seissol::dr::factory::getFactory(m_dynRupParameters);
+  auto product = factory->produce();
+  m_dynRup = std::move(product.ltsTree);
+  m_DRInitializer = std::move(product.initializer);
+  m_FrictionLaw = std::move(product.frictionLaw);
+  m_faultOutputManager = std::move(product.output);
+}
+
+void seissol::initializers::MemoryManager::initFaultOutputManager() {
+  // TODO: switch m_dynRup to shared or weak pointer
+  if (m_dynRupParameters->isDynamicRuptureEnabled) {
+    m_faultOutputManager->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
+    m_faultOutputManager->setLtsData(&m_ltsTree,
+                                     &m_lts,
+                                     e_interoperability.getLtsLut(),
+                                     &m_dynRupTree,
+                                     m_dynRup.get());
+    m_faultOutputManager->init();
+
+  }
+}
+
+
+void seissol::initializers::MemoryManager::initFrictionData() {
+  if (m_dynRupParameters->isDynamicRuptureEnabled) {
+
+    m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
+
+#ifdef ACL_DEVICE
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
+      impl->initSyclQueue();
+
+      LayerMask mask = seissol::initializers::LayerMask(Ghost);
+      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
+      impl->setMaxClusterSize(maxSize);
+
+      impl->allocateAuxiliaryMemory();
+      impl->copyStaticDataToDevice();
+    }
+#endif // ACL_DEVICE
+  }
+}
+

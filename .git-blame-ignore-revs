@@ -1,0 +1,4 @@
+# apply clang-format to src/DynamicRupture
+2e6dc11046a9921ac6f593c6360a53f90fc1ac9e
+# apply changes suggested by clang-tidy to src/DynamicRupture
+9d089882fbb684bd3757c4918afd45b5805f2905

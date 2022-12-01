@@ -1,5 +1,6 @@
 jobs:
     - template: azure-pipelines-doc-template.yml
+    - template: azure-pipelines-clang-format.yml
     - template: azure-pipelines-seissol-template.yml
       parameters:
           build_types: ['Release', 'Debug']

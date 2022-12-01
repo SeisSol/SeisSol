@@ -43,6 +43,7 @@
 MODULE QuadPoints_mod
   !-------------------------------------------------------------------------!
   USE TypesDef
+  use f_ftoc_bind_interoperability
   !--------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -94,14 +95,9 @@ CONTAINS
     LOGICAL, OPTIONAL     :: quiet          ! if quiet then less warnings     !
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
-    INTEGER         :: i,j                  ! Loop counters                   !
     INTEGER         :: iIntGP               ! Loop counter                    !
     INTEGER         :: allocstat            ! Allocation status return int.   !
     REAL            :: tol                  ! Tolerance of 0.0                !
-    REAL, POINTER   :: mu1(:)               ! 1D quadrature positions in y1   !
-    REAL, POINTER   :: mu2(:)               ! 1D quadrature positions in y2   !
-    REAL, POINTER   :: A1(:)                ! 1D quadrature weights for y1    !
-    REAL, POINTER   :: A2(:)                ! 1D quadrature weights for y2    !
     LOGICAL         :: quiet_internal       ! map of OPTIONAL quiet           !
     !-------------------------------------------------------------------------!
     INTENT(IN)      :: M, IO, quiet, MPI
@@ -115,9 +111,8 @@ CONTAINS
     ELSE
        quiet_Internal=quiet
     END IF
-    ! Quadrature points are defined by the conical product of 1D Gauss-Jacobi 
-    ! formulas with M quadrature points. See Stround, p. 28ff for details.
-    nIntGP = M*M
+
+    call c_interoperability_numberOfTriangleQuadraturePoints(nIntGP)
 
     IF(.NOT.ASSOCIATED(IntGaussP)) THEN
        IF (.NOT.quiet_Internal) THEN
@@ -144,34 +139,7 @@ CONTAINS
        END IF
     ENDIF
 
-    ALLOCATE(mu1(M), mu2(M), A1(M), A2(M), STAT = allocstat)
-    IF (allocStat .NE. 0) THEN
-       logError(*) 'TriangleQuadraturePoints: could not allocate all variables!'
-       call MPI_ABORT(MPI%commWorld, 134)
-    END IF
-
-    !CALL gaujac(mu1,A1,M,1.,0.)     ! Get the Gauss-Jacobi positions and weights
-    !CALL gaujac(mu2,A2,M,0.,0.)     ! Get the Gauss-Jacobi positions and weights
-    CALL gauss_jacobi(1.,0.,mu1,A1)     ! Get the Gauss-Jacobi positions and weights
-    CALL gauss_jacobi(0.,0.,mu2,A2)     ! Get the Gauss-Jacobi positions and weights
-
-    mu1(:) = 0.5*mu1(:) + 0.5       ! Shift and rescale positions, because Stroud
-    A1(:)  = 0.5**2*A1(:)           ! integrates over the interval [0,1] and
-    mu2(:) = 0.5*mu2(:) + 0.5       ! the function gaujac of the num. recipes
-    A2(:)  = 0.5**1*A2(:)           ! integrates over the interval [-1,1].
-
-    iIntGP = 1
-
-    DO i = 1, M
-       DO j = 1, M
-          intGaussP(1,iIntGP) = mu1(i)
-          intGaussP(2,iIntGP) = mu2(j)*(1.-mu1(i))
-          intGaussW(iIntGP)   = A1(i)*A2(j)      
-          iIntGP              = iIntGP + 1
-       ENDDO
-    ENDDO
-
-    DEALLOCATE(mu1, mu2, A1, A2)
+    call c_interoperability_triangleQuadratureRule(intGaussP, intGaussW)
 
     IF (     ((ABS(SUM(intGaussW(:)))-0.5).GT.tol) &
          .OR.(.NOT.quiet_internal)               ) THEN

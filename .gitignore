@@ -63,3 +63,7 @@ config.log
 /cmake-build-debug/
 /cmake-build-release/
 /cmake-build-relwithdebinfo/
+
+# Doxygen
+Documentation/doxygen/html
+Documentation/doxygen/latex

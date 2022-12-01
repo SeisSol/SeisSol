@@ -63,8 +63,8 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
   // (time + number of quantities) * number of samples until sync point
   size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back( pointId,
-                            coords,
                             point,
+                            coords,
                             kernels::LocalData::lookup(lts, ltsLut, meshId),
                             reserved);
 }
@@ -136,9 +136,14 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
-            if (!std::isfinite(qAtPoint(sim, quantity))) {
-              logError() << "Detected Inf/NaN in receiver output. Aborting.";
-            }
+           if (!std::isfinite(qAtPoint(sim, quantity))) {
+             logError()
+                 << "Detected Inf/NaN in receiver output at"
+                 << receiver.coordinates[0] << ","
+                 << receiver.coordinates[1] << ","
+                 << receiver.coordinates[2] << "."
+                 << "Aborting.";
+          }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
           receiver.output.push_back(qDerivativeAtPoint(sim, 8, 1) - qDerivativeAtPoint(sim, 7, 2));
@@ -148,7 +153,12 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
 #else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
           if (!std::isfinite(qAtPoint(quantity))) {
-            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+            logError()
+                << "Detected Inf/NaN in receiver output at"
+                << receiver.position[0] << ","
+                << receiver.position[1] << ","
+                << receiver.position[2] << "."
+                << "Aborting.";
           }
           receiver.output.push_back(qAtPoint(quantity));
         }

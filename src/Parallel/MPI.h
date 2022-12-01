@@ -51,13 +51,6 @@
 
 #include "MPIBasic.h"
 
-#ifdef ACL_DEVICE
-#include <cstdlib>
-#include <string>
-#include <sstream>
-#include <device.h>
-#endif  // ACL_DEVICE
-
 #endif // USE_MPI
 
 namespace seissol
@@ -76,14 +69,6 @@ class MPI : public MPIBasic
 {
 private:
 	MPI_Comm m_comm;
-
-#ifdef ACL_DEVICE
-    int m_localRank{};
-    int m_localSize{};
-    int m_deviceId{};
-#endif // ACL_DEVICE
-
-private:
 	MPI()
 		: m_comm(MPI_COMM_NULL)
 	{ }
@@ -93,44 +78,6 @@ public:
 	{ }
 
 #ifdef ACL_DEVICE
-
-  private:
-    /**
-     * @brief Reads and returns environment variables
-     *
-     * Some MPI vendors usually provides env. variables which allows to find out the local rank and size
-     * before calling MPI_Init(...). However, they tend to name these variables differently, i.e. uniquely
-     * for their implementation. Thus, the function take some potential candidates and loop through them and try
-     * to retrieve a value.
-     *
-     * @param candidates a vector of strings with names of possible env. variables
-     * @throws std::string in case if a value cannot get retrieved from a candidate list
-     * @throws std::invalid_argument in case if an env. variable doesn't contain an integer, e.g. char, string, etc.
-     * @throws std::out_of_range in case is an env. variable contains a value bigger that a size of integer
-     * */
-    static int readValueFromEnvVariables(std::vector<std::string> &candidates) {
-      char* valueStr = nullptr;
-      for (auto envVar: candidates) {
-        valueStr = std::getenv(envVar.c_str());
-        if (valueStr)
-          break;
-      }
-
-      if (!valueStr) {
-        std::stringstream stream;
-
-        stream << "could not detect any env. variable from a list of candidates, namely: ";
-        for (const auto& item: candidates) {
-          stream << item << ", ";
-        }
-        stream << ". Please, consider to use any other MPI implementation with an offloading support.";
-
-        logError() << stream.str();
-      }
-
-      return std::stoi(std::string(valueStr));
-    }
-
   public:
     /**
      * @brief Inits Device(s).
@@ -141,57 +88,12 @@ public:
      * e.g. move a process closer to a GPU, it must be done before calling MPI_Init(...) using env. variables
      * or hwloc library.
      *
-     * Currently, the function does a simple binding, i.e. a local rank controls the corresponding devices.
-     * For instance, localRank=2 is going to use deviceId=2. The user is responsible for the correct binding.
-     * She/he must refer to a documentation of their job scheduler or MPI implementation to achieve correct
-     * GPU/CPU affinity. Note, one can improve the current binding strategy using hwloc.
-     * See, Professional CUDA programming, subsection Affinity on MPI-CUDA Programs as a reference.
-     *
-     * The function supports the following MPI implementations: OpenMPI, MVAPICH2, IntelMPI
+     * Currently, the function does a simple binding, i.e. it binds to the first visible device.
+     * The user is responsible for the correct binding on a multi-gpu setup.
+     * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
+     * OMPI_COMM_WORLD_LOCAL_RANK env. variables
      * */
-    void  bindRankToDevice() {
-      try {
-        std::vector<std::string> rankEnvVars{{"OMPI_COMM_WORLD_LOCAL_RANK"},
-                                             {"MV2_COMM_WORLD_LOCAL_RANK"},
-                                             {"SLURM_LOCALID"}, {"PMI_RANK"} };
-
-        std::vector<std::string> sizeEnvVars{{"OMPI_COMM_WORLD_LOCAL_SIZE"},
-                                             {"MV2_COMM_WORLD_LOCAL_SIZE"},
-                                             {"SLURM_NTASKS_PER_NODE"}, {"PMI_SIZE"}};
-
-        m_localRank = readValueFromEnvVariables(rankEnvVars);
-        m_localSize = readValueFromEnvVariables(sizeEnvVars);
-      }
-      catch (const std::invalid_argument &err) {
-        logError() << err.what() << ". File: " << __FILE__ << ", line: " << __LINE__;
-      }
-      catch (const std::out_of_range& err) {
-        logError() << err.what() << ". File: " << __FILE__ << ", line: " << __LINE__;
-      }
-
-      device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      int m_numDevices = device.api->getNumDevices();
-      if (m_localSize > m_numDevices) {
-        logError() << "Local mpi size (in a compute node) is greater than the number of avaliable devices."
-                   << "Over-subscription of devices is currently not supported in Seissol."
-                   << "Adjust num. local mpi rank and num. local devices.\n"
-                   << "File: " << __FILE__ << ", line: " << __LINE__;
-      }
-      m_deviceId = m_localRank;
-
-#ifdef _OPENMP
-#pragma omp parallel
-      {
-#pragma omp critical
-        {
-          device.api->setDevice(m_deviceId);
-        }
-      }
-#else
-      device.api->setDevice(m_deviceId);
-#endif
-    }
-    int getDeviceID() { return m_deviceId; }
+    void  bindAcceleratorDevice();
 #endif // ACL_DEVICE
 
 	/**
@@ -209,9 +111,10 @@ public:
 		setComm(MPI_COMM_WORLD);
 
 		// Test this after setComm() to get the correct m_rank
-		if (required < provided)
-			logWarning(m_rank) << utils::nospace << "Required MPI thread support (" << required
-				<< ") is smaller than provided thread support (" << provided << ").";
+		if (provided < required) {
+			logError() << utils::nospace << "Provided MPI thread support (" << provided
+				<< ") is smaller than required thread support (" << required << ").";
+		}
 	}
 
 	void setComm(MPI_Comm comm)

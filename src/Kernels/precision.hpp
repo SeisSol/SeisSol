@@ -30,4 +30,14 @@ typedef double real;
 #endif
 #endif
 
+
+#ifdef USE_HDF
+#ifdef SINGLE_PRECISION
+#define HDF_C_REAL H5T_NATIVE_FLOAT
+#endif
+#ifdef DOUBLE_PRECISION
+#define HDF_C_REAL H5T_NATIVE_DOUBLE
+#endif
+#endif
+
 #endif
