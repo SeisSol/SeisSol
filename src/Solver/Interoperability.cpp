@@ -220,13 +220,13 @@ extern "C" {
 		  int* outputGroups, int outputGroupsSize,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
       const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
-      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
+      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval, bool computeRotation) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
     e_interoperability.initializeIO(numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
                                     freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
                                     receiverFileName, receiverSamplingInterval, receiverSyncInterval,
-                                    isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval);
+                                    isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval, computeRotation);
   }
 
   void c_interoperability_projectInitialField() {
@@ -876,7 +876,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                                         const char* receiverFileName, double receiverSamplingInterval,
                                         double receiverSyncInterval,
                                         bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled,
-                                        double energySyncInterval)
+                                        double energySyncInterval, bool computeRotation)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
@@ -951,7 +951,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                       std::string(freeSurfaceFilename),
                       receiverSyncInterval,
                       receiverSamplingInterval,
-                      false);
+                      computeRotation);
   receiverWriter.addPoints(
     seissol::SeisSol::main.meshReader(),
     m_ltsLut,

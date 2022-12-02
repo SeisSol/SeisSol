@@ -280,7 +280,8 @@ class seissol::Interoperability {
                      int* plasticityMask, double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
                      double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
                      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
-                     bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval);
+                     bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval,
+                     bool computeRotation);
 
   /**
    * Returns (possibly multiple) initial conditions

@@ -969,6 +969,7 @@ MODULE TypesDef
      character(len=64)                      :: xdmfWriterBackend                !< Check point backend
      logical                                :: isEnergyTerminalOutputEnabled    !< Whether energy output should be written to terminal
      real                                   :: EnergyOutputInterval
+     logical                                :: computeRotation                  !< Whether the rotation of the velocity field should be computed
 
   END TYPE tInputOutput
 
