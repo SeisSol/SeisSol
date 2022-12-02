@@ -14,9 +14,24 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
+find_package(Eigen3 3.4 REQUIRED)
+find_package(NetCDF REQUIRED)
+set(CMAKE_INSTALL_RPATH ${NetCDF_LIBRARY_DIR})
+find_package(PROJ4 QUIET)
+if (NOT PROJ4_FOUND)
+    find_package(PkgConfig QUIET)
+    if (PkgConfig_FOUND)
+        pkg_check_modules(PROJ4 QUIET proj>=4.9)
+        if (PROJ4_FOUND)
+            set(CMAKE_INSTALL_RPATH "${PROJ4_LIBRARY_DIRS};${CMAKE_INSTALL_RPATH}")
+        endif()
+    endif()
+endif()
 
+# rpath has to be defined before add_executable
+# https://stackoverflow.com/questions/30398238/cmake-rpath-not-working-could-not-find-shared-object-file
 add_executable(SeisSol-rconv
-  src/main
+  src/main.cpp
   src/XMFWriter.cpp
   src/Map.cpp
   src/NRFWriter.cpp
@@ -27,33 +42,21 @@ target_include_directories(SeisSol-rconv PUBLIC src
    "${CMAKE_CURRENT_SOURCE_DIR}/../../../submodules/"
 )
 
-find_package(Eigen3 3.4 REQUIRED)
 target_link_libraries(SeisSol-rconv PUBLIC Eigen3::Eigen)
 
-find_package(NetCDF REQUIRED)
 target_include_directories(SeisSol-rconv PUBLIC ${NetCDF_INCLUDE_DIRS})
 target_link_libraries(SeisSol-rconv PUBLIC ${NetCDF_LIBRARY})
 
-find_package(PROJ4 QUIET)
-if (PROJ4_FOUND)
-    target_include_directories(SeisSol-rconv PUBLIC ${PROJ4_INCLUDE_DIRS})
-    target_link_libraries(SeisSol-rconv PUBLIC ${PROJ4_LIBRARIES})
-else()
-    find_package(PkgConfig QUIET)
-    if (PkgConfig_FOUND)
-        pkg_check_modules(PROJ4 QUIET proj>=4.9)
-        if (PROJ4_FOUND)
-            target_include_directories(SeisSol-rconv PUBLIC ${PROJ4_INCLUDEDIR})
-            target_link_libraries(SeisSol-rconv PUBLIC ${PROJ4_LIBRARIES})
-        endif()
-    endif()
-endif()
-
 if (PROJ4_FOUND)
     message(STATUS "Compiling with proj.4 support.")
+    target_include_directories(SeisSol-rconv PUBLIC ${PROJ4_INCLUDE_DIRS})
+    target_link_libraries(SeisSol-rconv PUBLIC ${PROJ4_LINK_LIBRARIES})
 else ()
     target_compile_definitions(SeisSol-rconv PRIVATE -Dnoproj)
     message(WARNING "Compiling WITHOUT proj.4 support.")
 endif()
 
+
 set_target_properties(SeisSol-rconv PROPERTIES OUTPUT_NAME "rconv")
+
+install(TARGETS SeisSol-rconv RUNTIME DESTINATION bin)
