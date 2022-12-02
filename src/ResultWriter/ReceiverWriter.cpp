@@ -108,7 +108,7 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
   if (m_computeRotation) {
-    std::array<std::string, 3> rotationNames({"rotX", "rotY", "rotZ"});
+    std::array<std::string, 3> rotationNames({"rot1", "rot2", "rot3"});
     names.insert(names.end(), rotationNames.begin(), rotationNames.end());
   }
 
