@@ -33,6 +33,7 @@ the form:
 
 
 The receivers files contain the time-histories of the stress tensor (6 variables) and the particle velocities (3).
+You can additionally choose to write the rotation of the velocity field by setting `ReceiverComputeRotation=1` in the parameter file.
 Currently, there is no way to write only a subset of these variables.
 
 Placing free-surface receivers
