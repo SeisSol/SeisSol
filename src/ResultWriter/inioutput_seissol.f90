@@ -157,7 +157,7 @@ CONTAINS
         isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
         isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
         energySyncInterval = IO%EnergyOutputInterval, &
-        computeRotation = logical(IO%ComputeRotation, 1))
+        receiverComputeRotation = logical(IO%ReceiverComputeRotation, 1))
 
     ! end epik/scorep function
     EPIK_FUNC_END()

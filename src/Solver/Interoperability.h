@@ -281,7 +281,7 @@ class seissol::Interoperability {
                      double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
                      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
                      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval,
-                     bool computeRotation);
+                     bool receiverComputeRotation);
 
   /**
    * Returns (possibly multiple) initial conditions
