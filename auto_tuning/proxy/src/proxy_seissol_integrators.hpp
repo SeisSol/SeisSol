@@ -84,7 +84,8 @@ namespace proxy::cpu {
     {
     LIKWID_MARKER_START("localwoader");
     kernels::LocalTmp tmp;
-    #pragma omp for schedule(static)
+  #pragma omp for schedule(static)
+  //#pragma omp taskloop grainsize(4) untied
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
       auto data = loader.entry(l_cell);
@@ -102,6 +103,20 @@ namespace proxy::cpu {
   #endif
   }
 
+  template<typename Function>
+  void scheduleTasksRecursively(Function&& f, int from, int to, int level = 0) {
+    const auto nr = to - from;
+    const auto chunkSize = 5;
+    if (nr > 1 && (1 << (level - 1)) <= omp_get_num_threads()) {
+      const auto half = from + nr/2;
+#pragma omp task firstprivate(from, half, level) untied
+      scheduleTasksRecursively(f, from, half, level + 1);
+      scheduleTasksRecursively(f, half, to, level + 1);
+    } else {
+        f(from, to);
+    }
+  }
+
   void computeLocalIntegration() {
     auto&                 layer           = m_ltsTree->child(0).child<Interior>();
     unsigned              nrOfCells       = layer.getNumberOfCells();
@@ -111,12 +126,36 @@ namespace proxy::cpu {
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
 
+    logInfo() << "Before rec";
+    scheduleTasksRecursively([&](int from, int to) {
+      for( unsigned int l_cell = from; l_cell < to; l_cell++ ) {
+        auto data = loader.entry(l_cell);
+        kernels::LocalTmp tmp;
+        m_timeKernel.computeAder(      (double)seissol::miniSeisSolTimeStep,
+                                 data,
+                                 tmp,
+                                 buffers[l_cell],
+                                 derivatives[l_cell] );
+        m_localKernel.computeIntegral(buffers[l_cell],
+                                      data,
+                                      tmp,
+                                      nullptr,
+                                      nullptr,
+                                      0,
+                                      0);
+      }
+    },
+             0, nrOfCells);
+    logInfo() << "After rec";
+
+    /*
   #ifdef _OPENMP
     #pragma omp parallel
     {
     LIKWID_MARKER_START("local");
     kernels::LocalTmp tmp;
-    #pragma omp for schedule(static)
+    //#pragma omp for schedule(static)
+  #pragma omp taskloop untied grainsize(100)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
       auto data = loader.entry(l_cell);
@@ -137,6 +176,7 @@ namespace proxy::cpu {
     LIKWID_MARKER_STOP("local");
     }
   #endif
+     */
   }
 
   void computeNeighboringIntegration() {
