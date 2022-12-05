@@ -38,6 +38,7 @@
  **/
 
 #include "Receiver.h"
+#include <SeisSol.h>
 #include "Numerical_aux/BasisFunction.h"
 
 #include <Initializer/PointMapper.h>
@@ -109,13 +110,13 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
 #else
       m_timeKernel.computeAder( timeStepWidth,
-                               receiver.data,
-                               tmp,
-                               timeEvaluated, // useless but the interface requires it
-                               timeDerivatives );
+                                receiver.data,
+                                tmp,
+                                timeEvaluated, // useless but the interface requires it
+                                timeDerivatives );
 #endif
-      g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
-      g_SeisSolHardwareFlopsOther += m_hardwareFlops;
+      seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
+      seissol::SeisSol::main.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
       receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {

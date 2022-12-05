@@ -149,7 +149,7 @@ CONTAINS
         i_outputGroups = io%OutputGroups, &
         i_outputGroupsSize = size(io%OutputGroups), &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
-        freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
+        outputFileNamePrefix = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
         receiverFileName = trim(io%RFileName) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
