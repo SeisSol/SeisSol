@@ -218,13 +218,13 @@ extern "C" {
   void c_interoperability_initializeIO(
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  int* outputGroups, int outputGroupsSize,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+		  double freeSurfaceInterval, const char* outputFileNamePrefix, const char* xdmfWriterBackend,
       const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
       bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
     e_interoperability.initializeIO(numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
-                                    freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
+                                    freeSurfaceInterval, outputFileNamePrefix, xdmfWriterBackend,
                                     receiverFileName, receiverSamplingInterval, receiverSyncInterval,
                                     isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval);
   }
@@ -871,7 +871,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                                         int* outputMask,
                                         int* plasticityMask, double* outputRegionBounds,
                                         const std::unordered_set<int>& outputGroups,
-                                        double freeSurfaceInterval, const char* freeSurfaceFilename,
+                                        double freeSurfaceInterval, const char* outputFileNamePrefix,
                                         const char* xdmfWriterBackend,
                                         const char* receiverFileName, double receiverSamplingInterval,
                                         double receiverSyncInterval,
@@ -942,13 +942,13 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
 	seissol::SeisSol::main.freeSurfaceWriter().init(
 		seissol::SeisSol::main.meshReader(),
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
-		freeSurfaceFilename, freeSurfaceInterval, type);
+		outputFileNamePrefix, freeSurfaceInterval, type);
 
 
   auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
   // Initialize receiver output
   receiverWriter.init(std::string(receiverFileName),
-                      std::string(freeSurfaceFilename),
+                      std::string(outputFileNamePrefix),
                       receiverSyncInterval,
                       receiverSamplingInterval);
   receiverWriter.addPoints(
@@ -972,12 +972,14 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                     &m_ltsLut,
                     isPlasticityEnabled,
                     isEnergyTerminalOutputEnabled,
-                    freeSurfaceFilename,
+                    outputFileNamePrefix,
                     energySyncInterval);
+
+  seissol::SeisSol::main.flopCounter().init(outputFileNamePrefix);
 
 	seissol::SeisSol::main.analysisWriter().init(
 	    &seissol::SeisSol::main.meshReader(),
-	    freeSurfaceFilename);
+	    outputFileNamePrefix);
 }
 
 void seissol::Interoperability::initInitialConditions()

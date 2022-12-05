@@ -139,7 +139,7 @@ void seissol::Simulator::simulate() {
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
-    printPerformance(stopwatch.split());
+    seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split());
   }
 
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
@@ -151,5 +151,5 @@ void seissol::Simulator::simulate() {
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
-  printFlops();
+  seissol::SeisSol::main.flopCounter().printPerformanceSummary(wallTime);
 }

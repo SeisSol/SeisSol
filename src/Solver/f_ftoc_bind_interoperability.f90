@@ -292,7 +292,7 @@ module f_ftoc_bind_interoperability
 
     subroutine c_interoperability_initializeIO( &
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, i_outputGroups, i_outputGroupsSize, &
-        freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
+        freeSurfaceInterval, outputFileNamePrefix, xdmfWriterBackend, &
         receiverFileName, receiverSamplingInterval, receiverSyncInterval, &
         isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval) &
         bind( C, name='c_interoperability_initializeIO' )
@@ -308,7 +308,7 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), dimension(*), intent(in) :: i_outputGroups
       integer(kind=c_int), value :: i_outputGroupsSize
       real(kind=c_double), value                    :: freeSurfaceInterval
-      character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
+      character(kind=c_char), dimension(*), intent(in) :: outputFileNamePrefix
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
       character(kind=c_char), dimension(*), intent(in) :: receiverFileName
       real(kind=c_double), value                    :: receiverSamplingInterval
