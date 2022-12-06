@@ -171,79 +171,100 @@ namespace proxy::cpu {
     }
   }
 
-  void computeNeighboringIntegration() {
-    auto&                     layer                           = m_ltsTree->child(0).child<Interior>();
-    unsigned                  nrOfCells                       = layer.getNumberOfCells();
-    real*                     (*faceNeighbors)[4]             = layer.var(m_lts.faceNeighbors);
-    CellDRMapping             (*drMapping)[4]                 = layer.var(m_lts.drMapping);
-    CellLocalInformation*       cellInformation               = layer.var(m_lts.cellInformation);
+__attribute__((always_inline)) inline void computeNeighboringIntegrationKernel(kernels::NeighborData::Loader loader,
+                                          CellLocalInformation* cellInformation,
+                                          real* (*faceNeighbors)[4],
+                                          CellDRMapping (*drMapping)[4],
+                                          real* l_timeIntegrated[4],
+                                          real* l_faceNeighbors_prefetch[4],
+                                          unsigned nrOfCells,
+                                          unsigned cell) {
+    auto data = loader.entry(cell);
+    seissol::kernels::TimeCommon::computeIntegrals(
+        m_timeKernel,
+        cellInformation[cell].ltsSetup,
+        cellInformation[cell].faceTypes,
+        0.0,
+        (double)seissol::miniSeisSolTimeStep,
+        faceNeighbors[cell],
+        *reinterpret_cast<real(*)[4][tensor::I::size()]>(&(
+            m_globalDataOnHost.integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
+        l_timeIntegrated);
+
+    l_faceNeighbors_prefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::dynamicRupture)
+                                      ? faceNeighbors[cell][1]
+                                      : drMapping[cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (cellInformation[cell].faceTypes[2] != FaceType::dynamicRupture)
+                                      ? faceNeighbors[cell][2]
+                                      : drMapping[cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (cellInformation[cell].faceTypes[3] != FaceType::dynamicRupture)
+                                      ? faceNeighbors[cell][3]
+                                      : drMapping[cell][3].godunov;
+
+    // fourth face's prefetches
+    if (cell < (nrOfCells - 1)) {
+      l_faceNeighbors_prefetch[3] =
+          (cellInformation[cell + 1].faceTypes[0] != FaceType::dynamicRupture)
+              ? faceNeighbors[cell + 1][0]
+              : drMapping[cell + 1][0].godunov;
+    } else {
+      l_faceNeighbors_prefetch[3] = faceNeighbors[cell][3];
+    }
+
+    m_neighborKernel.computeNeighborsIntegral(
+        data, drMapping[cell], l_timeIntegrated, l_faceNeighbors_prefetch);
+  }
+
+  void computeNeighboringIntegration(const ProxyKernelConfig& config) {
+    auto& layer = m_ltsTree->child(0).child<Interior>();
+    unsigned nrOfCells = layer.getNumberOfCells();
+    real*(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
+    CellDRMapping(*drMapping)[4] = layer.var(m_lts.drMapping);
+    CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
 
     kernels::NeighborData::Loader loader;
     loader.load(m_lts, layer);
 
-    real *l_timeIntegrated[4];
-  #ifdef ENABLE_MATRIX_PREFETCH
-    real *l_faceNeighbors_prefetch[4];
-  #endif
+    real* l_timeIntegrated[4];
+    real* l_faceNeighbors_prefetch[4];
 
-  #ifdef _OPENMP
-  #  ifdef ENABLE_MATRIX_PREFETCH
-    #pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
-  #  else
-    #pragma omp parallel private(l_timeIntegrated)
-  #  endif
+#pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
     {
-    LIKWID_MARKER_START("neighboring");
-    #pragma omp for schedule(static)
-  #endif
-    for( unsigned l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-      auto data = loader.entry(l_cell);
-      seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
-                                                      cellInformation[l_cell].ltsSetup,
-                                                      cellInformation[l_cell].faceTypes,
-                                                      0.0,
-                                              (double)seissol::miniSeisSolTimeStep,
-                                                      faceNeighbors[l_cell],
-  #ifdef _OPENMP
-                                                      *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost.integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
-  #else
-                                                      *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData.integrationBufferLTS),
-  #endif
-                                                      l_timeIntegrated );
+      LIKWID_MARKER_START("neighboring");
 
-  #ifdef ENABLE_MATRIX_PREFETCH
-  #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-      l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
-      l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
-      l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
-          ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
-
-      // fourth face's prefetches
-      if (l_cell < (nrOfCells-1) ) {
-        l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-            faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
-      } else {
-        l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
+      switch (config.parallelizationStrategy) {
+      case ParallelizationStrategy::ParallelFor:
+#pragma omp for schedule(static)
+        for (unsigned cell = 0; cell < nrOfCells; cell++) {
+          computeNeighboringIntegrationKernel(loader,
+                                              cellInformation,
+                                              faceNeighbors,
+                                              drMapping,
+                                              l_timeIntegrated,
+                                              l_faceNeighbors_prefetch,
+                                              nrOfCells,
+                                              cell);
+        }
+      case ParallelizationStrategy::Taskloop:
+#pragma omp single
+#pragma omp taskloop
+        for (unsigned cell = 0; cell < nrOfCells; cell++) {
+          computeNeighboringIntegrationKernel(loader,
+                                              cellInformation,
+                                              faceNeighbors,
+                                              drMapping,
+                                              l_timeIntegrated,
+                                              l_faceNeighbors_prefetch,
+                                              nrOfCells,
+                                              cell);
+        }
+        break;
       }
-  #endif
 
-      m_neighborKernel.computeNeighborsIntegral( data,
-                                                 drMapping[l_cell],
-  #ifdef ENABLE_MATRIX_PREFETCH
-                                                 l_timeIntegrated, l_faceNeighbors_prefetch
-  #else
-                                                 l_timeIntegrated
-  #endif
-                                                 );
+      LIKWID_MARKER_STOP("neighboring");
     }
-
-  #ifdef _OPENMP
-    LIKWID_MARKER_STOP("neighboring");
-    }
-  #endif
   }
+
 
   void computeDynRupGodunovState()
   {

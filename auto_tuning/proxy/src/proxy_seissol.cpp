@@ -106,7 +106,7 @@ void testKernel(const ProxyKernelConfig& kernelConfig, Kernel kernel, unsigned t
   case Kernel::all:
     for (; t < timesteps; ++t) {
       computeLocalIntegration(kernelConfig);
-      computeNeighboringIntegration();
+      computeNeighboringIntegration(kernelConfig);
     }
     break;
   case Kernel::local:
@@ -118,7 +118,7 @@ void testKernel(const ProxyKernelConfig& kernelConfig, Kernel kernel, unsigned t
     [[fallthrough]];
   case Kernel::neigh_dr:
     for (; t < timesteps; ++t) {
-      computeNeighboringIntegration();
+      computeNeighboringIntegration(kernelConfig);
     }
     break;
   case Kernel::ader:
@@ -221,7 +221,7 @@ ProxyOutput runProxy(ProxyConfig config) {
     bytes_fun = &bytes_local;
     break;
   case Kernel::neigh:
-    [[fallthrough]]
+    [[fallthrough]];
   case Kernel::neigh_dr:
     flop_fun = &flops_neigh_actual;
     bytes_fun = &bytes_neigh;
