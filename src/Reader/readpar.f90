@@ -2271,6 +2271,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: EnergyOutput
       INTEGER                          :: EnergyTerminalOutput
       real                             :: EnergyOutputInterval
+      INTEGER                          :: ReceiverComputeRotation
 
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
@@ -2279,7 +2280,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval, nRecordPoints, &
-                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, ReceiverComputeRotation
 
               !------------------------------------------------------------------------
     !
@@ -2314,6 +2315,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       ReceiverOutputInterval = 1.0e99
+      ReceiverComputeRotation = 0
       iPlasticityMask(1:6) = 0
       iPlasticityMask(7) = 1
 
@@ -2333,6 +2335,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval
       IO%ReceiverOutputInterval = ReceiverOutputInterval
+      IO%ReceiverComputeRotation = ReceiverComputeRotation
 
       logInfo(*) 'Data OUTPUT is written to files '
       logInfo(*) '  ' ,IO%OutputFile
