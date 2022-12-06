@@ -100,43 +100,44 @@ using namespace proxy::device;
 using namespace proxy::cpu;
 #endif
 
-void testKernel(unsigned kernel, unsigned timesteps) {
+void testKernel(const ProxyKernelConfig& kernelConfig, Kernel kernel, unsigned timesteps) {
   unsigned t = 0;
   switch (kernel) {
-    case all:
-      for (; t < timesteps; ++t) {
-        computeLocalIntegration();
-        computeNeighboringIntegration();
-      }
-      break;
-    case local:
-      for (; t < timesteps; ++t) {
-        computeLocalIntegration();
-      }
-      break;
-    case neigh:
-    case neigh_dr:
-      for (; t < timesteps; ++t) {
-        computeNeighboringIntegration();
-      }
-      break;
-    case ader:
-      for (; t < timesteps; ++t) {
-        computeAderIntegration();
-      }
-      break;
-    case localwoader:
-      for (; t < timesteps; ++t) {
-        computeLocalWithoutAderIntegration();
-      }
-      break;    
-    case godunov_dr:
-      for (; t < timesteps; ++t) {
-        computeDynRupGodunovState();
-      }
-      break;
-    default:
-      break;
+  case Kernel::all:
+    for (; t < timesteps; ++t) {
+      computeLocalIntegration(kernelConfig);
+      computeNeighboringIntegration();
+    }
+    break;
+  case Kernel::local:
+    for (; t < timesteps; ++t) {
+      computeLocalIntegration(kernelConfig);
+    }
+    break;
+  case Kernel::neigh:
+    [[fallthrough]];
+  case Kernel::neigh_dr:
+    for (; t < timesteps; ++t) {
+      computeNeighboringIntegration();
+    }
+    break;
+  case Kernel::ader:
+    for (; t < timesteps; ++t) {
+      computeAderIntegration();
+    }
+    break;
+  case Kernel::localwoader:
+    for (; t < timesteps; ++t) {
+      computeLocalWithoutAderIntegration();
+    }
+    break;
+  case Kernel::godunov_dr:
+    for (; t < timesteps; ++t) {
+      computeDynRupGodunovState();
+    }
+    break;
+  default:
+    break;
   }
 }
 
@@ -147,7 +148,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   registerMarkers();
 
   bool enableDynamicRupture = false;
-  if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
+  if (config.kernel == Kernel::neigh_dr || config.kernel == Kernel::godunov_dr) {
     enableDynamicRupture = true;
   }
 
@@ -184,7 +185,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   double total_cycles = 0.0;
 
   // init OpenMP and LLC
-  testKernel(config.kernel, 1);
+  testKernel(config.kernelConfig, config.kernel, 1);
   
   libxsmm_num_total_flops = 0;
   pspamm_num_total_flops = 0;
@@ -194,7 +195,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   cycles_start = __rdtsc();
 #endif
 
-  testKernel(config.kernel, config.timesteps);
+  testKernel(config.kernelConfig, config.kernel, config.timesteps);
 
 #ifdef __USE_RDTSC  
   cycles_end = __rdtsc();
@@ -211,31 +212,32 @@ ProxyOutput runProxy(ProxyConfig config) {
   seissol_flops (*flop_fun)(unsigned) = nullptr;
   double (*bytes_fun)(unsigned) = nullptr;
   switch (config.kernel) {
-    case all:
-      flop_fun = &flops_all_actual;
-      bytes_fun = &bytes_all;
-      break;
-    case local:
-      flop_fun = &flops_local_actual;
-      bytes_fun = &bytes_local;
-      break;
-    case neigh:
-    case neigh_dr:
-      flop_fun = &flops_neigh_actual;
-      bytes_fun = &bytes_neigh;
-      break;
-    case ader:
-      flop_fun = &flops_ader_actual;
-      bytes_fun = &noestimate;
-      break;
-    case localwoader:
-      flop_fun = &flops_localWithoutAder_actual;
-      bytes_fun = &noestimate;
-      break;
-    case godunov_dr:
-      flop_fun = &flops_drgod_actual;
-      bytes_fun = &noestimate;
-      break;
+  case Kernel::all:
+    flop_fun = &flops_all_actual;
+    bytes_fun = &bytes_all;
+    break;
+  case Kernel::local:
+    flop_fun = &flops_local_actual;
+    bytes_fun = &bytes_local;
+    break;
+  case Kernel::neigh:
+    [[fallthrough]]
+  case Kernel::neigh_dr:
+    flop_fun = &flops_neigh_actual;
+    bytes_fun = &bytes_neigh;
+    break;
+  case Kernel::ader:
+    flop_fun = &flops_ader_actual;
+    bytes_fun = &noestimate;
+    break;
+  case Kernel::localwoader:
+    flop_fun = &flops_localWithoutAder_actual;
+    bytes_fun = &noestimate;
+    break;
+  case Kernel::godunov_dr:
+    flop_fun = &flops_drgod_actual;
+    bytes_fun = &noestimate;
+    break;
   }
  
 

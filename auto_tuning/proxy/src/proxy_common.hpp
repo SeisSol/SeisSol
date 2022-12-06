@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <stdexcept>
 
-enum Kernel {
+enum class Kernel {
   all = 0,
   local,
   neigh,
@@ -16,11 +16,22 @@ enum Kernel {
   godunov_dr
 };
 
+enum class ParallelizationStrategy {
+  ParallelFor,
+  Taskloop
+};
+
+struct ProxyKernelConfig {
+  ParallelizationStrategy parallelizationStrategy{ParallelizationStrategy::Taskloop};
+
+};
+
 struct ProxyConfig {
   unsigned cells{static_cast<unsigned>(1e5)};
   unsigned timesteps{10};
   Kernel kernel{Kernel::all};
   bool verbose{true};
+  ProxyKernelConfig kernelConfig{};
 };
 
 struct ProxyOutput{

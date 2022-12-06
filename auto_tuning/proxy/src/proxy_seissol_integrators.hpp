@@ -117,7 +117,27 @@ namespace proxy::cpu {
     }
   }
 
-  void computeLocalIntegration() {
+  __attribute__((always_inline)) inline void computeLocalIntegrationKernel(kernels::LocalData::Loader& loader,
+                                     kernels::LocalTmp& tmp,
+                                     real** buffers,
+                                     real** derivatives,
+                                     unsigned cell) {
+    auto data = loader.entry(cell);
+    m_timeKernel.computeAder((double)seissol::miniSeisSolTimeStep,
+                             data,
+                             tmp,
+                             buffers[cell],
+                             derivatives[cell] );
+    m_localKernel.computeIntegral(buffers[cell],
+                                  data,
+                                  tmp,
+                                  nullptr,
+                                  nullptr,
+                                  0,
+                                  0);
+  }
+
+  void computeLocalIntegration(const ProxyKernelConfig& config) {
     auto&                 layer           = m_ltsTree->child(0).child<Interior>();
     unsigned              nrOfCells       = layer.getNumberOfCells();
     real**                buffers                       = layer.var(m_lts.buffers);
@@ -126,57 +146,29 @@ namespace proxy::cpu {
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
 
-    logInfo() << "Before rec";
-    scheduleTasksRecursively([&](int from, int to) {
-      for( unsigned int l_cell = from; l_cell < to; l_cell++ ) {
-        auto data = loader.entry(l_cell);
-        kernels::LocalTmp tmp;
-        m_timeKernel.computeAder(      (double)seissol::miniSeisSolTimeStep,
-                                 data,
-                                 tmp,
-                                 buffers[l_cell],
-                                 derivatives[l_cell] );
-        m_localKernel.computeIntegral(buffers[l_cell],
-                                      data,
-                                      tmp,
-                                      nullptr,
-                                      nullptr,
-                                      0,
-                                      0);
-      }
-    },
-             0, nrOfCells);
-    logInfo() << "After rec";
-
-    /*
-  #ifdef _OPENMP
-    #pragma omp parallel
+#pragma omp parallel
     {
-    LIKWID_MARKER_START("local");
-    kernels::LocalTmp tmp;
-    //#pragma omp for schedule(static)
-  #pragma omp taskloop untied grainsize(100)
-  #endif
-    for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
-      auto data = loader.entry(l_cell);
-      m_timeKernel.computeAder(      (double)seissol::miniSeisSolTimeStep,
-                                             data,
-                                             tmp,
-                                             buffers[l_cell],
-                                             derivatives[l_cell] );
-      m_localKernel.computeIntegral(buffers[l_cell],
-                                    data,
-                                    tmp,
-                                    nullptr,
-                                    nullptr,
-                                    0,
-                                    0);
+      LIKWID_MARKER_START("local");
+      kernels::LocalTmp tmp;
+      switch (config.parallelizationStrategy) {
+      case ParallelizationStrategy::ParallelFor:
+#pragma omp for schedule(static)
+      for (unsigned int cell = 0; cell < nrOfCells; cell++) {
+        computeLocalIntegrationKernel(loader, tmp, buffers, derivatives, cell);
+      }
+        break;
+      case ParallelizationStrategy::Taskloop:
+#pragma omp single
+#pragma omp taskloop untied
+        for (unsigned int cell = 0; cell < nrOfCells; cell++) {
+          computeLocalIntegrationKernel(loader, tmp, buffers, derivatives, cell);
+        }
+        break;
+      }
+      //#pragma omp for schedule(static)
+
+      LIKWID_MARKER_STOP("local");
     }
-  #ifdef _OPENMP
-    LIKWID_MARKER_STOP("local");
-    }
-  #endif
-     */
   }
 
   void computeNeighboringIntegration() {

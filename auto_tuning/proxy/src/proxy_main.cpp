@@ -12,6 +12,7 @@ int main(int argc, char* argv[]) {
   }
 
   utils::Args args;
+  args.addOption("tasks", 0, "Use task based parallelization", utils::Args::No, false);
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
@@ -23,6 +24,8 @@ int main(int argc, char* argv[]) {
   ProxyConfig config{};
   config.cells = args.getAdditionalArgument<unsigned>("cells");
   config.timesteps = args.getAdditionalArgument<unsigned>("timesteps");
+  config.kernelConfig.parallelizationStrategy =
+      args.isSet("tasks") ? ParallelizationStrategy::Taskloop : ParallelizationStrategy::ParallelFor;
   auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
 
   try {
