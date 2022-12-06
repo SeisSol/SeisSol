@@ -245,6 +245,7 @@ __attribute__((always_inline)) inline void computeNeighboringIntegrationKernel(k
                                               nrOfCells,
                                               cell);
         }
+        break;
       case ParallelizationStrategy::Taskloop:
 #pragma omp single
 #pragma omp taskloop
