@@ -461,6 +461,8 @@ public:
   void setReceiverTime(double receiverTime);
 
   bool isEmpty();
+  unsigned getNumberOfCells();
+
 };
 
 #endif

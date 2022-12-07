@@ -219,10 +219,6 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 void seissol::time_stepping::TimeManager::scheduleCluster(TimeCluster* cluster) {
   assert(cluster != nullptr);
   cluster->setIsScheduledAndWaitingOn();
-  // Optimization: Empty clusters are scheduled sequentially.
-  // TODO(Lukas) This still spawns the task for empty clusters -> Maybe execute as function?
-  // TODO(Lukas) Maybe use mergeable. Need to check compiler support first.
-#pragma omp task if(!cluster->isEmpty()) final(!cluster->isEmpty())
   cluster->act();
 }
 
@@ -274,6 +270,9 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 #pragma omp single
     while (!finished) {
       int scheduledTasks = 0;
+      auto scheduledPredictions = std::list<TimeCluster*>{};
+      auto scheduledCorrections = std::list<TimeCluster*>{};
+
       finished = true;
       communicationManager->progression();
 
@@ -283,7 +282,8 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
             cluster->getNextLegalAction() == ActorAction::Predict) {
           communicationManager->progression();
           scheduledTasks++;
-          scheduleCluster(cluster);
+          scheduledPredictions.push_back(cluster);
+          //scheduleCluster(cluster);
         }
       });
 
@@ -293,7 +293,8 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
             cluster->getNextLegalAction() != ActorAction::Nothing) {
           communicationManager->progression();
           scheduledTasks++;
-          scheduleCluster(cluster);
+          //scheduleCluster(cluster);
+          scheduledCorrections.push_back(cluster); // TODO(Lukas) Might be something different?
         }
       });
 
@@ -306,7 +307,8 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
         );
           predictable != lowPrioClusters.end()) {
         scheduledTasks++;
-        scheduleCluster(*predictable);
+        scheduledPredictions.push_back(*predictable);
+        //scheduleCluster(*predictable);
       }
       if (auto correctable = std::find_if(
             lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
@@ -317,7 +319,8 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
         );
           correctable != lowPrioClusters.end()) {
         scheduledTasks++;
-        scheduleCluster(*correctable);
+        scheduledCorrections.push_back(*correctable);
+        //scheduleCluster(*correctable);
       }
       finished = std::all_of(clusters.begin(), clusters.end(),
                              [](auto& c) {
@@ -327,8 +330,19 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
       const auto rank = MPI::mpi.rank();
       if (scheduledTasks) {
-        //logDebug(rank) << "Exit scheduling loop. Scheduled"
-        //<< scheduledTasks << "tasks";
+        logInfo(rank) << "Exit scheduling loop. Scheduled"
+                      << scheduledCorrections.size() << "corrections and"
+                      << scheduledPredictions.size() << "predictions";
+        logInfo(rank) << "Predictions have size:";
+        for (auto& c : scheduledPredictions) {
+          logInfo(rank) << c->getNumberOfCells();
+          c->act();
+        }
+        logInfo(rank) << "Corections have size:";
+        for (auto& c : scheduledCorrections) {
+          logInfo(rank) << c->getNumberOfCells();
+          c->act();
+        }
       } else {
         //logDebug(rank) << "Exit scheduling loop. Yielding.";
         // Note: Taskwait not needed for correctness.

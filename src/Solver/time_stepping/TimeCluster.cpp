@@ -620,7 +620,7 @@ bool TimeCluster::isScheduable() const {
 ActResult TimeCluster::act() {
   const auto rank = MPI::mpi.rank();
 
-  assert(isScheduledAndWaiting.load());
+  //assert(isScheduledAndWaiting.load());
   isScheduledAndWaiting.store(false);
 
   bool expected = false;
@@ -804,5 +804,10 @@ void TimeCluster::setReceiverTime(double receiverTime) {
 bool TimeCluster::isEmpty() {
   return m_clusterData->getNumberOfCells() == 0;
 }
+
+unsigned TimeCluster::getNumberOfCells() {
+  return m_clusterData->getNumberOfCells();
+}
+
 }
 
