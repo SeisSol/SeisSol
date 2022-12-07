@@ -19,8 +19,8 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   real*(*faceNeighbors)[4] = currentLayer->var(currentHandler->faceNeighbors);
-  real* idofsScratch =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
+  real* integratedDofsScratch =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
@@ -47,7 +47,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
               bool isNeighbProvidesDerivatives = ((data.cellInformation.ltsSetup >> face) % 2) == 1;
 
               if (isNeighbProvidesDerivatives) {
-                real* NextTempIDofsPtr = &idofsScratch[integratedDofsAddressCounter];
+                real* NextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
                 bool isGtsNeigbour = ((data.cellInformation.ltsSetup >> (face + 4)) % 2) == 1;
                 if (isGtsNeigbour) {

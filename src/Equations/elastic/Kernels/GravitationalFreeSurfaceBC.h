@@ -208,8 +208,8 @@ public:
         auto& ptrs = *std::get<0>(item);
         auto& memory = *std::get<1>(item);
         auto elementSize = std::get<2>(item);
-        memory = (real*)(device.api->getStackMemory(elementSize * numElements * sizeof(real)));
-        ptrs  = (real**)(device.api->getStackMemory(numElements * sizeof(real*)));
+        memory = reinterpret_cast<real*>(device.api->getStackMemory(elementSize * numElements * sizeof(real)));
+        ptrs  = reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
         device.algorithms.incrementalAdd(ptrs, memory, elementSize, numElements, deviceStream);
       }
       size_t memCounter{2 * dataPack.size()};
@@ -225,7 +225,7 @@ public:
 
       auto rotateFaceDisplacementKrnl = kernel::gpu_rotateFaceDisplacement();
       constexpr auto auxTmpMemSize = yateto::getMaxTmpMemRequired(rotateFaceDisplacementKrnl, projectKernelPrototype);
-      auto* auxTmpMem = (real*)(device.api->getStackMemory(auxTmpMemSize * numElements));
+      auto* auxTmpMem = reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
       ++memCounter;
 
       auto** displacementsPtrs = dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
@@ -241,23 +241,24 @@ public:
       const double deltaTInt = timeStepWidth;
 
       auto** integratedDisplacementNodalPtrs = dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
-      kernels::time::aux::initializeTaylorSeries(prevCoefficientsPtrs,
-                                           integratedDisplacementNodalPtrs,
-                                           rotatedFaceDisplacementPtrs,
-                                           deltaTInt,
-                                           numElements,
-                                           deviceStream);
+      kernels::time::aux::initializeTaylorSeriesForGravitationalBoundary(
+        prevCoefficientsPtrs,
+        integratedDisplacementNodalPtrs,
+        rotatedFaceDisplacementPtrs,
+        deltaTInt,
+        numElements,
+        deviceStream);
 
-      auto* invImpedances = (double*)(device.api->getStackMemory(sizeof(double) * numElements));
+      auto* invImpedances = reinterpret_cast<double*>(device.api->getStackMemory(sizeof(double) * numElements));
       ++memCounter;
 
       auto* rhos = materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       auto* lambdas = materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtr();
-      kernels::time::aux::computeInvImpedance(invImpedances,
-                                              rhos,
-                                              lambdas,
-                                              numElements,
-                                              deviceStream);
+      kernels::time::aux::computeInvAcousticImpedance(invImpedances,
+                                                      rhos,
+                                                      lambdas,
+                                                      numElements,
+                                                      deviceStream);
 
       double factorEvaluated = 1;
       double factorInt = deltaTInt;

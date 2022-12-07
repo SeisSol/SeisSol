@@ -298,7 +298,7 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                         device.api->getDefaultStream());
 
     constexpr auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
-    real* tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * numElements));
+    real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
     intKrnl.power = i_timeStepWidth;
     intKrnl.linearAllocator.initialize(tmpMem);
@@ -444,7 +444,7 @@ void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = (real*)(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+  real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
 
   intKrnl.I = o_timeIntegratedDofs;
 

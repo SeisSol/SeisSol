@@ -28,14 +28,14 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
 
       constexpr auto numNodes = seissol::nodal::tensor::nodes2D::Shape[0];
       if (tid < numNodes) {
-        constexpr auto INodalStride = yateto::leadDim<seissol::init::INodal>();
+        constexpr auto ldINodal = yateto::leadDim<seissol::init::INodal>();
 
-        const auto pressureAtBnd = real(-1.0) * rho * g * elementDisplacement[tid];
+        const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
         #pragma unroll
         for (int component{0}; component < 3; ++component) {
-          elementBoundaryDofs[tid + component * INodalStride] =
-            2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * INodalStride];
+          elementBoundaryDofs[tid + component * ldINodal] =
+            2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * ldINodal];
         }
       }
     }
@@ -52,15 +52,15 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   const size_t workGroupSize = yateto::leadDim<seissol::init::INodal>();
   cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
 
-  constexpr auto leadINodalDim = yateto::leadDim<seissol::init::INodal>();
+  constexpr auto ldINodalDim = yateto::leadDim<seissol::init::INodal>();
   constexpr auto INodalDim0 = seissol::tensor::INodal::Shape[0];
   constexpr auto INodalDim1 = seissol::tensor::INodal::Shape[1];
 
-  constexpr auto leadConstantDim = yateto::leadDim<seissol::init::easiBoundaryConstant>();
+  constexpr auto ldConstantDim = yateto::leadDim<seissol::init::easiBoundaryConstant>();
   constexpr auto ConstantDim0 = seissol::tensor::easiBoundaryConstant::Shape[0];
   constexpr auto ConstantDim1 = seissol::tensor::easiBoundaryConstant::Shape[1];
 
-  constexpr auto leadMapDim = yateto::leadDim<seissol::init::easiBoundaryMap>();
+  constexpr auto ldMapDim = yateto::leadDim<seissol::init::easiBoundaryMap>();
   constexpr auto MapDim0 = seissol::tensor::easiBoundaryMap::Shape[0];
   constexpr auto MapDim1 = seissol::tensor::easiBoundaryMap::Shape[1];
   constexpr auto MapDim2 = seissol::tensor::easiBoundaryMap::Shape[2];
@@ -72,7 +72,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
   queue->submit([&](cl::sycl::handler& cgh) {
     LocalMemoryType resultTerm(cl::sycl::range<2>(INodalDim1, INodalDim0), cgh);
-    LocalMemoryType rightTerm(cl::sycl::range<2>(INodalDim1, leadConstantDim), cgh);
+    LocalMemoryType rightTerm(cl::sycl::range<2>(INodalDim1, ldConstantDim), cgh);
     LocalMemoryType leftTerm(cl::sycl::range<2>(MapDim0, MapDim2), cgh);
 
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
@@ -85,9 +85,9 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         real* easiBoundaryMap = easiBoundaryMapPtrs[elementId];
         auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
-        for (int i = tid; i < (leadConstantDim * ConstantDim1); i += item.get_local_range(0)) {
-          const auto b = i % leadConstantDim;
-          const auto l = i / leadConstantDim;
+        for (int i = tid; i < (ldConstantDim * ConstantDim1); i += item.get_local_range(0)) {
+          const auto b = i % ldConstantDim;
+          const auto l = i / ldConstantDim;
           rightTerm[b][l] = easiBoundaryConstant[i];
         }
         item.barrier();
@@ -100,13 +100,13 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         for (int b = 0; b < MapDim1; ++b) {
           for (int l = 0; l < MapDim2; ++l) {
             if (tid < MapDim0) {
-              leftTerm[tid][l] = easiBoundaryMap[tid + leadMapDim * (b + l * MapDim1)];
+              leftTerm[tid][l] = easiBoundaryMap[tid + ldMapDim * (b + l * MapDim1)];
             }
           }
           item.barrier();
 
           if (tid < MapDim2) {
-            const real col = dofsFaceBoundaryNodal[tid + b * leadINodalDim];
+            const real col = dofsFaceBoundaryNodal[tid + b * ldINodalDim];
             for (int a = 0; a < MapDim0; ++a) {
               resultTerm[a][tid] += leftTerm[a][tid] * col;
             }
@@ -116,7 +116,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
         if (tid < INodalDim0) {
           for (int a = 0; a < INodalDim1; ++a) {
-            dofsFaceBoundaryNodal[tid + a * leadINodalDim] = resultTerm[a][tid] + rightTerm[a][tid];
+            dofsFaceBoundaryNodal[tid + a * ldINodalDim] = resultTerm[a][tid] + rightTerm[a][tid];
           }
         }
       }
@@ -159,12 +159,13 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
   });
 }
 
-void initializeTaylorSeries(real** prevCoefficientsPtrs,
-                            real** integratedDisplacementNodalPtrs,
-                            real** rotatedFaceDisplacementPtrs,
-                            double deltaTInt,
-                            size_t numElements,
-                            void* deviceStream) {
+void initializeTaylorSeriesForGravitationalBoundary(
+  real** prevCoefficientsPtrs,
+  real** integratedDisplacementNodalPtrs,
+  real** rotatedFaceDisplacementPtrs,
+  double deltaTInt,
+  size_t numElements,
+  void* deviceStream) {
 
   auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
   const size_t workGroupSize = yateto::leadDim<seissol::nodal::init::nodes2D>();
@@ -189,11 +190,11 @@ void initializeTaylorSeries(real** prevCoefficientsPtrs,
   });
 }
 
-void computeInvImpedance(double* invImpedances,
-                         double* rhos,
-                         double* lambdas,
-                         size_t numElements,
-                         void* deviceStream) {
+void computeInvAcousticImpedance(double* invImpedances,
+                                 double* rhos,
+                                 double* lambdas,
+                                 size_t numElements,
+                                 void* deviceStream) {
   constexpr size_t blockSize{256};
   auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
   cl::sycl::nd_range rng{{numElements * blockSize}, {blockSize}};

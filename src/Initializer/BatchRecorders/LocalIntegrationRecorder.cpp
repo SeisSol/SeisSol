@@ -20,14 +20,14 @@ void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
   recordTimeAndVolumeIntegrals();
   recordFreeSurfaceGravityBc();
   recordDirichletBc();
-  recordAnaliticalBc();
+  recordAnalyticalBc();
   recordLocalFluxIntegral();
   recordDisplacements();
 }
 
 void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
-  real* idofsScratch =
-      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->idofsScratch));
+  real* integratedDofsScratch =
+      static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->integratedDofsScratch));
   real* derivativesScratch =
       static_cast<real*>(currentLayer->getScratchpadMemory(currentHandler->derivativesScratch));
 
@@ -52,7 +52,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       dofsPtrs[cell] = static_cast<real*>(data.dofs);
 
       // idofs
-      real* nextIdofPtr = &idofsScratch[integratedDofsAddressCounter];
+      real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter];
       bool isBuffersProvided = ((data.cellInformation.ltsSetup >> 8) % 2) == 1;
       bool isLtsBuffers = ((data.cellInformation.ltsSetup >> 10) % 2) == 1;
 
@@ -300,7 +300,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   }
 }
 
-void LocalIntegrationRecorder::recordAnaliticalBc() {
+void LocalIntegrationRecorder::recordAnalyticalBc() {
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
     std::array<std::vector<real*>, 4> idofsPtrs{};

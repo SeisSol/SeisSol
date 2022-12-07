@@ -85,8 +85,8 @@ class DirichletBoundary {
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
     size_t memCounter{0};
-    auto* dofsFaceBoundaryNodalData = (real*)(device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
-    auto** dofsFaceBoundaryNodalPtrs = (real**)(device.api->getStackMemory(numElements * sizeof(real*)));
+    auto* dofsFaceBoundaryNodalData = reinterpret_cast<real*>(device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
+    auto** dofsFaceBoundaryNodalPtrs = reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
     memCounter += 2;
 
     auto* deviceStream = device.api->getDefaultStream();
@@ -99,7 +99,7 @@ class DirichletBoundary {
     );
 
     constexpr auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
-    auto* auxTmpMem = (real*)(device.api->getStackMemory(auxTmpMemSize * numElements));
+    auto* auxTmpMem = reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
     memCounter += 1;
 
     auto** TinvData = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();

@@ -5,6 +5,11 @@
 #include <cstdlib>
 
 namespace seissol::initializers::recording::inner_keys {
+
+/**
+ * The structure contains encoded variables names
+ * of the Wave Propagation (Wp) solver.
+ */
 struct Wp {
   using DataType = real*;
   enum struct Id : size_t {
@@ -31,6 +36,10 @@ struct Wp {
   };
 };
 
+/**
+ * The structure contains encoded variables names
+ * of the Dynamic Rupture (Dr) solver.
+ */
 struct Dr {
   using DataType = real*;
   enum struct Id : size_t {

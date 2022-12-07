@@ -65,11 +65,6 @@ class GenericTableEntry {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 };
 
-/**
- * This class may seem redundant. But it provides strong guarantee of
- * zero initialization of std::array. Note, there are some circumstances
- * when it is not zero-initialized
- * */
 template <typename KeyType>
 struct GenericTable {
   using VariableIdType = typename KeyType::Id;

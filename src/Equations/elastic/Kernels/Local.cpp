@@ -101,8 +101,8 @@ void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
 
 template<typename LocalDataType>
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::kernels::Local* kernel,
-                          LocalDataType& data) : localKernel(kernel),
+  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition,
+                          LocalDataType& data) : initCondition(initCondition),
                                                  localData(data) {}
 
 
@@ -120,12 +120,12 @@ struct ApplyAnalyticalSolution {
       nodesVec.push_back(curNode);
     }
 
-    const auto& initCond = localKernel->getInitCond(0);
-    initCond->evaluate(time, nodesVec, localData.material, boundaryDofs);
+    assert(initCondition != nullptr);
+    initCondition->evaluate(time, nodesVec, localData.material, boundaryDofs);
   }
 
 private:
-  seissol::kernels::Local* localKernel{};
+  seissol::physics::InitialField* initCondition{};
   LocalDataType& localData;
 };
 
@@ -243,7 +243,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
       assert(initConds->size() == 1);
-      ApplyAnalyticalSolution applyAnalyticalSolution(this, data);
+      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
                                               face,
@@ -378,7 +378,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
 
         assert(initConds != nullptr);
         assert(initConds->size() == 1);
-        ApplyAnalyticalSolution applyAnalyticalSolution(this, data);
+        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
         dirichletBoundary.evaluateTimeDependent(idofsPtrs[index],
                                                 face,

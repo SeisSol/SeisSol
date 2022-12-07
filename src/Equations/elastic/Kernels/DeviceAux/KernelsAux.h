@@ -81,18 +81,18 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
                              size_t numElements,
                              void* deviceStream);
 
-void initializeTaylorSeries(real** prevCoefficientsPtrs,
-                            real** integratedDisplacementNodalPtrs,
-                            real** rotatedFaceDisplacementPtrs,
-                            double deltaTInt,
-                            size_t numElements,
-                            void* deviceStream);
+void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
+                                                    real** integratedDisplacementNodalPtrs,
+                                                    real** rotatedFaceDisplacementPtrs,
+                                                    double deltaTInt,
+                                                    size_t numElements,
+                                                    void* deviceStream);
 
-void computeInvImpedance(double* invImpedances,
-                         double* rhos,
-                         double* lambdas,
-                         size_t numElements,
-                         void* deviceStream);
+void computeInvAcousticImpedance(double* invImpedances,
+                                 double* rhos,
+                                 double* lambdas,
+                                 size_t numElements,
+                                 void* deviceStream);
 
 void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    real** prevCoefficientsPtrs,

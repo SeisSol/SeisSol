@@ -202,7 +202,7 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
         neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
         neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
 
-        tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
         neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
@@ -229,7 +229,7 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
         drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
         drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-        tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
         drKrnl.linearAllocator.initialize(tmpMem);
 
         drKrnl.streamPtr = device.api->getNextCircularStream();

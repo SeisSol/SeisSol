@@ -86,8 +86,9 @@ public:
       this->initConds = initConds;
     }
 
-    const std::unique_ptr<physics::InitialField>& getInitCond(size_t index) {
-      return this->initConds->at(index);
+    physics::InitialField* getInitCond(size_t index) {
+      const auto& condition = this->initConds->at(index);
+      return condition.get();
     }
 };
 #endif
