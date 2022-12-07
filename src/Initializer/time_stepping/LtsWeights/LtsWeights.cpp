@@ -77,10 +77,10 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  double stepSizeWiggleFactor = 0.01;
-  double minWiggleFactor = 1.0 / m_rate + stepSizeWiggleFactor;
-  double maxWiggleFactor = 1.0;
-  int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
+  const double stepSizeWiggleFactor = 0.01;
+  const double minWiggleFactor = 1.0 / m_rate + stepSizeWiggleFactor;
+  const double maxWiggleFactor = 1.0;
+  const int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
 
   auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
     return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
@@ -88,17 +88,18 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
 
   auto costEstimates = std::vector<double>(numberOfStepsWiggleFactor, std::numeric_limits<double>::max());
 
+  auto totalWiggleFactorReductions = 0u;
   for (int i = 0; i <= numberOfStepsWiggleFactor; ++i) {
-    double curWiggleFactor = computeWiggleFactor(i);
+    const double curWiggleFactor = computeWiggleFactor(i);
     m_clusterIds = computeClusterIds(curWiggleFactor);
     m_ncon = evaluateNumberOfConstraints();
-    enforceMaximumDifference();
+    totalWiggleFactorReductions += enforceMaximumDifference();
 
     // Compute cost
     costEstimates[i] = 0.0;
     for (auto j=0U; j < m_clusterIds.size(); ++j) {
       auto cluster = m_clusterIds[j];
-      double updateFactor = 1.0/(std::pow(2, cluster) * curWiggleFactor * m_details.globalMinTimeStep);
+      const double updateFactor = 1.0/(std::pow(2, cluster) * curWiggleFactor * m_details.globalMinTimeStep);
 
       costEstimates[i] += updateFactor * m_cellCosts[j];
     }
@@ -115,11 +116,19 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   MPI_Barrier(seissol::MPI::mpi.comm());
 #endif
 
+  auto maxWiggleFactorCostEstimate = costEstimates[costEstimates.size() - 1];
+
   double bestCostEstimate = std::numeric_limits<double>::max();
   double bestWiggleFactor = maxWiggleFactor;
   for (auto i = 0u; i < costEstimates.size(); ++i) {
     auto curCost = costEstimates[i];
-    logInfo(rank) << i <<computeWiggleFactor(i) << curCost;
+    logDebug(rank) << "A wiggle factor of "
+        << computeWiggleFactor(i)
+        << "leads to a cost of"
+        << curCost
+        << "which is a speedup  of"
+        << (maxWiggleFactorCostEstimate / curCost) * 100 - 100
+        << "%.";
     // Note: Higher wiggle factor with same cost is better!
     if (curCost <= bestCostEstimate) {
       bestCostEstimate = curCost;
@@ -128,8 +137,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   }
 
   logInfo(rank) << "Best wiggle factor" << bestWiggleFactor << "with cost" << bestCostEstimate;
+  logInfo(rank) << "Finding best factor took" << totalWiggleFactorReductions << "reductions.";
 
-  auto maxWiggleFactorCostEstimate = costEstimates[costEstimates.size() - 1];
   logInfo(rank) << "Speedup of" << (maxWiggleFactorCostEstimate / bestCostEstimate) * 100 - 100
       << "% with absolute cost difference" << maxWiggleFactorCostEstimate - bestCostEstimate
       << "compared to the default wiggle factor of"
@@ -138,11 +147,10 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   seissol::SeisSol::main.wiggleFactorLts = bestWiggleFactor;
   wiggleFactor = bestWiggleFactor;
 
-
   m_clusterIds = computeClusterIds(wiggleFactor);
 
   m_ncon = evaluateNumberOfConstraints();
-  auto totalNumberOfReductions = enforceMaximumDifference();
+  auto finalNumberOfReductions = enforceMaximumDifference();
 
   if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
   m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
@@ -152,7 +160,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   setAllowedImbalances();
 
   logInfo(rank) << "Computing LTS weights. Done. " << utils::nospace << '('
-                                    << totalNumberOfReductions << " reductions.)";
+                                    << finalNumberOfReductions << " reductions.)";
 }
 
 const int* LtsWeights::vertexWeights() const {
