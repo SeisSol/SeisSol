@@ -13,6 +13,7 @@ int main(int argc, char* argv[]) {
 
   utils::Args args;
   args.addOption("tasks", 0, "Use task based parallelization", utils::Args::No, false);
+  args.addOption("grainsize", 0, "Grainsize used for tasking", utils::Args::Required, false);
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
@@ -26,6 +27,10 @@ int main(int argc, char* argv[]) {
   config.timesteps = args.getAdditionalArgument<unsigned>("timesteps");
   config.kernelConfig.parallelizationStrategy =
       args.isSet("tasks") ? ParallelizationStrategy::Taskloop : ParallelizationStrategy::ParallelFor;
+  if (args.isSet("grainsize")) {
+    config.kernelConfig.grainsize = args.getArgument<unsigned>("grainsize");
+    std::cout << "Setting grainsize to " << config.kernelConfig.grainsize << std::endl;
+  }
   auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
 
   try {

@@ -23,7 +23,7 @@ enum class ParallelizationStrategy {
 
 struct ProxyKernelConfig {
   ParallelizationStrategy parallelizationStrategy{ParallelizationStrategy::Taskloop};
-
+  unsigned int grainsize = 4;
 };
 
 struct ProxyConfig {

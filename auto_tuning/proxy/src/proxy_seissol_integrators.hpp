@@ -159,14 +159,12 @@ namespace proxy::cpu {
         break;
       case ParallelizationStrategy::Taskloop:
 #pragma omp single
-#pragma omp taskloop untied
+#pragma omp taskloop untied grainsize(config.grainsize)
         for (unsigned int cell = 0; cell < nrOfCells; cell++) {
           computeLocalIntegrationKernel(loader, tmp, buffers, derivatives, cell);
         }
         break;
       }
-      //#pragma omp for schedule(static)
-
       LIKWID_MARKER_STOP("local");
     }
   }
@@ -248,7 +246,7 @@ __attribute__((always_inline)) inline void computeNeighboringIntegrationKernel(k
         break;
       case ParallelizationStrategy::Taskloop:
 #pragma omp single
-#pragma omp taskloop
+#pragma omp taskloop untied grainsize(config.grainsize)
         for (unsigned cell = 0; cell < nrOfCells; cell++) {
           computeNeighboringIntegrationKernel(loader,
                                               cellInformation,
