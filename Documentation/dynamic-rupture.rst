@@ -282,7 +282,9 @@ with
   \end{aligned}.
 
 
-
+Note that between commits b014d1180d53a5231e92bb5062a45711fea9aade (merging #306) of March 17th, 2021, and v1.1.0, the state variable was enforced positive in this friction law. 
+We wanted to avoid the state variable getting negative because of Gibbs effects when projecting the state increment onto the modal basis functions (resampling matrix). 
+Since then, we realized that the state variable can get negative due to other factors, and, therefore, reverted this change.
 
 Thermal Pressurization
 ~~~~~~~~~~~~~~~~~~~~~~
