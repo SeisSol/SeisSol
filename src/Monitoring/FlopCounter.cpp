@@ -176,43 +176,43 @@ void FlopCounter::printPerformanceSummary(double wallTime) {
   logInfo(rank) << "PL calculated NZ-GFLOP: " << (totalFlops[PLNonZeroFlops])  * 1.e-9;
 }
 void FlopCounter::incrementNonZeroFlopsLocal(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   nonZeroFlopsLocal += update;
 }
 void FlopCounter::incrementHardwareFlopsLocal(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   hardwareFlopsLocal += update;
 }
 void FlopCounter::incrementNonZeroFlopsNeighbor(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   nonZeroFlopsNeighbor += update;
 }
 void FlopCounter::incrementHardwareFlopsNeighbor(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   hardwareFlopsNeighbor += update;
 }
 void FlopCounter::incrementNonZeroFlopsOther(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   nonZeroFlopsOther += update;
 }
 void FlopCounter::incrementHardwareFlopsOther(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   hardwareFlopsOther += update;
 }
 void FlopCounter::incrementNonZeroFlopsDynamicRupture(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   nonZeroFlopsDynamicRupture += update;
 }
 void FlopCounter::incrementHardwareFlopsDynamicRupture(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   hardwareFlopsDynamicRupture += update;
 }
 void FlopCounter::incrementNonZeroFlopsPlasticity(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   nonZeroFlopsPlasticity += update;
 }
 void FlopCounter::incrementHardwareFlopsPlasticity(long long update) {
-  assert(update > 0);
+  assert(update >= 0);
   hardwareFlopsPlasticity += update;
 }
 }
