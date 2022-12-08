@@ -277,7 +277,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
   kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype;
   kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype;
 
-  constexpr auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
+  const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
   real* tmpMem = nullptr;
   if (dataTable.find(key) != dataTable.end()) {

@@ -297,7 +297,7 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                         derivativesKrnl.numElements,
                                         device.api->getDefaultStream());
 
-    constexpr auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
+    const auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
     intKrnl.power = i_timeStepWidth;

@@ -98,7 +98,7 @@ class DirichletBoundary {
       deviceStream
     );
 
-    constexpr auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
+    const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
     auto* auxTmpMem = reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
     memCounter += 1;
 

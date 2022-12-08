@@ -224,7 +224,7 @@ public:
                                                   deviceStream);
 
       auto rotateFaceDisplacementKrnl = kernel::gpu_rotateFaceDisplacement();
-      constexpr auto auxTmpMemSize = yateto::getMaxTmpMemRequired(rotateFaceDisplacementKrnl, projectKernelPrototype);
+      const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(rotateFaceDisplacementKrnl, projectKernelPrototype);
       auto* auxTmpMem = reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
       ++memCounter;
 
