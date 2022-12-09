@@ -204,7 +204,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   // estimate sizes required for scratch pads
   constexpr unsigned totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   unsigned derivativesCounter = 0;
-  unsigned idofsCounter = 0;
+  unsigned integratedDofsCounter = 0;
 
   seissol::initializers::TimeCluster& cluster = m_ltsTree->child(0);
   seissol::initializers::Layer& layer = cluster.child<Interior>();
@@ -218,7 +218,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
     if (needsScratchMemForDerivatives) {
       ++derivativesCounter;
     }
-    ++idofsCounter;
+    ++integratedDofsCounter;
 
     // include data provided by ghost layers
     for (unsigned face = 0; face < 4; ++face) {
@@ -234,7 +234,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
 
             bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
             if (isNeighbProvidesDerivatives) {
-              ++idofsCounter;
+              ++integratedDofsCounter;
             }
             registry.insert(neighbourBuffer);
           }
@@ -243,7 +243,7 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
     }
   }
 
-  layer.setScratchpadSize(m_lts.idofsScratch, idofsCounter * tensor::I::size() * sizeof(real));
+  layer.setScratchpadSize(m_lts.integratedDofsScratch, integratedDofsCounter * tensor::I::size() * sizeof(real));
   layer.setScratchpadSize(m_lts.derivativesScratch, derivativesCounter * totalDerivativesSize * sizeof(real));
   m_ltsTree->allocateScratchPads();
 

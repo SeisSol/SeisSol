@@ -73,16 +73,22 @@ class seissol::kernels::LocalBase {
     kernels::DirichletBoundary dirichletBoundary;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume deviceVolumeKernelPrototype;
-  kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
-  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    kernel::gpu_volume deviceVolumeKernelPrototype;
+    kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
+    kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
+    kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
     const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
 public:
     virtual void setInitConds(decltype(initConds) initConds) {
       this->initConds = initConds;
+    }
+
+    physics::InitialField* getInitCond(size_t index) {
+      const auto& condition = this->initConds->at(index);
+      return condition.get();
     }
 };
 #endif
