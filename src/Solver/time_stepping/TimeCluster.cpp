@@ -716,7 +716,7 @@ void TimeCluster::correct() {
   // First cluster calls fault receiver output
   // Call fault output only if both interior and copy parts of DR were computed
   // TODO: Change from iteration based to time based
-  if (dynamicRuptureScheduler->getIsFirstDynamicRuptureCluster()
+  if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces()
       && dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
     faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
