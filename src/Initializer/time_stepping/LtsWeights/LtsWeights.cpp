@@ -77,12 +77,35 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  const auto ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
+  wiggleFactor = getBestWiggleFactor();
+  SeisSol::main.wiggleFactorLts = wiggleFactor;
+
+  m_clusterIds = computeClusterIds(wiggleFactor);
+
+  m_ncon = evaluateNumberOfConstraints();
+  auto finalNumberOfReductions = enforceMaximumDifference();
+
+  if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
+  m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
+
+  // calling virtual functions
+  setVertexWeights();
+  setAllowedImbalances();
+
+  logInfo(rank) << "Computing LTS weights. Done. " << utils::nospace << '('
+                                    << finalNumberOfReductions << " reductions.)";
+}
+double LtsWeights::getBestWiggleFactor() {
+  const auto rank = seissol::MPI::mpi.rank();
+
+  const auto ltsParameters = SeisSol::main.getMemoryManager().getLtsParameters();
+  if (!ltsParameters->isWiggleFactorUsed()) return 1.0;
 
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
+
   const double stepSizeWiggleFactor = ltsParameters->getWiggleFactorStepsize();
-  const int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
+  const int numberOfStepsWiggleFactor = ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
 
   auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
     return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
@@ -113,7 +136,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
       static_cast<int>(costEstimates.size()),
       MPI_DOUBLE,
       MPI_SUM,
-      seissol::MPI::mpi.comm()
+      MPI::mpi.comm()
       );
 #endif
 
@@ -145,23 +168,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
       << "compared to the default wiggle factor of"
       << maxWiggleFactor;
 
-  seissol::SeisSol::main.wiggleFactorLts = bestWiggleFactor;
-  wiggleFactor = bestWiggleFactor;
-
-  m_clusterIds = computeClusterIds(wiggleFactor);
-
-  m_ncon = evaluateNumberOfConstraints();
-  auto finalNumberOfReductions = enforceMaximumDifference();
-
-  if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
-  m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
-
-  // calling virtual functions
-  setVertexWeights();
-  setAllowedImbalances();
-
-  logInfo(rank) << "Computing LTS weights. Done. " << utils::nospace << '('
-                                    << finalNumberOfReductions << " reductions.)";
+  return bestWiggleFactor;
 }
 
 const int* LtsWeights::vertexWeights() const {

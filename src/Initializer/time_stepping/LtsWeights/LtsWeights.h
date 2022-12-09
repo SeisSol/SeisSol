@@ -110,6 +110,7 @@ protected:
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
   double wiggleFactor;
+  double getBestWiggleFactor();
 };
 }
 
