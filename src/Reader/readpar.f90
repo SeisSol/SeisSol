@@ -2099,12 +2099,14 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, LtsWeightTypeId
-    REAL                             :: CFL, FixTimeStep, StableDt
+    REAL                             :: CFL, FixTimeStep, StableDt, ltsWiggleFactorMin, &
+                                        ltsWiggleFactorStepsize
     NAMELIST                         /Discretization/ DGFineOut1D, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
-                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId
+                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId, &
+                                                      ltsWiggleFactorMin, ltsWiggleFactorStepsize
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'

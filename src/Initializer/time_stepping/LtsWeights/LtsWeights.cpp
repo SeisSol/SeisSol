@@ -77,9 +77,11 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  const double stepSizeWiggleFactor = 0.01;
-  const double minWiggleFactor = 1.0 / m_rate + stepSizeWiggleFactor;
+  const auto ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
+
+  const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
+  const double stepSizeWiggleFactor = ltsParameters->getWiggleFactorStepsize();
   const int numberOfStepsWiggleFactor = std::ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
 
   auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
@@ -113,7 +115,6 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
       MPI_SUM,
       seissol::MPI::mpi.comm()
       );
-  MPI_Barrier(seissol::MPI::mpi.comm());
 #endif
 
   auto maxWiggleFactorCostEstimate = costEstimates[costEstimates.size() - 1];
