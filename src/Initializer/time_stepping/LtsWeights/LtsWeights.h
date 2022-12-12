@@ -60,6 +60,11 @@ struct LtsWeightsConfig {
   int vertexWeightFreeSurfaceWithGravity{};
 };
 
+double computeCostOfClustering(const std::vector<int>& clusterIds,
+                                const std::vector<int>& cellCosts,
+                                unsigned int rate,
+                                double wiggleFactor,
+                                double minimalTimestep);
 
 class LtsWeights {
 public:
@@ -110,7 +115,7 @@ protected:
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
   double wiggleFactor;
-  double getBestWiggleFactor();
+  double computeBestWiggleFactor();
 };
 }
 

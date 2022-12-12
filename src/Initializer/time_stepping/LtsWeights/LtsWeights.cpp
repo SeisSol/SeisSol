@@ -68,6 +68,23 @@ public:
   }
 };
 
+double computeCostOfClustering(const std::vector<int>& clusterIds,
+                               const std::vector<int>& cellCosts,
+                               unsigned int rate,
+                               double wiggleFactor,
+                               double minimalTimestep) {
+  assert(clusterIds.size() == cellCosts.size());
+  double cost = 0.0;
+  for (auto i = 0U; i < clusterIds.size(); ++i) {
+    const auto cluster = clusterIds[i];
+    const auto cellCost = cellCosts[i];
+    const double updateFactor = 1.0 / (std::pow(rate, cluster) * wiggleFactor * minimalTimestep);
+    cost += updateFactor * cellCost;
+  }
+
+  return cost;
+}
+
 void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Computing LTS weights.";
@@ -77,7 +94,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  wiggleFactor = getBestWiggleFactor();
+  wiggleFactor = computeBestWiggleFactor();
   SeisSol::main.wiggleFactorLts = wiggleFactor;
 
   m_clusterIds = computeClusterIds(wiggleFactor);
@@ -95,7 +112,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   logInfo(rank) << "Computing LTS weights. Done. " << utils::nospace << '('
                                     << finalNumberOfReductions << " reductions.)";
 }
-double LtsWeights::getBestWiggleFactor() {
+double LtsWeights::computeBestWiggleFactor() {
   const auto rank = seissol::MPI::mpi.rank();
 
   const auto ltsParameters = SeisSol::main.getMemoryManager().getLtsParameters();
@@ -123,13 +140,8 @@ double LtsWeights::getBestWiggleFactor() {
     }
 
     // Compute cost
-    costEstimates[i] = 0.0;
-    for (auto j=0U; j < m_clusterIds.size(); ++j) {
-      auto cluster = m_clusterIds[j];
-      const double updateFactor = 1.0/(std::pow(2, cluster) * curWiggleFactor * m_details.globalMinTimeStep);
-
-      costEstimates[i] += updateFactor * m_cellCosts[j];
-    }
+    costEstimates[i] = computeCostOfClustering(
+        m_clusterIds, m_cellCosts, m_rate, curWiggleFactor, m_details.globalMinTimeStep);
   }
 #ifdef USE_MPI
   MPI_Allreduce(

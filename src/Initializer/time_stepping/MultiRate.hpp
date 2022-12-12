@@ -75,9 +75,8 @@ class seissol::initializers::time_stepping::MultiRate {
                                   unsigned int  i_multiRate,
                                   double       &o_clusterTimeStepWidth,
                                   unsigned int &o_clusterId ) {
-      const auto wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
       // first multi-rate interval
-      double l_lower = wiggleFactor * i_minimumTimeStepWidth;
+      double l_lower = i_minimumTimeStepWidth;
       double l_upper = i_multiRate * l_lower;
 
       for( unsigned int l_id = 0; ; l_id++ ) {
@@ -148,6 +147,7 @@ class seissol::initializers::time_stepping::MultiRate {
           << "Due to wiggle factor of" << wiggleFactor << "the minimal size is reduced to"
           << wiggleFactor * i_minimumTimeStepWidth;
 
+      i_minimumTimeStepWidth *= wiggleFactor;
       // iterate over all cells
       for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
         double l_clusterTimeStepWidth;
