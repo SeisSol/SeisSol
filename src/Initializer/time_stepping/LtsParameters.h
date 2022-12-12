@@ -10,14 +10,19 @@ class LtsParameters {
   unsigned int rate;
   double wiggleFactorMinimum;
   double wiggleFactorStepsize;
+  bool wiggleFactorEnforceMaximumDifference;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
   [[nodiscard]] bool isWiggleFactorUsed() const;
   [[nodiscard]] double getWiggleFactorMinimum() const;
   [[nodiscard]] double getWiggleFactorStepsize() const;
+  [[nodiscard]] bool getWiggleFactorEnforceMaximumDifference() const;
 
-  LtsParameters(unsigned int rate, double wiggleFactorMinimum, double wiggleFactorStepsize);
+  LtsParameters(unsigned int rate,
+                double wiggleFactorMinimum,
+                double wiggleFactorStepsize,
+                bool wiggleFactorEnforceMaximumDifference);
 };
 
 LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params);

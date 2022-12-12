@@ -118,7 +118,9 @@ double LtsWeights::getBestWiggleFactor() {
     const double curWiggleFactor = computeWiggleFactor(i);
     m_clusterIds = computeClusterIds(curWiggleFactor);
     m_ncon = evaluateNumberOfConstraints();
-    totalWiggleFactorReductions += enforceMaximumDifference();
+    if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
+      totalWiggleFactorReductions += enforceMaximumDifference();
+    }
 
     // Compute cost
     costEstimates[i] = 0.0;

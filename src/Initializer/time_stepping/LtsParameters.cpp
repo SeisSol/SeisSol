@@ -12,14 +12,19 @@ seissol::time_stepping::LtsParameters
       getWithDefault(discretizationParams, "ltswigglefactormin", 1.0);
   const double wiggleFactorStepsize =
       getWithDefault(discretizationParams, "ltswigglefactorstepsize", 0.01);
-  return seissol::time_stepping::LtsParameters(rate, wiggleFactorMinimum, wiggleFactorStepsize);
+  const bool wiggleFactorEnforceMaximumDifference =
+      getWithDefault(discretizationParams, "ltswigglefactorenforcemaximumdifference", true);
+  return seissol::time_stepping::LtsParameters(
+      rate, wiggleFactorMinimum, wiggleFactorStepsize, wiggleFactorEnforceMaximumDifference);
 }
 
 seissol::time_stepping::LtsParameters::LtsParameters(unsigned int rate,
                                                      double wiggleFactorMinimum,
-                                                     double wiggleFactorStepsize)
+                                                     double wiggleFactorStepsize,
+                                                     bool wigleFactorEnforceMaximumDifference)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
-      wiggleFactorStepsize(wiggleFactorStepsize) {
+      wiggleFactorStepsize(wiggleFactorStepsize),
+      wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference) {
   const bool isWiggleFactorValid = wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate);
   if (!isWiggleFactorValid) {
     logError() << "Minimal wiggle factor of " << wiggleFactorMinimum << "is not valid for rate"
@@ -30,10 +35,17 @@ seissol::time_stepping::LtsParameters::LtsParameters(unsigned int rate,
 bool seissol::time_stepping::LtsParameters::isWiggleFactorUsed() const {
   return wiggleFactorMinimum < 1.0;
 }
+
 unsigned int seissol::time_stepping::LtsParameters::getRate() const { return rate; }
+
 double seissol::time_stepping::LtsParameters::getWiggleFactorMinimum() const {
   return wiggleFactorMinimum;
 }
+
 double seissol::time_stepping::LtsParameters::getWiggleFactorStepsize() const {
   return wiggleFactorStepsize;
+}
+
+bool seissol::time_stepping::LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
+  return wiggleFactorEnforceMaximumDifference;
 }
