@@ -122,7 +122,8 @@ double LtsWeights::computeBestWiggleFactor() {
   const double maxWiggleFactor = 1.0;
 
   const double stepSizeWiggleFactor = ltsParameters->getWiggleFactorStepsize();
-  const int numberOfStepsWiggleFactor = ceil((maxWiggleFactor - minWiggleFactor)/ stepSizeWiggleFactor) + 1;
+  const int numberOfStepsWiggleFactor =
+      std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1;
 
   auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
     return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);

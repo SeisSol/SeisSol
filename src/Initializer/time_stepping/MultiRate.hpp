@@ -144,7 +144,7 @@ class seissol::initializers::time_stepping::MultiRate {
                                                                                  << i_multiRate;
       const auto wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
       logInfo(seissol::MPI::mpi.rank())
-          << "Due to wiggle factor of" << wiggleFactor << "the minimal size is reduced to"
+          << "Due to wiggle factor of" << wiggleFactor << "the minumum timestep size is reduced to"
           << wiggleFactor * i_minimumTimeStepWidth;
 
       i_minimumTimeStepWidth *= wiggleFactor;
@@ -177,8 +177,8 @@ class seissol::initializers::time_stepping::MultiRate {
                                       unsigned int  &o_numberOfClusters,
                                       double       *&o_clusterTimeStepWidths,
                                       unsigned int *&o_timeStepRates ) {
-       double wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
-       double l_currentMaximumTime = seissol::SeisSol::main.wiggleFactorLts * i_minimumTimeStepWidth;
+       double const wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+       double l_currentMaximumTime = wiggleFactor * i_minimumTimeStepWidth;
        l_currentMaximumTime *= i_multiRate;
 
        for( o_numberOfClusters = 1; l_currentMaximumTime <= i_maximumTimeStepWidth; o_numberOfClusters++ ) {

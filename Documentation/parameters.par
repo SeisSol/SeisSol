@@ -95,6 +95,13 @@ FixTimeStep = 5                      ! Manually chosen maximum time step
 ClusteredLTS = 2                     ! 1 for Global time stepping, 2,3,5,... Local time stepping (advised value 2)
 !ClusteredLTS defines the multi-rate for the time steps of the clusters 2 for Local time stepping
 LtsWeightTypeId = 1                  ! 0=exponential, 1=exponential-balanced, 2=encoded
+
+! Wiggle factor settings:
+! Wiggle factor adjusts time step size by a small factor. This can lead to a slightly better clustering.
+LtsWiggleFactorMin = 1.0 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
+LtsWiggleFactorStepsize = 0.01 ! Stepsize for wiggle factor grid search
+LtsWiggleFactorEnforceMaximumDifference = 1 ! > 0: Enforces the maximum difference between neighboring clusters during grid search.
+
 /
 
 &Output
