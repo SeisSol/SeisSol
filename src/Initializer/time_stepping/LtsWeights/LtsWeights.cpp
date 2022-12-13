@@ -85,9 +85,22 @@ double computeCostOfClustering(const std::vector<int>& clusterIds,
   return cost;
 }
 
+std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId) {
+  auto newClusterIds = clusterIds;
+  assert(maxClusterId >= 0);
+  std::for_each(newClusterIds.begin(), newClusterIds.end(), [maxClusterId](auto& clusterId) {
+    clusterId = std::min(clusterId, maxClusterId);
+  });
+
+  return newClusterIds;
+}
+
 void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Computing LTS weights.";
+
+  const auto ltsParameters = SeisSol::main.getMemoryManager().getLtsParameters();
+  SeisSol::main.maxClusterId = ltsParameters->getMaxClusterId();
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
@@ -98,6 +111,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   SeisSol::main.wiggleFactorLts = wiggleFactor;
 
   m_clusterIds = computeClusterIds(wiggleFactor);
+  m_clusterIds = enforceMaxClusterId(m_clusterIds, SeisSol::main.maxClusterId);
 
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
@@ -135,6 +149,7 @@ double LtsWeights::computeBestWiggleFactor() {
   for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
     m_clusterIds = computeClusterIds(curWiggleFactor);
+    m_clusterIds = enforceMaxClusterId(m_clusterIds, SeisSol::main.maxClusterId);
     m_ncon = evaluateNumberOfConstraints();
     if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
       totalWiggleFactorReductions += enforceMaximumDifference();

@@ -66,6 +66,8 @@ double computeCostOfClustering(const std::vector<int>& clusterIds,
                                 double wiggleFactor,
                                 double minimalTimestep);
 
+std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
+
 class LtsWeights {
 public:
   LtsWeights(const LtsWeightsConfig &config) : m_velocityModel(config.velocityModel),

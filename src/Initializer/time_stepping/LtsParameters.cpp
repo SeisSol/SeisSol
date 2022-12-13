@@ -14,18 +14,24 @@ seissol::time_stepping::LtsParameters
       getWithDefault(discretizationParams, "ltswigglefactorstepsize", 0.01);
   const bool wiggleFactorEnforceMaximumDifference =
       getWithDefault(discretizationParams, "ltswigglefactorenforcemaximumdifference", true);
+  unsigned int const maxClusterId =
+      getWithDefault(discretizationParams, "ltsmaxclusterid", std::numeric_limits<unsigned int>::max());
   return seissol::time_stepping::LtsParameters(
-      rate, wiggleFactorMinimum, wiggleFactorStepsize, wiggleFactorEnforceMaximumDifference);
+      rate, wiggleFactorMinimum, wiggleFactorStepsize, wiggleFactorEnforceMaximumDifference, maxClusterId);
 }
 
 seissol::time_stepping::LtsParameters::LtsParameters(unsigned int rate,
                                                      double wiggleFactorMinimum,
                                                      double wiggleFactorStepsize,
-                                                     bool wigleFactorEnforceMaximumDifference)
+                                                     bool wigleFactorEnforceMaximumDifference,
+                                                     unsigned int maxClusterId)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
-      wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference) {
-  const bool isWiggleFactorValid = wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate);
+      wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
+      maxClusterId(maxClusterId) {
+  const bool isWiggleFactorValid =
+      (rate == 1 && wiggleFactorMinimum == 1.0) ||
+      (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate));
   if (!isWiggleFactorValid) {
     logError() << "Minimal wiggle factor of " << wiggleFactorMinimum << "is not valid for rate"
                << rate;
@@ -48,4 +54,8 @@ double seissol::time_stepping::LtsParameters::getWiggleFactorStepsize() const {
 
 bool seissol::time_stepping::LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
   return wiggleFactorEnforceMaximumDifference;
+}
+
+unsigned int seissol::time_stepping::LtsParameters::getMaxClusterId() const {
+  return maxClusterId;
 }
