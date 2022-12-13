@@ -202,13 +202,20 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
         auto isSpecialBC = [&cellInformation, cell](int side) {
-          bool hasAtLeastOneDRFace = false;
-          for (size_t i = 0; i < 4; ++i) {
-            if (cellInformation[cell].faceTypes[i] == FaceType::dynamicRupture) {
-              hasAtLeastOneDRFace = true;
+          auto hasDRFace = [](const CellLocalInformation& ci) {
+            bool hasAtLeastOneDRFace = false;
+            for (size_t i = 0; i < 4; ++i) {
+              if (ci.faceTypes[i] == FaceType::dynamicRupture) {
+                hasAtLeastOneDRFace = true;
+              }
             }
-          }
-          return hasAtLeastOneDRFace && cellInformation[cell].faceTypes[side] == FaceType::regular;
+            return hasAtLeastOneDRFace;
+          };
+          const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+          const auto neighborID = cellInformation[cell].faceNeighborIds[side];
+          const bool neighborBehindSideHasAtLeastOneDRFace = hasDRFace(cellInformation[neighborID]);
+          const bool adjacentDRFaceExists = thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+          return (cellInformation[cell].faceTypes[side] == FaceType::regular) && adjacentDRFaceExists;
         };
 
         real centralFluxData[tensor::QgodLocal::size()] = {};
