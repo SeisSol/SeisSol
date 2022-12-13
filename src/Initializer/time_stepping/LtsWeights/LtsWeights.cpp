@@ -132,7 +132,7 @@ double LtsWeights::computeBestWiggleFactor() {
   auto costEstimates = std::vector<double>(numberOfStepsWiggleFactor, std::numeric_limits<double>::max());
 
   auto totalWiggleFactorReductions = 0u;
-  for (int i = 0; i <= numberOfStepsWiggleFactor; ++i) {
+  for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
     m_clusterIds = computeClusterIds(curWiggleFactor);
     m_ncon = evaluateNumberOfConstraints();
