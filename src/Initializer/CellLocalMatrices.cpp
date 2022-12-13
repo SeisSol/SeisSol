@@ -201,19 +201,33 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        real centralFluxData[tensor::QgodLocal::size()] = {};
+        auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
+        for (size_t i = 0; i < 9; i++) {
+          centralFluxView(i, i) = 0.5;
+        }
+
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        localKrnl.QgodLocal = QgodLocalData;
+        if (cellInformation[cell].faceTypes[side] == FaceType::regular) {
+          localKrnl.QgodLocal = centralFluxData;
+        } else {
+          localKrnl.QgodLocal = QgodLocalData;
+        }
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        neighKrnl.QgodNeighbor = QgodNeighborData;
+        if (cellInformation[cell].faceTypes[side] == FaceType::regular) {
+          neighKrnl.QgodNeighbor = centralFluxData;
+        } else {
+          neighKrnl.QgodNeighbor = QgodNeighborData;
+        }
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
