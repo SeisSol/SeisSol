@@ -201,6 +201,16 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
+        auto isSpecialBC = [&cellInformation, cell](int side) {
+          bool hasAtLeastOneDRFace = false;
+          for (size_t i = 0; i < 4; ++i) {
+            if (cellInformation[cell].faceTypes[i] == FaceType::dynamicRupture) {
+              hasAtLeastOneDRFace = true;
+            }
+          }
+          return hasAtLeastOneDRFace && cellInformation[cell].faceTypes[side] == FaceType::regular;
+        };
+
         real centralFluxData[tensor::QgodLocal::size()] = {};
         auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
         for (size_t i = 0; i < 9; i++) {
@@ -210,7 +220,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-        if (cellInformation[cell].faceTypes[side] == FaceType::regular) {
+        if (isSpecialBC(side)) {
           localKrnl.QgodLocal = centralFluxData;
         } else {
           localKrnl.QgodLocal = QgodLocalData;
@@ -223,7 +233,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        if (cellInformation[cell].faceTypes[side] == FaceType::regular) {
+        if (isSpecialBC(side)) {
           neighKrnl.QgodNeighbor = centralFluxData;
         } else {
           neighKrnl.QgodNeighbor = QgodNeighborData;
