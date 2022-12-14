@@ -90,7 +90,6 @@ CONTAINS
 
     USE COMMON_operators_mod, ONLY: OpenFile, XYinTriangle
     USE TrilinearInterpolation_mod
-    USE ini_model_DR_mod
     use modules
     use f_ftoc_bind_interoperability
 
@@ -156,18 +155,7 @@ CONTAINS
       end do
     end if
 
-      !###################################################################################!
-      !  Dynamic Rupture setup
-      !###################################################################################!
-
-      IF(EQN%DR.EQ.1) THEN
-
-        CALL DR_setup(EQN,DISC,MESH,IO,BND)
-
-      ENDIF ! EQN%DR.EQ.1
-
-      ! Call the post model hooks
-      call call_hook_post_model()
+    call call_hook_post_model()
 
   END SUBROUTINE ini_MODEL
 

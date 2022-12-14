@@ -87,6 +87,9 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 void seissol::Simulator::simulate() {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
+  auto* faultOutputManager = seissol::SeisSol::main.timeManager().getFaultOutputManager();
+  faultOutputManager->writePickpointOutput(0.0, 0.0);
+
   Stopwatch stopwatch;
   stopwatch.start();
 
@@ -94,9 +97,6 @@ void seissol::Simulator::simulate() {
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
 
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
-
-  // Copy initial dynamic rupture in order to ensure correct initial fault output
-  e_interoperability.copyDynamicRuptureState();
 
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
@@ -139,10 +139,9 @@ void seissol::Simulator::simulate() {
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
-    printPerformance(stopwatch.split());
+    seissol::SeisSol::main.flopCounter().printPerformanceUpdate(stopwatch.split());
   }
 
-  
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
 
   double wallTime = stopwatch.split();
@@ -150,8 +149,7 @@ void seissol::Simulator::simulate() {
 
   seissol::SeisSol::main.timeManager().printComputationTime();
 
-
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 
-  printFlops();
+  seissol::SeisSol::main.flopCounter().printPerformanceSummary(wallTime);
 }

@@ -46,7 +46,7 @@ easi and Intel/16.0
 Using Intel/16.0 in a local cluster, compile error occurs in
 PUMLreader.cpp Using Intel/17.0 will solve this.
 
-Using Intel/16.0 on supermuc, we observed some bugs in the fault stress
+Using Intel/16.0 on SuperMUC, we observed some bugs in the fault stress
 initialization (you can see the imprint of some partitions in the
 initial stress). The bugs are not showing off with latest Intel/17.0
 module.

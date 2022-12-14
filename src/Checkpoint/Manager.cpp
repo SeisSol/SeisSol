@@ -44,8 +44,8 @@
 #include "SeisSol.h"
 
 bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
-		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-		double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
+		real* mu, real* slipRate1, real* slipRate2, real* slip, real* slip1, real* slip2,
+		real* state, real* strength, unsigned int numSides, unsigned int numBndGP,
 		int &faultTimeStep)
 {
 		if (m_backend == DISABLED) {
@@ -80,15 +80,15 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 
 		id = addBuffer(dofs, numDofs * sizeof(real));
 		assert(id == DOFS);
-		id = addBuffer(mu, m_numDRDofs * sizeof(double));
+		id = addBuffer(mu, m_numDRDofs * sizeof(real));
 		assert(id == DR_DOFS0);
-		addBuffer(slipRate1, m_numDRDofs * sizeof(double));
-		addBuffer(slipRate2, m_numDRDofs * sizeof(double));
-		addBuffer(slip, m_numDRDofs * sizeof(double));
-		addBuffer(slip1, m_numDRDofs * sizeof(double));
-		addBuffer(slip2, m_numDRDofs * sizeof(double));
-		addBuffer(state, m_numDRDofs * sizeof(double));
-		addBuffer(strength, m_numDRDofs * sizeof(double));
+		addBuffer(slipRate1, m_numDRDofs * sizeof(real));
+		addBuffer(slipRate2, m_numDRDofs * sizeof(real));
+		addBuffer(slip, m_numDRDofs * sizeof(real));
+		addBuffer(slip1, m_numDRDofs * sizeof(real));
+		addBuffer(slip2, m_numDRDofs * sizeof(real));
+		addBuffer(state, m_numDRDofs * sizeof(real));
+		addBuffer(strength, m_numDRDofs * sizeof(real));
 
 		//
 		// Initialization for loading checkpoints

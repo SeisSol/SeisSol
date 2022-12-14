@@ -54,6 +54,7 @@
 #include "easi/ResultAdapter.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
+#include "DynamicRupture/Misc.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
@@ -184,9 +185,14 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
   std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
-  easi::Query query(m_numberOfPoints * fault.size(), 3);
+  constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
+  auto pointsView = init::quadpoints::view::create(const_cast<real *>(init::quadpoints::Values));
+  easi::Query query(numberOfPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
-  for (Fault const& f : fault) {
+  // loop over all fault elements which are managed by this generator
+  // note: we have one generator per LTS layer
+  for (unsigned faultId: m_faceIDs) {
+    const Fault& f = fault.at(faultId);
     int element, side, sideOrientation;
     if (f.element >= 0) {
       element = f.element;
@@ -202,9 +208,16 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
     for (unsigned v = 0; v < 4; ++v) {
       coords[v] = vertices[ elements[element].vertices[ v ] ].coords;
     }
-    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
+    for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3], xyz[3];
-      seissol::transformations::chiTau2XiEtaZeta(side, m_points[n], xiEtaZeta, sideOrientation);
+      double localPoints[2] = {pointsView(n,0), pointsView(n,1)};
+      // padded points are in the middle of the tetrahedron
+      if (n >= dr::misc::numberOfBoundaryGaussPoints) {
+        localPoints[0] = 1.0/3.0;
+        localPoints[1] = 1.0/3.0;
+      }
+
+      seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
       seissol::transformations::tetrahedronReferenceToGlobal(coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = xyz[dim];
@@ -434,7 +447,7 @@ namespace seissol {
       easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen->generate();
 
-      easi::ArraysAdapter<double> adapter;
+      easi::ArraysAdapter<real> adapter;
       for (auto& kv : m_parameters) {
         adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
       }
@@ -446,43 +459,15 @@ namespace seissol {
   }
 }
 
-bool seissol::initializers::FaultParameterDB::faultParameterizedByTraction(std::string const& fileName) {
+std::set<std::string> seissol::initializers::FaultParameterDB::faultProvides(std::string const& fileName) {
+  if (fileName.length() == 0) {
+    return std::set<std::string>();
+  }
   easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
-
-  std::set<std::string> stress = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
-  std::set<std::string> traction =  {"T_n", "T_s", "T_d"};
-
-  bool containsStress = std::includes(supplied.begin(), supplied.end(), stress.begin(), stress.end());
-  bool containsTraction = std::includes(supplied.begin(), supplied.end(), traction.begin(), traction.end());
-
-  if (containsStress == containsTraction) {
-    logError() << "Both stress (s_xx, s_yy, s_zz, s_xy, s_yz, s_xz) and traction (T_n, T_s, T_d) are defined (or are missing), but only either of them must be defined.";
-  }
-
-  return containsTraction;
+  return supplied;
 }
-
-bool seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction(std::string const& fileName) {
-  easi::Component* model = loadEasiModel(fileName);
-  std::set<std::string> supplied = model->suppliedParameters();
-  delete model;
-
-  std::set<std::string> stress = {"nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy", "nuc_yz", "nuc_xz"};
-  std::set<std::string> traction =  {"Tnuc_n", "Tnuc_s", "Tnuc_d"};
-
-  bool containsStress = std::includes(supplied.begin(), supplied.end(), stress.begin(), stress.end());
-  bool containsTraction = std::includes(supplied.begin(), supplied.end(), traction.begin(), traction.end());
-
-  if (containsStress == containsTraction) {
-    logError() << "Both nucleation stress (nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz) and nucleation traction (Tnuc_n, Tnuc_s, Tnuc_d) are defined (or are missing), but only either of them must be defined.";
-  }
-
-  return containsTraction;
-}
-
-
 
 seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
   : model(loadEasiModel(fileName)) {

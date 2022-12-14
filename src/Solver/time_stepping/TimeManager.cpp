@@ -47,6 +47,8 @@
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 
+extern seissol::Interoperability e_interoperability;
+
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
@@ -75,6 +77,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   // store the time stepping
   m_timeStepping = i_timeStepping;
 
+  bool foundDynamicRuptureCluster = false;
+
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
     // get memory layout of this cluster
@@ -93,7 +97,13 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         dynRupTree.child(Copy).getNumberOfCells() +
         dynRupTree.child(Ghost).getNumberOfCells();
 
-    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells));
+    bool isFirstDynamicRuptureCluster = false;
+    if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
+      foundDynamicRuptureCluster = true;
+      isFirstDynamicRuptureCluster = true;
+    }
+    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells,
+                                                                                                        isFirstDynamicRuptureCluster));
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
@@ -115,6 +125,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           &dynRupTree.child(Copy),
           memoryManager.getLts(),
           memoryManager.getDynamicRupture(),
+          memoryManager.getFrictionLaw(),
+          memoryManager.getFaultOutputManager(),
           &m_loopStatistics,
           &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
       );
@@ -210,7 +222,17 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   }
 }
 
+void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
+  m_faultOutputManager = faultOutputManager;
+  for(auto& cluster : clusters) {
+    cluster->setFaultOutputManager(faultOutputManager);
+  }
+}
 
+seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaultOutputManager() {
+  assert(m_faultOutputManager != nullptr);
+  return m_faultOutputManager;
+}
 
 void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
@@ -338,3 +360,4 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
     cluster->setTv(tv);
   }
 }
+

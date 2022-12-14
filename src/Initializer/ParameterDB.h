@@ -137,12 +137,11 @@ private:
 
 class seissol::initializers::FaultGPGenerator : public seissol::initializers::QueryGenerator {
 public:
-  FaultGPGenerator(MeshReader const& meshReader, double (*points)[2], unsigned numberOfPoints) : m_meshReader(meshReader), m_points(points), m_numberOfPoints(numberOfPoints) {}
+  FaultGPGenerator(MeshReader const& meshReader, std::vector<unsigned> const& faceIDs) : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
   virtual easi::Query generate() const;
 private:
   MeshReader const& m_meshReader;
-  double (*m_points)[2];
-  unsigned m_numberOfPoints;
+  std::vector<unsigned> const& m_faceIDs;
 };
 
 class seissol::initializers::ParameterDB {
@@ -167,9 +166,10 @@ private:
 class seissol::initializers::FaultParameterDB : seissol::initializers::ParameterDB {
 public:
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
-  void evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen) override;
+  virtual void evaluateModel(std::string const& fileName, QueryGenerator const * const queryGen);
   static bool faultParameterizedByTraction(std::string const& fileName);
   static bool nucleationParameterizedByTraction(std::string const& fileName);
+  static std::set<std::string> faultProvides(std::string const& fileName);
 private:
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
 };

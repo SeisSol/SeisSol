@@ -60,7 +60,7 @@ namespace seissol::writer {
     class ReceiverWriter : public seissol::Module {
     public:
       void init(std::string receiverFileName, std::string fileNamePrefix,
-                double syncPointInterval, double samplingInterval);
+                double syncPointInterval, double samplingInterval, bool computeRotation);
 
       void addPoints(
           const MeshReader& mesh,
@@ -89,6 +89,7 @@ namespace seissol::writer {
       std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
+      bool        m_computeRotation;
       // Map needed because LayerType enum casts weirdly to int.
       std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
       Stopwatch   m_stopwatch;

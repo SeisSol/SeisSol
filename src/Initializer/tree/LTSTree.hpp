@@ -221,6 +221,15 @@ public:
   const std::vector<size_t>& getBucketSizes() {
     return bucketSizes;
   }
+
+  size_t getMaxClusterSize(LayerMask mask) {
+    size_t maxClusterSize{0};
+    for (auto it = beginLeaf(mask); it != endLeaf(); ++it) {
+      size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+      maxClusterSize = std::max(currClusterSize, maxClusterSize);
+    }
+    return maxClusterSize;
+  }
 };
 
 #endif

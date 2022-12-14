@@ -41,6 +41,7 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
+#include <sched.h>
 #include <string>
 
 namespace seissol {
