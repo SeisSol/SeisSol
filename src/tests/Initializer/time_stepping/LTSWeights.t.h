@@ -109,4 +109,24 @@ TEST_CASE("Cost function for LTS") {
   }
 }
 
+TEST_CASE("Enforce max cluster id") {
+  using namespace seissol::initializers::time_stepping;
+  const auto clusterIds = std::vector<int>{0,1,2,3,4,5,6,6,5,4,3,2,1,0};
+  SUBCASE("No change") {
+    const auto should = clusterIds;
+    const auto is = enforceMaxClusterId(clusterIds, 6);
+    REQUIRE(is == should);
+  }
+  SUBCASE("Only one cluster") {
+    const auto should = std::vector<int>{0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    const auto is = enforceMaxClusterId(clusterIds, 0);
+    REQUIRE(is == should);
+  }
+  SUBCASE("Three clusters") {
+    const auto should = std::vector<int>{0,1,2,2,2,2,2,2,2,2,2,2,1,0};
+    const auto is = enforceMaxClusterId(clusterIds, 2);
+    REQUIRE(is == should);
+  }
+}
+
 } // namespace seissol::unit_test
