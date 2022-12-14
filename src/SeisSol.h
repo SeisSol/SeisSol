@@ -326,7 +326,7 @@ public:
 	}
 
         double wiggleFactorLts = 1.0;
-        unsigned int maxClusterId = std::numeric_limits<unsigned int>::max();
+        unsigned int maxNumberOfClusters = std::numeric_limits<unsigned int>::max();
 
 	/** The only instance of this class; the main C++ functionality */
 	static SeisSol main;

@@ -11,7 +11,7 @@ class LtsParameters {
   double wiggleFactorMinimum;
   double wiggleFactorStepsize;
   bool wiggleFactorEnforceMaximumDifference;
-  unsigned int maxClusterId;
+  unsigned int maxNumberOfClusters;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
@@ -19,13 +19,13 @@ class LtsParameters {
   [[nodiscard]] double getWiggleFactorMinimum() const;
   [[nodiscard]] double getWiggleFactorStepsize() const;
   [[nodiscard]] bool getWiggleFactorEnforceMaximumDifference() const;
-  [[nodiscard]] unsigned int getMaxClusterId() const;
+  [[nodiscard]] unsigned int getMaxNumberOfClusters() const;
 
   LtsParameters(unsigned int rate,
                 double wiggleFactorMinimum,
                 double wiggleFactorStepsize,
                 bool wiggleFactorEnforceMaximumDifference,
-		unsigned int maxClusterId);
+		unsigned int maxNumberOfClusters);
 };
 
 LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params);

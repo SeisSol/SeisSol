@@ -2100,7 +2100,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, LtsWeightTypeId, &
                                         ltsWiggleFactorEnforceMaximumDifference, &
-                                        ltsMaxClusterId
+                                        ltsMaxNumberOfClusters
     REAL                             :: CFL, FixTimeStep, StableDt, ltsWiggleFactorMin, &
                                         ltsWiggleFactorStepsize
     NAMELIST                         /Discretization/ DGFineOut1D, ClusteredLTS, &
@@ -2110,7 +2110,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                       nPolyMap, CFL, FixTimeStep, LtsWeightTypeId, &
                                                       ltsWiggleFactorMin, ltsWiggleFactorStepsize, &
                                                       ltsWiggleFactorEnforceMaximumDifference, &
-                                                      ltsMaxClusterId
+                                                      ltsMaxNumberOfClusters
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'

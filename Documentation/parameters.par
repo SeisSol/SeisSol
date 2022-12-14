@@ -101,7 +101,7 @@ LtsWeightTypeId = 1                  ! 0=exponential, 1=exponential-balanced, 2=
 LtsWiggleFactorMin = 1.0 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
 LtsWiggleFactorStepsize = 0.01 ! Stepsize for wiggle factor grid search
 LtsWiggleFactorEnforceMaximumDifference = 1 ! > 0: Enforces the maximum difference between neighboring clusters during grid search.
-LtsMaxClusterId = 20 ! Enforces a maximal number of clusters
+LtsMaxNumberOfClusters = 20 ! Enforces a maximal number of clusters
 
 
 /

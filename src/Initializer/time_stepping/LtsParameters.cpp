@@ -14,21 +14,22 @@ seissol::time_stepping::LtsParameters
       getWithDefault(discretizationParams, "ltswigglefactorstepsize", 0.01);
   const bool wiggleFactorEnforceMaximumDifference =
       getWithDefault(discretizationParams, "ltswigglefactorenforcemaximumdifference", true);
-  unsigned int const maxClusterId =
-      getWithDefault(discretizationParams, "ltsmaxclusterid", std::numeric_limits<unsigned int>::max());
+  unsigned int const maxNumberOfClusters = getWithDefault(
+      discretizationParams, "ltsmaxnumberofclusters", std::numeric_limits<unsigned int>::max());
   return seissol::time_stepping::LtsParameters(
-      rate, wiggleFactorMinimum, wiggleFactorStepsize, wiggleFactorEnforceMaximumDifference, maxClusterId);
+      rate, wiggleFactorMinimum, wiggleFactorStepsize, wiggleFactorEnforceMaximumDifference,
+                                               maxNumberOfClusters);
 }
 
 seissol::time_stepping::LtsParameters::LtsParameters(unsigned int rate,
                                                      double wiggleFactorMinimum,
                                                      double wiggleFactorStepsize,
                                                      bool wigleFactorEnforceMaximumDifference,
-                                                     unsigned int maxClusterId)
+                                                     unsigned int maxNumberOfClusters)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
-      maxClusterId(maxClusterId) {
+      maxNumberOfClusters(maxNumberOfClusters) {
   const bool isWiggleFactorValid =
       (rate == 1 && wiggleFactorMinimum == 1.0) ||
       (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate));
@@ -56,6 +57,6 @@ bool seissol::time_stepping::LtsParameters::getWiggleFactorEnforceMaximumDiffere
   return wiggleFactorEnforceMaximumDifference;
 }
 
-unsigned int seissol::time_stepping::LtsParameters::getMaxClusterId() const {
-  return maxClusterId;
+unsigned int seissol::time_stepping::LtsParameters::getMaxNumberOfClusters() const {
+  return maxNumberOfClusters;
 }
