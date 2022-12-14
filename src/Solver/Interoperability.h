@@ -180,7 +180,7 @@ class seissol::Interoperability {
                           bool    plasticity,
                           bool    anisotropy,
                           bool    poroelasticity,
-                          bool    useMaterialAverage,
+                          bool    useCellHomogenizedMaterial,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,

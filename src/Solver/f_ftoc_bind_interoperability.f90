@@ -152,11 +152,11 @@ module f_ftoc_bind_interoperability
   ! Don't forget to add // c_null_char to materialFileName when using this interface
   interface
     subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, poroelasticity, &
-      useMaterialAverage, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
+      useCellHomogenizedMaterial, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: materialFileName
-      integer(kind=c_int), value                        :: anelasticity, plasticity, anisotropy, poroelasticity, useMaterialAverage
+      integer(kind=c_int), value                        :: anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial
       real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress, waveSpeeds
     end subroutine
   end interface

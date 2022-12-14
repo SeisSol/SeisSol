@@ -80,6 +80,12 @@ namespace seissol {
     class EasiBoundary;
 
     easi::Component* loadEasiModel(const std::string& fileName);
+    QueryGenerator* getBestQueryGenerator(bool anelasticity,
+        bool plasticity,
+        bool anisotropy,
+        bool poroelasticity,
+        bool useCellHomogenizedMaterial,
+        MeshReader const& meshReader);
   }
 }
 

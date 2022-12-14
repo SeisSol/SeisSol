@@ -592,6 +592,35 @@ easi::Component* seissol::initializers::loadEasiModel(const std::string& fileNam
   return parser.parse(fileName);
 }
 
+namespace seissol::initializers {
+QueryGenerator* getBestQueryGenerator(bool anelasticity,
+    bool plasticity,
+    bool anisotropy,
+    bool poroelasticity,
+    bool useCellHomogenizedMaterial,
+    MeshReader const& meshReader) {
+  QueryGenerator* queryGen = nullptr;
+  if (!useCellHomogenizedMaterial) {
+    queryGen = new ElementBarycentreGenerator(meshReader);
+  } else {
+    if (anisotropy) {
+      logWarning() << "Material Averaging is not implemented for anisotropic materials. Falling back to material properties sampled from the element barycenters instead.";
+      queryGen = new ElementBarycentreGenerator(meshReader);
+    } else if (plasticity) {
+      logWarning() << "Material Averaging is not implemented for plastic materials. Falling back to material properties sampled from the element barycenters instead.";
+      queryGen = new ElementBarycentreGenerator(meshReader);
+    } else if (poroelasticity) {
+      logWarning() << "Material Averaging is not implemented for poroelastic materials. Falling back to material properties sampled from the element barycenters instead.";
+      queryGen = new ElementBarycentreGenerator(meshReader);
+    } else {
+      queryGen = new ElementAverageGenerator(meshReader);
+    }
+  }
+  return queryGen;
+}
+} // namespace seissol::initializers
+    
+
 template class seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial>;

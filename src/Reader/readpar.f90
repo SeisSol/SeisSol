@@ -231,11 +231,11 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseMaterialAverage
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial
     REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
-                                           Tv, UseMaterialAverage, &
+                                           Tv, UseCellHomogenizedMaterial, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName, GravitationalAcceleration
@@ -278,7 +278,7 @@ CONTAINS
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
-    UseMaterialAverage  = 0
+    UseCellHomogenizedMaterial = 1
     MaterialFileName    = ''
     BoundaryFileName    = ''
     
@@ -314,15 +314,14 @@ CONTAINS
       call exit(134)
     END SELECT
 
-    SELECT CASE(UseMaterialAverage)
+    EQN%UseCellHomogenizedMaterial = UseCellHomogenizedMaterial
+    SELECT CASE(UseCellHomogenizedMaterial)
     CASE(0)
-      EQN%UseMaterialAverage = UseMaterialAverage
       logInfo0(*) 'Use element barycenter to sample material values.'
     CASE(1)
-      EQN%UseMaterialAverage = UseMaterialAverage
-      logInfo0(*) 'Use averaging to sample material values.'
+      logInfo0(*) 'Use averaging to sample material values, when implemented.'
     CASE DEFAULT
-      logError(*) 'Choose 0 or 1 for UseMaterialAverage. '
+      logError(*) 'Choose 0 or 1 for UseCellHomogenizedMaterial. '
       call exit(134)
     END SELECT
 

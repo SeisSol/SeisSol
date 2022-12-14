@@ -6,8 +6,9 @@ Overview
 
 SeisSol includes various physical models to simulate realistic earthquake scenarios.
 SeisSol assumes constant material values per element.
-By default, the material values are sampled at the element barycenter. For (visco)elastic materials though, material values can be sampled by averaging over the whole element (c.f. https://mediatum.ub.tum.de/node?id=1664043). 
-You can turn this feature on, by setting :code:`UseMaterialAverage = 1` in the :ref:`parameter-file`.
+By default, the elastic and viscoelastic materials are sampled by averaging over the whole element (c.f. https://mediatum.ub.tum.de/node?id=1664043). 
+You can turn this feature off, by setting :code:`UseCellHomogenizedMaterial = 0` in the :ref:`parameter-file` to fall back to sampling at the element barycenter.
+Anisotropic and poroelastic materials are never averaged and always sampled at the element barycenter. 
 
 Elastic
 ^^^^^^^
