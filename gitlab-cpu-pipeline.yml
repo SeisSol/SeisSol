@@ -107,10 +107,10 @@ run_tpv:
               tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
-        - git clone https://github.com/7bits-register/precomputed-seissol.git
+        - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 64fd94e
+        - git checkout e468b53
         - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
