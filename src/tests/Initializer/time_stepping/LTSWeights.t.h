@@ -130,4 +130,50 @@ TEST_CASE("Enforce max cluster id") {
   }
 }
 
+TEST_CASE("Auto merging of clusters") {
+  using namespace seissol::initializers::time_stepping;
+  const auto clusterIds = std::vector<int>{0,0,0,0,1,1,2};
+  const auto cellCosts = std::vector<int>{1,1,1,1,3,3,9};
+
+  SUBCASE("Reduces to GTS") {
+    const auto should = 0;
+    const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, std::numeric_limits<double>::max());
+    REQUIRE(is == should);
+  }
+
+  SUBCASE("Does nothing for GTS") {
+    const auto should = 0;
+    for (int i = 1; i <= 5; ++i) {
+      const auto is = computeMaxClusterIdAfterAutoMerge(
+          enforceMaxClusterId(clusterIds, 0), cellCosts, 1, i);
+      REQUIRE(is == should);
+    }
+  }
+
+  SUBCASE("No performance loss allowed") {
+    const auto should = 2;
+    SUBCASE("Rate 2") {
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.0);
+      REQUIRE(is == should);
+    }
+    SUBCASE("Rate 3") {
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.0);
+      REQUIRE(is == should);
+    }
+  }
+
+  SUBCASE("Some performance loss allowed") {
+    SUBCASE("Merge one cluster") {
+      const auto should = 1;
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25);
+      REQUIRE(is == should);
+    }
+    SUBCASE("Merge two clusters") {
+      const auto should = 0;
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06);
+      REQUIRE(is == should);
+    }
+  }
+}
+
 } // namespace seissol::unit_test

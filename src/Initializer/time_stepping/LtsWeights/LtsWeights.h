@@ -69,6 +69,11 @@ double computeCostOfClustering(const std::vector<int>& clusterIds,
 
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 
+int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
+                                          const std::vector<int>& cellCosts,
+                                          unsigned int rate,
+                                          double allowedPerformanceLossRatio);
+
 class LtsWeights {
 public:
   LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters)

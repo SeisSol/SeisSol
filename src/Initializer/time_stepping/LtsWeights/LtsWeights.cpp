@@ -95,7 +95,26 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
   return newClusterIds;
 }
 
-void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep) {
+// Merges clusters such that new cost is max oldCost * allowedPerformanceLossRatio
+int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
+                                          const std::vector<int>& cellCosts,
+                                          unsigned int rate,
+                                          double allowedPerformanceLossRatio) {
+  // Note: Wiggle factor/time step size doesn't matter for performance ratio
+  const auto oldCost = computeCostOfClustering(clusterIds, cellCosts, rate, 1.0, 1.0);
+  auto maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
+  for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
+    const auto newClustering = enforceMaxClusterId(clusterIds, curMaxClusterId);
+    const auto newCost = computeCostOfClustering(newClustering, cellCosts, rate, 1.0, 1.0);
+    const auto performanceLossRatio = newCost / oldCost;
+    if (performanceLossRatio > allowedPerformanceLossRatio) {
+      return curMaxClusterId + 1;
+    }
+  }
+  return 0;
+}
+
+void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Computing LTS weights.";
 
