@@ -99,7 +99,6 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Computing LTS weights.";
 
-  const auto ltsParameters = SeisSol::main.getMemoryManager().getLtsParameters();
   SeisSol::main.maxNumberOfClusters = ltsParameters->getMaxNumberOfClusters();
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
@@ -111,7 +110,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
   SeisSol::main.wiggleFactorLts = wiggleFactor;
 
   m_clusterIds = computeClusterIds(wiggleFactor);
-  m_clusterIds = enforceMaxClusterId(m_clusterIds, SeisSol::main.maxNumberOfClusters);
+  const auto maxClusterId = SeisSol::main.maxNumberOfClusters - 1;
+  m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterId);
 
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
@@ -129,7 +129,6 @@ void LtsWeights::computeWeights(PUML::TETPUML const &mesh, double maximumAllowed
 double LtsWeights::computeBestWiggleFactor() {
   const auto rank = seissol::MPI::mpi.rank();
 
-  const auto ltsParameters = SeisSol::main.getMemoryManager().getLtsParameters();
   if (!ltsParameters->isWiggleFactorUsed()) return 1.0;
 
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();

@@ -344,12 +344,17 @@ void read_mesh_puml_c(const char* meshfile,
 		logError() << error.what();
 	}
 
-	auto ltsWeights = getLtsWeightsImplementation(ltsWeightsType, config);
-	auto meshReader = new seissol::PUMLReader(meshfile, maximumAllowedTimeStep, checkPointFile,
-        ltsWeights.get(), tpwgt, readPartitionFromFile);
-	seissol::SeisSol::main.setMeshReader(meshReader);
+        const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
+        auto ltsWeights = getLtsWeightsImplementation(ltsWeightsType, config, ltsParameters);
+        auto meshReader = new seissol::PUMLReader(meshfile,
+                                                  maximumAllowedTimeStep,
+                                                  checkPointFile,
+                                                  ltsWeights.get(),
+                                                  tpwgt,
+                                                  readPartitionFromFile);
+        seissol::SeisSol::main.setMeshReader(meshReader);
 
-	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+        read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 
 	watch.pause();
 	watch.printTime("Mesh initialized in:");

@@ -12,7 +12,8 @@ TEST_CASE("LTS Weights") {
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
-  auto ltsWeights = std::make_unique<ExponentialWeights>(config);
+  auto ltsParameters = std::make_unique<LtsParameters>(2, 1.0, 0.01, false, 100);
+  auto ltsWeights = std::make_unique<ExponentialWeights>(config, ltsParameters.get());
   seissol::PUMLReader pumlReader("Testing/mesh.h5", 5000.0, "", ltsWeights.get());
   std::cout.clear();
 

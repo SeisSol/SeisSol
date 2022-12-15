@@ -149,7 +149,7 @@ class seissol::initializers::time_stepping::MultiRate {
       logInfo(seissol::MPI::mpi.rank())
           << "Due to wiggle factor of" << wiggleFactor << "the minumum timestep size is reduced to"
           << wiggleFactor * i_minimumTimeStepWidth;
-      const auto maxClusterId = seissol::SeisSol::main.maxNumberOfClusters;
+      const auto maxClusterId = seissol::SeisSol::main.maxNumberOfClusters - 1;
 
       i_minimumTimeStepWidth *= wiggleFactor;
       // iterate over all cells
@@ -192,8 +192,8 @@ class seissol::initializers::time_stepping::MultiRate {
 
        const auto maxNumberOfClusters = seissol::SeisSol::main.maxNumberOfClusters;
 
-       // The inner std::max is needed in case maxClusterId overflows
-       o_numberOfClusters = std::min(o_numberOfClusters, std::max(maxNumberOfClusters, maxNumberOfClusters + 1));
+       assert(maxNumberOfClusters > 0);
+       o_numberOfClusters = std::min(o_numberOfClusters, static_cast<unsigned int>(maxNumberOfClusters));
        // allocate memory for the time step widths and rate; TODO: Free
        o_clusterTimeStepWidths = new double[        o_numberOfClusters ];
        o_timeStepRates         = new unsigned int [ o_numberOfClusters ];

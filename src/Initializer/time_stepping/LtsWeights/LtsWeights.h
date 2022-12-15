@@ -45,6 +45,7 @@
 #include <string>
 #include <vector>
 #include <limits>
+#include <Initializer/time_stepping/LtsParameters.h>
 
 #ifndef PUML_PUML_H
 namespace PUML { class TETPUML; }
@@ -70,14 +71,15 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
 
 class LtsWeights {
 public:
-  LtsWeights(const LtsWeightsConfig &config) : m_velocityModel(config.velocityModel),
-                                               m_rate(config.rate),
-                                               m_vertexWeightElement(config.vertexWeightElement),
-                                               m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
-                                               m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity) {}
+  LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters)
+      : m_velocityModel(config.velocityModel), m_rate(config.rate),
+        m_vertexWeightElement(config.vertexWeightElement),
+        m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
+        m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
+        ltsParameters(ltsParameters) {}
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep);
+  void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
 
   const int *vertexWeights() const;
   const double *imbalances() const;
@@ -116,6 +118,7 @@ protected:
   int m_ncon{std::numeric_limits<int>::infinity()};
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
+  const LtsParameters* ltsParameters;
   double wiggleFactor;
   double computeBestWiggleFactor();
 };

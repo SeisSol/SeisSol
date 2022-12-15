@@ -2,8 +2,9 @@
 #include "LtsParameters.h"
 #include <utils/logger.h>
 
-seissol::time_stepping::LtsParameters
-    seissol::time_stepping::readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
+namespace seissol::initializers::time_stepping {
+
+LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   using namespace seissol::initializers;
 
   const auto discretizationParams = (*params)["discretization"];
@@ -15,17 +16,19 @@ seissol::time_stepping::LtsParameters
   const bool wiggleFactorEnforceMaximumDifference =
       getWithDefault(discretizationParams, "ltswigglefactorenforcemaximumdifference", true);
   unsigned int const maxNumberOfClusters = getWithDefault(
-      discretizationParams, "ltsmaxnumberofclusters", std::numeric_limits<unsigned int>::max());
-  return seissol::time_stepping::LtsParameters(
-      rate, wiggleFactorMinimum, wiggleFactorStepsize, wiggleFactorEnforceMaximumDifference,
-                                               maxNumberOfClusters);
+      discretizationParams, "ltsmaxnumberofclusters", std::numeric_limits<int>::max() - 1);
+  return LtsParameters(rate,
+                       wiggleFactorMinimum,
+                       wiggleFactorStepsize,
+                       wiggleFactorEnforceMaximumDifference,
+                       maxNumberOfClusters);
 }
 
-seissol::time_stepping::LtsParameters::LtsParameters(unsigned int rate,
-                                                     double wiggleFactorMinimum,
-                                                     double wiggleFactorStepsize,
-                                                     bool wigleFactorEnforceMaximumDifference,
-                                                     unsigned int maxNumberOfClusters)
+LtsParameters::LtsParameters(unsigned int rate,
+                             double wiggleFactorMinimum,
+                             double wiggleFactorStepsize,
+                             bool wigleFactorEnforceMaximumDifference,
+                             int maxNumberOfClusters)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
@@ -37,26 +40,23 @@ seissol::time_stepping::LtsParameters::LtsParameters(unsigned int rate,
     logError() << "Minimal wiggle factor of " << wiggleFactorMinimum << "is not valid for rate"
                << rate;
   }
+  if (maxNumberOfClusters <= 0) {
+    logError() << "At least one cluster is required. Settings ltsMaxNumberOfClusters is invalid.";
+  }
 }
 
-bool seissol::time_stepping::LtsParameters::isWiggleFactorUsed() const {
-  return wiggleFactorMinimum < 1.0;
-}
+bool LtsParameters::isWiggleFactorUsed() const { return wiggleFactorMinimum < 1.0; }
 
-unsigned int seissol::time_stepping::LtsParameters::getRate() const { return rate; }
+unsigned int LtsParameters::getRate() const { return rate; }
 
-double seissol::time_stepping::LtsParameters::getWiggleFactorMinimum() const {
-  return wiggleFactorMinimum;
-}
+double LtsParameters::getWiggleFactorMinimum() const { return wiggleFactorMinimum; }
 
-double seissol::time_stepping::LtsParameters::getWiggleFactorStepsize() const {
-  return wiggleFactorStepsize;
-}
+double LtsParameters::getWiggleFactorStepsize() const { return wiggleFactorStepsize; }
 
-bool seissol::time_stepping::LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
+bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
   return wiggleFactorEnforceMaximumDifference;
 }
 
-unsigned int seissol::time_stepping::LtsParameters::getMaxNumberOfClusters() const {
-  return maxNumberOfClusters;
-}
+int LtsParameters::getMaxNumberOfClusters() const { return maxNumberOfClusters; }
+
+} // namespace seissol::initializers::time_stepping

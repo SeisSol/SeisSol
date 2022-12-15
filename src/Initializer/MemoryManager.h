@@ -167,7 +167,7 @@ class seissol::initializers::MemoryManager {
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
     std::shared_ptr<YAML::Node> m_inputParams = nullptr;
-    std::shared_ptr<::time_stepping::LtsParameters> ltsParameters = nullptr;
+    std::shared_ptr<time_stepping::LtsParameters> ltsParameters = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -354,14 +354,14 @@ class seissol::initializers::MemoryManager {
         return m_dynRupParameters.get();
     }
 
-    inline seissol::time_stepping::LtsParameters* getLtsParameters() {
+    inline time_stepping::LtsParameters* getLtsParameters() {
         return ltsParameters.get();
     };
 
     void setInputParams(std::shared_ptr<YAML::Node> params) {
       m_inputParams = params;
       m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
-      ltsParameters = std::make_shared<::time_stepping::LtsParameters>(::time_stepping::readLtsParametersFromYaml(m_inputParams));
+      ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
     }
 
 #ifdef ACL_DEVICE

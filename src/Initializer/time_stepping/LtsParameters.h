@@ -4,7 +4,8 @@
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
-namespace seissol::time_stepping {
+namespace seissol::initializers::time_stepping {
+
 class LtsParameters {
   private:
   unsigned int rate;
@@ -19,17 +20,17 @@ class LtsParameters {
   [[nodiscard]] double getWiggleFactorMinimum() const;
   [[nodiscard]] double getWiggleFactorStepsize() const;
   [[nodiscard]] bool getWiggleFactorEnforceMaximumDifference() const;
-  [[nodiscard]] unsigned int getMaxNumberOfClusters() const;
+  [[nodiscard]] int getMaxNumberOfClusters() const;
 
   LtsParameters(unsigned int rate,
                 double wiggleFactorMinimum,
                 double wiggleFactorStepsize,
                 bool wiggleFactorEnforceMaximumDifference,
-		unsigned int maxNumberOfClusters);
+                int maxNumberOfClusters);
 };
 
 LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params);
 
-} // namespace seissol::time_stepping
+} // namespace seissol::initializers::time_stepping
 
 #endif // SEISSOL_LTSCONFIGURATION_H
