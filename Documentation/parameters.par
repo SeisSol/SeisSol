@@ -1,6 +1,8 @@
 &equations
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
+!1: Compute average materials for each cell, 0: sample material values at element barycenters
+UseCellHomogenizedMaterial = 1 
 !off-fault plasticity parameters (ignored if Plasticity=0)
 Plasticity=0
 Tv=0.05

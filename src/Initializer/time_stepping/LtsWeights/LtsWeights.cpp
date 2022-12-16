@@ -179,6 +179,7 @@ LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(doubl
   std::vector<double> pWaveVel;
   pWaveVel.resize(cells.size());
 
+  // TODO(Sebastian) Use averaged generator here as well.
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(*m_mesh);
   //up to now we only distinguish between anisotropic elastic any other isotropic material
 #ifdef USE_ANISOTROPIC
@@ -192,7 +193,7 @@ LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(doubl
   seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
 #endif
   parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(m_velocityModel, queryGen);
+  parameterDB.evaluateModel(m_velocityModel, &queryGen);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     pWaveVel[cell] = materials[cell].getMaxWaveSpeed();
   }

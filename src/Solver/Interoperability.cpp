@@ -146,6 +146,7 @@ extern "C" {
                                             int     plasticity,
                                             int     anisotropy,
                                             int     poroelasticity,
+                                            int     useCellHomogenizedMaterial,
                                             double* materialVal,
                                             double* bulkFriction,
                                             double* plastCo,
@@ -157,6 +158,7 @@ extern "C" {
                                         plasticity,
                                         anisotropy,
                                         poroelasticity,
+                                        useCellHomogenizedMaterial,
                                         materialVal,
                                         bulkFriction,
                                         plastCo,
@@ -557,6 +559,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   bool    plasticity,
                                                   bool    anisotropy,
                                                   bool    poroelasticity,
+                                                  bool    useCellHomogenizedMaterial,
                                                   double* materialVal,
                                                   double* bulkFriction,
                                                   double* plastCo,
@@ -572,15 +575,17 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   // poroelastic material
 
   //first initialize the (visco-)elastic part
-  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  auto& meshReader = seissol::SeisSol::main.meshReader();
+  auto nElements = meshReader.getElements().size();
   auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
     waveSpeeds[pos] = material->getMaxWaveSpeed();
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();
     waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
+  seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, meshReader);
+
   if (anisotropy) { 
-    if(anelasticity || plasticity) {
+    if (anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
     }
     auto materials = std::vector<seissol::model::AnisotropicMaterial>(nElements);
@@ -678,6 +683,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       }
     } 
   }
+  delete queryGen;
 }
 
 void seissol::Interoperability::fitAttenuation( double rho,
