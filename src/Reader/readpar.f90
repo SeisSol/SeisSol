@@ -231,11 +231,11 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial
     REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
-                                           Tv, &
+                                           Tv, UseCellHomogenizedMaterial, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName, GravitationalAcceleration
@@ -278,8 +278,10 @@ CONTAINS
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
+    UseCellHomogenizedMaterial = 1
     MaterialFileName    = ''
     BoundaryFileName    = ''
+    
 
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
@@ -309,6 +311,17 @@ CONTAINS
         logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
+      call exit(134)
+    END SELECT
+
+    EQN%UseCellHomogenizedMaterial = UseCellHomogenizedMaterial
+    SELECT CASE(UseCellHomogenizedMaterial)
+    CASE(0)
+      logInfo0(*) 'Use element barycenter to sample material values.'
+    CASE(1)
+      logInfo0(*) 'Use averaging to sample material values, when implemented.'
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 for UseCellHomogenizedMaterial. '
       call exit(134)
     END SELECT
 
