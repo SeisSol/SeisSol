@@ -61,11 +61,11 @@ struct LtsWeightsConfig {
   int vertexWeightFreeSurfaceWithGravity{};
 };
 
-double computeCostOfClustering(const std::vector<int>& clusterIds,
-                                const std::vector<int>& cellCosts,
-                                unsigned int rate,
-                                double wiggleFactor,
-                                double minimalTimestep);
+double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
+                                    const std::vector<int>& cellCosts,
+                                    unsigned int rate,
+                                    double wiggleFactor,
+                                    double minimalTimestep);
 
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 

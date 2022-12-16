@@ -8,31 +8,37 @@ LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   using namespace seissol::initializers;
 
   const auto discretizationParams = (*params)["discretization"];
-  unsigned int const rate = getWithDefault(discretizationParams, "clusteredlts", 1);
+  const unsigned int rate = getWithDefault(discretizationParams, "clusteredlts", 1);
   const double wiggleFactorMinimum =
       getWithDefault(discretizationParams, "ltswigglefactormin", 1.0);
   const double wiggleFactorStepsize =
       getWithDefault(discretizationParams, "ltswigglefactorstepsize", 0.01);
   const bool wiggleFactorEnforceMaximumDifference =
       getWithDefault(discretizationParams, "ltswigglefactorenforcemaximumdifference", true);
-  unsigned int const maxNumberOfClusters = getWithDefault(
+  const unsigned int maxNumberOfClusters = getWithDefault(
       discretizationParams, "ltsmaxnumberofclusters", std::numeric_limits<int>::max() - 1);
+  const double allowedRelativePerformanceLossAutoMerge =
+      getWithDefault(discretizationParams, "ltsallowedrelativeperformancelossautomerge", 0.0);
+  const double allowedPerformanceLossRatioAutoMerge = allowedRelativePerformanceLossAutoMerge + 1.0;
   return LtsParameters(rate,
                        wiggleFactorMinimum,
                        wiggleFactorStepsize,
                        wiggleFactorEnforceMaximumDifference,
-                       maxNumberOfClusters);
+                       maxNumberOfClusters,
+                       allowedPerformanceLossRatioAutoMerge);
 }
 
 LtsParameters::LtsParameters(unsigned int rate,
                              double wiggleFactorMinimum,
                              double wiggleFactorStepsize,
                              bool wigleFactorEnforceMaximumDifference,
-                             int maxNumberOfClusters)
+                             int maxNumberOfClusters,
+                             double allowedPerformanceLossRatioAutoMerge)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
-      maxNumberOfClusters(maxNumberOfClusters) {
+      maxNumberOfClusters(maxNumberOfClusters),
+      allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge) {
   const bool isWiggleFactorValid =
       (rate == 1 && wiggleFactorMinimum == 1.0) ||
       (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate));
@@ -42,6 +48,9 @@ LtsParameters::LtsParameters(unsigned int rate,
   }
   if (maxNumberOfClusters <= 0) {
     logError() << "At least one cluster is required. Settings ltsMaxNumberOfClusters is invalid.";
+  }
+  if (allowedPerformanceLossRatioAutoMerge < 1.0) {
+    logError() << "Negative performance loss for auto merge is invalid.";
   }
 }
 
@@ -58,5 +67,10 @@ bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
 }
 
 int LtsParameters::getMaxNumberOfClusters() const { return maxNumberOfClusters; }
+
+
+double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
+  return allowedPerformanceLossRatioAutoMerge;
+}
 
 } // namespace seissol::initializers::time_stepping

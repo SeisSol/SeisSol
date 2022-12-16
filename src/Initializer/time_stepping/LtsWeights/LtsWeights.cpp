@@ -68,7 +68,7 @@ public:
   }
 };
 
-double computeCostOfClustering(const std::vector<int>& clusterIds,
+double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                const std::vector<int>& cellCosts,
                                unsigned int rate,
                                double wiggleFactor,
@@ -100,12 +100,24 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                           const std::vector<int>& cellCosts,
                                           unsigned int rate,
                                           double allowedPerformanceLossRatio) {
+  // Early returns:
+  const auto maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
+  if (rate == 1 || allowedPerformanceLossRatio == 1.0) {
+    return maxClusterId;
+  }
+
   // Note: Wiggle factor/time step size doesn't matter for performance ratio
-  const auto oldCost = computeCostOfClustering(clusterIds, cellCosts, rate, 1.0, 1.0);
-  auto maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
+  double oldCost = computeLocalCostOfClustering(clusterIds, cellCosts, rate, 1.0, 1.0);
+#ifdef USE_MPI
+  MPI_Allreduce(MPI_IN_PLACE, &oldCost, 1, MPI_DOUBLE, MPI_SUM, MPI::mpi.comm());
+#endif
+
   for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
     const auto newClustering = enforceMaxClusterId(clusterIds, curMaxClusterId);
-    const auto newCost = computeCostOfClustering(newClustering, cellCosts, rate, 1.0, 1.0);
+    double newCost = computeLocalCostOfClustering(newClustering, cellCosts, rate, 1.0, 1.0);
+#ifdef USE_MPI
+    MPI_Allreduce(MPI_IN_PLACE, &newCost, 1, MPI_DOUBLE, MPI_SUM, MPI::mpi.comm());
+#endif
     const auto performanceLossRatio = newCost / oldCost;
     if (performanceLossRatio > allowedPerformanceLossRatio) {
       return curMaxClusterId + 1;
@@ -118,8 +130,6 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   const auto rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Computing LTS weights.";
 
-  SeisSol::main.maxNumberOfClusters = ltsParameters->getMaxNumberOfClusters();
-
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
@@ -129,8 +139,19 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   SeisSol::main.wiggleFactorLts = wiggleFactor;
 
   m_clusterIds = computeClusterIds(wiggleFactor);
-  const auto maxClusterId = SeisSol::main.maxNumberOfClusters - 1;
+  const auto maxClusterIdAfterMerging = computeMaxClusterIdAfterAutoMerge(
+      m_clusterIds, m_cellCosts, m_rate, ltsParameters->getAllowedPerformanceLossRatioAutoMerge());
+  const auto maxClusterId =
+      std::min(maxClusterIdAfterMerging, ltsParameters->getMaxNumberOfClusters() - 1);
+  const auto currentMaxClusterId = *std::max_element(m_clusterIds.begin(), m_clusterIds.end());
+  if (maxClusterId != currentMaxClusterId) {
+    logInfo(rank) << "Current max cluster id is" << currentMaxClusterId
+                  << "Auto merge lead to to max cluster id of" << maxClusterIdAfterMerging
+                  << "manual max cluster id is" << ltsParameters->getMaxNumberOfClusters() - 1;
+  }
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterId);
+
+  SeisSol::main.maxNumberOfClusters = ltsParameters->getMaxNumberOfClusters();
 
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
@@ -167,14 +188,21 @@ double LtsWeights::computeBestWiggleFactor() {
   for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
     m_clusterIds = computeClusterIds(curWiggleFactor);
-    m_clusterIds = enforceMaxClusterId(m_clusterIds, SeisSol::main.maxNumberOfClusters);
+    const auto maxClusterIdAfterMerging =
+        computeMaxClusterIdAfterAutoMerge(m_clusterIds,
+                                          m_cellCosts,
+                                          m_rate,
+                                          ltsParameters->getAllowedPerformanceLossRatioAutoMerge());
+    const auto maxClusterId =
+        std::min(maxClusterIdAfterMerging, ltsParameters->getMaxNumberOfClusters() - 1);
+    m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterId);
     m_ncon = evaluateNumberOfConstraints();
     if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
       totalWiggleFactorReductions += enforceMaximumDifference();
     }
 
     // Compute cost
-    costEstimates[i] = computeCostOfClustering(
+    costEstimates[i] = computeLocalCostOfClustering(
         m_clusterIds, m_cellCosts, m_rate, curWiggleFactor, m_details.globalMinTimeStep);
   }
 #ifdef USE_MPI

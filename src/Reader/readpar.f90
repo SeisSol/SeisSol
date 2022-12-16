@@ -2102,7 +2102,8 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         ltsWiggleFactorEnforceMaximumDifference, &
                                         ltsMaxNumberOfClusters
     REAL                             :: CFL, FixTimeStep, StableDt, ltsWiggleFactorMin, &
-                                        ltsWiggleFactorStepsize
+                                        ltsWiggleFactorStepsize, &
+                                        ltsAllowedRelativePerformanceLossAutoMerge
     NAMELIST                         /Discretization/ DGFineOut1D, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
@@ -2110,7 +2111,9 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                       nPolyMap, CFL, FixTimeStep, LtsWeightTypeId, &
                                                       ltsWiggleFactorMin, ltsWiggleFactorStepsize, &
                                                       ltsWiggleFactorEnforceMaximumDifference, &
-                                                      ltsMaxNumberOfClusters
+                                                      ltsMaxNumberOfClusters, &
+                                                      ltsAllowedRelativePerformanceLossAutoMerge
+
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
