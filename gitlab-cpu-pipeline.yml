@@ -110,7 +110,7 @@ run_tpv:
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout e468b53
+        - git checkout b60e02c
         - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
