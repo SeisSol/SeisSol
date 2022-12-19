@@ -50,7 +50,7 @@ class GenericTableEntry {
   }
 
   PointerType getDeviceDataPtr() {
-    assert(devicePtrs != nullptr && "requested batch has not been recorded");
+    assert(deviceDataPtr != nullptr && "requested batch has not been recorded");
     return deviceDataPtr;
   }
 
