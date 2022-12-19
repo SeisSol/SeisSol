@@ -122,6 +122,7 @@ add_custom_command(
         generated_code/viscoelastic2.py
         generated_code/poroelastic.py
         generated_code/anisotropic.py
+        generated_code/damaged-elastic.py
         generated_code/SurfaceDisplacement.py
         generated_code/NodalBoundaryConditions.py
         generated_code/matrices

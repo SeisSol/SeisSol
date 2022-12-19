@@ -113,8 +113,12 @@ elif cmdLineArgs.equations == 'viscoelastic':
     adg = equations.ViscoelasticADERDG(**cmdArgsDict)
 elif cmdLineArgs.equations == 'viscoelastic2':
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
-else:
+elif cmdLineArgs.equations == 'poroelastic':
     adg = equations.PoroelasticADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'damaged-elastic':
+    adg = equations.DamagedElasticADERDG(**cmdArgsDict)
+else:
+    raise ValueError(f"Equation {cmdLineArgs.equations} is not implemented")
 
 include_tensors = set()
 generator = Generator(arch)

@@ -224,6 +224,14 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_STP)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_POROELASTIC)
+elseif ("${EQUATIONS}" STREQUAL "damaged-elastic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damaged-elastic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damaged-elastic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damaged-elastic/Kernels/Time.cpp
+  )
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damaged-elastic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_DAMAGEDELASTIC)
 endif()
 
 target_include_directories(SeisSol-common-properties INTERFACE

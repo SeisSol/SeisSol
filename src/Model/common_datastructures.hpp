@@ -52,7 +52,8 @@ namespace seissol {
       elastic,
       viscoelastic,
       anisotropic,
-      poroelastic
+      poroelastic,
+      damaged
     };
 
     struct Material {

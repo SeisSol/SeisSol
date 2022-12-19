@@ -347,6 +347,10 @@ struct LocalIntegrationData {
   seissol::model::ElasticLocalData specific;
 #elif defined USE_POROELASTIC
   seissol::model::PoroelasticLocalData specific;
+#elif defined USE_DAMAGEDELASTIC
+  seissol::model::DamagedElasticLocalData specific;
+#else
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 
@@ -366,6 +370,10 @@ struct NeighboringIntegrationData {
   seissol::model::ElasticNeighborData specific;
 #elif defined USE_POROELASTIC
   seissol::model::PoroelasticNeighborData specific;
+#elif defined USE_DAMAGEDELASTIC
+  seissol::model::DamagedElasticNeighborData specific;
+#else
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 
@@ -385,8 +393,11 @@ struct CellMaterialData {
 #elif defined USE_POROELASTIC
   seissol::model::PoroElasticMaterial local;
   seissol::model::PoroElasticMaterial neighbor[4];
+#elif defined USE_DAMAGEDELASTIC
+  seissol::model::DamagedElasticMaterial local;
+  seissol::model::DamagedElasticMaterial neighbor[4];
 #else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC,USE_DAMAGEDELASTIC,  USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 
