@@ -85,6 +85,27 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
   return cost;
 }
 
+double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
+                                     const std::vector<int>& cellCosts,
+                                     unsigned int rate,
+                                     double wiggleFactor,
+                                     double minimalTimestep,
+                                     MPI_Comm comm,
+                                     int root) {
+  double cost =
+      computeLocalCostOfClustering(clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep);
+#ifdef USE_MPI
+  if (root >= 0) {
+    MPI_Reduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, root, comm);
+
+  } else {
+    MPI_Allreduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, comm);
+  }
+#endif // USE_MPI
+
+  return cost;
+}
+
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId) {
   auto newClusterIds = clusterIds;
   assert(maxClusterId >= 0);
@@ -102,22 +123,18 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                           double allowedPerformanceLossRatio) {
   // Early returns:
   const auto maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
-  if (rate == 1 || allowedPerformanceLossRatio == 1.0) {
+  if (rate == 1 || std::abs(allowedPerformanceLossRatio - 1.0) < 1e-13) {
     return maxClusterId;
   }
 
   // Note: Wiggle factor/time step size doesn't matter for performance ratio
-  double oldCost = computeLocalCostOfClustering(clusterIds, cellCosts, rate, 1.0, 1.0);
-#ifdef USE_MPI
-  MPI_Allreduce(MPI_IN_PLACE, &oldCost, 1, MPI_DOUBLE, MPI_SUM, MPI::mpi.comm());
-#endif
+  const double oldCost =
+      computeGlobalCostOfClustering(clusterIds, cellCosts, rate, 1.0, 1.0, MPI::mpi.comm());
 
   for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
     const auto newClustering = enforceMaxClusterId(clusterIds, curMaxClusterId);
-    double newCost = computeLocalCostOfClustering(newClustering, cellCosts, rate, 1.0, 1.0);
-#ifdef USE_MPI
-    MPI_Allreduce(MPI_IN_PLACE, &newCost, 1, MPI_DOUBLE, MPI_SUM, MPI::mpi.comm());
-#endif
+    const double newCost =
+        computeGlobalCostOfClustering(newClustering, cellCosts, rate, 1.0, 1.0, MPI::mpi.comm());
     const auto performanceLossRatio = newCost / oldCost;
     if (performanceLossRatio > allowedPerformanceLossRatio) {
       return curMaxClusterId + 1;
@@ -169,6 +186,10 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 double LtsWeights::computeBestWiggleFactor() {
   const auto rank = seissol::MPI::mpi.rank();
 
+  // Maps that keep track of number of clusters vs cost
+  auto mapNoOfGroupsToLowestCost = std::unordered_map<int, double>{};
+  auto mapNoOfGroupsToBestWiggleFactor = std::unordered_map<int, double>{};
+
   if (!ltsParameters->isWiggleFactorUsed()) return 1.0;
 
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
@@ -185,39 +206,50 @@ double LtsWeights::computeBestWiggleFactor() {
   auto costEstimates = std::vector<double>(numberOfStepsWiggleFactor, std::numeric_limits<double>::max());
 
   auto totalWiggleFactorReductions = 0u;
+  auto mergeGroups = {false, true}; // TODO(Lukas)
   for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
-    m_clusterIds = computeClusterIds(curWiggleFactor);
-    const auto maxClusterIdAfterMerging =
-        computeMaxClusterIdAfterAutoMerge(m_clusterIds,
-                                          m_cellCosts,
-                                          m_rate,
-                                          ltsParameters->getAllowedPerformanceLossRatioAutoMerge());
-    const auto maxClusterId =
-        std::min(maxClusterIdAfterMerging, ltsParameters->getMaxNumberOfClusters() - 1);
-    m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterId);
-    m_ncon = evaluateNumberOfConstraints();
-    if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
-      totalWiggleFactorReductions += enforceMaximumDifference();
-    }
+    for (const auto curMergeGroups : mergeGroups) {
+      m_clusterIds = computeClusterIds(curWiggleFactor);
+      auto maxClusterIdToEnforce = ltsParameters->getMaxNumberOfClusters() - 1;
+      if (curMergeGroups) {
+        const auto maxClusterIdAfterMerging = computeMaxClusterIdAfterAutoMerge(
+            m_clusterIds,
+            m_cellCosts,
+            m_rate,
+            ltsParameters->getAllowedPerformanceLossRatioAutoMerge());
+        maxClusterIdToEnforce = std::min(maxClusterIdAfterMerging, maxClusterIdToEnforce);
+      }
 
-    // Compute cost
-    costEstimates[i] = computeLocalCostOfClustering(
-        m_clusterIds, m_cellCosts, m_rate, curWiggleFactor, m_details.globalMinTimeStep);
+      m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
+      const auto maxClusterId = *std::max_element(m_clusterIds.begin(), m_clusterIds.end());
+
+      m_ncon = evaluateNumberOfConstraints();
+      if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
+        totalWiggleFactorReductions += enforceMaximumDifference();
+      }
+
+      // Compute cost
+      const double cost = computeGlobalCostOfClustering(m_clusterIds,
+                                                        m_cellCosts,
+                                                        m_rate,
+                                                        curWiggleFactor,
+                                                        m_details.globalMinTimeStep,
+                                                        MPI::mpi.comm());
+      costEstimates[i] = cost;
+
+      if (auto it = mapNoOfGroupsToLowestCost.find(maxClusterId);
+          (it != mapNoOfGroupsToLowestCost.end() && cost <= it->second ) ||
+          it == mapNoOfGroupsToBestWiggleFactor.end()) {
+        mapNoOfGroupsToBestWiggleFactor[maxClusterId] = curWiggleFactor;
+        mapNoOfGroupsToLowestCost[maxClusterId] = cost;
+      }
+    }
   }
-#ifdef USE_MPI
-  MPI_Allreduce(
-      MPI_IN_PLACE,
-      costEstimates.data(),
-      static_cast<int>(costEstimates.size()),
-      MPI_DOUBLE,
-      MPI_SUM,
-      MPI::mpi.comm()
-      );
-#endif
 
   auto maxWiggleFactorCostEstimate = costEstimates[costEstimates.size() - 1];
 
+  // Find best overall wiggle factor
   double bestCostEstimate = std::numeric_limits<double>::max();
   double bestWiggleFactor = maxWiggleFactor;
   for (auto i = 0u; i < costEstimates.size(); ++i) {
@@ -236,6 +268,18 @@ double LtsWeights::computeBestWiggleFactor() {
     }
   }
 
+  // Find best wiggle factor after group merge
+  // Note: How to determine this?
+  // Maybe compare against cost of best wiggle without merge
+  // However, this requires twice as many computations
+  // TODO(Lukas)
+  const double maxAllowedCost = ltsParameters->getAllowedPerformanceLossRatioAutoMerge() * bestCostEstimate;
+  for (const auto& [group, cost] : mapNoOfGroupsToLowestCost) {
+    logInfo(rank) << "Group:" << group << ",cost" << cost << "with wiggle factor"
+        << mapNoOfGroupsToBestWiggleFactor[group];
+  }
+
+
   logInfo(rank) << "Best wiggle factor" << bestWiggleFactor << "with cost" << bestCostEstimate;
   logInfo(rank) << "Finding best factor took" << totalWiggleFactorReductions << "reductions.";
 
@@ -243,6 +287,7 @@ double LtsWeights::computeBestWiggleFactor() {
       << "% with absolute cost difference" << maxWiggleFactorCostEstimate - bestCostEstimate
       << "compared to the default wiggle factor of"
       << maxWiggleFactor;
+
 
   return bestWiggleFactor;
 }

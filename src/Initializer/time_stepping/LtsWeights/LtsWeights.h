@@ -67,6 +67,14 @@ double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                     double wiggleFactor,
                                     double minimalTimestep);
 
+double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
+                                     const std::vector<int>& cellCosts,
+                                     unsigned int rate,
+                                     double wiggleFactor,
+                                     double minimalTimestep,
+                                     MPI_Comm comm,
+                                     int root = -1);
+
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
