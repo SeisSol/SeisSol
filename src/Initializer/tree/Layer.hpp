@@ -43,6 +43,7 @@
 #include "Node.hpp"
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include "Initializer/DeviceGraph.h"
 #include <bitset>
 #include <limits>
 #include <cstring>
@@ -105,6 +106,7 @@ private:
 #ifdef ACL_DEVICE
   void** m_scratchpads{};
   size_t* m_scratchpadSizes{};
+  std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
   DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
   ConditionalMaterialTable m_conditionalMaterialTable{};
@@ -297,6 +299,24 @@ public:
 
     if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
       return m_conditionalIndicesTable;
+    }
+  }
+
+  device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
+    if (m_computeGraphHandles.find(graphKey) != m_computeGraphHandles.end()) {
+      return m_computeGraphHandles[graphKey];
+    }
+    else {
+      return device::DeviceGraphHandle{};
+    }
+  }
+
+  void updateDeviceComputeGraphHandle(GraphKey graphKey,
+                                      device::DeviceGraphHandle graphHandle) {
+    assert(m_computeGraphHandles.find(graphKey) == m_computeGraphHandles.end()
+           && "an entry of hash table must be empty on write");
+    if (graphHandle.isInitialized()) {
+      m_computeGraphHandles[graphKey] = graphHandle;
     }
   }
 #endif // ACL_DEVICE

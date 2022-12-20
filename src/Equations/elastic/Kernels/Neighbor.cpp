@@ -176,12 +176,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPoin
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->fastStreamsSync();
+    this->device.api->joinCircularStreamsToDefault();
     this->device.api->resetCircularStreamCounter();
   };
 
-  device.api->fastStreamsSync(); // finish all previous work in the default stream
   for(size_t face = 0; face < 4; face++) {
+    this->device.api->forkCircularStreamsFromDefault();
     size_t streamCounter{0};
 
     // regular and periodic

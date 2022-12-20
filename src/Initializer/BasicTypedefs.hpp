@@ -65,4 +65,13 @@ struct PlasticityData {
   real mufactor;
 };
 
+enum ComputeGraphType {
+  LocalIntegral = 0,
+  AccumulatedVelocities,
+  StreamedVelocities,
+  NeighborIntegral,
+  DynamicRuptureInterface,
+  Count
+};
+
 #endif //SEISSOL_BASICTYPEDEFS_HPP
