@@ -13,6 +13,7 @@ class LtsParameters {
   double wiggleFactorStepsize;
   bool wiggleFactorEnforceMaximumDifference;
   unsigned int maxNumberOfClusters;
+  bool autoMergeClusters;
   double allowedPerformanceLossRatioAutoMerge;
 
   public:
@@ -22,6 +23,7 @@ class LtsParameters {
   [[nodiscard]] double getWiggleFactorStepsize() const;
   [[nodiscard]] bool getWiggleFactorEnforceMaximumDifference() const;
   [[nodiscard]] int getMaxNumberOfClusters() const;
+  [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
 
   LtsParameters(unsigned int rate,
@@ -29,6 +31,7 @@ class LtsParameters {
                 double wiggleFactorStepsize,
                 bool wigleFactorEnforceMaximumDifference,
                 int maxNumberOfClusters,
+                bool ltsAutoMergeClusters,
                 double allowedPerformanceLossRatioAutoMerge);
 };
 

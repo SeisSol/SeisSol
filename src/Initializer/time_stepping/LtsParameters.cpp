@@ -17,6 +17,8 @@ LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
       getWithDefault(discretizationParams, "ltswigglefactorenforcemaximumdifference", true);
   const unsigned int maxNumberOfClusters = getWithDefault(
       discretizationParams, "ltsmaxnumberofclusters", std::numeric_limits<int>::max() - 1);
+  const bool autoMergeClusters =
+      getWithDefault(discretizationParams, "ltsautomergeclusters", false);
   const double allowedRelativePerformanceLossAutoMerge =
       getWithDefault(discretizationParams, "ltsallowedrelativeperformancelossautomerge", 0.0);
   const double allowedPerformanceLossRatioAutoMerge = allowedRelativePerformanceLossAutoMerge + 1.0;
@@ -25,6 +27,7 @@ LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
                        wiggleFactorStepsize,
                        wiggleFactorEnforceMaximumDifference,
                        maxNumberOfClusters,
+                       autoMergeClusters,
                        allowedPerformanceLossRatioAutoMerge);
 }
 
@@ -33,11 +36,13 @@ LtsParameters::LtsParameters(unsigned int rate,
                              double wiggleFactorStepsize,
                              bool wigleFactorEnforceMaximumDifference,
                              int maxNumberOfClusters,
+                             bool ltsAutoMergeClusters,
                              double allowedPerformanceLossRatioAutoMerge)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
       maxNumberOfClusters(maxNumberOfClusters),
+      autoMergeClusters(autoMergeClusters),
       allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge) {
   const bool isWiggleFactorValid =
       (rate == 1 && wiggleFactorMinimum == 1.0) ||
@@ -68,9 +73,13 @@ bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
 
 int LtsParameters::getMaxNumberOfClusters() const { return maxNumberOfClusters; }
 
+bool LtsParameters::isAutoMergeUsed() const {
+  return autoMergeClusters;
+}
 
 double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
   return allowedPerformanceLossRatioAutoMerge;
 }
+
 
 } // namespace seissol::initializers::time_stepping

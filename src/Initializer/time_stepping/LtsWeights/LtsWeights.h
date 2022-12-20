@@ -78,9 +78,11 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
-                                          const std::vector<int>& cellCosts,
-                                          unsigned int rate,
-                                          double allowedPerformanceLossRatio);
+                                      const std::vector<int>& cellCosts,
+                                      unsigned int rate,
+                                      double maximalAdmissibleCost,
+                                      double wiggleFactor,
+                                      double minimalTimestep);
 
 class LtsWeights {
 public:
@@ -133,7 +135,11 @@ protected:
   std::vector<int> m_clusterIds{};
   const LtsParameters* ltsParameters;
   double wiggleFactor;
-  double computeBestWiggleFactor();
+  struct ComputeWiggleFactorResult {
+    double cost;
+    double wiggleFactor;
+  };
+ ComputeWiggleFactorResult computeBestWiggleFactor();
 };
 }
 

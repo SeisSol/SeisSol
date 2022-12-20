@@ -102,6 +102,7 @@ LtsWiggleFactorMin = 1.0 ! Minimal wiggle factor applied to time step size. Shou
 LtsWiggleFactorStepsize = 0.01 ! Stepsize for wiggle factor grid search
 LtsWiggleFactorEnforceMaximumDifference = 1 ! > 0: Enforces the maximum difference between neighboring clusters during grid search.
 LtsMaxNumberOfClusters = 20 ! Enforces a maximal number of clusters
+ltsAutoMergeClusters = 0 !  > 0: Activates auto merging of clusters
 LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters s.t. new computational cost is at most increased by this factor
 
 

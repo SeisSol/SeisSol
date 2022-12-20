@@ -2100,6 +2100,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, LtsWeightTypeId, &
                                         ltsWiggleFactorEnforceMaximumDifference, &
+                                        ltsAutoMergeClusters, &
                                         ltsMaxNumberOfClusters
     REAL                             :: CFL, FixTimeStep, StableDt, ltsWiggleFactorMin, &
                                         ltsWiggleFactorStepsize, &
@@ -2112,6 +2113,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                       ltsWiggleFactorMin, ltsWiggleFactorStepsize, &
                                                       ltsWiggleFactorEnforceMaximumDifference, &
                                                       ltsMaxNumberOfClusters, &
+                                                      ltsAutoMergeClusters, &
                                                       ltsAllowedRelativePerformanceLossAutoMerge
 
     !------------------------------------------------------------------------
