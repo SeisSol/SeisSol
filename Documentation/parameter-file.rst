@@ -1,3 +1,5 @@
+.. _parameter-file:
+
 Parameter File
 ==============
 
