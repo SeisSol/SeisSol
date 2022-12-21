@@ -122,6 +122,14 @@ def read_receiver(filename):
         first_row = 2
         while lines[first_row][0] == "#":
             first_row += 1
+
+        # since dr-cpp merge, fault receiver files start writing at Time=0
+        # (before they were writing at Time=dt)
+        # We then skip the first timestep written if Time = 0
+        t0 = float(lines[first_row].split()[0])
+        isFaultReceiver = "faultreceiver" in receiver_file
+        if t0 == 0 and isFaultReceiver:
+            first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep="\s+")
 
     def replace(x, y, l):
@@ -169,7 +177,7 @@ def faultreceiver_diff(args, i, quantities):
     )
     assert len(sim_files) == 1
     assert len(ref_files) == 1
-    sim_receiver = read_receiver(sim_files[0]).iloc[1:]
+    sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
 
     sim_receiver.reset_index(drop=True, inplace=True)
