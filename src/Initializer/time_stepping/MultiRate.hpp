@@ -182,7 +182,7 @@ class seissol::initializers::time_stepping::MultiRate {
                                       unsigned int  &o_numberOfClusters,
                                       double       *&o_clusterTimeStepWidths,
                                       unsigned int *&o_timeStepRates ) {
-       double const wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+       const double wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
        double l_currentMaximumTime = wiggleFactor * i_minimumTimeStepWidth;
        l_currentMaximumTime *= i_multiRate;
 
@@ -190,10 +190,8 @@ class seissol::initializers::time_stepping::MultiRate {
          l_currentMaximumTime *= i_multiRate;
        }
 
-       const auto maxNumberOfClusters = seissol::SeisSol::main.maxNumberOfClusters;
-
-       assert(maxNumberOfClusters > 0);
-       o_numberOfClusters = std::min(o_numberOfClusters, static_cast<unsigned int>(maxNumberOfClusters));
+       o_numberOfClusters = static_cast<unsigned int>(seissol::SeisSol::main.maxNumberOfClusters);
+       assert(o_numberOfClusters > 0);
        // allocate memory for the time step widths and rate; TODO: Free
        o_clusterTimeStepWidths = new double[        o_numberOfClusters ];
        o_timeStepRates         = new unsigned int [ o_numberOfClusters ];

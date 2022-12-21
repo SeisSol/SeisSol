@@ -123,8 +123,12 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,
                                       double minimalTimestep) {
-  // Early returns:
-  const auto maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
+  double maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
+#ifdef USE_MPI
+  MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_DOUBLE, MPI_MAX, MPI::mpi.comm());
+#endif
+
+  // Early return
   if (rate == 1) {
     return maxClusterId;
   }
@@ -174,9 +178,10 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     maxClusterIdToEnforce = std::min(maxClusterIdToEnforce, maxClusterIdAfterMerging);
   }
 
-  logInfo(rank) << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
+  const auto maxNumberOfClusters = maxClusterIdToEnforce + 1;
+  logInfo(rank) << "Limiting number of clusters to" << maxNumberOfClusters;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
-  SeisSol::main.maxNumberOfClusters = maxClusterIdToEnforce;
+  SeisSol::main.maxNumberOfClusters = maxNumberOfClusters;
 
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
