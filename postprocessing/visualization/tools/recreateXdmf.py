@@ -64,7 +64,7 @@ def recreateXdmf(prefix, prefix_new, nvertex, ncells, nmem, dt, indices, lsData,
     <Geometry name="geo" GeometryType="XYZ" NumberOfElements="%d">
      <DataItem NumberType="Float" Precision="8" Format="%s" Dimensions="%d 3">%s_vertex%s/mesh0/geometry%s</DataItem>
     </Geometry>
-    <Time Value="%f"/>"""
+    <Time Value="%f"/>\n"""
             % (
                 ii,
                 scell,

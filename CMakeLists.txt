@@ -351,9 +351,15 @@ if (WITH_GPU)
 
   # add GPU dynamic rupture target
   if (DEVICE_ARCH MATCHES "sm_*")
-    set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
+    if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
+      # we assume that hipsycl was compiled with nvhpc compiler collection
+      string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
+      set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}")
+    else()
+      set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}")
+      target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
+    endif()
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
-    target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
   elseif(DEVICE_ARCH MATCHES "gfx*")
     set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}")
     target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
