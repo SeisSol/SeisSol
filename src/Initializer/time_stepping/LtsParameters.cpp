@@ -36,7 +36,7 @@ LtsParameters::LtsParameters(unsigned int rate,
                              double wiggleFactorStepsize,
                              bool wigleFactorEnforceMaximumDifference,
                              int maxNumberOfClusters,
-                             bool ltsAutoMergeClusters,
+                             bool autoMergeClusters,
                              double allowedPerformanceLossRatioAutoMerge)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),

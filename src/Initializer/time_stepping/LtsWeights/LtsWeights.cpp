@@ -232,7 +232,7 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
                                             m_cellCosts,
                                             m_rate,
                                             maxAdmissibleCost,
-                                            wiggleFactor,
+                                            curWiggleFactor,
                                             m_details.globalMinTimeStep);
       maxClusterIdToEnforce = std::min(maxClusterIdAfterMerging, maxClusterIdToEnforce);
     }
