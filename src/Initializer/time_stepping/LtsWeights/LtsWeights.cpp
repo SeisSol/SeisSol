@@ -277,11 +277,11 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
       if (cost <= maxAdmissibleCost) {
         foundAdmissibleMerge = true;
         minAdmissibleNoOfGroups = std::min(minAdmissibleNoOfGroups, noOfGroups);
-        logInfo(rank) << "Admissible. Group:" << noOfGroups << ",cost" << cost
-                      << "with wiggle factor" << mapNoOfGroupsToBestWiggleFactor[noOfGroups];
+        logDebug(rank) << "Admissible. Group:" << noOfGroups << ",cost" << cost
+                       << "with wiggle factor" << mapNoOfGroupsToBestWiggleFactor[noOfGroups];
       } else {
-        logInfo(rank) << "Not admissible. Group:" << noOfGroups << ",cost" << cost
-                      << "with wiggle factor" << mapNoOfGroupsToBestWiggleFactor[noOfGroups];
+        logDebug(rank) << "Not admissible. Group:" << noOfGroups << ",cost" << cost
+                       << "with wiggle factor" << mapNoOfGroupsToBestWiggleFactor[noOfGroups];
       }
     }
     if (!foundAdmissibleMerge) {
