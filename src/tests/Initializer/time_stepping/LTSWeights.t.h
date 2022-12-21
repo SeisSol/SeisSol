@@ -12,7 +12,7 @@ TEST_CASE("LTS Weights") {
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
-  auto ltsParameters = std::make_unique<LtsParameters>(2, 1.0, 0.01, false, 100, 1.0);
+  auto ltsParameters = std::make_unique<LtsParameters>(2, 1.0, 0.01, false, 100, false, 1.0);
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, ltsParameters.get());
   seissol::PUMLReader pumlReader("Testing/mesh.h5", 5000.0, "", ltsWeights.get());
   std::cout.clear();
@@ -114,19 +114,19 @@ TEST_CASE("Cost function for LTS") {
 
 TEST_CASE("Enforce max cluster id") {
   using namespace seissol::initializers::time_stepping;
-  const auto clusterIds = std::vector<int>{0,1,2,3,4,5,6,6,5,4,3,2,1,0};
+  const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
     const auto should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
     REQUIRE(is == should);
   }
   SUBCASE("Only one cluster") {
-    const auto should = std::vector<int>{0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    const auto should = std::vector<int>{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     const auto is = enforceMaxClusterId(clusterIds, 0);
     REQUIRE(is == should);
   }
   SUBCASE("Three clusters") {
-    const auto should = std::vector<int>{0,1,2,2,2,2,2,2,2,2,2,2,1,0};
+    const auto should = std::vector<int>{0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0};
     const auto is = enforceMaxClusterId(clusterIds, 2);
     REQUIRE(is == should);
   }
@@ -134,13 +134,15 @@ TEST_CASE("Enforce max cluster id") {
 
 TEST_CASE("Auto merging of clusters") {
   using namespace seissol::initializers::time_stepping;
-  const auto clusterIds = std::vector<int>{0,0,0,0,1,1,2};
-  const auto cellCosts = std::vector<int>{1,1,1,1,3,3,9};
+  const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
+  const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
+  const auto minDt = 0.5;
+  const auto costBefore = computeLocalCostOfClustering(clusterIds, cellCosts, 2, 1.0, minDt);
 
   SUBCASE("Reduces to GTS") {
     const auto should = 0;
     const auto is = computeMaxClusterIdAfterAutoMerge(
-        clusterIds, cellCosts, 2, std::numeric_limits<double>::max());
+        clusterIds, cellCosts, 2, std::numeric_limits<double>::max(), 1.0, minDt);
     REQUIRE(is == should);
   }
 
@@ -148,7 +150,7 @@ TEST_CASE("Auto merging of clusters") {
     const auto should = 0;
     for (int i = 1; i <= 5; ++i) {
       const auto is = computeMaxClusterIdAfterAutoMerge(
-          enforceMaxClusterId(clusterIds, 0), cellCosts, 1, i);
+          enforceMaxClusterId(clusterIds, 0), cellCosts, 1, i, 0, 0);
       REQUIRE(is == should);
     }
   }
@@ -156,11 +158,11 @@ TEST_CASE("Auto merging of clusters") {
   SUBCASE("No performance loss allowed") {
     const auto should = 2;
     SUBCASE("Rate 2") {
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.0);
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, costBefore, 1, minDt);
       REQUIRE(is == should);
     }
     SUBCASE("Rate 3") {
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.0);
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, costBefore, 1, minDt);
       REQUIRE(is == should);
     }
   }
@@ -168,12 +170,14 @@ TEST_CASE("Auto merging of clusters") {
   SUBCASE("Some performance loss allowed") {
     SUBCASE("Merge one cluster") {
       const auto should = 1;
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25);
+      const auto is =
+          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25 * costBefore, 1, minDt);
       REQUIRE(is == should);
     }
     SUBCASE("Merge two clusters") {
       const auto should = 0;
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06);
+      const auto is =
+          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06 * costBefore, 1, minDt);
       REQUIRE(is == should);
     }
   }
