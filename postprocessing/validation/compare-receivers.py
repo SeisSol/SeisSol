@@ -273,7 +273,7 @@ if __name__ == "__main__":
             receiver_errors[q] > args.epsilon
         ].tolist()
         print(
-            f"{q} exceeds relative error of {args.epsilon} at receveivers {broken_receivers}"
+            f"{q} exceeds relative error of {args.epsilon} at receivers {broken_receivers}"
         )
         if len(broken_receivers) > 0:
             sys.exit(1)
@@ -312,7 +312,7 @@ if __name__ == "__main__":
             faultreceiver_errors[q] > args.epsilon
         ].tolist()
         print(
-            f"{q} exceeds relative error of {args.epsilon} at faultreceveivers {broken_faultreceivers}"
+            f"{q} exceeds relative error of {args.epsilon} at faultreceivers {broken_faultreceivers}"
         )
 
     if (receiver_errors > args.epsilon).any().any() or (
