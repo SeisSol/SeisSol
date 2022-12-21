@@ -291,7 +291,6 @@ private:
 #endif
                                                        l_timeIntegrated);
 
-#ifdef ENABLE_MATRIX_PREFETCH
         l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
                                       drMapping[l_cell][1].godunov;
@@ -310,15 +309,10 @@ private:
         } else {
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
-#endif
 
         m_neighborKernel.computeNeighborsIntegral( data,
                                                    drMapping[l_cell],
-#ifdef ENABLE_MATRIX_PREFETCH
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
-#else
-            l_timeIntegrated
-#endif
         );
 
         if constexpr (usePlasticity) {
