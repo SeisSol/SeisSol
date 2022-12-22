@@ -127,7 +127,7 @@ def read_receiver(filename):
         # (before they were writing at Time=dt)
         # We then skip the first timestep written if Time = 0
         t0 = float(lines[first_row].split()[0])
-        isFaultReceiver = "faultreceiver" in receiver_file
+        isFaultReceiver = "faultreceiver" in filename
         if t0 == 0 and isFaultReceiver:
             first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep="\s+")
