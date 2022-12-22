@@ -185,7 +185,7 @@ to the amount of nodes you want to run on. A rule of thumb for optimal performan
   export ASYNC_BUFFER_ALIGNMENT=8388608
   source /etc/profile.d/modules.sh
 
-  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS 'cpus_per_task:' $SLURM_CPUS_PER_TASK
+  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 

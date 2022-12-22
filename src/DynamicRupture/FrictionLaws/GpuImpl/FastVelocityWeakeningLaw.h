@@ -134,8 +134,7 @@ class FastVelocityWeakeningLaw
           resampledDeltaStateVar += resampleMatrix[pointIndex + i * dim0] * deltaStateVar[i];
         }
 
-        devStateVariable[ltsFace][pointIndex] =
-            sycl::max(static_cast<real>(0.0), localStateVariable + resampledDeltaStateVar);
+        devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;
       });
     });
   }

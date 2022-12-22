@@ -131,8 +131,7 @@ class FastVelocityWeakeningLaw
     #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
-          std::max(static_cast<real>(0.0),
-                   this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex]);
+          this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
