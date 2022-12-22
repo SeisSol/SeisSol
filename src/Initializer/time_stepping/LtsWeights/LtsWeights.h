@@ -136,7 +136,7 @@ protected:
   const LtsParameters* ltsParameters;
   double wiggleFactor;
   struct ComputeWiggleFactorResult {
-    double cost;
+    int numberOfClusters;
     double wiggleFactor;
   };
  ComputeWiggleFactorResult computeBestWiggleFactor();

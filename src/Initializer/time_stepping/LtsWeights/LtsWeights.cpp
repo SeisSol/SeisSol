@@ -153,11 +153,14 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
   m_cellCosts = computeCostsPerTimestep();
 
-  auto maxAdmissibleCost = std::numeric_limits<double>::max();
+  auto maxClusterIdToEnforce = ltsParameters->getMaxNumberOfClusters() - 1;
   if (ltsParameters->isWiggleFactorUsed() || ltsParameters->isAutoMergeUsed()) {
     const auto wiggleFactorResult = computeBestWiggleFactor();
     wiggleFactor = wiggleFactorResult.wiggleFactor;
-    maxAdmissibleCost = wiggleFactorResult.cost;
+    if (ltsParameters->isAutoMergeUsed()) {
+      maxClusterIdToEnforce =
+          std::min(maxClusterIdToEnforce, wiggleFactorResult.numberOfClusters - 1);
+    }
   } else {
     wiggleFactor = 1.0;
   }
@@ -165,24 +168,14 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 
   m_clusterIds = computeClusterIds(wiggleFactor);
 
-  auto maxClusterIdToEnforce = ltsParameters->getMaxNumberOfClusters() - 1;
-  if (ltsParameters->isAutoMergeUsed()) {
-    const auto maxClusterIdAfterMerging =
-        computeMaxClusterIdAfterAutoMerge(m_clusterIds,
-                                          m_cellCosts,
-                                          m_rate,
-                                          maxAdmissibleCost,
-                                          wiggleFactor,
-                                          m_details.globalMinTimeStep);
-    maxClusterIdToEnforce = std::min(maxClusterIdToEnforce, maxClusterIdAfterMerging);
-  }
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
 
   const auto maxNumberOfClusters = maxClusterIdToEnforce + 1;
   logInfo(rank) << "Limiting number of clusters to" << maxNumberOfClusters;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
-  SeisSol::main.maxNumberOfClusters = maxNumberOfClusters;
+  SeisSol::main.maxNumberOfClusters =
+      *std::max_element(m_clusterIds.begin(), m_clusterIds.end()) + 1;
 
   if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
   m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
@@ -221,8 +214,8 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
       m_clusterIds, m_cellCosts, m_rate, 1.0, m_details.globalMinTimeStep, MPI::mpi.comm());
   const double maxAdmissibleCost =
       ltsParameters->getAllowedPerformanceLossRatioAutoMerge() * baselineCost;
-  logInfo(rank) << "Baseline cost, without wiggle factor and group merging is"
-      << baselineCost;
+  logInfo(rank) << "Baseline cost, without wiggle factor and group merging is" << baselineCost
+                << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
 
   for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
@@ -317,7 +310,7 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
                 << baselineCost - bestCostEstimate
                 << "compared to the default wiggle factor of" << maxWiggleFactor;
 
-  return ComputeWiggleFactorResult{bestCostEstimate, bestWiggleFactor};
+  return ComputeWiggleFactorResult{minAdmissibleNoOfGroups, bestWiggleFactor};
 }
 
 const int* LtsWeights::vertexWeights() const {
