@@ -188,15 +188,15 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
           const auto localImpAndEta = devImpAndEta[ltsFace];
 
           real slipRateTest{};
-          bool hasConvergedLocal = invertSlipRateIterative(slipRateTest,
-                                                           localStateVariable,
-                                                           normalStress,
-                                                           absoluteShearStress,
-                                                           localSlipRateMagnitude,
-                                                           localImpAndEta.invEtaS,
-                                                           details,
-                                                           solverSettings,
-                                                           item);
+          bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(slipRateTest,
+                                                                             localStateVariable,
+                                                                             normalStress,
+                                                                             absoluteShearStress,
+                                                                             localSlipRateMagnitude,
+                                                                             localImpAndEta.invEtaS,
+                                                                             details,
+                                                                             solverSettings,
+                                                                             item);
 
           if (pointIndex == 0)
             devHasConverged[ltsFace] = hasConvergedLocal;
@@ -329,15 +329,15 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
   }
 
   template <typename DetailsType>
-  bool invertSlipRateIterative(real& slipRateTest,
-                               real localStateVariable,
-                               real normalStress,
-                               real absoluteShearStress,
-                               real slipRateMagnitude,
-                               real invEtaS,
-                               DetailsType details,
-                               rs::Settings solverSettings,
-                               sycl::nd_item<1> item) {
+  static bool invertSlipRateIterative(real& slipRateTest,
+                                      real localStateVariable,
+                                      real normalStress,
+                                      real absoluteShearStress,
+                                      real slipRateMagnitude,
+                                      real invEtaS,
+                                      DetailsType details,
+                                      rs::Settings solverSettings,
+                                      sycl::nd_item<1> item) {
 
     const auto ltsFace = item.get_group().get_group_id(0);
     const auto pointIndex = item.get_local_id(0);

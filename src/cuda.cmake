@@ -1,9 +1,10 @@
 enable_language(CUDA)
 set(CMAKE_CUDA_STANDARD 14)
 
-set(DEVICE_SRC ${DEVICE_SRC};
-        ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp;
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu)
+set(DEVICE_SRC ${DEVICE_SRC}
+        ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/cuda/KernelsAux.cu)
 
 add_library(SeisSol-device-lib SHARED ${DEVICE_SRC})
 

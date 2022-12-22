@@ -77,6 +77,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   // store the time stepping
   m_timeStepping = i_timeStepping;
 
+  bool foundDynamicRuptureCluster = false;
+
   // iterate over local time clusters
   for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
     // get memory layout of this cluster
@@ -95,7 +97,13 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         dynRupTree.child(Copy).getNumberOfCells() +
         dynRupTree.child(Ghost).getNumberOfCells();
 
-    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells));
+    bool isFirstDynamicRuptureCluster = false;
+    if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
+      foundDynamicRuptureCluster = true;
+      isFirstDynamicRuptureCluster = true;
+    }
+    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells,
+                                                                                                        isFirstDynamicRuptureCluster));
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;

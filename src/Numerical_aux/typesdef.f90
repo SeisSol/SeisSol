@@ -759,6 +759,7 @@ MODULE TypesDef
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
      CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties
+     INTEGER                                :: UseCellHomogenizedMaterial       !< Stores whether to cell-average materials or use material properties evaluated at the cell barycenter
      REAL, POINTER                          :: MaterialGrid(:,:,:,:)            !< Structured grid (x,y,z,rho,mu,lamda columns) of material properties
      REAL, POINTER                          :: MaterialGridSpace(:)             !< Specifications of structured grid spacing holding material values
      !< Dynamic Rupture variables
@@ -969,6 +970,7 @@ MODULE TypesDef
      character(len=64)                      :: xdmfWriterBackend                !< Check point backend
      logical                                :: isEnergyTerminalOutputEnabled    !< Whether energy output should be written to terminal
      real                                   :: EnergyOutputInterval
+     logical                                :: ReceiverComputeRotation                  !< Whether the rotation of the velocity field should be computed
 
   END TYPE tInputOutput
 

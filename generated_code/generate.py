@@ -138,7 +138,7 @@ Plasticity.addKernels(generator,
                       cmdLineArgs.matricesDir,
                       cmdLineArgs.PlasticityMethod,
                       targets)
-NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
+NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs, targets)
 SurfaceDisplacement.addKernels(generator, adg, include_tensors, targets)
 Point.addKernels(generator, adg)
 

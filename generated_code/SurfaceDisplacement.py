@@ -88,8 +88,11 @@ def addKernels(generator, aderdg, include_tensors, targets):
                                               aderdg.Q.optPos(),
                                               (numberOf2DBasisFunctions, 3),
                                               alignStride=True)
-  generator.add('rotateFaceDisplacement',
-                rotatedFaceDisplacement["mp"] <= faceDisplacement['mn'] * displacementRotationMatrix['pn'] )
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.add(f'{name_prefix}rotateFaceDisplacement',
+                  rotatedFaceDisplacement["mp"] <= faceDisplacement['mn'] * displacementRotationMatrix['pn'],
+                  target=target)
 
   addVelocity = lambda f: faceDisplacement['kp'] <= faceDisplacement['kp'] \
                           + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * aderdg.selectVelocity['qp']
