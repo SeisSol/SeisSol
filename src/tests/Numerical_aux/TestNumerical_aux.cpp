@@ -1,6 +1,7 @@
 #include "doctest.h"
 #include "tests/TestHelper.h"
 
+#include "BasisFunctions.t.h"
 #include "Eigenvalues.t.h"
 #include "Functions.t.h"
 #include "GaussianNucleation.t.h"

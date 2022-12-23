@@ -67,6 +67,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   behind_firewall
   supermuc
   shaheen
+  frontera
   marconi
 
 .. toctree::

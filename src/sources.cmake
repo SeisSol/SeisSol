@@ -255,4 +255,8 @@ if (WITH_GPU)
 
   target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
   target_include_directories(SeisSol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
+
+  if ("${EQUATIONS}" STREQUAL "elastic")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
+  endif()
 endif()
