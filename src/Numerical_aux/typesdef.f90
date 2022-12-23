@@ -890,7 +890,7 @@ MODULE TypesDef
      CHARACTER(LEN=20), POINTER             :: TitleMask(:)                     !< Variable names for output
      CHARACTER(LEN=600)                     :: title                            !< title for Tecplot output
      CHARACTER(LEN=200)                     :: Path                             !< Output path
-     CHARACTER(LEN=60)                      :: OutputFile                       !< Output filename
+     CHARACTER(LEN=200)                      :: OutputFile                       !< Output filename
      CHARACTER(LEN=600)                     :: MetisFile                        !< Metis filename
      CHARACTER(LEN=600)                     :: MeshFile                         !< Mesh filename
      CHARACTER(LEN=200)                     :: BndFile                          !< CFX boundary conditions
