@@ -355,25 +355,42 @@ namespace seissol {
       // Average of v / E with v: Poisson's ratio, E: Young's modulus
       double vERatioMean = 0.0;
 
+      // Acoustic material has zero mu. This is a special case because the harmonic mean of a set
+      // of numbers that includes zero is defined as zero.
+      // Hence: If part of the element is acoustic, the entire element is considered to be acoustic!
+      bool isAcoustic = false;
+
+      // Average of the bulk modulus, used for acoustic material
+      double kMeanInv = 0.0;
+
       for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
         // Divide by volume of reference tetrahedron (1/6)
         const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
         const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
         const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+        isAcoustic |= elementMaterial.mu == 0.0;
+        if (!isAcoustic) {
+          muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+        }
         rhoMean += elementMaterial.rho * quadWeight;
         vERatioMean += elementMaterial.lambda / (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) * quadWeight;
+        kMeanInv += 1.0 / (elementMaterial.lambda + (2.0/3.0) * elementMaterial.mu) * quadWeight;
       }
-
-      // Harmonic average is used for mu, so take the reciprocal
-      double muMean = 1.0 / muMeanInv;
-      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-      double lambdaMean = (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
       ElasticMaterial result{};
       result.rho = rhoMean;
-      result.mu = muMean;
-      result.lambda = lambdaMean;
+
+      // Harmonic average is used for mu/K, so take the reciprocal
+      if (isAcoustic) {
+        result.lambda = 1.0/kMeanInv;
+        result.mu = 0.0;
+      } else {
+        const auto muMean = 1.0 / muMeanInv;
+        // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+        result.lambda = (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
+        result.mu = muMean;
+      }
+
       return result;
     }
 
