@@ -88,10 +88,23 @@ namespace seissol {
       HighBandwidth = 1,
       DeviceGlobalMemory = 3,
       DeviceUnifiedMemory = 4,
-      PinnedMemory = 5
+      DeviceCompressedMemory = 5,
+      PinnedMemory = 6
     };
+
+    static bool isAllocatedOnHost(Memkind kind) {
+      bool result = kind == seissol::memory::Memkind::Standard;
+      result |= kind == seissol::memory::Memkind::HighBandwidth;
+      result |= kind == seissol::memory::Memkind::PinnedMemory;
+      return result;
+    }
+
+    static bool isUnified(Memkind kind) {
+      return kind == seissol::memory::Memkind::DeviceUnifiedMemory;
+    }
+
     void* allocate(size_t i_size, size_t i_alignment = 1, enum Memkind i_memkind = Standard);
-    void free(void* i_pointer, enum Memkind i_memkind = Standard);   
+    void free(void* i_pointer, enum Memkind i_memkind = Standard);
 
     /**
      * Prints the memory alignment of in terms of relative start and ends in bytes.

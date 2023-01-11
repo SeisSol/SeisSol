@@ -48,6 +48,9 @@
 #include <limits>
 #include <cstring>
 #include <type_traits>
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif // ACL_DEVICE
 
 enum LayerType {
   Ghost    = (1 << 0),
@@ -250,15 +253,27 @@ public:
   void touchVariables(std::vector<MemoryInfo> const& vars) {
     for (unsigned var = 0; var < vars.size(); ++var) {
 
-      // NOTE: we don't touch device global memory because it is in a different address space
-      // we will do deep-copy from the host to a device later on
-      if (!isMasked(vars[var].mask) && (vars[var].memkind != seissol::memory::DeviceGlobalMemory)) {
+      if (not (isMasked(vars[var].mask) || m_numberOfCells == 0)) {
+        const auto varMemkind = vars[var].memkind;
+        if (seissol::memory::isAllocatedOnHost(varMemkind)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (unsigned cell = 0; cell < m_numberOfCells; ++cell) {
-          memset(static_cast<char*>(m_vars[var]) + cell * vars[var].bytes, 0, vars[var].bytes);
+          for (unsigned cell = 0; cell < m_numberOfCells; ++cell) {
+            memset(static_cast<char*>(m_vars[var]) + cell * vars[var].bytes, 0, vars[var].bytes);
+          }
         }
+#ifdef ACL_DEVICE
+        if (seissol::memory::isUnified(varMemkind)) {
+          device::DeviceInstance& device = device::DeviceInstance::getInstance();
+          auto* defaultStream = device.api->getDefaultStream();
+          device.algorithms.fillArray(reinterpret_cast<char*>(m_vars[var]),
+                                      char(0),
+                                      m_numberOfCells * vars[var].bytes,
+                                      defaultStream);
+          device.api->syncDefaultStreamWithHost();
+        }
+#endif // ACL_DEVICE
       }
     }
   }

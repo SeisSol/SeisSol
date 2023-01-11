@@ -95,7 +95,7 @@ void seissol::initializers::MemoryManager::initialize()
   // initialize global matrices
   GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, MEMKIND_GLOBAL);
   if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
+    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceCompressedMemory);
   }
 }
 

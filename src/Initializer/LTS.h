@@ -72,7 +72,7 @@
 #	define MEMKIND_CONSTANT seissol::memory::Standard
 #	define MEMKIND_DOFS     seissol::memory::DeviceUnifiedMemory
 #	define MEMKIND_TIMEDOFS seissol::memory::DeviceUnifiedMemory
-# define MEMKIND_UNIFIED  seissol::memory::DeviceUnifiedMemory
+#       define MEMKIND_UNIFIED  seissol::memory::DeviceUnifiedMemory
 #endif // ACL_DEVICE
 
 namespace seissol {
@@ -141,9 +141,9 @@ struct seissol::initializers::LTS {
     tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
 
 #ifdef ACL_DEVICE
-    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  integratedDofsScratch,             1,      seissol::memory::DeviceUnifiedMemory);
+    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceCompressedMemory);
+    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceCompressedMemory);
+    tree.addScratchpadMemory(integratedDofsScratch,               1,      seissol::memory::DeviceUnifiedMemory);
     tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
     tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
 #endif
