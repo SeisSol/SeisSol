@@ -190,7 +190,10 @@ class seissol::initializers::time_stepping::MultiRate {
          l_currentMaximumTime *= i_multiRate;
        }
 
-       o_numberOfClusters = static_cast<unsigned int>(seissol::SeisSol::main.maxNumberOfClusters);
+       o_numberOfClusters = std::min(
+               o_numberOfClusters,
+               static_cast<unsigned int>(seissol::SeisSol::main.maxNumberOfClusters)
+       );
        assert(o_numberOfClusters > 0);
        // allocate memory for the time step widths and rate; TODO: Free
        o_clusterTimeStepWidths = new double[        o_numberOfClusters ];
