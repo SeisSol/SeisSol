@@ -307,7 +307,7 @@ public:
       return m_computeGraphHandles[graphKey];
     }
     else {
-      return device::DeviceGraphHandle{};
+      return device::DeviceGraphHandle();
     }
   }
 

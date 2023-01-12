@@ -29,7 +29,7 @@ struct GraphKey {
 struct GraphKeyHash {
   std::size_t operator()(GraphKey const& key) const {
     std::size_t result = 0;
-    recording::hashCombine(result, key.graphType);
+    recording::hashCombine(result, static_cast<size_t>(key.graphType));
     recording::hashCombine(result, key.timeWidth);
     return result;
   }
