@@ -153,7 +153,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
                                          real* o_timeDerivatives,
-                                         double startTime,
                                          bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
@@ -241,7 +240,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
             tmp.nodalAvgDisplacements[face].data(),
             *this,
             derivativesBuffer,
-            startTime,
             i_timeStepWidth,
             data.material,
             data.cellInformation.faceTypes[face]
@@ -256,7 +254,6 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                                                 LocalTmp& tmp,
                                                 ConditionalPointersToRealsTable &dataTable,
                                                 ConditionalMaterialTable &materialTable,
-                                                double startTime,
                                                 bool updateDisplacement) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
@@ -327,7 +324,6 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                           *this,
                           dataTable,
                           materialTable,
-                          startTime,
                           i_timeStepWidth,
                           device);
     }

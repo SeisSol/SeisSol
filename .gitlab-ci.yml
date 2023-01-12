@@ -7,7 +7,7 @@ variables:
   cpu_image_name: "cpu-ci-image"
   cpu_image_version: "v0.0.3"
   gpu_image_name: "gpu-ci-image"
-  gpu_image_version: "v0.0.2"
+  gpu_image_version: "v0.0.4"
 
 Building_Docker_Images:
   stage: build
