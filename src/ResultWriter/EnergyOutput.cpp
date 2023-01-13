@@ -405,29 +405,35 @@ void EnergyOutput::printEnergies() {
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
 
-    if (totalElasticEnergy) {
-      logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
-                    << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+    if (OutputId % computeVolumeEnergiesEveryOutput == 0) {
+        if (totalElasticEnergy) {
+          logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+                        << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+        }
+        if (totalAcousticEnergy) {
+          logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
+                        << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
+        }
+        if (energiesStorage.gravitationalEnergy()) {
+          logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
+        }
+        if (energiesStorage.plasticMoment()) {
+          logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
+                        << energiesStorage.plasticMoment() << " ,"
+                        << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
+                        << ratioPlasticMoment;
+        }
+    } else {
+          logInfo(rank) << "Volume energies skipped at this step" << energiesStorage.elasticEnergy();
     }
-    if (totalAcousticEnergy) {
-      logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                    << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
-    }
-    if (energiesStorage.gravitationalEnergy()) {
-      logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
-    }
+
     if (totalFrictionalWork) {
       logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                     << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
       logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
                     << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
     }
-    if (energiesStorage.plasticMoment()) {
-      logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
-                    << energiesStorage.plasticMoment() << " ,"
-                    << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
-                    << ratioPlasticMoment;
-    }
+
     if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
       logError() << "Detected Inf/NaN in energies. Aborting.";
     }
