@@ -51,6 +51,7 @@ class EnergyOutput : public Module {
             seissol::initializers::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
             bool newIsTerminalOutputEnabled,
+            int newComputeVolumeEnergiesEveryOutput,
             const std::string& outputFileNamePrefix,
             double newSyncPointInterval);
 
@@ -67,6 +68,8 @@ class EnergyOutput : public Module {
 
   void computeDynamicRuptureEnergies();
 
+  void computeVolumeEnergies();
+
   void computeEnergies();
 
   void reduceEnergies();
@@ -81,6 +84,8 @@ class EnergyOutput : public Module {
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
+  int computeVolumeEnergiesEveryOutput = 1;
+  int OutputId = 0;
 
   std::string outputFileName;
   std::ofstream out;

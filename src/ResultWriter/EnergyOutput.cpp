@@ -34,6 +34,7 @@ void EnergyOutput::init(GlobalData* newGlobal,
                         seissol::initializers::Lut* newLtsLut,
                         bool newIsPlasticityEnabled,
                         bool newIsTerminalOutputEnabled,
+                        int newComputeVolumeEnergiesEveryOutput,
                         const std::string& outputFileNamePrefix,
                         double newSyncPointInterval) {
   if (newSyncPointInterval > 0) {
@@ -46,6 +47,7 @@ void EnergyOutput::init(GlobalData* newGlobal,
 
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = newIsTerminalOutputEnabled && (rank == 0);
+  computeVolumeEnergiesEveryOutput = newComputeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
@@ -181,9 +183,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   }
 }
 
-void EnergyOutput::computeEnergies() {
-  energiesStorage.energies.fill(0.0);
-
+void EnergyOutput::computeVolumeEnergies() {
   auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
   auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
   auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
@@ -351,7 +351,13 @@ void EnergyOutput::computeEnergies() {
       totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
     }
   }
+}
 
+void EnergyOutput::computeEnergies() {
+  energiesStorage.energies.fill(0.0);
+  if (OutputId % computeVolumeEnergiesEveryOutput == 0) {
+    computeVolumeEnergies();
+  }
   computeDynamicRuptureEnergies();
 }
 
@@ -398,6 +404,7 @@ void EnergyOutput::printEnergies() {
     const auto ratioPlasticMoment =
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
+
     if (totalElasticEnergy) {
       logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                     << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
@@ -425,6 +432,7 @@ void EnergyOutput::printEnergies() {
       logError() << "Detected Inf/NaN in energies. Aborting.";
     }
   }
+  OutputId++;
 }
 
 void EnergyOutput::writeHeader() {
