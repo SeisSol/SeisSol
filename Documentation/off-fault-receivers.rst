@@ -35,6 +35,8 @@ the form:
 The receivers files contain the time-histories of the stress tensor (6 variables) and the particle velocities (3).
 Currently, there is no way to write only a subset of these variables.
 
+Receiver time-histories are normally written at the end of the simulation, but this can be changed by setting :code:`ReceiverOutputInterval = 10.0`. Here the output is written every ReceiverOutputInterval seconds.
+
 Rotational Output
 -----------------
 You can additionally choose to write the rotation of the velocity field by setting :code:`ReceiverComputeRotation=1` in the parameter file.
