@@ -287,14 +287,14 @@ void seissol::physics::Ocean::evaluate(double time,
     const double k_y = pi / Ly; // 1/km
 
     constexpr auto k_stars = std::array<double, 3>{
-      0.4452003497054692,
+      0.4433813748841239,
       1.5733628061766445,
       4.713305873881573
     };
 
     // Note: Could be computed on the fly but it's better to pre-compute them with higher precision!
     constexpr auto omegas = std::array<double, 3>{
-      0.0427240277969087,
+      0.0425599572628432,
       2.4523337594491745,
       7.1012991617572165
     };
