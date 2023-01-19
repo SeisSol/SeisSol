@@ -16,7 +16,11 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters){};
+  explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
+    std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
+              &init::quadweights::Values[init::quadweights::Stop[0]],
+              &spaceWeights[0]);
+  }
   virtual ~FrictionSolver() = default;
 
   virtual void evaluate(seissol::initializers::Layer& layerData,
@@ -65,6 +69,9 @@ class FrictionSolver {
   real (*traction2)[misc::numPaddedPoints];
   real (*imposedStatePlus)[tensor::QInterpolated::size()];
   real (*imposedStateMinus)[tensor::QInterpolated::size()];
+  real spaceWeights[misc::numPaddedPoints];
+  DREnergyOutput* energyData{};
+  DRGodunovData* godunovData{};
 
   // be careful only for some FLs initialized:
   real (*dynStressTime)[misc::numPaddedPoints];

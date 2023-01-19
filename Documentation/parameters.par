@@ -1,6 +1,8 @@
 &equations
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
+!1: Compute average materials for each cell, 0: sample material values at element barycenters
+UseCellHomogenizedMaterial = 1 
 !off-fault plasticity parameters (ignored if Plasticity=0)
 Plasticity=0
 Tv=0.05
@@ -116,6 +118,7 @@ pickDtType = 1                       ! Pickpoint Type
 ! (Optional) Synchronization point for receivers.
 !            If omitted, receivers are written at the end of the simulation.
 ReceiverOutputInterval = 10.0
+ReceiverComputeRotation = 1          ! Compute Rotation of the velocity field at the receivers
 
 ! Free surface output
 SurfaceOutput = 1

@@ -41,29 +41,27 @@
 #ifndef SEISSOL_H
 #define SEISSOL_H
 
+#include <memory>
 #include <string>
 
 #include "utils/logger.h"
 
-#include "Solver/time_stepping/TimeManager.h"
-#include "Solver/Simulator.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "Initializer/typedefs.hpp"
-#include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
-#include "SourceTerm/Manager.h"
-#include "ResultWriter/PostProcessor.h"
-#include "ResultWriter/FreeSurfaceWriter.h"
-
-#include "ResultWriter/AsyncIO.h"
-#include "ResultWriter/WaveFieldWriter.h"
-#include "ResultWriter/FaultWriter.h"
-#include "ResultWriter/EnergyOutput.h"
-
-#include "ResultWriter/AnalysisWriter.h"
-#include <memory>
-
+#include "Initializer/time_stepping/LtsLayout.h"
+#include "Initializer/typedefs.hpp"
+#include "Monitoring/FlopCounter.hpp"
 #include "Parallel/Pin.h"
+#include "ResultWriter/AnalysisWriter.h"
+#include "ResultWriter/AsyncIO.h"
+#include "ResultWriter/EnergyOutput.h"
+#include "ResultWriter/FaultWriter.h"
+#include "ResultWriter/FreeSurfaceWriter.h"
+#include "ResultWriter/PostProcessor.h"
+#include "ResultWriter/WaveFieldWriter.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/Simulator.h"
+#include "Solver/time_stepping/TimeManager.h"
+#include "SourceTerm/Manager.h"
 
 class MeshReader;
 
@@ -141,6 +139,9 @@ private:
 
   //! Input parameters
   std::shared_ptr<YAML::Node> m_inputParams;
+
+  //! Flop Counter
+  monitoring::FlopCounter m_flopCounter;
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -259,6 +260,13 @@ public:
    writer::EnergyOutput& energyOutput() {
      return m_energyOutput;
    }
+
+  /**
+   * Get the flop counter
+   */
+  monitoring::FlopCounter& flopCounter() {
+    return m_flopCounter;
+  }
 
 	/**
 	 * Set the mesh reader

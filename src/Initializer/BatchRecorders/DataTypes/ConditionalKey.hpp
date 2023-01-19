@@ -5,16 +5,15 @@
 #include <limits>
 #include <utility>
 
-namespace seissol {
-namespace initializers {
-namespace recording {
+namespace seissol::initializers::recording {
 struct ConditionalKey {
-  ConditionalKey(size_t kernel, size_t type = std::numeric_limits<size_t>::max(),
+  ConditionalKey(size_t kernel,
+                 size_t type = std::numeric_limits<size_t>::max(),
                  size_t face = std::numeric_limits<size_t>::max(),
                  size_t relation = std::numeric_limits<size_t>::max())
       : kernelId(kernel), typeId(type), faceId(face), faceRelationId(relation){};
 
-  bool operator==(const ConditionalKey &other) const {
+  bool operator==(const ConditionalKey& other) const {
     return ((kernelId == other.kernelId) && (typeId == other.typeId) && (faceId == other.faceId) &&
             (faceRelationId == other.faceRelationId));
   }
@@ -25,15 +24,18 @@ struct ConditionalKey {
   size_t faceRelationId;
 };
 
-template <class T> inline void hashCombine(std::size_t &seed, const T &value) {
+template <class T>
+inline void hashCombine(std::size_t& seed, const T& value) {
   std::hash<T> hasher;
   seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-template <class T> struct ConditionalHash;
+template <class T>
+struct ConditionalHash;
 
-template <> struct ConditionalHash<ConditionalKey> {
-  std::size_t operator()(ConditionalKey const &key) const {
+template <>
+struct ConditionalHash<ConditionalKey> {
+  std::size_t operator()(ConditionalKey const& key) const {
     std::size_t result = 0;
     hashCombine(result, key.kernelId);
     hashCombine(result, key.typeId);
@@ -42,9 +44,6 @@ template <> struct ConditionalHash<ConditionalKey> {
     return result;
   }
 };
-
-} // namespace recording
-} // namespace recording
-} // namespace initializers
+} // namespace seissol::initializers::recording
 
 #endif // SEISSOL_CONDITIONALKEY_HPP

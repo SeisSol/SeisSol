@@ -29,7 +29,8 @@ Load module. Add these lines to .bashrc:
   module load python/3.8.11-extended
   module load numactl/2.0.14-intel21
   #To use dependencies preinstalled with spack
-  module use /hppfs/work/pr63qo/di73yeq4/myLibs/spack-packages/modules/linux-sles15-skylake_avx512/
+  module use /hppfs/work/pn49ha/ru76tuj2/modules/linux-sles15-skylake_avx512/
+  # you need to have access to project pn49ha
   module load seissol-env/develop-intel21-impi-x2b
   export CC=mpicc 
   export CXX=mpiCC 
@@ -66,14 +67,14 @@ Alternatively (and for reference), to compile seissol-env on SuperMUC-NG, follow
     module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
     # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml 
 
-Custom install directory for packages and modules can be set with, by changing `` ~/.spack/config.yaml``:
+Custom install directory for packages and modules can be set with, by changing ``~/.spack/config.yaml``:
 
 .. code-block:: yaml
 
     config:
       install_tree: path_2_packages
 
-and `` ~/.spack/modules.yaml``: 
+and ``~/.spack/modules.yaml``: 
 
 .. code-block:: yaml
 
@@ -83,6 +84,20 @@ and `` ~/.spack/modules.yaml``:
          tcl: your_custom_path_2_modules
 
 This can be useful to share packages with other user of a SuperMUC project.
+
+The seissol-env compilation can also be reduced by adding the python module to ``~/.spack/packages.yaml``:
+
+.. code-block:: yaml
+
+    packages:
+      python:
+        externals:
+        - spec: python@3.8.11
+          buildable: False
+          modules:
+           - python/3.8.11-extended
+
+
 
 Install SeisSol with cmake, e.g. with (more options with ccmake)
 
@@ -112,7 +127,9 @@ To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list o
 Running SeisSol
 ---------------
 
-Submission file for SeisSol on NG:
+This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change 
+#SBATCH --nodes= 
+to the amount of nodes you want to run on. A rule of thumb for optimal performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes. 
 
 ::
 
@@ -145,6 +162,9 @@ Submission file for SeisSol on NG:
   #Number of nodes and MPI tasks per node:
   #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
+  #EAR may impact code performance
+  #SBATCH --ear=off
+
   module load slurm_setup
   
   #Run the program:
@@ -152,6 +172,8 @@ Submission file for SeisSol on NG:
   unset KMP_AFFINITY
   export OMP_NUM_THREADS=94
   export OMP_PLACES="cores(47)"
+  #Prevents errors such as experience in Issue #691
+  export I_MPI_SHM_HEAP_VSIZE=8192
 
   export XDMFWRITER_ALIGNMENT=8388608
   export XDMFWRITER_BLOCK_SIZE=8388608
@@ -163,7 +185,7 @@ Submission file for SeisSol on NG:
   export ASYNC_BUFFER_ALIGNMENT=8388608
   source /etc/profile.d/modules.sh
 
-  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS 'cpus_per_task:' $SLURM_CPUS_PER_TASK
+  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
   mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
 

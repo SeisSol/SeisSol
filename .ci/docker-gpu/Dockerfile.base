@@ -165,8 +165,6 @@ rm -rf ./build
 
 RUN DIR=./seissol/preprocessing/science/rconv/build && \
 mkdir -p $DIR && cd $DIR && \
-echo "find_package(HDF5 REQUIRED COMPONENTS C HL)" >> ../CMakeLists.txt && \
-echo "target_link_libraries(SeisSol-rconv PUBLIC \${HDF5_C_HL_LIBRARIES} \${HDF5_C_LIBRARIES})" >> ../CMakeLists.txt && \
 CC=mpicc CXX=mpicxx cmake .. && make -j $(nproc) && \
 cp ./rconv /usr/bin && \
 cd /tmp && rm -rf ./seissol

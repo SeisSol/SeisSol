@@ -12,6 +12,7 @@ template <typename Derived>
 class GpuFrictionSolver : public GpuBaseFrictionLaw {
   public:
   GpuFrictionSolver<Derived>(dr::DRParameters* drParameters) : GpuBaseFrictionLaw(drParameters) {}
+  ~GpuFrictionSolver<Derived>() = default;
 
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture const* const dynRup,
@@ -25,28 +26,24 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
     size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
     this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
 
-    requiredNumBytes = CONVERGENCE_ORDER * sizeof(real);
-    this->queue.memcpy(devDeltaT, &deltaT[0], requiredNumBytes).wait();
-
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
-      auto layerSize{this->currLayerSize};
 
-      auto* impAndEta{this->impAndEta};
-      auto* qInterpolatedPlus{this->qInterpolatedPlus};
-      auto* qInterpolatedMinus{this->qInterpolatedMinus};
-      auto* faultStresses{this->faultStresses};
+      auto* devImpAndEta{this->impAndEta};
+      auto* devQInterpolatedPlus{this->qInterpolatedPlus};
+      auto* devQInterpolatedMinus{this->qInterpolatedMinus};
+      auto* devFaultStresses{this->faultStresses};
 
-      sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+      sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           const auto ltsFace = item.get_group().get_group_id(0);
           const auto pointIndex = item.get_local_id(0);
 
-          common::precomputeStressFromQInterpolated<gpuRangeType>(faultStresses[ltsFace],
-                                                                  impAndEta[ltsFace],
-                                                                  qInterpolatedPlus[ltsFace],
-                                                                  qInterpolatedMinus[ltsFace],
+          common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
+                                                                  devImpAndEta[ltsFace],
+                                                                  devQInterpolatedPlus[ltsFace],
+                                                                  devQInterpolatedMinus[ltsFace],
                                                                   pointIndex);
         });
       });
@@ -55,8 +52,8 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
-        auto* initialStressInFaultCS{this->initialStressInFaultCS};
-        const auto* nucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
+        const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
 
         this->queue.submit([&](sycl::handler& cgh) {
           cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -64,12 +61,13 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
             auto pointIndex = item.get_local_id(0);
 
             using StdMath = seissol::functions::SyclStdFunctions;
-            common::adjustInitialStress<gpuRangeType, StdMath>(initialStressInFaultCS[ltsFace],
-                                                               nucleationStressInFaultCS[ltsFace],
-                                                               fullUpdateTime,
-                                                               t0,
-                                                               dt,
-                                                               pointIndex);
+            common::adjustInitialStress<gpuRangeType, StdMath>(
+                devInitialStressInFaultCS[ltsFace],
+                devNucleationStressInFaultCS[ltsFace],
+                fullUpdateTime,
+                t0,
+                dt,
+                pointIndex);
           });
         });
 
@@ -77,17 +75,17 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
       }
       static_cast<Derived*>(this)->postHook(stateVariableBuffer);
 
-      auto* ruptureTimePending{this->ruptureTimePending};
-      auto* slipRateMagnitude{this->slipRateMagnitude};
-      auto* ruptureTime{this->ruptureTime};
+      auto* devRuptureTimePending{this->ruptureTimePending};
+      auto* devSlipRateMagnitude{this->slipRateMagnitude};
+      auto* devRuptureTime{this->ruptureTime};
 
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
           auto pointIndex = item.get_local_id(0);
-          common::saveRuptureFrontOutput<gpuRangeType>(ruptureTimePending[ltsFace],
-                                                       ruptureTime[ltsFace],
-                                                       slipRateMagnitude[ltsFace],
+          common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
+                                                       devRuptureTime[ltsFace],
+                                                       devSlipRateMagnitude[ltsFace],
                                                        fullUpdateTime,
                                                        pointIndex);
         });
@@ -95,11 +93,14 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 
       static_cast<Derived*>(this)->saveDynamicStressOutput();
 
-      auto* peakSlipRate{this->peakSlipRate};
-      auto* imposedStatePlus{this->imposedStatePlus};
-      auto* imposedStateMinus{this->imposedStateMinus};
-      auto* tractionResults{this->tractionResults};
+      auto* devPeakSlipRate{this->peakSlipRate};
+      auto* devImposedStatePlus{this->imposedStatePlus};
+      auto* devImposedStateMinus{this->imposedStateMinus};
+      auto* devTractionResults{this->tractionResults};
       auto* devTimeWeights{this->devTimeWeights};
+      auto* devSpaceWeights{this->devSpaceWeights};
+      auto* devEnergyData{this->energyData};
+      auto* devGodunovData{this->godunovData};
 
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -107,17 +108,26 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
           auto pointIndex = item.get_local_id(0);
 
           common::savePeakSlipRateOutput<gpuRangeType>(
-              slipRateMagnitude[ltsFace], peakSlipRate[ltsFace], pointIndex);
+              devSlipRateMagnitude[ltsFace], devPeakSlipRate[ltsFace], pointIndex);
 
-          common::postcomputeImposedStateFromNewStress<gpuRangeType>(faultStresses[ltsFace],
-                                                                     tractionResults[ltsFace],
-                                                                     impAndEta[ltsFace],
-                                                                     imposedStatePlus[ltsFace],
-                                                                     imposedStateMinus[ltsFace],
-                                                                     qInterpolatedPlus[ltsFace],
-                                                                     qInterpolatedMinus[ltsFace],
+          common::postcomputeImposedStateFromNewStress<gpuRangeType>(devFaultStresses[ltsFace],
+                                                                     devTractionResults[ltsFace],
+                                                                     devImpAndEta[ltsFace],
+                                                                     devImposedStatePlus[ltsFace],
+                                                                     devImposedStateMinus[ltsFace],
+                                                                     devQInterpolatedPlus[ltsFace],
+                                                                     devQInterpolatedMinus[ltsFace],
                                                                      devTimeWeights,
                                                                      pointIndex);
+
+          common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
+                                                      devQInterpolatedPlus[ltsFace],
+                                                      devQInterpolatedMinus[ltsFace],
+                                                      devImpAndEta[ltsFace],
+                                                      devTimeWeights,
+                                                      devSpaceWeights,
+                                                      devGodunovData[ltsFace],
+                                                      pointIndex);
         });
       });
       queue.wait_and_throw();

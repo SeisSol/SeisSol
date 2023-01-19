@@ -30,7 +30,8 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :caption: Introduction
 
   introduction
-  compilation
+  installing-dependencies
+  compiling-seissol
   a-first-example
   acknowledge
   reproducible-research
@@ -65,6 +66,8 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
   behind_firewall
   supermuc
+  shaheen
+  frontera
   marconi
 
 .. toctree::

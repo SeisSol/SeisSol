@@ -111,6 +111,14 @@ class BaseFrictionLaw : public FrictionSolver {
                                                    timeWeights);
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
+
+      common::computeFrictionEnergy(energyData[ltsFace],
+                                    qInterpolatedPlus[ltsFace],
+                                    qInterpolatedMinus[ltsFace],
+                                    impAndEta[ltsFace],
+                                    timeWeights,
+                                    spaceWeights,
+                                    godunovData[ltsFace]);
     }
   }
 };

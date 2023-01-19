@@ -1,6 +1,7 @@
 #include "EnergyOutput.h"
 #include <Kernels/DynamicRupture.h>
 #include <Numerical_aux/Quadrature.h>
+#include "DynamicRupture/Misc.h"
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
 
@@ -85,11 +86,12 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
-                                     const real* degreesOfFreedomMinus,
-                                     const DRFaceInformation& faceInfo,
-                                     const DRGodunovData& godunovData,
-                                     const real slip[seissol::tensor::slipInterpolated::size()]) {
+real EnergyOutput::computeStaticWork(
+    const real* degreesOfFreedomPlus,
+    const real* degreesOfFreedomMinus,
+    const DRFaceInformation& faceInfo,
+    const DRGodunovData& godunovData,
+    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -153,7 +155,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        totalFrictionalWork += drEnergyOutput[i].frictionalEnergy;
+        for (unsigned j = 0; j < seissol::dr::misc::numberOfBoundaryGaussPoints; ++j) {
+          totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
+        }
         staticFrictionalWork += computeStaticWork(timeDerivativePlus[i],
                                                   timeDerivativeMinus[i],
                                                   faceInformation[i],
@@ -166,11 +170,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                        waveSpeedsMinus[i].sWaveVelocity;
         real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
         real seismicMomentIncrease = 0.0;
-        for (unsigned k = 0; k < seissol::tensor::squaredNormSlipRateInterpolated::size(); ++k) {
+        for (unsigned k = 0; k < seissol::dr::misc::numberOfBoundaryGaussPoints; ++k) {
           seismicMomentIncrease += drEnergyOutput[i].accumulatedSlip[k];
         }
         seismicMomentIncrease *= 0.5 * godunovData[i].doubledSurfaceArea * mu /
-                                 seissol::tensor::squaredNormSlipRateInterpolated::size();
+                                 seissol::dr::misc::numberOfBoundaryGaussPoints;
         seismicMoment += seismicMomentIncrease;
       }
     }
@@ -258,7 +262,8 @@ void EnergyOutput::computeEnergies() {
         // Elastic
         totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
         auto getStressIndex = [](int i, int j) {
-          const static auto lookup = std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
+          const static auto lookup =
+              std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
@@ -415,7 +420,9 @@ void EnergyOutput::printEnergies() {
                     << energiesStorage.plasticMoment() << " ,"
                     << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                     << ratioPlasticMoment;
-      ;
+    }
+    if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
+      logError() << "Detected Inf/NaN in energies. Aborting.";
     }
   }
 }

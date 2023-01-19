@@ -8,6 +8,7 @@
 #include <generated_code/init.h>
 #include <stdexcept>
 #include <tuple>
+#include <type_traits>
 
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
@@ -68,13 +69,28 @@ inline auto power(T base) -> T {
   return result;
 }
 
+template <typename T>
+inline typename std::enable_if<std::is_floating_point<T>::value, T>::type square(T t) {
+  return t * t;
+}
+
 /**
- * Computes the magnitude of the vector (x, y)
- * @param x First component of the vector
- * @param y Second component of the vector
+ * Computes a squared sum of an N-dimensional vector
  * @return magnitude of the vector
  */
-inline real magnitude(real x, real y) { return std::sqrt(x * x + y * y); }
+template <typename T, typename... Tn>
+inline T square(T t1, Tn... tn) {
+  return square(t1) + square(tn...);
+}
+
+/**
+ * Computes the magnitude of an N-dimensional vector
+ * @return magnitude of the vector
+ */
+template <typename T, typename... Tn>
+inline T magnitude(T t1, Tn... tn) {
+  return std::sqrt(square(t1) + square(tn...));
+}
 
 /**
  * Computes the arcus sinus hyperbolicus of x.

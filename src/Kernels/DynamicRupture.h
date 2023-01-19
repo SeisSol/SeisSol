@@ -65,9 +65,7 @@ class seissol::kernels::DynamicRupture {
 
   public:
     double timePoints[CONVERGENCE_ORDER];
-    double timeSteps[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
-    real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
 
   DynamicRupture() {}
 
@@ -88,7 +86,7 @@ class seissol::kernels::DynamicRupture {
                                 real const*                 timeDerivativePlus_prefetch,
                                 real const*                 timeDerivativeMinus_prefetch);
 
-  void batchedSpaceTimeInterpolation(ConditionalBatchTableT& table);
+  void batchedSpaceTimeInterpolation(DrConditionalPointersToRealsTable& table);
 
     void flopsGodunovState( DRFaceInformation const&  faceInfo,
                             long long&                o_nonZeroFlops,

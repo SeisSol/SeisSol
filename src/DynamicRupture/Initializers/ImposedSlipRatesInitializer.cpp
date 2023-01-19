@@ -86,7 +86,7 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
     misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
 
     // cos^2 can be greater than 1 because of rounding errors
-    real cos = std::min(1.0, MeshTools::dot(strikeVector, fault.tangent1));
+    real cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
     VrtxCoords crossProduct{};
     MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
     real scalarProduct = MeshTools::dot(crossProduct, fault.normal);

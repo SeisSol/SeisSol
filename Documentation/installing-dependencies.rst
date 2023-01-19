@@ -1,7 +1,5 @@
-.. _compilation:
-
-Compilation
-===========
+Installing Dependencies
+=======================
 
 In order to run SeisSol, you need to first install:
 
@@ -14,7 +12,7 @@ In order to run SeisSol, you need to first install:
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.10) for the compilation of SeisSol
+-  CMake (>= 3.20) for the compilation of SeisSol
 
 In addition, the following packages need to be installed for the GPU version of SeisSol:
 
@@ -23,8 +21,27 @@ In addition, the following packages need to be installed for the GPU version of 
 - gemmforge (>= 0.0.207)
 - chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
 
+
+These dependencies can be installed automatically with spack or can be installed manually one by one.
+
+
+.. _spack_installation:
+
+Spack installation
+------------------
+
+`Spack <https://github.com/spack/spack/wiki>`_ is a HPC software package manager.
+It automates the process of installing, upgrading, configuring, and removing computer programs.
+In particular, our spack package `seissol-env` allows automatically installing all dependencies of SeisSol (e.g. mpi, hdf5, netcdf, easi, asagi, etc).
+See https://github.com/SeisSol/seissol-spack-aid/tree/main/spack for details on the installation with spack.
+See also for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
+
+
+Manual installation
+-------------------
+
 Initial Adjustments to .bashrc
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add the following lines to your .bashrc (vi ~/.bashrc).
 
@@ -44,12 +61,12 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
   # run "exec bash" or "source ~/.bashrc" to apply environment to the current shell
 
 Installing CMake
-----------------
+~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-  # you will need at least version 3.10.2 for GNU Compiler Collection 
-  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.10.2/cmake-3.10.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.10.2-Linux-x86_64" "${HOME}/bin/cmake")
+  # you will need at least version 3.20.0 for GNU Compiler Collection 
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${HOME}/bin/cmake")
   
   # use version 3.16.2 for Intel Compiler Collection
   (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.16.2-Linux-x86_64" "${HOME}/bin/cmake")
@@ -59,7 +76,7 @@ Installing CMake
 Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
   
 Installing HDF5
----------------
+~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -72,7 +89,7 @@ Installing HDF5
   cd ..
 
 Installing netCDF
------------------
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -80,7 +97,7 @@ Installing netCDF
   tar -xaf netcdf-4.6.1.tar.gz
   cd netcdf-4.6.1
   CFLAGS="-fPIC ${CFLAGS}" CC=h5pcc ./configure --enable-shared=no --prefix=$HOME --disable-dap
-  #NOTE: Check for this line to make sure netCDF is build with parallel I/O: 
+  #NOTE: Check for this line to make sure netCDF is built with parallel I/O: 
   #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
   make -j8
   make install
@@ -89,7 +106,7 @@ Installing netCDF
 .. _installing_eigen3:
 
 Installing Eigen3
------------------
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -104,7 +121,7 @@ Installing Eigen3
 .. _installing_libxsmm:
 
 Installing Libxsmm
-------------------
+~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -117,7 +134,8 @@ Installing Libxsmm
 .. _installing_pspamm:
 
 Installing PSpaMM
------------------
+~~~~~~~~~~~~~~~~~
+
 
 
 .. code-block:: bash
@@ -136,7 +154,8 @@ Instead of linking, you could also add the following line to your .bashrc:
 .. _installing_parmetis:
 
 Installing ParMetis
-------------------------------------------------
+~~~~~~~~~~~~~~~~~~~
+
 
 .. code-block:: bash
 
@@ -155,81 +174,31 @@ libmetis.a. Otherwise, compile error: cannot find parmetis.)
 
 
 Installing ASAGI (Optional)
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 .. _compiling-seissol:
 
 Installing easi
----------------------------
+~~~~~~~~~~~~~~~
 
 Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
 
 
 Installing GemmForge, ChainForge (for GPUs)
--------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. _gemmforge_installation:
 
 .. code-block:: bash
 
    pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
-   pip3 install --user https://github.com/ravil-mobile/chainforge.git
-
+   pip3 install --user git+https://github.com/ravil-mobile/chainforge.git
 
 Installing SYCL (for GPUs)
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 See section :ref:`Installing SYCL <installing_SYCL>`.
 
 
-Compiling SeisSol
------------------
-
-Get the latest version of SeisSol on git by cloning the whole repository
-including all submodules:
-
-.. code-block:: bash
-
-   git clone https://github.com/SeisSol/SeisSol.git
-   cd SeisSol
-   git submodule update --init
-
-Compile SeisSol with (e.g.)
-
-.. code-block:: bash
-
-    mkdir build-release && cd build-release
-    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=skx -DPRECISION=double ..
-    make -j48
-
-Here, the :code:`DCMAKE_INSTALL_PREFIX` controlls, in which folder the software is installed.
-You have to adjust the :code:`CMAKE_PREFIX_PATH` and :code:`PKG_CONFIG_PATH` in the same manner - if you install all dependencies in a different directory, you need to replace :code:`${HOME}` by the path to this directory.
-It is also important that the executables of the matrix mutiplication generators (Libxsmm, PSpaMM) have to be in :code:`$PATH`.
-You can also compile just the proxy by :command:`make SeisSol-proxy` or only SeisSol with :command:`make SeisSol-bin`   
-
-Note: CMake tries to detect the correct MPI wrappers.
-
-You can also run :code:`ccmake ..` to see all available options and toggle them.
-
-.. figure:: LatexFigures/ccmake.png
-   :alt: An example of ccmake with some options
-
-Compile with Score-P
---------------------
-```
-SCOREP_WRAPPER=off CXX=scorep-mpic++ CC=scorep-mpicc FC=scorep-mpif90 cmake ..
-SCOREP_WRAPPER_INSTRUMENTER_FLAGS="--user --thread=omp --nomemory" make
-```
-
-
-Running SeisSol
----------------
-
-1. Follow the instructions on :ref:`Configuration <Configuration>`.
-2. Run SeisSol version of interest. To run the example:
-   :code:`./SeisSol_Release_.... parameter.par`
-
-Further information regarding meshing and parameter files etc. can be
-found in the documentation folder. See also :ref:`A first example <a_first_example>`.

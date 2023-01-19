@@ -1,7 +1,6 @@
 #include "Factory.h"
 
 #include "FrictionLaws/FrictionLaws.h"
-#include "FrictionLaws/ThermalPressurization/NoTP.h"
 #include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
 
 #ifdef ACL_DEVICE
@@ -66,10 +65,11 @@ DynamicRuptureTuple RateAndStateAgingFactory::produce() {
             std::make_unique<output::OutputManager>(
                 std::make_unique<output::RateAndStateThermalPressurization>())};
   } else {
-    return {std::make_unique<seissol::initializers::LTSRateAndState>(),
-            std::make_unique<initializers::RateAndStateInitializer>(drParameters),
-            std::make_unique<friction_law::AgingLaw<friction_law::NoTP>>(drParameters.get()),
-            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
+    return {
+        std::make_unique<seissol::initializers::LTSRateAndState>(),
+        std::make_unique<initializers::RateAndStateInitializer>(drParameters),
+        std::make_unique<friction_law_impl::AgingLaw<friction_law_impl::NoTP>>(drParameters.get()),
+        std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }
 }
 
@@ -82,10 +82,11 @@ DynamicRuptureTuple RateAndStateSlipFactory::produce() {
             std::make_unique<output::OutputManager>(
                 std::make_unique<output::RateAndStateThermalPressurization>())};
   } else {
-    return {std::make_unique<seissol::initializers::LTSRateAndState>(),
-            std::make_unique<initializers::RateAndStateInitializer>(drParameters),
-            std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
-            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
+    return {
+        std::make_unique<seissol::initializers::LTSRateAndState>(),
+        std::make_unique<initializers::RateAndStateInitializer>(drParameters),
+        std::make_unique<friction_law_impl::SlipLaw<friction_law_impl::NoTP>>(drParameters.get()),
+        std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }
 }
 
@@ -129,7 +130,7 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
   } else {
     return {std::make_unique<seissol::initializers::LTSRateAndStateFastVelocityWeakening>(),
             std::make_unique<initializers::RateAndStateFastVelocityInitializer>(drParameters),
-            std::make_unique<friction_law::FastVelocityWeakeningLaw<friction_law::NoTP>>(
+            std::make_unique<friction_law_impl::FastVelocityWeakeningLaw<friction_law_impl::NoTP>>(
                 drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>())};
   }
