@@ -322,8 +322,8 @@ template <RangeType Type = RangeType::CPU>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
 inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
+                                   // See https://github.com/llvm/llvm-project/issues/60163
+                                   // NOLINTNEXTLINE
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime,
@@ -352,8 +352,8 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  */
 template <RangeType Type = RangeType::CPU>
 inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedPoints],
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
+                                   // See https://github.com/llvm/llvm-project/issues/60163
+                                   // NOLINTNEXTLINE
                                    real peakSlipRate[misc::numPaddedPoints],
                                    unsigned startIndex = 0) {
 
