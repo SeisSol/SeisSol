@@ -36,7 +36,7 @@ template <size_t N>
 class InverseFourierCoefficients {
   public:
   constexpr InverseFourierCoefficients() {
-    GridPoints<N> localGridPoints;
+    const GridPoints<N> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
       values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::tpLogDz;
@@ -57,8 +57,8 @@ template <size_t N>
 class GaussianHeatSource {
   public:
   constexpr GaussianHeatSource() {
-    GridPoints<N> localGridPoints;
-    real factor = 1 / std::sqrt(2.0 * M_PI);
+    const GridPoints<N> localGridPoints;
+    const real factor = 1 / std::sqrt(2.0 * M_PI);
 
     for (size_t i = 0; i < N; ++i) {
       const real heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
