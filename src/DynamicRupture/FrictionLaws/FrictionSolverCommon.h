@@ -319,7 +319,11 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
  * param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
 inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
                                    real ruptureTime[misc::numPaddedPoints],
                                    const real slipRateMagnitude[misc::numPaddedPoints],
                                    real fullUpdateTime,
@@ -347,7 +351,9 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in, out] peakSlipRate
  */
 template <RangeType Type = RangeType::CPU>
-inline void savePeakSlipRateOutput(real slipRateMagnitude[misc::numPaddedPoints],
+inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedPoints],
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
                                    real peakSlipRate[misc::numPaddedPoints],
                                    unsigned startIndex = 0) {
 
