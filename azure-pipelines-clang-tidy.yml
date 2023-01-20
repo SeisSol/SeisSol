@@ -15,12 +15,9 @@ jobs:
           pwd
           ls
           sudo apt-get update
-          sudo apt-get install gcc-11 g++-11 gfortran-11
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
-          sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-11 100
+          sudo apt-get install clang gfortran-11
           gcc --version
-          sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev clang-tidy libyaml-cpp-dev libeigen3-dev
+          sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev clang-tidy libyaml-cpp-dev libeigen3-dev libomp-dev
           sudo pip3 install --upgrade pip
           sudo pip3 install 'numpy>=1.12.0'
           git clone --depth 1 --branch 1.17 https://github.com/hfp/libxsmm
@@ -42,7 +39,7 @@ jobs:
         displayName: prepare-environment
       - bash: |
           mkdir -p build && cd build
-          CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ CC=clang CXX=clang++ FC=gfortran cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
           export PATH=$HOME/bin:$PATH
           make SeisSol-codegen
         displayName: cmake
