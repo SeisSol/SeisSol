@@ -43,6 +43,8 @@ jobs:
       - bash: |
           mkdir -p build && cd build
           CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/ cmake -DNETCDF=OFF -DMETIS=ON -DORDER=6 -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DGEMM_TOOLS_LIST=LIBXSMM -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          export PATH=$HOME/bin:$PATH
+          make SeisSol-codegen
         displayName: cmake
 
       - bash: |
