@@ -50,4 +50,3 @@ jobs:
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
           python3 ../.ci/run-clang-tidy.py -quiet -header-filter=../src/DynamicRupture/* -j $(nproc)
         displayName: clang-tidy
-        continueOnError: true
