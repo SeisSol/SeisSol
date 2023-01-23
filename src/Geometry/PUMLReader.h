@@ -101,7 +101,7 @@ enum class BCType {
 inline BCType bcToType(int id) {
 	if (id == 0 || id == 3 || id > 64) {
 		return BCType::internal;
-	} else if (id == 1 || id == 2 || id == 5 || id == 6) {
+	} else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 6 || id == 7) {
 		return BCType::external;
 	} else {
 		return BCType::unknown;
@@ -116,13 +116,19 @@ inline std::string bcToString(int id) {
 	else if (id == 1) { return std::string("free surface"); }
 	else if (id == 2) { return std::string("free surface with gravity"); }
 	else if (id == 3) { return std::string("dynamic rupture"); }
+        else if (id == 4) { return std::string("dirichlet"); }
 	else if (id == 5) { return std::string("absorbing"); }
 	else if (id == 6) { return std::string("periodic"); }
+        else if (id == 7) { return std::string("analytic"); }
 	else if (id > 64) {
 		std::stringstream s;
 		s << "fault-tagging (" << id << ")";
 		return s.str();
-	} else { return std::string(""); }
+	} else {
+		std::stringstream s;
+		s << "unknown (" << id << ")";
+		return s.str();
+	}
 }
 
 /**
