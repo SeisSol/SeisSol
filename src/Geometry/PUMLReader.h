@@ -92,40 +92,40 @@ private:
  * Possible types of boundary conditions for SeisSol.
  */
 enum class BCType {
-  internal, external, unknown
+	internal, external, unknown
 };
 
-/*
+/**
  * Decodes the boundary condition tag into a BCType.
  */
 inline BCType bcToType(int id) {
-  if (id == 0 || id == 3 || id > 64) {
-    return BCType::internal;
-  } else if (id == 1 || id == 2 || id == 5 || id == 6) {
-    return BCType::external;
-  } else {
-    return BCType::unknown;
-  }
+	if (id == 0 || id == 3 || id > 64) {
+		return BCType::internal;
+	} else if (id == 1 || id == 2 || id == 5 || id == 6) {
+		return BCType::external;
+	} else {
+		return BCType::unknown;
+	}
 }
 
-/*
+/**
  * Decodes the boundary condition tag into a string representation.
  */
 inline std::string bcToString(int id) {
-  if (id == 0) { return std::string("regular"); }
-  else if (id == 1) { return std::string("free surface"); }
-  else if (id == 2) { return std::string("free surface with gravity"); }
-  else if (id == 3) { return std::string("dynamic rupture"); }
-  else if (id == 5) { return std::string("absorbing"); }
-  else if (id == 6) { return std::string("periodic"); }
-  else if (id > 64) {
-    std::stringstream s;
-    s << "fault-tagging (" << id << ")";
-    return s.str();
-  } else {return std::string(""); }
+	if (id == 0) { return std::string("regular"); }
+	else if (id == 1) { return std::string("free surface"); }
+	else if (id == 2) { return std::string("free surface with gravity"); }
+	else if (id == 3) { return std::string("dynamic rupture"); }
+	else if (id == 5) { return std::string("absorbing"); }
+	else if (id == 6) { return std::string("periodic"); }
+	else if (id > 64) {
+		std::stringstream s;
+		s << "fault-tagging (" << id << ")";
+		return s.str();
+	} else { return std::string(""); }
 }
 
-/*
+/**
  * Check if the mesh is locally correct:
  * - if a face is an internal face, the neighbor has to exist.
  * - if a face is an external face, the neighbor must not exist.
@@ -136,31 +136,31 @@ inline std::string bcToString(int id) {
  * @param cellIdAsInFile: Original cell id as it is given in the h5 file
  */
 inline bool checkMeshCorrectnessLocally(PUML::TETPUML::face_t face, int* cellNeighbors, int side, int sideBC, int cellIdAsInFile) {
-  // if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
-  if (bcToType(sideBC) == BCType::internal) {
-    if (cellNeighbors[side] < 0 && !face.isShared()) {
-      logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                << bcToString(sideBC)
-                << "boundary condition, but the neighboring element doesn't exist";
-      return false;
-    }
-  }
-  // external boundaries must not have neighboring elements:
-  else if (bcToType(sideBC) == BCType::external) {
-    if (cellNeighbors[side] >= 0 || face.isShared()) {
-      logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
-                << bcToString(sideBC)
-                << "boundary condition, but the neighboring element is not flagged -1";
-      return false;
-    }
-  }
-  // ignore unknown boundary conditions and warn
-  else {
-    logWarning() << "Element" << cellIdAsInFile << ", side" << side
-                 << " has a boundary condition, which I don't understand" << sideBC;
-    return true;
-  }
-  return true;
+	// if a face is an internal face, it has to have a neighbor on either this rank or somewhere else:
+	if (bcToType(sideBC) == BCType::internal) {
+		if (cellNeighbors[side] < 0 && !face.isShared()) {
+			logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
+				<< bcToString(sideBC)
+				<< "boundary condition, but the neighboring element doesn't exist";
+			return false;
+		}
+	}
+	// external boundaries must not have neighboring elements:
+	else if (bcToType(sideBC) == BCType::external) {
+		if (cellNeighbors[side] >= 0 || face.isShared()) {
+			logWarning() << "Element" << cellIdAsInFile << ", side" << side << " has a"
+				<< bcToString(sideBC)
+				<< "boundary condition, but the neighboring element is not flagged -1";
+		return false;
+	}
+	}
+	// ignore unknown boundary conditions and warn
+	else {
+		logWarning() << "Element" << cellIdAsInFile << ", side" << side
+			<< " has a boundary condition, which I don't understand" << sideBC;
+	  return true;
+	}
+	return true;
 }
 
 }
