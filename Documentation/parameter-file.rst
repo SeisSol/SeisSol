@@ -88,7 +88,7 @@ following.
 *Application Example:* Assume you have chosen a *enu* coordinate system
 (x=east, y=north, z=up). Your fault is in the x-z-plane with y=0
 (strike-slip fault) and you set the reference point to (0,10000,0) with
-``refPointMethod=0``. Then, the faces with normal (0,-1,0) make up the
+``refPointMethod=0``. Then, the faces with normal (0,+1,0) make up the
 "+"-side. In this case, all vertices of the "+"-tetrahedron lie in the
 half-space :math:`y\ge 0`.
 
