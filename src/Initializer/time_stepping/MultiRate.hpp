@@ -84,7 +84,7 @@ class seissol::initializers::time_stepping::MultiRate {
       for( unsigned int l_id = 0; ; l_id++ ) {
         // the first cluster with an upper bound above the time step width is our
         // limit cluster id to maximum
-        if (l_id >= (maxClusterId) || l_upper > i_timeStepWidth) {
+        if (l_id >= maxClusterId || l_upper > i_timeStepWidth) {
           o_clusterTimeStepWidth = l_lower;
           o_clusterId = l_id;
           return;

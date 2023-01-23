@@ -111,7 +111,7 @@ protected:
   void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
-  std::vector<int> computeClusterIds(double wiggleFactor);
+  std::vector<int> computeClusterIds(double curWiggleFactor);
   int enforceMaximumDifference();
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();

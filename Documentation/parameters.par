@@ -100,10 +100,10 @@ LtsWeightTypeId = 1                  ! 0=exponential, 1=exponential-balanced, 2=
 ! Wiggle factor adjusts time step size by a small factor. This can lead to a slightly better clustering.
 LtsWiggleFactorMin = 1.0 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
 LtsWiggleFactorStepsize = 0.01 ! Stepsize for wiggle factor grid search
-LtsWiggleFactorEnforceMaximumDifference = 1 ! > 0: Enforces the maximum difference between neighboring clusters during grid search.
+LtsWiggleFactorEnforceMaximumDifference = 1 ! 0 or 1: Enforces the maximum difference between neighboring clusters during wiggle factor search
 LtsMaxNumberOfClusters = 20 ! Enforces a maximal number of clusters
-ltsAutoMergeClusters = 0 !  > 0: Activates auto merging of clusters
-LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters s.t. new computational cost is at most increased by this factor
+ltsAutoMergeClusters = 0 !  0 or 1: Activates auto merging of clusters
+LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters such that new computational cost is at most increased by this factor
 
 
 /
