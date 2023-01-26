@@ -182,11 +182,14 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   m_ncon = evaluateNumberOfConstraints();
   auto finalNumberOfReductions = enforceMaximumDifference();
 
-  const auto maxNumberOfClusters = maxClusterIdToEnforce + 1;
-  logInfo(rank) << "Limiting number of clusters to" << maxNumberOfClusters;
+  logInfo(rank) << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
-  SeisSol::main.maxNumberOfClusters =
-      *std::max_element(m_clusterIds.begin(), m_clusterIds.end()) + 1;
+
+  int maxNumberOfClusters = *std::max_element(m_clusterIds.begin(), m_clusterIds.end()) + 1;
+#ifdef USE_MPI
+  MPI_Allreduce(MPI_IN_PLACE, &maxNumberOfClusters, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
+#endif
+  SeisSol::main.maxNumberOfClusters = maxNumberOfClusters;
 
   if (!m_vertexWeights.empty()) { m_vertexWeights.clear(); }
   m_vertexWeights.resize(m_clusterIds.size() * m_ncon);
