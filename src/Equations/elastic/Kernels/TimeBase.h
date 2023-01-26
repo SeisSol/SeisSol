@@ -108,6 +108,7 @@ class seissol::kernels::TimeBase {
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;
+    kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 

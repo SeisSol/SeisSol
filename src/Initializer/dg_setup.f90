@@ -250,7 +250,6 @@ CONTAINS
     INTEGER                         :: i, j, k, l, iElem, iDirac, iRicker
     INTEGER                         :: iDRFace
     INTEGER                         :: iCurElem
-    INTEGER                         :: nDGWorkVar
     INTEGER                         :: allocstat
     INTEGER                         :: iIntGP,iTimeGP,NestSize,BlockSize,iFace
     INTEGER                         :: iDegFr_xi,iDegFr_tau,iDegFr_tau2
@@ -377,13 +376,6 @@ CONTAINS
             usePlasticity = logical(EQN%Plasticity == 1, 1))
 
     !
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(3)
-        nDGWorkVar = EQN%nVar+EQN%nAneFuncperMech
-    CASE DEFAULT
-        nDGWorkVar = EQN%nVarTotal
-    END SELECT
-    !
     ! Allocation of arrays
     ALLOCATE(                                                                                   &
          DISC%Galerkin%dgvar( DISC%Galerkin%nDegFr,EQN%nVarTotal,MESH%nElem,DISC%Galerkin%nRK), &
@@ -393,14 +385,6 @@ CONTAINS
        call MPI_ABORT(MPI%commWorld, 134)
     END IF
     !
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        ALLOCATE( DISC%Galerkin%DGTaylor(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly,MESH%nElem), &
-                  STAT = allocstat )
-        IF(allocStat .NE. 0) THEN
-           logError(*) 'could not allocate DISC%Galerkin%DGTayl.'
-           call MPI_ABORT(MPI%commWorld, 134)
-        END IF
-    ENDIF
 
 #ifdef PARALLEL
     IF(MPI%nCPU.GT.1) THEN                                          !
@@ -500,14 +484,6 @@ CONTAINS
   call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
   call c_interoperability_initializeGravitationalAcceleration(EQN%GravitationalAcceleration)
 
-
-  IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        ALLOCATE( DISC%LocalIteration(MESH%nElem) )
-        ALLOCATE( DISC%LocalTime(MESH%nElem)      )
-        ALLOCATE( DISC%LocalDt(MESH%nElem)        )
-        DISC%LocalIteration(:)  = 0.
-        DISC%LocalTime(:)       = 0.
-    ENDIF
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
         print*,' ERROR in SUBROUTINE iniGalerkin3D_us_level2_new'
         PRINT*,' DISC%Galerkin%CKMethod.EQ.1 not implemented'
@@ -554,7 +530,7 @@ CONTAINS
     INTEGER :: iElem, iSide, iBndGP
     INTEGER :: iNeighbor, iLocalNeighborSide, iNeighborSide, iNeighborVertex
     INTEGER :: iLocalNeighborVrtx
-    INTEGER :: nDegFr, MaxDegFr, nDGWorkVar
+    INTEGER :: nDegFr, MaxDegFr
     INTEGER :: i,j,k,l,m,r,r1,r2,r3                       ! Loop counter      !
     INTEGER :: iPoly, iXi, iEta, iZeta, iIntGP            ! Loop counter      !
     REAL    :: xi, eta, zeta, tau, chi, tau1, chi1
@@ -666,13 +642,6 @@ CONTAINS
 
     ! Attention: Don't change Nr of GP here since some routine depend on these numbers
     DISC%Galerkin%nIntGP = (DISC%Galerkin%nPoly + 2)**3
-
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(3)
-        nDGWorkVar = EQN%nVar+EQN%nAneFuncperMech
-    CASE DEFAULT
-        nDGWorkVar = EQN%nVarTotal
-    END SELECT
 
     IF(MESH%nElem_Tet.GT.0) THEN
 
@@ -1086,23 +1055,9 @@ CONTAINS
     logInfo(*) '  General info: ', BND%NoMPIDomains,DISC%Galerkin%nDegFr,EQN%nVar
     DO iDomain = 1, BND%NoMPIDomains
         logInfo(*) 'Bnd elements for domain ', iDomain, ' : ',  BND%ObjMPI(iDomain)%nElem
-        IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrST,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
-        ELSE
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
-        ENDIF
+        ALLOCATE( BND%ObjMPI(iDomain)%NeighborDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,BND%ObjMPI(iDomain)%nElem) )
         ALLOCATE( BND%ObjMPI(iDomain)%NeighborBackground(EQN%nBackgroundVar,BND%ObjMPI(iDomain)%nElem)     )
         BND%ObjMPI(iDomain)%Init = .FALSE.
-        IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDuDt(DISC%Galerkin%nDegFr,EQN%nVar+EQN%nAneFuncperMech,BND%ObjMPI(iDomain)%nElem) )
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborTime( BND%ObjMPI(iDomain)%nElem) )
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborDt(   BND%ObjMPI(iDomain)%nElem) )
-            ALLOCATE( BND%ObjMPI(iDomain)%NeighborUpdate(BND%ObjMPI(iDomain)%nElem))
-            BND%ObjMPI(iDomain)%NeighborDuDt(:,:,:) = 0.
-            BND%ObjMPI(iDomain)%NeighborTime(:)     = -1e10
-            BND%ObjMPI(iDomain)%NeighborDt(:)       = -2e10
-            BND%ObjMPI(iDomain)%NeighborUpdate(:)   = -1
-        ENDIF
     ENDDO ! iDomain
     !
     IF(DISC%Galerkin%ZoneOrderFlag.EQ.1) THEN

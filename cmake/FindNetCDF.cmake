@@ -63,6 +63,9 @@ find_library(NetCDF_LIBRARY
   DOC "netcdf library")
 mark_as_advanced(NetCDF_LIBRARY)
 
+string(REGEX REPLACE "(.*)libnetcdf\.(so|a)" "\\1" NetCDF_LIBRARY_DIR "${NetCDF_LIBRARY}")
+mark_as_advanced(NetCDF_LIBRARY_DIR)
+
 if (NetCDF_INCLUDE_DIR)
   file(STRINGS "${NetCDF_INCLUDE_DIR}/netcdf_meta.h" _netcdf_version_lines
     REGEX "#define[ \t]+NC_VERSION_(MAJOR|MINOR|PATCH|NOTE)")

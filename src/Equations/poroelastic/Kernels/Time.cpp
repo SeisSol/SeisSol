@@ -114,7 +114,6 @@ void seissol::kernels::Time::computeAder( double i_timeStepWidth,
                                           LocalTmp& tmp,
                                           real o_timeIntegrated[tensor::I::size()],
                                           real* o_timeDerivatives,
-                                          double startTime,
                                           bool updateDisplacement)
 {
   /*

@@ -231,11 +231,11 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial
     REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
-                                           Tv, &
+                                           Tv, UseCellHomogenizedMaterial, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName, GravitationalAcceleration
@@ -278,8 +278,10 @@ CONTAINS
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
+    UseCellHomogenizedMaterial = 1
     MaterialFileName    = ''
     BoundaryFileName    = ''
+    
 
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
@@ -309,6 +311,17 @@ CONTAINS
         logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
+      call exit(134)
+    END SELECT
+
+    EQN%UseCellHomogenizedMaterial = UseCellHomogenizedMaterial
+    SELECT CASE(UseCellHomogenizedMaterial)
+    CASE(0)
+      logInfo0(*) 'Use element barycenter to sample material values.'
+    CASE(1)
+      logInfo0(*) 'Use averaging to sample material values, when implemented.'
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 for UseCellHomogenizedMaterial. '
       call exit(134)
     END SELECT
 
@@ -2082,12 +2095,12 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTENT(IN   )              :: SOURCE
     INTENT(INOUT)              :: IO, EQN
     !------------------------------------------------------------------------
-    INTEGER                          :: DGFineOut1D, DGMethod, ClusteredLTS, CKMethod, &
+    INTEGER                          :: DGFineOut1D, ClusteredLTS, CKMethod, &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap, LtsWeightTypeId
     REAL                             :: CFL, FixTimeStep, StableDt
-    NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
+    NAMELIST                         /Discretization/ DGFineOut1D, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
@@ -2104,7 +2117,6 @@ ALLOCATE( SpacePositionx(nDirac), &
     DGFineOut1D = 0
     CKMethod = 0
     FluxMethod = 0
-    DGMethod = 1
     ! 0: read from file, 1: GTS, 2-n: multi-rate
     ClusteredLTS = 1
     CFL = 0.5
@@ -2125,7 +2137,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       logInfo(*) 'Fine output for DG method not required. '
     ENDIF
     !
-    ! =========== NEW ordering of DGMethod and Order ===============================
     !
     disc%galerkin%clusteredLts = ClusteredLts
     select case( disc%galerkin%clusteredLts )
@@ -2142,7 +2153,6 @@ ALLOCATE( SpacePositionx(nDirac), &
         logInfo(*) 'Using memory balancing for LTS scheme of type', DISC%Galerkin%ltsWeightTypeId
     end if
 
-    DISC%Galerkin%DGMethod = DGMethod
     DISC%Galerkin%CKMethod = CKMethod    ! Default: standard CK procedure (0)
     !
     SELECT CASE(DISC%Galerkin%CKMethod)
@@ -2164,69 +2174,44 @@ ALLOCATE( SpacePositionx(nDirac), &
       call exit(134)
      ENDSELECT
     !
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(1)
-           logInfo(*) 'ADER-DG with global time stepping is used.'
-    CASE(3)
-           logInfo(*) 'ADER-DG with local timestepping is used.'
-           DISC%IterationCriterion = IterationCriterion
-           SELECT CASE(DISC%IterationCriterion)
-           CASE(1)
-               logInfo(*) 'One iteration is defined as one cycle. '
-           CASE(2)
-               logInfo(*) 'One iteration is defined by the update of all elements. '
-           END SELECT
-    CASE DEFAULT
-         logError(*) 'Wrong DGmethod. Must be 1 or 3.!'
-         call exit(134)
-    END SELECT
-       !
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(1,3)
-           DISC%SpaceOrder = Order
-           if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
-                logWarning0(*) 'Ignoring min space order from parameter file, using', CONVERGENCE_ORDER
-           endif
-           DISC%SpaceOrder = CONVERGENCE_ORDER
-           DISC%Galerkin%nMinPoly = DISC%SpaceOrder - 1
 
-           if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
-                logWarning0(*) 'Ignoring space order from parameter file, using', CONVERGENCE_ORDER
-           endif
-           DISC%SpaceOrder = CONVERGENCE_ORDER
-           DISC%Galerkin%nPoly    = DISC%SpaceOrder - 1
+    if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
+         logWarning0(*) 'Ignoring space order from parameter file, using', CONVERGENCE_ORDER
+    endif
+    DISC%SpaceOrder = CONVERGENCE_ORDER
+    DISC%Galerkin%nPoly    = DISC%SpaceOrder - 1
+    DISC%Galerkin%nMinPoly = DISC%SpaceOrder - 1
 
-             ! The choice for p-adaptivity is not possible anymore
-             DISC%Galerkin%pAdaptivity = 0
-             logInfo(*) 'No p-Adaptivity used. '
-             logInfo(*) 'Basis functions degree:',DISC%Galerkin%nPoly
+    ! The choice for p-adaptivity is not possible anymore
+    DISC%Galerkin%pAdaptivity = 0
+    logInfo(*) 'No p-Adaptivity used. '
+    logInfo(*) 'Basis functions degree:',DISC%Galerkin%nPoly
 
-           DISC%Galerkin%nPolyRec = DISC%Galerkin%nPoly
-           DISC%Galerkin%nPolyMat       = 0
-           DISC%Galerkin%nDegFrMat      = 1
-           DISC%Galerkin%nPolyMatOrig = Material
-           DISC%Galerkin%nPolyMatOrig = DISC%Galerkin%nPolyMatOrig - 1
-           logInfo(*) 'Material basis functions degree:',DISC%Galerkin%nPolyMatOrig
-           DISC%Galerkin%nPolyMap = nPolyMap
-           DISC%Galerkin%nPolyMat  = DISC%Galerkin%nPolyMatOrig + DISC%Galerkin%nPolyMap
-           DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
-           IF(DISC%Galerkin%nPolyMat.GT.DISC%Galerkin%nPoly) THEN
-             logError(*) 'nPolyMat larger than nPoly. '
-             call exit(134)
-           ENDIF
+    DISC%Galerkin%nPolyRec = DISC%Galerkin%nPoly
+    DISC%Galerkin%nPolyMat       = 0
+    DISC%Galerkin%nDegFrMat      = 1
+    DISC%Galerkin%nPolyMatOrig = Material
+    DISC%Galerkin%nPolyMatOrig = DISC%Galerkin%nPolyMatOrig - 1
+    logInfo(*) 'Material basis functions degree:',DISC%Galerkin%nPolyMatOrig
+    DISC%Galerkin%nPolyMap = nPolyMap
+    DISC%Galerkin%nPolyMat  = DISC%Galerkin%nPolyMatOrig + DISC%Galerkin%nPolyMap
+    DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
+    IF(DISC%Galerkin%nPolyMat.GT.DISC%Galerkin%nPoly) THEN
+      logError(*) 'nPolyMat larger than nPoly. '
+      call exit(134)
+    ENDIF
 
-           IF(MESH%GlobalElemType.EQ.6) THEN
-                  READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMatOrig
-                  READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMap
-                  DISC%Galerkin%nPolyMat  = DISC%Galerkin%nPolyMatOrig + DISC%Galerkin%nPolyMap
-                  DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
-                    IF(DISC%Galerkin%nPolyMat.GT.DISC%Galerkin%nPoly) THEN
-                         logError(*) 'nPolyMat larger than nPoly. '
-                         call exit(134)
-                    ENDIF
-           ENDIF
+    IF(MESH%GlobalElemType.EQ.6) THEN
+          READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMatOrig
+          READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMap
+          DISC%Galerkin%nPolyMat  = DISC%Galerkin%nPolyMatOrig + DISC%Galerkin%nPolyMap
+          DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
+            IF(DISC%Galerkin%nPolyMat.GT.DISC%Galerkin%nPoly) THEN
+                 logError(*) 'nPolyMat larger than nPoly. '
+                 call exit(134)
+            ENDIF
+    ENDIF
 
-    END SELECT
     !
     DISC%CFL = CFL                               ! minimum Courant number
     logInfo(*) 'The minimum COURANT number:    ', DISC%CFL
@@ -2299,6 +2284,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: EnergyOutput
       INTEGER                          :: EnergyTerminalOutput
       real                             :: EnergyOutputInterval
+      INTEGER                          :: ReceiverComputeRotation
 
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
@@ -2307,7 +2293,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval, nRecordPoints, &
-                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, ReceiverComputeRotation
 
               !------------------------------------------------------------------------
     !
@@ -2317,6 +2303,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
       ! Setting default values
       OutputFile = 'data'
+      printIntervalCriterion = 2
       iOutputMaskMaterial(:) =  0
       IntegrationMask(:) = 0
       Rotation = 0
@@ -2341,6 +2328,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       ReceiverOutputInterval = 1.0e99
+      ReceiverComputeRotation = 0
       iPlasticityMask(1:6) = 0
       iPlasticityMask(7) = 1
 
@@ -2360,6 +2348,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval
       IO%ReceiverOutputInterval = ReceiverOutputInterval
+      IO%ReceiverComputeRotation = ReceiverComputeRotation
 
       logInfo(*) 'Data OUTPUT is written to files '
       logInfo(*) '  ' ,IO%OutputFile
@@ -2477,9 +2466,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       IF(DISC%Galerkin%pAdaptivity.GT.0) THEN
         IO%OutputMask(59) = .TRUE.
       ENDIF
-      IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        IO%OutputMask(60) = .TRUE.
-      ENDIF
       !
       !                                                                        !
       IO%Format = Format                                                       ! Plot format
@@ -2561,9 +2547,6 @@ ALLOCATE( SpacePositionx(nDirac), &
 !         IO%TitleMask(59) = TRIM(' "N"')
 !       ENDIF
       !
-      IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        IO%TitleMask(60) = TRIM(' "t"')
-      ENDIF
       !
       IO%Title='VARIABLES = '
       IO%nrPlotVar = 0
@@ -2583,7 +2566,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
       IO%outInterval%printIntervalCriterion = printIntervalCriterion
       !
-      IF (IO%outInterval%printIntervalCriterion.EQ.1.AND.DISC%Galerkin%DGMethod.EQ.3) THEN
+      IF (IO%outInterval%printIntervalCriterion.EQ.1.AND.DISC%Galerkin%ClusteredLTS.ne.1) THEN
         logError(*) 'specifying IO%outInterval%printIntervalCriterion: '
         logError(*) 'When local time stepping is used, only Criterion 2 can be used! '
         call exit(134)
@@ -2613,7 +2596,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       ! Read pickdt and pickDtType
          IO%pickdt = pickdt
          IO%pickDtType = pickDtType
-         IF (DISC%Galerkin%DGMethod .ne. 1 .and. IO%pickDtType .ne. 1) THEN
+         IF (DISC%Galerkin%ClusteredLTS .ne. 1 .and. IO%pickDtType .ne. 1) THEN
             logError(*) 'Pickpoint sampling every x timestep can only be used with global timesteping'
             call exit(134)
          ENDIF

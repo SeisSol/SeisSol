@@ -7,7 +7,9 @@
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include <CL/sycl.hpp>
 
+#ifndef __DPCPP_COMPILER
 namespace sycl = cl::sycl;
+#endif
 
 namespace seissol::dr::friction_law::gpu {
 class GpuBaseFrictionLaw : public FrictionSolver {
@@ -17,7 +19,7 @@ class GpuBaseFrictionLaw : public FrictionSolver {
 
   void initSyclQueue();
   void setMaxClusterSize(size_t size) { maxClusterSize = size; }
-  void allocateAuxiliaryMemory();
+  virtual void allocateAuxiliaryMemory();
   void copyStaticDataToDevice();
 
   virtual void

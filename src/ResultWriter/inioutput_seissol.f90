@@ -149,14 +149,15 @@ CONTAINS
         i_outputGroups = io%OutputGroups, &
         i_outputGroupsSize = size(io%OutputGroups), &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
-        freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
+        outputFileNamePrefix = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
         receiverFileName = trim(io%RFileName) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
         receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval), &
         isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
         isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
-        energySyncInterval = IO%EnergyOutputInterval)
+        energySyncInterval = IO%EnergyOutputInterval, &
+        receiverComputeRotation = logical(IO%ReceiverComputeRotation, 1))
 
     ! end epik/scorep function
     EPIK_FUNC_END()

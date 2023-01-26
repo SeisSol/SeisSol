@@ -86,11 +86,12 @@ void EnergyOutput::simulationStart() {
   syncPoint(0.0);
 }
 
-real EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
-                                     const real* degreesOfFreedomMinus,
-                                     const DRFaceInformation& faceInfo,
-                                     const DRGodunovData& godunovData,
-                                     const real slip[seissol::tensor::slipRateInterpolated::size()]) {
+real EnergyOutput::computeStaticWork(
+    const real* degreesOfFreedomPlus,
+    const real* degreesOfFreedomMinus,
+    const DRFaceInformation& faceInfo,
+    const DRGodunovData& godunovData,
+    const real slip[seissol::tensor::slipRateInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
@@ -261,7 +262,8 @@ void EnergyOutput::computeEnergies() {
         // Elastic
         totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
         auto getStressIndex = [](int i, int j) {
-          const static auto lookup = std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
+          const static auto lookup =
+              std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
           return lookup[i][j];
         };
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
@@ -418,7 +420,9 @@ void EnergyOutput::printEnergies() {
                     << energiesStorage.plasticMoment() << " ,"
                     << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
                     << ratioPlasticMoment;
-      ;
+    }
+    if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
+      logError() << "Detected Inf/NaN in energies. Aborting.";
     }
   }
 }

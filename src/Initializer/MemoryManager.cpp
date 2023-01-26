@@ -452,14 +452,19 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
 
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+    if (tc >= i_timeStepping.numberOfLocalClusters) {
+        cluster.child<Copy>().setNumberOfCells(0);
+        cluster.child<Interior>().setNumberOfCells(0);
+    } else {
+        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
+    }
   }
 
   m_dynRupTree.allocateVariables();
@@ -579,6 +584,7 @@ void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
 #ifdef ACL_DEVICE
 void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto layer = m_ltsTree.beginLeaf(Ghost); layer != m_ltsTree.endLeaf(); ++layer) {
 
@@ -587,7 +593,8 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
     real *(*faceNeighbors)[4] = layer->var(m_lts.faceNeighbors);
 
     unsigned derivativesCounter{0};
-    unsigned idofsCounter{0};
+    unsigned integratedDofsCounter{0};
+    unsigned nodalDisplacementsCounter{0};
 
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
 
@@ -595,7 +602,7 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
       }
-      ++idofsCounter;
+      ++integratedDofsCounter;
 
       // include data provided by ghost layers
       for (unsigned face = 0; face < 4; ++face) {
@@ -611,18 +618,25 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
 
               bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
               if (isNeighbProvidesDerivatives) {
-                ++idofsCounter;
+                ++integratedDofsCounter;
               }
               registry.insert(neighbourBuffer);
             }
           }
         }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity) {
+          ++nodalDisplacementsCounter;
+        }
+
       }
     }
-    layer->setScratchpadSize(m_lts.idofsScratch,
-                             idofsCounter * tensor::I::size() * sizeof(real));
+    layer->setScratchpadSize(m_lts.integratedDofsScratch,
+                             integratedDofsCounter * tensor::I::size() * sizeof(real));
     layer->setScratchpadSize(m_lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
+    layer->setScratchpadSize(m_lts.nodalAvgDisplacements,
+                             nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
   }
 }
 #endif

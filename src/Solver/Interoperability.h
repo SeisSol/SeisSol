@@ -183,6 +183,7 @@ class seissol::Interoperability {
                           bool    plasticity,
                           bool    anisotropy,
                           bool    poroelasticity,
+                          bool    useCellHomogenizedMaterial,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,
@@ -278,9 +279,10 @@ class seissol::Interoperability {
 
    void initializeIO(int numSides, int numBndGP, int refinement, int* outputMask,
                      int* plasticityMask, double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
-                     double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+                     double freeSurfaceInterval, const char* outputFileNamePrefix, const char* xdmfWriterBackend,
                      const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
-                     bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval);
+                     bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval,
+                     bool receiverComputeRotation);
 
   /**
    * Returns (possibly multiple) initial conditions
