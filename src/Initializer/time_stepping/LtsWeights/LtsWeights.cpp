@@ -370,7 +370,6 @@ int LtsWeights::getCluster(double timestep, double globalMinTimestep, double lts
   }
 
   double upper = ltsWiggleFactor * rate * globalMinTimestep;
-  timestep *= ltsWiggleFactor;
 
   int cluster = 0;
   while (upper <= timestep) {
