@@ -86,12 +86,7 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 
 class LtsWeights {
 public:
-  LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters)
-      : m_velocityModel(config.velocityModel), m_rate(config.rate),
-        m_vertexWeightElement(config.vertexWeightElement),
-        m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
-        m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
-        ltsParameters(ltsParameters) {}
+  LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters);
 
   virtual ~LtsWeights() = default;
   void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
@@ -134,7 +129,7 @@ protected:
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
   const LtsParameters* ltsParameters;
-  double wiggleFactor;
+  double wiggleFactor = 1.0;
   struct ComputeWiggleFactorResult {
     int numberOfClusters;
     double wiggleFactor;
