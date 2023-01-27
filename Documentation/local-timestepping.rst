@@ -16,7 +16,7 @@ The following settings are relevant:
     LtsWiggleFactorEnforceMaximumDifference = 1
 
     LtsMaxNumberOfClusters = 20
-    LtsAutoMergeClusters = 0
+    LtsAutoMergeClusters = 1
     LtsAllowedRelativePerformanceLossAutoMerge = 0.01
     /
 
