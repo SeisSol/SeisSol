@@ -341,7 +341,13 @@ MODULE TypesDef
 
   TYPE tGalerkin
     INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
-    INTEGER           :: ltsWeightTypeId             !< 0 = exponential, 1 = balanced exponential, 2 = encoded
+    INTEGER           :: nodeWeightModelTypeId       !< 0 = exponential, 1 = balanced exponential, 2 = encoded
+                                                     !< 3 = communication approximation + balanced messaging (tries to distribute communication symmetrically, every cut (i,j) is equally distributed among ranks)
+                                                     !< 4 = communicaiton approximation + minimum messaging (tries to minimize messages sent between clusters)
+    INTEGER           :: edgeWeightModelTypeId       !< 0 = naive (as if there are no edge weights)
+                                                     !< 1 = approximate communication (approximate cost of communication with the message counts per time unit), 
+
+    
     INTEGER           :: CKMethod                    !< 0 = regular CK
                                                      !< 1 = local space-time DG
                                                      !<
