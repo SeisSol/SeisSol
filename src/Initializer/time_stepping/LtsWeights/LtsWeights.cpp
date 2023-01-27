@@ -92,16 +92,11 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      unsigned int rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
-                                     MPI_Comm comm,
-                                     int root) {
+                                     MPI_Comm comm) {
   double cost =
       computeLocalCostOfClustering(clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep);
 #ifdef USE_MPI
-  if (root >= 0) {
-    MPI_Reduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, root, comm);
-  } else {
-    MPI_Allreduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, comm);
-  }
+  MPI_Allreduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, comm);
 #endif // USE_MPI
 
   return cost;
@@ -222,10 +217,10 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
   auto totalWiggleFactorReductions = 0u;
 
   // Compute baseline cost before wiggle factor and merging of clusters
+  m_clusterIds = computeClusterIds(maxWiggleFactor);
   if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
-    m_clusterIds = computeClusterIds(maxWiggleFactor);
+    totalWiggleFactorReductions += enforceMaximumDifference();
   }
-  totalWiggleFactorReductions += enforceMaximumDifference();
   const double baselineCost = computeGlobalCostOfClustering(
       m_clusterIds, m_cellCosts, m_rate, 1.0, m_details.globalMinTimeStep, MPI::mpi.comm());
   const double maxAdmissibleCost =
@@ -311,9 +306,13 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
   const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAddmissibleNumberOfClusters];
   logInfo(rank) << "The best wiggle factor after merging clusters is" << bestWiggleFactor
                 << "with cost" << bestCostEstimate;
+
   logInfo(rank) << "Cost decreased" << (baselineCost - bestCostEstimate) / baselineCost * 100
                 << "% with absolute cost difference" << baselineCost - bestCostEstimate
                 << "compared to the default wiggle factor of" << maxWiggleFactor;
+  if (baselineCost < bestCostEstimate) {
+    logInfo(rank) << "Note: Cost increased due to cluster merging!";
+  }
 
   return ComputeWiggleFactorResult{minAddmissibleNumberOfClusters, bestWiggleFactor};
 }

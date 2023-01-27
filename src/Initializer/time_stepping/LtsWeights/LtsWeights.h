@@ -72,8 +72,7 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      unsigned int rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
-                                     MPI_Comm comm,
-                                     int root = -1);
+                                     MPI_Comm comm);
 
 std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
 

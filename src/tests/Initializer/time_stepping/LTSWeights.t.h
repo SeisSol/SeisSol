@@ -162,7 +162,7 @@ TEST_CASE("Auto merging of clusters") {
       REQUIRE(is == should);
     }
     SUBCASE("Rate 3") {
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, costBefore, 1, minDt);
+      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 3, costBefore, 1, minDt);
       REQUIRE(is == should);
     }
   }
