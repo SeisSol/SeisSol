@@ -69,7 +69,7 @@ SeisSol tries to find the optimal wiggle factor automatically by performing a gr
 The step size of the grid search is controlled by the parameter *LtsWiggleFactorStepsize*.
 The optimal wiggle factor is the one that minimizes the cost of updates per unit time.
 When the setting *LtsWiggleFactorEnforceMaximumDifference* is set to one, SeisSol enforces the `Maximum Difference Property`_.
-during the grid search. This leads to a better cost estimate, but computing this cost estimate cab be costly for large scale simulations with many MPI ranks.
+during the grid search. This leads to a better cost estimate, but computing this cost estimate can be costly for large scale simulations with many MPI ranks.
 Hence, this is a trade-off between the time required to initialize the simulation and the time required to perform the actual simulation.
 Typically this setting should be activated and only be deactivated when the initialization time becomes a bottleneck.
 
