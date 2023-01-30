@@ -200,8 +200,8 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
   const auto rank = seissol::MPI::mpi.rank();
 
   // Maps that keep track of number of clusters vs cost
-  auto mapNumberOfClustersToLowestCost = std::unordered_map<int, double>{};
-  auto mapNumberOfClustersToBestWiggleFactor = std::unordered_map<int, double>{};
+  auto mapNumberOfClustersToLowestCost = std::map<int, double>{};
+  auto mapNumberOfClustersToBestWiggleFactor = std::map<int, double>{};
 
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
@@ -222,7 +222,7 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
     totalWiggleFactorReductions += enforceMaximumDifference();
   }
   const double baselineCost = computeGlobalCostOfClustering(
-      m_clusterIds, m_cellCosts, m_rate, 1.0, m_details.globalMinTimeStep, MPI::mpi.comm());
+      m_clusterIds, m_cellCosts, m_rate, maxWiggleFactor, m_details.globalMinTimeStep, MPI::mpi.comm());
   const double maxAdmissibleCost =
       ltsParameters->getAllowedPerformanceLossRatioAutoMerge() * baselineCost;
   logInfo(rank) << "Baseline cost, without wiggle factor and cluster merging is" << baselineCost
