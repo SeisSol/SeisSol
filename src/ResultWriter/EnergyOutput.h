@@ -80,12 +80,14 @@ class EnergyOutput : public Module {
 
   void writeEnergies(double time);
 
+  bool shouldComputeVolumeEnergies() const;
+
   bool isEnabled = false;
   bool isTerminalOutputEnabled = false;
   bool isFileOutputEnabled = false;
   bool isPlasticityEnabled = false;
   int computeVolumeEnergiesEveryOutput = 1;
-  int OutputId = 0;
+  int outputId = 0;
 
   std::string outputFileName;
   std::ofstream out;

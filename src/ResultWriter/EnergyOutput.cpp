@@ -77,6 +77,7 @@ void EnergyOutput::syncPoint(double time) {
   if (isFileOutputEnabled) {
     writeEnergies(time);
   }
+  ++outputId;
   logInfo(rank) << "Writing energy output at time" << time << "Done.";
 }
 
@@ -355,7 +356,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
 void EnergyOutput::computeEnergies() {
   energiesStorage.energies.fill(0.0);
-  if (OutputId % computeVolumeEnergiesEveryOutput == 0) {
+  if (shouldComputeVolumeEnergies()) {
     computeVolumeEnergies();
   }
   computeDynamicRuptureEnergies();
@@ -405,7 +406,7 @@ void EnergyOutput::printEnergies() {
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
 
-    if (OutputId % computeVolumeEnergiesEveryOutput == 0) {
+    if (shouldComputeVolumeEnergies()) {
         if (totalElasticEnergy) {
           logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                         << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
@@ -424,7 +425,7 @@ void EnergyOutput::printEnergies() {
                         << ratioPlasticMoment;
         }
     } else {
-          logInfo(rank) << "Volume energies skipped at this step" << energiesStorage.elasticEnergy();
+          logInfo(rank) << "Volume energies skipped at this step";
     }
 
     if (totalFrictionalWork) {
@@ -438,29 +439,29 @@ void EnergyOutput::printEnergies() {
       logError() << "Detected Inf/NaN in energies. Aborting.";
     }
   }
-  OutputId++;
 }
 
 void EnergyOutput::writeHeader() {
-  out << "time,"
-      << "gravitational_energy,"
-      << "acoustic_energy,"
-      << "acoustic_kinetic_energy,"
-      << "elastic_energy,"
-      << "elastic_kinetic_energy,"
-      << "total_frictional_work,"
-      << "static_frictional_work,"
-      << "seismic_moment,"
-      << "plastic_moment" << std::endl;
+  out << "time,variable,measurement" << std::endl;
 }
 
 void EnergyOutput::writeEnergies(double time) {
-  out << time << "," << energiesStorage.gravitationalEnergy() << ","
-      << energiesStorage.acousticEnergy() << "," << energiesStorage.acousticKineticEnergy() << ","
-      << energiesStorage.elasticEnergy() << "," << energiesStorage.elasticKineticEnergy() << ","
-      << energiesStorage.totalFrictionalWork() << "," << energiesStorage.staticFrictionalWork()
-      << "," << energiesStorage.seismicMoment() << "," << energiesStorage.plasticMoment()
-      << std::endl;
+  if (shouldComputeVolumeEnergies()) {
+        out << time << ",gravitational_energy," << energiesStorage.gravitationalEnergy() << "\n"
+        << time << ",acoustic_energy," << energiesStorage.acousticEnergy() << "\n"
+        << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
+        << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
+        << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
+        << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
+  }
+  out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"
+      << time << ",static_frictional_work," << energiesStorage.staticFrictionalWork() << "\n"
+      << time << ",seismic_moment," << energiesStorage.seismicMoment() << "\n"
+      << time << ",plastic_moment," << energiesStorage.plasticMoment() << std::endl;
+}
+
+bool EnergyOutput::shouldComputeVolumeEnergies() const {
+  return outputId % computeVolumeEnergiesEveryOutput == 0;
 }
 
 } // namespace seissol::writer
