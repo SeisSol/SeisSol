@@ -225,8 +225,10 @@ LtsWeights::ComputeWiggleFactorResult LtsWeights::computeBestWiggleFactor() {
       m_clusterIds, m_cellCosts, m_rate, maxWiggleFactor, m_details.globalMinTimeStep, MPI::mpi.comm());
   const double maxAdmissibleCost =
       ltsParameters->getAllowedPerformanceLossRatioAutoMerge() * baselineCost;
-  logInfo(rank) << "Baseline cost, without wiggle factor and cluster merging is" << baselineCost
-                << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
+  logInfo(rank) << "Baseline cost, without wiggle factor and cluster merging is" << baselineCost;
+  if (ltsParameters->isAutoMergeUsed()) {
+    logInfo(rank) << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
+  }
 
   for (int i = 0; i < numberOfStepsWiggleFactor; ++i) {
     const double curWiggleFactor = computeWiggleFactor(i);
