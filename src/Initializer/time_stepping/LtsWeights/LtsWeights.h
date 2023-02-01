@@ -45,6 +45,7 @@
 #include <string>
 #include <vector>
 #include <limits>
+#include <Initializer/time_stepping/LtsParameters.h>
 
 #ifndef PUML_PUML_H
 namespace PUML { class TETPUML; }
@@ -60,17 +61,34 @@ struct LtsWeightsConfig {
   int vertexWeightFreeSurfaceWithGravity{};
 };
 
+double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
+                                    const std::vector<int>& cellCosts,
+                                    unsigned int rate,
+                                    double wiggleFactor,
+                                    double minimalTimestep);
+
+double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
+                                     const std::vector<int>& cellCosts,
+                                     unsigned int rate,
+                                     double wiggleFactor,
+                                     double minimalTimestep,
+                                     MPI_Comm comm);
+
+std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int maxClusterId);
+
+int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
+                                      const std::vector<int>& cellCosts,
+                                      unsigned int rate,
+                                      double maximalAdmissibleCost,
+                                      double wiggleFactor,
+                                      double minimalTimestep);
 
 class LtsWeights {
 public:
-  LtsWeights(const LtsWeightsConfig &config) : m_velocityModel(config.velocityModel),
-                                               m_rate(config.rate),
-                                               m_vertexWeightElement(config.vertexWeightElement),
-                                               m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
-                                               m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity) {}
+  LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const &mesh, double maximumAllowedTimeStep);
+  void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
 
   const int *vertexWeights() const;
   const double *imbalances() const;
@@ -85,9 +103,9 @@ protected:
 
   GlobalTimeStepDetails collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
   void computeMaxTimesteps(std::vector<double> const &pWaveVel, std::vector<double> &timeSteps, double maximumAllowedTimeStep);
-  int getCluster(double timestep, double globalMinTimestep, unsigned rate);
+  int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
-  std::vector<int> computeClusterIds();
+  std::vector<int> computeClusterIds(double curWiggleFactor);
   int enforceMaximumDifference();
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();
@@ -109,6 +127,13 @@ protected:
   int m_ncon{std::numeric_limits<int>::infinity()};
   const PUML::TETPUML * m_mesh{nullptr};
   std::vector<int> m_clusterIds{};
+  const LtsParameters* ltsParameters;
+  double wiggleFactor = 1.0;
+  struct ComputeWiggleFactorResult {
+    int numberOfClusters;
+    double wiggleFactor;
+  };
+ ComputeWiggleFactorResult computeBestWiggleFactor();
 };
 }
 

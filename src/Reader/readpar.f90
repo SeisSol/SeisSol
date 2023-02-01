@@ -2098,13 +2098,24 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                          :: DGFineOut1D, ClusteredLTS, CKMethod, &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
-                                        Order, Material, nPolyMap, LtsWeightTypeId
-    REAL                             :: CFL, FixTimeStep, StableDt
+                                        Order, Material, nPolyMap, LtsWeightTypeId, &
+                                        ltsWiggleFactorEnforceMaximumDifference, &
+                                        ltsAutoMergeClusters, &
+                                        ltsMaxNumberOfClusters
+    REAL                             :: CFL, FixTimeStep, StableDt, ltsWiggleFactorMin, &
+                                        ltsWiggleFactorStepsize, &
+                                        ltsAllowedRelativePerformanceLossAutoMerge
     NAMELIST                         /Discretization/ DGFineOut1D, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
-                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId
+                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId, &
+                                                      ltsWiggleFactorMin, ltsWiggleFactorStepsize, &
+                                                      ltsWiggleFactorEnforceMaximumDifference, &
+                                                      ltsMaxNumberOfClusters, &
+                                                      ltsAutoMergeClusters, &
+                                                      ltsAllowedRelativePerformanceLossAutoMerge
+
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
