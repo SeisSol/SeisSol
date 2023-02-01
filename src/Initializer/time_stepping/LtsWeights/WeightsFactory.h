@@ -31,16 +31,18 @@ LtsWeightsTypes convertLtsIdToType(int id) {
   }
 }
 
-std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type, const LtsWeightsConfig& config) {
+std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type,
+                                                        const LtsWeightsConfig& config,
+                                                        const LtsParameters* ltsParameters) {
   switch (type) {
     case LtsWeightsTypes::ExponentialWeights : {
-      return std::make_unique<ExponentialWeights>(config);
+      return std::make_unique<ExponentialWeights>(config, ltsParameters);
     }
     case LtsWeightsTypes::ExponentialBalancedWeights : {
-      return std::make_unique<ExponentialBalancedWeights>(config);
+      return std::make_unique<ExponentialBalancedWeights>(config, ltsParameters);
     }
     case LtsWeightsTypes::EncodedBalancedWeights : {
-      return std::make_unique<EncodedBalancedWeights>(config);
+      return std::make_unique<EncodedBalancedWeights>(config, ltsParameters);
     }
     default : {
       return std::unique_ptr<LtsWeights>(nullptr);

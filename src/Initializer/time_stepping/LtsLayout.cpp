@@ -1191,6 +1191,11 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   double l_perCellSpeedup, l_clusteringSpeedup;
   getTheoreticalSpeedup( l_perCellSpeedup, l_clusteringSpeedup );
 
+  // The speedups above are computed without considering the wiggle factor
+  const auto wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+  l_perCellSpeedup *= wiggleFactor;
+  l_clusteringSpeedup *= wiggleFactor;
+
   // get maximum speedup
   logInfo(rank) << "maximum theoretical speedup (compared to GTS):"
                   << l_perCellSpeedup << "per cell LTS," << l_clusteringSpeedup << "with the used clustering.";

@@ -42,7 +42,9 @@
 #include "Parallel/MPI.h"
 
 #include "common.hpp"
+#include <algorithm>
 #include <limits>
+#include "SeisSol.h"
 
 #ifndef MULTIRATE_HPP
 #define MULTIRATE_HPP
@@ -69,18 +71,20 @@ class seissol::initializers::time_stepping::MultiRate {
      * @param o_clusterTimeStepWidth time step width of the corresponding cluster.
      * @param o_clusterId global id of the corrensponding cluster.
      **/
-    static void getMultiRateInfo( double        i_timeStepWidth,
-                                  double        i_minimumTimeStepWidth,
-                                  unsigned int  i_multiRate,
-                                  double       &o_clusterTimeStepWidth,
-                                  unsigned int &o_clusterId ) {
+  static void getMultiRateInfo(double i_timeStepWidth,
+                               double i_minimumTimeStepWidth,
+                               unsigned int i_multiRate,
+                               unsigned int maxClusterId,
+                               double& o_clusterTimeStepWidth,
+                               unsigned int& o_clusterId) {
       // first multi-rate interval
       double l_lower = i_minimumTimeStepWidth;
-      double l_upper = i_multiRate*l_lower;
+      double l_upper = i_multiRate * l_lower;
 
       for( unsigned int l_id = 0; ; l_id++ ) {
         // the first cluster with an upper bound above the time step width is our
-        if( l_upper > i_timeStepWidth ) {
+        // limit cluster id to maximum
+        if (l_id >= maxClusterId || l_upper > i_timeStepWidth) {
           o_clusterTimeStepWidth = l_lower;
           o_clusterId = l_id;
           return;
@@ -141,16 +145,24 @@ class seissol::initializers::time_stepping::MultiRate {
                                      unsigned int *o_cellClusterIds ) {
       logInfo(seissol::MPI::mpi.rank()) << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
                                                                                  << i_multiRate;
+      const auto wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+      logInfo(seissol::MPI::mpi.rank())
+          << "Due to wiggle factor of" << wiggleFactor << "the minimum timestep size is reduced to"
+          << wiggleFactor * i_minimumTimeStepWidth;
+      const auto maxClusterId = seissol::SeisSol::main.maxNumberOfClusters - 1;
+
+      i_minimumTimeStepWidth *= wiggleFactor;
       // iterate over all cells
       for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
         double l_clusterTimeStepWidth;
 
         // get the id for this cell
-        getMultiRateInfo( i_cellTimeStepWidths[l_cell],
-                          i_minimumTimeStepWidth,
-                          i_multiRate,
-                          l_clusterTimeStepWidth,
-                          o_cellClusterIds[l_cell] );
+        getMultiRateInfo(i_cellTimeStepWidths[l_cell],
+                         i_minimumTimeStepWidth,
+                         i_multiRate,
+                         maxClusterId,
+                         l_clusterTimeStepWidth,
+                         o_cellClusterIds[l_cell]);
       }
     }
 
@@ -170,19 +182,25 @@ class seissol::initializers::time_stepping::MultiRate {
                                       unsigned int  &o_numberOfClusters,
                                       double       *&o_clusterTimeStepWidths,
                                       unsigned int *&o_timeStepRates ) {
-       double l_currentMaximumTime = i_minimumTimeStepWidth;
+       const double wiggleFactor = seissol::SeisSol::main.wiggleFactorLts;
+       double l_currentMaximumTime = wiggleFactor * i_minimumTimeStepWidth;
        l_currentMaximumTime *= i_multiRate;
 
        for( o_numberOfClusters = 1; l_currentMaximumTime <= i_maximumTimeStepWidth; o_numberOfClusters++ ) {
          l_currentMaximumTime *= i_multiRate;
        }
 
+       o_numberOfClusters = std::min(
+               o_numberOfClusters,
+               static_cast<unsigned int>(seissol::SeisSol::main.maxNumberOfClusters)
+       );
+       assert(o_numberOfClusters > 0);
        // allocate memory for the time step widths and rate; TODO: Free
        o_clusterTimeStepWidths = new double[        o_numberOfClusters ];
        o_timeStepRates         = new unsigned int [ o_numberOfClusters ];
 
        // set the time step widths
-       o_clusterTimeStepWidths[0] = i_minimumTimeStepWidth;
+       o_clusterTimeStepWidths[0] = wiggleFactor * i_minimumTimeStepWidth;
        for( unsigned int l_cluster = 1; l_cluster < o_numberOfClusters; l_cluster++ ) {
          o_clusterTimeStepWidths[l_cluster] = o_clusterTimeStepWidths[l_cluster-1] * i_multiRate;
        }
@@ -221,6 +239,7 @@ class seissol::initializers::time_stepping::MultiRate {
                                  i_timeStepWidths,
                                  l_minimumTimeStepWidth,
                                  l_maximumTimeStepWidth );
+      // Note: l_minimumTimeStepWidth and l_maximumTimeStepWidth do not consider the wiggle factor!
 
       // derive the number and time step widths of the global clusters
       deriveGlobalClusters( l_minimumTimeStepWidth,

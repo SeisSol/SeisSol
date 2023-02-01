@@ -53,6 +53,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   configuration
   parameter-file
   initial-condition
+  local-timestepping
   left-lateral-right-lateral-normal-reverse.rst
   easi
   fault-tagging
