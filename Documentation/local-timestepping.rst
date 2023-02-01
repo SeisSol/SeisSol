@@ -20,7 +20,7 @@ The following settings are relevant:
     LtsAllowedRelativePerformanceLossAutoMerge = 0.01
     /
 
-To enable it, use the setting :code:`ClusteredLTS = 2`.
+To enable LTS, use the setting :code:`ClusteredLTS = 2`.
 To disable it, use the value :code:`ClusteredLTS = 1`
 Other values are currently not supported.
 
@@ -47,9 +47,9 @@ Maximum Difference Property
 ----------------------------
 
 SeisSol enforces some constraints on the clustering, for example, neighboring elements are always either in the same cluster,
-or a cluster which has at most a time step size difference of 2.
+or in a cluster which has at most a time step size difference of 2.
 Elements that are connected by a dynamic rupture face have to be in the same time-cluster.
-THis is called the maximum difference property.
+This is called the maximum difference property.
 
 
 Wiggle factor (experimental)
