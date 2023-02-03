@@ -301,7 +301,6 @@ void read_mesh_puml_c(const char* meshfile,
 	const int rank = seissol::MPI::mpi.rank();
 	double tpwgt = 1.0;
 
-	if constexpr (!seissol::isDeviceOn()) {
 #ifdef USE_MINI_SEISSOL
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weight";
@@ -318,11 +317,10 @@ void read_mesh_puml_c(const char* meshfile,
 #else
     logInfo(rank) << "Skipping mini SeisSol";
 #endif
-  }
 
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
-    seissol::Stopwatch watch;
+	seissol::Stopwatch watch;
 	watch.start();
 
 	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();

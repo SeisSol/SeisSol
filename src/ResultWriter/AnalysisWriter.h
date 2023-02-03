@@ -38,7 +38,7 @@ private:
   std::string fileName;
 };
 
-  class AnalysisWriter {
+class AnalysisWriter {
 private:
     struct data {
       double val;

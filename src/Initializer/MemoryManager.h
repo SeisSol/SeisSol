@@ -205,13 +205,6 @@ class seissol::initializers::MemoryManager {
      */
     void deriveDisplacementsBucket();
 
-#ifdef ACL_DEVICE
-    /**
-     * Derives the sizes of scratch memory required during the computations
-     */
-    void deriveRequiredScratchpadMemory();
-#endif
-    
     /**
      * Initializes the displacement accumulation buffer.
      */
@@ -366,6 +359,16 @@ class seissol::initializers::MemoryManager {
 
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
+
+  /**
+   * Derives sizes of scratch memory required during computations of Wave Propagation solver
+   **/
+  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+
+  /**
+   * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
+   **/
+  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
 #endif
 
   void initializeFrictionLaw();

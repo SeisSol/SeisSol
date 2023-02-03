@@ -471,12 +471,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
-  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
-  for (auto layer = m_dynRupTree.beginLeaf(); layer != m_dynRupTree.endLeaf(); ++layer) {
-    const auto layerSize = layer->getNumberOfCells();
-    layer->setScratchpadSize(m_dynRup->idofsPlusOnDevice, idofsSize * layerSize);
-    layer->setScratchpadSize(m_dynRup->idofsMinusOnDevice, idofsSize * layerSize);
-  }
+  MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
   m_dynRupTree.allocateScratchPads();
 #endif
 }
@@ -582,22 +577,21 @@ void seissol::initializers::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
+void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree, LTS& lts) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
-  for (auto layer = m_ltsTree.beginLeaf(Ghost); layer != m_ltsTree.endLeaf(); ++layer) {
+  for (auto layer = ltsTree.beginLeaf(Ghost); layer != ltsTree.endLeaf(); ++layer) {
 
-    CellLocalInformation *cellInformation = layer->var(m_lts.cellInformation);
+    CellLocalInformation *cellInformation = layer->var(lts.cellInformation);
     std::unordered_set<real *> registry{};
-    real *(*faceNeighbors)[4] = layer->var(m_lts.faceNeighbors);
+    real *(*faceNeighbors)[4] = layer->var(lts.faceNeighbors);
 
     unsigned derivativesCounter{0};
     unsigned integratedDofsCounter{0};
     unsigned nodalDisplacementsCounter{0};
 
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
@@ -631,12 +625,23 @@ void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemory() {
 
       }
     }
-    layer->setScratchpadSize(m_lts.integratedDofsScratch,
+    layer->setScratchpadSize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
-    layer->setScratchpadSize(m_lts.derivativesScratch,
+    layer->setScratchpadSize(lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
-    layer->setScratchpadSize(m_lts.nodalAvgDisplacements,
+    layer->setScratchpadSize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
+  }
+}
+
+void seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForDr(
+    LTSTree &ltsTree,
+    DynamicRupture& dynRup) {
+  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
+  for (auto layer = ltsTree.beginLeaf(); layer != ltsTree.endLeaf(); ++layer) {
+    const auto layerSize = layer->getNumberOfCells();
+    layer->setScratchpadSize(dynRup.idofsPlusOnDevice, idofsSize * layerSize);
+    layer->setScratchpadSize(dynRup.idofsMinusOnDevice, idofsSize * layerSize);
   }
 }
 #endif
@@ -730,7 +735,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
-  deriveRequiredScratchpadMemory();
+  seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree, m_lts);
   m_ltsTree.allocateScratchPads();
 #endif
 }
