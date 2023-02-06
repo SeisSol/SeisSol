@@ -54,13 +54,13 @@ protected:
 	/** This rank */
 	int m_rank;
 
-	/** This rank */
+	/** Rank in the shared memory sub-communicator */
 	int m_sharedMemMpiRank;
 
 	/** Number of processors */
 	int m_size;
 
-	/** Number of processors */
+	/** Number of ranks in the shared memory sub-communicator */
 	int m_sharedMemMpiSize;
 
 	/** Requires threadsafe MPI */
@@ -88,7 +88,7 @@ public:
 	}
 
 	/**
-	 * @return The rank of this process within this node
+	 * @return The rank within the shared memory sub-communicator
 	 */
 	int sharedMemMpiRank() const
 	{
@@ -104,7 +104,7 @@ public:
 	}
 
 	/**
-	 * @return The rank of this process within this node
+	 * @return The number of ranks within the shared memory sub-communicator
 	 */
 	int sharedMemMpiSize() const
 	{

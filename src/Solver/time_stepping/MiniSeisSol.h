@@ -43,15 +43,6 @@
 
 #include <Initializer/MemoryManager.h>
 
-namespace seissol::mini {
-struct Config {
-  int numRepeats{10};
-  int numElements{50000};
-};
-
-Config getConfig();
-} // namespace seissol::mini
-
 namespace seissol {
   void localIntegration(GlobalData* globalData,
                         initializers::LTS& lts,

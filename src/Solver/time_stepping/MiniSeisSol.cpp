@@ -50,7 +50,13 @@
 #include "device.h"
 #endif
 
-seissol::mini::Config seissol::mini::getConfig() {
+namespace seissol::mini {
+struct Config {
+  int numRepeats{10};
+  int numElements{50000};
+};
+
+Config getConfig() {
   const auto rank = seissol::MPI::mpi.rank();
   constexpr int numRepeats{10};
   constexpr int numElements{50000};
@@ -81,6 +87,7 @@ seissol::mini::Config seissol::mini::getConfig() {
   }
   return config;
 }
+} // namespace seissol::mini
 
 
 void seissol::localIntegration(GlobalData* globalData,
