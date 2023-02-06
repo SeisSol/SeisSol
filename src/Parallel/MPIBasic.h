@@ -54,8 +54,14 @@ protected:
 	/** This rank */
 	int m_rank;
 
+	/** This rank */
+	int m_sharedMemMpiRank;
+
 	/** Number of processors */
 	int m_size;
+
+	/** Number of processors */
+	int m_sharedMemMpiSize;
 
 	/** Requires threadsafe MPI */
 	bool m_threadsafe;
@@ -82,6 +88,14 @@ public:
 	}
 
 	/**
+	 * @return The rank of this process within this node
+	 */
+	int sharedMemMpiRank() const
+	{
+		return m_sharedMemMpiRank;
+	}
+
+	/**
 	 * @return The total number of processes
 	 */
 	int size() const
@@ -89,6 +103,13 @@ public:
 		return m_size;
 	}
 
+	/**
+	 * @return The rank of this process within this node
+	 */
+	int sharedMemMpiSize() const
+	{
+		return m_sharedMemMpiSize;
+	}
 };
 
 }

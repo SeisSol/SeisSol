@@ -69,6 +69,7 @@ class MPI : public MPIBasic
 {
 private:
 	MPI_Comm m_comm;
+	MPI_Comm m_sharedMemComm;
 	MPI()
 		: m_comm(MPI_COMM_NULL)
 	{ }
@@ -123,7 +124,12 @@ public:
 
 		MPI_Comm_rank(comm, &m_rank);
 		MPI_Comm_size(comm, &m_size);
+
+		MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &m_sharedMemComm);
+		MPI_Comm_rank(m_sharedMemComm, &m_sharedMemMpiRank);
+		MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
 	}
+
 
 	/**
 	 * @return The main communicator for the application
@@ -131,6 +137,14 @@ public:
 	MPI_Comm comm() const
 	{
 		return m_comm;
+	}
+
+	/**
+	 * @return The node communicator (shared memory) for the application
+	 */
+	MPI_Comm sharedMemComm() const
+	{
+		return m_sharedMemComm;
 	}
 
 	void barrier(MPI_Comm comm) const
