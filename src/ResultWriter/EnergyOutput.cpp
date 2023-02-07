@@ -34,6 +34,7 @@ void EnergyOutput::init(GlobalData* newGlobal,
                         seissol::initializers::Lut* newLtsLut,
                         bool newIsPlasticityEnabled,
                         bool newIsTerminalOutputEnabled,
+                        int newComputeVolumeEnergiesEveryOutput,
                         const std::string& outputFileNamePrefix,
                         double newSyncPointInterval) {
   if (newSyncPointInterval > 0) {
@@ -46,6 +47,7 @@ void EnergyOutput::init(GlobalData* newGlobal,
 
   isFileOutputEnabled = rank == 0;
   isTerminalOutputEnabled = newIsTerminalOutputEnabled && (rank == 0);
+  computeVolumeEnergiesEveryOutput = newComputeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
@@ -75,6 +77,7 @@ void EnergyOutput::syncPoint(double time) {
   if (isFileOutputEnabled) {
     writeEnergies(time);
   }
+  ++outputId;
   logInfo(rank) << "Writing energy output at time" << time << "Done.";
 }
 
@@ -181,9 +184,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
   }
 }
 
-void EnergyOutput::computeEnergies() {
-  energiesStorage.energies.fill(0.0);
-
+void EnergyOutput::computeVolumeEnergies() {
   auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
   auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
   auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
@@ -351,7 +352,13 @@ void EnergyOutput::computeEnergies() {
       totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
     }
   }
+}
 
+void EnergyOutput::computeEnergies() {
+  energiesStorage.energies.fill(0.0);
+  if (shouldComputeVolumeEnergies()) {
+    computeVolumeEnergies();
+  }
   computeDynamicRuptureEnergies();
 }
 
@@ -398,29 +405,36 @@ void EnergyOutput::printEnergies() {
     const auto ratioPlasticMoment =
         100.0 * energiesStorage.plasticMoment() /
         (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
-    if (totalElasticEnergy) {
-      logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
-                    << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+
+    if (shouldComputeVolumeEnergies()) {
+        if (totalElasticEnergy) {
+          logInfo(rank) << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+                        << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+        }
+        if (totalAcousticEnergy) {
+          logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
+                        << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
+        }
+        if (energiesStorage.gravitationalEnergy()) {
+          logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
+        }
+        if (energiesStorage.plasticMoment()) {
+          logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
+                        << energiesStorage.plasticMoment() << " ,"
+                        << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
+                        << ratioPlasticMoment;
+        }
+    } else {
+          logInfo(rank) << "Volume energies skipped at this step";
     }
-    if (totalAcousticEnergy) {
-      logInfo(rank) << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                    << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
-    }
-    if (energiesStorage.gravitationalEnergy()) {
-      logInfo(rank) << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
-    }
+
     if (totalFrictionalWork) {
       logInfo(rank) << "Frictional work (total, % static, % radiated): " << totalFrictionalWork
                     << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
       logInfo(rank) << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
                     << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
     }
-    if (energiesStorage.plasticMoment()) {
-      logInfo(rank) << "Plastic moment (value, equivalent Mw, % total moment):"
-                    << energiesStorage.plasticMoment() << " ,"
-                    << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
-                    << ratioPlasticMoment;
-    }
+
     if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
       logError() << "Detected Inf/NaN in energies. Aborting.";
     }
@@ -428,25 +442,26 @@ void EnergyOutput::printEnergies() {
 }
 
 void EnergyOutput::writeHeader() {
-  out << "time,"
-      << "gravitational_energy,"
-      << "acoustic_energy,"
-      << "acoustic_kinetic_energy,"
-      << "elastic_energy,"
-      << "elastic_kinetic_energy,"
-      << "total_frictional_work,"
-      << "static_frictional_work,"
-      << "seismic_moment,"
-      << "plastic_moment" << std::endl;
+  out << "time,variable,measurement" << std::endl;
 }
 
 void EnergyOutput::writeEnergies(double time) {
-  out << time << "," << energiesStorage.gravitationalEnergy() << ","
-      << energiesStorage.acousticEnergy() << "," << energiesStorage.acousticKineticEnergy() << ","
-      << energiesStorage.elasticEnergy() << "," << energiesStorage.elasticKineticEnergy() << ","
-      << energiesStorage.totalFrictionalWork() << "," << energiesStorage.staticFrictionalWork()
-      << "," << energiesStorage.seismicMoment() << "," << energiesStorage.plasticMoment()
-      << std::endl;
+  if (shouldComputeVolumeEnergies()) {
+        out << time << ",gravitational_energy," << energiesStorage.gravitationalEnergy() << "\n"
+        << time << ",acoustic_energy," << energiesStorage.acousticEnergy() << "\n"
+        << time << ",acoustic_kinetic_energy," << energiesStorage.acousticKineticEnergy() << "\n"
+        << time << ",elastic_energy," << energiesStorage.elasticEnergy() << "\n"
+        << time << ",elastic_kinetic_energy," << energiesStorage.elasticKineticEnergy() << "\n"
+        << time << ",plastic_moment," << energiesStorage.plasticMoment() << "\n";
+  }
+  out << time << ",total_frictional_work," << energiesStorage.totalFrictionalWork() << "\n"
+      << time << ",static_frictional_work," << energiesStorage.staticFrictionalWork() << "\n"
+      << time << ",seismic_moment," << energiesStorage.seismicMoment() << "\n"
+      << time << ",plastic_moment," << energiesStorage.plasticMoment() << std::endl;
+}
+
+bool EnergyOutput::shouldComputeVolumeEnergies() const {
+  return outputId % computeVolumeEnergiesEveryOutput == 0;
 }
 
 } // namespace seissol::writer

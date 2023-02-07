@@ -156,6 +156,7 @@ CONTAINS
         receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval), &
         isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
         isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
+        computeVolumeEnergiesEveryOutput = IO%computeVolumeEnergiesEveryOutput, &
         energySyncInterval = IO%EnergyOutputInterval, &
         receiverComputeRotation = logical(IO%ReceiverComputeRotation, 1))
 

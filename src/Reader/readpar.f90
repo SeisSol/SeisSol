@@ -2294,6 +2294,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       character(LEN=64)                :: xdmfWriterBackend
       INTEGER                          :: EnergyOutput
       INTEGER                          :: EnergyTerminalOutput
+      INTEGER                          :: computeVolumeEnergiesEveryOutput
       real                             :: EnergyOutputInterval
       INTEGER                          :: ReceiverComputeRotation
 
@@ -2304,7 +2305,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval, nRecordPoints, &
-                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, ReceiverComputeRotation
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, computeVolumeEnergiesEveryOutput, ReceiverComputeRotation
 
               !------------------------------------------------------------------------
     !
@@ -2346,6 +2347,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       EnergyOutput = 0
       EnergyTerminalOutput = 0
       EnergyOutputInterval = -1.0
+      computeVolumeEnergiesEveryOutput = 1
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
 
     IF (readStat.NE.0) THEN
@@ -2631,6 +2633,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             IO%EnergyOutputInterval = -1.0
         end if
         IO%isEnergyTerminalOutputEnabled = EnergyTerminalOutput == 1
+        IO%computeVolumeEnergiesEveryOutput = computeVolumeEnergiesEveryOutput
         IO%energyOutputInterval = EnergyOutputInterval
 
       IF(EQN%DR.NE.0) THEN
