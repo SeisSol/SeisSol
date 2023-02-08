@@ -43,10 +43,56 @@
 #include <Kernels/Time.h>
 #include <Kernels/Local.h>
 #include <Monitoring/Stopwatch.h>
+#include "utils/env.h"
 
-void seissol::localIntegration( struct GlobalData* globalData,
-                                initializers::LTS& lts,
-                                initializers::Layer& layer ) {
+#ifdef ACL_DEVICE
+#include <Initializer/BatchRecorders/Recorders.h>
+#include "device.h"
+#endif
+
+namespace seissol::mini {
+struct Config {
+  int numRepeats{10};
+  int numElements{50000};
+};
+
+Config getConfig() {
+  const auto rank = seissol::MPI::mpi.rank();
+  constexpr int numRepeats{10};
+  constexpr int numElements{50000};
+
+  Config config{};
+  utils::Env env{};
+
+  try {
+    config.numRepeats = env.get("SEISSOL_MINI_NUM_REPEATS", numRepeats);
+    if (config.numRepeats < 1) {
+      throw std::runtime_error("expecting a positive integer number");
+    }
+  }
+  catch (std::runtime_error& err) {
+    logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
+    config.numRepeats = numRepeats;
+  }
+
+  try {
+    config.numElements = env.get("SEISSOL_MINI_NUM_ELEMENTS", numElements);
+    if (config.numElements < 1) {
+      throw std::runtime_error("expecting a positive integer number");
+    }
+  }
+  catch (std::runtime_error& err) {
+    logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
+    config.numElements = numElements;
+  }
+  return config;
+}
+} // namespace seissol::mini
+
+
+void seissol::localIntegration(GlobalData* globalData,
+                               initializers::LTS& lts,
+                               initializers::Layer& layer) {
   kernels::Local localKernel;
   localKernel.setHostGlobalData(globalData);
   kernels::Time  timeKernel;
@@ -87,6 +133,31 @@ void seissol::fillWithStuff(  real* buffer,
     // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
     buffer[n] = static_cast<real>((214013*n + 2531011) / 65536);
   }
+}
+
+void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
+                                       initializers::LTS& lts,
+                                       initializers::Layer& layer) {
+#ifdef ACL_DEVICE
+  kernels::Time  timeKernel;
+  timeKernel.setGlobalData(globalData);
+
+  kernels::Local localKernel;
+  localKernel.setGlobalData(globalData);
+
+  const auto &device = device::DeviceInstance::getInstance();
+
+  kernels::LocalData::Loader loader;
+  loader.load(lts, layer);
+  kernels::LocalTmp tmp;
+
+  auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+  auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
+  auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
+
+  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false);
+  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0);
+#endif
 }
 
 void seissol::fakeData(initializers::LTS& lts,
@@ -150,19 +221,23 @@ void seissol::fakeData(initializers::LTS& lts,
 }
 
 double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool usePlasticity) {
-  struct GlobalData* globalData = memoryManager.getGlobalDataOnHost();
-
   initializers::LTSTree ltsTree;
   initializers::LTS     lts;
 
   lts.addTo(ltsTree, usePlasticity);
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
-  
+
+  auto config = mini::getConfig();
+  const auto rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "miniSeisSol configured with"
+                << config.numElements << "elements and"
+                << config.numRepeats << "repeats per process";
+
   initializers::TimeCluster& cluster = ltsTree.child(0);
   cluster.child<Ghost>().setNumberOfCells(0);
   cluster.child<Copy>().setNumberOfCells(0);
-  cluster.child<Interior>().setNumberOfCells(50000);
+  cluster.child<Interior>().setNumberOfCells(config.numElements);
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
@@ -171,15 +246,45 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   
   layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   ltsTree.allocateBuckets();
-  
+
   fakeData(lts, layer);
-  
-  localIntegration(globalData, lts, layer);
-  
+
+#ifdef ACL_DEVICE
+  seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  ltsTree.allocateScratchPads();
+
+  seissol::initializers::recording::CompositeRecorder<seissol::initializers::LTS> recorder;
+  recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::initializers::recording::NeighIntegrationRecorder);
+  recorder.record(lts, layer);
+  ltsTree.allocateScratchPads();
+
+  auto globalData = memoryManager.getGlobalData();
+  auto runBenchmark = [&globalData, &lts, &layer]() {
+    localIntegrationOnDevice(globalData, lts, layer);
+  };
+
+  const auto &device = device::DeviceInstance::getInstance();
+  auto syncBenchmark = [&device]() {
+    device.api->syncDevice();
+  };
+#else
+  auto* globalData = memoryManager.getGlobalDataOnHost();
+  auto runBenchmark = [globalData, &lts, &layer]() {
+    localIntegration(globalData, lts, layer);
+  };
+  auto syncBenchmark = []() {};
+#endif
+
+  runBenchmark();
+  syncBenchmark();
+
   Stopwatch stopwatch;
   stopwatch.start();
-  for (unsigned t = 0; t < 10; ++t) {
-    localIntegration(globalData, lts, layer);
+  for (unsigned t = 0; t < config.numRepeats; ++t) {
+    runBenchmark();
   }
+  syncBenchmark();
+
   return stopwatch.stop();
 }

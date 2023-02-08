@@ -200,53 +200,11 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture)
 
 #ifdef ACL_DEVICE
 void initDataStructuresOnDevice(bool enableDynamicRupture) {
-
-  // estimate sizes required for scratch pads
-  constexpr unsigned totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
-  unsigned derivativesCounter = 0;
-  unsigned integratedDofsCounter = 0;
-
   seissol::initializers::TimeCluster& cluster = m_ltsTree->child(0);
   seissol::initializers::Layer& layer = cluster.child<Interior>();
 
-  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-  real *(*FaceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
-  std::unordered_set<real *> registry{};
-
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
-    if (needsScratchMemForDerivatives) {
-      ++derivativesCounter;
-    }
-    ++integratedDofsCounter;
-
-    // include data provided by ghost layers
-    for (unsigned face = 0; face < 4; ++face) {
-      real *neighbourBuffer = FaceNeighbors[cell][face];
-
-      // check whether a neighbour element idofs has not been counted twice
-      if ((registry.find(neighbourBuffer) == registry.end())) {
-
-        // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-        if (neighbourBuffer != nullptr) {
-          if (cellInformation[cell].faceTypes[face] != FaceType::outflow
-            && cellInformation[cell].faceTypes[face] != FaceType::dynamicRupture) {
-
-            bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
-            if (isNeighbProvidesDerivatives) {
-              ++integratedDofsCounter;
-            }
-            registry.insert(neighbourBuffer);
-          }
-        }
-      }
-    }
-  }
-
-  layer.setScratchpadSize(m_lts.integratedDofsScratch, integratedDofsCounter * tensor::I::size() * sizeof(real));
-  layer.setScratchpadSize(m_lts.derivativesScratch, derivativesCounter * totalDerivativesSize * sizeof(real));
+  seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForWp(*m_ltsTree, m_lts);
   m_ltsTree->allocateScratchPads();
-
 
   seissol::initializers::recording::CompositeRecorder<seissol::initializers::LTS> recorder;
   recorder.addRecorder(new seissol::initializers::recording::LocalIntegrationRecorder);
@@ -255,17 +213,13 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   recorder.addRecorder(new seissol::initializers::recording::PlasticityRecorder);
   recorder.record(m_lts, layer);
   if (enableDynamicRupture) {
-    auto &drLayer = m_dynRupTree->child(0).child<Interior>();
-    const auto drLayerSize = drLayer.getNumberOfCells();
-
-    constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
-    drLayer.setScratchpadSize(m_dynRup.idofsPlusOnDevice, idofsSize * drLayerSize);
-    drLayer.setScratchpadSize(m_dynRup.idofsMinusOnDevice, idofsSize * drLayerSize);
-
+    seissol::initializers::MemoryManager::deriveRequiredScratchpadMemoryForDr(*m_dynRupTree, m_dynRup);
     m_dynRupTree->allocateScratchPads();
 
     CompositeRecorder <seissol::initializers::DynamicRupture> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
+
+    auto &drLayer = m_dynRupTree->child(0).child<Interior>();
     drRecorder.record(m_dynRup, drLayer);
   }
 }

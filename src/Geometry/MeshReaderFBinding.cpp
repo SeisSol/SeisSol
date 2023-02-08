@@ -57,6 +57,8 @@
 #include "Numerical_aux/Statistics.h"
 #include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
 #include "Solver/time_stepping/MiniSeisSol.h"
+#include "ResultWriter/MiniSeisSolWriter.h"
+
 
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
@@ -284,6 +286,7 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 
 void read_mesh_puml_c(const char* meshfile,
                       const char* checkPointFile,
+                      const char* outputDirectory,
                       bool hasFault,
                       double const displacement[3],
                       double const scalingMatrix[3][3],
@@ -301,12 +304,12 @@ void read_mesh_puml_c(const char* meshfile,
 	const int rank = seissol::MPI::mpi.rank();
 	double tpwgt = 1.0;
 
-	if constexpr (!seissol::isDeviceOn()) {
 #ifdef USE_MINI_SEISSOL
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weight";
-      tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
-                                         usePlasticity);
+      auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
+                                              usePlasticity);
+      tpwgt = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(tpwgt);
       logInfo(rank) << "Node weights: mean =" << summary.mean
@@ -314,15 +317,17 @@ void read_mesh_puml_c(const char* meshfile,
                     << " min =" << summary.min
                     << " median =" << summary.median
                     << " max =" << summary.max;
+
+      writer::MiniSeisSolWriter writer(outputDirectory);
+      writer.write(elapsedTime, tpwgt);
     }
 #else
     logInfo(rank) << "Skipping mini SeisSol";
 #endif
-  }
 
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
-    seissol::Stopwatch watch;
+	seissol::Stopwatch watch;
 	watch.start();
 
 	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();

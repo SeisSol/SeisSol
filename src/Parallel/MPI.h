@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015-2016, SeisSol Group
@@ -46,15 +47,16 @@
 #else // USE_MPI
 
 #include <mpi.h>
-
 #include "utils/logger.h"
-
 #include "MPIBasic.h"
+#include <numeric>
+#include <algorithm>
+#include <string>
+#include <optional>
 
 #endif // USE_MPI
 
-namespace seissol
-{
+namespace seissol {
 
 #ifndef USE_MPI
 typedef MPIDummy MPI;
@@ -65,96 +67,154 @@ typedef MPIDummy MPI;
  *
  * Make sure only one instance of this class exists!
  */
-class MPI : public MPIBasic
-{
-private:
-	MPI_Comm m_comm;
-	MPI()
-		: m_comm(MPI_COMM_NULL)
-	{ }
+class MPI : public MPIBasic {
+  private:
+  MPI_Comm m_comm;
+  MPI_Comm m_sharedMemComm;
+  MPI() : m_comm(MPI_COMM_NULL) {}
 
-public:
-	~MPI()
-	{ }
+  std::vector<std::string> hostNames{};
+
+  public:
+  ~MPI() {}
 
 #ifdef ACL_DEVICE
-  public:
-    /**
-     * @brief Inits Device(s).
-     *
-     * Some MPI implementations create a so-called context between GPUs and OS Processes inside of MPI_Init(...).
-     * It results in allocating some memory buffers in memory attached to the nearest NUMA domain
-     * of a core where a process is running. In case of somebody wants to bind a processes in a different way,
-     * e.g. move a process closer to a GPU, it must be done before calling MPI_Init(...) using env. variables
-     * or hwloc library.
-     *
-     * Currently, the function does a simple binding, i.e. it binds to the first visible device.
-     * The user is responsible for the correct binding on a multi-gpu setup.
-     * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
-     * OMPI_COMM_WORLD_LOCAL_RANK env. variables
-     * */
-    void  bindAcceleratorDevice();
+  /**
+   * @brief Inits Device(s).
+   *
+   * Some MPI implementations create a so-called context between GPUs and OS Processes inside of
+   * MPI_Init(...). It results in allocating some memory buffers in memory attached to the nearest
+   * NUMA domain of a core where a process is running. In case of somebody wants to bind a processes
+   * in a different way, e.g. move a process closer to a GPU, it must be done before calling
+   * MPI_Init(...) using env. variables or hwloc library.
+   *
+   * Currently, the function does a simple binding, i.e. it binds to the first visible device.
+   * The user is responsible for the correct binding on a multi-gpu setup.
+   * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
+   * OMPI_COMM_WORLD_LOCAL_RANK env. variables
+   * */
+  void bindAcceleratorDevice();
 #endif // ACL_DEVICE
 
-	/**
-	 * Initialize MPI
-	 */
-	void init(int &argc, char** &argv)
-	{
-	  // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
-	  // a communication thread and/or async I/O.
-	  // The safer (and more sane) option is to enable it by default.
-		int required = MPI_THREAD_MULTIPLE;
-		int provided;
-		MPI_Init_thread(&argc, &argv, required, &provided);
+  /**
+   * Initialize MPI
+   */
+  void init(int& argc, char**& argv);
 
-		setComm(MPI_COMM_WORLD);
+  void setComm(MPI_Comm comm);
 
-		// Test this after setComm() to get the correct m_rank
-		if (provided < required) {
-			logError() << utils::nospace << "Provided MPI thread support (" << provided
-				<< ") is smaller than required thread support (" << required << ").";
-		}
-	}
+  template <typename T>
+  MPI_Datatype castToMpiType() {
+    if constexpr (std::is_same_v<T, double>) {
+      return MPI_DOUBLE;
+    } else if constexpr (std::is_same_v<T, float>) {
+      return MPI_FLOAT;
+    } else if constexpr (std::is_same_v<T, unsigned>) {
+      return MPI_UNSIGNED;
+    } else if constexpr (std::is_same_v<T, int>) {
+      return MPI_INT;
+    } else if constexpr (std::is_same_v<T, char>) {
+      return MPI_CHAR;
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return MPI_C_BOOL;
+    }
+  }
 
-	void setComm(MPI_Comm comm)
-	{
-		m_comm = comm;
+  /**
+   * @return a vector of aggregated values from all processes
+   *
+   * Note: the vector is available only in the master process.
+   * Method supports only basic types
+   */
+  template <typename T>
+  auto collect(T value, std::optional<MPI_Comm> comm = {}) {
+    auto collect = std::vector<T>(m_size);
+    auto type = castToMpiType<T>();
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, comm.value());
+    return collect;
+  }
 
-		MPI_Comm_rank(comm, &m_rank);
-		MPI_Comm_size(comm, &m_size);
-	}
+  /**
+   * @return a vector of aggregated containers from all processes
+   *
+   * Note: the vector is available only in the master process
+   * Method supports only basic types
+   */
+  template <typename ContainerType>
+  std::vector<ContainerType> collectContainer(const ContainerType& container,
+                                              std::optional<MPI_Comm> comm = {}) {
+    using InternalType = typename ContainerType::value_type;
 
-	/**
-	 * @return The main communicator for the application
-	 */
-	MPI_Comm comm() const
-	{
-		return m_comm;
-	}
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    int commSize{};
+    MPI_Comm_size(comm.value(), &commSize);
 
-	void barrier(MPI_Comm comm) const
-	{
-		MPI_Barrier(comm);
-	}
+    auto length = static_cast<int>(container.size());
+    auto lengths = collect(length);
 
-	/**
-	 * Finalize MPI
-	 */
-	void finalize()
-	{
-		fault.finalize();
+    std::vector<int> displacements(commSize);
+    std::exclusive_scan(lengths.begin(), lengths.end(), displacements.begin(), 0);
 
-		MPI_Finalize();
-	}
+    const auto recvBufferSize = std::accumulate(lengths.begin(), lengths.end(), 0);
+    std::vector<InternalType> recvBuffer(recvBufferSize);
 
-public:
-	/** The only instance of the class */
-	static MPI mpi;
+    auto mpiType = castToMpiType<InternalType>();
+    MPI_Gatherv(container.data(),
+                container.size(),
+                mpiType,
+                const_cast<InternalType*>(recvBuffer.data()),
+                lengths.data(),
+                displacements.data(),
+                mpiType,
+                0,
+                comm.value());
+
+    displacements.push_back(recvBufferSize);
+    std::vector<ContainerType> collected(commSize);
+    for (int rank = 0; rank < commSize; ++rank) {
+      const auto begin = displacements[rank];
+      const auto end = displacements[rank + 1];
+      collected[rank] = ContainerType(&recvBuffer[begin], &recvBuffer[end]);
+    }
+    return collected;
+  }
+
+  /**
+   * @return The main communicator for the application
+   */
+  MPI_Comm comm() const { return m_comm; }
+
+  /**
+   * @return The node communicator (shared memory) for the application
+   */
+  MPI_Comm sharedMemComm() const { return m_sharedMemComm; }
+
+  /**
+   * @return hostnames for all ranks in the communicator of the application
+   */
+  const auto& getHostNames() { return hostNames; }
+
+  void barrier(MPI_Comm comm) const { MPI_Barrier(comm); }
+
+  /**
+   * Finalize MPI
+   */
+  void finalize() {
+    fault.finalize();
+    MPI_Finalize();
+  }
+
+  /** The only instance of the class */
+  static MPI mpi;
 };
 
 #endif // USE_MPI
 
-}
+} // namespace seissol
 
 #endif // MPI_H
