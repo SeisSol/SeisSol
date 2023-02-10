@@ -9,7 +9,7 @@ In order to run SeisSol, you need to first install:
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
 -  Intel compiler (>= 2021, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
--  ParMETIS for partitioning
+-  ParMETIS for partitioning (with IDXTYPEWIDTH=64)
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
 -  CMake (>= 3.20) for the compilation of SeisSol
