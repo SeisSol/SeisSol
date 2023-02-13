@@ -58,14 +58,14 @@ class Navigation(QWidget):
     
     self.currentFolder = ''
 
-    openIcon = QIcon.fromTheme('folder-open')
+    openIcon = QIcon.fromTheme('folder-open-symbolic')
     openButton = QPushButton(openIcon, '', self)
     openButton.clicked.connect(self.selectFolder)
-    refreshIcon = QIcon.fromTheme('view-refresh')
+    refreshIcon = QIcon.fromTheme('view-refresh-symbolic')
     refreshButton = QPushButton(refreshIcon, '', self)
     refreshButton.clicked.connect(self.refreshFolder)
     if not noclose:
-      closeIcon = QIcon.fromTheme('window-close')
+      closeIcon = QIcon.fromTheme('window-close-symbolic')
       closeButton = QPushButton(closeIcon, '', self)
       closeButton.clicked.connect(self.emitClose)
     
