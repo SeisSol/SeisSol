@@ -134,7 +134,7 @@ void GhostTimeCluster::reset() {
 
   void GhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
     const auto rank = MPI::mpi.rank();
-    logWarning(rank)
+    logError()
         << "Ghost: No update since " << timeSinceLastUpdate.count()
         << "[s] for global cluster " << globalClusterId
         << " with other cluster id " << otherGlobalClusterId
@@ -145,7 +145,7 @@ void GhostTimeCluster::reset() {
         << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
         << " maySync = " << maySync();
     for (auto& neighbor : neighbors) {
-      logWarning(rank)
+      logError()
         << "Neighbor with rate = " << neighbor.ct.timeStepRate
         << "PredTime = " << neighbor.ct.predictionTime
         << "CorrTime = " << neighbor.ct.correctionTime

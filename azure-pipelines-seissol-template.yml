@@ -5,7 +5,7 @@ jobs:
                 - job:
                   displayName: ${{ format('equation:{0} precision:{1} build_type:{2}', equation, precision, build_type) }}
                   pool:
-                    vmImage: 'ubuntu-20.04'
+                    vmImage: 'ubuntu-22.04'
                   steps:
                     - bash: |
                         set -euo pipefail
@@ -15,15 +15,15 @@ jobs:
                         pwd
                         ls
                         sudo apt-get update
-                        sudo apt-get install gcc-8 g++-8 gfortran-8
-                        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
-                        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
-                        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
-                        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-8 100
+                        sudo apt-get install gcc-11 g++-11 gfortran-11
+                        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
+                        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+                        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-11 100
+                        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-11 100
                         gcc --version
                         gcov-tool --version
                         gcov --version
-                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev libarmadillo-dev lcov clang-tidy
+                        sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-103 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev lcov 
                         sudo pip3 install --upgrade pip
                         sudo pip3 install 'numpy>=1.12.0'
                         git clone --depth 1 --branch 1.17 https://github.com/hfp/libxsmm

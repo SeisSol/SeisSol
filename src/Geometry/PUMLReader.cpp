@@ -37,15 +37,16 @@
 
 #include <algorithm>
 #include <cassert>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 
-#include "PUML/PUML.h"
+#include "PUMLReader.h"
+
 #include "PUML/PartitionMetis.h"
 #include "PUML/Downward.h"
 #include "PUML/Neighbor.h"
 
-#include "PUMLReader.h"
 #include "Monitoring/instrumentation.fpp"
 
 #include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
@@ -103,6 +104,11 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
 	puml.addData((file + ":/group").c_str(), PUML::CELL);
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
+        const auto numTotalCells = puml.numTotalCells();
+        std::vector<int> cellIdsAsInFile(numTotalCells);
+        std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), 0);
+        puml.addData(cellIdsAsInFile.data(), numTotalCells, PUML::CELL);
+
 }
 
 int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, const char* checkPointFile)
@@ -317,8 +323,11 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 
 	const int* group = puml.cellData(0);
 	const int* boundaryCond = puml.cellData(1);
+        const int* cellIdsAsInFile = puml.cellData(2);
 
 	std::unordered_map<int, std::vector<unsigned int> > neighborInfo; // List of shared local face ids
+
+        bool isMeshCorrect = true;
 
 	// Compute everything local
 	m_elements.resize(cells.size());
@@ -334,6 +343,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		int neighbors[4];
 		PUML::Neighbor::face(puml, i, neighbors);
 		for (unsigned int j = 0; j < 4; j++) {
+                        int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
+                        const bool isLocallyCorrect = checkMeshCorrectnessLocally(faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
+                        isMeshCorrect &= isLocallyCorrect;
 			if (neighbors[j] < 0) {
 				m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = cells.size();
 
@@ -371,7 +383,6 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 				m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
 			}
 
-			int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
 			int faultTag = bcCurrentFace;
 			if (bcCurrentFace > 64) {
 				bcCurrentFace = 3;
@@ -383,6 +394,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 
 		m_elements[i].group = group[i];
 	}
+        if (!isMeshCorrect) {
+          logError() << "Found at least one broken face in the mesh, see errors above for a more detailled analysis.";
+        }
 
 	// Exchange ghost layer information and generate neighbor list
 	char** copySide = new char*[neighborInfo.size()];

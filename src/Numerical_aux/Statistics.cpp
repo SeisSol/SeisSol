@@ -50,18 +50,13 @@ seissol::statistics::Summary::Summary(std::vector<double> const& values)
 
 auto seissol::statistics::parallelSummary(double value) -> Summary {
 #ifdef USE_MPI
+	auto collect = seissol::MPI::mpi.collect(value);
 	const int rank = seissol::MPI::mpi.rank();
-	auto collect = std::vector<double>(seissol::MPI::mpi.size());
-
-	MPI_Gather(&value, 1, MPI_DOUBLE,
-		   collect.data(), 1, MPI_DOUBLE,
-		   0, seissol::MPI::mpi.comm());
-
 	if (rank == 0) {
-    return Summary(collect);
-  }
-  return Summary();
+		return Summary(collect);
+	}
+	return Summary();
 #else
-  return Summary(value);
+	return Summary(value);
 #endif
 }

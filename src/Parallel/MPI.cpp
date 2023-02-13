@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -38,11 +39,49 @@
  */
 
 #include "MPI.h"
+#include "utils/stringutils.h"
+#include <unistd.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
 #endif
 
+void seissol::MPI::init(int& argc, char**& argv) {
+  // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
+  // a communication thread and/or async I/O.
+  // The safer (and more sane) option is to enable it by default.
+  int required = MPI_THREAD_MULTIPLE;
+  int provided;
+  MPI_Init_thread(&argc, &argv, required, &provided);
+
+  setComm(MPI_COMM_WORLD);
+
+  std::string hostName(256, ' ');
+  if (gethostname(const_cast<char*>(hostName.c_str()), 256) != 0) {
+    hostName = "unknown-host";
+  } else {
+    utils::StringUtils::rtrim(hostName);
+    hostName.pop_back();
+  }
+  hostNames = collectContainer(hostName);
+
+  // Test this after setComm() to get the correct m_rank
+  if (provided < required) {
+    logError() << utils::nospace << "Provided MPI thread support (" << provided
+               << ") is smaller than required thread support (" << required << ").";
+  }
+}
+
+void seissol::MPI::setComm(MPI_Comm comm) {
+  m_comm = comm;
+
+  MPI_Comm_rank(comm, &m_rank);
+  MPI_Comm_size(comm, &m_size);
+
+  MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &m_sharedMemComm);
+  MPI_Comm_rank(m_sharedMemComm, &m_sharedMemMpiRank);
+  MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
+}
 
 #ifdef ACL_DEVICE
 void seissol::MPI::bindAcceleratorDevice() {

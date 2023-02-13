@@ -9,6 +9,7 @@ src/Initializer/MemoryAllocator.cpp
 src/Initializer/CellLocalMatrices.cpp
 
 src/Initializer/time_stepping/LtsLayout.cpp
+src/Initializer/time_stepping/LtsParameters.cpp
 src/Initializer/tree/Lut.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/InitialFieldProjection.cpp
@@ -62,6 +63,8 @@ src/Checkpoint/Fault.cpp
 src/Checkpoint/posix/Wavefield.cpp
 src/Checkpoint/posix/Fault.cpp
 src/ResultWriter/AnalysisWriter.cpp
+src/ResultWriter/MiniSeisSolWriter.cpp
+src/ResultWriter/ThreadsPinningWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/PostProcessor.cpp
 src/ResultWriter/ReceiverWriter.cpp

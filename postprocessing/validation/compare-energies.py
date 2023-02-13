@@ -21,6 +21,12 @@ if __name__ == "__main__":
         "seismic_moment",
     ]
     energy = pd.read_csv(args.energy)
+
+    if 'variable' in energy:
+        # the format of the energy output changed following PR #773 (02.2023), allowing 
+        # to compute volume energies less frequently
+        energy = energy.pivot_table(index="time", columns="variable", values="measurement")
+
     energy = energy[relevant_quantities]
     energy_ref = pd.read_csv(args.energy_ref)
     energy_ref = energy_ref[relevant_quantities]

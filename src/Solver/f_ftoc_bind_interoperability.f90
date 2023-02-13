@@ -284,7 +284,7 @@ module f_ftoc_bind_interoperability
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, i_outputGroups, i_outputGroupsSize, &
         freeSurfaceInterval, outputFileNamePrefix, xdmfWriterBackend, &
         receiverFileName, receiverSamplingInterval, receiverSyncInterval, &
-        isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval, receiverComputeRotation) &
+        isPlasticityEnabled, isEnergyTerminalOutputEnabled, computeVolumeEnergiesEveryOutput, energySyncInterval, receiverComputeRotation) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -305,6 +305,7 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), value                    :: receiverSyncInterval
       logical(kind=c_bool), value :: isPlasticityEnabled
       logical(kind=c_bool), value :: isEnergyTerminalOutputEnabled
+      integer(kind=c_int), value :: computeVolumeEnergiesEveryOutput
       real(kind=c_double), value :: energySyncInterval
       logical(kind=c_bool), value :: receiverComputeRotation
 

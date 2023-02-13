@@ -36,9 +36,9 @@ namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
 
 namespace proxy::device {
-  using deviceT = ::device::DeviceInstance;
+  using deviceType = ::device::DeviceInstance;
   void computeAderIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
 
     kernels::LocalData::Loader loader;
@@ -74,7 +74,7 @@ namespace proxy::device {
   }
 
   void computeLocalWithoutAderIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
@@ -109,7 +109,7 @@ namespace proxy::device {
   }
 
   void computeLocalIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
 
     kernels::LocalData::Loader loader;
@@ -150,7 +150,7 @@ namespace proxy::device {
   }
 
   void computeNeighboringIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
 
     kernels::NeighborData::Loader loader;
@@ -189,7 +189,7 @@ namespace proxy::device {
   }
 
   void computeDynRupGodunovState() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
 
     auto& layer = m_dynRupTree->child(0).child<Interior>();
 

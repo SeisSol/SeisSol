@@ -83,6 +83,7 @@ module MeshReaderCBinding
 
         subroutine read_mesh_puml_c(meshfile, &
                                     checkPointFile, &
+                                    outputDirectory, &
                                     hasFault, &
                                     displacement, &
                                     scalingMatrix, &
@@ -96,7 +97,8 @@ module MeshReaderCBinding
                                     maximumAllowedTimeStep) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
-            character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
+            character( kind=c_char ), dimension(*), intent(in) :: meshfile, checkPointFile, outputDirectory
+            character( kind=c_char ), dimension(*), intent(in) :: easiVelocityModel
             logical( kind=c_bool ), value :: hasFault
             real(kind=c_double), dimension(*), intent(in) :: displacement
             real(kind=c_double), dimension(*), intent(in) :: scalingMatrix
@@ -149,6 +151,7 @@ contains
         elseif (io%meshgenerator .eq. 'PUML') then
             call read_mesh_puml_c(  trim(io%MeshFile) // c_null_char,           &
                                     trim(io%checkpoint%filename) // c_null_char,&
+                                    trim(io%OutputFile) // c_null_char,         &
                                     hasFault,                                   &
                                     MESH%Displacement(:),                       &
                                     m_mesh%ScalingMatrix(:,:),                  &
