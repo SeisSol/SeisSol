@@ -65,7 +65,7 @@ struct PlasticityData {
   real mufactor;
 };
 
-enum class ComputeGraphType : size_t {
+enum class ComputeGraphType {
   LocalIntegral = 0,
   AccumulatedVelocities,
   StreamedVelocities,
