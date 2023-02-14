@@ -41,5 +41,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   dynStressTimePending = layerData.var(dynRup->dynStressTimePending);
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
   qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
+  initialPressure = layerData.var(dynRup->initialPressure);
+  nucleationPressure = layerData.var(dynRup->nucleationPressure);
 }
 } // namespace seissol::dr::friction_law

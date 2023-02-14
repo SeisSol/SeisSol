@@ -67,6 +67,8 @@ class BaseFrictionLaw : public FrictionSolver {
       for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
         common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                     nucleationStressInFaultCS[ltsFace],
+                                    initialPressure[ltsFace],
+                                    nucleationPressure[ltsFace],
                                     this->mFullUpdateTime,
                                     this->drParameters->t0,
                                     this->deltaT[timeIndex]);

@@ -49,7 +49,6 @@ struct ImpedanceMatrices {
  */
 struct FaultStresses {
   alignas(ALIGNMENT) real normalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
-  alignas(ALIGNMENT) real effectiveNormalStress[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
   alignas(ALIGNMENT) real traction1[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
   alignas(ALIGNMENT) real traction2[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};
   alignas(ALIGNMENT) real fluidPressure[CONVERGENCE_ORDER][misc::numPaddedPoints] = {{}};

@@ -116,8 +116,6 @@ inline void precomputeStressFromQInterpolated(
 #else
       faultStresses.fluidPressure[o][i] = 0.0;
 #endif
-      faultStresses.effectiveNormalStress[o][i] =
-          faultStresses.normalStress[o][i] - faultStresses.fluidPressure[o][i];
     }
   }
 }
@@ -213,6 +211,8 @@ template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
 inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
+                                real initialPressure[misc::numPaddedPoints],
+                                const real nucleationPressure[misc::numPaddedPoints],
                                 real fullUpdateTime,
                                 real t0,
                                 real dt,
@@ -231,6 +231,7 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
       for (unsigned i = 0; i < 6; i++) {
         initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
       }
+      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }
   }
 }

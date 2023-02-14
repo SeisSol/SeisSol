@@ -73,6 +73,8 @@ class FrictionSolver {
   real spaceWeights[misc::numPaddedPoints];
   DREnergyOutput* energyData{};
   DRGodunovData* godunovData{};
+  real (*initialPressure)[misc::numPaddedPoints];
+  real (*nucleationPressure)[misc::numPaddedPoints];
 
   // be careful only for some FLs initialized:
   real (*dynStressTime)[misc::numPaddedPoints];
