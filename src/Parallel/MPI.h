@@ -158,7 +158,10 @@ class MPI : public MPIBasic {
     auto lengths = collect(length);
 
     std::vector<int> displacements(commSize);
-    std::exclusive_scan(lengths.begin(), lengths.end(), displacements.begin(), 0);
+    displacements[0] = 0;
+    for (int i = 1; i < displacements.size(); ++i) {
+      displacements[i] = displacements[i-1] + lengths[i-1];
+    }
 
     const auto recvBufferSize = std::accumulate(lengths.begin(), lengths.end(), 0);
     std::vector<InternalType> recvBuffer(recvBufferSize);
