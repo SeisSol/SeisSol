@@ -132,8 +132,10 @@ protected:
   struct ComputeWiggleFactorResult {
     int numberOfClusters;
     double wiggleFactor;
+    double cost;
   };
- ComputeWiggleFactorResult computeBestWiggleFactor();
+  ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
+                                                    bool isAutoMergeUsed);
 };
 }
 

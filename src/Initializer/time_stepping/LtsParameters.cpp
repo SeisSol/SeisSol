@@ -80,6 +80,8 @@ bool LtsParameters::isAutoMergeUsed() const {
 double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
   return allowedPerformanceLossRatioAutoMerge;
 }
-
+ClusterMergingCostModel LtsParameters::getClusterMergingCostModel() const {
+  return clusterMergingCostModel;
+}
 
 } // namespace seissol::initializers::time_stepping

@@ -6,6 +6,14 @@
 
 namespace seissol::initializers::time_stepping {
 
+enum class ClusterMergingCostModel {
+  // TODO(Lukas) Need better names.
+  // Use cost without wiggle and cluster merge as baseline
+  CostComputedFromBaseline,
+  // First find best wiggle factor (without merge) and use this as baseline
+  CostComputedFromBestWiggleFactor,
+};
+
 class LtsParameters {
   private:
   unsigned int rate;
@@ -15,6 +23,7 @@ class LtsParameters {
   unsigned int maxNumberOfClusters;
   bool autoMergeClusters;
   double allowedPerformanceLossRatioAutoMerge;
+  ClusterMergingCostModel clusterMergingCostModel = ClusterMergingCostModel::CostComputedFromBestWiggleFactor;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
@@ -25,6 +34,7 @@ class LtsParameters {
   [[nodiscard]] int getMaxNumberOfClusters() const;
   [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
+  [[nodiscard]] ClusterMergingCostModel getClusterMergingCostModel() const;
 
   LtsParameters(unsigned int rate,
                 double wiggleFactorMinimum,
