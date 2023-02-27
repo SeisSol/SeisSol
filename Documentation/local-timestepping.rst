@@ -21,8 +21,10 @@ The following settings are relevant:
     /
 
 To enable LTS, use the setting :code:`ClusteredLTS = 2`.
-To disable it, use the value :code:`ClusteredLTS = 1`
-Other values are currently not supported.
+This is called rate-2 LTS.
+Higher values are also supported, :code:`ClusteredLTS = N` leads to rate-N LTS (where N is a positive integer).
+To disable LTS, use the value :code:`ClusteredLTS = 1`
+For most simulations, we recommend to start with rate-2 LTS.
 
 When using local time-stepping, SeisSol updates elements only as often as needed.
 To do this, SeisSol computes a time step size for each element independently.
@@ -41,6 +43,7 @@ the second cluster elements of size
     [2 \lambda (\Delta t)^\text{min}, 4 \lambda (\Delta t)^\text{min}])
 
 and so on.
+For LTS with higher rates, the base of the exponentiation changes.
 The wiggle factor :math:`\lambda` is typically one.
 
 Maximum Difference Property

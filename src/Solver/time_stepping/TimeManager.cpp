@@ -167,19 +167,20 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
-          assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
-          assert(otherGlobalClusterId < std::min(globalClusterId +2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
+        assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
+        assert(
+            otherGlobalClusterId <
+            std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
-        const auto otherTimeStepRate = ipow(2l, static_cast<long>(otherGlobalClusterId));
+        const long otherTimeStepRate =
+            ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
+                 static_cast<long>(otherGlobalClusterId));
 
-        ghostClusters.push_back(
-          std::make_unique<GhostTimeCluster>(
-              otherTimeStepSize,
-              otherTimeStepRate,
-              globalClusterId,
-              otherGlobalClusterId,
-              meshStructure)
-        );
+        ghostClusters.push_back(std::make_unique<GhostTimeCluster>(otherTimeStepSize,
+                                                                   otherTimeStepRate,
+                                                                   globalClusterId,
+                                                                   otherGlobalClusterId,
+                                                                   meshStructure));
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*copy);
       }
