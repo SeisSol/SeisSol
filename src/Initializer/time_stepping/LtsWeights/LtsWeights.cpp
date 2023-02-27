@@ -162,20 +162,22 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   auto maxClusterIdToEnforce = ltsParameters->getMaxNumberOfClusters() - 1;
   if (ltsParameters->isWiggleFactorUsed() || ltsParameters->isAutoMergeUsed()) {
     auto cmCostModel = ltsParameters->getClusterMergingCostModel();
-    if (!ltsParameters->isWiggleFactorUsed()) {
-      // If no wiggle factor is used, both cost models lead to the same result
-      // and this one avoid computing the same clustering twice
+    if (!(ltsParameters->isWiggleFactorUsed() && ltsParameters->isAutoMergeUsed())) {
+      // Cost models only change things if both wiggle factor and auto merge are on.
+      // In all other cases, choose the cheapest cost model.
       cmCostModel = ClusterMergingCostModel::CostComputedFromBaseline;
     }
 
     ComputeWiggleFactorResult wiggleFactorResult{};
-    if (cmCostModel == ClusterMergingCostModel::CostComputedFromBaseline) {
+    if (cmCostModel == ClusterMergingCostModel::CostComputedFromBestWiggleFactor) {
       // First compute wiggle factor without merging as baseline cost
-      wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters->isAutoMergeUsed());
       const auto wiggleFactorResultBaseline = computeBestWiggleFactor(std::nullopt, false);
       // Compute wiggle factor a second time with merging and using the previous cost as baseline
       const auto baselineCost = wiggleFactorResultBaseline.cost;
-      computeBestWiggleFactor(baselineCost, ltsParameters->isAutoMergeUsed());
+      wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters->isAutoMergeUsed());
+    } else {
+      assert(cnCostModel == ClusterMergingCostModel::CostComputedFromBaseline);
+      wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters->isAutoMergeUsed());
     }
 
     wiggleFactor = wiggleFactorResult.wiggleFactor;
@@ -233,21 +235,27 @@ LtsWeights::ComputeWiggleFactorResult
 
   auto totalWiggleFactorReductions = 0u;
 
-  if (!baselineCost) {
+  if (baselineCost) {
+    logInfo(rank) << "Baseline cost before cluster merging is" << *baselineCost;
+  } else {
     // Compute baselineCost cost before wiggle factor and merging of clusters
     m_clusterIds = computeClusterIds(maxWiggleFactor);
     if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
       totalWiggleFactorReductions += enforceMaximumDifference();
     }
-    baselineCost = computeGlobalCostOfClustering(
-        m_clusterIds, m_cellCosts, m_rate, maxWiggleFactor, m_details.globalMinTimeStep, MPI::mpi.comm());
+    baselineCost = computeGlobalCostOfClustering(m_clusterIds,
+                                                 m_cellCosts,
+                                                 m_rate,
+                                                 maxWiggleFactor,
+                                                 m_details.globalMinTimeStep,
+                                                 MPI::mpi.comm());
+    logInfo(rank) << "Baseline cost, without wiggle factor and cluster merging is" << *baselineCost;
   }
   assert(baselineCost);
 
   const double maxAdmissibleCost =
       ltsParameters->getAllowedPerformanceLossRatioAutoMerge() * *baselineCost;
 
-  logInfo(rank) << "Baseline cost, without wiggle factor and cluster merging is" << *baselineCost;
   if (isAutoMergeUsed) {
     logInfo(rank) << "Maximal admissible cost after cluster merging is" << maxAdmissibleCost;
   }
@@ -300,7 +308,7 @@ LtsWeights::ComputeWiggleFactorResult
   // Find best wiggle factor after merging of clusters
   // We compare against cost of baselineCost (without wiggle, merging!)
   int minAdmissibleNumberOfClusters = std::numeric_limits<int>::max();
-  if (ltsParameters->isAutoMergeUsed()) {
+  if (isAutoMergeUsed) {
     // When merging clusters, we want to find the minimum number of clusters with admissible performance.
     bool foundAdmissibleMerge = false;
     for (const auto& [noOfClusters, cost] : mapNumberOfClustersToLowestCost) {
@@ -331,12 +339,12 @@ LtsWeights::ComputeWiggleFactorResult
 
   const auto bestWiggleFactor = mapNumberOfClustersToBestWiggleFactor[minAdmissibleNumberOfClusters];
   const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAdmissibleNumberOfClusters];
-  logInfo(rank) << "The best wiggle factor after merging clusters is" << bestWiggleFactor
+  logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor
                 << "with cost" << bestCostEstimate;
 
   logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
                 << "% with absolute cost difference" << *baselineCost - bestCostEstimate
-                << "compared to the default wiggle factor of" << maxWiggleFactor;
+                << "compared to the baseline";
   if (baselineCost < bestCostEstimate) {
     logInfo(rank) << "Note: Cost increased due to cluster merging!";
   }
