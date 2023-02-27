@@ -176,7 +176,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
       const auto baselineCost = wiggleFactorResultBaseline.cost;
       wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters->isAutoMergeUsed());
     } else {
-      assert(cnCostModel == ClusterMergingCostModel::CostComputedFromBaseline);
+      assert(cmCostModel == ClusterMergingCostModel::CostComputedFromBaseline);
       wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters->isAutoMergeUsed());
     }
 
