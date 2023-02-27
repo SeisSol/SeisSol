@@ -42,6 +42,7 @@
 #ifndef INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
 #define INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 #include <limits>
