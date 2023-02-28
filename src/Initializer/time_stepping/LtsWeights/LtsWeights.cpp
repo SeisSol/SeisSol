@@ -334,8 +334,8 @@ LtsWeights::ComputeWiggleFactorResult
 
   const auto bestWiggleFactor = mapNumberOfClustersToBestWiggleFactor[minAdmissibleNumberOfClusters];
   const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAdmissibleNumberOfClusters];
-  logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor
-                << "with cost" << bestCostEstimate;
+  logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor << "with cost"
+                << bestCostEstimate << "and" << minAdmissibleNumberOfClusters << "time clusters";
 
   logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
                 << "% with absolute cost difference" << *baselineCost - bestCostEstimate
