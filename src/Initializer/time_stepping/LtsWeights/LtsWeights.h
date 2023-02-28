@@ -108,7 +108,8 @@ protected:
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   int getBoundaryCondition(int const *boundaryCond, unsigned cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
-  void computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
+  // returns number of reductions for maximum difference
+  int computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
   int enforceMaximumDifference();
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();

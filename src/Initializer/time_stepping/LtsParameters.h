@@ -6,13 +6,14 @@
 
 namespace seissol::initializers::time_stepping {
 
-enum class ClusterMergingCostModel {
-  // TODO(Lukas) Need better names.
+enum class AutoMergeCostBaseline {
   // Use cost without wiggle and cluster merge as baseline
-  CostComputedFromBaseline,
+  MaxWiggleFactor,
   // First find best wiggle factor (without merge) and use this as baseline
-  CostComputedFromBestWiggleFactor,
+  BestWiggleFactor,
 };
+
+AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str);
 
 class LtsParameters {
   private:
@@ -23,7 +24,7 @@ class LtsParameters {
   unsigned int maxNumberOfClusters;
   bool autoMergeClusters;
   double allowedPerformanceLossRatioAutoMerge;
-  ClusterMergingCostModel clusterMergingCostModel = ClusterMergingCostModel::CostComputedFromBestWiggleFactor;
+  AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
@@ -34,7 +35,7 @@ class LtsParameters {
   [[nodiscard]] int getMaxNumberOfClusters() const;
   [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
-  [[nodiscard]] ClusterMergingCostModel getClusterMergingCostModel() const;
+  [[nodiscard]] AutoMergeCostBaseline getClusterMergingBaseline() const;
 
   LtsParameters(unsigned int rate,
                 double wiggleFactorMinimum,
@@ -42,7 +43,8 @@ class LtsParameters {
                 bool wigleFactorEnforceMaximumDifference,
                 int maxNumberOfClusters,
                 bool ltsAutoMergeClusters,
-                double allowedPerformanceLossRatioAutoMerge);
+                double allowedPerformanceLossRatioAutoMerge,
+                AutoMergeCostBaseline autoMergeCostBaseline);
 };
 
 LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params);
