@@ -97,7 +97,7 @@ bool LtsParameters::isAutoMergeUsed() const {
 double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
   return allowedPerformanceLossRatioAutoMerge;
 }
-AutoMergeCostBaseline LtsParameters::getClusterMergingBaseline() const {
+AutoMergeCostBaseline LtsParameters::getAutoMergeCostBaseline() const {
   return autoMergeCostBaseline;
 }
 

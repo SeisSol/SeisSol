@@ -161,7 +161,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 
   auto maxClusterIdToEnforce = ltsParameters->getMaxNumberOfClusters() - 1;
   if (ltsParameters->isWiggleFactorUsed() || ltsParameters->isAutoMergeUsed()) {
-    auto autoMergeBaseline = ltsParameters->getClusterMergingBaseline();
+    auto autoMergeBaseline = ltsParameters->getAutoMergeCostBaseline();
     if (!(ltsParameters->isWiggleFactorUsed() && ltsParameters->isAutoMergeUsed())) {
       // Cost models only change things if both wiggle factor and auto merge are on.
       // In all other cases, choose the cheapest cost model.
@@ -176,7 +176,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
       const auto baselineCost = wiggleFactorResultBaseline.cost;
       wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters->isAutoMergeUsed());
     } else {
-      assert(autoMergeBaseline == ClusterMergingCostModel::MaxWiggleFactor);
+      assert(autoMergeBaseline == AutoMergeCostBaseline::MaxWiggleFactor);
       wiggleFactorResult = computeBestWiggleFactor(std::nullopt, ltsParameters->isAutoMergeUsed());
     }
 

@@ -35,7 +35,7 @@ class LtsParameters {
   [[nodiscard]] int getMaxNumberOfClusters() const;
   [[nodiscard]] bool isAutoMergeUsed() const;
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
-  [[nodiscard]] AutoMergeCostBaseline getClusterMergingBaseline() const;
+  [[nodiscard]] AutoMergeCostBaseline getAutoMergeCostBaseline() const;
 
   LtsParameters(unsigned int rate,
                 double wiggleFactorMinimum,
