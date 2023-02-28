@@ -239,10 +239,7 @@ LtsWeights::ComputeWiggleFactorResult
     logInfo(rank) << "Baseline cost before cluster merging is" << *baselineCost;
   } else {
     // Compute baselineCost cost before wiggle factor and merging of clusters
-    m_clusterIds = computeClusterIds(maxWiggleFactor);
-    if (ltsParameters->getWiggleFactorEnforceMaximumDifference()) {
-      totalWiggleFactorReductions += enforceMaximumDifference();
-    }
+    computeClusterIdsAndEnforceMaximumDifferenceCached(maxWiggleFactor);
     baselineCost = computeGlobalCostOfClustering(m_clusterIds,
                                                  m_cellCosts,
                                                  m_rate,
