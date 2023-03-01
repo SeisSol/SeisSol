@@ -4,6 +4,18 @@
 
 namespace seissol::initializers::time_stepping {
 
+AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
+  // Convert str to lower case to make function case-insensitive
+  // Note: This is, of course, broken for non-ASCI input.
+  std::transform(str.begin(), str.end(), str.begin(), [](auto c) { return std::tolower(c); });
+  if (str == "bestwigglefactor") {
+    return AutoMergeCostBaseline::BestWiggleFactor;
+  } else if (str == "maxwigglefactor") {
+    return AutoMergeCostBaseline::MaxWiggleFactor;
+  }
+  throw std::invalid_argument(str + " is not a valid cluster merging baseline");
+}
+
 LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   using namespace seissol::initializers;
 
@@ -22,13 +34,16 @@ LtsParameters readLtsParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
   const double allowedRelativePerformanceLossAutoMerge =
       getWithDefault(discretizationParams, "ltsallowedrelativeperformancelossautomerge", 0.0);
   const double allowedPerformanceLossRatioAutoMerge = allowedRelativePerformanceLossAutoMerge + 1.0;
+  const auto autoMergeCostBaseline = parseAutoMergeCostBaseline((getWithDefault(
+      discretizationParams, "ltsautomergecostbaseline", std::string("bestwigglefactor"))));
   return LtsParameters(rate,
                        wiggleFactorMinimum,
                        wiggleFactorStepsize,
                        wiggleFactorEnforceMaximumDifference,
                        maxNumberOfClusters,
                        autoMergeClusters,
-                       allowedPerformanceLossRatioAutoMerge);
+                       allowedPerformanceLossRatioAutoMerge,
+                       autoMergeCostBaseline);
 }
 
 LtsParameters::LtsParameters(unsigned int rate,
@@ -36,14 +51,16 @@ LtsParameters::LtsParameters(unsigned int rate,
                              double wiggleFactorStepsize,
                              bool wigleFactorEnforceMaximumDifference,
                              int maxNumberOfClusters,
-                             bool autoMergeClusters,
-                             double allowedPerformanceLossRatioAutoMerge)
+                             bool ltsAutoMergeClusters,
+                             double allowedPerformanceLossRatioAutoMerge,
+                             AutoMergeCostBaseline autoMergeCostBaseline)
     : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
       maxNumberOfClusters(maxNumberOfClusters),
-      autoMergeClusters(autoMergeClusters),
-      allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge) {
+      autoMergeClusters(ltsAutoMergeClusters),
+      allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge),
+      autoMergeCostBaseline(autoMergeCostBaseline) {
   const bool isWiggleFactorValid =
       (rate == 1 && wiggleFactorMinimum == 1.0) ||
       (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate));
@@ -80,6 +97,8 @@ bool LtsParameters::isAutoMergeUsed() const {
 double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
   return allowedPerformanceLossRatioAutoMerge;
 }
-
+AutoMergeCostBaseline LtsParameters::getAutoMergeCostBaseline() const {
+  return autoMergeCostBaseline;
+}
 
 } // namespace seissol::initializers::time_stepping

@@ -12,7 +12,8 @@ TEST_CASE("LTS Weights") {
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
 
-  auto ltsParameters = std::make_unique<LtsParameters>(2, 1.0, 0.01, false, 100, false, 1.0);
+  auto ltsParameters = std::make_unique<LtsParameters>(
+      2, 1.0, 0.01, false, 100, false, 1.0, AutoMergeCostBaseline::MaxWiggleFactor);
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, ltsParameters.get());
   seissol::PUMLReader pumlReader("Testing/mesh.h5", 5000.0, "", ltsWeights.get());
   std::cout.clear();
@@ -137,7 +138,8 @@ TEST_CASE("Auto merging of clusters") {
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
   const auto minDt = 0.5;
-  const auto costBefore = computeLocalCostOfClustering(clusterIds, cellCosts, 2, 1.0, minDt);
+  const auto costBeforeRate2 = computeLocalCostOfClustering(clusterIds, cellCosts, 2, 1.0, minDt);
+  const auto costBeforeRate3 = computeLocalCostOfClustering(clusterIds, cellCosts, 3, 1.0, minDt);
 
   SUBCASE("Reduces to GTS") {
     const auto should = 0;
@@ -158,11 +160,13 @@ TEST_CASE("Auto merging of clusters") {
   SUBCASE("No performance loss allowed") {
     const auto should = 2;
     SUBCASE("Rate 2") {
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, costBefore, 1, minDt);
+      const auto is =
+          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
     SUBCASE("Rate 3") {
-      const auto is = computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 3, costBefore, 1, minDt);
+      const auto is =
+          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 3, costBeforeRate3, 1, minDt);
       REQUIRE(is == should);
     }
   }
@@ -171,13 +175,13 @@ TEST_CASE("Auto merging of clusters") {
     SUBCASE("Merge one cluster") {
       const auto should = 1;
       const auto is =
-          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25 * costBefore, 1, minDt);
+          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
     SUBCASE("Merge two clusters") {
       const auto should = 0;
       const auto is =
-          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06 * costBefore, 1, minDt);
+          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
   }

@@ -18,6 +18,7 @@ The following settings are relevant:
     LtsMaxNumberOfClusters = 20
     LtsAutoMergeClusters = 1
     LtsAllowedRelativePerformanceLossAutoMerge = 0.01
+    LtsAutoMergeCostBaseline = 'bestWiggleFactor'
     /
 
 To enable LTS, use the setting :code:`ClusteredLTS = 2`.
@@ -86,7 +87,14 @@ You can set a maximum number of clusters by setting :code:`LtsMaxNumberOfCluster
 SeisSol also supports the automatic merging of clusters.
 For this, you need to set *LtsAutoMergeClusters* to one.
 The parameter *LtsAllowedRelativePerformanceLossAutoMerge* controls the allowed relative performance loss when merging clusters compared
-to the baseline cost without cluster-merging and wiggle factor.
+to the baseline cost.
+There are two different types of computing the baseline cost.
+:code:`LtsAutoMergeCostBaseline = 'bestWiggleFactor'` allows merging clusters without losing the performance gained from the wiggle factor.
+It computes the optimal wiggle factor without merging and then computes the best wiggle factor with auto-merging using the previous result as baseline.
+This requires two iterations of finding the best wiggle factor but because the results of the most expensive operations are cached in the implementation, it is not much slower than :code:`LtsAutoMergeCostBaseline = 'maxWiggleFactor'`.
+Alternatively, you can use :code:`LtsAutoMergeCostBaseline = 'maxWiggleFactor'`, which computes the cost without merging and wiggle factor and uses this as baseline cost.
+The default and recommended choice is :code:`LtsAutoMergeCostBaseline = 'bestWiggleFactor'`.
+
 
 These features should be considered experimental at this point.
 
