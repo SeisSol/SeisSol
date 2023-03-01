@@ -104,6 +104,7 @@ LtsWiggleFactorEnforceMaximumDifference = 1 ! 0 or 1: Enforces the maximum diffe
 LtsMaxNumberOfClusters = 20 ! Enforces a maximal number of clusters
 LtsAutoMergeClusters = 0 !  0 or 1: Activates auto merging of clusters
 LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters such that new computational cost is at most increased by this factor
+LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging clusters. Valid options: bestWiggleFactor / maxWiggleFactor
 
 
 /

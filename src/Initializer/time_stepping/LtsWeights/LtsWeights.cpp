@@ -171,8 +171,11 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     ComputeWiggleFactorResult wiggleFactorResult{};
     if (autoMergeBaseline == AutoMergeCostBaseline::BestWiggleFactor) {
       // First compute wiggle factor without merging as baseline cost
+      logInfo(rank) << "Using best wiggle factor as baseline cost for auto merging.";
+      logInfo(rank) << "1. Compute best wiggle factor without merging clusters";
       const auto wiggleFactorResultBaseline = computeBestWiggleFactor(std::nullopt, false);
       // Compute wiggle factor a second time with merging and using the previous cost as baseline
+      logInfo(rank) << "2. Compute best wiggle factor with merging clusters, using the previous cost estimate as baseline";
       const auto baselineCost = wiggleFactorResultBaseline.cost;
       wiggleFactorResult = computeBestWiggleFactor(baselineCost, ltsParameters->isAutoMergeUsed());
     } else {
@@ -301,7 +304,7 @@ LtsWeights::ComputeWiggleFactorResult
   }
 
   // Find best wiggle factor after merging of clusters
-  // We compare against cost of baselineCost (without wiggle, merging!)
+  // We compare against cost of baselineCost.
   int minAdmissibleNumberOfClusters = std::numeric_limits<int>::max();
   if (isAutoMergeUsed) {
     // When merging clusters, we want to find the minimum number of clusters with admissible performance.
@@ -337,10 +340,14 @@ LtsWeights::ComputeWiggleFactorResult
   logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor << "with cost"
                 << bestCostEstimate << "and" << minAdmissibleNumberOfClusters << "time clusters";
 
-  logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
-                << "% with absolute cost difference" << *baselineCost - bestCostEstimate
-                << "compared to the baseline";
-  if (baselineCost < bestCostEstimate) {
+  if (baselineCost > bestCostEstimate) {
+    logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
+                  << "% with absolute cost decrease of" << *baselineCost - bestCostEstimate
+                  << "compared to the baseline";
+  } else {
+    logInfo(rank) << "Cost increased" << (bestCostEstimate - *baselineCost) / *baselineCost * 100
+                  << "% with absolute cost increase of" << bestCostEstimate - *baselineCost
+                  << "compared to the baseline";
     logInfo(rank) << "Note: Cost increased due to cluster merging!";
   }
 

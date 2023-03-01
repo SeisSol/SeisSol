@@ -89,6 +89,9 @@ class LtsWeights {
 public:
   LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters);
 
+
+
+
   virtual ~LtsWeights() = default;
   void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
 
