@@ -158,13 +158,12 @@ module f_ftoc_bind_interoperability
   
   ! Don't forget to add // c_null_char to materialFileName when using this interface
   interface
-    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, poroelasticity, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
+    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, poroelasticity, &
+      useCellHomogenizedMaterial, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: materialFileName
-      integer(kind=c_int), value                        :: anelasticity
-      integer(kind=c_int), value                        :: plasticity
-      integer(kind=c_int), value                        :: anisotropy, poroelasticity
+      integer(kind=c_int), value                        :: anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial
       real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress, waveSpeeds
     end subroutine
   end interface
@@ -176,15 +175,6 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in)  :: parameterName
       real(kind=c_double), dimension(*), intent(in)    :: memory
     end subroutine
-  end interface
-
-  ! Don't forget to add // c_null_char to modelFileName when using this interface
-  interface
-    logical(kind=c_bool) function c_interoperability_faultParameterizedByTraction(modelFileName) bind( C, name='c_interoperability_faultParameterizedByTraction' )
-      use iso_c_binding, only: c_char, c_bool
-      implicit none
-      character(kind=c_char), dimension(*), intent(in)  :: modelFileName
-    end function
   end interface
 
   ! Don't forget to add // c_null_char to modelFileName when using this interface
@@ -292,9 +282,9 @@ module f_ftoc_bind_interoperability
 
     subroutine c_interoperability_initializeIO( &
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_plasticityMask, i_outputRegionBounds, i_outputGroups, i_outputGroupsSize, &
-        freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
+        freeSurfaceInterval, outputFileNamePrefix, xdmfWriterBackend, &
         receiverFileName, receiverSamplingInterval, receiverSyncInterval, &
-        isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval) &
+        isPlasticityEnabled, isEnergyTerminalOutputEnabled, computeVolumeEnergiesEveryOutput, energySyncInterval, receiverComputeRotation) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -308,14 +298,16 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), dimension(*), intent(in) :: i_outputGroups
       integer(kind=c_int), value :: i_outputGroupsSize
       real(kind=c_double), value                    :: freeSurfaceInterval
-      character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
+      character(kind=c_char), dimension(*), intent(in) :: outputFileNamePrefix
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
       character(kind=c_char), dimension(*), intent(in) :: receiverFileName
       real(kind=c_double), value                    :: receiverSamplingInterval
       real(kind=c_double), value                    :: receiverSyncInterval
       logical(kind=c_bool), value :: isPlasticityEnabled
       logical(kind=c_bool), value :: isEnergyTerminalOutputEnabled
+      integer(kind=c_int), value :: computeVolumeEnergiesEveryOutput
       real(kind=c_double), value :: energySyncInterval
+      logical(kind=c_bool), value :: receiverComputeRotation
 
 
     end subroutine

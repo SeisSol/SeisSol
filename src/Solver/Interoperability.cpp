@@ -146,6 +146,7 @@ extern "C" {
                                             int     plasticity,
                                             int     anisotropy,
                                             int     poroelasticity,
+                                            int     useCellHomogenizedMaterial,
                                             double* materialVal,
                                             double* bulkFriction,
                                             double* plastCo,
@@ -157,6 +158,7 @@ extern "C" {
                                         plasticity,
                                         anisotropy,
                                         poroelasticity,
+                                        useCellHomogenizedMaterial,
                                         materialVal,
                                         bulkFriction,
                                         plastCo,
@@ -218,15 +220,17 @@ extern "C" {
   void c_interoperability_initializeIO(
 		  int numSides, int numBndGP, int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
 		  int* outputGroups, int outputGroupsSize,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, const char* xdmfWriterBackend,
+		  double freeSurfaceInterval, const char* outputFileNamePrefix, const char* xdmfWriterBackend,
       const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
-      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, double energySyncInterval) {
+      bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, int computeVolumeEnergiesEveryOutput,
+      double energySyncInterval, bool receiverComputeRotation) {
       auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
     e_interoperability.initializeIO(numSides, numBndGP, refinement, outputMask, plasticityMask, outputRegionBounds,
                                     outputGroupBounds,
-                                    freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
+                                    freeSurfaceInterval, outputFileNamePrefix, xdmfWriterBackend,
                                     receiverFileName, receiverSamplingInterval, receiverSyncInterval,
-                                    isPlasticityEnabled, isEnergyTerminalOutputEnabled, energySyncInterval);
+                                    isPlasticityEnabled, isEnergyTerminalOutputEnabled, computeVolumeEnergiesEveryOutput,
+                                    energySyncInterval, receiverComputeRotation);
   }
 
   void c_interoperability_projectInitialField() {
@@ -557,6 +561,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   bool    plasticity,
                                                   bool    anisotropy,
                                                   bool    poroelasticity,
+                                                  bool    useCellHomogenizedMaterial,
                                                   double* materialVal,
                                                   double* bulkFriction,
                                                   double* plastCo,
@@ -572,15 +577,17 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   // poroelastic material
 
   //first initialize the (visco-)elastic part
-  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  auto& meshReader = seissol::SeisSol::main.meshReader();
+  auto nElements = meshReader.getElements().size();
   auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
     waveSpeeds[pos] = material->getMaxWaveSpeed();
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();
     waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
-  if (anisotropy) { 
-    if(anelasticity || plasticity) {
+  seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, meshReader);
+
+  if (anisotropy) {
+    if (anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
     }
     auto materials = std::vector<seissol::model::AnisotropicMaterial>(nElements);
@@ -678,6 +685,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       }
     } 
   }
+  delete queryGen;
 }
 
 void seissol::Interoperability::fitAttenuation( double rho,
@@ -871,12 +879,13 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                                         int* outputMask,
                                         int* plasticityMask, double* outputRegionBounds,
                                         const std::unordered_set<int>& outputGroups,
-                                        double freeSurfaceInterval, const char* freeSurfaceFilename,
+                                        double freeSurfaceInterval, const char* outputFileNamePrefix,
                                         const char* xdmfWriterBackend,
                                         const char* receiverFileName, double receiverSamplingInterval,
                                         double receiverSyncInterval,
                                         bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled,
-                                        double energySyncInterval)
+                                        int computeVolumeEnergiesEveryOutput,
+                                        double energySyncInterval, bool receiverComputeRotation)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
@@ -942,15 +951,16 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
 	seissol::SeisSol::main.freeSurfaceWriter().init(
 		seissol::SeisSol::main.meshReader(),
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
-		freeSurfaceFilename, freeSurfaceInterval, type);
+		outputFileNamePrefix, freeSurfaceInterval, type);
 
 
   auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
   // Initialize receiver output
   receiverWriter.init(std::string(receiverFileName),
-                      std::string(freeSurfaceFilename),
+                      std::string(outputFileNamePrefix),
                       receiverSyncInterval,
                       receiverSamplingInterval,
+                      receiverComputeRotation,
                      seissol::SeisSol::main.meshReader(),
                       m_ltsLut,
                       *m_lts,
@@ -971,12 +981,15 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
                     &m_ltsLut,
                     isPlasticityEnabled,
                     isEnergyTerminalOutputEnabled,
-                    freeSurfaceFilename,
+                    computeVolumeEnergiesEveryOutput,
+                    outputFileNamePrefix,
                     energySyncInterval);
+
+  seissol::SeisSol::main.flopCounter().init(outputFileNamePrefix);
 
 	seissol::SeisSol::main.analysisWriter().init(
 	    &seissol::SeisSol::main.meshReader(),
-	    freeSurfaceFilename);
+	    outputFileNamePrefix);
 }
 
 void seissol::Interoperability::initInitialConditions()

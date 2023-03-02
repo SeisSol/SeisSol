@@ -77,8 +77,9 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate) {
   ct.timeStepRate = timeStepRate;
 }
 
-DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces) :
-    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces) {}
+DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster) :
+    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces),
+      firstClusterWithDynamicRuptureFaces(isFirstDynamicRuptureCluster) {}
 
 bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const {
   return curCorrectionSteps > lastCorrectionStepsInterior;
@@ -104,6 +105,11 @@ void DynamicRuptureScheduler::setLastFaultOutput(long steps) {
 
 bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
   return numberOfDynamicRuptureFaces > 0;
+}
+
+
+bool DynamicRuptureScheduler::isFirstClusterWithDynamicRuptureFaces() const {
+  return firstClusterWithDynamicRuptureFaces;
 }
 } // namespace seissol::time_stepping
 

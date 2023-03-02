@@ -9,10 +9,10 @@ In order to run SeisSol, you need to first install:
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
 -  Intel compiler (>= 2021, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
--  ParMETIS for partitioning
+-  ParMETIS for partitioning (with IDXTYPEWIDTH=64)
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.10) for the compilation of SeisSol
+-  CMake (>= 3.20) for the compilation of SeisSol
 
 In addition, the following packages need to be installed for the GPU version of SeisSol:
 
@@ -65,8 +65,8 @@ Installing CMake
 
 .. code-block:: bash
 
-  # you will need at least version 3.10.2 for GNU Compiler Collection 
-  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.10.2/cmake-3.10.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.10.2-Linux-x86_64" "${HOME}/bin/cmake")
+  # you will need at least version 3.20.0 for GNU Compiler Collection 
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${HOME}/bin/cmake")
   
   # use version 3.16.2 for Intel Compiler Collection
   (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.16.2-Linux-x86_64" "${HOME}/bin/cmake")
@@ -194,8 +194,7 @@ Installing GemmForge, ChainForge (for GPUs)
 .. code-block:: bash
 
    pip3 install --user git+https://github.com/ravil-mobile/gemmforge.git
-   pip3 install --user https://github.com/ravil-mobile/chainforge.git
-
+   pip3 install --user git+https://github.com/ravil-mobile/chainforge.git
 
 Installing SYCL (for GPUs)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

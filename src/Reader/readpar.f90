@@ -231,11 +231,11 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial
     REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
-                                           Tv, &
+                                           Tv, UseCellHomogenizedMaterial, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName, GravitationalAcceleration
@@ -278,8 +278,10 @@ CONTAINS
     Plasticity          = 0
     Tv                  = 0.03  !standard value from SCEC benchmarks
     Adjoint             = 0
+    UseCellHomogenizedMaterial = 1
     MaterialFileName    = ''
     BoundaryFileName    = ''
+    
 
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
@@ -309,6 +311,17 @@ CONTAINS
         logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
+      call exit(134)
+    END SELECT
+
+    EQN%UseCellHomogenizedMaterial = UseCellHomogenizedMaterial
+    SELECT CASE(UseCellHomogenizedMaterial)
+    CASE(0)
+      logInfo0(*) 'Use element barycenter to sample material values.'
+    CASE(1)
+      logInfo0(*) 'Use averaging to sample material values, when implemented.'
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 for UseCellHomogenizedMaterial. '
       call exit(134)
     END SELECT
 
@@ -2085,13 +2098,26 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                          :: DGFineOut1D, ClusteredLTS, CKMethod, &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
-                                        Order, Material, nPolyMap, LtsWeightTypeId
-    REAL                             :: CFL, FixTimeStep, StableDt
+                                        Order, Material, nPolyMap, LtsWeightTypeId, &
+                                        ltsWiggleFactorEnforceMaximumDifference, &
+                                        ltsAutoMergeClusters, &
+                                        ltsMaxNumberOfClusters
+    REAL                             :: CFL, FixTimeStep, StableDt, ltsWiggleFactorMin, &
+                                        ltsWiggleFactorStepsize, &
+                                        ltsAllowedRelativePerformanceLossAutoMerge
+    CHARACTER(LEN=300)               :: ltsAutoMergeCostBaseline
     NAMELIST                         /Discretization/ DGFineOut1D, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
-                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId
+                                                      nPolyMap, CFL, FixTimeStep, LtsWeightTypeId, &
+                                                      ltsWiggleFactorMin, ltsWiggleFactorStepsize, &
+                                                      ltsWiggleFactorEnforceMaximumDifference, &
+                                                      ltsMaxNumberOfClusters, &
+                                                      ltsAutoMergeClusters, &
+                                                      ltsAllowedRelativePerformanceLossAutoMerge, &
+                                                      ltsAutoMergeCostBaseline
+
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2270,7 +2296,9 @@ ALLOCATE( SpacePositionx(nDirac), &
       character(LEN=64)                :: xdmfWriterBackend
       INTEGER                          :: EnergyOutput
       INTEGER                          :: EnergyTerminalOutput
+      INTEGER                          :: computeVolumeEnergiesEveryOutput
       real                             :: EnergyOutputInterval
+      INTEGER                          :: ReceiverComputeRotation
 
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
@@ -2279,7 +2307,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval, nRecordPoints, &
-                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, computeVolumeEnergiesEveryOutput, ReceiverComputeRotation
 
               !------------------------------------------------------------------------
     !
@@ -2314,12 +2342,14 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       ReceiverOutputInterval = 1.0e99
+      ReceiverComputeRotation = 0
       iPlasticityMask(1:6) = 0
       iPlasticityMask(7) = 1
 
       EnergyOutput = 0
       EnergyTerminalOutput = 0
       EnergyOutputInterval = -1.0
+      computeVolumeEnergiesEveryOutput = 1
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
 
     IF (readStat.NE.0) THEN
@@ -2333,6 +2363,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval
       IO%ReceiverOutputInterval = ReceiverOutputInterval
+      IO%ReceiverComputeRotation = ReceiverComputeRotation
 
       logInfo(*) 'Data OUTPUT is written to files '
       logInfo(*) '  ' ,IO%OutputFile
@@ -2604,6 +2635,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             IO%EnergyOutputInterval = -1.0
         end if
         IO%isEnergyTerminalOutputEnabled = EnergyTerminalOutput == 1
+        IO%computeVolumeEnergiesEveryOutput = computeVolumeEnergiesEveryOutput
         IO%energyOutputInterval = EnergyOutputInterval
 
       IF(EQN%DR.NE.0) THEN

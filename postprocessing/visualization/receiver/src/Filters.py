@@ -194,7 +194,7 @@ class Pick(Filter):
         widget.stateChanged.connect(self.filterChanged)
         self.cb_widget_list.append(widget)
     layout = QGridLayout()
-    nwidget_over_3 = len(self.cb_widget_list)/3
+    nwidget_over_3 = len(self.cb_widget_list)//3
     for k, widget in enumerate(self.cb_widget_list):
         col = k // nwidget_over_3
         layout.addWidget(widget, k - col * nwidget_over_3, col)

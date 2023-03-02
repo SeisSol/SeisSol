@@ -9,54 +9,54 @@
 #include <Kernels/Interface.hpp>
 #include <vector>
 
-namespace seissol {
-namespace initializers {
-namespace recording {
-
-
-template<typename LtsT>
+namespace seissol::initializers::recording {
+template <typename LtsT>
 class AbstractRecorder {
-public:
+  public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(LtsT &handler, Layer &layer) = 0;
+  virtual void record(LtsT& handler, Layer& layer) = 0;
 
-protected:
-  void checkKey(const ConditionalKey &key) {
+  protected:
+  void checkKey(const ConditionalKey& key) {
     if (currentTable->find(key) != currentTable->end()) {
       logError()
           << "Table key conflict detected. Problems with hashing in batch recording subsystem";
     }
   }
 
-  void setUpContext(LtsT &handler, Layer &layer) {
-    currentTable = &(layer.getCondBatchTable());
+  void setUpContext(LtsT& handler, Layer& layer) {
+    currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
+    currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
+    currentMaterialTable = &(layer.getConditionalTable<inner_keys::Material>());
+    currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices>());
     currentHandler = &(handler);
     currentLayer = &(layer);
   }
 
-  ConditionalBatchTableT *currentTable{nullptr};
-  LtsT *currentHandler{nullptr};
-  Layer *currentLayer{nullptr};
+  ConditionalPointersToRealsTable* currentTable{nullptr};
+  DrConditionalPointersToRealsTable* currentDrTable{nullptr};
+  ConditionalMaterialTable* currentMaterialTable{nullptr};
+  ConditionalIndicesTable* currentIndicesTable{nullptr};
+  LtsT* currentHandler{nullptr};
+  Layer* currentLayer{nullptr};
 };
 
-template<typename LtsT>
+template <typename LtsT>
 class CompositeRecorder : public AbstractRecorder<LtsT> {
-public:
+  public:
   ~CompositeRecorder() override {
     for (auto recorder : concreteRecorders)
       delete recorder;
   }
 
-  void record(LtsT &handler, Layer &layer) override {
+  void record(LtsT& handler, Layer& layer) override {
     for (auto recorder : concreteRecorders) {
       recorder->record(handler, layer);
     }
   }
 
-  void addRecorder(AbstractRecorder<LtsT> *recorder) {
-    concreteRecorders.push_back(recorder);
-  }
+  void addRecorder(AbstractRecorder<LtsT>* recorder) { concreteRecorders.push_back(recorder); }
 
   void removeRecorder(size_t recorderIndex) {
     if (recorderIndex < concreteRecorders.size()) {
@@ -64,75 +64,78 @@ public:
     }
   }
 
-private:
-  std::vector<AbstractRecorder<LtsT> *> concreteRecorders{};
+  private:
+  std::vector<AbstractRecorder<LtsT>*> concreteRecorders{};
 };
 
-
 class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializers::LTS> {
-public:
-  void record(LTS &handler, Layer &layer) override;
+  public:
+  void record(LTS& handler, Layer& layer) override;
 
-private:
-  void setUpContext(LTS &handler, Layer &layer, kernels::LocalData::Loader &loader) {
+  private:
+  void setUpContext(LTS& handler, Layer& layer, kernels::LocalData::Loader& loader) {
     currentLoader = &loader;
     integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
 
-  kernels::LocalData::Loader *currentLoader{nullptr};
+  kernels::LocalData::Loader* currentLoader{nullptr};
   void recordTimeAndVolumeIntegrals();
+  void recordFreeSurfaceGravityBc();
+  void recordDirichletBc();
+  void recordAnalyticalBc();
   void recordLocalFluxIntegral();
   void recordDisplacements();
-  std::unordered_map<size_t, real *> idofsAddressRegistry{};
+
+  std::unordered_map<size_t, real*> idofsAddressRegistry{};
+  std::vector<real*> dQPtrs{};
+
   size_t integratedDofsAddressCounter{0};
   size_t derivativesAddressCounter{0};
 };
 
-
 class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializers::LTS> {
-public:
-  void record(LTS &handler, Layer &layer) override;
-private:
-  void setUpContext(LTS &handler, Layer &layer, kernels::NeighborData::Loader &loader) {
+  public:
+  void record(LTS& handler, Layer& layer) override;
+
+  private:
+  void setUpContext(LTS& handler, Layer& layer, kernels::NeighborData::Loader& loader) {
     currentLoader = &loader;
     integratedDofsAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
   void recordNeighbourFluxIntegrals();
-  kernels::NeighborData::Loader *currentLoader{nullptr};
-  std::unordered_map<real *, real *> idofsAddressRegistry{};
+  kernels::NeighborData::Loader* currentLoader{nullptr};
+  std::unordered_map<real*, real*> idofsAddressRegistry{};
   size_t integratedDofsAddressCounter{0};
 };
 
-
 class PlasticityRecorder : public AbstractRecorder<seissol::initializers::LTS> {
-public:
-  void setUpContext(LTS &handler, Layer &layer, kernels::LocalData::Loader &loader) {
+  public:
+  void setUpContext(LTS& handler, Layer& layer, kernels::LocalData::Loader& loader) {
     currentLoader = &loader;
     AbstractRecorder::setUpContext(handler, layer);
   }
 
-  void record(LTS &handler, Layer &layer) override;
-  kernels::LocalData::Loader *currentLoader{nullptr};
+  void record(LTS& handler, Layer& layer) override;
+  kernels::LocalData::Loader* currentLoader{nullptr};
 };
 
 class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializers::DynamicRupture> {
-public:
-  void record(DynamicRupture &handler, Layer &layer) override;
-private:
-  void setUpContext(DynamicRupture &handler, Layer &layer) {
+  public:
+  void record(DynamicRupture& handler, Layer& layer) override;
+
+  private:
+  void setUpContext(DynamicRupture& handler, Layer& layer) {
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
-  std::unordered_map<real *, real *> idofsAddressRegistry{};
+  std::unordered_map<real*, real*> idofsAddressRegistry{};
 };
 
-} // namespace recording
-} // namespace initializers
-} // namespace seissol
+} // namespace seissol::initializers::recording
 
 #endif // SEISSOL_RECORDERS_H

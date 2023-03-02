@@ -67,8 +67,11 @@ public:
         // TODO(Lukas) When is this called?
       }
 
-      void init(std::string receiverFileName, std::string fileNamePrefix,
-                double syncPointInterval, double samplingInterval,
+      void init(std::string receiverFileName,
+                std::string fileNamePrefix,
+                double syncPointInterval,
+                double samplingInterval,
+                bool computeRotation,
                 const MeshReader& mesh,
                 const seissol::initializers::Lut& ltsLut,
                 const seissol::initializers::LTS& lts,
@@ -107,6 +110,7 @@ public:
       std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
+      bool        m_computeRotation;
       // Map needed because LayerType enum casts weirdly to int.
       std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
       Stopwatch   stopwatch;

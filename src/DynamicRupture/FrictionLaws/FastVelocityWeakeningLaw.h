@@ -66,8 +66,8 @@ class FastVelocityWeakeningLaw
     const real exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
     const real localStateVariable =
         steadyStateStateVariable * (1.0 - exp1) + exp1 * stateVarReference;
-    assert(!(std::isnan(localStateVariable) && pointIndex < misc::numberOfBoundaryGaussPoints) &&
-           "NaN detected");
+    assert((std::isfinite(localStateVariable) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+           "Inf/NaN detected");
     return localStateVariable;
   }
 
@@ -85,11 +85,14 @@ class FastVelocityWeakeningLaw
                 real localSlipRateMagnitude,
                 real localStateVariable) const {
     // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
-    const real localA = this->a[ltsFace][pointIndex];
+    const double localA = this->a[ltsFace][pointIndex];
     // x in asinh(x) for mu calculation
-    const real x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
-                   localSlipRateMagnitude;
-    return localA * misc::asinh(x);
+    const double x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
+                     localSlipRateMagnitude;
+    const double result = localA * misc::asinh(x);
+    assert((std::isfinite(result) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+           "Inf/NaN detected");
+    return result;
   }
 
   /**
@@ -105,9 +108,13 @@ class FastVelocityWeakeningLaw
                           unsigned int pointIndex,
                           real localSlipRateMagnitude,
                           real localStateVariable) const {
-    const real localA = this->a[ltsFace][pointIndex];
-    const real c = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA);
-    return localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
+    const double localA = this->a[ltsFace][pointIndex];
+    const double c = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA);
+    const double result =
+        localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
+    assert((std::isfinite(result) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+           "Inf/NaN detected");
+    return result;
   }
 
   /**
@@ -131,8 +138,7 @@ class FastVelocityWeakeningLaw
     #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
-          std::max(static_cast<real>(0.0),
-                   this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex]);
+          this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
