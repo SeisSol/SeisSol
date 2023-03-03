@@ -538,7 +538,16 @@ int LtsWeights::enforceMaximumDifference() {
   int totalNumberOfReductions = 0;
   int globalNumberOfReductions;
   do {
-    int localNumberOfReductions = enforceMaximumDifferenceLocal();
+    const int maxDifference = 1;
+    int localNumberOfReductions = 0;
+    int curNumberOfReductions = 0;
+    // First ensure a steady-state on local elements
+    do {
+          curNumberOfReductions = enforceMaximumDifferenceLocal(maxDifference, false);
+          localNumberOfReductions += curNumberOfReductions;
+    } while (curNumberOfReductions > 0);
+    // Then handle MPI neighbors.
+    localNumberOfReductions += enforceMaximumDifferenceLocal(maxDifference, true);
 
 #ifdef USE_MPI
     MPI_Allreduce(&localNumberOfReductions, &globalNumberOfReductions, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
@@ -550,7 +559,7 @@ int LtsWeights::enforceMaximumDifference() {
   return totalNumberOfReductions;
 }
 
-int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
+int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference, bool includeMpi) {
   int numberOfReductions = 0;
 
   std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
@@ -601,6 +610,8 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     m_clusterIds[cell] = timeCluster;
   }
 
+  if (!includeMpi) return numberOfReductions;
+  
 #ifdef USE_MPI
   FaceSorter faceSorter(faces);
   for (auto &sharedFaces: rankToSharedFaces) {

@@ -114,7 +114,7 @@ protected:
   // returns number of reductions for maximum difference
   int computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
   int enforceMaximumDifference();
-  int enforceMaximumDifferenceLocal(int maxDifference = 1);
+  int enforceMaximumDifferenceLocal(int maxDifference, bool includeMpi);
   std::vector<int> computeCostsPerTimestep();
 
   static int ipow(int x, int y);
