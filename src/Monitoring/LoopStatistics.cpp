@@ -131,6 +131,7 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     double totalTime = 0.0;
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
+      if (!m_includeInSummary[region]) continue;
       double const x = sums[5*region + 0];
       double const x2 = sums[5*region + 1];
       double const y = sums[5*region + 3];
