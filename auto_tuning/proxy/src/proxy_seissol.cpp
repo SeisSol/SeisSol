@@ -65,7 +65,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <hbwmalloc.h>
 #endif
 
-#include "likwid_wrapper.h"
 #include <utils/args.h>
 #include "proxy_common.hpp"
 
@@ -140,9 +139,6 @@ void testKernel(unsigned kernel, unsigned timesteps) {
 
 
 ProxyOutput runProxy(ProxyConfig config) {
-  LIKWID_MARKER_INIT;
-
-  registerMarkers();
 
   bool enableDynamicRupture = false;
   if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
@@ -266,7 +262,6 @@ ProxyOutput runProxy(ProxyConfig config) {
   device.finalize();
 #endif
 
-  LIKWID_MARKER_CLOSE;
   return output;
 }
 
