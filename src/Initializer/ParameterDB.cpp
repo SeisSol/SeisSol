@@ -605,14 +605,15 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
   if (!useCellHomogenizedMaterial) {
     queryGen = new ElementBarycentreGenerator(meshReader);
   } else {
+    const auto rank = MPI::mpi.rank();
     if (anisotropy) {
-      logWarning() << "Material Averaging is not implemented for anisotropic materials. Falling back to material properties sampled from the element barycenters instead.";
+      logWarning(rank) << "Material Averaging is not implemented for anisotropic materials. Falling back to material properties sampled from the element barycenters instead.";
       queryGen = new ElementBarycentreGenerator(meshReader);
     } else if (plasticity) {
-      logWarning() << "Material Averaging is not implemented for plastic materials. Falling back to material properties sampled from the element barycenters instead.";
+      logWarning(rank) << "Material Averaging is not implemented for plastic materials. Falling back to material properties sampled from the element barycenters instead.";
       queryGen = new ElementBarycentreGenerator(meshReader);
     } else if (poroelasticity) {
-      logWarning() << "Material Averaging is not implemented for poroelastic materials. Falling back to material properties sampled from the element barycenters instead.";
+      logWarning(rank) << "Material Averaging is not implemented for poroelastic materials. Falling back to material properties sampled from the element barycenters instead.";
       queryGen = new ElementBarycentreGenerator(meshReader);
     } else {
       queryGen = new ElementAverageGenerator(meshReader);
@@ -621,7 +622,6 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
   return queryGen;
 }
 } // namespace seissol::initializers
-    
 
 template class seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial>;
