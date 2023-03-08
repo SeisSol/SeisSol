@@ -155,12 +155,12 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
 
     logInfo(rank) << "Total time spent in compute kernels:" << totalTime;
 
-    double time_DR = 0;
+    long long timeDR_nanos = 0;
     unsigned int dynRup = getRegion("computeDynamicRupture");
     for (auto& timeSample: m_times[dynRup]) {
-      time_DR += timeSample.begin.tv_sec - timeSample.end.tv_sec;
+      timeDR_nanos += difftime(timeSample.begin, timeSample.end);
     }
-    logInfo(rank) << "Total time spent in Dynamic Rupture iteration: " << time_DR;
+    logInfo(rank) << "Total time spent in Dynamic Rupture iteration:" << seconds(timeDR_nanos);
   }
 }
 #endif
