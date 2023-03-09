@@ -117,6 +117,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           l_globalClusterId,
+          profilingId,
           usePlasticity,
           type,
           timeStepSize,
