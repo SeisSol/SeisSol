@@ -357,6 +357,14 @@ class seissol::initializers::MemoryManager {
       ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
     }
 
+    std::string getOutputPrefix() const {
+      const auto outputDirectory = (*m_inputParams)["output"]["outputfile"];
+      if (!outputDirectory) {
+          logError() << "No outputfile given.";
+      }
+      return outputDirectory.as<std::string>();
+    }
+
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
 
