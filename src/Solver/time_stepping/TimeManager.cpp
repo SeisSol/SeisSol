@@ -136,9 +136,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           &actorStateStatisticsManager.addCluster(profilingId))
       );
 
-      auto clusterSize = layerData->getNumberOfCells();
-      auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
-                                     : dynRupInteriorData->getNumberOfCells();
+      const auto clusterSize = layerData->getNumberOfCells();
+      const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
+                                           : dynRupInteriorData->getNumberOfCells();
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
     }
