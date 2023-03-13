@@ -91,7 +91,8 @@ namespace seissol {
         return 1e6;
       }
 
-      inline std::array<double,3> getHardcodedTheta() {
+      inline std::array<double,3> getHardcodedTheta(int mech) {
+        static_assert(NUMBER_OF_RELAXATION_MECHANISMS == 1);
         const auto S = getHardcodedS();
         return {-S, 0, S};
       }
@@ -117,9 +118,10 @@ namespace seissol {
                                                 T& E )
       {
        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+            auto theta = material.theta[mech];
             if (isAcousticRegion(material)) {
-              const auto S = 2e9;
-              const auto theta = getHardcodedTheta();
+              theta = getHardcodedTheta(mech).data();
+            }
               E(0, mech, 0) = theta[0];
               E(1, mech, 0) = theta[1];
               E(2, mech, 0) = theta[1];
@@ -132,7 +134,6 @@ namespace seissol {
               E(3, mech, 3) = theta[2];
               E(4, mech, 4) = theta[2];
               E(5, mech, 5) = theta[2];
-            }
         }
       }
 
@@ -176,7 +177,11 @@ namespace seissol {
           Coeff.setZero();
           getTransposedCoefficientMatrix(material, d, Coeff);
           for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-            getTransposedViscoelasticCoefficientMatrix( getHardcodedOmega(mech),
+            auto omega = material.omega[mech];
+            if (isAcousticRegion(material)) {
+              omega = getHardcodedOmega(mech);
+            }
+            getTransposedViscoelasticCoefficientMatrix( omega,
                 d,
                 mech,
                 Coeff );
@@ -204,10 +209,14 @@ namespace seissol {
 
         // E' = diag(-omega_1 I, ..., -omega_L I)
         for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+          auto omega = material.omega[mech];
+          if (isAcousticRegion(material)) {
+            omega = getHardcodedOmega(mech);
+          }
           unsigned offset = 9 + 6*mech;
           yateto::DenseTensorView<2,double> ETblock(data + offset + offset * NUMBER_OF_QUANTITIES, {NUMBER_OF_QUANTITIES, 6});
           for (unsigned i = 0; i < 6; ++i) {
-            ETblock(i, i) = -getHardcodedOmega(mech);
+            ETblock(i, i) = -omega;
           }
         }
 
@@ -230,10 +239,13 @@ namespace seissol {
       auto w = init::w::view::create(localData->w);
       auto W = init::W::view::create(localData->W);
       W.setZero();
-      if (!isAcousticRegion(material)) return;
       for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-        w(mech) = getHardcodedOmega(mech);
-        W(mech,mech) = -getHardcodedOmega(mech);
+        auto omega = material.omega[mech];
+        if (isAcousticRegion(material)) {
+          omega = getHardcodedOmega(mech);
+        }
+        w(mech) = omega;
+        W(mech,mech) = -omega;
       }
     }
 
@@ -243,9 +255,12 @@ namespace seissol {
     {
       // We only need the local omegas
       auto w = init::w::view::create(neighborData->w);
-      if (!isAcousticRegion(localMaterial)) return;
       for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-        w(mech) = getHardcodedOmega(mech);
+        auto omega = localMaterial.omega[mech];
+        if (isAcousticRegion(localMaterial)) {
+            omega = getHardcodedOmega(mech);
+        }
+        w(mech) = omega;
       }
     }
   }
