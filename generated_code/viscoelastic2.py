@@ -43,7 +43,7 @@ from yateto import Tensor, Scalar, simpleParameterSpace, parameterSpaceFromRange
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.memory import CSCMemoryLayout
+from yateto.memory import CSCMemoryLayout, DenseMemoryLayout
 
 from aderdg import ADERDGBase
 from multSim import OptionalDimTensor
@@ -68,15 +68,15 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
     self.E = Tensor('E', (self.numberOfAnelasticQuantities(), self.numberOfMechanisms, self.numberOfQuantities()))
     self.w = Tensor('w', (self.numberOfMechanisms,))
-    self.W = Tensor('W', (self.numberOfMechanisms, self.numberOfMechanisms), np.eye(self.numberOfMechanisms, dtype=bool), CSCMemoryLayout)
+    self.W = Tensor('W', (self.numberOfMechanisms, self.numberOfMechanisms), np.eye(self.numberOfMechanisms, dtype=bool), DenseMemoryLayout)
 
     selectElaSpp = np.zeros((self.numberOfExtendedQuantities(), self.numberOfQuantities()))
     selectElaSpp[0:self.numberOfQuantities(),0:self.numberOfQuantities()] = np.eye(self.numberOfQuantities())
-    self.selectEla = Tensor('selectEla', (self.numberOfExtendedQuantities(), self.numberOfQuantities()), selectElaSpp, CSCMemoryLayout)
+    self.selectEla = Tensor('selectEla', (self.numberOfExtendedQuantities(), self.numberOfQuantities()), selectElaSpp, DenseMemoryLayout)
 
     selectAneSpp = np.zeros((self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()))
     selectAneSpp[self.numberOfQuantities():self.numberOfExtendedQuantities(),0:self.numberOfAnelasticQuantities()] = np.eye(self.numberOfAnelasticQuantities())
-    self.selectAne = Tensor('selectAne', (self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()), selectAneSpp, CSCMemoryLayout)
+    self.selectAne = Tensor('selectAne', (self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()), selectAneSpp, DenseMemoryLayout)
 
     self.db.update(
       parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
@@ -112,7 +112,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
     selectElaFullSpp = np.zeros((self.numberOfFullQuantities(), self.numberOfQuantities()))
     selectElaFullSpp[0:self.numberOfQuantities(),0:self.numberOfQuantities()] = np.eye(self.numberOfQuantities())
-    selectElaFull = Tensor('selectElaFull', (self.numberOfFullQuantities(), self.numberOfQuantities()), selectElaFullSpp, CSCMemoryLayout)
+    selectElaFull = Tensor('selectElaFull', (self.numberOfFullQuantities(), self.numberOfQuantities()), selectElaFullSpp, DenseMemoryLayout)
 
     selectAneFullSpp = np.zeros((self.numberOfFullQuantities(), self.numberOfAnelasticQuantities(), self.numberOfMechanisms))
     for mech in range(self.numberOfMechanisms):
