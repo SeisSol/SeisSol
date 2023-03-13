@@ -159,7 +159,7 @@ class MPI : public MPIBasic {
 
     std::vector<int> displacements(commSize);
     displacements[0] = 0;
-    for (unsigned i = 1; i < displacements.size(); ++i) {
+    for (std::size_t i = 1; i < displacements.size(); ++i) {
       displacements[i] = displacements[i-1] + lengths[i-1];
     }
 

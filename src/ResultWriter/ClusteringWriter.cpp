@@ -38,7 +38,7 @@ void ClusteringWriter::write() const {
     auto filepath = path(outputPrefix);
     filepath += path("-clustering.csv");
 
-    auto fileStream = std::fstream(filepath, std::ios::out);
+    auto fileStream = std::ofstream(filepath, std::ios::out);
 
     fileStream << "profilingId,localId,layerType,size,dynamicRuptureSize,rank,localRank\n";
 
@@ -50,8 +50,11 @@ void ClusteringWriter::write() const {
       const auto& curSizes = sizes[rank];
       const auto& curDynamicRuptureSizes = dynamicRuptureSizes[rank];
 
-      for (unsigned i = 0; i < curProfilingIds.size(); ++i) {
+      for (std::size_t i = 0; i < curProfilingIds.size(); ++i) {
         const auto layerType = static_cast<LayerType>(curLayerTypes[i]);
+        if (layerType != LayerType::Interior && layerType != LayerType::Copy) {
+          logError() << "Encountered illegal layer type in ClusteringWriter.";
+        }
         const auto layerTypeStr = layerType == Interior ? "Interior" : "Copy";
             fileStream
             << curProfilingIds[i] << ","

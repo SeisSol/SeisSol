@@ -29,29 +29,40 @@ struct convert<seissol::dr::FrictionLawType> {
 };
 } // namespace YAML
 namespace seissol::initializers {
-  /*
-   * If param stores a node with name field override value
+/*
+   * If param stores a node with name field, return. Otherwise error.
    * @param param: YAML Node, which we want to read from.
    * @param field: Name of the field, we would like to read
-   * @param value: Reference to the value, which we want to override
-   */
-  template <typename T>
-  T getWithDefault(const YAML::Node& param, std::string&& field, T defaultValue) {
-    T value = defaultValue;
-    if (param[field]) {
-      try {
-        // booleans are stored as integers
-        if constexpr(std::is_same<T, bool>::value) {
-          value = param[field].as<int>() > 0;
-        } else {
-          value = param[field].as<T>();
-        }
-      } catch(std::exception& e) {
-        logError() << "Error while reading field " << field << ": " << e.what();
+ */
+template <typename T>
+T getUnsafe(const YAML::Node& param, const std::string& field) {
+    try {
+      // booleans are stored as integers
+      if constexpr(std::is_same<T, bool>::value) {
+        return param[field].as<int>() > 0;
+      } else {
+        return param[field].as<T>();
       }
+    } catch(std::exception& e) {
+      logError() << "Error while reading field " << field << ": " << e.what();
+    }
+}
+
+ /*
+  * If param stores a node with name field override value
+  * @param param: YAML Node, which we want to read from.
+  * @param field: Name of the field, we would like to read
+  * @param value: Reference to the value, which we want to override
+ */
+template <typename T>
+T getWithDefault(const YAML::Node& param, const std::string& field, T defaultValue) {
+  T value = defaultValue;
+  if (param[field]) {
+    value = getUnsafe<T>(param, field);
   }
   return value;
 }
+
 /**
  * \brief Returns true if number elements in the input string (separated by the white space)
  *  is less or equal to the size of a container

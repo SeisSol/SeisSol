@@ -83,6 +83,7 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/InputAux.hpp>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/LtsParameters.h>
@@ -358,11 +359,7 @@ class seissol::initializers::MemoryManager {
     }
 
     std::string getOutputPrefix() const {
-      const auto outputDirectory = (*m_inputParams)["output"]["outputfile"];
-      if (!outputDirectory) {
-          logError() << "No outputfile given.";
-      }
-      return outputDirectory.as<std::string>();
+      return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
     }
 
 #ifdef ACL_DEVICE
