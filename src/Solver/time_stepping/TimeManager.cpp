@@ -46,6 +46,7 @@
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
+#include <ResultWriter/ClusteringWriter.h>
 
 extern seissol::Interoperability e_interoperability;
 
@@ -73,6 +74,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   // store the time stepping
   m_timeStepping = i_timeStepping;
+
+  auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   bool foundDynamicRuptureCluster = false;
 
@@ -107,9 +110,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
       const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
+      const auto profilingId = l_globalClusterId + offsetMonitoring;
+      auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
+      auto* dynRupInteriorData = &dynRupTree.child(Interior);
+      auto* dynRupCopyData = &dynRupTree.child(Copy);
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           l_globalClusterId,
+          profilingId,
           usePlasticity,
           type,
           timeStepSize,
@@ -117,16 +125,22 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           printProgress,
           drScheduler.get(),
           globalData,
-          &memoryManager.getLtsTree()->child(localClusterId).child(type),
-          &dynRupTree.child(Interior),
-          &dynRupTree.child(Copy),
+          layerData,
+          dynRupInteriorData,
+          dynRupCopyData,
           memoryManager.getLts(),
           memoryManager.getDynamicRupture(),
           memoryManager.getFrictionLaw(),
           memoryManager.getFaultOutputManager(),
           &m_loopStatistics,
-          &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
+          &actorStateStatisticsManager.addCluster(profilingId))
       );
+
+      const auto clusterSize = layerData->getNumberOfCells();
+      const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
+                                           : dynRupInteriorData->getNumberOfCells();
+      // Add writer to output
+      clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
     }
     auto& interior = clusters[clusters.size() - 1];
     auto& copy = clusters[clusters.size() - 2];
@@ -153,6 +167,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         );
       }
     }
+
 
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
@@ -184,6 +199,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     }
 #endif
   }
+
+  clusteringWriter.write();
 
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
@@ -218,6 +235,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
 }
 
 void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {

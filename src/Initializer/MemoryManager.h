@@ -83,6 +83,7 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/InputAux.hpp>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/LtsParameters.h>
@@ -355,6 +356,10 @@ class seissol::initializers::MemoryManager {
       m_inputParams = params;
       m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
       ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
+    }
+
+    std::string getOutputPrefix() const {
+      return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
     }
 
 #ifdef ACL_DEVICE

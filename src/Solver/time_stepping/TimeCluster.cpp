@@ -94,6 +94,7 @@
 extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
+                                                 unsigned int profilingId,
                                                  bool usePlasticity,
                                                  LayerType layerType, double maxTimeStepSize,
                                                  long timeStepRate, bool printProgress,
@@ -132,6 +133,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     printProgress(printProgress),
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
+    m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     // assert all pointers are valid
@@ -281,7 +283,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
   }
 
-  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
 }
 #else
 
@@ -330,7 +332,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                              m_dynamicRuptureKernel.timeWeights);
     device.api->popLastProfilingMark();
   }
-  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
 }
 #endif
 
@@ -441,7 +443,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     }
   }
 
-  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 }
 #else // ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeLocalIntegration(
@@ -567,7 +569,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
     device.api->syncGraph(computeGraphHandle);
   }
 
-  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_profilingId);
   device.api->popLastProfilingMark();
 }
 #endif // ACL_DEVICE
@@ -643,7 +645,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   device.api->syncDefaultStreamWithHost();
   device.api->popLastProfilingMark();
-  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 }
 #endif // ACL_DEVICE
 
