@@ -196,6 +196,14 @@ inline void postcomputeImposedStateFromNewStress(
     krnlP.weight = weight;
     krnlP.execute();
   }
+
+  // set imposed state normal fluid velocity to zero (impermeability)
+  auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus);
+  auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus);
+  for (size_t i = 0; i < tensor::QInterpolated::Shape[0]; i++) {
+    imposedStatePlusView(i, 10) = static_cast<real>(0.0);
+    imposedStateMinusView(i, 10) = static_cast<real>(0.0);
+  }
 }
 
 /**
