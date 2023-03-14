@@ -94,7 +94,7 @@ namespace seissol {
       inline std::array<double,3> getHardcodedTheta(int mech) {
         static_assert(NUMBER_OF_RELAXATION_MECHANISMS == 1);
         const auto S = getHardcodedS();
-        return {-S, 0, S};
+        return {-S, 0, -S};
       }
 
       inline double getHardcodedOmega(int mech) {
