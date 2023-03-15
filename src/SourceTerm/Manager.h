@@ -48,9 +48,16 @@
 #include <Solver/time_stepping/TimeManager.h>
 #include <Geometry/MeshReader.h>
 #include <inttypes.h>
+#include <yaml-cpp/yaml.h>
 
 namespace seissol {
   namespace sourceterm {
+    enum class SourceType {
+      None = 0,
+      NrfSource = 42,
+      FsrmSource = 50
+    };
+
     void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
                                       real* mInvJInvPhisAtSources,
                                       unsigned meshId,
@@ -77,12 +84,27 @@ private:
 public:
   Manager() = default;
   ~Manager() = default;
+
+  void loadSources(         SourceType                      sourceType,
+                            char const*                     fileName,
+                            MeshReader const&               mesh,
+                            seissol::initializers::LTSTree* ltsTree,
+                            seissol::initializers::LTS*     lts,
+                            seissol::initializers::Lut*     ltsLut,
+                            time_stepping::TimeManager&     timeManager);
   
   void mapPointSourcesToClusters( unsigned const*                 meshIds,
                                   unsigned                        numberOfSources,
                                   seissol::initializers::LTSTree* ltsTree,
                                   seissol::initializers::LTS*     lts,
                                   seissol::initializers::Lut*     ltsLut );
+  
+  void loadSourcesFromFSRMNew( char const*                     fileName,
+                            MeshReader const&               mesh,
+                            seissol::initializers::LTSTree* ltsTree,
+                            seissol::initializers::LTS*     lts,
+                            seissol::initializers::Lut*     ltsLut,
+                            time_stepping::TimeManager&     timeManager);
 
   void loadSourcesFromFSRM( double const*                   momentTensor,
                             double const*                   solidVelocityComponent,

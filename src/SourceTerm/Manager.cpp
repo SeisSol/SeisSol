@@ -71,6 +71,7 @@
 #include "Parallel/MPI.h"
 
 #include "Manager.h"
+#include "FSRMReader.h"
 #include "NRFReader.h"
 #include "PointSource.h"
 #include "Numerical_aux/Transformation.h"
@@ -81,6 +82,7 @@
 #include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
 #include <utils/logger.h>
+#include <string>
 #include <cstring>
 
 template<typename T>
@@ -253,6 +255,134 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters(const unsigned* mes
       assert(mapping == clusterMappings[cluster].numberOfMappings);
     }
   }
+}
+
+void seissol::sourceterm::Manager::loadSources(  SourceType                      sourceType,
+                                                        char const*                     fileName,
+                                                        MeshReader const&               mesh,
+                                                        seissol::initializers::LTSTree* ltsTree,
+                                                        seissol::initializers::LTS*     lts,
+                                                        seissol::initializers::Lut*     ltsLut,
+                                                        time_stepping::TimeManager&     timeManager ) {
+  if (sourceType == SourceType::NrfSource) {
+    logInfo() << "Reading an NRF source (type 42).";
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
+    loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
+#else
+    logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf library. However, this is not the case for this build.";
+#endif
+  }
+  else if (sourceType == SourceType::FsrmSource) {
+    logInfo() << "Reading an FSRM source (type 50).";
+    loadSourcesFromFSRMNew(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
+  }
+  else if (sourceType == SourceType::None) {
+    logError() << "The source type " << static_cast<int>(sourceType) << " has been defined, but not yet been implemented in SeisSol.";
+  }
+  // otherwise, we do not have any source term.
+}
+
+void seissol::sourceterm::Manager::loadSourcesFromFSRMNew( char const*                     fileName,
+                                                        MeshReader const&               mesh,
+                                                        seissol::initializers::LTSTree* ltsTree,
+                                                        seissol::initializers::LTS*     lts,
+                                                        seissol::initializers::Lut*     ltsLut,
+                                                        time_stepping::TimeManager&     timeManager )
+{
+  // until further rewrite, we'll leave most of the raw pointers/arrays in here.
+
+  int rank = seissol::MPI::mpi.rank();
+
+  seissol::sourceterm::FSRMSource fsrm;
+  fsrm.read(std::string(fileName));
+
+  logInfo(rank) << "Finding meshIds for point sources...";
+
+  short* contained = new short[fsrm.numberOfSources];
+  unsigned* meshIds = new unsigned[fsrm.numberOfSources];
+
+  initializers::findMeshIds(fsrm.centers.data(), mesh, fsrm.numberOfSources, contained, meshIds);
+
+#ifdef USE_MPI
+  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
+  initializers::cleanDoubles(contained, fsrm.numberOfSources);
+#endif
+
+  unsigned* originalIndex = new unsigned[fsrm.numberOfSources];
+  unsigned numSources = 0;
+  for (int source = 0; source < fsrm.numberOfSources; ++source) {
+    originalIndex[numSources] = source;
+    meshIds[numSources] = meshIds[source];
+    numSources += contained[source];
+  }
+  delete[] contained;
+
+  logInfo(rank) << "Mapping point sources to LTS cells...";
+  mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut);
+
+  for (auto layer : {Interior, Copy}) {
+    auto& sources = layeredSources[layer];
+    sources.resize(ltsTree->numChildren());
+    auto& clusterMappings = layeredClusterMapping[layer];
+    for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
+      sources[cluster].mode = PointSources::FSRM;
+      sources[cluster].numberOfSources = clusterMappings[cluster].numberOfSources;
+      int error = posix_memalign(reinterpret_cast<void **>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT,
+                                 clusterMappings[cluster].numberOfSources * tensor::mInvJInvPhisAtSources::size() * sizeof(real));
+      if (error) {
+        logError() << "posix_memalign failed in source term manager.";
+      }
+      error = posix_memalign(reinterpret_cast<void **>(&sources[cluster].tensor), ALIGNMENT,
+                             clusterMappings[cluster].numberOfSources * PointSources::TensorSize * sizeof(real));
+      if (error) {
+        logError() << "posix_memalign failed in source term manager.";
+      }
+      sources[cluster].slipRates.resize(clusterMappings[cluster].numberOfSources);
+
+      for (unsigned clusterSource = 0; clusterSource < clusterMappings[cluster].numberOfSources; ++clusterSource) {
+        unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+        unsigned fsrmIndex = originalIndex[sourceIndex];
+
+
+        computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
+                                     sources[cluster].mInvJInvPhisAtSources[clusterSource],
+                                     meshIds[sourceIndex], mesh);
+        transformMomentTensor( fsrm.momentTensor,
+                               fsrm.solidVelocityComponent,
+                               fsrm.pressureComponent,
+                               fsrm.fluidVelocityComponent,
+                               fsrm.strikes[fsrmIndex],
+                               fsrm.dips[fsrmIndex],
+                               fsrm.rakes[fsrmIndex],
+                               sources[cluster].tensor[clusterSource]);
+
+
+        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+          sources[cluster].tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
+        }
+#ifndef USE_POROELASTIC
+        seissol::model::Material &material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+        for (unsigned i = 0; i < 3; ++i) {
+          sources[cluster].tensor[clusterSource][6 + i] /= material.rho;
+        }
+#else
+      logWarning() << "The poroelastic equation does not scale the force components with the density. For the definition of the sources in poroelastic media, we refer to the documentation of SeisSol.";
+#endif
+
+        samplesToPiecewiseLinearFunction1D(fsrm.timeHistories[fsrmIndex].data(),
+                                           fsrm.numberOfSamples,
+                                           fsrm.onsets[fsrmIndex],
+                                           fsrm.timestep,
+                                           &sources[cluster].slipRates[clusterSource][0]);
+      }
+    }
+  }
+  delete[] originalIndex;
+  delete[] meshIds;
+
+  timeManager.setPointSourcesForClusters(layeredClusterMapping, layeredSources);
+  
+  logInfo(rank) << ".. finished point source initialization.";
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
