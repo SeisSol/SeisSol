@@ -11,9 +11,9 @@
 
 namespace seissol::initializer {
     struct GlobalTimestep {
-        std::vector<double> elementTimestep;
-        double minTimestep;
-        double maxTimestep;
+        std::vector<double> elementTimeStep;
+        double globalMinTimeStep;
+        double globalMaxTimeStep;
     };
 
     using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
@@ -29,7 +29,7 @@ namespace seissol::initializer {
         parameterDB.evaluateModel(velocityModel, &queryGen);
 
         GlobalTimestep timestep;
-        timestep.elementTimestep.resize(cellCount);
+        timestep.elementTimeStep.resize(cellCount);
 
         for (unsigned cell = 0; cell < cellCount; ++cell) {
             double pWaveVel = materials[cell].getMaxWaveSpeed();
@@ -50,18 +50,18 @@ namespace seissol::initializer {
             double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
 
             // Compute maximum timestep
-            timestep.elementTimestep[cell] = std::fmin(maximumAllowedTimeStep, cfl * 2.0 * insphere / (pWaveVel * (2 * CONVERGENCE_ORDER - 1)));
+            timestep.elementTimeStep[cell] = std::fmin(maximumAllowedTimeStep, cfl * 2.0 * insphere / (pWaveVel * (2 * CONVERGENCE_ORDER - 1)));
         }
 
-        double localMinTimestep = *std::min_element(timestep.elementTimestep.begin(), timestep.elementTimestep.end());
-        double localMaxTimestep = *std::max_element(timestep.elementTimestep.begin(), timestep.elementTimestep.end());
+        double localMinTimestep = *std::min_element(timestep.elementTimeStep.begin(), timestep.elementTimeStep.end());
+        double localMaxTimestep = *std::max_element(timestep.elementTimeStep.begin(), timestep.elementTimeStep.end());
 
         #ifdef USE_MPI
-        MPI_Allreduce(&localMinTimestep, &timestep.minTimestep, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
-        MPI_Allreduce(&localMaxTimestep, &timestep.maxTimestep, 1, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
+        MPI_Allreduce(&localMinTimestep, &timestep.globalMinTimeStep, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
+        MPI_Allreduce(&localMaxTimestep, &timestep.globalMaxTimeStep, 1, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
         #else
-        timestep.minTimestep = localMinTimestep;
-        timestep.maxTimestep = localMaxTimestep;
+        timestep.globalMinTimeStep = localMinTimestep;
+        timestep.globalMaxTimeStep = localMaxTimestep;
         #endif
         return timestep;
     }

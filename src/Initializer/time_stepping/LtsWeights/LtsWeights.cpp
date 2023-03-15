@@ -47,7 +47,7 @@
 #include <PUML/Upward.h>
 #include "LtsWeights.h"
 
-#include <Initializer/ParameterDB.h>
+#include <Initializer/time_stepping/GlobalTimestep.hpp>
 #include <Parallel/MPI.h>
 
 #include <generated_code/init.h>
@@ -369,40 +369,6 @@ int LtsWeights::nWeightsPerVertex() const {
   return m_ncon;
 }
 
-void LtsWeights::computeMaxTimesteps(std::vector<double> const &pWaveVel,
-                                     std::vector<double> &timeSteps, double maximumAllowedTimeStep) {
-  std::vector<PUML::TETPUML::cell_t> const &cells = m_mesh->cells();
-  std::vector<PUML::TETPUML::vertex_t> const &vertices = m_mesh->vertices();
-
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    // Compute insphere radius
-    Eigen::Vector3d barycentre(0., 0., 0.);
-    Eigen::Vector3d x[4];
-    unsigned vertLids[4];
-    PUML::Downward::vertices(*m_mesh, cells[cell], vertLids);
-    for (unsigned vtx = 0; vtx < 4; ++vtx) {
-      for (unsigned d = 0; d < 3; ++d) {
-        x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
-      }
-    }
-    Eigen::Matrix4d A;
-    A << x[0](0), x[0](1), x[0](2), 1.0,
-        x[1](0), x[1](1), x[1](2), 1.0,
-        x[2](0), x[2](1), x[2](2), 1.0,
-        x[3](0), x[3](1), x[3](2), 1.0;
-
-    double alpha = A.determinant();
-    double Nabc = ((x[1] - x[0]).cross(x[2] - x[0])).norm();
-    double Nabd = ((x[1] - x[0]).cross(x[3] - x[0])).norm();
-    double Nacd = ((x[2] - x[0]).cross(x[3] - x[0])).norm();
-    double Nbcd = ((x[2] - x[1]).cross(x[3] - x[1])).norm();
-    double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
-
-    // Compute maximum timestep (CFL=1)
-    timeSteps[cell] = std::fmin(maximumAllowedTimeStep, 2.0 * insphere / (pWaveVel[cell] * (2 * CONVERGENCE_ORDER - 1)));
-  }
-}
-
 int LtsWeights::getCluster(double timestep, double globalMinTimestep, double ltsWiggleFactor, unsigned rate) {
   if (rate == 1) {
     return 0;
@@ -439,46 +405,21 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-LtsWeights::GlobalTimeStepDetails LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-
-  const auto &cells = m_mesh->cells();
-  std::vector<double> pWaveVel;
-  pWaveVel.resize(cells.size());
-
-  // TODO(Sebastian) Use averaged generator here as well.
-  seissol::initializers::ElementBarycentreGeneratorPUML queryGen(*m_mesh);
-  //up to now we only distinguish between anisotropic elastic any other isotropic material
-#ifdef USE_ANISOTROPIC
-  std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
-  seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
-#elif defined(USE_POROELASTIC)
-  std::vector<seissol::model::PoroElasticMaterial> materials(cells.size());
-  seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial> parameterDB;
-#else
-  std::vector<seissol::model::ElasticMaterial> materials(cells.size());
-  seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
-#endif
-  parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(m_velocityModel, &queryGen);
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    pWaveVel[cell] = materials[cell].getMaxWaveSpeed();
-  }
-
-  GlobalTimeStepDetails details{};
-  details.timeSteps.resize(cells.size());
-  computeMaxTimesteps(pWaveVel, details.timeSteps, maximumAllowedTimeStep);
-
-  double localMinTimestep = *std::min_element(details.timeSteps.begin(), details.timeSteps.end());
-  double localMaxTimestep = *std::max_element(details.timeSteps.begin(), details.timeSteps.end());
-
-#ifdef USE_MPI
-  MPI_Allreduce(&localMinTimestep, &details.globalMinTimeStep, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
-  MPI_Allreduce(&localMaxTimestep, &details.globalMaxTimeStep, 1, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
-#else
-  details.globalMinTimeStep = localMinTimestep;
-  details.globalMaxTimeStep = localMaxTimestep;
-#endif
-  return details;
+seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+  const auto& cells = m_mesh->cells();
+  const auto& vertices = m_mesh->vertices();
+  return seissol::initializer::computeTimesteps<seissol::initializers::ElementBarycentreGeneratorPUML>(1.0, maximumAllowedTimeStep, m_velocityModel, *m_mesh, m_mesh->cells().size(),
+  [&](size_t cell) {
+    std::array<Eigen::Vector3d, 4> x;
+    unsigned vertLids[4];
+    PUML::Downward::vertices(*m_mesh, cells[cell], vertLids);
+    for (unsigned vtx = 0; vtx < 4; ++vtx) {
+      for (unsigned d = 0; d < 3; ++d) {
+        x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
+      }
+    }
+    return x;
+  });
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
@@ -502,7 +443,7 @@ std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
   const auto &cells = m_mesh->cells();
   std::vector<int> clusterIds(cells.size(), 0);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    clusterIds[cell] = getCluster(m_details.timeSteps[cell],
+    clusterIds[cell] = getCluster(m_details.elementTimeStep[cell],
                                   m_details.globalMinTimeStep, curWiggleFactor,
                                   m_rate);
   }
