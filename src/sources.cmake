@@ -95,6 +95,7 @@ src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
 src/Modules/ModulesF.f90
 src/seissolxx.f90
+src/Physics/Attenuation.cpp
 src/Physics/ini_model.f90
 src/Physics/InitialField.cpp
 src/Reader/readpar.f90
