@@ -47,16 +47,19 @@
 
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In particular, this reader is not programmed to be very fail-safe...
 
-void read_array3_or_zero(std::ifstream& filestream, std::string& header, const std::string& keyword, std::array<double, 3>& data) {
+template<size_t N>
+void read_array_or_zero(std::ifstream& filestream, std::string& header, const std::string& keyword, double* data) {
   if (header.find(keyword) != std::string::npos) {
-    filestream >> data[0];
-    filestream >> data[1];
-    filestream >> data[2];
+    for (size_t i = 0; i < N;++i) {
+      filestream >> data[i];
+    }
     std::getline(filestream, header); // end of line
     std::getline(filestream, header);
   }
   else {
-    data = {0,0,0};
+    for (size_t i = 0; i < N;++i) {
+      data[i] = 0;
+    }
   }
 }
 
@@ -86,9 +89,9 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
 
   // comment
   std::getline(filestream, lineval);
-  read_array3_or_zero(filestream, lineval, "velocity", this->solidVelocityComponent);
-  read_array3_or_zero(filestream, lineval, "pressure", this->pressureComponent);
-  read_array3_or_zero(filestream, lineval, "fluid", this->fluidVelocityComponent);
+  read_array_or_zero<3>(filestream, lineval, "velocity", this->solidVelocityComponent);
+  read_array_or_zero<1>(filestream, lineval, "pressure", &this->pressureComponent);
+  read_array_or_zero<3>(filestream, lineval, "fluid", this->fluidVelocityComponent);
   // (we've last read a header/comment line at this point here)
 
   // read faults

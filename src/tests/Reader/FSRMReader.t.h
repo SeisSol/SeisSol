@@ -23,9 +23,7 @@ TEST_CASE("FSRM Reader 1") {
   REQUIRE(fsrm.solidVelocityComponent[0] == doctest::Approx(0.0));
   REQUIRE(fsrm.solidVelocityComponent[1] == doctest::Approx(0.0));
   REQUIRE(fsrm.solidVelocityComponent[2] == doctest::Approx(0.0));
-  REQUIRE(fsrm.pressureComponent[0] == doctest::Approx(0.0));
-  REQUIRE(fsrm.pressureComponent[1] == doctest::Approx(0.0));
-  REQUIRE(fsrm.pressureComponent[2] == doctest::Approx(0.0));
+  REQUIRE(fsrm.pressureComponent == doctest::Approx(0.0));
   REQUIRE(fsrm.fluidVelocityComponent[0] == doctest::Approx(0.0));
   REQUIRE(fsrm.fluidVelocityComponent[1] == doctest::Approx(0.0));
   REQUIRE(fsrm.fluidVelocityComponent[2] == doctest::Approx(0.0));
@@ -67,9 +65,7 @@ TEST_CASE("FSRM Reader 2") {
   REQUIRE(fsrm.solidVelocityComponent[0] == doctest::Approx(1.01));
   REQUIRE(fsrm.solidVelocityComponent[1] == doctest::Approx(1.02));
   REQUIRE(fsrm.solidVelocityComponent[2] == doctest::Approx(1.03));
-  REQUIRE(fsrm.pressureComponent[0] == doctest::Approx(2.01));
-  REQUIRE(fsrm.pressureComponent[1] == doctest::Approx(2.02));
-  REQUIRE(fsrm.pressureComponent[2] == doctest::Approx(2.03));
+  REQUIRE(fsrm.pressureComponent == doctest::Approx(2.01));
   REQUIRE(fsrm.fluidVelocityComponent[0] == doctest::Approx(3.01));
   REQUIRE(fsrm.fluidVelocityComponent[1] == doctest::Approx(3.02));
   REQUIRE(fsrm.fluidVelocityComponent[2] == doctest::Approx(3.03));
