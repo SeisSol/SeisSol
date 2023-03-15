@@ -39,7 +39,7 @@ src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
 src/SeisSol.cpp
 src/SourceTerm/Manager.cpp
-
+src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
 src/Parallel/Pin.cpp
 src/Parallel/mpiC.cpp
