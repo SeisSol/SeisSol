@@ -19,4 +19,18 @@
 #include "Equations/viscoelastic2/Model/integrationData.hpp"
 #endif
 
+namespace seissol::model {
+#if defined(USE_ANISOTROPIC)
+using MaterialClass = AnisotropicMaterial;
+#elif defined(USE_VISCOELASTIC) || defined (USE_VISCOELASTIC2)
+using MaterialClass = ViscoElasticMaterial;
+#elif defined(USE_ELASTIC)
+using MaterialClass = ElasticMaterial;
+#elif defined(USE_POROELASTIC)
+using MaterialClass = PoroElasticMaterial;
+#else
+#error "Material class unknown."
+#endif
+}
+
 #endif
