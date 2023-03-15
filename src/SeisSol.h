@@ -47,6 +47,7 @@
 #include "utils/logger.h"
 
 #include "Checkpoint/Manager.h"
+#include "Initializer/InputParameters.hpp"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
 #include "Monitoring/FlopCounter.hpp"
@@ -142,6 +143,8 @@ private:
 
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
+
+  seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -311,6 +314,10 @@ public:
   	const std::shared_ptr<YAML::Node> getInputParams() {
     		return m_inputParams;
  	}
+
+	const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+		return m_seissolparameters;
+	}
 
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and

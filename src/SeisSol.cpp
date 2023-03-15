@@ -168,6 +168,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   // read parameter file input
   readInputParams();
 
+  m_seissolparameters.readPar(*m_inputParams);
+
   m_memoryManager->setInputParams(m_inputParams);
 
   if (auto outputDirectory = (*m_inputParams)["output"]["outputfile"]) {

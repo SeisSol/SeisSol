@@ -13,6 +13,8 @@ src/Initializer/time_stepping/LtsParameters.cpp
 src/Initializer/tree/Lut.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/InitialFieldProjection.cpp
+src/Initializer/InputParameters.cpp
+
 src/Modules/Modules.cpp
 src/Modules/ModulesC.cpp
 src/Model/common.cpp
