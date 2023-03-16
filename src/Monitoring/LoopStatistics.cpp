@@ -53,16 +53,36 @@
 
 #ifdef USE_MPI  
 void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
-  unsigned const nRegions = m_times.size();
-  auto sums = std::vector<double>(5*nRegions);
+  const auto nRegions = m_times.size();
+  constexpr int numberOfSumComponents = 5;
+  auto sums = std::vector<double>(numberOfSumComponents * nRegions);
   double totalTimePerRank = 0.0;
+
+  // Helper functions to access sums
+  auto getNumIters = [&sums](std::size_t region) -> double& {
+    return sums[numberOfSumComponents * region + 0];
+  };
+  auto getNumItersSquared = [&sums](std::size_t region) -> double& {
+    return sums[numberOfSumComponents * region + 1];
+  };
+  auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
+    return sums[numberOfSumComponents * region + 2];
+  };
+  auto getTime = [&sums](std::size_t region) -> double& {
+    return sums[numberOfSumComponents * region + 3];
+  };
+  auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
+    return sums[numberOfSumComponents * region + 4];
+  };
+
+
   for (unsigned region = 0; region < nRegions; ++region) {
     double x = 0.0, x2 = 0.0, xy = 0.0, y = 0.0;
-    unsigned N = 0;
-  
+    unsigned long long N = 0;
+
     for (auto const& sample : m_times[region]) {
       if (sample.numIters > 0) {
-        double time = seconds(difftime(sample.begin, sample.end));
+        const auto time = seconds(difftime(sample.begin, sample.end));
         x  += sample.numIters;
         x2 += static_cast<double>(sample.numIters) * static_cast<double>(sample.numIters);
         xy += static_cast<double>(sample.numIters) * time;
@@ -71,11 +91,12 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
       }
     }
 
-    sums[5*region + 0] = x;
-    sums[5*region + 1] = x2;
-    sums[5*region + 2] = xy;
-    sums[5*region + 3] = y;
-    sums[5*region + 4] = N;
+    getNumIters(region) = x;
+    getNumItersSquared(region) = x2;
+    getTimeTimesNumIters(region) = xy;
+    getTime(region) = y;
+    getNumberOfSamples(region) = N;
+
     // Make sure that events that lead to duplicate accounting are ignored
     if (m_includeInSummary[region]) {
       totalTimePerRank += y;
@@ -100,11 +121,11 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
   auto regressionCoeffs = std::vector<double>(2*nRegions);
   auto stderror = std::vector<double>(nRegions, 0.0);
   for (unsigned region = 0; region < nRegions; ++region) {
-    double const x = sums[5*region + 0];
-    double const x2 = sums[5*region + 1];
-    double const xy = sums[5*region + 2];
-    double const y = sums[5*region + 3];
-    double const N = sums[5*region + 4];
+    const double x = getNumIters(region);
+    const double x2 = getNumItersSquared(region);
+    const double xy = getTimeTimesNumIters(region);
+    const double y = getTime(region);
+    const double N = getNumberOfSamples(region);
 
     double const det = N*x2 - x*x;
     double const constant = (x2*y - x*xy) / det;
@@ -132,10 +153,10 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
       if (!m_includeInSummary[region]) continue;
-      double const x = sums[5*region + 0];
-      double const x2 = sums[5*region + 1];
-      double const y = sums[5*region + 3];
-      double const N = sums[5*region + 4];
+      const double x = getNumIters(region);
+      const double x2 = getNumItersSquared(region);
+      const double y = getTime(region);
+      const double N = getNumberOfSamples(region);
 
       double const xm = x / N;
       double const xv = x2 - 2*x*xm + xm*xm;
@@ -154,13 +175,8 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     }
 
     logInfo(rank) << "Total time spent in compute kernels:" << totalTime;
-
-    long long timeDR_nanos = 0;
-    unsigned int dynRup = getRegion("computeDynamicRupture");
-    for (auto& timeSample: m_times[dynRup]) {
-      timeDR_nanos += difftime(timeSample.begin, timeSample.end);
-    }
-    logInfo(rank) << "Total time spent in Dynamic Rupture iteration:" << seconds(timeDR_nanos);
+    logInfo(rank) << "Total time spent in Dynamic Rupture iteration:"
+                  << getTime(getRegion("computeDynamicRupture"));
   }
 }
 #endif
