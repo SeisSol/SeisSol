@@ -91,22 +91,29 @@ namespace seissol {
         return 1e6;
       }
 
+      inline double getHardcodedLambda() {
+        return 0.0;
+      }
+
+      inline double getHardcodedMu() {
+        return getHardcodedS() / 2;
+      }
+
       inline std::array<double,3> getHardcodedTheta(int mech) {
-        static_assert(NUMBER_OF_RELAXATION_MECHANISMS == 1);
+        assert(mech == 1);
         const auto S = getHardcodedS();
         return {-S, 0, -S};
       }
 
       inline double getHardcodedOmega(int mech) {
-        static_assert(NUMBER_OF_RELAXATION_MECHANISMS == 1);
+        assert(mech == 1);
         return getHardcodedS() / getHardcodedEta();
       }
+
       inline bool isAcousticRegion(const ViscoElasticMaterial& m) {
         const auto eps = 1e-5;
-        const auto lambdaMatches = std::abs(m.lambda - 0) <= eps;
-        const auto muMatches = std::abs(m.mu - getHardcodedS()/2) <= eps;
-        const auto rhoMatches = std::abs(m.rho - 2500) <= eps;
-        return lambdaMatches && muMatches && rhoMatches;
+        // Matching only with rho, as lambda/mu are changed by fitting of attenuation
+        return std::abs(m.rho - 2500) <= eps;
       }
 
 /*
@@ -137,12 +144,23 @@ namespace seissol {
         }
       }
 
+    inline ElasticMaterial viscoToElasticMaterial(const ViscoElasticMaterial& viscoMaterial)   {
+        auto elasticMaterial = dynamic_cast<const ElasticMaterial&>(viscoMaterial);
+        if (isAcousticRegion) {   // Modify material
+              elasticMaterial.lambda = getHardcodedLambda();
+              elasticMaterial.mu = getHardcodedMu();
+        }
+        return elasticMaterial;
+    }
+
     template<typename T>
     void getTransposedCoefficientMatrix( ViscoElasticMaterial const&    i_material,
                                          unsigned                       i_dim,
                                          T&                             AT )
       {
-        getTransposedCoefficientMatrix(dynamic_cast<ElasticMaterial const&>(i_material), i_dim, AT);
+        const auto elasticMaterial = viscoToElasticMaterial(i_material);
+
+        getTransposedCoefficientMatrix(elasticMaterial, i_dim, AT);
 
         getTransposedViscoelasticCoefficientMatrix( 1.0, i_dim, 0, AT );
       }
@@ -155,8 +173,10 @@ namespace seissol {
                                     init::QgodLocal::view::type&      QgodLocal,
                                     init::QgodNeighbor::view::type&   QgodNeighbor )
     {
-      getTransposedGodunovState( dynamic_cast<ElasticMaterial const&>(local),
-                                 dynamic_cast<ElasticMaterial const&>(neighbor), 
+      const auto elasticMaterialLocal = viscoToElasticMaterial(local);
+      const auto elasticMaterialNeighbor = viscoToElasticMaterial(neighbor);
+      getTransposedGodunovState( elasticMaterialLocal,
+                                 elasticMaterialNeighbor,
                                  faceType, 
                                  QgodLocal, 
                                  QgodNeighbor);
