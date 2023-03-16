@@ -219,30 +219,59 @@ void seissol::LoopStatistics::writeSamples() {
       MPI_Scan(&nSamples, &sampleOffset, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
       
       int ncid, stat;
-      stat = nc_create_par(fileName.c_str(), NC_MPIIO | NC_CLOBBER | NC_NETCDF4, seissol::MPI::mpi.comm(), MPI_INFO_NULL, &ncid); check_err(stat,__LINE__,__FILE__);
-      
+      stat = nc_create_par(fileName.c_str(),
+                           NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
+                           seissol::MPI::mpi.comm(),
+                           MPI_INFO_NULL,
+                           &ncid);
+      check_err(stat, __LINE__, __FILE__);
+
       int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
-      
-      stat = nc_def_dim(ncid, "rank", 1+seissol::MPI::mpi.size(), &rankdim);             check_err(stat,__LINE__,__FILE__);
-      stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim); check_err(stat,__LINE__,__FILE__);
 
-      stat = nc_def_compound(ncid, sizeof(timespec), "timespec", &timespectyp); check_err(stat,__LINE__,__FILE__);
+      stat = nc_def_dim(ncid, "rank", 1 + seissol::MPI::mpi.size(), &rankdim);
+      check_err(stat, __LINE__, __FILE__);
+      stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim);
+      check_err(stat, __LINE__, __FILE__);
+
+      stat = nc_def_compound(ncid, sizeof(timespec), "timespec", &timespectyp);
+      check_err(stat, __LINE__, __FILE__);
       {
-        stat = nc_insert_compound(ncid, timespectyp, "sec", NC_COMPOUND_OFFSET(timespec,tv_sec), type2nc<decltype(timespec::tv_sec)>::type); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, timespectyp, "nsec", NC_COMPOUND_OFFSET(timespec,tv_nsec), type2nc<decltype(timespec::tv_nsec)>::type); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(ncid,
+                                  timespectyp,
+                                  "sec",
+                                  NC_COMPOUND_OFFSET(timespec, tv_sec),
+                                  type2nc<decltype(timespec::tv_sec)>::type);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(ncid,
+                                  timespectyp,
+                                  "nsec",
+                                  NC_COMPOUND_OFFSET(timespec, tv_nsec),
+                                  type2nc<decltype(timespec::tv_nsec)>::type);
+        check_err(stat, __LINE__, __FILE__);
       }
 
-      stat = nc_def_compound(ncid, sizeof(Sample), "Sample", &sampletyp); check_err(stat,__LINE__,__FILE__);
+      stat = nc_def_compound(ncid, sizeof(Sample), "Sample", &sampletyp);
+      check_err(stat, __LINE__, __FILE__);
       {
-        stat = nc_insert_compound(ncid, sampletyp, "begin", NC_COMPOUND_OFFSET(Sample,begin), timespectyp); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, sampletyp, "end", NC_COMPOUND_OFFSET(Sample,end), timespectyp); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, sampletyp, "loopLength", NC_COMPOUND_OFFSET(Sample,numIters), NC_UINT); check_err(stat,__LINE__,__FILE__);
-        stat = nc_insert_compound(ncid, sampletyp, "subRegion", NC_COMPOUND_OFFSET(Sample,subRegion), NC_UINT); check_err(stat,__LINE__,__FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "begin", NC_COMPOUND_OFFSET(Sample, begin), timespectyp);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "end", NC_COMPOUND_OFFSET(Sample, end), timespectyp);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "loopLength", NC_COMPOUND_OFFSET(Sample, numIters), NC_UINT);
+        check_err(stat, __LINE__, __FILE__);
+        stat = nc_insert_compound(
+            ncid, sampletyp, "subRegion", NC_COMPOUND_OFFSET(Sample, subRegion), NC_UINT);
+        check_err(stat, __LINE__, __FILE__);
       }
-      
-      stat = nc_def_var(ncid, "offset", NC_INT,   1, &rankdim,   &offsetid); check_err(stat,__LINE__,__FILE__);
-      stat = nc_def_var(ncid, "sample", sampletyp, 1, &sampledim, &sampleid); check_err(stat,__LINE__,__FILE__);
-      
+
+      stat = nc_def_var(ncid, "offset", NC_INT, 1, &rankdim, &offsetid);
+      check_err(stat, __LINE__, __FILE__);
+      stat = nc_def_var(ncid, "sample", sampletyp, 1, &sampledim, &sampleid);
+      check_err(stat, __LINE__, __FILE__);
+
       stat = nc_enddef(ncid); check_err(stat,__LINE__,__FILE__);
       
       stat = nc_var_par_access(ncid, offsetid, NC_COLLECTIVE); check_err(stat,__LINE__,__FILE__);
@@ -259,12 +288,14 @@ void seissol::LoopStatistics::writeSamples() {
         count = 1;
       }
       offsetData[count-1] = sampleOffset;
-      stat = nc_put_vara_int(ncid, offsetid, &start, &count, offsetData);  check_err(stat,__LINE__,__FILE__);
-      
+      stat = nc_put_vara_int(ncid, offsetid, &start, &count, offsetData);
+      check_err(stat, __LINE__, __FILE__);
+
       start = sampleOffset-nSamples;
       count = nSamples;
-      stat = nc_put_vara(ncid, sampleid, &start, &count, m_times[region].data());  check_err(stat,__LINE__,__FILE__);      
-      
+      stat = nc_put_vara(ncid, sampleid, &start, &count, m_times[region].data());
+      check_err(stat, __LINE__, __FILE__);
+
       stat = nc_close(ncid); check_err(stat,__LINE__,__FILE__);
     }
 #else
