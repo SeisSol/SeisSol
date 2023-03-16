@@ -214,9 +214,9 @@ void seissol::LoopStatistics::writeSamples() {
       ss << loopStatFile << m_regions[region] << ".nc";
       std::string fileName = ss.str();
       
-      int nSamples = m_times[region].size();
-      int sampleOffset;
-      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
+      long nSamples = m_times[region].size();
+      long sampleOffset;
+      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, seissol::MPI::mpi.comm());
       
       int ncid, stat;
       stat = nc_create_par(fileName.c_str(),
@@ -267,7 +267,7 @@ void seissol::LoopStatistics::writeSamples() {
         check_err(stat, __LINE__, __FILE__);
       }
 
-      stat = nc_def_var(ncid, "offset", NC_INT, 1, &rankdim, &offsetid);
+      stat = nc_def_var(ncid, "offset", NC_INT64, 1, &rankdim, &offsetid);
       check_err(stat, __LINE__, __FILE__);
       stat = nc_def_var(ncid, "sample", sampletyp, 1, &sampledim, &sampleid);
       check_err(stat, __LINE__, __FILE__);
@@ -277,8 +277,8 @@ void seissol::LoopStatistics::writeSamples() {
       stat = nc_var_par_access(ncid, offsetid, NC_COLLECTIVE); check_err(stat,__LINE__,__FILE__);
       stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE); check_err(stat,__LINE__,__FILE__);
   
-      size_t start, count;
-      int offsetData[2];
+      std::size_t start, count;
+      long offsetData[2];
       if (seissol::MPI::mpi.rank() == 0) {
         start = 0;
         count = 2;        
@@ -288,7 +288,8 @@ void seissol::LoopStatistics::writeSamples() {
         count = 1;
       }
       offsetData[count-1] = sampleOffset;
-      stat = nc_put_vara_int(ncid, offsetid, &start, &count, offsetData);
+
+      stat = nc_put_vara_long(ncid, offsetid, &start, &count, offsetData);
       check_err(stat, __LINE__, __FILE__);
 
       start = sampleOffset-nSamples;
