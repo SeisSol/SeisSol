@@ -46,7 +46,12 @@
 
 #include "LtsLayout.h"
 #include "MultiRate.hpp"
+#include "GlobalTimestep.hpp"
 #include <iterator>
+
+#include "Initializer/ParameterDB.h"
+
+#include <iomanip>
 
 seissol::initializers::time_stepping::LtsLayout::LtsLayout():
  m_cellTimeStepWidths(       NULL ),
@@ -86,6 +91,27 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader 
     m_cellTimeStepWidths[l_cell] = std::numeric_limits<double>::min();
     m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
   }
+
+  auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+
+  // compute timesteps
+  const auto& elements = i_mesh.getElements();
+  const auto& vertices = i_mesh.getVertices();
+  auto gts = seissol::initializer::computeTimesteps<seissol::initializers::ElementBarycentreGenerator>(ssp.timestepping.cfl, ssp.timestepping.maxTimestep, ssp.model.materialFileName,
+      i_mesh, elements.size(),
+      [&](size_t index) {
+          std::array<Eigen::Vector3d, 4> verts;
+          for (size_t i = 0; i < 4; ++i) {
+              auto vindex = elements[index].vertices[i];
+              const auto& vertex = vertices[vindex];
+              verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
+          }
+          return verts;
+      });
+  
+  for (size_t i = 0; i < gts.elementTimeStep.size(); ++i) {
+    m_cellTimeStepWidths[i] = gts.elementTimeStep[i];
+  }
 }
 
 void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned int i_cellId,
@@ -93,7 +119,7 @@ void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned
   if( i_cellId >= m_cells.size() ) logError() << "cell id >= mesh size: " << i_cellId << m_cells.size() << "aborting";
 
   // set time step width
-  m_cellTimeStepWidths[i_cellId] = i_timeStepWidth;
+  //m_cellTimeStepWidths[i_cellId] = i_timeStepWidth;
 }
 
 FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
