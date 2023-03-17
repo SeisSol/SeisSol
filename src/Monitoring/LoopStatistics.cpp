@@ -206,8 +206,8 @@ template <> struct type2nc<uint64_t> {
 void seissol::LoopStatistics::writeSamples(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
     const auto loopStatFile = outputPrefix + "-loopStat-";
-#if defined(USE_NETCDF) && defined(USE_MPI)
     const auto rank = MPI::mpi.rank();
+#if defined(USE_NETCDF) && defined(USE_MPI)
     logInfo(rank) << "Starting to write loop statistics samples to disk.";
     unsigned nRegions = m_times.size();
     for (unsigned region = 0; region < nRegions; ++region) {
