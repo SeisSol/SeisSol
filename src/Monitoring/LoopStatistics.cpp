@@ -203,10 +203,12 @@ template <> struct type2nc<uint64_t> {
 };
 #endif
   
-void seissol::LoopStatistics::writeSamples() {
-  std::string loopStatFile = utils::Env::get<std::string>("SEISSOL_LOOP_STAT_PREFIX", "");
-  if (!loopStatFile.empty()) {
+void seissol::LoopStatistics::writeSamples(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn) {
+  if (isLoopStatisticsNetcdfOutputOn) {
+    const auto loopStatFile = outputPrefix + "-loopStat-";
 #if defined(USE_NETCDF) && defined(USE_MPI)
+    const auto rank = MPI::mpi.rank();
+    logInfo(rank) << "Starting to write loop statistics samples to disk.";
     unsigned nRegions = m_times.size();
     for (unsigned region = 0; region < nRegions; ++region) {
       std::ofstream file;
@@ -216,19 +218,19 @@ void seissol::LoopStatistics::writeSamples() {
       
       long nSamples = m_times[region].size();
       long sampleOffset;
-      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, seissol::MPI::mpi.comm());
+      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, MPI::mpi.comm());
       
       int ncid, stat;
       stat = nc_create_par(fileName.c_str(),
                            NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
-                           seissol::MPI::mpi.comm(),
+                           MPI::mpi.comm(),
                            MPI_INFO_NULL,
                            &ncid);
       check_err(stat, __LINE__, __FILE__);
 
       int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
 
-      stat = nc_def_dim(ncid, "rank", 1 + seissol::MPI::mpi.size(), &rankdim);
+      stat = nc_def_dim(ncid, "rank", 1 + MPI::mpi.size(), &rankdim);
       check_err(stat, __LINE__, __FILE__);
       stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim);
       check_err(stat, __LINE__, __FILE__);
@@ -279,12 +281,12 @@ void seissol::LoopStatistics::writeSamples() {
   
       std::size_t start, count;
       long offsetData[2];
-      if (seissol::MPI::mpi.rank() == 0) {
+      if (rank == 0) {
         start = 0;
         count = 2;        
         offsetData[0] = 0;
       } else {
-        start = 1+seissol::MPI::mpi.rank();
+        start = 1+rank;
         count = 1;
       }
       offsetData[count-1] = sampleOffset;
@@ -299,8 +301,9 @@ void seissol::LoopStatistics::writeSamples() {
 
       stat = nc_close(ncid); check_err(stat,__LINE__,__FILE__);
     }
+    logInfo(rank) << "Finished writing loop statistics samples.";
 #else
-    logWarning(seissol::MPI::mpi.rank()) << "Writing loop statistics requires NetCDF and MPI.";
+    logWarning(rank) << "Writing loop statistics requires NetCDF and MPI.";
 #endif
   }
 }

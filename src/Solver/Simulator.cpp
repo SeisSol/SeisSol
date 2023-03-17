@@ -147,7 +147,11 @@ void seissol::Simulator::simulate() {
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 
-  seissol::SeisSol::main.timeManager().printComputationTime();
+  const auto& memoryManager = SeisSol::main.getMemoryManager();
+  const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
+  const auto& outputPrefix = memoryManager.getOutputPrefix();
+  seissol::SeisSol::main.timeManager().printComputationTime(outputPrefix,
+                                                            isLoopStatisticsNetcdfOutputOn);
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
 

@@ -184,7 +184,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void setInitialTimes( double i_time = 0 );
 
-    void printComputationTime();
+    void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 };
 
 #endif
