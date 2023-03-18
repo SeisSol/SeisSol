@@ -1,5 +1,6 @@
 #include "InputParameters.hpp"
 
+#include "InputAux.hpp"
 #include "utils/logger.h"
 
 #include <yaml-cpp/yaml.h>
@@ -10,11 +11,14 @@
 
 using namespace seissol::initializer::parameters;
 
+// converts a string to lower case. Maybe it will trim a string in the future as well.
 void sanitize(std::string& input) {
     // https://stackoverflow.com/a/313990
     std::transform(input.begin(), input.end(), input.begin(), [](char c){return std::tolower(c);});
 }
 
+// A small helper class which reads a YAML node dictionary. It keeps track of all items that have been read and reports all values which are not used or not used anymore.
+// TODO: maybe make the reader more tree-like (i.e. keep a central set on which nodes have been visited), and output all non-understood values at the end and not between sections
 class ParameterReader {
 public:
     ParameterReader(const YAML::Node& node, bool empty) : node(node), empty(empty) {}
@@ -187,11 +191,20 @@ void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp)
     reader.warnLeftover();
 }
 
-
 void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
     auto reader = baseReader.subreader("inicondition");
 
-    ssp.initialization.type = reader.readWithDefault("cictype", std::string("zero"));
+    ssp.initialization.type = reader.readWithDefaultStringEnum<InitializationType>("cictype", "zero", {
+        {"zero", InitializationType::Zero},
+        {"planarwave", InitializationType::Planarwave},
+        {"superimposedplanarwave", InitializationType::SuperimposedPlanarwave},
+        {"travelling", InitializationType::Travelling},
+        {"scholte", InitializationType::Scholte},
+        {"snell", InitializationType::Snell},
+        {"ocean_0", InitializationType::Ocean0},
+        {"ocean_1", InitializationType::Ocean1},
+        {"ocean_2", InitializationType::Ocean2},
+    });
     ssp.initialization.origin = reader.readWithDefault("origin", std::array<double, 3>{0});
     ssp.initialization.kVec = reader.readWithDefault("kvec", std::array<double, 3>{0});
     ssp.initialization.ampField = reader.readWithDefault("ampfield", std::array<double, NUMBER_OF_QUANTITIES>{0});
@@ -202,22 +215,92 @@ void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
 void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
     auto reader = baseReader.subreader("output");
 
-    ssp.output.format = reader.readWithDefaultEnum<OutputFormat>("outputformat", OutputFormat::None, {
+    // general params
+    ssp.output.format = reader.readWithDefaultEnum<OutputFormat>("format", OutputFormat::None, {
         OutputFormat::None,
         OutputFormat::Xdmf
     });
     ssp.output.prefix = reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
-    ssp.output.refinement = reader.readWithDefaultEnum("refinement", OutputRefinement::NoRefine, {
+    ssp.output.refinement = reader.readWithDefaultEnum<OutputRefinement>("refinement", OutputRefinement::NoRefine, {
         OutputRefinement::NoRefine,
         OutputRefinement::Refine4,
         OutputRefinement::Refine8,
         OutputRefinement::Refine32
     });
-    /*ssp.output.xdmfWriterBackend = reader.readWithDefaultStringEnum("xdmfwriterbackend", XdmfWriter::Posix, {
+    ssp.output.xdmfWriterBackend = reader.readWithDefaultStringEnum<xdmfwriter::BackendType>("xdmfwriterbackend", "posix", {
+        {"posix", xdmfwriter::BackendType::POSIX},
+#ifdef USE_HDF
+        {"hdf5", xdmfwriter::BackendType::H5},
+#endif
+    });
 
-    });*/
+    // output time interval
+    if (ssp.output.format != OutputFormat::None) {
+        ssp.output.interval = reader.readOrFail<double>("timeinterval", "No output interval specified.");
+    }
+    else {
+        reader.markUnused("timeinterval");
+    }
 
-    reader.warnDeprecated({"Rotation", "Interval", "nRecordPoints", "printIntervalCriterion"});
+    ssp.output.pickDt = reader.readWithDefault("pickdt", 0.0);
+
+    // checkpointing
+    ssp.output.checkpointParameters.backend = reader.readWithDefaultStringEnum<seissol::checkpoint::Backend>("checkpointbackend", "none", {
+        {"none", seissol::checkpoint::Backend::DISABLED},
+        {"posix", seissol::checkpoint::Backend::POSIX},
+        {"hdf5", seissol::checkpoint::Backend::HDF5},
+        {"mpio", seissol::checkpoint::Backend::MPIO},
+        {"mpio_async", seissol::checkpoint::Backend::MPIO_ASYNC},
+        {"sionlib", seissol::checkpoint::Backend::SIONLIB}
+    });
+    ssp.output.checkpointParameters.interval = reader.readWithDefault("checkpointinterval", 0.0);
+    ssp.output.checkpointParameters.enabled = ssp.output.checkpointParameters.interval > 0;
+    if (ssp.output.checkpointParameters.enabled) {
+        ssp.output.checkpointParameters.fileName = reader.readOrFail<std::string>("checkpointfile", "No checkpoint filename given.");
+    }
+    else {
+        reader.markUnused("checkpointfile");
+    }
+
+    // output: surface
+    ssp.output.outputSurfaceParameters.enabled = reader.readWithDefault("surfaceoutput", false);
+    ssp.output.outputSurfaceParameters.interval = reader.readWithDefault("surfaceoutputinterval", 0.0);
+    ssp.output.outputSurfaceParameters.enabled &= ssp.output.outputSurfaceParameters.interval > 0;
+    ssp.output.outputSurfaceParameters.refinement = reader.readWithDefaultEnum<OutputRefinement>("surfaceoutputrefinement", OutputRefinement::NoRefine, {
+        OutputRefinement::NoRefine,
+        OutputRefinement::Refine4,
+        OutputRefinement::Refine8,
+        OutputRefinement::Refine32
+    });
+
+    // output: energy
+    ssp.output.outputEnergyParameters.enabled = reader.readWithDefault("energyoutput", false);
+    ssp.output.outputEnergyParameters.interval = reader.readWithDefault("energyoutputinterval", 0.0);
+    ssp.output.outputEnergyParameters.enabled &= ssp.output.outputEnergyParameters.interval > 0;
+    ssp.output.outputEnergyParameters.terminalOutput = reader.readWithDefault("energyterminaloutput", false);
+    ssp.output.outputEnergyParameters.computeVolumeEnergiesEveryOutput = reader.readWithDefault("computevolumeenergieseveryoutput", true);
+
+    // output: refinement
+    ssp.output.outputReceiverParameters.interval = reader.readWithDefault("receiveroutputinterval", 0.0);
+    ssp.output.outputReceiverParameters.enabled = ssp.output.outputReceiverParameters.interval > 0;
+    ssp.output.outputReceiverParameters.computeRotation = reader.readWithDefault("receivercomputerotation", false);
+    ssp.output.outputReceiverParameters.fileName = reader.readOrFail<std::string>("rfilename", "No receiver output file name specified.");
+
+    // output: fault
+    ssp.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
+
+    // output mask
+    auto iOutputMask = reader.readOrFail<std::string>("ioutputmask", "No output mask given.");
+    seissol::initializers::convertStringToMask(iOutputMask, ssp.output.outputMask);
+
+    auto iPlasticityMask = reader.readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 0"));
+    seissol::initializers::convertStringToMask(iPlasticityMask, ssp.output.plasticityMask);
+
+    auto integrationMask = reader.readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
+    seissol::initializers::convertStringToMask(integrationMask, ssp.output.integrationMask);
+
+    // TODO: check if ioutputmaskmaterial is still in use...
+    reader.warnDeprecated({"rotation", "interval", "nrecordpoints", "printintervalcriterion", "pickdttype", "ioutputmaskmaterial"});
     reader.warnLeftover();
 }
 
