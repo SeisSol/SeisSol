@@ -277,7 +277,10 @@ void seissol::sourceterm::Manager::loadSources(  SourceType                     
     loadSourcesFromFSRMNew(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
   }
   else if (sourceType == SourceType::None) {
-    logError() << "The source type " << static_cast<int>(sourceType) << " has been defined, but not yet been implemented in SeisSol.";
+    logInfo() << "No source term specified.";
+  }
+  else {
+    logError() << "The source type" << static_cast<int>(sourceType) << "has been defined, but not yet been implemented in SeisSol.";
   }
   // otherwise, we do not have any source term.
 }
