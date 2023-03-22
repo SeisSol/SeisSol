@@ -362,6 +362,10 @@ class seissol::initializers::MemoryManager {
       return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
     }
 
+    bool isLoopStatisticsNetcdfOutputOn() const {
+      return getWithDefault((*m_inputParams)["output"], "loopstatisticsnetcdfoutput", false);
+    }
+
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
 
