@@ -4,21 +4,21 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -46,6 +46,7 @@
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
+#include <ResultWriter/ClusteringWriter.h>
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
@@ -53,9 +54,6 @@ seissol::time_stepping::TimeManager::TimeManager():
   m_loopStatistics.addRegion("computeLocalIntegration");
   m_loopStatistics.addRegion("computeNeighboringIntegration");
   m_loopStatistics.addRegion("computeDynamicRupture");
-  m_loopStatistics.addRegion("stateCorrected");
-  m_loopStatistics.addRegion("statePredicted");
-  m_loopStatistics.addRegion("stateSynced");
 
   actorStateStatisticsManager = ActorStateStatisticsManager();
 }
@@ -74,6 +72,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
   // store the time stepping
   m_timeStepping = i_timeStepping;
+
+  auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   bool foundDynamicRuptureCluster = false;
 
@@ -108,9 +108,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
       const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
+      const auto profilingId = l_globalClusterId + offsetMonitoring;
+      auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
+      auto* dynRupInteriorData = &dynRupTree.child(Interior);
+      auto* dynRupCopyData = &dynRupTree.child(Copy);
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           l_globalClusterId,
+          profilingId,
           usePlasticity,
           type,
           timeStepSize,
@@ -118,16 +123,22 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
           printProgress,
           drScheduler.get(),
           globalData,
-          &memoryManager.getLtsTree()->child(localClusterId).child(type),
-          &dynRupTree.child(Interior),
-          &dynRupTree.child(Copy),
+          layerData,
+          dynRupInteriorData,
+          dynRupCopyData,
           memoryManager.getLts(),
           memoryManager.getDynamicRupture(),
           memoryManager.getFrictionLaw(),
           memoryManager.getFaultOutputManager(),
           &m_loopStatistics,
-          &actorStateStatisticsManager.addCluster(l_globalClusterId + offsetMonitoring))
+          &actorStateStatisticsManager.addCluster(profilingId))
       );
+
+      const auto clusterSize = layerData->getNumberOfCells();
+      const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
+                                           : dynRupInteriorData->getNumberOfCells();
+      // Add writer to output
+      clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
     }
     auto& interior = clusters[clusters.size() - 1];
     auto& copy = clusters[clusters.size() - 2];
@@ -154,6 +165,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         );
       }
     }
+
 
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
@@ -185,6 +197,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     }
 #endif
   }
+
+  clusteringWriter.write();
 
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
@@ -219,6 +233,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
 }
 
 void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
@@ -311,13 +326,14 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 #endif
 }
 
-void seissol::time_stepping::TimeManager::printComputationTime()
-{
+void seissol::time_stepping::TimeManager::printComputationTime(
+    const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn) {
   actorStateStatisticsManager.addToLoopStatistics(m_loopStatistics);
 #ifdef USE_MPI
   m_loopStatistics.printSummary(MPI::mpi.comm());
 #endif
-  m_loopStatistics.writeSamples();
+
+  m_loopStatistics.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 }
 
 double seissol::time_stepping::TimeManager::getTimeTolerance() {

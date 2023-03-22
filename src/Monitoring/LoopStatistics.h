@@ -96,7 +96,7 @@ public:
   void printSummary(MPI_Comm comm);
 #endif
 
-  void writeSamples();
+  void writeSamples(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
   
 private:
   struct Sample {
