@@ -45,10 +45,12 @@
 #include <string>
 #include <stdexcept>
 
+#include "Initializer/BasicTypedefs.hpp"
+
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In particular, this reader is not programmed to be very fail-safe...
 
 template<size_t N>
-void read_array_or_zero(std::ifstream& filestream, std::string& header, const std::string& keyword, double* data) {
+void read_array_or_zero(std::ifstream& filestream, std::string& header, const std::string& keyword, real* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N;++i) {
       filestream >> data[i];
