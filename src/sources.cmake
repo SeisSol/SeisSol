@@ -15,6 +15,13 @@ src/Initializer/MemoryManager.cpp
 src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InputParameters.cpp
 
+src/Initializer/InitProcedure/InitMesh.cpp
+src/Initializer/InitProcedure/InitLts.cpp
+src/Initializer/InitProcedure/InitCells.cpp
+src/Initializer/InitProcedure/InitIO.cpp
+src/Initializer/InitProcedure/InitSideConditions.cpp
+src/Initializer/InitProcedure/Init.cpp
+
 src/Modules/Modules.cpp
 src/Modules/ModulesC.cpp
 src/Model/common.cpp
