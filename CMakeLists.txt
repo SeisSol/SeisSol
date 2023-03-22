@@ -560,6 +560,17 @@ if (TESTING)
     COPYONLY
   )
 
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source1.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
+    COPYONLY
+  )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source2.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
+    COPYONLY
+  )
+
   if (NETCDF)
     configure_file(
             ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf
