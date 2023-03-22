@@ -334,6 +334,9 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
     // output: fault
     ssp.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
 
+    // output: loop statistics
+    ssp.output.loopStatisticsNetcdfOutput = reader.readWithDefault("loopstatisticsnetcdfoutput", false);
+
     // TODO: check if ioutputmaskmaterial is still in use...
     reader.warnDeprecated({"rotation", "interval", "nrecordpoints", "printintervalcriterion", "pickdttype", "ioutputmaskmaterial"});
     reader.warnLeftover();

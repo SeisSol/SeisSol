@@ -164,6 +164,7 @@ namespace seissol::initializer::parameters {
         OutputSurfaceParameters freeSurfaceParameters;
         OutputEnergyParameters energyParameters;
         bool faultOutput = false;
+        bool loopStatisticsNetcdfOutput = false;
     };
 
     struct LtsParameters {
