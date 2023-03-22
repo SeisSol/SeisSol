@@ -12,8 +12,6 @@
 #include <Solver/Interoperability.h>
 #include <Numerical_aux/Eigenvalues.h>
 
-extern seissol::Interoperability e_interoperability;
-
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
                std::array<double, 3> kVec,

@@ -90,9 +90,6 @@
 
 #include <generated_code/kernel.h>
 
-//! fortran interoperability
-extern seissol::Interoperability e_interoperability;
-
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  bool usePlasticity,
                                                  LayerType layerType, double maxTimeStepSize,
@@ -146,7 +143,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
 
   m_timeKernel.setGlobalData(i_globalData);
   m_localKernel.setGlobalData(i_globalData);
-  m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
+  m_localKernel.setInitConds(&seissol::SeisSol::main.getMemoryManager().getInitialConditions());
   m_neighborKernel.setGlobalData(i_globalData);
   m_dynamicRuptureKernel.setGlobalData(i_globalData);
 

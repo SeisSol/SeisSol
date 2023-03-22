@@ -481,7 +481,7 @@ void seissol::Interoperability::initializeClusteredLts(int clustering,
 
 void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity) {
   // initialize memory layout
-  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
+  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout();
 
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters(m_timeStepping,
@@ -935,6 +935,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
     LtsClusteringData[Element.localId] = LtsLayout.getGlobalClusterId(Element.localId);
   }
 	// Initialize wave field output
+  /*
 	seissol::SeisSol::main.waveFieldWriter().init(
       numberOfQuantities, CONVERGENCE_ORDER,
       NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
@@ -945,7 +946,7 @@ seissol::Interoperability::initializeIO(int numSides, int numBndGP, int refineme
       seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
       m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
       refinement, outputMask, plasticityMask, outputRegionBounds,outputGroups,
-			type);
+			type);*/
 
 	// Initialize free surface output
 	seissol::SeisSol::main.freeSurfaceWriter().init(

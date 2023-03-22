@@ -47,6 +47,7 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include <array>
 #include <memory>
 #include <unordered_set>
 
@@ -59,6 +60,9 @@
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
 #include <Modules/Module.h>
+
+// for OutputBounds
+#include "Initializer/InputParameters.hpp"
 
 namespace seissol
 {
@@ -201,9 +205,10 @@ public:
             const std::vector<unsigned> &LtsClusteringData,
             const real* dofs, const real* pstrain, const real* integrals,
             unsigned int* map,
-            int refinement, int* outputMask,
-            int* plasticityMask,
-            const double* outputRegionBounds,
+			seissol::initializer::parameters::OutputRefinement refinement,
+			const std::vector<bool>& outputMask,
+			const std::array<bool, 7>& plasticityMask,
+			const seissol::initializer::parameters::OutputBounds& outputRegionBounds,
             const std::unordered_set<int>& outputGroups,
             xdmfwriter::BackendType backend);
 

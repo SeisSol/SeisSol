@@ -50,8 +50,6 @@
 #include "Solver/Interoperability.h"
 #include "DynamicRupture/Output/OutputManager.hpp"
 
-extern seissol::Interoperability e_interoperability;
-
 void seissol::writer::FaultWriter::setUp()
 {
   setExecutor(m_executor);

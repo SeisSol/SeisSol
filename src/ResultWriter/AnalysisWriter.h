@@ -16,8 +16,6 @@
 
 #include <Geometry/MeshReader.h>
 
-extern seissol::Interoperability e_interoperability;
-
 namespace seissol::writer {
 class CsvAnalysisWriter {
 public:

@@ -47,8 +47,6 @@
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 
-extern seissol::Interoperability e_interoperability;
-
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
