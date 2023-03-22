@@ -3,6 +3,11 @@
 #include "InputAux.hpp"
 #include "utils/logger.h"
 
+#include "Geometry/MeshReader.h"
+#include "SourceTerm/Manager.h"
+#include "Checkpoint/Backend.h"
+#include "time_stepping/LtsWeights/WeightsFactory.h"
+
 #include <yaml-cpp/yaml.h>
 #include <unordered_set>
 #include <unordered_map>
@@ -154,6 +159,16 @@ void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
     reader.warnLeftover();
 }
 
+void readDynamicRupture(ParameterReader& baseReader, SeisSolParameters& ssp) {
+    auto reader = baseReader.subreader("boundaries");
+    ssp.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
+
+    // TODO: ? port DR reading here, maybe.
+
+    reader.warnDeprecated({"bc_fs", "bc_nc", "bc_if", "bc_of", "bc_pe"});
+    reader.warnLeftover();
+}
+
 void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
     auto reader = baseReader.subreader("meshnml");
 
@@ -170,9 +185,9 @@ void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
     auto scalingZ = reader.readWithDefault("scalingmatrixz", std::array<double, 3>{0,0,1});
     ssp.mesh.scaling = {scalingX, scalingY, scalingZ};
 
-    ssp.timestepping.vertexWeight.weightElement = reader.readWithDefault("vertexWeightElement", 0);
-    ssp.timestepping.vertexWeight.weightDynamicRupture = reader.readWithDefault("vertexWeightDynamicRupture", 0);
-    ssp.timestepping.vertexWeight.weightFreeSurfaceWithGravity = reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 0);
+    ssp.timestepping.vertexWeight.weightElement = reader.readWithDefault("vertexWeightElement", 100);
+    ssp.timestepping.vertexWeight.weightDynamicRupture = reader.readWithDefault("vertexWeightDynamicRupture", 100);
+    ssp.timestepping.vertexWeight.weightFreeSurfaceWithGravity = reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 100);
 
     reader.warnDeprecated({"periodic", "periodic_direction"});
     reader.warnLeftover();
@@ -185,7 +200,11 @@ void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp)
     ssp.timestepping.cfl = reader.readWithDefault("cfl", 0.5);
     ssp.timestepping.maxTimestep = reader.readWithDefault("fixtimestep", 5000.0);
     ssp.timestepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
-    ssp.timestepping.lts.weighttype = reader.readWithDefault("ltsweighttypeid", 1);
+    ssp.timestepping.lts.weighttype = reader.readWithDefaultEnum("ltsweighttypeid", seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights, {
+        seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights,
+        seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialBalancedWeights,
+        seissol::initializers::time_stepping::LtsWeightsTypes::EncodedBalancedWeights,
+    });
 
     reader.warnDeprecated({"ckmethod", "dgfineout1d", "fluxmethod", "iterationcriterion", "npoly", "npolyrec", "limitersecurityfactor", "order", "material", "npolymap"});
     reader.warnLeftover();
@@ -220,29 +239,18 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
         OutputFormat::None,
         OutputFormat::Xdmf
     });
-    ssp.output.prefix = reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
-    ssp.output.refinement = reader.readWithDefaultEnum<OutputRefinement>("refinement", OutputRefinement::NoRefine, {
-        OutputRefinement::NoRefine,
-        OutputRefinement::Refine4,
-        OutputRefinement::Refine8,
-        OutputRefinement::Refine32
-    });
+    if (ssp.output.format != OutputFormat::None) {
+        ssp.output.prefix = reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
+    }
+    else {
+        reader.markUnused("outputfile");
+    }
     ssp.output.xdmfWriterBackend = reader.readWithDefaultStringEnum<xdmfwriter::BackendType>("xdmfwriterbackend", "posix", {
         {"posix", xdmfwriter::BackendType::POSIX},
 #ifdef USE_HDF
         {"hdf5", xdmfwriter::BackendType::H5},
 #endif
     });
-
-    // output time interval
-    if (ssp.output.format != OutputFormat::None) {
-        ssp.output.interval = reader.readOrFail<double>("timeinterval", "No output interval specified.");
-    }
-    else {
-        reader.markUnused("timeinterval");
-    }
-
-    ssp.output.pickDt = reader.readWithDefault("pickdt", 0.0);
 
     // checkpointing
     ssp.output.checkpointParameters.backend = reader.readWithDefaultStringEnum<seissol::checkpoint::Backend>("checkpointbackend", "none", {
@@ -262,42 +270,69 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
         reader.markUnused("checkpointfile");
     }
 
-    // output: surface
-    ssp.output.outputSurfaceParameters.enabled = reader.readWithDefault("surfaceoutput", false);
-    ssp.output.outputSurfaceParameters.interval = reader.readWithDefault("surfaceoutputinterval", 0.0);
-    ssp.output.outputSurfaceParameters.enabled &= ssp.output.outputSurfaceParameters.interval > 0;
-    ssp.output.outputSurfaceParameters.refinement = reader.readWithDefaultEnum<OutputRefinement>("surfaceoutputrefinement", OutputRefinement::NoRefine, {
+    // output: wavefield
+    // (these variables are usually not prefixed with "wavefield" or the likes)
+
+    // bounds
+    auto bounds = reader.readWithDefault("outputregionbounds", std::array<double, 6>{0});
+    ssp.output.waveFieldParameters.bounds.boundsX.lower = bounds[0];
+    ssp.output.waveFieldParameters.bounds.boundsX.upper = bounds[1];
+    ssp.output.waveFieldParameters.bounds.boundsY.lower = bounds[2];
+    ssp.output.waveFieldParameters.bounds.boundsY.upper = bounds[3];
+    ssp.output.waveFieldParameters.bounds.boundsZ.lower = bounds[4];
+    ssp.output.waveFieldParameters.bounds.boundsZ.upper = bounds[5];
+    ssp.output.waveFieldParameters.bounds.enabled = !(bounds[0] == 0 && bounds[1] == 0 && bounds[2] == 0 && bounds[3] == 0 && bounds[4] == 0 && bounds[5] == 0);
+
+    // output time interval
+    if (ssp.output.format != OutputFormat::None) {
+        ssp.output.waveFieldParameters.interval = reader.readOrFail<double>("timeinterval", "No output interval specified.");
+    }
+    else {
+        reader.markUnused("timeinterval");
+    }
+    ssp.output.waveFieldParameters.refinement = reader.readWithDefaultEnum<OutputRefinement>("refinement", OutputRefinement::NoRefine, {
         OutputRefinement::NoRefine,
         OutputRefinement::Refine4,
         OutputRefinement::Refine8,
         OutputRefinement::Refine32
     });
 
-    // output: energy
-    ssp.output.outputEnergyParameters.enabled = reader.readWithDefault("energyoutput", false);
-    ssp.output.outputEnergyParameters.interval = reader.readWithDefault("energyoutputinterval", 0.0);
-    ssp.output.outputEnergyParameters.enabled &= ssp.output.outputEnergyParameters.interval > 0;
-    ssp.output.outputEnergyParameters.terminalOutput = reader.readWithDefault("energyterminaloutput", false);
-    ssp.output.outputEnergyParameters.computeVolumeEnergiesEveryOutput = reader.readWithDefault("computevolumeenergieseveryoutput", true);
-
-    // output: refinement
-    ssp.output.outputReceiverParameters.interval = reader.readWithDefault("receiveroutputinterval", 0.0);
-    ssp.output.outputReceiverParameters.enabled = ssp.output.outputReceiverParameters.interval > 0;
-    ssp.output.outputReceiverParameters.computeRotation = reader.readWithDefault("receivercomputerotation", false);
-    ssp.output.outputReceiverParameters.fileName = reader.readOrFail<std::string>("rfilename", "No receiver output file name specified.");
-
-    // output: fault
-    ssp.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
+    auto groupsVector = reader.readWithDefault("outputgroups", std::vector<int>());
+    ssp.output.waveFieldParameters.groups = std::unordered_set<int>(groupsVector.begin(), groupsVector.end());
 
     // output mask
     auto iOutputMask = reader.readOrFail<std::string>("ioutputmask", "No output mask given.");
-    seissol::initializers::convertStringToMask(iOutputMask, ssp.output.outputMask);
+    seissol::initializers::convertStringToMask(iOutputMask, ssp.output.waveFieldParameters.outputMask);
 
     auto iPlasticityMask = reader.readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 0"));
-    seissol::initializers::convertStringToMask(iPlasticityMask, ssp.output.plasticityMask);
+    seissol::initializers::convertStringToMask(iPlasticityMask, ssp.output.waveFieldParameters.plasticityMask);
 
     auto integrationMask = reader.readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-    seissol::initializers::convertStringToMask(integrationMask, ssp.output.integrationMask);
+    seissol::initializers::convertStringToMask(integrationMask, ssp.output.waveFieldParameters.integrationMask);
+
+    // output: surface
+    ssp.output.freeSurfaceParameters.enabled = reader.readWithDefault("surfaceoutput", false);
+    ssp.output.freeSurfaceParameters.interval = reader.readWithDefault("surfaceoutputinterval", 1.0e100);
+    ssp.output.freeSurfaceParameters.enabled &= ssp.output.freeSurfaceParameters.interval > 0;
+    ssp.output.freeSurfaceParameters.refinement = reader.readWithDefault("surfaceoutputrefinement", 0u);
+
+    // output: energy
+    ssp.output.energyParameters.enabled = reader.readWithDefault("energyoutput", false);
+    ssp.output.energyParameters.interval = reader.readWithDefault("energyoutputinterval", 1.0e100);
+    ssp.output.energyParameters.enabled &= ssp.output.energyParameters.interval > 0;
+    ssp.output.energyParameters.terminalOutput = reader.readWithDefault("energyterminaloutput", false);
+    ssp.output.energyParameters.computeVolumeEnergiesEveryOutput = reader.readWithDefault("computevolumeenergieseveryoutput", true);
+
+    // output: refinement
+    ssp.output.receiverParameters.enabled = reader.readWithDefault("receiveroutput", true); // TODO: document
+    ssp.output.receiverParameters.interval = reader.readWithDefault("receiveroutputinterval", 1.0e100);
+    ssp.output.receiverParameters.enabled &= ssp.output.receiverParameters.interval > 0;
+    ssp.output.receiverParameters.computeRotation = reader.readWithDefault("receivercomputerotation", false);
+    ssp.output.receiverParameters.fileName = reader.readOrFail<std::string>("rfilename", "No receiver output file name specified.");
+    ssp.output.receiverParameters.samplingInterval = reader.readWithDefault("pickdt", 0.0);
+
+    // output: fault
+    ssp.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
 
     // TODO: check if ioutputmaskmaterial is still in use...
     reader.warnDeprecated({"rotation", "interval", "nrecordpoints", "printintervalcriterion", "pickdttype", "ioutputmaskmaterial"});
@@ -339,6 +374,7 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
     ParameterReader baseReader(baseNode, false);
 
     readModel(baseReader, *this);
+    readDynamicRupture(baseReader, *this);
     readMesh(baseReader, *this);
     readTimestepping(baseReader, *this);
     readInitialization(baseReader, *this);

@@ -12,6 +12,7 @@
 #include "Geometry/MeshReader.h"
 #include "SourceTerm/Manager.h"
 #include "Checkpoint/Backend.h"
+#include "time_stepping/LtsWeights/WeightsFactory.h"
 
 namespace seissol::initializer::parameters {
     //constexpr auto NUMBER_OF_QUANTITIES = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
@@ -96,7 +97,30 @@ namespace seissol::initializer::parameters {
         std::array<std::array<double, 3>, 3> scaling;
     };
 
-    struct OutputBaseParameters{
+    struct OutputInterval {
+        double lower;
+        double upper;
+
+        bool contains(double value) const {
+            return value >= lower && value <= upper;
+        }
+    };
+
+    struct OutputBounds {
+        bool enabled = false;
+        OutputInterval boundsX, boundsY, boundsZ;
+
+        bool contains(double x, double y, double z) const {
+            if (enabled) {
+                return boundsX.contains(x) && boundsY.contains(y) && boundsZ.contains(z);
+            }
+            else {
+                return true;
+            }
+        }
+    };
+
+    struct OutputBaseParameters {
         bool enabled = false;
         double interval = 1.0e100;
     };
@@ -104,10 +128,11 @@ namespace seissol::initializer::parameters {
     struct OutputReceiverParameters : public OutputBaseParameters {
         bool computeRotation = false;
         std::string fileName;
+        double samplingInterval = 0.0;
     };
 
     struct OutputSurfaceParameters : public OutputBaseParameters {
-        OutputRefinement refinement;
+        unsigned refinement;
     };
 
     struct OutputEnergyParameters : public OutputBaseParameters {
@@ -120,36 +145,30 @@ namespace seissol::initializer::parameters {
         seissol::checkpoint::Backend backend;
     };
 
-    struct OutputInterval {
-        double lower;
-        double higher;
-    };
-
-    struct OutputBounds {
-        OutputInterval boundsX, boundsY, boundsZ;
+    struct OutputWaveFieldParameters : public OutputBaseParameters {
+        OutputRefinement refinement = OutputRefinement::NoRefine;
+        OutputBounds bounds;
+        std::array<bool, NUMBER_OF_QUANTITIES> outputMask;
+        std::array<bool, 7> plasticityMask;
+        std::array<bool, 9> integrationMask;
+        std::unordered_set<int> groups;
     };
 
     struct OutputParameters {
         std::string prefix = "data";
         OutputFormat format = OutputFormat::None;
-        OutputRefinement refinement = OutputRefinement::NoRefine;
-        OutputBounds outputBounds;
-        std::array<bool, NUMBER_OF_QUANTITIES> outputMask;
-        std::array<bool, 7> plasticityMask;
-        std::array<bool, 9> integrationMask;
         xdmfwriter::BackendType xdmfWriterBackend;
         CheckpointParameters checkpointParameters;
-        OutputReceiverParameters outputReceiverParameters;
-        OutputSurfaceParameters outputSurfaceParameters;
-        OutputEnergyParameters outputEnergyParameters;
+        OutputWaveFieldParameters waveFieldParameters;
+        OutputReceiverParameters receiverParameters;
+        OutputSurfaceParameters freeSurfaceParameters;
+        OutputEnergyParameters energyParameters;
         bool faultOutput = false;
-        double interval = 0.0;
-        double pickDt = 0.0;
     };
 
     struct LtsParameters {
         unsigned rate = 2;
-        int weighttype = 1; // TODO: type
+        seissol::initializers::time_stepping::LtsWeightsTypes weighttype = seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights;
     };
 
     struct TimesteppingParameters {
