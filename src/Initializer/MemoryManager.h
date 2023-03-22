@@ -82,11 +82,16 @@
 
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/LtsParameters.h>
 
+#include <Physics/InitialField.h>
+
+#include <vector>
+#include <memory>
 
 #include <DynamicRupture/Factory.h>
 #include <yaml-cpp/yaml.h>
@@ -156,9 +161,12 @@ class seissol::initializers::MemoryManager {
     GlobalData            m_globalDataOnHost;
     GlobalData            m_globalDataOnDevice;
 
-    //! Memory organisation tree
+    //! Memory organization tree
     LTSTree               m_ltsTree;
     LTS                   m_lts;
+    Lut                   m_ltsLut;
+
+    std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
     
     LTSTree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
@@ -260,10 +268,8 @@ class seissol::initializers::MemoryManager {
     void fixateBoundaryLtsTree();
     /**
      * Set up the internal structure.
-     *
-     * @param enableFreeSurfaceIntegration Create buffers to accumulate displacement.
      **/
-    void initializeMemoryLayout(bool enableFreeSurfaceIntegration);
+    void initializeMemoryLayout();
 
     /**
      * Gets global data on the host.
@@ -311,7 +317,16 @@ class seissol::initializers::MemoryManager {
     inline LTS* getLts() {
       return &m_lts;
     }
-                          
+
+    inline Lut* getLtsLut() {
+      return &m_ltsLut;
+    }
+
+    // TODO: remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
+    inline Lut& getLtsLutUnsafe() {
+      return m_ltsLut;
+    }
+
     inline LTSTree* getDynamicRuptureTree() {
       return &m_dynRupTree;
     }
@@ -326,6 +341,14 @@ class seissol::initializers::MemoryManager {
 
     inline Boundary* getBoundary() {
       return &m_boundary;
+    }
+
+    inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+      m_iniConds = std::move(iniConds);
+    }
+
+    inline const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+      return m_iniConds;
     }
 
     void initializeEasiBoundaryReader(const char* fileName);
