@@ -7,6 +7,7 @@
 #include "SourceTerm/Manager.h"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
+#include "Parallel/MPI.h"
 
 #include <yaml-cpp/yaml.h>
 #include <unordered_set>
@@ -35,7 +36,7 @@ public:
             value = readUnsafe<T>(field);
         }
         else {
-            logDebug() << "The field " << field << " was not specified, using fallback.";
+            logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "was not specified, using fallback.";
         }
         return value;
     }
@@ -44,7 +45,7 @@ public:
     T readWithDefaultEnum(const std::string& field, const T& defaultValue, const std::unordered_set<T>& validValues) {
         int value = readWithDefault(field, static_cast<int>(defaultValue));
         if (validValues.find(static_cast<T>(value)) == validValues.end()) {
-            logError() << "The field " << field << " had an invalid enum value: " << value;
+            logError() << "The field" << field << "had an invalid enum value:" << value;
         }
         return static_cast<T>(value);
     }
@@ -54,7 +55,7 @@ public:
         std::string value = readWithDefault(field, defaultValue); // TODO: sanitize string
         sanitize(value);
         if (validValues.find(value) == validValues.end()) {
-            logError() << "The field " << field << " had an invalid enum value: " << value;
+            logError() << "The field" << field << "had an invalid enum value:" << value;
         }
         return validValues.at(value);
     }
@@ -65,14 +66,15 @@ public:
             return readUnsafe<T>(field);
         }
         else {
-            logError() << "The field " << field << " was not found, but it is required.";
+            logError() << "The field" << field << "was not found, but it is required.";
+            return T(); // unreachable. TODO: use compiler hint instead
         }
     }
 
     void warnDeprecatedSingle(const std::string& field) {
         if (hasField(field)) {
             visited.emplace(field);
-            logWarning() << "The field " << field << " is no longer in use. You may safely remove it from your parameters file.";
+            logWarning(seissol::MPI::mpi.rank()) << "The field" << field << "is no longer in use. You may safely remove it from your parameters file.";
         }
     }
 
@@ -86,24 +88,24 @@ public:
         for (const auto& subnodes : node) {
             auto field = subnodes.first.as<std::string>();
             if (visited.find(field) == visited.end()) {
-                logWarning() << "The field " << field << " is not known to SeisSol.";
+                logWarning(seissol::MPI::mpi.rank()) << "The field" << field << "is not known to SeisSol.";
             }
         }
     }
 
     void markUnused(const std::string& field) {
-        logDebug() << "The field " << field << " is ignored (regardless of if it exists or not)";
+        logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (regardless of if it exists or not)";
         visited.emplace(field);
     }
 
     ParameterReader subreader(const std::string& subnodeName) {
         visited.emplace(subnodeName);
-        logDebug() << "Entering section " << subnodeName;
+        logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
         if (hasField(subnodeName)) {
             return ParameterReader(node[subnodeName], false);
         }
         else {
-            logDebug() << "Section " << subnodeName << " not found in the given parameter file. Using an empty reader.";
+            logDebug(seissol::MPI::mpi.rank()) << "Section" << subnodeName << "not found in the given parameter file. Using an empty reader.";
             return ParameterReader(node[subnodeName], true);
         }
         
@@ -117,7 +119,7 @@ private:
     template<typename T>
     T readUnsafe(const std::string& field) {
         visited.emplace(field);
-        logDebug() << "The field " << field << " was read.";
+        logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "was read.";
         try {
             // booleans are stored as integers
             if constexpr(std::is_same<T, bool>::value) {
@@ -126,7 +128,8 @@ private:
                 return node[field].as<T>();
             }
         } catch(std::exception& e) {
-            logError() << "Error while reading field " << field << ": " << e.what();
+            logError() << "Error while reading field" << field << ":" << e.what();
+            return T(); // unreachable. TODO: use compiler hint instead
         }
     }
 
