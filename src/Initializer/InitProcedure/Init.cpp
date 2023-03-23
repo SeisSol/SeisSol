@@ -31,9 +31,6 @@ void reportDeviceMemoryStatus() {
 
 void initSeisSol() {
     const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-    seissol::initializer::initprocedure::LtsInfo ltsInfo; // TODO: make ltsInfo obsolete
-
-    // set constants
 
     // set g
     seissol::SeisSol::main.getGravitationSetup().acceleration = ssp.model.gravitationalAcceleration;
@@ -41,9 +38,9 @@ void initSeisSol() {
     // initialization procedure
     seissol::initializer::initprocedure::initIOPreLts();
     seissol::initializer::initprocedure::initMesh();
-    seissol::initializer::initprocedure::initModel(ltsInfo);
-    seissol::initializer::initprocedure::initSideConditions(ltsInfo);
-    seissol::initializer::initprocedure::initIOPostLts(ltsInfo);
+    seissol::initializer::initprocedure::initModel();
+    seissol::initializer::initprocedure::initSideConditions();
+    seissol::initializer::initprocedure::initIOPostLts();
 
     // set up simulator
     auto& sim = seissol::SeisSol::main.simulator();

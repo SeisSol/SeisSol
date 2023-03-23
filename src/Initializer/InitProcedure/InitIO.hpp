@@ -5,7 +5,7 @@
 
 namespace seissol::initializer::initprocedure {
     void initIOPreLts();
-    void initIOPostLts(LtsInfo& ltsInfo);
+    void initIOPostLts();
 }
 
 #endif

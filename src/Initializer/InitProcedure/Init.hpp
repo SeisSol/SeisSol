@@ -9,24 +9,6 @@
 
 namespace seissol::initializer::initprocedure {
 
-struct LtsInfo {
-    unsigned* ltsMeshToFace = nullptr;
-    MeshStructure* meshStructure = nullptr;
-    TimeStepping timeStepping;
-
-    ~LtsInfo() {
-        // TODO: refactor LtsLayout, so that the following checks can be removed entirely.
-        if (ltsMeshToFace != nullptr) {
-            delete[] ltsMeshToFace;
-            ltsMeshToFace = nullptr;
-        }
-        if (meshStructure != nullptr) {
-            delete[] meshStructure;
-            meshStructure = nullptr;
-        }
-    }
-};
-
 void seissolMain();
 
 }

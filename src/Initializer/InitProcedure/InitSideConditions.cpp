@@ -24,7 +24,7 @@ TravellingWaveParameters getTravellingWaveInformation() {
   return m_travellingWaveParameters;
 }
 
-std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList(seissol::initializer::initprocedure::LtsInfo& ltsInfo)
+std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList()
 {
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
@@ -87,9 +87,9 @@ std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList(se
   return iniconds;
 }
 
-void initInitialCondition(seissol::initializer::initprocedure::LtsInfo& ltsInfo)
+void initInitialCondition()
 {
-  auto iniconds = buildInitialConditionList(ltsInfo);
+  auto iniconds = buildInitialConditionList();
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
 
@@ -105,7 +105,7 @@ void initInitialCondition(seissol::initializer::initprocedure::LtsInfo& ltsInfo)
 }
 
 
-void initSource(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void initSource() {
   const auto& srcparams = seissol::SeisSol::main.getSeisSolParameters().source;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
   SeisSol::main.sourceTermManager().loadSources(
@@ -128,11 +128,11 @@ void initBoundary() {
 
 
 
-void seissol::initializer::initprocedure::initSideConditions(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void seissol::initializer::initprocedure::initSideConditions() {
   logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";
-  initInitialCondition(ltsInfo);
+  initInitialCondition();
   logInfo(seissol::MPI::mpi.rank()) << "Reading source.";
-  initSource(ltsInfo);
+  initSource();
   logInfo(seissol::MPI::mpi.rank()) << "Setting up boundary conditions.";
   initBoundary();
 }

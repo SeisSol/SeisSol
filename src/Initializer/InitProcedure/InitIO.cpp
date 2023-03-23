@@ -57,7 +57,7 @@ void setupCheckpointing()
 	}
 }
 
-void setupOutput(seissol::initializer::initprocedure::LtsInfo& ltsInfo)
+void setupOutput()
 {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
@@ -173,7 +173,7 @@ void enableWaveFieldOutput() {
   }
 }
 
-void enableFreeSurfaceOutput(seissol::initializer::initprocedure::LtsInfo& ltsInfo)
+void enableFreeSurfaceOutput()
 {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
@@ -196,11 +196,11 @@ void seissol::initializer::initprocedure::initIOPreLts() {
   enableWaveFieldOutput();
 }
 
-void seissol::initializer::initprocedure::initIOPostLts(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void seissol::initializer::initprocedure::initIOPostLts() {
   logInfo() << "Begin init output.";
-  enableFreeSurfaceOutput(ltsInfo);
+  enableFreeSurfaceOutput();
   initFaultOutputManager();
   setupCheckpointing();
-  setupOutput(ltsInfo);
+  setupOutput();
   logInfo() << "End init output.";
 }

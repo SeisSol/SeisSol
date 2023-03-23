@@ -4,7 +4,7 @@
 #include "Initializer/InitProcedure/Init.hpp"
 
 namespace seissol::initializer::initprocedure {
-    void initSideConditions(LtsInfo& ltsInfo);
+    void initSideConditions();
 }
 
 #endif

@@ -53,7 +53,7 @@ std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen, const st
     return vectorDB;
 }
 
-void initializeCellMaterial(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void initializeCellMaterial() {
     const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
     const auto& meshReader = seissol::SeisSol::main.meshReader();
     initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
@@ -141,7 +141,22 @@ void initializeCellMaterial(seissol::initializer::initprocedure::LtsInfo& ltsInf
     }
 }
 
-void initializeCellMatrices(seissol::initializer::initprocedure::LtsInfo& ltsInfo)
+struct LtsInfo {
+    unsigned* ltsMeshToFace = nullptr;
+    MeshStructure* meshStructure = nullptr;
+    TimeStepping timeStepping;
+
+    ~LtsInfo() {
+        // TODO: refactor LtsLayout, so that the following checks can be removed entirely.
+        if (ltsMeshToFace != nullptr) {
+            delete[] ltsMeshToFace;
+            ltsMeshToFace = nullptr;
+        }
+        // IMPORTANT: do NOT free meshStructure, as it is transferred to the MemoryManager
+    }
+};
+
+void initializeCellMatrices(LtsInfo& ltsInfo)
 {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
@@ -192,7 +207,7 @@ void initializeCellMatrices(seissol::initializer::initprocedure::LtsInfo& ltsInf
   }
 }
 
-void initializeClusteredLts(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void initializeClusteredLts(LtsInfo& ltsInfo) {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // assert a valid clustering
@@ -258,9 +273,9 @@ void initializeClusteredLts(seissol::initializer::initprocedure::LtsInfo& ltsInf
 
 }
 
-void initializeMemoryLayout(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void initializeMemoryLayout(LtsInfo& ltsInfo) {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  
+
   // initialize memory layout
   seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout();
 
@@ -279,7 +294,7 @@ void initializeMemoryLayout(seissol::initializer::initprocedure::LtsInfo& ltsInf
 }
 
 
-void seissol::initializer::initprocedure::initModel(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
+void seissol::initializer::initprocedure::initModel() {
     SCOREP_USER_REGION("init_model", SCOREP_USER_REGION_TYPE_FUNCTION);
 
     logInfo(seissol::MPI::mpi.rank()) << "Begin init model.";
@@ -289,6 +304,8 @@ void seissol::initializer::initprocedure::initModel(seissol::initializer::initpr
 
     seissol::Stopwatch watch;
 	watch.start();
+
+  LtsInfo ltsInfo;
   
   // these four methods need to be called in this order.
 
@@ -298,7 +315,7 @@ void seissol::initializer::initprocedure::initModel(seissol::initializer::initpr
 
   // init cell materials (needs LTS, to place the material in)
   logInfo(seissol::MPI::mpi.rank()) << "Initialize cell material parameters.";
-	initializeCellMaterial(ltsInfo);
+	initializeCellMaterial();
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo(seissol::MPI::mpi.rank()) << "Initialize Memory layout.";

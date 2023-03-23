@@ -4,7 +4,7 @@
 #include "Initializer/InitProcedure/Init.hpp"
 
 namespace seissol::initializer::initprocedure {
-    void initModel(LtsInfo& ltsInfo);
+    void initModel();
 }
 
 #endif
