@@ -1,11 +1,11 @@
 #include "Init.hpp"
-#include "InitCells.hpp"
+#include "InitModel.hpp"
 #include "InitIO.hpp"
-#include "InitLts.hpp"
 #include "InitMesh.hpp"
 #include "InitSideConditions.hpp"
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
+#include "Parallel/MPI.h"
 
 void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
@@ -41,8 +41,7 @@ void initSeisSol() {
     // initialization procedure
     seissol::initializer::initprocedure::initIOPreLts();
     seissol::initializer::initprocedure::initMesh();
-    seissol::initializer::initprocedure::initLts(ltsInfo);
-    seissol::initializer::initprocedure::initCells(ltsInfo);
+    seissol::initializer::initprocedure::initModel(ltsInfo);
     seissol::initializer::initprocedure::initSideConditions(ltsInfo);
     seissol::initializer::initprocedure::initIOPostLts(ltsInfo);
 
@@ -56,7 +55,7 @@ void initSeisSol() {
 }
 
 void closeSeisSol() {
-  logInfo() << "Closing IO.";
+  logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
     // cleanup IO
 	seissol::SeisSol::main.waveFieldWriter().close();
 	seissol::SeisSol::main.checkPointManager().close();
@@ -69,8 +68,13 @@ void closeSeisSol() {
 
 void seissol::initializer::initprocedure::seissolMain() {
   initSeisSol();
-  logInfo() << "Starting simulation.";
+
+  seissol::Stopwatch watch;
+	watch.start();
+  logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
   seissol::SeisSol::main.simulator().simulate();
-  logInfo() << "Simulation done.";
+  watch.pause();
+  watch.printTime("Time spent in simulation:");
+  logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
   closeSeisSol();
 }

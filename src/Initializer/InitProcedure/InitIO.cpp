@@ -5,6 +5,8 @@
 #include <cstring>
 #include <vector>
 
+#include "Parallel/MPI.h"
+
 void setupCheckpointing()
 {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();

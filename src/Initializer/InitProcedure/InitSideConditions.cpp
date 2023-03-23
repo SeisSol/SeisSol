@@ -6,6 +6,8 @@
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/InputParameters.hpp"
 
+#include "Parallel/MPI.h"
+
 TravellingWaveParameters getTravellingWaveInformation() {
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
 
@@ -127,10 +129,10 @@ void initBoundary() {
 
 
 void seissol::initializer::initprocedure::initSideConditions(seissol::initializer::initprocedure::LtsInfo& ltsInfo) {
-  logInfo() << "Setting initial conditions.";
+  logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";
   initInitialCondition(ltsInfo);
-  logInfo() << "Reading source.";
+  logInfo(seissol::MPI::mpi.rank()) << "Reading source.";
   initSource(ltsInfo);
-  logInfo() << "Setting up boundary conditions.";
+  logInfo(seissol::MPI::mpi.rank()) << "Setting up boundary conditions.";
   initBoundary();
 }

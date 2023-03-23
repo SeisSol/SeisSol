@@ -23,17 +23,17 @@
 #include "Solver/time_stepping/MiniSeisSol.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 
-
+#include "Parallel/MPI.h"
 
 void postMeshread(MeshReader &meshReader, bool hasFault, const std::array<double, 3>& displacement, const std::array<std::array<double, 3>, 3>& scalingMatrix)
 {
-	logInfo() << "The mesh has been read. Starting post processing.";
+	logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
 	meshReader.displaceMesh(displacement);
 	meshReader.scaleMesh(scalingMatrix);
 
 	if (hasFault) {
-		logInfo() << "Extracting fault information";
+		logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information";
 
 		auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
 		VrtxCoords center {drParameters->referencePoint[0], drParameters->referencePoint[1], drParameters->referencePoint[2]};
@@ -133,12 +133,12 @@ void seissol::initializer::initprocedure::initMesh() {
 
     const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
-    logInfo() << "Begin init mesh.";
+    logInfo(seissol::MPI::mpi.rank()) << "Begin init mesh.";
 
     // Call the pre mesh initialization hook
 	seissol::Modules::callHook<seissol::PRE_MESH>();
 
-    logInfo() << "Mesh file: " << ssp.mesh.meshFileName;
+    logInfo(seissol::MPI::mpi.rank()) << "Mesh file: " << ssp.mesh.meshFileName;
 
     seissol::Stopwatch watch;
 	watch.start();
@@ -176,5 +176,5 @@ void seissol::initializer::initprocedure::initMesh() {
     // Call the post mesh initialization hook
 	seissol::Modules::callHook<seissol::POST_MESH>();
 
-    logInfo() << "End init mesh.";
+    logInfo(seissol::MPI::mpi.rank()) << "End init mesh.";
 }
