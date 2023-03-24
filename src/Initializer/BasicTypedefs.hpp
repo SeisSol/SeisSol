@@ -50,11 +50,22 @@ enum class FaceType {
   analytical = 7
 };
 
+// Once the FaceType enum is updated, make sure to update these methods here as well.
+
+// Checks if a face type is an interior face (i.e. there are two cells adjacent to it).
+constexpr bool isInteriorFaceType(FaceType faceType) {
+  return faceType == FaceType::regular || faceType == FaceType::dynamicRupture || faceType == FaceType::periodic;
+}
+
+// Checks if a face type is an interior face (i.e. there is only one cell adjacent to it).
+constexpr bool isBoundaryFaceType(FaceType faceType) {
+  return faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity || faceType == FaceType::dirichlet || faceType == FaceType::analytical;
+}
+
 enum SystemType {
   Host = 0,
   Device = 1
 };
-
 
 // plasticity information per cell
 struct PlasticityData {

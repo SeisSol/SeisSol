@@ -4,9 +4,12 @@
 #include "Initializer/InputParameters.hpp"
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/LTS.h"
+#include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/time_stepping/common.hpp"
 #include "Physics/Attenuation.hpp"
 #include "Equations/datastructures.hpp"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/typedefs.hpp"
 
 #include "SeisSol.h"
 #include "Init.hpp"
@@ -44,9 +47,8 @@ void synchronize(seissol::initializers::Variable<T> const& handle)
 }
 
 template<typename T>
-std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen, const std::string& fileName) {
-  const auto& meshReader = seissol::SeisSol::main.meshReader();
-    std::vector<T> vectorDB(meshReader.getElements().size());
+std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen, const std::string& fileName, size_t size) {
+    std::vector<T> vectorDB(size);
     seissol::initializers::MaterialParameterDB<T> parameterDB;
     parameterDB.setMaterialVector(&vectorDB);
     parameterDB.evaluateModel(fileName, queryGen);
@@ -58,17 +60,39 @@ void initializeCellMaterial() {
     const auto& meshReader = seissol::SeisSol::main.meshReader();
     initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
 
+    // unpack ghost layer (merely a re-ordering operation)
+    std::vector<std::array<std::array<double, 3>, 4>> ghostVertices;
+    std::vector<int> ghostMaterials;
+    std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
+    for (const auto& neighbor : meshReader.getMPINeighborVertices()) {
+      ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
+      for (const auto& vertices : neighbor.second) {
+        ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
+        ghostVertices.push_back(vertices);
+        ghostMaterials.push_back(0); // TODO: change that
+      }
+    }
+
     seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(
       seissol::initializer::parameters::modelAnelastic(),
       ssp.model.plasticity,
       seissol::initializer::parameters::modelAnisotropic(),
       seissol::initializer::parameters::modelPoroelastic(),
       ssp.model.useCellHomogenizedMaterial,
-      meshReader);
-    auto materialsDB = queryDB<Material>(queryGen, ssp.model.materialFileName);
+      seissol::initializers::C2VArray::fromMeshReader(meshReader));
+    seissol::initializers::QueryGenerator* queryGenGhost = seissol::initializers::getBestQueryGenerator(
+      seissol::initializer::parameters::modelAnelastic(),
+      ssp.model.plasticity,
+      seissol::initializer::parameters::modelAnisotropic(),
+      seissol::initializer::parameters::modelPoroelastic(),
+      ssp.model.useCellHomogenizedMaterial,
+      seissol::initializers::C2VArray::fromVectors(ghostVertices, ghostMaterials));
+    auto materialsDB = queryDB<Material>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
+    auto materialsDBGhost = queryDB<Material>(queryGenGhost, ssp.model.materialFileName, ghostVertices.size());
     std::vector<Plasticity> plasticityDB;
     if (ssp.model.plasticity) {
-        plasticityDB = queryDB<Plasticity>(queryGen, ssp.model.materialFileName);
+      // plasticity information is only needed on all interior+copy cells.
+        plasticityDB = queryDB<Plasticity>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
     }
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
@@ -82,44 +106,73 @@ void initializeCellMaterial() {
         auto& cellmat = materialsDB[i];
         seissol::physics::fitAttenuation(cellmat, ssp.model.freqCentral, ssp.model.freqRatio);
     }
-#endif
-
-    logDebug() << "Setting cell materials in the LTS tree.";
 #ifdef OPENMP
     #pragma omp parallel for schedule(static)
 #endif
-    for (size_t i = 0; i < meshReader.getElements().size(); ++i) {
-        auto& cellInformation = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->cellInformation, i);
-        auto& material = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, i);
+    for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
+        auto& cellmat = materialsDBGhost[i];
+        seissol::physics::fitAttenuation(cellmat, ssp.model.freqCentral, ssp.model.freqRatio);
+    }
+#endif
 
-        // set the materials for the cell volume and its faces
-        material.local = materialsDB[i];
-        for (size_t side = 0; side < 4; ++side) {
-            if (cellInformation.faceTypes[side] == FaceType::regular || cellInformation.faceTypes[side] == FaceType::periodic || cellInformation.faceTypes[side] == FaceType::dynamicRupture) {
-                // use the neighbor face material info in case that we are not at a boundary
-                auto neighbor = cellInformation.faceNeighborIds[side];
-                material.neighbor[side] = materialsDB[neighbor]; // TODO: does this work?
-            }
-            else {
-                // otherwise, use the material from the own cell
-                material.neighbor[side] = material.local;
-            }
+  logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
+  const auto& elements = meshReader.getElements();
+  unsigned* ltsToMesh = memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
+  unsigned* ltsToMeshGhost = memoryManager.getLtsLut()->getLtsToMeshLut(~seissol::initializers::LayerMask(Copy | Interior));
+
+  for (seissol::initializers::LTSTree::leaf_iterator it = memoryManager.getLtsTree()->beginLeaf(seissol::initializers::LayerMask(Ghost)); it != memoryManager.getLtsTree()->endLeaf(); ++it) {
+    auto* cellInformation = it->var(memoryManager.getLts()->cellInformation);
+    auto* materialArray = it->var(memoryManager.getLts()->material);
+    auto* plasticityArray = ssp.model.plasticity ? it->var(memoryManager.getLts()->plasticity) : nullptr;
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (std::size_t cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      // set the materials for the cell volume and its faces
+      auto& material = materialArray[cell];
+      const auto& localMaterial = materialsDB[ltsToMesh[cell]];
+      const auto& element = elements[ltsToMesh[cell]];
+      const auto& localCellInformation = cellInformation[cell];
+
+      material.local = localMaterial;
+      for (std::size_t side = 0; side < 4; ++side) {
+          if (isInteriorFaceType(localCellInformation.faceTypes[side])) {
+              // use the neighbor face material info in case that we are not at a boundary
+              if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) { // TODO: is this rank properly checked here?
+                // material from interior or copy
+                auto neighbor = element.neighbors[side];
+                material.neighbor[side] = materialsDB[neighbor];
+              }
+              else {
+                // material from ghost layer (computed locally)
+                auto neighborRank = element.neighborRanks[side];
+                auto neighborRankIdx = element.mpiIndices[side];
+                auto materialGhostIdx = ghostIdxMap[neighborRank][neighborRankIdx];
+                material.neighbor[side] = materialsDBGhost[materialGhostIdx];
+              }
+          }
+          else {
+              // otherwise, use the material from the own cell (TODO: is this really the best thing for boundary conditions?)
+              material.neighbor[side] = localMaterial;
+          }
         }
-
-        // if enabled, set up the plasticity as well
+      
+      // if enabled, set up the plasticity as well
         if (ssp.model.plasticity) {
-            auto& plasticity = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->plasticity, i);
+          auto& plasticity = plasticityArray[cell];
+            const auto& localPlasticity = plasticityDB[ltsToMesh[cell]];
 
-            plasticity.initialLoading[0] = plasticityDB[i].s_xx;
-            plasticity.initialLoading[1] = plasticityDB[i].s_yy;
-            plasticity.initialLoading[2] = plasticityDB[i].s_zz;
-            plasticity.initialLoading[3] = plasticityDB[i].s_xy;
-            plasticity.initialLoading[4] = plasticityDB[i].s_yz;
-            plasticity.initialLoading[5] = plasticityDB[i].s_xz;
+            plasticity.initialLoading[0] = localPlasticity.s_xx;
+            plasticity.initialLoading[1] = localPlasticity.s_yy;
+            plasticity.initialLoading[2] = localPlasticity.s_zz;
+            plasticity.initialLoading[3] = localPlasticity.s_xy;
+            plasticity.initialLoading[4] = localPlasticity.s_yz;
+            plasticity.initialLoading[5] = localPlasticity.s_xz;
 
-            double angularFriction = std::atan(plasticityDB[i].bulkFriction);
+            double angularFriction = std::atan(localPlasticity.bulkFriction);
 
-            plasticity.cohesionTimesCosAngularFriction = plasticityDB[i].plastCo * std::cos(angularFriction);
+            plasticity.cohesionTimesCosAngularFriction = localPlasticity.plastCo * std::cos(angularFriction);
             plasticity.sinAngularFriction = std::sin(angularFriction);
 #ifndef USE_ANISOTROPIC
             plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
@@ -128,6 +181,8 @@ void initializeCellMaterial() {
 #endif
         }
     }
+    ltsToMesh += it->getNumberOfCells();
+  }
 
     // set tv for all time clusters
     if (ssp.model.plasticity) {

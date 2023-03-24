@@ -584,7 +584,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();
     waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
-  seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, meshReader);
+  seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(anelasticity, plasticity, anisotropy, poroelasticity, useCellHomogenizedMaterial, seissol::initializers::C2VArray::fromMeshReader(meshReader));
 
   if (anisotropy) { 
     if (anelasticity || plasticity) {

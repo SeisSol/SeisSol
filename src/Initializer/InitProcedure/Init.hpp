@@ -4,9 +4,6 @@
 
 #include <vector>
 
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
-
 namespace seissol::initializer::initprocedure {
 
 void seissolMain();

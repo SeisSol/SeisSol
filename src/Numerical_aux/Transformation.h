@@ -57,6 +57,14 @@ namespace seissol {
                                        double const v3[3],
                                        double const xiEtaZeta[3],
                                        double       xyz[3] );
+
+    Eigen::Vector3d tetrahedronReferenceToGlobal(
+                                                             const Eigen::Vector3d& v0,
+                                                             const Eigen::Vector3d& v1,
+                                                             const Eigen::Vector3d& v2,
+                                                             const Eigen::Vector3d& v3,
+                                                             double const xiEtaZeta[3]);
+
     /**
      * Calculates the reference tetrahedron coordinates from
      * global tetrahedron coordinates.

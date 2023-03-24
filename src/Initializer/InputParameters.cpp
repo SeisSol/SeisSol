@@ -375,7 +375,7 @@ void readSource(ParameterReader& baseReader, SeisSolParameters& ssp) {
 }
 
 void SeisSolParameters::readPar(const YAML::Node& baseNode) {
-    logInfo() << "Reading SeisSol parameter file...";
+    logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
 
     ParameterReader baseReader(baseNode, false);
 
@@ -391,7 +391,7 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
     baseReader.warnDeprecated({"rffile", "inflowbound", "inflowboundpwfile", "inflowbounduin", "source110", "source15", "source1618", "source17", "source19", "spongelayer", "sponges"});
     baseReader.warnLeftover();
 
-    logInfo() << "SeisSol parameter file read successfully.";
+    logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
 }
 
 void SeisSolParameters::printInfo() {

@@ -95,19 +95,8 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader 
   auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // compute timesteps
-  const auto& elements = i_mesh.getElements();
-  const auto& vertices = i_mesh.getVertices();
-  auto gts = seissol::initializer::computeTimesteps<seissol::initializers::ElementBarycentreGenerator>(ssp.timestepping.cfl, ssp.timestepping.maxTimestep, ssp.model.materialFileName,
-      i_mesh, elements.size(),
-      [&](size_t index) {
-          std::array<Eigen::Vector3d, 4> verts;
-          for (size_t i = 0; i < 4; ++i) {
-              auto vindex = elements[index].vertices[i];
-              const auto& vertex = vertices[vindex];
-              verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
-          }
-          return verts;
-      });
+  auto gts = seissol::initializer::computeTimesteps(ssp.timestepping.cfl, ssp.timestepping.maxTimestep, ssp.model.materialFileName,
+        seissol::initializers::C2VArray::fromMeshReader(i_mesh));
   
   for (size_t i = 0; i < gts.elementTimeStep.size(); ++i) {
     m_cellTimeStepWidths[i] = gts.elementTimeStep[i];

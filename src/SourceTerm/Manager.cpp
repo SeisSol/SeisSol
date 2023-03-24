@@ -78,6 +78,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/init.h"
 #include "generated_code/tensor.h"
+#include "Parallel/MPI.h"
 
 #include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
@@ -265,7 +266,7 @@ void seissol::sourceterm::Manager::loadSources(  SourceType                     
                                                         seissol::initializers::Lut*     ltsLut,
                                                         time_stepping::TimeManager&     timeManager ) {
   if (sourceType == SourceType::NrfSource) {
-    logInfo() << "Reading an NRF source (type 42).";
+    logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
     loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
 #else
@@ -273,11 +274,11 @@ void seissol::sourceterm::Manager::loadSources(  SourceType                     
 #endif
   }
   else if (sourceType == SourceType::FsrmSource) {
-    logInfo() << "Reading an FSRM source (type 50).";
+    logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
     loadSourcesFromFSRMNew(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
   }
   else if (sourceType == SourceType::None) {
-    logInfo() << "No source term specified.";
+    logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
   }
   else {
     logError() << "The source type" << static_cast<int>(sourceType) << "has been defined, but not yet been implemented in SeisSol.";

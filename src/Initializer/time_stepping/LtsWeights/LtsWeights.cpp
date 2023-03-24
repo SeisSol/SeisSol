@@ -406,20 +406,7 @@ int LtsWeights::ipow(int x, int y) {
 }
 
 seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-  const auto& cells = m_mesh->cells();
-  const auto& vertices = m_mesh->vertices();
-  return seissol::initializer::computeTimesteps<seissol::initializers::ElementBarycentreGeneratorPUML>(1.0, maximumAllowedTimeStep, m_velocityModel, *m_mesh, m_mesh->cells().size(),
-  [&](size_t cell) {
-    std::array<Eigen::Vector3d, 4> x;
-    unsigned vertLids[4];
-    PUML::Downward::vertices(*m_mesh, cells[cell], vertLids);
-    for (unsigned vtx = 0; vtx < 4; ++vtx) {
-      for (unsigned d = 0; d < 3; ++d) {
-        x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
-      }
-    }
-    return x;
-  });
+  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::C2VArray::fromPUML(*m_mesh));
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {

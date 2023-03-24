@@ -59,6 +59,8 @@
 
 #include <PUML/PUML.h>
 
+#include <Eigen/Dense>
+
 namespace easi {class Component;}
 
 namespace seissol {
@@ -77,13 +79,29 @@ namespace seissol {
     class FaultParameterDB;
     class EasiBoundary;
 
+    // temporary struct until we have something like a lazy vector/iterator "map" (as in on-demand, element-wise function application)
+    struct C2VArray{
+        using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
+        using CellToMaterialFunction = std::function<int(size_t)>;
+
+        size_t size;
+        CellToVertexFunction elementVertices;
+        CellToMaterialFunction elementMaterials;
+
+        static C2VArray fromMeshReader(const MeshReader& meshReader);
+#ifdef USE_HDF
+        static C2VArray fromPUML(const PUML::TETPUML& mesh);
+#endif
+        static C2VArray fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices, const std::vector<int>& materials);
+    };
+
     easi::Component* loadEasiModel(const std::string& fileName);
     QueryGenerator* getBestQueryGenerator(bool anelasticity,
         bool plasticity,
         bool anisotropy,
         bool poroelasticity,
         bool useCellHomogenizedMaterial,
-        MeshReader const& meshReader);
+        const C2VArray& ctov);
   }
 }
 
@@ -95,33 +113,22 @@ public:
 
 class seissol::initializers::ElementBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:
-  explicit ElementBarycentreGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
+  explicit ElementBarycentreGenerator(const C2VArray& ctov) : m_ctov(ctov) {}
   virtual easi::Query generate() const;
 private:
-  MeshReader const& m_meshReader;
+  C2VArray m_ctov;
 };
 
 class seissol::initializers::ElementAverageGenerator : public seissol::initializers::QueryGenerator {
 public:
-  explicit ElementAverageGenerator(MeshReader const& meshReader);
+  explicit ElementAverageGenerator(const C2VArray& ctov);
   virtual easi::Query generate() const;
   const std::array<double, NUM_QUADPOINTS>& getQuadratureWeights() const { return m_quadratureWeights; };
 private:
-  MeshReader const& m_meshReader;
+  C2VArray m_ctov;
   std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
   std::array<std::array<double,3>, NUM_QUADPOINTS> m_quadraturePoints;
 };
-
-#ifdef USE_HDF
-class seissol::initializers::ElementBarycentreGeneratorPUML : public seissol::initializers::QueryGenerator {
-public:
-  explicit ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
-  virtual easi::Query generate() const;
-private:
-  PUML::TETPUML const& m_mesh;
-};
-
-#endif
 
 class seissol::initializers::FaultBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:

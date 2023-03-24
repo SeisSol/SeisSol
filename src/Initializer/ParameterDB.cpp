@@ -61,31 +61,87 @@
 #include "utils/logger.h"
 
 
-easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
-  std::vector<Element> const& elements = m_meshReader.getElements();
-  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
-  
-  easi::Query query(elements.size(), 3);
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    // Compute barycentre for each element
-    for (unsigned dim = 0; dim < 3; ++dim) {
-      query.x(elem,dim) = vertices[ elements[elem].vertices[0] ].coords[dim];
-    }
-    for (unsigned vertex = 1; vertex < 4; ++vertex) {
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem,dim) += vertices[ elements[elem].vertices[vertex] ].coords[dim];
+seissol::initializers::C2VArray seissol::initializers::C2VArray::fromMeshReader(const MeshReader& meshReader) {
+  const auto& elements = meshReader.getElements();
+  const auto& vertices = meshReader.getVertices();
+
+  return C2VArray{
+    .size = elements.size(),
+    .elementVertices = [&](size_t index) {
+      std::array<Eigen::Vector3d, 4> verts;
+      for (size_t i = 0; i < 4; ++i) {
+          auto vindex = elements[index].vertices[i];
+          const auto& vertex = vertices[vindex];
+          verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
       }
+      return verts;
+    },
+    .elementMaterials = [&](size_t index) {
+      return elements[index].group;
     }
-    for (unsigned dim = 0; dim < 3; ++dim) {
-      query.x(elem,dim) *= 0.25;
+  };
+}
+
+#ifdef USE_HDF
+seissol::initializers::C2VArray seissol::initializers::C2VArray::fromPUML(const PUML::TETPUML& mesh) {
+  const int* material = mesh.cellData(0);
+  const auto& cells = mesh.cells();
+  const auto& vertices = mesh.vertices();
+  return C2VArray{
+    .size = cells.size(),
+    .elementVertices = [&](size_t cell) {
+      std::array<Eigen::Vector3d, 4> x;
+      unsigned vertLids[4];
+      PUML::Downward::vertices(mesh, cells[cell], vertLids);
+      for (unsigned vtx = 0; vtx < 4; ++vtx) {
+        for (unsigned d = 0; d < 3; ++d) {
+          x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
+        }
+      }
+      return x;
+    },
+    .elementMaterials = [&](size_t cell) {
+      return material[cell];
     }
-    query.group(elem) = elements[elem].group;
+  };
+}
+#endif
+
+seissol::initializers::C2VArray seissol::initializers::C2VArray::fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices, const std::vector<int>& materials) {
+  assert(vertices.size() == materials.size());
+
+  return C2VArray{
+    .size = vertices.size(),
+    .elementVertices = [&](size_t idx) {
+      std::array<Eigen::Vector3d, 4> verts;
+      for (size_t i = 0; i < 4; ++i) {
+          verts[i] << vertices[idx][i][0], vertices[idx][i][1], vertices[idx][i][2];
+      }
+      return verts;
+    },
+    .elementMaterials = [&](size_t i) {
+      return materials[i];
+    }
+  };
+}
+
+easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
+  easi::Query query(m_ctov.size, 3);
+
+  #pragma omp parallel for schedule(static)
+  for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
+    auto vertices = m_ctov.elementVertices(elem);
+    Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
+    query.x(elem,0) = barycenter(0);
+    query.x(elem,1) = barycenter(1);
+    query.x(elem,2) = barycenter(2);
+    query.group(elem) = m_ctov.elementMaterials(elem);
   }
   return query;
 }
 
-seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshReader const& meshReader)
-  : m_meshReader(meshReader)
+seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(const C2VArray& ctov)
+  : m_ctov(ctov)
   {
     double quadraturePoints[NUM_QUADPOINTS][3];
     double quadratureWeights[NUM_QUADPOINTS];
@@ -98,58 +154,24 @@ seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(MeshRead
   }
 
 easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
-  std::vector<Element> const& elements = m_meshReader.getElements();
-  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
-
   // Generate query using quadrature points for each element
-  easi::Query query(elements.size() * NUM_QUADPOINTS, 3);
+  easi::Query query(m_ctov.size * NUM_QUADPOINTS, 3);
   
   // Transform quadrature points to global coordinates for all elements
-  #pragma omp parallel for
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
+  #pragma omp parallel for schedule(static) collapse(2)
+  for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
-      std::array<double, 3> xyz{};
-      seissol::transformations::tetrahedronReferenceToGlobal(vertices[ elements[elem].vertices[0] ].coords, vertices[ elements[elem].vertices[1] ].coords,
-        vertices[ elements[elem].vertices[2] ].coords, vertices[ elements[elem].vertices[3] ].coords, m_quadraturePoints[i].data(), xyz.data());
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(elem * NUM_QUADPOINTS + i,dim) = xyz[dim];
-      }
-      query.group(elem * NUM_QUADPOINTS + i) = elements[elem].group;
+      auto vertices = m_ctov.elementVertices(elem);
+      Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(vertices[0], vertices[1],vertices[2], vertices[3], m_quadraturePoints[i].data());
+      query.x(elem * NUM_QUADPOINTS + i, 0) = transformed(0);
+      query.x(elem * NUM_QUADPOINTS + i, 1) = transformed(1);
+      query.x(elem * NUM_QUADPOINTS + i, 2) = transformed(2);
+      query.group(elem * NUM_QUADPOINTS + i) = m_ctov.elementMaterials(elem);
     }
   }
 
   return query;
 }
-
-#ifdef USE_HDF
-easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() const {
-  std::vector<PUML::TETPUML::cell_t> const& cells = m_mesh.cells();
-  std::vector<PUML::TETPUML::vertex_t> const& vertices = m_mesh.vertices();
-
-  int const* material = m_mesh.cellData(0);
-  
-  easi::Query query(cells.size(), 3);
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    unsigned vertLids[4];
-    PUML::Downward::vertices(m_mesh, cells[cell], vertLids);
-    
-    // Compute barycentre for each element
-    for (unsigned dim = 0; dim < 3; ++dim) {
-      query.x(cell,dim) = vertices[ vertLids[0] ].coordinate()[dim];
-    }
-    for (unsigned vertex = 1; vertex < 4; ++vertex) {
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(cell,dim) += vertices[ vertLids[vertex] ].coordinate()[dim];
-      }
-    }
-    for (unsigned dim = 0; dim < 3; ++dim) {
-      query.x(cell,dim) *= 0.25;
-    }
-    query.group(cell) = material[cell];
-  }
-  return query;
-}
-#endif
 
 easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
   std::vector<Fault> const& fault = m_meshReader.getFault();
@@ -600,23 +622,23 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
     bool anisotropy,
     bool poroelasticity,
     bool useCellHomogenizedMaterial,
-    MeshReader const& meshReader) {
+    const C2VArray& ctov) {
   QueryGenerator* queryGen = nullptr;
   if (!useCellHomogenizedMaterial) {
-    queryGen = new ElementBarycentreGenerator(meshReader);
+    queryGen = new ElementBarycentreGenerator(ctov);
   } else {
     const auto rank = MPI::mpi.rank();
     if (anisotropy) {
       logWarning(rank) << "Material Averaging is not implemented for anisotropic materials. Falling back to material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(meshReader);
+      queryGen = new ElementBarycentreGenerator(ctov);
     } else if (plasticity) {
       logWarning(rank) << "Material Averaging is not implemented for plastic materials. Falling back to material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(meshReader);
+      queryGen = new ElementBarycentreGenerator(ctov);
     } else if (poroelasticity) {
       logWarning(rank) << "Material Averaging is not implemented for poroelastic materials. Falling back to material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(meshReader);
+      queryGen = new ElementBarycentreGenerator(ctov);
     } else {
-      queryGen = new ElementAverageGenerator(meshReader);
+      queryGen = new ElementAverageGenerator(ctov);
     }
   }
   return queryGen;

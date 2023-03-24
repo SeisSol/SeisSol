@@ -35,7 +35,7 @@ void setupCheckpointing()
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
   }
 
-  int numSides = 0;
+  int numSides = 0; // TODO:
   int numBndGP = 0;
 
   bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
@@ -69,7 +69,7 @@ void setupOutput()
   auto* globalData = memmng.getGlobalDataOnHost();
 
   constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
-  // TODO: handle attenuation properly here. We'll probably not want it. But NUMBER_OF_QUANTITIES contains it nonetheless.
+  // TODO: handle attenuation properly here. We'll probably not want it to be contained in numberOfQuantities. But the compile-time parameter NUMBER_OF_QUANTITIES contains it nonetheless.
 
   if (ssp.output.waveFieldParameters.enabled) {
     // record the clustering info i.e., distribution of elements within an LTS tree
@@ -197,10 +197,10 @@ void seissol::initializer::initprocedure::initIOPreLts() {
 }
 
 void seissol::initializer::initprocedure::initIOPostLts() {
-  logInfo() << "Begin init output.";
+  logInfo(seissol::MPI::mpi.rank()) << "Begin init output.";
   enableFreeSurfaceOutput();
   initFaultOutputManager();
   setupCheckpointing();
   setupOutput();
-  logInfo() << "End init output.";
+  logInfo(seissol::MPI::mpi.rank()) << "End init output.";
 }

@@ -165,7 +165,7 @@ void seissol::initializer::initprocedure::initMesh() {
         readMeshPUML(ssp);
         break;
         default:
-        logError() << "Mesh reader not implemented for format " << static_cast<int>(meshformat);
+        logError() << "Mesh reader not implemented for format" << static_cast<int>(meshformat);
     }
 
 	postMeshread(seissol::SeisSol::main.meshReader(), ssp.dynamicRupture.hasFault, ssp.mesh.displacement, ssp.mesh.scaling);
