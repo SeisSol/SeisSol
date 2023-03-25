@@ -100,7 +100,7 @@ seissol::initializers::C2VArray seissol::initializers::C2VArray::fromPUML(const 
       }
       return x;
     },
-    .elementMaterials = [&](size_t cell) {
+    .elementMaterials = [material](size_t cell) {
       return material[cell];
     }
   };
