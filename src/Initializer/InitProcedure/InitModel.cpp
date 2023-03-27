@@ -208,14 +208,7 @@ struct LtsInfo {
     MeshStructure* meshStructure = nullptr;
     TimeStepping timeStepping;
 
-    ~LtsInfo() {
-        // TODO: refactor LtsLayout, so that the following checks can be removed entirely.
-        if (ltsMeshToFace != nullptr) {
-            delete[] ltsMeshToFace;
-            ltsMeshToFace = nullptr;
-        }
-        // IMPORTANT: do NOT free meshStructure, as it is transferred to the MemoryManager
-    }
+    // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING RUNTIME
 };
 
 void initializeCellMatrices(LtsInfo& ltsInfo)
@@ -243,7 +236,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo)
                                                            ltsInfo.timeStepping );
 
   memoryManager.initFrictionData();
-  seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
+  // seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap(); // moved
 
   seissol::initializers::initializeBoundaryMappings(meshReader,
                                                     memoryManager.getEasiBoundaryReader(),
