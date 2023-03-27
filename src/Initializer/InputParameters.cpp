@@ -242,12 +242,7 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
         OutputFormat::None,
         OutputFormat::Xdmf
     });
-    if (ssp.output.format != OutputFormat::None) {
-        ssp.output.prefix = reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
-    }
-    else {
-        reader.markUnused("outputfile");
-    }
+    ssp.output.prefix = reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
     ssp.output.xdmfWriterBackend = reader.readWithDefaultStringEnum<xdmfwriter::BackendType>("xdmfwriterbackend", "posix", {
         {"posix", xdmfwriter::BackendType::POSIX},
 #ifdef USE_HDF
