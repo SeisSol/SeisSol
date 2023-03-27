@@ -282,15 +282,14 @@ void initializeClusteredLts(LtsInfo& ltsInfo) {
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( ltsInfo.timeStepping );
 
+  seissol::SeisSol::main.getMemoryManager().initializeFrictionLaw();
+
   unsigned* numberOfDRCopyFaces;
   unsigned* numberOfDRInteriorFaces;
   // get cell information & mappings
   seissol::SeisSol::main.getLtsLayout().getDynamicRuptureInformation( ltsInfo.ltsMeshToFace,
                                                                       numberOfDRCopyFaces,
                                                                       numberOfDRInteriorFaces );
-
-  // swapped with the previous method, but that should have no effect
-  seissol::SeisSol::main.getMemoryManager().initializeFrictionLaw();
 
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(ltsInfo.timeStepping,
                                                           ltsInfo.meshStructure,
