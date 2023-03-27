@@ -162,6 +162,8 @@ void initFaultOutputManager() {
 
   auto *faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
   seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
+
+  seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 }
 
 void enableWaveFieldOutput() {
