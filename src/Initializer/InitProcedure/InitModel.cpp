@@ -21,11 +21,11 @@
 
 using namespace seissol::initializer;
 
-using Material = seissol::model::MaterialClass;
+using MaterialClass = seissol::model::MaterialClass;
 using Plasticity = seissol::model::Plasticity;
 
 template<typename T>
-void synchronize(seissol::initializers::Variable<T> const& handle)
+void synchronize(const seissol::initializers::Variable<T>& handle)
 {
   initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
   unsigned *const (&meshToLts)[seissol::initializers::Lut::MaxDuplicates] = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
@@ -53,6 +53,11 @@ std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen, const st
     parameterDB.setMaterialVector(&vectorDB);
     parameterDB.evaluateModel(fileName, queryGen);
     return vectorDB;
+}
+
+template<typename T>
+void copyInit(T& target, const T& value) {
+  new (&target) T (value);
 }
 
 void initializeCellMaterial() {
@@ -87,8 +92,8 @@ void initializeCellMaterial() {
       seissol::initializer::parameters::modelPoroelastic(),
       ssp.model.useCellHomogenizedMaterial,
       seissol::initializers::C2VArray::fromVectors(ghostVertices, ghostMaterials));
-    auto materialsDB = queryDB<Material>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
-    auto materialsDBGhost = queryDB<Material>(queryGenGhost, ssp.model.materialFileName, ghostVertices.size());
+    auto materialsDB = queryDB<MaterialClass>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
+    auto materialsDBGhost = queryDB<MaterialClass>(queryGenGhost, ssp.model.materialFileName, ghostVertices.size());
     std::vector<Plasticity> plasticityDB;
     if (ssp.model.plasticity) {
       // plasticity information is only needed on all interior+copy cells.
@@ -118,7 +123,6 @@ void initializeCellMaterial() {
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
   unsigned* ltsToMesh = memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
-  unsigned* ltsToMeshGhost = memoryManager.getLtsLut()->getLtsToMeshLut(~seissol::initializers::LayerMask(Copy | Interior));
 
   for (seissol::initializers::LTSTree::leaf_iterator it = memoryManager.getLtsTree()->beginLeaf(seissol::initializers::LayerMask(Ghost)); it != memoryManager.getLtsTree()->endLeaf(); ++it) {
     auto* cellInformation = it->var(memoryManager.getLts()->cellInformation);
@@ -130,38 +134,40 @@ void initializeCellMaterial() {
 #endif
     for (std::size_t cell = 0; cell < it->getNumberOfCells(); ++cell) {
       // set the materials for the cell volume and its faces
+      auto meshId = ltsToMesh[cell];
       auto& material = materialArray[cell];
-      const auto& localMaterial = materialsDB[ltsToMesh[cell]];
-      const auto& element = elements[ltsToMesh[cell]];
+      const auto& localMaterial = materialsDB[meshId];
+      const auto& element = elements[meshId];
       const auto& localCellInformation = cellInformation[cell];
 
-      material.local = localMaterial;
+      copyInit(material.local, localMaterial);
       for (std::size_t side = 0; side < 4; ++side) {
           if (isInteriorFaceType(localCellInformation.faceTypes[side])) {
               // use the neighbor face material info in case that we are not at a boundary
-              if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) { // TODO: is this rank properly checked here?
+              if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) {
                 // material from interior or copy
                 auto neighbor = element.neighbors[side];
-                material.neighbor[side] = materialsDB[neighbor];
+                copyInit(material.neighbor[side], materialsDB[neighbor]);
               }
               else {
                 // material from ghost layer (computed locally)
                 auto neighborRank = element.neighborRanks[side];
                 auto neighborRankIdx = element.mpiIndices[side];
-                auto materialGhostIdx = ghostIdxMap[neighborRank][neighborRankIdx];
-                material.neighbor[side] = materialsDBGhost[materialGhostIdx];
+                auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
+                copyInit(material.neighbor[side], materialsDBGhost[materialGhostIdx]);
               }
           }
           else {
               // otherwise, use the material from the own cell (TODO: is this really the best thing for boundary conditions?)
-              material.neighbor[side] = localMaterial;
+              copyInit(material.neighbor[side], localMaterial);
           }
         }
       
       // if enabled, set up the plasticity as well
+      // TODO: move to material initalization maybe? Or an initializer for the PlasticityData struct?
         if (ssp.model.plasticity) {
           auto& plasticity = plasticityArray[cell];
-            const auto& localPlasticity = plasticityDB[ltsToMesh[cell]];
+            const auto& localPlasticity = plasticityDB[meshId];
 
             plasticity.initialLoading[0] = localPlasticity.s_xx;
             plasticity.initialLoading[1] = localPlasticity.s_yy;
@@ -189,6 +195,7 @@ void initializeCellMaterial() {
       seissol::SeisSol::main.timeManager().setTv(ssp.model.tv);
     }
 
+    // TODO: check if sync is still necessary
     // synchronize data
     synchronize(memoryManager.getLts()->material);
     if (ssp.model.plasticity) {
@@ -318,9 +325,6 @@ void initializeClusteredLts(LtsInfo& ltsInfo) {
 
   delete[] ltsToMesh;
 
-  const auto& m_dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
-  const auto& m_dynRup = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
-
   // derive lts setups
   seissol::initializers::time_stepping::deriveLtsSetups( ltsInfo.timeStepping.numberOfLocalClusters,
                                                          ltsInfo.meshStructure,
@@ -368,7 +372,7 @@ void seissol::initializer::initprocedure::initModel() {
   logInfo(seissol::MPI::mpi.rank()) << "Initialize LTS.";
   initializeClusteredLts(ltsInfo);
 
-  // init cell materials (needs LTS, to place the material in)
+  // init cell materials (needs LTS, to place the material in; this part was translated from FORTRAN)
   logInfo(seissol::MPI::mpi.rank()) << "Initialize cell material parameters.";
 	initializeCellMaterial();
 
