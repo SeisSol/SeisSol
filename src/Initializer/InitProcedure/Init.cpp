@@ -67,11 +67,12 @@ void seissol::initializer::initprocedure::seissolMain() {
   initSeisSol();
 
   seissol::Stopwatch watch;
-	watch.start();
   logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
+	watch.start();
   seissol::SeisSol::main.simulator().simulate();
   watch.pause();
   watch.printTime("Time spent in simulation:");
   logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
+  
   closeSeisSol();
 }

@@ -190,6 +190,11 @@ void enableFreeSurfaceOutput()
   }
 }
 
+void setIntegralMask() {
+  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  seissol::SeisSol::main.postProcessor().setIntegrationMask(ssp.output.waveFieldParameters.integrationMask);
+}
+
 // do we even need this? Or can we merge it with the PostLts method?
 void seissol::initializer::initprocedure::initIOPreLts() {
   // checkpointing needs to be enabled first
@@ -200,6 +205,7 @@ void seissol::initializer::initprocedure::initIOPreLts() {
 
 void seissol::initializer::initprocedure::initIOPostLts() {
   logInfo(seissol::MPI::mpi.rank()) << "Begin init output.";
+  setIntegralMask();
   enableFreeSurfaceOutput();
   initFaultOutputManager();
   setupCheckpointing();

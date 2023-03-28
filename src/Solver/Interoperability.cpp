@@ -871,7 +871,7 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
 }
 
 void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
-  seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
+  //seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
 }
 
 void
