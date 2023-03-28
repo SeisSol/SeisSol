@@ -81,7 +81,6 @@
 #include "Parallel/MPI.h"
 
 #include <Initializer/PointMapper.h>
-#include <Solver/Interoperability.h>
 #include <utils/logger.h>
 #include <string>
 #include <cstring>

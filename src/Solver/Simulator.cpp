@@ -43,7 +43,6 @@
 
 #include "Simulator.h"
 #include "SeisSol.h"
-#include "Interoperability.h"
 #include "time_stepping/TimeManager.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"

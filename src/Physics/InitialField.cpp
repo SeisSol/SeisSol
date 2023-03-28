@@ -9,7 +9,6 @@
 #include <utility>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
-#include <Solver/Interoperability.h>
 #include <Numerical_aux/Eigenvalues.h>
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 

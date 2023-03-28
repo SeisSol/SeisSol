@@ -77,7 +77,6 @@
 
 #include "SeisSol.h"
 #include "TimeCluster.h"
-#include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>

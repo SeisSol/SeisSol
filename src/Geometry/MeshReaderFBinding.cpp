@@ -52,7 +52,7 @@
 #include "PUMLReader.h"
 #endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
-#include "Monitoring/instrumentation.fpp"
+
 #include "Monitoring/Stopwatch.h"
 #include "Numerical_aux/Statistics.h"
 #include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"

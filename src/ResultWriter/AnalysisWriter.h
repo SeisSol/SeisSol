@@ -6,7 +6,6 @@
 #include <fstream>
 #include <iostream>
 
-#include "Solver/Interoperability.h"
 #include "Physics/InitialField.h"
 #include "Numerical_aux/Quadrature.h"
 #include "Numerical_aux/Transformation.h"
