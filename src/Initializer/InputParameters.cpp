@@ -295,6 +295,8 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
         OutputRefinement::Refine32
     });
 
+    ssp.output.waveFieldParameters.enabled = ssp.output.waveFieldParameters.interval > 0;
+
     auto groupsVector = reader.readWithDefault("outputgroups", std::vector<int>());
     ssp.output.waveFieldParameters.groups = std::unordered_set<int>(groupsVector.begin(), groupsVector.end());
 
