@@ -274,7 +274,7 @@ void seissol::sourceterm::Manager::loadSources(  SourceType                     
   }
   else if (sourceType == SourceType::FsrmSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
-    loadSourcesFromFSRMNew(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
+    loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, timeManager);
   }
   else if (sourceType == SourceType::None) {
     logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
@@ -285,7 +285,7 @@ void seissol::sourceterm::Manager::loadSources(  SourceType                     
   // otherwise, we do not have any source term.
 }
 
-void seissol::sourceterm::Manager::loadSourcesFromFSRMNew( char const*                     fileName,
+void seissol::sourceterm::Manager::loadSourcesFromFSRM( char const*                     fileName,
                                                         MeshReader const&               mesh,
                                                         seissol::initializers::LTSTree* ltsTree,
                                                         seissol::initializers::LTS*     lts,
@@ -382,143 +382,6 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRMNew( char const*          
   }
   delete[] originalIndex;
   delete[] meshIds;
-
-  timeManager.setPointSourcesForClusters(layeredClusterMapping, layeredSources);
-  
-  logInfo(rank) << ".. finished point source initialization.";
-}
-
-void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
-                                                        double const*                   solidVelocityComponent,
-                                                        double const*                   pressureComponent,
-                                                        double const*                   fluidVelocityComponent,
-                                                        int                             numberOfSources,
-                                                        double const*                   centres,
-                                                        double const*                   strikes,
-                                                        double const*                   dips,
-                                                        double const*                   rakes,
-                                                        double const*                   onsets,
-                                                        double const*                   areas,
-                                                        double                          timestep,
-                                                        int                             numberOfSamples,
-                                                        double const*                   timeHistories,
-                                                        MeshReader const&               mesh,
-                                                        seissol::initializers::LTSTree* ltsTree,
-                                                        seissol::initializers::LTS*     lts,
-                                                        seissol::initializers::Lut*     ltsLut,
-                                                        time_stepping::TimeManager&     timeManager )
-{
-  int rank = seissol::MPI::mpi.rank();
-  
-  logInfo(rank) << "<--------------------------------------------------------->";
-  logInfo(rank) << "<                      Point sources                      >";
-  logInfo(rank) << "<--------------------------------------------------------->";
-
-  short* contained = new short[numberOfSources];
-  unsigned* meshIds = new unsigned[numberOfSources];
-  Eigen::Vector3d* centres3 = new Eigen::Vector3d[numberOfSources];
-
-  for (int source = 0; source < numberOfSources; ++source) {
-    centres3[source](0) = centres[3*source];
-    centres3[source](1) = centres[3*source + 1];
-    centres3[source](2) = centres[3*source + 2];
-  }
-
-  logInfo(rank) << "Finding meshIds for point sources...";
-
-  initializers::findMeshIds(centres3, mesh, numberOfSources, contained, meshIds);
-
-#ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  initializers::cleanDoubles(contained, numberOfSources);
-#endif
-
-  unsigned* originalIndex = new unsigned[numberOfSources];
-  unsigned numSources = 0;
-  for (int source = 0; source < numberOfSources; ++source) {
-    originalIndex[numSources] = source;
-    meshIds[numSources] = meshIds[source];
-    numSources += contained[source];
-  }
-  delete[] contained;
-
-  logInfo(rank) << "Mapping point sources to LTS cells...";
-  mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut);
-
-  real localMomentTensor[3][3];
-  for (unsigned i = 0; i < 9; ++i) {
-    *(&localMomentTensor[0][0] + i) = momentTensor[i];
-  }
-  real localSolidVelocityComponent[3];
-  for (unsigned i = 0; i < 3; i++) {
-    localSolidVelocityComponent[i] = solidVelocityComponent[i];
-  }
-  real localPressureComponent = *pressureComponent;
-  real localFluidVelocityComponent[3];
-  for (unsigned i = 0; i < 3; i++) {
-    localFluidVelocityComponent[i] = fluidVelocityComponent[i];
-  }
-
-  for (auto layer : {Interior, Copy}) {
-    auto& sources = layeredSources[layer];
-    sources.resize(ltsTree->numChildren());
-    auto& clusterMappings = layeredClusterMapping[layer];
-    for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
-      sources[cluster].mode = PointSources::FSRM;
-      sources[cluster].numberOfSources = clusterMappings[cluster].numberOfSources;
-      int error = posix_memalign(reinterpret_cast<void **>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT,
-                                 clusterMappings[cluster].numberOfSources * tensor::mInvJInvPhisAtSources::size() * sizeof(real));
-      if (error) {
-        logError() << "posix_memalign failed in source term manager.";
-      }
-      error = posix_memalign(reinterpret_cast<void **>(&sources[cluster].tensor), ALIGNMENT,
-                             clusterMappings[cluster].numberOfSources * PointSources::TensorSize * sizeof(real));
-      if (error) {
-        logError() << "posix_memalign failed in source term manager.";
-      }
-      sources[cluster].slipRates.resize(clusterMappings[cluster].numberOfSources);
-
-      for (unsigned clusterSource = 0; clusterSource < clusterMappings[cluster].numberOfSources; ++clusterSource) {
-        unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
-        unsigned fsrmIndex = originalIndex[sourceIndex];
-
-
-        computeMInvJInvPhisAtSources(centres3[fsrmIndex],
-                                     sources[cluster].mInvJInvPhisAtSources[clusterSource],
-                                     meshIds[sourceIndex], mesh);
-        transformMomentTensor( localMomentTensor,
-                               localSolidVelocityComponent,
-                               localPressureComponent,
-                               localFluidVelocityComponent,
-                               strikes[fsrmIndex],
-                               dips[fsrmIndex],
-                               rakes[fsrmIndex],
-                               sources[cluster].tensor[clusterSource]);
-
-
-        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-          sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
-        }
-#ifndef USE_POROELASTIC
-        seissol::model::Material &material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
-        for (unsigned i = 0; i < 3; ++i) {
-          sources[cluster].tensor[clusterSource][6 + i] /= material.rho;
-        }
-#else
-      logWarning() << "For the poroelastic equation we do not scale the force components with the density. Read the documentation to see how sources in poroelastic media are defined.";
-#endif
-
-        samplesToPiecewiseLinearFunction1D(&timeHistories[fsrmIndex * numberOfSamples],
-                                           numberOfSamples,
-                                           onsets[fsrmIndex],
-                                           timestep,
-                                           &sources[cluster].slipRates[clusterSource][0]);
-      }
-    }
-  }
-  delete[] originalIndex;
-  delete[] meshIds;
-  delete[] centres3;
 
   timeManager.setPointSourcesForClusters(layeredClusterMapping, layeredSources);
   

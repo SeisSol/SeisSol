@@ -99,27 +99,7 @@ public:
                                   seissol::initializers::LTS*     lts,
                                   seissol::initializers::Lut*     ltsLut );
   
-  void loadSourcesFromFSRMNew( char const*                     fileName,
-                            MeshReader const&               mesh,
-                            seissol::initializers::LTSTree* ltsTree,
-                            seissol::initializers::LTS*     lts,
-                            seissol::initializers::Lut*     ltsLut,
-                            time_stepping::TimeManager&     timeManager);
-
-  void loadSourcesFromFSRM( double const*                   momentTensor,
-                            double const*                   solidVelocityComponent,
-                            double const*                   pressureComponent,
-                            double const*                   fluidVelocityComponent,
-                            int                             numberOfSources,
-                            double const*                   centres,
-                            double const*                   strikes,
-                            double const*                   dips,
-                            double const*                   rakes,
-                            double const*                   onsets,
-                            double const*                   areas,
-                            double                          timestep,
-                            int                             numberOfSamples,
-                            double const*                   timeHistories,
+  void loadSourcesFromFSRM( char const*                     fileName,
                             MeshReader const&               mesh,
                             seissol::initializers::LTSTree* ltsTree,
                             seissol::initializers::LTS*     lts,
