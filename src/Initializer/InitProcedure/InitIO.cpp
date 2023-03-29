@@ -4,6 +4,7 @@
 #include <SeisSol.h>
 #include <cstring>
 #include <vector>
+#include "DynamicRupture/Misc.h"
 
 #include "Parallel/MPI.h"
 
@@ -35,8 +36,8 @@ void setupCheckpointing()
     stateVariable = reinterpret_cast<real*>(dynRupTree->var(dynRup->mu));
   }
 
-  int numSides = 0; // TODO:
-  int numBndGP = 0;
+  size_t numSides = seissol::SeisSol::main.meshReader().getFault().size();
+  unsigned int numBndGP = seissol::dr::misc::numberOfBoundaryGaussPoints;
 
   bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(ltsTree->var(lts->dofs)),
 			ltsTree->getNumberOfCells(lts->dofs.mask) * tensor::Q::size(),

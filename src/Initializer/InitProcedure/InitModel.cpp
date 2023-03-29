@@ -74,7 +74,9 @@ void initializeCellMaterial() {
       for (const auto& vertices : neighbor.second) {
         ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
         ghostVertices.push_back(vertices);
-        ghostMaterials.push_back(0); // TODO: change that
+      }
+      for (const auto& group : meshReader.getMPINeighborGroups().at(neighbor.first)) {
+        ghostMaterials.push_back(group);
       }
     }
 

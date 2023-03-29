@@ -41,28 +41,14 @@ void postMeshread(MeshReader &meshReader, bool hasFault, const std::array<double
 	}
 
 	meshReader.exchangeVerticesWithMPINeighbors();
+    meshReader.exchangeGroupsWithMPINeighbors();
 
 	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
 
 	// Setup the communicator for dynamic rupture
 	seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
 }
-/*
-call read_mesh_puml_c(  trim(io%MeshFile) // c_null_char,           &
-                                    trim(io%checkpoint%filename) // c_null_char,&
-                                    trim(io%OutputFile) // c_null_char,         &
-                                    hasFault,                                   &
-                                    MESH%Displacement(:),                       &
-                                    m_mesh%ScalingMatrix(:,:),                  &
-                                    trim(EQN%MaterialFileName) // c_null_char,  &
-                                    disc%galerkin%clusteredLts, &
-                                    disc%galerkin%ltsWeightTypeId, &
-                                    MESH%vertexWeightElement, &
-                                    MESH%vertexWeightDynamicRupture, &
-                                    MESH%vertexWeightFreeSurfaceWithGravity, &
-                                    logical(EQN%Plasticity == 1, 1), &
-                                    DISC%FixTimeStep)
-                                    */
+
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& ssp) {
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();

@@ -85,6 +85,9 @@ protected:
 	/** Vertices of MPI Neighbors*/
 	std::unordered_map<int, std::vector<std::array<std::array<double, 3>, 4>>> m_MPINeighborVertices;
 
+	/** Groups of MPI Neighbors*/
+	std::unordered_map<int, std::vector<int>> m_MPINeighborGroups;
+
 	/** Has a plus fault side */
 	bool m_hasPlusFault;
 
@@ -121,6 +124,11 @@ public:
 	const std::unordered_map<int, std::vector<std::array<std::array<double, 3>, 4>>>&
 	getMPINeighborVertices() const {
 		return m_MPINeighborVertices;
+	}
+
+	const std::unordered_map<int, std::vector<int>>&
+	getMPINeighborGroups() const {
+		return m_MPINeighborGroups;
 	}
 
 	const std::vector<Fault>& getFault() const
@@ -402,6 +410,69 @@ public:
 				}
 			}
 		}
+	}
+
+	/*
+         * Exchanges halo tetrahedrons between MPI neighbors
+         * */
+	void exchangeGroupsWithMPINeighbors() {
+		// TODO: (if there is time) generalize halo exchange to arbitrary data maybe?
+		size_t numMPIDomains = m_MPINeighbors.size();
+
+		std::unordered_map<int, std::vector<int>> sendData;
+		std::vector<MPI_Request> sendRequests(numMPIDomains);
+		std::vector<MPI_Request> recvRequests(numMPIDomains);
+
+		constexpr int exchangeTag{11};
+		auto communicator = seissol::MPI::mpi.comm();
+
+		auto &domainElements = m_elements;
+
+		std::unordered_map<int, std::vector<int>> recvData;
+
+		size_t counter{};
+		for (auto it = m_MPINeighbors.begin(); it != m_MPINeighbors.end(); ++it, ++counter) {
+
+			auto neighborRank = it->first;
+			auto numElements = it->second.elements.size();
+			const size_t messageSize = numElements;
+
+			sendData[neighborRank].resize(messageSize);
+			recvData[neighborRank].resize(messageSize);
+
+			auto* startAddress = &(recvData[neighborRank][0]);
+			MPI_Irecv(const_cast<int*>(startAddress),
+								messageSize,
+								MPI_INT,
+								neighborRank,
+								exchangeTag,
+								communicator,
+								&recvRequests[counter]);
+
+			for (size_t elementIdx = 0; elementIdx < numElements; ++elementIdx) {
+				auto localElementIdx = it->second.elements[elementIdx].localElement;
+				auto& element = domainElements[localElementIdx];
+
+				sendData[neighborRank][elementIdx] = element.group;
+			}
+
+			MPI_Isend(const_cast<int*>(&sendData[neighborRank][0]),
+								messageSize,
+								MPI_INT,
+								neighborRank,
+								exchangeTag,
+								communicator,
+								&sendRequests[counter]);
+		}
+
+		std::vector<MPI_Status> sendStatus{numMPIDomains};
+		std::vector<MPI_Status> recvStatus{numMPIDomains};
+
+		MPI_Waitall(numMPIDomains, &sendRequests[0], &sendStatus[0]);
+		MPI_Waitall(numMPIDomains, &recvRequests[0], &recvStatus[0]);
+
+		// just assign the data
+		m_MPINeighborGroups = std::move(recvData);
 	}
 
 protected:
