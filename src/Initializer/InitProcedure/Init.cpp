@@ -16,51 +16,53 @@ void reportDeviceMemoryStatus() {
     std::stringstream stream;
 
     stream << "Device(" << rank << ")  memory is overloaded.\n"
-           << "Totally allocated device memory, GB: " << device.api->getCurrentlyOccupiedMem() / GB << '\n'
-           << "Allocated unified memory, GB: " << device.api->getCurrentlyOccupiedUnifiedMem() / GB << '\n'
+           << "Totally allocated device memory, GB: " << device.api->getCurrentlyOccupiedMem() / GB
+           << '\n'
+           << "Allocated unified memory, GB: " << device.api->getCurrentlyOccupiedUnifiedMem() / GB
+           << '\n'
            << "Memory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
 
     logError() << stream.str();
-  }
-  else {
-    double fraction = device.api->getCurrentlyOccupiedMem() / static_cast<double>(device.api->getMaxAvailableMem());
+  } else {
+    double fraction = device.api->getCurrentlyOccupiedMem() /
+                      static_cast<double>(device.api->getMaxAvailableMem());
     logInfo() << "occupied memory on device(" << rank << "): " << fraction * 100.0 << "%";
   }
 #endif
 }
 
 void initSeisSol() {
-    const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
-    // set g
-    seissol::SeisSol::main.getGravitationSetup().acceleration = ssp.model.gravitationalAcceleration;
+  // set g
+  seissol::SeisSol::main.getGravitationSetup().acceleration = ssp.model.gravitationalAcceleration;
 
-    // initialization procedure
-    seissol::initializer::initprocedure::initIOPreLts();
-    seissol::initializer::initprocedure::initMesh();
-    seissol::initializer::initprocedure::initModel();
-    seissol::initializer::initprocedure::initSideConditions();
-    seissol::initializer::initprocedure::initIOPostLts();
+  // initialization procedure
+  seissol::initializer::initprocedure::initIOPreLts();
+  seissol::initializer::initprocedure::initMesh();
+  seissol::initializer::initprocedure::initModel();
+  seissol::initializer::initprocedure::initSideConditions();
+  seissol::initializer::initprocedure::initIOPostLts();
 
-    // set up simulator
-    auto& sim = seissol::SeisSol::main.simulator();
-    sim.setUsePlasticity(ssp.model.plasticity ? 1 : 0);
-    sim.setFinalTime(ssp.end.endTime);
+  // set up simulator
+  auto& sim = seissol::SeisSol::main.simulator();
+  sim.setUsePlasticity(ssp.model.plasticity ? 1 : 0);
+  sim.setFinalTime(ssp.end.endTime);
 
-    // report status (TODO: move somewhere better)
-    reportDeviceMemoryStatus();
+  // report status (TODO: move somewhere better)
+  reportDeviceMemoryStatus();
 }
 
 void closeSeisSol() {
   logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
-    // cleanup IO
-	seissol::SeisSol::main.waveFieldWriter().close();
-	seissol::SeisSol::main.checkPointManager().close();
-	seissol::SeisSol::main.faultWriter().close();
-	seissol::SeisSol::main.freeSurfaceWriter().close();
+  // cleanup IO
+  seissol::SeisSol::main.waveFieldWriter().close();
+  seissol::SeisSol::main.checkPointManager().close();
+  seissol::SeisSol::main.faultWriter().close();
+  seissol::SeisSol::main.freeSurfaceWriter().close();
 
-    // deallocate memory manager
-    seissol::SeisSol::main.deleteMemoryManager();
+  // deallocate memory manager
+  seissol::SeisSol::main.deleteMemoryManager();
 }
 
 void seissol::initializer::initprocedure::seissolMain() {
@@ -68,11 +70,11 @@ void seissol::initializer::initprocedure::seissolMain() {
 
   seissol::Stopwatch watch;
   logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
-	watch.start();
+  watch.start();
   seissol::SeisSol::main.simulator().simulate();
   watch.pause();
   watch.printTime("Time spent in simulation:");
   logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
-  
+
   closeSeisSol();
 }

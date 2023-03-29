@@ -4,8 +4,8 @@
 #include "Initializer/InitProcedure/Init.hpp"
 
 namespace seissol::initializer::initprocedure {
-    void initIOPreLts();
-    void initIOPostLts();
-}
+void initIOPreLts();
+void initIOPostLts();
+} // namespace seissol::initializer::initprocedure
 
 #endif

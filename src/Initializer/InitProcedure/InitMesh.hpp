@@ -4,7 +4,7 @@
 #include "Initializer/InitProcedure/Init.hpp"
 
 namespace seissol::initializer::initprocedure {
-    void initMesh();
+void initMesh();
 }
 
 #endif

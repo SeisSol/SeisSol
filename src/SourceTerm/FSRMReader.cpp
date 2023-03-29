@@ -2,8 +2,6 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
@@ -47,19 +45,22 @@
 
 #include "Initializer/BasicTypedefs.hpp"
 
-// this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In particular, this reader is not programmed to be very fail-safe...
+// this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
+// particular, this reader is not programmed to be very fail-safe...
 
-template<size_t N>
-void read_array_or_zero(std::ifstream& filestream, std::string& header, const std::string& keyword, real* data) {
+template <size_t N>
+void read_array_or_zero(std::ifstream& filestream,
+                        std::string& header,
+                        const std::string& keyword,
+                        real* data) {
   if (header.find(keyword) != std::string::npos) {
-    for (size_t i = 0; i < N;++i) {
+    for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];
     }
     std::getline(filestream, header); // end of line
     std::getline(filestream, header);
-  }
-  else {
-    for (size_t i = 0; i < N;++i) {
+  } else {
+    for (size_t i = 0; i < N; ++i) {
       data[i] = 0;
     }
   }

@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -51,68 +52,64 @@
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
-  namespace sourceterm {
-    enum class SourceType {
-      None = 0,
-      NrfSource = 42,
-      FsrmSource = 50
-    };
+namespace sourceterm {
+enum class SourceType { None = 0, NrfSource = 42, FsrmSource = 50 };
 
-    void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
-                                      real* mInvJInvPhisAtSources,
-                                      unsigned meshId,
-                                      MeshReader const& mesh);
-    void transformNRFSourceToInternalSource( Eigen::Vector3d const&   centre,
-                                             unsigned                 meshId,
-                                             MeshReader const&        mesh,
-                                             Subfault const&          subfault,
-                                             Offsets const&           offsets,
-                                             Offsets const&           nextOffsets,
-                                             double *const            sliprates[3],
-                                             seissol::model::Material* material,
-                                             PointSources&            pointSources,
-                                             unsigned                 index );
-    class Manager;
-  }
-}
+void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
+                                  real* mInvJInvPhisAtSources,
+                                  unsigned meshId,
+                                  MeshReader const& mesh);
+void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
+                                        unsigned meshId,
+                                        MeshReader const& mesh,
+                                        Subfault const& subfault,
+                                        Offsets const& offsets,
+                                        Offsets const& nextOffsets,
+                                        double* const sliprates[3],
+                                        seissol::model::Material* material,
+                                        PointSources& pointSources,
+                                        unsigned index);
+class Manager;
+} // namespace sourceterm
+} // namespace seissol
 
 class seissol::sourceterm::Manager {
-private:
+  private:
   std::unordered_map<LayerType, std::vector<ClusterMapping>> layeredClusterMapping;
   std::unordered_map<LayerType, std::vector<PointSources>> layeredSources;
 
-public:
+  public:
   Manager() = default;
   ~Manager() = default;
 
-  void loadSources(         SourceType                      sourceType,
-                            char const*                     fileName,
-                            MeshReader const&               mesh,
-                            seissol::initializers::LTSTree* ltsTree,
-                            seissol::initializers::LTS*     lts,
-                            seissol::initializers::Lut*     ltsLut,
-                            time_stepping::TimeManager&     timeManager);
-  
-  void mapPointSourcesToClusters( unsigned const*                 meshIds,
-                                  unsigned                        numberOfSources,
-                                  seissol::initializers::LTSTree* ltsTree,
-                                  seissol::initializers::LTS*     lts,
-                                  seissol::initializers::Lut*     ltsLut );
-  
-  void loadSourcesFromFSRM( char const*                     fileName,
-                            MeshReader const&               mesh,
-                            seissol::initializers::LTSTree* ltsTree,
-                            seissol::initializers::LTS*     lts,
-                            seissol::initializers::Lut*     ltsLut,
-                            time_stepping::TimeManager&     timeManager);
+  void loadSources(SourceType sourceType,
+                   char const* fileName,
+                   MeshReader const& mesh,
+                   seissol::initializers::LTSTree* ltsTree,
+                   seissol::initializers::LTS* lts,
+                   seissol::initializers::Lut* ltsLut,
+                   time_stepping::TimeManager& timeManager);
+
+  void mapPointSourcesToClusters(unsigned const* meshIds,
+                                 unsigned numberOfSources,
+                                 seissol::initializers::LTSTree* ltsTree,
+                                 seissol::initializers::LTS* lts,
+                                 seissol::initializers::Lut* ltsLut);
+
+  void loadSourcesFromFSRM(char const* fileName,
+                           MeshReader const& mesh,
+                           seissol::initializers::LTSTree* ltsTree,
+                           seissol::initializers::LTS* lts,
+                           seissol::initializers::Lut* ltsLut,
+                           time_stepping::TimeManager& timeManager);
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-  void loadSourcesFromNRF(  char const*                     fileName,
-                            MeshReader const&               mesh,
-                            seissol::initializers::LTSTree* ltsTree,
-                            seissol::initializers::LTS*     lts,
-                            seissol::initializers::Lut*     ltsLut,
-                            time_stepping::TimeManager&     timeManager );
+  void loadSourcesFromNRF(char const* fileName,
+                          MeshReader const& mesh,
+                          seissol::initializers::LTSTree* ltsTree,
+                          seissol::initializers::LTS* lts,
+                          seissol::initializers::Lut* ltsLut,
+                          time_stepping::TimeManager& timeManager);
 #endif
 };
 

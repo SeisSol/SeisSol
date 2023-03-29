@@ -24,8 +24,7 @@ TravellingWaveParameters getTravellingWaveInformation() {
   return m_travellingWaveParameters;
 }
 
-std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList()
-{
+std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList() {
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
   std::vector<std::unique_ptr<physics::InitialField>> iniconds;
@@ -36,46 +35,54 @@ std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList()
 
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      const double phase = (2.0*M_PI*s) / MULTIPLE_SIMULATIONS;
+      const double phase = (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS;
       iniconds.emplace_back(new physics::Planarwave(materialData, phase));
     }
 #else
     iniconds.emplace_back(new physics::Planarwave(materialData));
 #endif
-  } else if (icparams.type == seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
+  } else if (icparams.type ==
+             seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      iniconds.emplace_back(new physics::SuperimposedPlanarwave(memmng.getLtsLut()->lookup(memmng.getLts()->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      iniconds.emplace_back(new physics::SuperimposedPlanarwave(
+          memmng.getLtsLut()->lookup(memmng.getLts()->material, 0),
+          (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS));
     }
 #else
-    iniconds.emplace_back(new physics::SuperimposedPlanarwave(memmng.getLtsLut()->lookup(memmng.getLts()->material, 0)));
+    iniconds.emplace_back(new physics::SuperimposedPlanarwave(
+        memmng.getLtsLut()->lookup(memmng.getLts()->material, 0)));
 #endif
   } else if (icparams.type == seissol::initializer::parameters::InitializationType::Zero) {
     initialConditionDescription = "Zero";
     iniconds.emplace_back(new physics::ZeroField());
   }
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
-  else if (icparams.type ==  seissol::initializer::parameters::InitializationType::Travelling) {
+  else if (icparams.type == seissol::initializer::parameters::InitializationType::Travelling) {
     initialConditionDescription = "Travelling wave";
     auto m_travellingWaveParameters = getTravellingWaveInformation();
-    iniconds.emplace_back(new physics::TravellingWave(memmng.getLtsLut()->lookup(memmng.getLts()->material, 0), m_travellingWaveParameters));
-  } else if (icparams.type ==  seissol::initializer::parameters::InitializationType::Scholte) {
+    iniconds.emplace_back(new physics::TravellingWave(
+        memmng.getLtsLut()->lookup(memmng.getLts()->material, 0), m_travellingWaveParameters));
+  } else if (icparams.type == seissol::initializer::parameters::InitializationType::Scholte) {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";
     iniconds.emplace_back(new physics::ScholteWave());
-  } else if (icparams.type ==  seissol::initializer::parameters::InitializationType::Snell) {
+  } else if (icparams.type == seissol::initializer::parameters::InitializationType::Snell) {
     initialConditionDescription = "Snell's law (elastic-acoustic)";
     iniconds.emplace_back(new physics::SnellsLaw());
-  } else if (icparams.type ==  seissol::initializer::parameters::InitializationType::Ocean0) {
-    initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode 0)";
+  } else if (icparams.type == seissol::initializer::parameters::InitializationType::Ocean0) {
+    initialConditionDescription =
+        "Ocean, an uncoupled ocean test case for acoustic equations (mode 0)";
     const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
     iniconds.emplace_back(new physics::Ocean(0, g));
-  } else if (icparams.type ==  seissol::initializer::parameters::InitializationType::Ocean1) {
-    initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode 1)";
+  } else if (icparams.type == seissol::initializer::parameters::InitializationType::Ocean1) {
+    initialConditionDescription =
+        "Ocean, an uncoupled ocean test case for acoustic equations (mode 1)";
     const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
     iniconds.emplace_back(new physics::Ocean(1, g));
-  } else if (icparams.type ==  seissol::initializer::parameters::InitializationType::Ocean2) {
-    initialConditionDescription = "Ocean, an uncoupled ocean test case for acoustic equations (mode 2)";
+  } else if (icparams.type == seissol::initializer::parameters::InitializationType::Ocean2) {
+    initialConditionDescription =
+        "Ocean, an uncoupled ocean test case for acoustic equations (mode 2)";
     const auto g = seissol::SeisSol::main.getGravitationSetup().acceleration;
     iniconds.emplace_back(new physics::Ocean(2, g));
   }
@@ -87,46 +94,42 @@ std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList()
   return iniconds;
 }
 
-void initInitialCondition()
-{
+void initInitialCondition() {
   auto iniconds = buildInitialConditionList();
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
 
   if (icparams.type != seissol::initializer::parameters::InitializationType::Zero) {
-    seissol::initializers::projectInitialField(  iniconds,
-                                        *memmng.getGlobalDataOnHost(),
-                                        seissol::SeisSol::main.meshReader(),
-                                        *memmng.getLts(),
-                                        *memmng.getLtsLut());
+    seissol::initializers::projectInitialField(iniconds,
+                                               *memmng.getGlobalDataOnHost(),
+                                               seissol::SeisSol::main.meshReader(),
+                                               *memmng.getLts(),
+                                               *memmng.getLtsLut());
   }
 
   memmng.setInitialConditions(std::move(iniconds));
 }
 
-
 void initSource() {
   const auto& srcparams = seissol::SeisSol::main.getSeisSolParameters().source;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
-  SeisSol::main.sourceTermManager().loadSources(
-    srcparams.type,
-    srcparams.fileName.c_str(),
-    seissol::SeisSol::main.meshReader(),
-    memmng.getLtsTree(),
-    memmng.getLts(),
-    memmng.getLtsLut(),
-    seissol::SeisSol::main.timeManager()
-  );
+  SeisSol::main.sourceTermManager().loadSources(srcparams.type,
+                                                srcparams.fileName.c_str(),
+                                                seissol::SeisSol::main.meshReader(),
+                                                memmng.getLtsTree(),
+                                                memmng.getLts(),
+                                                memmng.getLtsLut(),
+                                                seissol::SeisSol::main.timeManager());
 }
 
 void initBoundary() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  if (ssp.model.boundaryFileName != "") { // TODO: better check than != ""; maybe some `enabled` field?
-    seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(ssp.model.boundaryFileName.c_str());
+  if (ssp.model.boundaryFileName !=
+      "") { // TODO: better check than != ""; maybe some `enabled` field?
+    seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(
+        ssp.model.boundaryFileName.c_str());
   }
 }
-
-
 
 void seissol::initializer::initprocedure::initSideConditions() {
   logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";
