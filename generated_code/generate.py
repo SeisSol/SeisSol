@@ -72,7 +72,7 @@ cmdLineParser.add_argument('--drQuadRule')
 cmdLineArgs = cmdLineParser.parse_args()
 
 # derive the compute platform
-gpu_platforms = ['cuda', 'hip', 'hipsycl', 'oneapi']
+gpu_platforms = ['cuda', 'hip', 'opensycl', 'oneapi']
 targets = ['gpu', 'cpu'] if cmdLineArgs.device_backend in gpu_platforms else ['cpu']
 
 if cmdLineArgs.memLayout == 'auto':

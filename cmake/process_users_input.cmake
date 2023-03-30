@@ -39,7 +39,7 @@ set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
 set(DEVICE_BACKEND "none" CACHE STRING "Type of GPU backend")
-set(DEVICE_BACKEND_OPTIONS none cuda hip hipsycl oneapi)
+set(DEVICE_BACKEND_OPTIONS none cuda hip opensycl oneapi)
 set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 

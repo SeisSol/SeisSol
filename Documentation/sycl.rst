@@ -8,7 +8,7 @@ parts of the application which typically contain some generated code. The latter
 achieve GPU source code portability (e.g., Dynamic Rupture).
 
 SYCL is a standard for cross-platform programming of heterogeneous processors. Below are the instructions for
-installing the *hipSYCL* implementation of the SYCL standard. If you want to use DPC++ then refer to
+installing the *OpenSYCL* implementation of the SYCL standard. If you want to use DPC++ then refer to
 `the followig instructions <https://intel.github.io/llvm-docs/GetStartedGuide.html#create-dpc-workspace>`_.
 
 
@@ -63,7 +63,7 @@ Follow the instructions listed below if you need to configure LLVM with AMD GPU 
 Installing Boost
 ----------------
 
-hipSYCL depends on 1.69.0 version of the Boost library.
+OpenSYCL depends on 1.69.0 version of the Boost library.
 
 .. code-block:: bash
 
@@ -84,19 +84,22 @@ hipSYCL depends on 1.69.0 version of the Boost library.
   cd ..
 
 
-Installing hipSYCL
-------------------
+Installing OpenSYCL
+-------------------
 
-SeisSol requires 0.9.3 version of hipSYCL for a correct multi GPU-setup.
+SeisSol requires 0.9.5 version of OpenSYCL. This version is going to be
+released soon. At this moment, we recommend to take the source code from
+the OpenSYCL master branch. 
 
 .. code-block:: bash
 
-  git clone --depth 1 --branch v0.9.3 https://github.com/illuhad/hipSYCL.git
-  cd hipSYCL
+  git clone https://github.com/OpenSYCL/OpenSYCL.git opensycl
+  cd opensycl
   mkdir build && cd build
 
-Perform the following steps to configure and install hipSYCL for Nvidia GPUs.
-Make sure that the clang from the correct LLVM installation is used and check the paths carefully.
+Perform the following steps to configure and install OpenSYCL for Nvidia GPUs.
+Make sure that the clang from the correct LLVM installation is used and check
+the paths carefully.
 
 .. code-block:: bash
 
@@ -118,7 +121,8 @@ Make sure that the clang from the correct LLVM installation is used and check th
   -DBoost_NO_BOOST_CMAKE=TRUE \
   -DBoost_NO_SYSTEM_PATHS=TRUE \
   -DBOOST_ROOT:PATHNAME="${HOME}" \
-  -DBoost_LIBRARY_DIRS:FILEPATH="${HOME}/lib"
+  -DBoost_LIBRARY_DIRS:FILEPATH="${HOME}/lib" \
+  -DWITH_SSCP_COMPILER=OFF
 
   make -j $(nproc)
   make install
@@ -126,8 +130,9 @@ Make sure that the clang from the correct LLVM installation is used and check th
   cd ../..
 
 
-The following steps describe the steps to configure and install hipSYCL for AMD GPUs. Note `ROCM_PATH` is typically
-set by system administrators. Please, makes sure that this environment variable is not empty.
+The following steps describe the steps to configure and install OpenSYCL for AMD GPUs.
+Note `ROCM_PATH` is typically set by system administrators. Please, makes sure
+that this environment variable is not empty.
 
 .. code-block:: bash
 
@@ -147,7 +152,8 @@ set by system administrators. Please, makes sure that this environment variable 
   -DBoost_NO_BOOST_CMAKE=TRUE \
   -DBoost_NO_SYSTEM_PATHS=TRUE \
   -DBOOST_ROOT:PATHNAME="${HOME}" \
-  -DBoost_LIBRARY_DIRS:FILEPATH="${HOME}"/lib
+  -DBoost_LIBRARY_DIRS:FILEPATH="${HOME}"/lib \
+  -DWITH_SSCP_COMPILER=OFF
 
   make -j $(nproc)
   make install

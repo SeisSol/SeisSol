@@ -71,18 +71,19 @@ Postprocessing and plotting
 
 The code below suggests a way to process and plot variables of the energy output file:
 
-.. conde-block:: python
-	import pandas as pd
-	import numpy as np
-	import matplotlib.pylab as plt
+.. code-block:: python
 
-	df = pd.read_csv("prefix-energy.csv")
-	df = df.pivot_table(index="time", columns="variable", values="measurement")
-	df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], df.index[1])
-	df.plot(y="seismic_moment_rate", use_index=True)
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pylab as plt
 
-	# if ComputeVolumeEnergiesEveryOutput > 1
-	volume_output = df.dropna()
-	volume_output.plot(y="elastic_energy", use_index=True)
+    df = pd.read_csv("prefix-energy.csv")
+    df = df.pivot_table(index="time", columns="variable", values="measurement")
+    df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], df.index[1])
+    df.plot(y="seismic_moment_rate", use_index=True)
 
-	plt.show()
+    # if ComputeVolumeEnergiesEveryOutput > 1
+    volume_output = df.dropna()
+    volume_output.plot(y="elastic_energy", use_index=True)
+
+    plt.show()
