@@ -1,3 +1,5 @@
+.. _tpv5:
+
 SCEC TPV5
 =========
 
@@ -13,6 +15,7 @@ different from the rest of the fault surface.
 .. figure:: ./LatexFigures/tpv5_mesh.png
    :alt: Diagram of TPV5.
    :width: 9.00000cm
+   :align: center
 
    Diagram of TPV5. The central square patch is the nucleation zone,
    while pink and green patches with higher and lower initial stress
@@ -58,6 +61,7 @@ The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blo
 .. figure:: LatexFigures/mesh5.png
    :alt: Diagram of fault geometry of TPV5. 
    :width: 10.00000cm
+   :align: center
 
    Diagram of fault geometry of TPV5. The fault is 30000 m long and
    15000 m wide. The square patch has a side-length of 3000m. 
@@ -123,6 +127,7 @@ For example, open Paraview and then go through File
 .. figure:: LatexFigures/tpv5_SRs_3s.png
    :alt: Fault slip rate in the along-strike direction
    :width: 12.00000cm
+   :align: center
 
    Fault slip rate in the along-strike direction (SRs) at 4 seconds in
    TPV5, illustrated in Paraview. 

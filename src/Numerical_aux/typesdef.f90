@@ -303,6 +303,9 @@ MODULE TypesDef
      INTEGER                   :: nNode_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
      INTEGER                   :: nElem_total                                   !Total number of nodes in the mesh. This is also used in hdf5 to allocate the file for writing
 #endif
+      INTEGER                    :: vertexWeightElement ! Base parmetis vertex weight for each element
+      INTEGER                    :: vertexWeightDynamicRupture ! Additional parmetis vertex weight for each dynamic rupture face
+      INTEGER                    :: vertexWeightFreeSurfaceWithGravity ! Additional parmetis vertex weight for each displacement face
   END TYPE tUnstructMesh
 
   TYPE tDGSponge
@@ -337,14 +340,8 @@ MODULE TypesDef
  END TYPE tPMLayer
 
   TYPE tGalerkin
-    INTEGER           :: DGMethod                    !<0 = RKDG with quadrature
-                                                     !<1 = quadrature free RKDG
-                                                     !<2 = ADER DG
-                                                     !<3 = rec ADER DG
-                                                     !< 4 = rec RK DG
-                                                     !< 5 = Nonlinear ADER DG
-                                                     !< 6 = local RK-DG, ADD eqn.
-    integer           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
+    INTEGER           :: clusteredLts                !< 0 = file, 1 = GTS, 2-n: multi-rate
+    INTEGER           :: ltsWeightTypeId             !< 0 = exponential, 1 = balanced exponential, 2 = encoded
     INTEGER           :: CKMethod                    !< 0 = regular CK
                                                      !< 1 = local space-time DG
                                                      !<
@@ -575,150 +572,13 @@ MODULE TypesDef
                                                  ! normal_stress
                                                  ! traction_strike
                                                  ! traction_dip
-                                                 ! mu_S
-                                                 ! mu_D
+                                                 ! mu_s
+                                                 ! mu_d
                                                  ! D_C
                                                  ! cohesion (should be negative since negative normal stress is compression)
                                                  ! forced_rupture_time
   END TYPE tbackground_stress
 
-!< constants
-  type tDynRun_constants
-    real :: p0
-    real :: ts0
-    real :: td0
-  end type tDynRun_constants
-
-!< Dynamic Rupture output variables, without rupture front output
-  TYPE tDynRup_output
-     REAL, POINTER                          :: OutNodes(:,:)    => NULL()                !< Node output positions at fault
-     REAL, POINTER                          :: OutEval(:,:,:,:) => NULL()                !< Values for the automatic evaluation of DOFs at fault output nodes
-     REAL, POINTER                          :: OutVal(:,:,:)   => NULL()                 !< State variable used at Rate-and-state friction laws
-     REAL, POINTER                          :: OutInt(:,:)     => NULL()                 !< nearest BndGP from output faultreceiver
-     REAL, POINTER                          :: OutInt_dist(:)   => NULL()                !< distance from nearest BndGP from output faultreceiver
-     INTEGER                                :: nOutPoints                       !< Number of output points per element
-     INTEGER                                :: nOutVars
-        !< Number of output variables (calculated using OututMask)
-     INTEGER                                :: printtimeinterval                !< Iteration interval at which output will be written
-     INTEGER                                :: printIntervalCriterion           !< 1=iteration, 2=time
-     REAL                                   :: printtimeinterval_sec            !< Time interval at which output will be written
-     INTEGER                                :: OutputMask(1:12)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival 11/Dyn.ShearStress arrival 12/TP output
-     INTEGER                      , POINTER :: OutputLabel(:)    => NULL()      !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
-     LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
-     INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
-     TYPE(tUnstructPoint)         , POINTER :: RecPoint(:)    => NULL()                  !< DR pickpoint location
-     INTEGER                      , POINTER :: VFile(:)     => NULL()                    !< unit numbers for DR pickpoints
-     INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
-     INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
-     REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
-     REAL_TYPE                    , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
-     REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
-     REAL                                   :: p0
-     integer                                :: refinement
-     integer                                :: refinement_strategy
-  END TYPE tDynRup_output
-
-  TYPE tDynRup
-     character(LEN=600)                     :: ModelFileName
-     real, allocatable                      :: output_Mu(:,:)
-     real, allocatable                      :: output_StateVar(:,:)
-     real, allocatable                      :: output_Strength(:,:)
-     real, allocatable                      :: output_Slip(:,:)
-     real, allocatable                      :: output_Slip1(:,:)
-     real, allocatable                      :: output_Slip2(:,:)
-     real, allocatable                      :: output_rupture_time(:,:)
-     real, allocatable                      :: output_PeakSR(:,:)
-     real, allocatable                      :: output_dynStress_time(:,:)
-     REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
-     REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
-     REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
-     REAL, allocatable                      :: SlipRate1(:,:)                  !< Slip Rate at given fault node
-     REAL, allocatable                      :: SlipRate2(:,:)                  !< Slip Rate at given fault node
-     REAL, allocatable                      :: PeakSR(:,:)                     !< Slip Rate at given fault node
-     REAL, allocatable                      :: TracXZ(:,:)                     !< Traction at given fault node
-     REAL, allocatable                      :: TracXY(:,:)                     !< Traction at given fault node
-     REAL, allocatable                      :: Mu(:,:)                         !< Current friction coefficient at given fault node
-     REAL, allocatable                      :: Mu_S(:,:)                       !< Static friction coefficient at given fault node
-     REAL, allocatable                      :: Mu_D(:,:)                       !< Dynamic friction coefficient at given fault node
-     REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
-     REAL, allocatable                      :: cohesion(:,:)                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-     REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
-     REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
-     REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
-     REAL                                   :: t_0                              !< forced rupture decay time
-     REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
-     REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
-     REAL, ALLOCATABLE                      :: RS_srW_array(:,:)                !< velocity weakening scale, array of spatial dependency
-     REAL, ALLOCATABLE                      :: RS_sl0_array(:,:)                !< Reference slip, array of spatial dependency
-     REAL                                   :: RS_sr0                           !< Reference slip rate
-     REAL                                   :: RS_sl0                           !< Reference slip
-     REAL                                   :: RS_f0                            !< Reference friction coefficient
-     REAL                                   :: RS_a                             !< RS constitutive parameter "a"
-     REAL, ALLOCATABLE                      :: RS_a_array(:,:)                  !< Spatial dependent RS constitutive parameter "a"
-     REAL                                   :: RS_b                             !< RS constitutive parameter "b"
-     REAL                                   :: RS_iniSlipRate1                  !< initial slip rate for rate and state friction
-     REAL                                   :: RS_iniSlipRate2                  !< initial slip rate for rate and state friction
-     REAL                                   :: Mu_W                             !< velocity weakening friction coefficient
-     REAL                                   :: RS_srW                           !< velocity weakening scale
-     REAL                                   :: Mu_S_ini                         !< Static friction coefficient ini scalar value
-     REAL                                   :: Mu_SNuc_ini                      !< Static friction coefficient inside the nucleation zone ini scalar value
-     REAL                                   :: Mu_D_ini                         !< Dynamic friction coefficient ini scalar value
-     REAL                                   :: D_C_ini                          !< Critical slip read-in variable for constant value over the entire fault
-     REAL, allocatable                      :: D_C(:,:)                         !< Critical slip at given fault node
-     REAL                                   :: NucBulk_xx_0                     !< Nucleation bulk stress
-     REAL                                   :: NucBulk_yy_0                     !< Nucleation bulk stress
-     REAL                                   :: NucBulk_zz_0                     !< Nucleation bulk stress
-     REAL                                   :: NucShearXY_0                     !< Nucleation shear stress
-     REAL                                   :: NucShearYZ_0                     !< Nucleation shear stress
-     REAL                                   :: NucShearXZ_0                     !< Nucleation shear stress
-     REAL                                   :: NucRS_sv0                        !< Nucleation state variable
-     REAL                                   :: r_s                              !< width of the smooth transition
-     INTEGER                                :: BackgroundType                   !< Type of background stresses (0: homogeneous)
-     TYPE(tbackground_stress)               :: bg_stress                        !< includes background stress information for dynamic rupture
-     INTEGER                                :: inst_healing                     !< instantaneous healing switch (1: on, 0: off)
-     ! case(6) bimaterial with LSW
-     REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
-     REAL                                   :: L                                !< reference length of prakash-cliff regularization
-     REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
-     INTEGER                                :: thermalPress                     !< thermal pressurization switch
-     REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
-     REAL, ALLOCATABLE                      :: alpha_hy(:,:)                    !< spatial dependent hydraulic diffusion parameter for TP
-     REAL                                   :: rho_c                            !< heat capacity for TP
-     REAL                                   :: TP_lambda                        !< pore pressure increase per unit increase
-     INTEGER                                :: TP_grid_nz                       !< number of grid points to solve advection for TP in z-direction
-     REAL                                   :: TP_log_dz                        !< logarithmic grid space distance for TP_grid
-     REAL, ALLOCATABLE                      :: TP_half_width_shear_zone(:,:)    !< spatial dependent half width of the shearing layer for TP
-     REAL                                   :: TP_max_wavenumber                !< max. wavenumber for TP
-     REAL, ALLOCATABLE                      :: TP_grid(:)                       !< grid for TP
-     REAL, ALLOCATABLE                      :: TP_DFinv(:)                      !< inverse Fourier coefficients
-     REAL, ALLOCATABLE                      :: TP_Theta(:,:,:)                  !< Fourier transformed pressure
-     REAL, ALLOCATABLE                      :: TP_Sigma(:,:,:)                  !< Fourier transformed temperature
-     REAL, ALLOCATABLE                      :: TP(:,:,:)                        !< Temperature and Pressure for TP along each fault point
-     !RF output handled in tDynRup as it has to be computed in the friction solver
-     INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
-     INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0
-     LOGICAL, ALLOCATABLE                   :: RF(:,:)                          !< rupture front output for this GP: true or false
-     INTEGER                                :: DS_output_on                     !< dyn.stress output on = 1, off = 0
-     LOGICAL, ALLOCATABLE                   :: DS(:,:)                          !< dynamic stress output for this GP: true or false
-
-     ! Magnitude and energy output
-     INTEGER                                :: magnitude_output_on              !< magnitude output on = 1, off = 0
-     INTEGER                                :: energy_rate_output_on            !< fault energy rate output on = 1, off = 0 (currently moment rate and frictional energy rate)
-     INTEGER                                :: energy_rate_printtimeinterval    !< fault energy rate print time interval
-     LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
-     REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
-     ! declarate output types
-     LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
-     INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
-     integer                                :: SlipRateOutputType
-     TYPE(tDynRup_output)                   :: DynRup_out_atPickpoint           !< Output data at pickpoints for Dynamic Rupture processes
-     TYPE(tDynRup_output)                   :: DynRup_out_elementwise           !< Output data at all elements for Dynamic Rupture processes
-#ifdef HDF
-     TYPE(thd_fault_receiver)           , POINTER :: hd_rec  => NULL()                         !< HDF5 file handle for fault hdf5 outpu
-#endif
-
-     type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()
-   END TYPE tDynRup                                                        !<
 
   !<--- Tracing with Intel Trace Tools, function handles -----------------------
   TYPE tTracing
@@ -845,7 +705,6 @@ MODULE TypesDef
      REAL                                   :: LoopCPUTime                      !< CPU-Time spent in a loop, resp. in the loops
      INTEGER                                :: GhostInterpolationOrder          !< Order used for Interpolating ghostvalues (Only in KOP environment)
      TYPE(tGalerkin)                        :: Galerkin                         !< Data for Discontinuous Galerkin scheme
-     TYPE(tDynRup)                          :: DynRup                           !< Data for Dynamic Rupture processes
      TYPE(tAdjoint)                         :: Adjoint                          !< Data for adjoint inversions
      INTEGER                                :: SolverType                       !< Accuracy for integration of initial condition
      LOGICAL                                :: CalledFromStructCode             !< TRUE if called from struct Code
@@ -893,42 +752,18 @@ MODULE TypesDef
      INTEGER                                :: nMechanisms                      !< Number of attenuation mechanisms in each layer
      INTEGER                                :: nAneFuncperMech                  !< Number of anelastic functions per mechanisms
      INTEGER                                :: nNonZeroEV                       !< number of non-zero eigenvalues
-     INTEGER                                :: refPointMethod                   !< fault orientation: (0) using a reference point (1) using a reference vector
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
+     REAL                                   :: gravitationalAcceleration        !< The value of g, the gravitational acceleration. Default: 9.81 m/s^2
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
      CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties
+     INTEGER                                :: UseCellHomogenizedMaterial       !< Stores whether to cell-average materials or use material properties evaluated at the cell barycenter
      REAL, POINTER                          :: MaterialGrid(:,:,:,:)            !< Structured grid (x,y,z,rho,mu,lamda columns) of material properties
      REAL, POINTER                          :: MaterialGridSpace(:)             !< Specifications of structured grid spacing holding material values
      !< Dynamic Rupture variables
      INTEGER                                :: DR                               !< (0) = no, (1) = dynamic rupture is present
-     INTEGER                                :: FL                               !< Type of friction law used (0) = none, (1) = imposed rup vel, (2) = LSW, (3) = RS
-     REAL, allocatable                      :: IniBulk_xx(:,:)                  !< Initial bulk stress at fault
-     REAL, allocatable                      :: IniBulk_yy(:,:)                  !< Initial bulk stress at fault
-     REAL, allocatable                      :: IniBulk_zz(:,:)                  !< Initial bulk stress at fault
-     REAL, allocatable                      :: IniShearXY(:,:)                  !< Initial shear stress at fault
-     REAL, allocatable                      :: IniShearYZ(:,:)                  !< Initial shear stress at fault
-     REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
-     real, allocatable                      :: InitialStressInFaultCS(:,:,:)
-     real, allocatable                      :: NucleationStressInFaultCS(:,:,:)
-     REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
-     REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
-     REAL                                   :: IniSlipRate1                     !< Initial slip rate value at fault
-     REAL                                   :: IniSlipRate2                     !< Initial slip rate value at fault
-     REAL                                   :: ShearXY_0                        !< Initial shear stress
-     REAL                                   :: ShearYZ_0                        !< Initial shear stress
-     REAL                                   :: ShearXZ_0                        !< Initial shear stress
-     REAL                                   :: RS_sv0
-     REAL                                   :: Bulk_xx_0                        !< Initial bulk stress
-     REAL                                   :: Bulk_yy_0                        !< Initial bulk stress
-     REAL                                   :: Bulk_zz_0                        !< Initial bulk stress
-     REAL                                   :: Temp_0                           !< Initial temperature for TP
-     REAL                                   :: Pressure_0                       !< Initial pressure for TP
-     REAL                                   :: XRef, YRef, ZRef                 !< Location of reference point, which is used for fault orientation
-     INTEGER                                :: GPwise                           !< Switch for heterogeneous background field distribution: elementwise =0 ; GPwise =1
-
   END TYPE tEquations
 
   !< Check pointing configuration
@@ -1041,10 +876,6 @@ MODULE TypesDef
      INTEGER                                :: dimension                        !< Dimension for output (OneD,2d,3d)
      LOGICAL                                :: dimensionMask(3)                 !< Mask which Dimension is writen
      INTEGER                                :: dimensionIndex(3)                !< Index which is kept constant
-     !<                                                                         !< 2=for each variable the pick point's values are saved to one file
-     INTEGER                                :: nRecordPoint                     !< number of single pickpoints
-     INTEGER                                :: ntotalRecordPoint                !< total number of pickpoints from points, circles and lines
-     INTEGER                                :: nlocalRecordPoint                !< local number of pickpoints
      INTEGER,POINTER                        :: igloblocRecordPoint(:) => null() !< global index of local pickpoints
      INTEGER                                :: nGeometries                      !< number of the different geometries
      INTEGER                                :: w_or_wout_ana                    !< number of variables used
@@ -1059,7 +890,7 @@ MODULE TypesDef
      CHARACTER(LEN=20), POINTER             :: TitleMask(:)                     !< Variable names for output
      CHARACTER(LEN=600)                     :: title                            !< title for Tecplot output
      CHARACTER(LEN=200)                     :: Path                             !< Output path
-     CHARACTER(LEN=60)                      :: OutputFile                       !< Output filename
+     CHARACTER(LEN=200)                      :: OutputFile                       !< Output filename
      CHARACTER(LEN=600)                     :: MetisFile                        !< Metis filename
      CHARACTER(LEN=600)                     :: MeshFile                         !< Mesh filename
      CHARACTER(LEN=200)                     :: BndFile                          !< CFX boundary conditions
@@ -1068,13 +899,7 @@ MODULE TypesDef
      CHARACTER(LEN=600)                     :: ParameterFile                    !< Parameter filename
      CHARACTER(LEN=20)                      :: meshgenerator                    !< ='emc2_am_fmt' or 'emc2_ftq'
                                                                                 !<  or 'triangle'
-     CHARACTER(LEN=600)                     :: PGMLocationsFile                 !< File, specifying PGM locations
-     INTEGER                                :: PGMLocationsFlag                 !< Flag if PGM output is required or not (1 or 0)
-     INTEGER                                :: nPGMRecordPoint                  !< Number of PGM locations
-     INTEGER                                :: PGMstartindex                    !< Index of pickpoints indicating first PGM pickpoint
-     REAL,POINTER                           :: PGM(:)                           !< Maximum peak ground motion
-     REAL,POINTER                           :: PGD_tmp(:,:)                     !< PGD auxiliary variable for integration
-     REAL,POINTER                           :: PGA_tmp(:,:)                     !< PGA auxiliary variable for derivation
+     CHARACTER(LEN=200)                     :: RFileName                        !< Receiver file name
      REAL,POINTER                           :: MaterialVal(:,:)                 !< Read in lines of (x,y,z,rho,mu,lamda) of material property structured grid
      CHARACTER(LEN=35)                      :: DATAFile                         !< Cfd Solver interface filename,
      CHARACTER(LEN=35)                      :: ObsFile                          !< File where the observations are found for adjoint inversions
@@ -1084,11 +909,15 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
+     INTEGER                                :: PlasticityMask(7)                !< Mask for variable output
+                                                                                !< .TRUE.  = do output for this variable
+                                                                                !< .FALSE. = do no output for this variable
      LOGICAL                      ,POINTER  :: IntegrationMask(:)               !< Mask for integrating variables
                                                                                 !< .TRUE.  = integrate and output for this variable
                                                                                 !< .FALSE. = do not integrate and output for this variable
      REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
                                                                                 !< Format is xMin, xMax, yMin, yMax, zMin, zMax
+     INTEGER, ALLOCATABLE :: OutputGroups(:) !< Stores an array of group ids that should be included in the wavefield output. All others are excluded.
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
      INTEGER                      ,POINTER  :: VectList(:) !<List of Vector Vars
@@ -1107,8 +936,6 @@ MODULE TypesDef
      REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
-     REAL                                   :: pickdt_energy                    !< Time increment for energy time series
-     INTEGER                                :: energy_output_on
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
      INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level
@@ -1119,7 +946,6 @@ MODULE TypesDef
      REAL                         , POINTER :: TmpState_sts(:,:,:) => null()    !< Stored variables (stress)
      REAL                         , POINTER :: TmpState_vel(:,:,:) => null()    !< Stored variables (velocity)
      !<                                                                         !<
-     TYPE(tUnstructPoint)         , POINTER :: UnstructRecPoint(:)              !< Unstructured pickpoints
      TYPE(tUnstructPoint)         , POINTER :: tmpRecPoint(:)                   !< temporal     pickpoints
      TYPE(tUnitNumbers)                     :: UNIT                             !< Structure for unit numbers
      TYPE(tDR)                              :: DR                               !< Fault-based output
@@ -1142,6 +968,11 @@ MODULE TypesDef
      real                                   :: SurfaceOutputInterval
      real                                   :: ReceiverOutputInterval
      character(len=64)                      :: xdmfWriterBackend                !< Check point backend
+     logical                                :: isEnergyTerminalOutputEnabled    !< Whether energy output should be written to terminal
+     real                                   :: EnergyOutputInterval
+     integer                                :: computeVolumeEnergiesEveryOutput !< computing volume energies each EnergyOutputInterval*computeVolumeEnergyEveryOutput
+     logical                                :: ReceiverComputeRotation                  !< Whether the rotation of the velocity field should be computed
+
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------
@@ -1151,6 +982,9 @@ MODULE TypesDef
   !< Data for the initial condition (variable name : IC)
   TYPE tInitialCondition
      CHARACTER (LEN=25)                     :: cICType                          !< CHARACTER flag for initial data
+     REAL                                   :: origin(3)
+     REAL                                   :: kVec(3)
+     REAL                                   :: ampField(NUMBER_OF_QUANTITIES)
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<
@@ -1321,7 +1155,9 @@ MODULE TypesDef
      REAL, POINTER                   :: n_dip(:)                                !< Normal vector along dip
      REAL, POINTER                   :: corner(:)                               !< Position of the top left corner of the rupture plane
      REAL                            :: MomentTensor(3,3)                       !< The seismic moment tensor
-     REAL                            :: VelocityComponent(3)                    !< The source velocity component
+     REAL                            :: SolidVelocityComponent(3)               !< The source solid velocity component
+     REAL                            :: PressureComponent(1)                    !< The source pressure component
+     REAL                            :: FluidVelocityComponent(3)               !< The source fluid velocity component
      REAL                            :: TensorRotation(3,3)                     !< The rotation matrix of the moment tensor
      REAL                            :: TensorRotationT(3,3)                    !< The transpose rotation matrix of the moment tensor
      REAL, POINTER                   :: TWindowStart(:)                         !< Point in Time when a Time Window starts

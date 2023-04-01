@@ -1,0 +1,20 @@
+jobs:
+  - job:
+    displayName: seissol-clang-format
+    pool:
+      vmImage: 'ubuntu-22.04'
+    variables:
+      - name: version
+        value: 14
+    steps:
+      - bash: |
+          set -euo pipefail
+          sudo apt-get -y install clang-format-${{ variables.version }}
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-${{ variables.version }} 10
+      - bash: |
+          set -euo pipefail
+          clang-format --version
+          ./.ci/format.sh $(which clang-format) .
+          git diff > formatting.patch
+          cat formatting.patch 
+          if [ -s ./formatting.patch ]; then (exit 166); fi

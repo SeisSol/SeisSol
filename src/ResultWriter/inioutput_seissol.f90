@@ -76,7 +76,6 @@ CONTAINS
 
     use iso_c_binding
     use f_ftoc_bind_interoperability
-    use ini_faultoutput_mod
 
 #ifdef PARALLEL
     use iso_c_binding
@@ -125,20 +124,6 @@ CONTAINS
 
     timestepWavefield = 0
 
-#ifdef HDF
-    CALL ini_receiver_hdf(                                &                    ! Initialize receivers
-         EQN    = EQN                                   , &                    ! Initialize receivers
-         MESH   = MESH                                  , &                    ! Initialize receivers
-         DISC   = DISC                                  , &                    ! Initialize receivers
-         SOURCE = SOURCE                                , &                    ! Initialize receivers
-         IO     = IO                                    , &                    ! Initialize receivers
-         MPI    = MPI                                     )                    ! Initialize receivers
-    !                                                                          !
-#endif
-    do i=1, IO%ntotalRecordPoint
-      call c_interoperability_addRecPoint(IO%UnstructRecpoint(i)%x, IO%UnstructRecpoint(i)%y, IO%UnstructRecpoint(i)%z)
-    end do
-
     if (io%surfaceOutput > 0) then
         call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
     endif
@@ -153,30 +138,27 @@ CONTAINS
     do i = EQN%nVar+1, EQN%nVarTotal
       outputMaskInt(i) = 0
     end do
+
     call c_interoperability_initializeIO(    &
-        i_mu        = disc%DynRup%mu,        &
-        i_slipRate1 = disc%DynRup%slipRate1, &
-        i_slipRate2 = disc%DynRup%slipRate2, &
-        i_slip     = disc%DynRup%slip,      &
-        i_slip1     = disc%DynRup%slip1,    &
-        i_slip2     = disc%DynRup%slip2,    &
-        i_state     = disc%DynRup%stateVar,  &
-        i_strength  = disc%DynRup%strength,  &
         i_numSides  = mesh%fault%nSide,      &
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
         i_outputMask= outputMaskInt,         &
+        i_plasticityMask=io%PlasticityMask,     &
         i_outputRegionBounds = io%OutputRegionBounds, &
+        i_outputGroups = io%OutputGroups, &
+        i_outputGroupsSize = size(io%OutputGroups), &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
-        freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
+        outputFileNamePrefix = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
+        receiverFileName = trim(io%RFileName) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
-        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
-
-    ! Initialize the fault Xdmf Writer
-    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
-     CALL ini_fault_xdmfwriter(DISC,IO)
-    ENDIF
+        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval), &
+        isPlasticityEnabled = logical(EQN%Plasticity == 1, 1), &
+        isEnergyTerminalOutputEnabled = logical(IO%isEnergyTerminalOutputEnabled, 1), &
+        computeVolumeEnergiesEveryOutput = IO%computeVolumeEnergiesEveryOutput, &
+        energySyncInterval = IO%EnergyOutputInterval, &
+        receiverComputeRotation = logical(IO%ReceiverComputeRotation, 1))
 
     ! end epik/scorep function
     EPIK_FUNC_END()

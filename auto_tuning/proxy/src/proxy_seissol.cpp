@@ -56,9 +56,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-extern long long libxsmm_num_total_flops;
-extern long long pspamm_num_total_flops;
-
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -68,6 +65,8 @@ extern long long pspamm_num_total_flops;
 #include <hbwmalloc.h>
 #endif
 
+#include "likwid_wrapper.h"
+#include <utils/args.h>
 #include "proxy_common.hpp"
 
 #ifdef __MIC__
@@ -79,6 +78,7 @@ extern long long pspamm_num_total_flops;
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include <Monitoring/FlopCounter.hpp>
 #include "utils/logger.h"
 #include <cassert>
 
@@ -140,15 +140,19 @@ void testKernel(unsigned kernel, unsigned timesteps) {
 
 
 ProxyOutput runProxy(ProxyConfig config) {
+  LIKWID_MARKER_INIT;
+
+  registerMarkers();
+
   bool enableDynamicRupture = false;
   if (config.kernel == neigh_dr || config.kernel == godunov_dr) {
     enableDynamicRupture = true;
   }
 
 #ifdef ACL_DEVICE
-  deviceT &device = deviceT::getInstance();
-  device.api->initialize();
+  deviceType &device = deviceType::getInstance();
   device.api->setDevice(0);
+  device.api->initialize();
   device.api->allocateStackMem();
 #endif
 
@@ -179,9 +183,8 @@ ProxyOutput runProxy(ProxyConfig config) {
 
   // init OpenMP and LLC
   testKernel(config.kernel, 1);
-  
-  libxsmm_num_total_flops = 0;
-  pspamm_num_total_flops = 0;
+
+  seissol::monitoring::FlopCounter flopCounter;
 
   gettimeofday(&start_time, NULL);
 #ifdef __USE_RDTSC
@@ -231,6 +234,7 @@ ProxyOutput runProxy(ProxyConfig config) {
       bytes_fun = &noestimate;
       break;
   }
+ 
 
   assert(flop_fun != nullptr);
   assert(bytes_fun != nullptr);
@@ -261,5 +265,8 @@ ProxyOutput runProxy(ProxyConfig config) {
 #ifdef ACL_DEVICE
   device.finalize();
 #endif
+
+  LIKWID_MARKER_CLOSE;
   return output;
 }
+

@@ -80,6 +80,7 @@ public:
 
     const unsigned int* getCellData() const;
     const T* getVertexData() const;
+    std::size_t getkSubCellsPerCell() const;
 
     std::size_t getNumCells() const;
     std::size_t getNumVertices() const;
@@ -269,6 +270,11 @@ MeshRefiner<T>::~MeshRefiner()
 template<typename T>
 const unsigned int* MeshRefiner<T>::getCellData() const {
     return &m_cells[0];
+}
+
+template<typename T>
+std::size_t MeshRefiner<T>::getkSubCellsPerCell() const {
+    return kSubCellsPerCell;
 }
 
 //------------------------------------------------------------------------------

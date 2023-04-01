@@ -53,15 +53,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 find_path(NetCDF_INCLUDE_DIR
   NAMES netcdf.h
-  HINTS $ENV{NETCDF_DIR}/include
+  HINTS $ENV{NETCDF_DIR}/include $ENV{NETCDF_INCLUDE_DIR}
   DOC "netcdf include directories")
 mark_as_advanced(NetCDF_INCLUDE_DIR)
 
 find_library(NetCDF_LIBRARY
   NAMES netcdf
-  HINTS $ENV{NETCDF_DIR}/lib
+  HINTS $ENV{NETCDF_DIR}/lib $ENV{NETCDF_LIB_DIR}
   DOC "netcdf library")
 mark_as_advanced(NetCDF_LIBRARY)
+
+string(REGEX REPLACE "(.*)libnetcdf\.(so|a)" "\\1" NetCDF_LIBRARY_DIR "${NetCDF_LIBRARY}")
+mark_as_advanced(NetCDF_LIBRARY_DIR)
 
 if (NetCDF_INCLUDE_DIR)
   file(STRINGS "${NetCDF_INCLUDE_DIR}/netcdf_meta.h" _netcdf_version_lines

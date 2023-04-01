@@ -1,42 +1,33 @@
-#include <cxxtest/TestSuite.h>
 #include <Eigen/Dense>
-
 #include <Numerical_aux/Transformation.h>
 
-namespace seissol {
-  namespace unit_test {
-    class TransformationTestSuite;
-  }
+namespace seissol::unit_test {
+
+TEST_CASE("Test tetrahedron global to reference") {
+  // We do all tests in double precision
+  constexpr real epsilon = 10 * std::numeric_limits<double>::epsilon();
+
+  std::srand(9);
+  const auto vertices =
+      std::array<Eigen::Vector3d, 4>{{Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX),
+                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX),
+                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX),
+                                      Eigen::Vector3d((double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX,
+                                                      (double)std::rand() / RAND_MAX)}};
+  const auto center = 0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3]);
+
+  const auto res = seissol::transformations::tetrahedronGlobalToReference(
+      vertices[0].data(), vertices[1].data(), vertices[2].data(), vertices[3].data(), center);
+  REQUIRE(res(0) == AbsApprox(0.25).epsilon(epsilon));
+  REQUIRE(res(1) == AbsApprox(0.25).epsilon(epsilon));
+  REQUIRE(res(2) == AbsApprox(0.25).epsilon(epsilon));
 }
 
-class seissol::unit_test::TransformationTestSuite : public CxxTest::TestSuite
-{
-public:
-    //We do all tests in double precision
-    const real epsilon = std::numeric_limits<double>::epsilon();
-    std::array<Eigen::Vector3d, 4> vertices;
-    
-    TransformationTestSuite() {
-      std::srand(9);
-      vertices = {{
-        Eigen::Vector3d((double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX),
-        Eigen::Vector3d((double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX),
-        Eigen::Vector3d((double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX),
-        Eigen::Vector3d((double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX)}};
-    }
-	void testTetrahedronGlobalToRefernce()
-	{
-
-          auto center = 0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3]);
-
-          auto res = seissol::transformations::tetrahedronGlobalToReference(  
-              vertices[0].data(),
-              vertices[1].data(),
-              vertices[2].data(),
-              vertices[3].data(),
-              center );
-          TS_ASSERT_DELTA(res(0), 0.25, epsilon*10);
-          TS_ASSERT_DELTA(res(1), 0.25, epsilon*10);
-          TS_ASSERT_DELTA(res(2), 0.25, epsilon*10);
-        }
-};
+} // namespace seissol::unit_test

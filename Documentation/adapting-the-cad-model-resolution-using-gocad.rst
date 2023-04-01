@@ -9,10 +9,10 @@ model with a coarsely sampled topography (green surface).
 |coarse and fine topography|
 
 The coarse topography has been created using the "hole" and "subsample"
-options of the script createGOCADTSurfNXNY.py, using the following
+options of the script create_surface_from_structured_grid.py, using the following
 command line:
 
-``python createGOCADTSurfNXNY.py --subsample 8 --objectname topoE --hole 89.5  97.0 1.5 14.5 structuredPointSet.xyz topoExt.ts --proj EPSG:32646``
+``python3 create_surface_from_structured_grid.py --subsample 8 --objectname topoE --hole 89.5  97.0 1.5 14.5 structuredPointSet.xyz topoExt.ts --proj EPSG:32646``
 
 Now we want to seal the gap between both surfaces. To do that we will
 create surfaces "from 2 surface borders". To facilitate the work of

@@ -44,3 +44,54 @@ Then pumgen is run using the xml option:
 
    pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
 
+Note that ``<boundaryCondition tag="3">`` is equivalent to ``<dynamicRupture>``. Therefore, if you want to tag face 2 as 3, you can use either: 
+
+.. code-block:: xml
+
+   <boundaryCondition tag="3">2</boundaryCondition> 
+
+or
+
+.. code-block:: xml
+
+   <dynamicRupture>2</dynamicRupture> 
+
+Note also that if a face is tagged twice, only the first tag will be considered. 
+
+
+Using more than 189 dynamic rupture tags
+----------------------------------------
+
+Currently, SeisSol cannot handle more than 255 fault tags, that is 189 dynamic rupture tags. To overcome this limitation, it is necessary to patch PUMGen, SeisSol and the PUML submodule of SeisSol. This can be done with:
+
+.. code-block::
+
+   cd PUMGen
+   git apply $path_to_seissol/SeisSol/Documentation/patchesI64/patch_PUMGen.diff
+
+
+.. code-block::
+
+   cd SeisSol
+   git apply Documentation/patchesI64/patch_SeisSol.diff
+
+
+and finally:
+
+.. code-block::
+
+   cd SeisSol/submodules/PUML/
+   git apply ../../Documentation/patchesI64/patch_PUML.diff
+
+
+Meshes with more than 255 tags can be created using pumgen -xml option, e.g. :
+
+.. code-block:: xml
+
+   <boundaryCondition tag="3">13245</boundaryCondition>
+   .
+   .
+   .
+   <boundaryCondition tag="900">12345,14325</boundaryCondition>
+
+

@@ -48,7 +48,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  if (initialConditionType == "Zero") {
+  if (initialConditionType == "Zero" || initialConditionType == "Travelling") {
     return;
   }
   logInfo(mpi.rank())
@@ -246,7 +246,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     }
 
     for (unsigned int i = 0; i < numberOfQuantities; ++i) {
-      VrtxCoords centerSend;
+      VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]],
             vertices,
             centerSend);
@@ -257,7 +257,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
 
       if (mpi.rank() == 0) {
-        VrtxCoords centerRecv;
+        VrtxCoords centerRecv{};
         if (errLInfRecv[i].rank == 0) {
           std::copy_n(centerSend, 3, centerRecv);
         } else {

@@ -9,19 +9,19 @@ prerequisite
 ------------
 See :ref:`SimModeler prerequisite`.
 
-We use scripts available `here <https://github.com/SeisSol/Meshing/blob/master/GocadRelatedScripts>`__ to generate surface meshes of the faults.
-The dataset for generating the Palu structural model is available `here <https://github.com/SeisSol/Meshing/blob/master/GocadRelatedScripts/ExampleFiles/SimModeler_workflow/>`__.
+We use scripts available `here <https://github.com/SeisSol/Meshing/blob/master/creating_geometric_models>`__ to generate surface meshes of the faults.
+The dataset for generating the Palu structural model is available `here <https://github.com/SeisSol/Meshing/blob/master/creating_geometric_models/ExampleFiles/SimModeler_workflow/>`__.
 
 Creating the topographic layer
 ------------------------------
 
-We create the topography from a netcdf file downloaded from https://www.gebco.net/
+We create the topography from a netcdf file downloaded from https://www.gebco.net/.
 The domain range from longitude 118.9 to 121.7 and from latitude -2.4 to 1.0.
 We then project the data (see :ref:`On the use of projections` for the choice of a projection), triangulate it, and export it as stl (list of triangles) using:
 
 .. code-block:: bash
 
-   python SeisSol/Meshing/GocadRelatedScripts/createGOCADTSurfNXNY_netcdf.py --proj '+init=EPSG:23839' data/GEBCO_2014_2D_118.1904_-2.4353_121.6855_1.0113.nc bathy.stl
+   python3 SeisSol/Meshing/creating_geometric_models/create_surface_from_rectilinear_grid.py --proj '+init=EPSG:23839' data/GEBCO_2014_2D_118.1904_-2.4353_121.6855_1.0113.nc bathy.stl
 
 We then load the stl file into SimModeler
 
@@ -61,22 +61,22 @@ The mesh size is chosen small enough to facilitate intersection with topography 
 Creating faults
 ---------------
 
-We use `this script <https://github.com/SeisSol/Meshing/blob/master/GocadRelatedScripts/createFaultFromCurve.py>`__ to generate surface meshes of the faults, using inferred fault traces and dip description.
+We use `this script <https://github.com/SeisSol/Meshing/blob/master/creating_geometric_models/create_fault_from_trace.py>`__ to generate surface meshes of the faults, using inferred fault traces and dip description.
 The scripts first resample the 2D fault trace and then can smooth them.
 Finally, the smoothed and resampled traces are swept towards negative and positive (if the topography has positive elevation) z.
 
-createFaultFromCurve.py takes 3 main arguments: ``filename``, ``dipType`` and ``dipDesc``.  
+create_fault_from_trace.py takes 3 main arguments: ``filename``, ``dipType`` and ``dipDesc``.  
 
 - ``filename`` is the name of the ASCII file describing the trace.  
 - ``dipType`` allow switching between a constant (0), an along-depth dependant (1) or an along-strike dependent (2).
 - ``dipDesc`` gives either the dip angle value (dipType=0) or the 1D variation of the dip angle (dipType=1 or 2).
 
 .. figure:: LatexFigures/dipDescription.png
-   :alt: example of surface mesh generated using createFaultFromCurve.py and various dipType
+   :alt: example of surface mesh generated using create_fault_from_trace.py and various dipType
    :width: 12.00000cm
    :align: center
 
-   Fig. 1: example of surface mesh generated using createFaultFromCurve.py and dipType=1 (constant dip, left), 2 (along-depth dependant dip, center), and 3 (along-strike dependent dip, right).
+   Fig. 1: example of surface mesh generated using create_fault_from_trace.py and dipType=1 (constant dip, left), 2 (along-depth dependant dip, center), and 3 (along-strike dependent dip, right).
 
 In the Palu case example, the Southern segment dips 90, the Northern segment dips 65, and the middle segment has a varying dip along strike (shallower dip in the southern bend).
 We therefore generate the faults using:
@@ -84,9 +84,9 @@ We therefore generate the faults using:
 .. code-block:: bash
 
     dx=0.5e3
-    python SeisSol/Meshing/GocadRelatedScripts/createFaultFromCurve.py ExampleFiles/SimModeler_workflow/segmentSouth_d90_long.dat 0 90 --dd $dx --maxdepth 16e3 --extend 4e3
-    python SeisSol/Meshing/GocadRelatedScripts/createFaultFromCurve.py ExampleFiles/SimModeler_workflow/smootherNorthBend.dat 0 65 --dd $dx --maxdepth 16e3 --extend 4e3
-    python SeisSol/Meshing/GocadRelatedScripts/createFaultFromCurve.py ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFault.dat 2 ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFaultDip.dat --dd $dx --maxdepth 16e3 --extend 4e3
+    python3 SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/segmentSouth_d90_long.dat 0 90 --dd $dx --maxdepth 16e3 --extend 4e3
+    python3 SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/smootherNorthBend.dat 0 65 --dd $dx --maxdepth 16e3 --extend 4e3
+    python3 SeisSol/Meshing/creating_geometric_models/create_fault_from_trace.py SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFault.dat 2 SeisSol/Meshing/creating_geometric_models/ExampleFiles/SimModeler_workflow/segmentBayAndConnectingFaultDip.dat --dd $dx --maxdepth 16e3 --extend 4e3
 
 
 Mutual surface intersection

@@ -1,3 +1,5 @@
+.. _tpv16:
+
 SCEC TPV16/17
 =============
 
@@ -13,6 +15,7 @@ surface.
 .. figure:: LatexFigures/tpv16.png
    :alt: Diagram of TPV16/17.
    :width: 11.00000cm
+   :align: center
 
    Diagram of TPV16/17. The fault is 40 km long. Colors indicate the ratio of shear stress to normal stress at locations on the fault
    surface, at the beginning of the simulation.
@@ -38,6 +41,7 @@ provided in https://github.com/SeisSol/Examples/tree/master/tpv16.
 .. figure:: LatexFigures/tpv16mesh.png
    :alt: Fault geometry of TPV16.
    :width: 10.00000cm
+   :align: center
 
    Fault geometry of TPV16. Planar fault with nucleation size of 200 m. 
 
@@ -69,6 +73,7 @@ Table: Table of bulk and material parameters in TPV16/17.
 .. figure:: LatexFigures/tpv16_ts0.jpeg
    :alt: Mapview of fault randomly-generated initial stress in TPV16.
    :width: 11.00000cm
+   :align: center
 
    Mapview of fault randomly-generated initial stress in TPV16. 
 
@@ -110,6 +115,7 @@ T=5.5 s.
 .. figure:: ./LatexFigures/PSR_16.png
    :alt: Mapview of fault slip rate along strike-direction.
    :width: 11.00000cm
+   :align: center
 
    Mapview of fault slip rate along strike-direction. 
 
@@ -120,12 +126,14 @@ on the fault at point (15 km, 0 km, -9 km).
 .. figure:: ./LatexFigures/sliprate_16.png
    :alt: Fault slip along strike- (left)and downdip- (right) direction.
    :width: 11.00000cm
+   :align: center
 
    Fault slip along strike- (left)and downdip- (right) direction.
    
 .. figure:: ./LatexFigures/tpv16_uvw1.png
    :alt: Velocity at two opposite stations across the fault surface.
    :width: 11.00000cm
+   :align: center
 
    Velocity at two opposite stations across the fault surface.
    

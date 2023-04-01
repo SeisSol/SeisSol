@@ -1,3 +1,5 @@
+.. _tpv29:
+
 SCEC TPV29
 ==========
 
@@ -9,6 +11,7 @@ rocks respond elastically.
 .. figure:: LatexFigures/tpv29.png
    :alt: Diagram of TPV 29. 
    :width: 9.00000cm
+   :align: center
 
    Diagram of TPV 29. The fault is 40 km long along the strike. There is a circular nucleation zone on the right-lateral fault surface. The fault surface has 3D stochastic geometrical roughness (blue and red colors). The hypocenter is located 15 km from the left edge of the fault, at a depth of 10 km. 
 
@@ -40,6 +43,7 @@ tpv29.geo file can be found at https://github.com/SeisSol/Examples/blob/master/t
 .. figure:: LatexFigures/tpv29geo.png
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
+   :align: center
 
    Diagram showing the geometry of TPV 29. The center of nucleation is at (-8, 0, -10) km on the main fault. 
 
@@ -58,6 +62,7 @@ following general Gmsh process.
 .. figure:: LatexFigures/tpv29mesh.png
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
+   :align: center
 
    Diagram showing the geometry of TPV 29. The center of nucleation is at (-8, 0, -10) km on the main fault. 
    
@@ -210,6 +215,7 @@ the fault surface.
 .. figure:: LatexFigures/tpv29_srs.png
    :alt: Snapshot of slip rate along the strike
    :width: 11.00000cm
+   :align: center
 
    Snapshot of slip rate along the strike at T=3 s in TPV 29. The fault has a rough surface. 
    

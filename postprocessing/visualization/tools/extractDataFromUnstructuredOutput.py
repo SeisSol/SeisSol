@@ -9,7 +9,7 @@ import argparse
 parser = argparse.ArgumentParser(description="resample output file and write as binary files")
 parser.add_argument("xdmfFilename", help="xdmf output file")
 parser.add_argument("--add2prefix", help="string to append to prefix for new file", type=str, default="_resampled")
-parser.add_argument("--Data", nargs="+", metavar=("variable"), default=(""), help="Data to resample (example SRs)")
+parser.add_argument("--Data", nargs="+", metavar=("variable"), help="Data to resample (example SRs, or all)", required=True)
 parser.add_argument("--downsample", help="write one out of n output", type=int)
 parser.add_argument("--precision", type=str, choices=["float", "double"], default="float", help="precision of output file")
 parser.add_argument("--backend", type=str, choices=["hdf5", "raw"], default="hdf5", help="backend used: raw (.bin file), hdf5 (.h5)")
@@ -38,38 +38,53 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-sx = seissolxdmf.seissolxdmf(args.xdmfFilename)
+
+class seissolxdmfExtended(seissolxdmf.seissolxdmf):
+    def ReadData(self, dataName, idt=-1):
+        if dataName == "SR":
+            SRs = super().ReadData("SRs", idt)
+            SRd = super().ReadData("SRd", idt)
+            return np.sqrt(SRs ** 2 + SRd ** 2)
+        else:
+            return super().ReadData(dataName, idt)
+
+
+sx = seissolxdmfExtended(args.xdmfFilename)
 xyz = sx.ReadGeometry()
 connect = sx.ReadConnect()
 
-xyzc = (xyz[connect[:, 0], :] + xyz[connect[:, 1], :] + xyz[connect[:, 2], :]) / 3.0
+spatial_filtering = (args.xfilter or args.yfilter) or args.zfilter
+nElements = connect.shape[0]
 
+if spatial_filtering:
+    print("Warning: spatial filtering significantly slows down this script")
+    ids = range(0, sx.nElements)
+    xyzc = (xyz[connect[:, 0], :] + xyz[connect[:, 1], :] + xyz[connect[:, 2], :]) / 3.0
 
-def filter_cells(coords, filter_range):
-    m = 0.5 * (filter_range[0] + filter_range[1])
-    d = 0.5 * (filter_range[1] - filter_range[0])
-    return np.where(np.abs(coords[:] - m) < d)[0]
+    def filter_cells(coords, filter_range):
+        m = 0.5 * (filter_range[0] + filter_range[1])
+        d = 0.5 * (filter_range[1] - filter_range[0])
+        return np.where(np.abs(coords[:] - m) < d)[0]
 
+    if args.xfilter:
+        id0 = filter_cells(xyzc[:, 0], args.xfilter)
+        ids = np.intersect1d(ids, id0) if len(ids) else id0
+    if args.yfilter:
+        id0 = filter_cells(xyzc[:, 1], args.yfilter)
+        ids = np.intersect1d(ids, id0) if len(ids) else id0
+    if args.zfilter:
+        id0 = filter_cells(xyzc[:, 2], args.zfilter)
+        ids = np.intersect1d(ids, id0) if len(ids) else id0
 
-ids = range(0, sx.nElements)
-if args.xfilter:
-    id0 = filter_cells(xyzc[:, 0], args.xfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-if args.yfilter:
-    id0 = filter_cells(xyzc[:, 1], args.yfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-if args.zfilter:
-    id0 = filter_cells(xyzc[:, 2], args.zfilter)
-    ids = np.intersect1d(ids, id0) if len(ids) else id0
-
-if len(ids):
-    connect = connect[ids, :]
-    nElements = connect.shape[0]
-    if nElements != sx.nElements:
-        print(f"extracting {nElements} cells out of {sx.nElements}")
-else:
-    raise ValueError("all elements are outside filter range")
-
+    if len(ids):
+        connect = connect[ids, :]
+        nElements = connect.shape[0]
+        if nElements != sx.nElements:
+            print(f"extracting {nElements} cells out of {sx.nElements}")
+        else:
+            spatial_filtering = False
+    else:
+        raise ValueError("all elements are outside filter range")
 ndt = sx.ndt
 
 if args.last:
@@ -87,7 +102,8 @@ else:
         indices = range(0, ndt, args.downsample)
 
 # Check if input is in hdf5 format or not
-dataLocation, data_prec, MemDimension = sx.GetDataLocationPrecisionMemDimension("partition")
+first_data_field = list(sx.ReadAvailableDataFields())[0]
+dataLocation, data_prec, MemDimension = sx.GetDataLocationPrecisionMemDimension(first_data_field)
 splitArgs = dataLocation.split(":")
 if len(splitArgs) == 2:
     isHdf5 = True
@@ -152,6 +168,13 @@ else:
 
 
 # Write data items
+if args.Data[0]=='all':
+    args.Data = sorted(sx.ReadAvailableDataFields())
+    for to_remove in ["partition", "locationFlag"]:
+        if to_remove in args.Data:
+            args.Data.remove(to_remove)
+    print(f"args.Data was set to all and now contains {args.Data}")
+
 for ida, sdata in enumerate(args.Data):
     if write2Binary:
         fname2 = prefix_new + "_cell/mesh0/" + args.Data[ida] + ".bin"
@@ -159,12 +182,19 @@ for ida, sdata in enumerate(args.Data):
     else:
         dset = h5fc.create_dataset("/mesh0/" + args.Data[ida], (len(indices), nElements), dtype=myDtype)
     # read only one row
+    print(sdata, end=" ", flush=True)
     for kk, i in enumerate(indices):
-        print(kk, end=" ")
+        if (kk % 10 == 0) and kk > 0:
+            print(kk)
+        else:
+            print(kk, end=" ", flush=True)
         if i >= ndt:
             print("ignoring index %d>=ndt=%d" % (i, ndt))
             continue
-        myData = sx.ReadData(args.Data[ida], idt=i)[ids]
+        if spatial_filtering:
+            myData = sx.ReadData(args.Data[ida], idt=i)[ids]
+        else:
+            myData = sx.ReadData(args.Data[ida], idt=i)
         if write2Binary:
             myData.astype(myDtype).tofile(output_file)
         else:

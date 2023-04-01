@@ -41,7 +41,7 @@
 #ifndef ANISOTROPIC_SETUP_H_
 #define ANISOTROPIC_SETUP_H_
 
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
 #include <Model/common.hpp>
@@ -262,7 +262,7 @@ namespace seissol {
         getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
         if(faceType == FaceType::freeSurface) {
-          getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R);
+          getTransposedFreeSurfaceGodunovState(MaterialType::anisotropic, QgodLocal, QgodNeighbor, R);
 
         } else {
           Matrix99 chi = Matrix99::Zero();

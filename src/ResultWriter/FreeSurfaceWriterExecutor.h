@@ -67,7 +67,7 @@ public:
 		OUTPUT_PREFIX = 0,
 		CELLS = 1,
 		VERTICES = 2,
-		VARIABLES0 = 3
+		VARIABLES0 = 3,
 	};
 
 private:

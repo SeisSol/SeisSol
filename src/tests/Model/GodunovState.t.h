@@ -1,229 +1,83 @@
-#include <cxxtest/TestSuite.h>
-#include <cassert>
 #include <cmath>
 
 #include <Equations/datastructures.hpp>
 #include <Model/common.hpp>
 #include <Equations/Setup.h>
 
-namespace seissol {
-  namespace unit_test {
-    class GodunovStateTestSuite;
+#include "values.h"
+
+namespace seissol::unit_test {
+template <typename T>
+void test_matrix(init::QgodLocal::view::type QgodLocal, T solution, double epsilon) {
+  // compute the Frobenius norms squared: ||QgodLocal - solution||^2 and ||solution||^2
+  double frobDiffSquared = 0.0;
+  double frobASquared = 0.0;
+  for (unsigned int i = 0; i < solution[0].size(); i++) {
+    for (unsigned int j = 0; j < solution.size(); j++) {
+      const auto diff = (QgodLocal(i, j) - solution[j][i]);
+      frobDiffSquared += diff * diff;
+      frobASquared += solution[j][i] * solution[j][i];
+    }
+  }
+  // Check whether ||QgodLocal - solution||^2 < epsilon^2 * ||solution||^2
+  REQUIRE(std::abs(frobDiffSquared) < epsilon * frobASquared * epsilon * frobASquared);
+}
+
+void test_nan(init::QgodLocal::view::type QgodNeighbor) {
+  for (unsigned int i = 0; i < 9; i++) {
+    for (unsigned int j = 0; j < 9; j++) {
+      REQUIRE(std::isnan(QgodNeighbor(i, j)));
+    }
   }
 }
 
-class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
-{
-  public:
-    const real epsilon = std::numeric_limits<real>::epsilon();
+TEST_CASE("Godunov state is correct") {
+  constexpr real epsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
-    void testGodunovState()
-    {
-      real localData[seissol::tensor::QgodLocal::size()];
-      real neighborData[seissol::tensor::QgodLocal::size()];
-      init::QgodLocal::view::type QgodLocal = init::QgodLocal::view::create(localData);
-      init::QgodNeighbor::view::type QgodNeighbor = init::QgodNeighbor::view::create(neighborData); 
-      QgodLocal.setZero();
-      QgodNeighbor.setZero();
+  real localData[tensor::QgodLocal::size()];
+  real neighborData[tensor::QgodLocal::size()];
+  init::QgodLocal::view::type QgodLocal = init::QgodLocal::view::create(localData);
+  init::QgodNeighbor::view::type QgodNeighbor = init::QgodNeighbor::view::create(neighborData);
+  QgodLocal.setZero();
+  QgodNeighbor.setZero();
 
-      //test homogeneous material
+  // test homogeneous material
 #ifdef USE_ANISOTROPIC
-      double materialVal_1[22] = {
-        2700,
-        97200000000,
-        32403801600,
-        32403801600,
-        0,
-        0,
-        0,
-        97200000000,
-        32403801600,
-        0,
-        0,
-        0,
-        97200000000,
-        0,
-        0,
-        0,
-        32398099200,
-        0,
-        0,
-        32398099200,
-        0,
-        32398099200
-      };
-      seissol::model::AnisotropicMaterial local(materialVal_1, 22);
-      seissol::model::AnisotropicMaterial neighbor(materialVal_1, 22);
+  model::AnisotropicMaterial local(materialVal_1, 22);
+  model::AnisotropicMaterial neighbor(materialVal_1, 22);
+#elif defined USE_POROELASTIC
+  model::PoroElasticMaterial local(materialVal_1, 10);
+  model::PoroElasticMaterial neighbor(materialVal_1, 10);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-      double materialVal_1[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4];
-      materialVal_1[0] = 2700;
-      materialVal_1[1] = 3.23980992e10;
-      materialVal_1[2] = 3.24038016e10;
-      for (int i = 3; i < 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4; i++) {
-        materialVal_1[i] = 0;  
-      }
-      seissol::model::ViscoElasticMaterial local(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS*4);
-      seissol::model::ViscoElasticMaterial neighbor(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS*4);
+  model::ViscoElasticMaterial local(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  model::ViscoElasticMaterial neighbor(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
-      double materialVal_1[3] = {
-        2700,
-        3.23980992e10,
-        3.24038016e10
-      };
-      seissol::model::ElasticMaterial local(materialVal_1, 3);
-      seissol::model::ElasticMaterial neighbor(materialVal_1, 3);
+  model::ElasticMaterial local(materialVal_1, 3);
+  model::ElasticMaterial neighbor(materialVal_1, 3);
 #endif
 
-      std::array<std::array<real, 9>, 9> solution_homogeneous = {{
-        {  0.5000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  8.100000000000001e6,   0.0000000000000000,   0.0000000000000000},
-          {  0.1666862222222223,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.700316800000001e6,   0.0000000000000000,   0.0000000000000000},
-          {  0.1666862222222223,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.700316800000001e6,   0.0000000000000000,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.5000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  4.676399999999999e6,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.5000000000000000,   0.0000000000000000,   0.0000000000000000,  4.676399999999999e6},
-          {3.086419753086419e-8,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.5000000000000000,   0.0000000000000000,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000, 5.345992643914123e-8,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.4999999999999999,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000, 5.345992643914123e-8,   0.0000000000000000,   0.0000000000000000,   0.4999999999999999}
-      }};
+  model::getTransposedGodunovState(local, neighbor, FaceType::regular, QgodLocal, QgodNeighbor);
+  test_matrix(QgodLocal, solution_homogeneous_local, epsilon);
+  test_matrix(QgodNeighbor, solution_homogeneous_neighbor, epsilon);
 
-      seissol::model::getTransposedGodunovState( local,
-          neighbor,
-          FaceType::regular,
-          QgodLocal,
-          QgodNeighbor );
-      test_local(QgodLocal, solution_homogeneous);
-      test_neighbor(QgodNeighbor, solution_homogeneous);
+  // test free surface
+  model::getTransposedGodunovState(local, neighbor, FaceType::freeSurface, QgodLocal, QgodNeighbor);
+  test_matrix(QgodLocal, unit_test::solution_boundary, epsilon);
+  test_nan(QgodNeighbor);
 
-      //test free surface
-      std::array<std::array<real, 9>, 9> solution_boundary = {{
-        {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {-6.172839506172840e-8,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,     1.000000000000000,    0.0000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000, -1.069198528782824e-7,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,     1.000000000000000,    0.0000000000000000},
-          {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000, -1.069198528782824e-7,    0.0000000000000000,    0.0000000000000000,     1.000000000000000}
-      }};
-      seissol::model::getTransposedGodunovState( local,
-          neighbor,
-          FaceType::freeSurface,
-          QgodLocal,
-          QgodNeighbor );
-      test_neighbor(QgodLocal, solution_boundary);
-      test_nan(QgodNeighbor);
-
-
-
-      //test heterogeneous material
+  // test heterogeneous material
 #ifdef USE_ANISOTROPIC
-      double materialVal_2[22] = { 
-        2600.0,
-        41600000000,
-        20800000000,
-        20800000000,
-        0,
-        0,
-        0,
-        41600000000,
-        20800000000,
-        0,
-        0,
-        0,
-        41600000000,
-        0,
-        0,
-        0,
-        10400000000,
-        0,
-        0,
-        10400000000,
-        0,
-        10400000000
-      };
-      neighbor = seissol::model::AnisotropicMaterial(materialVal_2, 22);
+  neighbor = model::AnisotropicMaterial(materialVal_2, 22);
+#elif defined USE_POROELASTIC
+  neighbor = model::PoroElasticMaterial(materialVal_2, 10);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-      double materialVal_2[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4];
-      materialVal_2[0] = 2600;
-      materialVal_2[1] = 1.04e10;
-      materialVal_2[2] = 2.08e10;
-      for (int i = 3; i < 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4; i++) {
-        materialVal_2[i] = 0;  
-      }
-      neighbor = seissol::model::ViscoElasticMaterial(materialVal_2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+  neighbor = model::ViscoElasticMaterial(materialVal_2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
-      double materialVal_2[3] = {
-        2600,
-        1.04e10,
-        2.08e10
-      };
-      neighbor = seissol::model::ElasticMaterial(materialVal_2, 3);
+  neighbor = model::ElasticMaterial(materialVal_2, 3);
 #endif
 
-      std::array<std::array<real, 9>, 9> solution_heterogeneous = {{
-        {  0.6090225563909775,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  6.333834586466166e6,   0.0000000000000000,   0.0000000000000000},
-          {  0.2030313383458647,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.111525918796993e6,   0.0000000000000000,   0.0000000000000000},
-          {  0.2030313383458647,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.111525918796993e6,   0.0000000000000000,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.6426804463745808,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  3.341938321147820e6,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.6426804463745808,   0.0000000000000000,   0.0000000000000000,  3.341938321147820e6},
-          {3.759398496240601e-8,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.3909774436090225,   0.0000000000000000,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000, 6.871529877411907e-8,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.3573195536254192,   0.0000000000000000},
-          {  0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000, 6.871529877411907e-8,   0.0000000000000000,   0.0000000000000000,   0.3573195536254192}
-      }};
-
-      seissol::model::getTransposedGodunovState( local,
-          neighbor,
-          FaceType::regular,
-          QgodLocal,
-          QgodNeighbor );
-      test_local(QgodLocal, solution_heterogeneous);
-      test_neighbor(QgodNeighbor, solution_heterogeneous);
-
-    }
-
-
-
-    void test_local(init::QgodLocal::view::type QgodLocal, std::array<std::array<real, 9>, 9> solution) {
-      for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
-          if (i == j) {
-            test_relative(QgodLocal(i,j), 1-solution[j][i]);
-          }
-          else {
-            test_relative(QgodLocal(i,j), -solution[j][i]);
-          }
-        }
-      } 
-    }
-
-    void test_neighbor(init::QgodLocal::view::type QgodNeighbor, std::array<std::array<real, 9>, 9> solution) {
-      for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
-          test_relative(QgodNeighbor(i,j), solution[j][i]);
-        }
-      }
-    }
-
-    void test_nan(init::QgodLocal::view::type QgodNeighbor) {
-      for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
-          //CXXTEST TS_ASSERT_IS_NAN is broken
-          TS_ASSERT(std::isnan(QgodNeighbor(i,j)));
-        }
-      }
-    }
-
-    void test_relative(real a, real b) {
-      if (std::abs(a) < epsilon) {
-        TS_ASSERT_DELTA(0, b, epsilon);
-      } else if (std::abs(b) < epsilon) {
-        TS_ASSERT_DELTA(0, a, epsilon);
-      } else {
-        TS_ASSERT_DELTA(a, b, std::abs(a)*1e2*epsilon);
-        TS_ASSERT_DELTA(a, b, std::abs(b)*1e2*epsilon);
-      }
-    }
-
-};
+  model::getTransposedGodunovState(local, neighbor, FaceType::regular, QgodLocal, QgodNeighbor);
+  test_matrix(QgodLocal, solution_heterogeneous_local, epsilon);
+  test_matrix(QgodNeighbor, solution_heterogeneous_neighbor, epsilon);
+}
+} // namespace seissol::unit_test

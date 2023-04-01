@@ -52,13 +52,15 @@
 #include <Kernels/equations.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
+#include <DynamicRupture/Typedefs.hpp>
+#include <DynamicRupture/Misc.h>
 
 #include <cstddef>
 
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
-   * Number of lts clusters prensent throughout the entire domain.
+   * Number of lts clusters present throughout the entire domain.
    */
   unsigned int numberOfGlobalClusters;
 
@@ -343,6 +345,8 @@ struct LocalIntegrationData {
   seissol::model::ViscoElasticLocalData specific;
 #elif defined USE_ELASTIC
   seissol::model::ElasticLocalData specific;
+#elif defined USE_POROELASTIC
+  seissol::model::PoroelasticLocalData specific;
 #endif
 };
 
@@ -360,6 +364,8 @@ struct NeighboringIntegrationData {
   seissol::model::ViscoElasticNeighborData specific;
 #elif defined USE_ELASTIC
   seissol::model::ElasticNeighborData specific;
+#elif defined USE_POROELASTIC
+  seissol::model::PoroelasticNeighborData specific;
 #endif
 };
 
@@ -376,8 +382,11 @@ struct CellMaterialData {
 #elif defined USE_ELASTIC
   seissol::model::ElasticMaterial local;
   seissol::model::ElasticMaterial neighbor[4];
+#elif defined USE_POROELASTIC
+  seissol::model::PoroElasticMaterial local;
+  seissol::model::PoroElasticMaterial neighbor[4];
 #else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 
@@ -413,10 +422,20 @@ struct DRFaceInformation {
   unsigned plusSide;
   unsigned minusSide;
   unsigned faceRelation;
+  bool     plusSideOnThisRank;
 };
 
 struct DRGodunovData {
   real TinvT[seissol::tensor::TinvT::size()];
+  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
+  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
+  double doubledSurfaceArea;
+};
+
+struct DREnergyOutput {
+  real slip[seissol::tensor::slipRateInterpolated::size()];
+  real accumulatedSlip[seissol::dr::misc::numPaddedPoints];
+  real frictionalEnergy[seissol::dr::misc::numPaddedPoints];
 };
 
 struct CellDRMapping {
@@ -443,6 +462,7 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
+
 /*
  * \class MemoryProperties
  *
@@ -455,6 +475,19 @@ struct MemoryProperties {
   size_t alignment{ALIGNMENT};
   size_t pagesizeHeap{PAGESIZE_HEAP};
   size_t pagesizeStack{PAGESIZE_STACK};
+};
+
+namespace seissol {
+struct GravitationSetup {
+  double acceleration = 9.81; // m/s
+};
+} // namespace seissol
+
+struct TravellingWaveParameters {
+  std::array<double, 3> origin;
+  std::array<double, 3> kVec;
+  std::vector<int> varField;
+  std::vector<std::complex<double>> ampField;
 };
 
 #endif

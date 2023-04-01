@@ -3,8 +3,9 @@ import viscoelastic2
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
+from common import generate_kernel_name_prefix
 
-def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod):
+def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod, targets):
     easi_ident_map = np.stack([np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(), axis=2)
     assert(easi_ident_map.shape ==
            (aderdg.numberOfQuantities(), aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()))
@@ -29,13 +30,25 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                         simpleParameterSpace(4),
                         projectToNodalBoundary)
 
-    projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['kl'] \
-                                              * aderdg.I['lm'] \
-                                              * aderdg.Tinv['pm']
+    for target in targets:
+      name_prefix = generate_kernel_name_prefix(target)
+      projectToNodalBoundaryRotated = lambda j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['kl'] \
+                                                  * aderdg.I['lm'] \
+                                                  * aderdg.Tinv['pm']
 
-    generator.addFamily('projectToNodalBoundaryRotated',
-                        simpleParameterSpace(4),
-                        projectToNodalBoundaryRotated)
+      generator.addFamily(f'{name_prefix}projectToNodalBoundaryRotated',
+                          simpleParameterSpace(4),
+                          projectToNodalBoundaryRotated,
+                          target=target)
+
+      projectDerivativeToNodalBoundaryRotated = lambda i, j: aderdg.INodal['kp'] <= aderdg.db.V3mTo2nFace[j]['kl'] \
+                                                * aderdg.dQs[i]['lm'] \
+                                                * aderdg.Tinv['pm']
+
+      generator.addFamily(f'{name_prefix}projectDerivativeToNodalBoundaryRotated',
+                          simpleParameterSpace(aderdg.order, 4),
+                          projectDerivativeToNodalBoundaryRotated,
+                          target=target)
 
     # To be used as Tinv in flux solver - this way we can save two rotations for
     # Dirichlet boundary, as ghost cell dofs are already rotated
@@ -46,51 +59,6 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                                identity_rotation,
                                )
     include_tensors.add(identity_rotation)
-
-    project2nFaceTo3m = tensor_collection_from_constant_expression(
-        base_name='project2nFaceTo3m',
-        expressions=lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.V2nTo2m['kl'],
-        group_indices=range(4),
-        target_indices='jl')
-
-    aderdg.db.update(project2nFaceTo3m)
-
-    selectZDisplacementFromQuantities = np.zeros(aderdg.numberOfQuantities())
-    selectZDisplacementFromQuantities[8] = 1
-    selectZDisplacementFromQuantities= Tensor('selectZDisplacementFromQuantities',
-                                              selectZDisplacementFromQuantities.shape,
-                                              selectZDisplacementFromQuantities,
-                                              )
-
-    selectZDisplacementFromDisplacements = np.zeros(3)
-    selectZDisplacementFromDisplacements[2] = 1
-    selectZDisplacementFromDisplacements = Tensor('selectZDisplacementFromDisplacements',
-                                                  selectZDisplacementFromDisplacements.shape,
-                                                  selectZDisplacementFromDisplacements,
-                                                  )
-
-    aderdg.INodalDisplacement = OptionalDimTensor('INodalDisplacement',
-                                                aderdg.Q.optName(),
-                                                aderdg.Q.optSize(),
-                                                aderdg.Q.optPos(),
-                                                (aderdg.numberOf2DBasisFunctions(),),
-                                                alignStride=True)
-
-    displacement = OptionalDimTensor('displacement',
-                                     aderdg.Q.optName(),
-                                     aderdg.Q.optSize(),
-                                     aderdg.Q.optPos(),
-                                     (aderdg.numberOf3DBasisFunctions(), 3),
-                                     alignStride=True)
-
-    dt = Scalar('dt')
-    displacementAvgNodal = lambda side: aderdg.INodalDisplacement['i'] <= \
-                                        aderdg.db.V3mTo2nFace[side]['ij'] * aderdg.I['jk'] * selectZDisplacementFromQuantities['k'] \
-                                        + dt * aderdg.db.V3mTo2nFace[side]['ij'] * displacement['jk'] * selectZDisplacementFromDisplacements['k']
-
-    generator.addFamily('displacementAvgNodal',
-                        simpleParameterSpace(4),
-                        displacementAvgNodal)
 
     aderdg.INodalUpdate = OptionalDimTensor('INodalUpdate',
                                           aderdg.INodal.optName(),

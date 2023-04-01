@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -116,12 +117,12 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
     #TU: this is the part I m adding
     #compute vel and disp from acceleration and
     #add to the spectral acceleration time series
-    velocity_x = time_step_x * cumtrapz(acceleration_x[0:-1])
-    displacement_x = time_step_x * cumtrapz(velocity_x)
+    velocity_x = time_step_x * cumtrapz(acceleration_x[0:-1], initial=0.)
+    displacement_x = time_step_x * cumtrapz(velocity_x, initial=0.)
     x_a = np.column_stack((acceleration_x[0:-1], velocity_x, displacement_x, x_a))
 
-    velocity_y = time_step_y * cumtrapz(acceleration_y[0:-1])
-    displacement_y = time_step_y * cumtrapz(velocity_y)
+    velocity_y = time_step_y * cumtrapz(acceleration_y[0:-1], initial=0.)
+    displacement_y = time_step_y * cumtrapz(velocity_y, initial=0.)
     y_a = np.column_stack((acceleration_y[0:-1], velocity_y, displacement_y, y_a))
 
     angles = np.arange(0., 90., 1.)
@@ -219,8 +220,8 @@ inputs = inputsi[irank]
 nElements_i = len(inputs)
 
 #This reads only the chunk of horizontal velocity data required by the rank
-u = sx.ReadDataChunk('u', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
-v = sx.ReadDataChunk('v', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
+u = sx.ReadDataChunk('v1', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
+v = sx.ReadDataChunk('v2', firstElement=inputsi[irank][0], nchunk=nElements_i, idt=-1)
 
 u=np.transpose(u)
 v=np.transpose(v)

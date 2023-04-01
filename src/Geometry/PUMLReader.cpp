@@ -37,18 +37,19 @@
 
 #include <algorithm>
 #include <cassert>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 
-#include "PUML/PUML.h"
+#include "PUMLReader.h"
+
 #include "PUML/PartitionMetis.h"
 #include "PUML/Downward.h"
 #include "PUML/Neighbor.h"
 
-#include "PUMLReader.h"
 #include "Monitoring/instrumentation.fpp"
 
-#include "Initializer/time_stepping/LtsWeights.h"
+#include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 
 #include <hdf5.h>
 #include <sstream>
@@ -73,7 +74,9 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
+seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeStep,
+                                const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights,
+                                double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -83,7 +86,7 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile
   
 	if (ltsWeights != nullptr) {
 		generatePUML(puml);
-		ltsWeights->computeWeights(puml);
+		ltsWeights->computeWeights(puml, maximumAllowedTimeStep);
 	}
 	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
 
@@ -101,6 +104,11 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
 	puml.addData((file + ":/group").c_str(), PUML::CELL);
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
+        const auto numTotalCells = puml.numTotalCells();
+        std::vector<int> cellIdsAsInFile(numTotalCells);
+        std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), 0);
+        puml.addData(cellIdsAsInFile.data(), numTotalCells, PUML::CELL);
+
 }
 
 int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, const char* checkPointFile)
@@ -253,7 +261,7 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
   auto partitionMetis = [&] {
     PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
-    double* nodeWeights = new double[seissol::MPI::mpi.size()];
+    auto* nodeWeights = new double[seissol::MPI::mpi.size()];
     MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
     double sum = 0.0;
     for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
@@ -267,7 +275,15 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
     double* nodeWeights = &tpwgt;
 #endif
 
-    metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
+    auto status = metis.partition(partition,
+                                  ltsWeights->vertexWeights(),
+                                  ltsWeights->imbalances(),
+                                  ltsWeights->nWeightsPerVertex(),
+                                  nodeWeights);
+
+    if (status == PUML::TETPartitionMetis::Status::Error) {
+      logError() << "mesh partitioning step failed";
+    }
 
 #ifdef USE_MPI
     delete[] nodeWeights;
@@ -305,10 +321,13 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	const std::vector<PUML::TETPUML::face_t> &faces = puml.faces();
 	const std::vector<PUML::TETPUML::vertex_t> &vertices = puml.vertices();
 
-	const int* material = puml.cellData(0);
+	const int* group = puml.cellData(0);
 	const int* boundaryCond = puml.cellData(1);
+        const int* cellIdsAsInFile = puml.cellData(2);
 
 	std::unordered_map<int, std::vector<unsigned int> > neighborInfo; // List of shared local face ids
+
+        bool isMeshCorrect = true;
 
 	// Compute everything local
 	m_elements.resize(cells.size());
@@ -324,6 +343,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		int neighbors[4];
 		PUML::Neighbor::face(puml, i, neighbors);
 		for (unsigned int j = 0; j < 4; j++) {
+                        int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
+                        const bool isLocallyCorrect = checkMeshCorrectnessLocally(faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
+                        isMeshCorrect &= isLocallyCorrect;
 			if (neighbors[j] < 0) {
 				m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = cells.size();
 
@@ -361,7 +383,6 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 				m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
 			}
 
-			int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
 			int faultTag = bcCurrentFace;
 			if (bcCurrentFace > 64) {
 				bcCurrentFace = 3;
@@ -371,8 +392,11 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 			m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
 		}
 
-		m_elements[i].material = material[i];
+		m_elements[i].group = group[i];
 	}
+        if (!isMeshCorrect) {
+          logError() << "Found at least one broken face in the mesh, see errors above for a more detailled analysis.";
+        }
 
 	// Exchange ghost layer information and generate neighbor list
 	char** copySide = new char*[neighborInfo.size()];

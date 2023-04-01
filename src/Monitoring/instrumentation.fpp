@@ -52,7 +52,7 @@
 #include "epik_user.inc"
 #else
 #include "epik_user.h"
-#endif
+#endif 
 #else
 #define EPIK_FUNC_REG(str)
 #define EPIK_FUNC_START()
@@ -135,6 +135,19 @@
 #define SCOREP_RECORDING_IS_ON() 0
 #endif
 
+#endif
+
+#if defined(LIKWID_PERFMON) && defined(__STDC__)
+#include <likwid-marker.h>
+#else
+#define LIKWID_MARKER_INIT
+#define LIKWID_MARKER_THREADINIT
+#define LIKWID_MARKER_SWITCH
+#define LIKWID_MARKER_REGISTER(regionTag)
+#define LIKWID_MARKER_START(regionTag)
+#define LIKWID_MARKER_STOP(regionTag)
+#define LIKWID_MARKER_CLOSE
+#define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
 
 #endif

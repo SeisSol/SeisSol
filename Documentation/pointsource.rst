@@ -1,6 +1,8 @@
 Point Source
 ============
 
+.. _loh1:
+
 SISMOWINE WP2\_LOH1
 ~~~~~~~~~~~~~~~~~~~
 
@@ -34,6 +36,7 @@ Table: Material properties in LOH1.
 .. figure:: LatexFigures/LOH1.jpg
    :alt: Geometry of LOH1 .
    :width: 11.00000cm
+   :align: center
 
    Geometry of LOH1.
 
@@ -45,6 +48,7 @@ The mesh is generated using Gmsh.
 .. figure:: LatexFigures/loh1_mesh.png
    :alt: Geometry of LOH1 model (Gmsh)
    :width: 11.00000cm
+   :align: center
 
    Geometry of LOH1 model (Gmsh). A 1 km layer of low velocity (Vp=4000
    m/s, vs=2000 m/s) is at the top of high velocity (vp=6000 m/s,
@@ -72,6 +76,7 @@ Results
 .. figure:: LatexFigures/loh1_benchmark.png
    :alt: Benchmark of x-component particle velocity
    :width: 11.00000cm
+   :align: center
 
    Benchmark of x-component particle velocity at receiver point 1 (0.0,
    693.0,0.1). Bule is 4-order SeisSol and orange is SISMOWINE result. 

@@ -1,3 +1,5 @@
+.. _tpv24:
+
 SCEC TPV24
 ==========
 
@@ -11,6 +13,7 @@ propagates to the branching fault.
 .. figure:: LatexFigures/tpv24.png
    :alt: Diagram of TPV24 branching fault geometry.
    :width: 11.00000cm
+   :align: center
 
    Diagram of TPV24 branching fault geometry. The main fault is (16 000
    + 12 000) m and the branching fault is 12 000 m. Both faults are 15 000
@@ -42,6 +45,7 @@ file can be generated using https://github.com/SeisSol/Examples/blob/master/tpv2
 .. figure:: LatexFigures/tpv24mesh.png
    :alt: Geometry generated in Gmsh of TPV24. Main fault lies in y-plane.
    :width: 9.00000cm
+   :align: center
 
    Geometry generated in Gmsh of TPV24. The main fault lies in y-plane. 
 
@@ -134,9 +138,9 @@ The friction parameters are listed in Table [table:tpv24fric].
 +-------------+--------------------------------+---------+--------+
 | Parameter   | Description                    | Value   | Unit   |
 +=============+================================+=========+========+
-| mu\_s       | static friction coefficient    | 0.12    |        |
+| mu\_s       | static friction coefficient    | 0.18    |        |
 +-------------+--------------------------------+---------+--------+
-| mu\_d       | dynamic friction coefficient   | 0.18    |        |
+| mu\_d       | dynamic friction coefficient   | 0.12    |        |
 +-------------+--------------------------------+---------+--------+
 | d\_c        | critical distance              | 0.30    | m      |
 +-------------+--------------------------------+---------+--------+
@@ -162,12 +166,14 @@ as well as the rest main fault. The fault slip rate is shown in Figure
 .. figure:: LatexFigures/tpv24snap1.png
    :alt: snapshot1 of TPV24.
    :width: 9.00000cm
+   :align: center
 
    Snapshot of slip rate in branching fault system. Slip rate at 2 s.
 
 .. figure:: LatexFigures/tpv24snap2.png
    :alt: snapshot1 of TPV24.
    :width: 9.00000cm
+   :align: center
 
    Snapshot of slip rate in branching fault system. Slip rate at 3.5 s.
 

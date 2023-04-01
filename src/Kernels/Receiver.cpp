@@ -38,6 +38,8 @@
  **/
 
 #include "Receiver.h"
+#include <SeisSol.h>
+#include "Numerical_aux/BasisFunction.h"
 
 #include <Initializer/PointMapper.h>
 #include <Numerical_aux/Transformation.h>
@@ -58,14 +60,12 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
   for (unsigned v = 0; v < 4; ++v) {
     coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
   }
-  auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(coords[0], coords[1], coords[2], coords[3], point);
 
   // (time + number of quantities) * number of samples until sync point
   size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back( pointId,
-                            xiEtaZeta[0],
-                            xiEtaZeta[1],
-                            xiEtaZeta[2],
+                            point,
+                            coords,
                             kernels::LocalData::lookup(lts, ltsLut, meshId),
                             reserved);
 }
@@ -73,54 +73,104 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
-  real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
-  real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
-  real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
-
+  alignas(ALIGNMENT) real timeEvaluated[tensor::Q::size()];
+  alignas(ALIGNMENT) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
+  alignas(ALIGNMENT) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+#ifdef USE_STP
+  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()];
+  kernel::evaluateDOFSAtPointSTP krnl;
+  krnl.QAtPoint = timeEvaluatedAtPoint;
+  krnl.spaceTimePredictor = stp;
+  kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
+  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+  derivativeKrnl.spaceTimePredictor = stp;
+#else
+  alignas(ALIGNMENT) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
   kernels::LocalTmp tmp;
 
   kernel::evaluateDOFSAtPoint krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
   krnl.Q = timeEvaluated;
+  kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+  derivativeKrnl.Q = timeEvaluated;
+#endif
+
 
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
+      derivativeKrnl.basisFunctionDerivativesAtPoint = receiver.basisFunctionDerivatives.m_data.data();
 
+#ifdef USE_STP
+      m_timeKernel.executeSTP(timeStepWidth, receiver.data, timeEvaluated, stp);
+#else
       m_timeKernel.computeAder( timeStepWidth,
                                 receiver.data,
                                 tmp,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
-      g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
-      g_SeisSolHardwareFlopsOther += m_hardwareFlops;
+#endif
+      seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
+      seissol::SeisSol::main.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
       receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
+#ifdef USE_STP
+        //eval time basis
+        double tau = (time - expansionPoint) / timeStepWidth;
+        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(CONVERGENCE_ORDER, tau);
+        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
+        derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
+#else
         m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+#endif
+
         krnl.execute();
+        derivativeKrnl.execute();
 
         receiver.output.push_back(receiverTime);
 #ifdef MULTIPLE_SIMULATIONS
         for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
           for (auto quantity : m_quantities) {
            if (!std::isfinite(qAtPoint(sim, quantity))) {
-            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+             logError()
+                 << "Detected Inf/NaN in receiver output at"
+                 << receiver.coordinates[0] << ","
+                 << receiver.coordinates[1] << ","
+                 << receiver.coordinates[2] << "."
+                 << "Aborting.";
           }
             receiver.output.push_back(qAtPoint(sim, quantity));
           }
+          if (m_computeRotation) {
+            receiver.output.push_back(qDerivativeAtPoint(sim, 8, 1) - qDerivativeAtPoint(sim, 7, 2));
+            receiver.output.push_back(qDerivativeAtPoint(sim, 6, 2) - qDerivativeAtPoint(sim, 8, 0));
+            receiver.output.push_back(qDerivativeAtPoint(sim, 7, 0) - qDerivativeAtPoint(sim, 6, 1));
+          }
         }
-#else
+#else //MULTIPLE_SIMULATIONS
         for (auto quantity : m_quantities) {
           if (!std::isfinite(qAtPoint(quantity))) {
-            logError() << "Detected Inf/NaN in receiver output. Aborting.";
+            logError()
+                << "Detected Inf/NaN in receiver output at"
+                << receiver.position[0] << ","
+                << receiver.position[1] << ","
+                << receiver.position[2] << "."
+                << "Aborting.";
           }
           receiver.output.push_back(qAtPoint(quantity));
         }
-#endif
+        if (m_computeRotation) {
+          receiver.output.push_back(qDerivativeAtPoint(8, 1) - qDerivativeAtPoint(7, 2));
+          receiver.output.push_back(qDerivativeAtPoint(6, 2) - qDerivativeAtPoint(8, 0));
+          receiver.output.push_back(qDerivativeAtPoint(7, 0) - qDerivativeAtPoint(6, 1));
+        }
+#endif //MULTITPLE_SIMULATIONS
 
         receiverTime += m_samplingInterval;
       }

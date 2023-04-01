@@ -1,3 +1,5 @@
+.. _wave_field_output:
+
 Wave field output
 =================
 
@@ -24,22 +26,59 @@ Refinement
 iOutputMask
 -----------
 
-iOutputMask allows visualizing only part of the unknown. The stress
-tensor (6), the velocities (3), the plastic strain tensor (6) and the
-accumulated plastic strain eta, can be switched off or on by changing
-the corresponding bit in the iOutputMask array.
+iOutputMask allows switching on and off the writing of SeisSol unknowns.
+The 6 first digits controls the components of the stress tensor
+(sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, and sigma_xz), 
+and the 3 last digits the velocity components (u, v, w).
+When using poroelasticity, 4 more flags are added, for pore pressure (p) and fluid velocities (u_f, v_f, w_f).
+
+iPlasticityMask
+---------------
+
+iPlasticityMask allows switching on and off the writing of plasticity variables.
+The 6 first digits controls the components of the off-fault plastic 
+strain tensor (ep_xx, ep_yy, ep_zz, ep_xy, ep_yz, and ep_xz), 
+and the last one the accumulated plastic strain (eta).
+
+.. only:: comment
+
+    IntegrationMask
+    ---------------
+
+    **Warning**: broken -> currently not compiling.
+    To use this output, enable option INTEGRATE_QUANTITIES in cmake.
+    IntegrationMask allows switching on and off the writing of time integrated SeisSol unknowns.
+    The 6 first digits control the components of the time integrated stress tensor
+    (int_sigma_xx, int_sigma_yy, int_sigma_zz, int_sigma_xy, int_sigma_yz, and int_sigma_xz), 
+    and the 3 last digits the displacement components (displacement_x, displacement_y, displacement_z).
+    Note that this output is associated with the prefix-low.xdmf file, and can only output 
+    the cell average quantities.
+
 
 OutputRegionBounds
 ------------------
 
 Using the OutputRegionBounds parameter, under the &Output heading, in
-the parameter.par file the user can define the region for which the
+the parameter.par file, the user can define the region for which the
 output is to be written. This region is provided in the following
 format:
 
 .. code-block:: Fortran
 
    OutputRegionBounds = xMin xMax yMin yMax zMin zMax
+
+OutputGroups
+------------------
+
+Similar to the previous parameter, OutputGroups can be used to whitelist a set of
+mesh groups (as specified in the xdmf mesh file) that are included in the wavefield output.
+Cells whose group is not mentioned are not included in the output.
+This feature works with OutputRegionBounds, only cells that satisfy both criteria are included.
+It looks like this:
+
+.. code-block:: Fortran
+
+   OutputGroups = 1 2 ! only include groups 1 and 2
 
 Example
 -------
@@ -50,7 +89,8 @@ Example
 
    &Output
    OutputFile = '/output/prefix'
-   iOutputMask = 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1
+   iOutputMask     = 0 0 0 0 0 0 1 1 1
+   iPlasticityMask = 0 0 0 0 0 0 1 
    OutputRegionBounds = -5e3 5e3 -10e3 10e3 -8e3 0e0
    Format = 6                          ! Format (6=hdf5, 10= no output)
    TimeInterval = 5.0                  ! Index of printed info at time

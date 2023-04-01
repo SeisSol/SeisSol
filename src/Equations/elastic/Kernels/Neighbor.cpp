@@ -71,10 +71,6 @@
 
 #include "Kernels/Neighbor.h"
 
-#ifndef NDEBUG
-#pragma message "compiling boundary kernel with assertions"
-#endif
-
 #include <cassert>
 #include <stdint.h>
 
@@ -169,7 +165,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
   }
 }
 
-void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatchTableT &table) {
+void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &table) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
@@ -180,12 +176,12 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
     for (size_t i = 0; i < counter; ++i) {
       this->device.api->popStackMemory();
     }
-    this->device.api->fastStreamsSync();
+    this->device.api->joinCircularStreamsToDefault();
     this->device.api->resetCircularStreamCounter();
   };
 
-
   for(size_t face = 0; face < 4; face++) {
+    this->device.api->forkCircularStreamsFromDefault();
     size_t streamCounter{0};
 
     // regular and periodic
@@ -197,16 +193,16 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
                          faceRelation);
 
       if(table.find(key) != table.end()) {
-        BatchTable &entry = table[key];
+        auto &entry = table[key];
 
-        const auto NUM_ELEMENTS = (entry.content[*EntityId::Dofs])->getSize();
-        neighFluxKrnl.numElements = NUM_ELEMENTS;
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+        neighFluxKrnl.numElements = numElements;
 
-        neighFluxKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
-        neighFluxKrnl.I = const_cast<const real **>((entry.content[*EntityId::Idofs])->getPointers());
-        neighFluxKrnl.AminusT = const_cast<const real **>((entry.content[*EntityId::AminusT])->getPointers());
+        neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+        neighFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+        neighFluxKrnl.AminusT = const_cast<const real **>((entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
 
-        tmpMem = (real*)(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
         neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
         neighFluxKrnl.streamPtr = device.api->getNextCircularStream();
@@ -224,16 +220,16 @@ void seissol::kernels::Neighbor::computeBatchedNeighborsIntegral(ConditionalBatc
                          faceRelation);
 
       if(table.find(Key) != table.end()) {
-        BatchTable &entry = table[Key];
+        auto &entry = table[Key];
 
-        const auto NUM_ELEMENTS = (entry.content[*EntityId::Dofs])->getSize();
-        drKrnl.numElements = NUM_ELEMENTS;
+        const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+        drKrnl.numElements = numElements;
 
-        drKrnl.fluxSolver = const_cast<const real **>((entry.content[*EntityId::FluxSolver])->getPointers());
-        drKrnl.QInterpolated = const_cast<real const**>((entry.content[*EntityId::Godunov])->getPointers());
-        drKrnl.Q = (entry.content[*EntityId::Dofs])->getPointers();
+        drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+        drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+        drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-        tmpMem = (real*)(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * NUM_ELEMENTS));
+        tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
         drKrnl.linearAllocator.initialize(tmpMem);
 
         drKrnl.streamPtr = device.api->getNextCircularStream();

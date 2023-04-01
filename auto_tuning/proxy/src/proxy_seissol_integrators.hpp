@@ -30,6 +30,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
 
+void registerMarkers() {
+    #pragma omp parallel
+    {
+        LIKWID_MARKER_REGISTER("ader");
+        LIKWID_MARKER_REGISTER("localwoader");
+        LIKWID_MARKER_REGISTER("local");
+        LIKWID_MARKER_REGISTER("neighboring");
+    }
+}
+
 namespace proxy::cpu {
   void computeAderIntegration() {
     auto&                 layer           = m_ltsTree->child(0).child<Interior>();
@@ -43,18 +53,20 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     #pragma omp parallel
     {
+    LIKWID_MARKER_START("ader");
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
       auto data = loader.entry(l_cell);
-      m_timeKernel.computeAder(              m_timeStepWidthSimulation,
+      m_timeKernel.computeAder(              seissol::miniSeisSolTimeStep,
                                              data,
                                              tmp,
                                              buffers[l_cell],
                                              derivatives[l_cell] );
     }
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("ader");
     }
   #endif
   }
@@ -70,6 +82,7 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     #pragma omp parallel
     {
+    LIKWID_MARKER_START("localwoader");
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
@@ -84,6 +97,7 @@ namespace proxy::cpu {
                                     0);
     }
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("localwoader");
     }
   #endif
   }
@@ -100,12 +114,13 @@ namespace proxy::cpu {
   #ifdef _OPENMP
     #pragma omp parallel
     {
+    LIKWID_MARKER_START("local");
     kernels::LocalTmp tmp;
     #pragma omp for schedule(static)
   #endif
     for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
       auto data = loader.entry(l_cell);
-      m_timeKernel.computeAder(      (double)m_timeStepWidthSimulation,
+      m_timeKernel.computeAder(      (double)seissol::miniSeisSolTimeStep,
                                              data,
                                              tmp,
                                              buffers[l_cell],
@@ -119,6 +134,7 @@ namespace proxy::cpu {
                                     0);
     }
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("local");
     }
   #endif
   }
@@ -134,17 +150,12 @@ namespace proxy::cpu {
     loader.load(m_lts, layer);
 
     real *l_timeIntegrated[4];
-  #ifdef ENABLE_MATRIX_PREFETCH
     real *l_faceNeighbors_prefetch[4];
-  #endif
 
   #ifdef _OPENMP
-  #  ifdef ENABLE_MATRIX_PREFETCH
     #pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
-  #  else
-    #pragma omp parallel private(l_timeIntegrated)
-  #  endif
     {
+    LIKWID_MARKER_START("neighboring");
     #pragma omp for schedule(static)
   #endif
     for( unsigned l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
@@ -153,7 +164,7 @@ namespace proxy::cpu {
                                                       cellInformation[l_cell].ltsSetup,
                                                       cellInformation[l_cell].faceTypes,
                                                       0.0,
-                                              (double)m_timeStepWidthSimulation,
+                                              (double)seissol::miniSeisSolTimeStep,
                                                       faceNeighbors[l_cell],
   #ifdef _OPENMP
                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost.integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
@@ -162,8 +173,6 @@ namespace proxy::cpu {
   #endif
                                                       l_timeIntegrated );
 
-  #ifdef ENABLE_MATRIX_PREFETCH
-  #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
       l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
           ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
       l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
@@ -178,19 +187,15 @@ namespace proxy::cpu {
       } else {
         l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
       }
-  #endif
 
       m_neighborKernel.computeNeighborsIntegral( data,
                                                  drMapping[l_cell],
-  #ifdef ENABLE_MATRIX_PREFETCH
                                                  l_timeIntegrated, l_faceNeighbors_prefetch
-  #else
-                                                 l_timeIntegrated
-  #endif
                                                  );
     }
 
   #ifdef _OPENMP
+    LIKWID_MARKER_STOP("neighboring");
     }
   #endif
   }
@@ -200,6 +205,7 @@ namespace proxy::cpu {
     seissol::initializers::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
     DRFaceInformation* faceInformation = layerData.var(m_dynRup.faceInformation);
     DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
+    DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup.drEnergyOutput);
     real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
     alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
@@ -213,6 +219,7 @@ namespace proxy::cpu {
       m_dynRupKernel.spaceTimeInterpolation(  faceInformation[face],
                                              &m_globalDataOnHost,
                                              &godunovData[face],
+                                             &drEnergyOutput[face],
                                               timeDerivativePlus[face],
                                               timeDerivativeMinus[face],
                                               QInterpolatedPlus,

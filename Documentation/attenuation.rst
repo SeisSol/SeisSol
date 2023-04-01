@@ -33,45 +33,10 @@ Implementation
 Stability with Local time stepping
 ----------------------------------
 
-To ensure the stability of SeisSol using attenuation and local time-stepping (LTS),
-it seems necessary to limit the number of clusters of the local time stepping.
-Else, very large elements, rarely updated by the LTS, get unstable.
-This can be achieved by using the following patch, which in most cases should not affect the LTS speed-up.
-
-.. code:: diff
-
-    --- a/src/Initializer/time_stepping/MultiRate.hpp
-    +++ b/src/Initializer/time_stepping/MultiRate.hpp
-    @@ -78,7 +78,12 @@ class seissol::initializers::time_stepping::MultiRate {
-           double l_lower = i_minimumTimeStepWidth;
-           double l_upper = i_multiRate*l_lower;
-     
-    +#if NUMBER_OF_QUANTITIES > 9
-    +      unsigned int l_id_max=6;
-    +#endif
-    +
-           for( unsigned int l_id = 0; ; l_id++ ) {
-    +
-             // the first cluster with an upper bound above the time step width is our
-             if( l_upper > i_timeStepWidth ) {
-               o_clusterTimeStepWidth = l_lower;
-    @@ -89,6 +94,11 @@ class seissol::initializers::time_stepping::MultiRate {
-             // update interval and continue searching
-             l_lower = l_upper;
-             l_upper = i_multiRate * l_lower;
-    +#if NUMBER_OF_QUANTITIES > 9
-    +        if( l_id == l_id_max-1 ) {
-    +          l_upper = std::numeric_limits<double>::max();
-    +         }
-    +#endif
-           }
-         }
-
-
-l_id_max, the maximum cluster id, is here hardcoded to 6. 
-This probably depends on the minimum mesh size and the order of accuracy used.
-The higher the order and the smaller the minimum mesh size, the larger l_id_max.
-As we did not investigate in detail the dependence of l_id_max with the simulation order and the minimum mesh size, we did not include the patch in the master branch yet.
+The maximum timestep may need to be decreased in SeisSol to avoid stability issues when using attenuation and local time stepping.
+Practically, we found that if the maximum timestep is below :math:`0.25 T_3` with :math:`T_3 = 1/ f_3 = 1/(\mathrm{FreqCentral} \sqrt{ \mathrm{FreqRatio}})`, stability should be ensured.
+This is done by default by SeisSol when attenuation is turned on, and the parameter ``FixTimeStep`` of the the ``&Discretization`` namelist (main parameter file) is not set.
+If SeisSol is yet unstable, further decrease of the maximum timestep can be tried by manually setting the value of ``FixTimeStep``.
 
 Compiling
 ---------
@@ -104,7 +69,7 @@ Add Inside the parameter file of SeisSol, in the '&equations' section
 
 .. code:: fortran
 
-   FreqCentral=2.5
+   FreqCentral=0.5
    FreqRatio=100
 
 The spatial variation of :math:`Q_s` and :math:`Q_p` are defined with easi in the
@@ -122,8 +87,8 @@ are directly related to the shear wave speed :math:`V_s`:
        rho:    return rho;
        mu:     return mu;
        lambda: return lambda;
-       Qs:     return 0.1 * sqrt(mu/rho);
-       Qp:     return 0.2 * sqrt(mu/rho);
+       Qs:     return 0.05 * sqrt(mu/rho);
+       Qp:     return 0.1 * sqrt(mu/rho);
 
 
 FreqCentral and FreqRatio
@@ -131,17 +96,19 @@ FreqCentral and FreqRatio
 
 | The relaxation frequencies are logarithmically equispaced, i.e.
 
-| :math:`log(w_{i+1})-log(w_i) =` constant. 
+| :math:`\log(f_{i+1})-\log(f_i) =` constant.
 
 In the parameter file, one has to give a frequency ratio of maximum to minimum frequency and a central frequency. 
 For example, in the case of 3 mechanisms the following relations define the relaxation frequencies:
 
-| :math:`w_2 = FreqCentral`  
+| :math:`f_2 = \mathrm{FreqCentral}`
 
-| :math:`log(w_3)-log(w_2) = log(w_2) - log(w_1)`  
+| :math:`\log(f_3)-\log(f_2) = \log(f_2) - \log(f_1)`
 
-| :math:`w_3 / w_1 = FreqRatio`  
+| :math:`f_3 / f_1 = \mathrm{FreqRatio}`
 
-Outside of the frequency band :math:`w_1 - w_3`, Q goes to infinity, yielding
+This leads  to :math:`f_1 = \mathrm{FreqCentral} / \sqrt{\mathrm{FreqRatio}}` and :math:`f_3 = \mathrm{FreqCentral}  \sqrt{\mathrm{FreqRatio}}`.  
+
+Outside of the frequency band :math:`f_1 - f_3`, Q goes to infinity, yielding
 elastic behavior.
 

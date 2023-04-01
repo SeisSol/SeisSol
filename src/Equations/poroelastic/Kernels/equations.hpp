@@ -1,0 +1,1 @@
+../../elastic/Kernels/equations.hpp

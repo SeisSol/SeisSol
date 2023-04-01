@@ -48,6 +48,7 @@ module MeshReaderCBinding
     use QuadPoints_mod
 
     use iso_c_binding
+    use f_ftoc_bind_interoperability
 
     implicit none
 
@@ -80,15 +81,32 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
 
-        subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate, usePlasticity) bind(C, name="read_mesh_puml_c")
+        subroutine read_mesh_puml_c(meshfile, &
+                                    checkPointFile, &
+                                    outputDirectory, &
+                                    hasFault, &
+                                    displacement, &
+                                    scalingMatrix, &
+                                    easiVelocityModel, &
+                                    clusterRate, &
+                                    ltsWeightsTypeId, &
+                                    vertexWeightElement, &
+                                    vertexWeightDynamicRupture, &
+                                    vertexWeightFreeSurfaceWithGravity, &
+                                    usePlasticity, &
+                                    maximumAllowedTimeStep) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
-            character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
-            logical( kind=c_bool ), value                      :: hasFault
-            real(kind=c_double), dimension(*), intent(in)      :: displacement
-            real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
-            integer(kind=c_int), value, intent(in)                :: clusterRate
+            character( kind=c_char ), dimension(*), intent(in) :: meshfile, checkPointFile, outputDirectory
+            character( kind=c_char ), dimension(*), intent(in) :: easiVelocityModel
+            logical( kind=c_bool ), value :: hasFault
+            real(kind=c_double), dimension(*), intent(in) :: displacement
+            real(kind=c_double), dimension(*), intent(in) :: scalingMatrix
+            integer(kind=c_int), value, intent(in) :: clusterRate, ltsWeightsTypeId
+            integer(kind=c_int), value, intent(in) :: vertexWeightElement, vertexWeightDynamicRupture
+            integer(kind=c_int), value, intent(in) :: vertexWeightFreeSurfaceWithGravity
             logical(kind=c_bool), value :: usePlasticity
+            real(kind=c_double), value :: maximumAllowedTimeStep
         end subroutine
     end interface
 
@@ -119,11 +137,10 @@ contains
         else
             hasFault = .false.
         endif
-        disc%DynRup%DR_output = .false.
 
         write(str, *) mpi%nCPU
         if (io%meshgenerator .eq. 'Gambit3D-fast') then
-            call read_mesh_gambitfast_c(mpi%myRank, trim(io%MeshFile) // c_null_char, \
+            call read_mesh_gambitfast_c(mpi%myRank, trim(io%MeshFile) // c_null_char, &
                 trim(io%MetisFile) // '.epart.' // trim(adjustl(str)) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
         elseif (io%meshgenerator .eq. 'Netcdf') then
 #ifdef PARALLEL
@@ -134,12 +151,18 @@ contains
         elseif (io%meshgenerator .eq. 'PUML') then
             call read_mesh_puml_c(  trim(io%MeshFile) // c_null_char,           &
                                     trim(io%checkpoint%filename) // c_null_char,&
+                                    trim(io%OutputFile) // c_null_char,         &
                                     hasFault,                                   &
                                     MESH%Displacement(:),                       &
                                     m_mesh%ScalingMatrix(:,:),                  &
                                     trim(EQN%MaterialFileName) // c_null_char,  &
                                     disc%galerkin%clusteredLts, &
-                                    logical(EQN%Plasticity == 1, 1))
+                                    disc%galerkin%ltsWeightTypeId, &
+                                    MESH%vertexWeightElement, &
+                                    MESH%vertexWeightDynamicRupture, &
+                                    MESH%vertexWeightFreeSurfaceWithGravity, &
+                                    logical(EQN%Plasticity == 1, 1), &
+                                    DISC%FixTimeStep)
         else
             logError(*) 'Unknown mesh reader'
             call MPI_ABORT(m_mpi%commWorld, 134)
@@ -164,11 +187,7 @@ contains
             endif
         endif
 
-#ifdef USE_DR_CELLAVERAGE
-        DISC%Galerkin%nBndGP = 4**ceiling(log( real((DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2) / 2) )/log(4.))
-#else
-        DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
-#endif
+        call c_interoperability_numberOfTriangleQuadraturePoints(disc%galerkin%nbndgp)
         disc%Galerkin%nIntGP = (disc%Galerkin%nPoly+2)**3
 
         allocate(mesh%LocalVrtxType(nElements))
@@ -178,10 +197,6 @@ contains
 
         allocate(mesh%ELEM%BndGP_Tri(2, DISC%Galerkin%nBndGP), &
                  mesh%ELEM%BndGW_Tri(DISC%Galerkin%nBndGP))
-#ifdef USE_DR_CELLAVERAGE
-        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, mesh%ELEM%BndGP_Tri)
-        mesh%ELEM%BndGW_Tri = 1.e99 ! blow up solution if used
-#else
         call TriangleQuadraturePoints(                    &
                   nIntGP     = disc%Galerkin%nBndGP,      &
                   IntGaussP  = mesh%ELEM%BndGP_Tri,       &
@@ -190,7 +205,6 @@ contains
                   IO         = io,                        &
                   quiet      = .true.,                    &
                   MPI        = MPI                     )
-#endif
 
         call computeAdditionalMeshInfo()
 
@@ -386,12 +400,6 @@ contains
         allocate(m_mesh%Fault%geoTangent2(3, n))
     end subroutine allocFault
 
-    subroutine hasPlusFault() bind(C)
-        implicit none
-
-        m_disc%DynRup%DR_output = .true.
-    end subroutine hasPlusFault
-
     subroutine allocBndObjFault(i, n) bind(C)
         implicit none
 
@@ -575,20 +583,6 @@ contains
         s = size(m_bnd%ObjMPI(i)%DomainElements)
         ptr = c_loc(m_bnd%ObjMPI(i)%DomainElements(1))
     end subroutine getBndDomainElements
-
-    subroutine getFaultReferencePoint(x, y, z, method) bind(C)
-        implicit none
-
-        real( kind=c_double ), intent(out) :: x
-        real( kind=c_double ), intent(out) :: y
-        real( kind=c_double ), intent(out) :: z
-        integer( kind=c_int ), intent(out) :: method
-
-        x = m_eqn%XRef
-        y = m_eqn%YRef
-        z = m_eqn%ZRef
-        method = m_eqn%refPointMethod
-    end subroutine getFaultReferencePoint
 
     subroutine getFaultFace(s, ptr) bind(C)
         implicit none

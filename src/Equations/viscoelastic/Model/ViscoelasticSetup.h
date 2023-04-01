@@ -127,37 +127,6 @@ namespace seissol {
     }
     
     template<>
-    inline void getPlaneWaveOperator( ViscoElasticMaterial const& material,
-                                      double const n[3],
-                                      std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
-    {
-      yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
-      M.setZero();
-    
-      double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-      yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
-    
-      for (unsigned d = 0; d < 3; ++d) {
-        Coeff.setZero();
-        getTransposedCoefficientMatrix(material, d, Coeff);
-    
-        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-          for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-            M(i,j) += n[d] * Coeff(j,i);
-          }
-        }
-      }
-    
-      getTransposedSourceCoefficientTensor(material, Coeff);
-    
-      for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-        for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-          M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
-        }
-      }
-    }
-    
-    template<>
     inline void getTransposedGodunovState( ViscoElasticMaterial const& local,
                                            ViscoElasticMaterial const& neighbor,
                                            FaceType faceType,
@@ -173,6 +142,7 @@ namespace seissol {
 
     template<>
     inline void initializeSpecificLocalData( ViscoElasticMaterial const& material,
+                                             real timeStepWidth,
                                              ViscoElasticLocalData* localData )
     {
       auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);

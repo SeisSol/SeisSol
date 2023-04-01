@@ -1,61 +1,49 @@
-#include <cxxtest/TestSuite.h>
 #include "Solver/Pipeline/DrTuner.h"
 #include <array>
 
+namespace seissol::unit_test {
 
-namespace seissol {
-  namespace unit_test {
-    class DrTunerTest;
-  }
-}
+TEST_CASE("Dr tuner") {
+  constexpr static size_t ComputeStageId{1};
+  std::array<double, 3> timing{};
+  constexpr static double eps{2.0};
+  size_t batchSize{0};
+  dr::pipeline::DrPipelineTuner tuner;
 
-
-class seissol::unit_test::DrTunerTest : public CxxTest::TestSuite {
-public:
-  void testGoesToLeft() {
-    dr::pipeline::DrPipelineTuner tuner;
+  SUBCASE("Goes to left") {
     // this is going to results in: Performance ~ 1 / batchSize
-    auto squareFunction = [] (size_t x) {return static_cast<double>(x * x);};
+    auto squareFunction = [](size_t x) { return static_cast<double>(x * x); };
 
     while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
       timing[ComputeStageId] = squareFunction(batchSize);
       tuner.tune(timing);
     }
-    TS_ASSERT_DELTA(batchSize, tuner.getMinBatchSize(), eps);
+    REQUIRE(batchSize == AbsApprox(tuner.getMinBatchSize()).epsilon(eps));
   }
 
-  void testGoesToRight() {
-    dr::pipeline::DrPipelineTuner tuner;
-    auto hyperbolicTime = [](size_t x) {return 1.0 / (static_cast<double>(x + 1.0));};
+  SUBCASE("Goes to right") {
+    auto hyperbolicTime = [](size_t x) { return 1.0 / (static_cast<double>(x + 1.0)); };
 
     while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
       timing[ComputeStageId] = hyperbolicTime(batchSize);
       tuner.tune(timing);
     }
-    TS_ASSERT_DELTA(batchSize, tuner.getMaxBatchSize(), eps);
+    REQUIRE(batchSize == AbsApprox(tuner.getMinBatchSize()).epsilon(eps));
   }
 
-  void testMaxWithinRange() {
-    dr::pipeline::DrPipelineTuner tuner;
+  SUBCASE("Max is withing range") {
     const auto midPoint = 0.5 * (tuner.getMaxBatchSize() + tuner.getMinBatchSize());
 
-    auto hatFunction = [midPoint] (size_t x) {
-      return std::abs(midPoint - x);
-    };
+    auto hatFunction = [midPoint](size_t x) { return std::abs(midPoint - x); };
 
     while (!tuner.isTunerConverged()) {
       batchSize = tuner.getBatchSize();
       timing[ComputeStageId] = hatFunction(batchSize);
       tuner.tune(timing);
     }
-    TS_ASSERT_DELTA(batchSize, midPoint, eps);
+    REQUIRE(batchSize == AbsApprox(midPoint).epsilon(eps));
   }
-
-private:
-  constexpr static size_t ComputeStageId{1};
-  std::array<double, 3> timing{};
-  constexpr static double eps{2.0};
-  size_t batchSize{0};
-};
+}
+} // namespace seissol::unit_test

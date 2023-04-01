@@ -45,15 +45,17 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
-#include <Eigen/Dense>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
+#include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
 #include "Equations/datastructures.hpp"
+#include <DynamicRupture/Misc.h>
 
 namespace seissol {
   class Interoperability;
@@ -66,6 +68,7 @@ class seissol::Interoperability {
   // private:
     // Type of the initial condition.
     std::string m_initialConditionType;
+    TravellingWaveParameters m_travellingWaveParameters;
     
     /* Brain dump of SeisSol's Fortran parts:
      * Raw fotran-pointer to cope with limited modularity of the
@@ -94,13 +97,11 @@ class seissol::Interoperability {
 
     //! Lookup table relating faces to layers
     unsigned*                         m_ltsFaceToMeshFace;
-    
-    //! Set of parameters that have to be initialized for dynamic rupture
-    std::unordered_map<std::string, double*> m_faultParameters;
 
-    std::vector<Eigen::Vector3d>           m_recPoints;
+    seissol::initializers::LTSTree* m_dynRupTree;
+    seissol::initializers::DynamicRupture* m_dynRup;
 
-    //! Vector of initial conditions
+  //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
     void initInitialConditions();
@@ -118,6 +119,8 @@ class seissol::Interoperability {
     * @param type The name of the type of the initial conditions.
     */
    void setInitialConditionType(char const *type);
+
+   void setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField);
 
    /**
     * Sets the fortran domain.
@@ -151,6 +154,7 @@ class seissol::Interoperability {
     **/
    void initializeClusteredLts(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
    void initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration, bool usePlasticity);
+   void initFaultOutputManager();
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -159,7 +163,9 @@ class seissol::Interoperability {
 
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
-                               double const* velocityComponent,
+                               double const* solidVelocityComponent,
+                               double const* pressureComponent,
+                               double const* fluidVelocityComponent,
                                int           numberOfSources,
                                double const* centres,
                                double const* strikes,
@@ -174,8 +180,10 @@ class seissol::Interoperability {
     //! \todo Documentation
     void initializeModel( char*   materialFileName,
                           bool    anelasticity,
-                          bool    anisotropy,
                           bool    plasticity,
+                          bool    anisotropy,
+                          bool    poroelasticity,
+                          bool    useCellHomogenizedMaterial,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,
@@ -188,31 +196,6 @@ class seissol::Interoperability {
                           double Qp,
                           double Qs,
                           seissol::model::ViscoElasticMaterial& material );
-
-    void addFaultParameter( std::string const& name,
-                           double* memory) {
-      m_faultParameters[name] = memory;
-    }
-    
-    //! \todo Documentation
-    void initializeFault( char*   modelFileName,
-                          int     gpwise,
-                          double* bndPoints,
-                          int     numberOfBndPoints );
-
-   /**
-    * Adds a receiver at the specified location.
-    *
-    * @param x,y,z coordinates in physical space
-    **/
-   void addRecPoint(double x, double y, double z) {
-     m_recPoints.emplace_back(Eigen::Vector3d(x, y, z));
-   }
-
-   /**
-    * Enables dynamic rupture.
-    **/
-   void enableDynamicRupture();
 
    /**
     * Set material parameters for cell
@@ -294,18 +277,12 @@ class seissol::Interoperability {
     **/
    void getIntegrationMask( int* i_integrationMask );
 
-   void initializeIO(double* mu, double* slipRate1, double* slipRate2,
-			double* slip, double* slip1, double* slip2, double* state, double* strength,
-			int numSides, int numBndGP, int refinement, int* outputMask,
-			double* outputRegionBounds,
-			double freeSurfaceInterval, const char* freeSurfaceFilename,
-      char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval);
-
-   /**
-    * Copy dynamic rupture variables for output.
-    **/
-   void copyDynamicRuptureState();
+   void initializeIO(int numSides, int numBndGP, int refinement, int* outputMask,
+                     int* plasticityMask, double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
+                     double freeSurfaceInterval, const char* outputFileNamePrefix, const char* xdmfWriterBackend,
+                     const char* receiverFileName, double receiverSamplingInterval, double receiverSyncInterval,
+                     bool isPlasticityEnabled, bool isEnergyTerminalOutputEnabled, int computeVolumeEnergiesEveryOutput, 
+                     double energySyncInterval, bool receiverComputeRotation);
 
   /**
    * Returns (possibly multiple) initial conditions
@@ -360,38 +337,12 @@ class seissol::Interoperability {
    std::string getInitialConditionType();
 
    /**
-    * Compute fault output.
-    *
-    * @param i_fullUpdateTime full update time of the respective DOFs.
-    * @param i_timeStepWidth time step width of the next full update.
-    **/
-   void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
-
-   void evaluateFrictionLaw(  int face,
-                              real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                              real   imposedStatePlus[seissol::tensor::QInterpolated::size()],
-                              real   imposedStateMinus[seissol::tensor::QInterpolated::size()],
-                              double i_fullUpdateTime,
-                              double timePoints[CONVERGENCE_ORDER],
-                              double timeWeights[CONVERGENCE_ORDER],
-                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
-                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
-
-
-   /**
-    * Prepare element wise faultoutput
-    *
-    * @param time The current simulation time
-    */
-   void calcElementwiseFaultoutput( double time );
-
-   /**
     * Simulates until the final time is reached.
     *
     * @param i_finalTime final time to reach.
+    * @param i_plasticity=1 if plasticity is on
     **/
-   void simulate( double i_finalTime );
+   void simulate( double i_finalTime, int i_plasticity );
 
    /**
     * Finalizes I/O

@@ -19,14 +19,22 @@ Characteristics of the SeisSol simulation software are:
 - parallel geo-information input (ASAGI)
 - to produce reliable and sufficiently accurate synthetic seismograms or other seismological data sets
 
+-----
+
+We gratefully acknowledge the funding of the German Research Foundation (as part of project no. 391134334 - "CoCoReCS"), which massively contributed to creating all documentation, tutorials, example workflows and reproducible setups published on this website. 
+
+-----
+
 .. toctree::
   :maxdepth: 2
   :caption: Introduction
 
   introduction
-  compilation
+  installing-dependencies
+  compiling-seissol
   a-first-example
   acknowledge
+  reproducible-research
   related-publications
 
 .. toctree::
@@ -45,6 +53,8 @@ Characteristics of the SeisSol simulation software are:
   configuration
   parameter-file
   initial-condition
+  local-timestepping
+  left-lateral-right-lateral-normal-reverse.rst
   easi
   fault-tagging
   environment-variables
@@ -55,8 +65,20 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
+  behind_firewall
   supermuc
+  shaheen
+  frontera
   marconi
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Seismic source
+
+  dynamic-rupture
+  standard-rupture-format
+  slip-rate-on-DR
+  point-source-older-implementation
 
 .. toctree::
   :maxdepth: 2
@@ -68,22 +90,23 @@ Characteristics of the SeisSol simulation software are:
   postprocessing-and-visualization
   wave-field-output
   checkpointing
-
+  energy-output
+ 
 .. toctree::
   :maxdepth: 2
   :caption: Further documentation
 
   PUML-mesh-format
   asagi
-  standard-rupture-format
-  point-source-older-implementation
-  dynamic-rupture
+  sycl
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
   physical-models 
+  scaling
   basic-code-structure
   known-issues
+  breaking-changes-backward-compatibility
 
 .. toctree::
   :maxdepth: 2
@@ -91,6 +114,8 @@ Characteristics of the SeisSol simulation software are:
   
   simmodelerCAD-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
+  generating-a-megathrust-geometry
+  fully-coupled-mesh-tutorial
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad
@@ -112,11 +137,3 @@ Characteristics of the SeisSol simulation software are:
   pointsource
   kinematic
   copyrights
-
-.. toctree::
-  :maxdepth: 2
-  :caption: Unsorted
-
-  building-seissol-on-stampede-knl-test-system
-  left-lateral-right-lateral-normal-reverse
-  optimization-for-non-intel-architectures

@@ -1,53 +1,85 @@
 #ifndef SEISSOL_ENCODINGCONSTANTS_HPP
 #define SEISSOL_ENCODINGCONSTANTS_HPP
 
+#include "Kernels/precision.hpp"
 #include <cstdlib>
 
-namespace seissol {
-namespace initializers {
-namespace recording {
+namespace seissol::initializers::recording::inner_keys {
 
-enum struct EntityId : size_t {
-  Dofs = 0,
-  Idofs,
-  Star,
-  Buffers,
-  Derivatives,
-  AplusT,
-  AminusT,
-  Godunov,
-  FluxSolver,
-  Ivelocities, // 6th, 7the and 8th columns of Idofs
-  Displacements,
-  NodalStressTensor,
-  Pstrains,
-  ElementsIds,
-  InitialLoad,
-  DrDerivativesPlus,
-  DrDerivativesMinus,
-  DrIdofsPlus,
-  DrIdofsMinus,
-  DrQInterpolatedPlus,
-  DrQInterpolatedMinus,
-  DrTinvT,
-  Count
+/**
+ * The structure contains encoded variables names
+ * of the Wave Propagation (Wp) solver.
+ */
+struct Wp {
+  using DataType = real*;
+  enum struct Id : size_t {
+    Dofs = 0,
+    Idofs,
+    Star,
+    Buffers,
+    Derivatives,
+    AplusT,
+    AminusT,
+    Godunov,
+    FluxSolver,
+    Ivelocities, // 6th, 7the and 8th columns of Idofs
+    FaceDisplacement,
+    NodalStressTensor,
+    Pstrains,
+    InitialLoad,
+    NodalAvgDisplacements,
+    T,
+    Tinv,
+    EasiBoundaryMap,
+    EasiBoundaryConstant,
+    Count
+  };
 };
 
+/**
+ * The structure contains encoded variables names
+ * of the Dynamic Rupture (Dr) solver.
+ */
+struct Dr {
+  using DataType = real*;
+  enum struct Id : size_t {
+    DerivativesPlus = 0,
+    DerivativesMinus,
+    IdofsPlus,
+    IdofsMinus,
+    QInterpolatedPlus,
+    QInterpolatedMinus,
+    TinvT,
+    Count
+  };
+};
+
+struct Material {
+  using DataType = double;
+  enum struct Id : size_t { Rho = 0, Lambda, Count };
+};
+
+struct Indices {
+  using DataType = unsigned;
+  enum struct Id : size_t { Cells = 0, Count };
+};
+} // namespace seissol::initializers::recording::inner_keys
+
+namespace seissol::initializers::recording {
 constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
-constexpr size_t encodeAny(unsigned count) {
-  return ~(ALL_BITS << count);
-}
+constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
 
 enum struct KernelNames : size_t {
   Time = 1 << 0,
   Volume = 1 << 1,
   LocalFlux = 1 << 2,
   NeighborFlux = 1 << 3,
-  Displacements = 1 << 4,
+  FaceDisplacements = 1 << 4,
   Plasticity = 1 << 5,
   DrTime = 1 << 6,
   DrSpaceMap = 1 << 7,
-  Count = 8,
+  BoundaryConditions = 1 << 8,
+  Count = 9,
   Any = encodeAny(Count)
 };
 
@@ -58,8 +90,11 @@ enum struct ComputationKind : size_t {
   WithGtsDerivatives = 1 << 3,
   WithGtsBuffers = 1 << 4,
   WithLtsBuffers = 1 << 5,
-  Count = 6,
-  Any = encodeAny(Count)
+  FreeSurfaceGravity = 1 << 6,
+  Dirichlet = 1 << 7,
+  Analytical = 1 << 8,
+  Count = 9,
+  None = encodeAny(Count)
 };
 
 enum struct FaceKinds : size_t {
@@ -69,7 +104,7 @@ enum struct FaceKinds : size_t {
   DynamicRupture = 1 << 3,
   Periodic = 1 << 4,
   Count = 5,
-  Any = encodeAny(Count)
+  None = encodeAny(Count)
 };
 
 enum struct FaceId : size_t { Count = 4, Any = ALL_BITS };
@@ -83,8 +118,6 @@ enum struct ExchangeInfo : size_t {
   Any = encodeAny(Count)
 };
 
-} // namespace recording
-} // namespace initializers
-} // namespace seissol
+} // namespace seissol::initializers::recording
 
 #endif // SEISSOL_ENCODINGCONSTANTS_HPP

@@ -41,6 +41,7 @@
 #ifndef PARALLEL_PIN_H_
 #define PARALLEL_PIN_H_
 
+#include <sched.h>
 #include <string>
 
 namespace seissol {
@@ -58,7 +59,8 @@ public:
   static std::string maskToString(cpu_set_t const& set);
   cpu_set_t getNodeMask() const;
 };
-  }
+
+}
 }
 
 #endif

@@ -40,7 +40,7 @@
 #ifndef INITIALIZER_INTERFACEHELPER_H_
 #define INITIALIZER_INTERFACEHELPER_H_
 
-#include <easi/util/Magic.h>
+#include "easi/util/Magic.h"
 
 namespace seissol {
   template<typename X>

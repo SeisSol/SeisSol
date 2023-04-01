@@ -79,13 +79,13 @@
 
 void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind i_memkind)
 {
-    void* l_ptrBuffer;
+    void* l_ptrBuffer{nullptr};
     bool error = false;
 
     /* handle zero allocation */
     if ( i_size == 0 ) {
-      //logWarning() << "allocation of size 0 requested, returning NULL; (alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
-      l_ptrBuffer = NULL;
+      //logWarning() << "allocation of size 0 requested, returning nullptr; (alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
+      l_ptrBuffer = nullptr;
       return l_ptrBuffer;
     }
 
@@ -94,7 +94,7 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
 #endif
       if (i_alignment % (sizeof(void*)) != 0) {
         l_ptrBuffer = malloc( i_size );
-        error = (l_ptrBuffer == NULL);
+        error = (l_ptrBuffer == nullptr);
       } else {
         error = (posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
       }
@@ -103,7 +103,7 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
     else if (i_memkind == HighBandwidth) {
       if (i_alignment % (sizeof(void*)) != 0) {
         l_ptrBuffer = hbw_malloc( i_size );
-        error = (l_ptrBuffer == NULL);
+        error = (l_ptrBuffer == nullptr);
       } else {
         error = (hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
       }

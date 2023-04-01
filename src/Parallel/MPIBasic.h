@@ -54,8 +54,14 @@ protected:
 	/** This rank */
 	int m_rank;
 
+	/** Rank in the shared memory sub-communicator */
+	int m_sharedMemMpiRank;
+
 	/** Number of processors */
 	int m_size;
+
+	/** Number of ranks in the shared memory sub-communicator */
+	int m_sharedMemMpiSize;
 
 	/** Requires threadsafe MPI */
 	bool m_threadsafe;
@@ -66,8 +72,7 @@ public:
 
 protected:
 	MPIBasic()
-		: m_rank(0), m_size(1),
-		  m_threadsafe(false)
+		: m_rank(0), m_size(1)
 	{ }
 
 public:
@@ -83,6 +88,14 @@ public:
 	}
 
 	/**
+	 * @return The rank within the shared memory sub-communicator
+	 */
+	int sharedMemMpiRank() const
+	{
+		return m_sharedMemMpiRank;
+	}
+
+	/**
 	 * @return The total number of processes
 	 */
 	int size() const
@@ -90,11 +103,13 @@ public:
 		return m_size;
 	}
 
-	void requireThreadsafe()
+	/**
+	 * @return The number of ranks within the shared memory sub-communicator
+	 */
+	int sharedMemMpiSize() const
 	{
-		m_threadsafe = true;
+		return m_sharedMemMpiSize;
 	}
-
 };
 
 }

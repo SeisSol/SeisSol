@@ -55,8 +55,10 @@
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical_aux/Statistics.h"
-#include "Initializer/time_stepping/LtsWeights.h"
+#include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
 #include "Solver/time_stepping/MiniSeisSol.h"
+#include "ResultWriter/MiniSeisSolWriter.h"
+
 
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
@@ -118,7 +120,7 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 	getboundarytoobject(&size, &boundaryToObject);
 
 	for (int i = 0; i < size; i++) {
-		reference[i*5] = elements[i].material;
+		reference[i*5] = elements[i].group;
 
 		for (int j = 0; j < 4; j++) {
 			elementVertices[i*4+j] = elements[i].vertices[j] + 1;
@@ -169,10 +171,9 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 	if (hasFault) {
 		logInfo(rank) << "Extracting fault information";
 
-		VrtxCoords center;
-		int refPointMethod;
-		getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
-		meshReader.findFault(center, refPointMethod);
+		auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
+		VrtxCoords center {drParameters->referencePoint[0], drParameters->referencePoint[1], drParameters->referencePoint[2]};
+		meshReader.findFault(center, drParameters->refPointMethod);
 
 		int* mpiNumberDr;
 		getmpinumberdr(&size, &mpiNumberDr);
@@ -190,9 +191,6 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		const std::map<int, std::vector<MPINeighborElement> >& mpiFaultNeighbors = meshReader.getMPIFaultNeighbors();
 
 		allocfault(fault.size());
-
-		if (meshReader.hasPlusFault())
-			hasplusfault();
 
 		if (fault.size() > 0) {
 			int* faultface;
@@ -232,6 +230,8 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		}
 	}
 
+	meshReader.exchangeVerticesWithMPINeighbors();
+
 	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
 
 	// Setup the communicator for dynamic rupture
@@ -250,7 +250,7 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
 	logInfo(rank) << "Reading Gambit mesh using fast reader";
 	logInfo(rank) << "Parsing mesh and partition file:" << meshfile << ';' << partitionfile;
 
-	Stopwatch watch;
+    seissol::Stopwatch watch;
 	watch.start();
 
 	seissol::SeisSol::main.setMeshReader(new GambitReader(rank, meshfile, partitionfile));
@@ -261,14 +261,14 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
 	watch.printTime("Mesh initialized in:");
 }
 
-void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
-{
+void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault, double const displacement[3],
+                        double const scalingMatrix[3][3]) {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 #ifdef USE_NETCDF
 	logInfo(rank) << "Reading netCDF mesh" << meshfile;
 
-	Stopwatch watch;
+    seissol::Stopwatch watch;
 	watch.start();
 
 	seissol::SeisSol::main.setMeshReader(new NetcdfReader(rank, nProcs, meshfile));
@@ -286,24 +286,30 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 
 void read_mesh_puml_c(const char* meshfile,
                       const char* checkPointFile,
+                      const char* outputDirectory,
                       bool hasFault,
                       double const displacement[3],
                       double const scalingMatrix[3][3],
                       char const* easiVelocityModel,
                       int clusterRate,
-                      bool usePlasticity)
-{
+                      int ltsWeightsTypeId,
+                      int vertexWeightElement,
+                      int vertexWeightDynamicRupture,
+                      int vertexWeightFreeSurfaceWithGravity,
+                      bool usePlasticity,
+                      double maximumAllowedTimeStep) {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();
 	double tpwgt = 1.0;
 
-	if constexpr (!seissol::isDeviceOn()) {
+#ifdef USE_MINI_SEISSOL
     if (seissol::MPI::mpi.size() > 1) {
       logInfo(rank) << "Running mini SeisSol to determine node weight";
-      tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
-                                         usePlasticity);
+      auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
+                                              usePlasticity);
+      tpwgt = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(tpwgt);
       logInfo(rank) << "Node weights: mean =" << summary.mean
@@ -311,20 +317,49 @@ void read_mesh_puml_c(const char* meshfile,
                     << " min =" << summary.min
                     << " median =" << summary.median
                     << " max =" << summary.max;
+
+      writer::MiniSeisSolWriter writer(outputDirectory);
+      writer.write(elapsedTime, tpwgt);
     }
-  }
-	
+#else
+    logInfo(rank) << "Skipping mini SeisSol";
+#endif
+
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
-	Stopwatch watch;
+	seissol::Stopwatch watch;
 	watch.start();
 
 	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 
-	seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate);
-	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, checkPointFile, &ltsWeights, tpwgt, readPartitionFromFile));
+	using namespace seissol::initializers::time_stepping;
+	LtsWeightsConfig config {
+		easiVelocityModel,
+		static_cast<unsigned int>(clusterRate),
+		vertexWeightElement,
+		vertexWeightDynamicRupture,
+		vertexWeightFreeSurfaceWithGravity
+	};
 
-	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+	LtsWeightsTypes ltsWeightsType{};
+	try {
+		ltsWeightsType = convertLtsIdToType(ltsWeightsTypeId);
+	}
+	catch (const std::runtime_error& error) {
+		logError() << error.what();
+	}
+
+        const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
+        auto ltsWeights = getLtsWeightsImplementation(ltsWeightsType, config, ltsParameters);
+        auto meshReader = new seissol::PUMLReader(meshfile,
+                                                  maximumAllowedTimeStep,
+                                                  checkPointFile,
+                                                  ltsWeights.get(),
+                                                  tpwgt,
+                                                  readPartitionFromFile);
+        seissol::SeisSol::main.setMeshReader(meshReader);
+
+        read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 
 	watch.pause();
 	watch.printTime("Mesh initialized in:");

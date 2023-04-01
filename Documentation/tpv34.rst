@@ -1,3 +1,5 @@
+.. _tpv34:
+
 SCEC TPV34
 ==========
 
@@ -9,6 +11,7 @@ surrounding the Imperial Fault, as given by the SCEC Community Velocity Model
 .. figure:: LatexFigures/tpv34_imperialfault.png
    :alt: The Imperial Fault.
    :width: 15.00000cm
+   :align: center
 
    The Imperial Fault. The red line marks the Imperial Fault. It straddles the California-Mexico border, south of the Salton Sea. The Imperial Fault is approximately 45 km long and 15 km deep, with a nearly vertical dip angle ranging from 81 to 90 degrees according to the SCEC Community Fault Model CFM-4.
 
@@ -26,6 +29,7 @@ located 15 km from the left edge of the fault, at a depth of 7.5 km.
 .. figure:: LatexFigures/tpv34.png
    :alt: TPV34 overview.
    :width: 15.00000cm
+   :align: center
 
    TPV34 overview. 
 
@@ -36,6 +40,7 @@ https://github.com/SeisSol/Examples/tree/master/tpv34.
 .. figure:: LatexFigures/tpv34_gmshhalf.png
    :alt: Modeled TPV34 fault in Gmsh.
    :width: 15.00000cm
+   :align: center
 
    Modeled TPV34 fault in Gmsh.
 
@@ -49,7 +54,7 @@ For TPV34, we are using CVM-H version 15.1.0 and we use
 Detailed explanations are provided at 
 https://github.com/SeisSol/Examples/blob/master/tpv34/generate_ASAGI_file.sh. 
 We generate 2 netcdf files of different spatial resolution to map more finely the 3D material properties close to the fault. 
-The domain of validity of each netcdf files read by ASAGI is defined by the yaml tpv34-material.yaml file:
+The domain of validity of each netcdf files read by ASAGI is defined by the yaml tpv34_material.yaml file:
 
 .. code-block:: YAML
 
@@ -60,7 +65,7 @@ The domain of validity of each netcdf files read by ASAGI is defined by the yaml
         limits:
           x: [-25000.0, 25000.0]
           y: [-25000.0, 25000.0]
-          z: [-25000.0, 0.0]
+          z: [-15000.0, 0.0]
         components: !ASAGI
           file: tpv34_rhomulambda-inner.nc
           parameters: [rho, mu, lambda]
@@ -171,5 +176,6 @@ For example, open Paraview and then go through File > import > 'prefix'-fault.xd
 .. figure:: LatexFigures/tpv34_SRs_3s.png
    :alt: Fault slip rate along-strike direction
    :width: 15.00000cm
+   :align: center
 
    Fault slip rate in the along-strike direction (SRs) at a rupture time of 3 seconds in TPV34, visualized using Paraview. 

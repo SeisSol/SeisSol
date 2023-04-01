@@ -47,7 +47,9 @@
 #include <iostream>
  
 void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3][3],
-                                                real const i_localVelocityComponent[3],
+                                                real const i_localSolidVelocityComponent[3],
+                                                real i_localPressureComponent,
+                                                real const i_localFluidVelocityComponent[3],
                                                 real strike,
                                                 real dip,
                                                 real rake,
@@ -86,18 +88,20 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
       }
     }
   }
-  real f[3] = {0.0, 0.0, 0.0};
+  real f[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   for (unsigned j = 0; j < 3; ++j) {
     for (unsigned k = 0; k < 3; ++k) {
-        f[k] += R[k][j] * i_localVelocityComponent[j];
+        f[k] += R[k][j] * i_localSolidVelocityComponent[j];
+        f[k+3] += R[k][j] * i_localFluidVelocityComponent[j];
     }
   }
   
 #if NUMBER_OF_QUANTITIES < 6
   #error You cannot use PointSource with less than 6 quantities.
 #endif
-  
-  // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u, v, w)
+
+  std::fill(o_forceComponents, o_forceComponents+NUMBER_OF_QUANTITIES, 0);
+  // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u, v, w, p, u_f, v_f, w_f)
   o_forceComponents[0] = M[0][0];
   o_forceComponents[1] = M[1][1];
   o_forceComponents[2] = M[2][2];
@@ -107,10 +111,12 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   o_forceComponents[6] = f[0];
   o_forceComponents[7] = f[1];
   o_forceComponents[8] = f[2];
-
-  for (unsigned m = 9; m < seissol::sourceterm::PointSources::TensorSize; ++m) {
-    o_forceComponents[m] = 0.0;
-  }
+#ifdef USE_POROELASTIC
+  o_forceComponents[9] = i_localPressureComponent;
+  o_forceComponents[10] = f[3];
+  o_forceComponents[11] = f[4];
+  o_forceComponents[12] = f[5];
+#endif
 }
 
 real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,

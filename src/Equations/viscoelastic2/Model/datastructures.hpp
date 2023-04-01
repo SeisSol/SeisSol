@@ -41,6 +41,7 @@
 #ifndef MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
 #define MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
 
+#include "Initializer/preProcessorMacros.fpp"
 #include <Model/common_datastructures.hpp>
 #include <Equations/elastic/Model/datastructures.hpp>
 #include <generated_code/tensor.h>

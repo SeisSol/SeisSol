@@ -16,21 +16,12 @@
 [submodule "submodules/PUML"]
 	path = submodules/PUML
 	url = ../../TUM-I5/PUML2.git
-[submodule "submodules/easi"]
-	path = submodules/easi
-	url = ../../SeisSol/easi.git
-[submodule "submodules/yaml-cpp"]
-	path = submodules/yaml-cpp
-	url = ../../jbeder/yaml-cpp.git
-[submodule "submodules/ImpalaJIT"]
-	path = submodules/ImpalaJIT
-	url = ../../uphoffc/ImpalaJIT.git
 [submodule "submodules/yateto"]
 	path = submodules/yateto
 	url = ../../SeisSol/yateto.git
-[submodule "submodules/eigen3"]
-	path = submodules/eigen3
-	url = ../../eigenteam/eigen-git-mirror
 [submodule "submodules/Device"]
 	path = submodules/Device
 	url = ../../SeisSol/Device.git
+[submodule "submodules/fty"]
+	path = submodules/fty
+	url = ../../ravil-mobile/fty.git

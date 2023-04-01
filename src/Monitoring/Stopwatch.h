@@ -47,6 +47,19 @@
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
 
+namespace seissol {
+
+/** Returns the time difference in nanoseconds. */
+inline long long difftime(timespec const& start, timespec const& end)
+{
+  return 1000000000L * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+}
+
+inline double seconds(long long time)
+{
+  return 1.0e-9 * time;
+}
+
 /**
  * Stopwatch
  *
@@ -59,17 +72,6 @@ private:
 
 	/** Time already spent */
 	long long m_time;
-  
-  /** Returns the time difference in nanoseconds. */
-  long long difftime(struct timespec const& end)
-  {
-    return 1000000000L * (end.tv_sec - m_start.tv_sec) + end.tv_nsec - m_start.tv_nsec;
-  }
-  
-  double seconds(long long time) 
-  {
-    return 1.0e-9 * time;
-  }
 
 public:
 	/**
@@ -112,7 +114,7 @@ public:
 		struct timespec end;
 		clock_gettime(CLOCK_MONOTONIC, &end);
     
-    return seconds(difftime(end));
+    return seconds(difftime(m_start, end));
 	}
 
 	/**
@@ -125,7 +127,7 @@ public:
 		struct timespec end;
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
-		m_time += difftime(end);
+		m_time += difftime(m_start, end);
 		return seconds(m_time);
 	}
 
@@ -183,5 +185,7 @@ public:
 			;
 	}
 };
+
+}
 
 #endif // STOPWATCH_H

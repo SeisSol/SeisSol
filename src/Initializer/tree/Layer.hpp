@@ -43,10 +43,11 @@
 #include "Node.hpp"
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
+#include "Initializer/DeviceGraph.h"
 #include <bitset>
 #include <limits>
 #include <cstring>
-
+#include <type_traits>
 
 enum LayerType {
   Ghost    = (1 << 0),
@@ -59,8 +60,8 @@ namespace seissol {
   namespace initializers {
     typedef std::bitset<NUMBER_OF_LAYERS> LayerMask;
 
-    template<typename T> class Variable;
-    class Bucket;
+    template<typename T> struct Variable;
+    struct Bucket;
     struct MemoryInfo;
     class Layer;
 #ifdef ACL_DEVICE
@@ -105,7 +106,11 @@ private:
 #ifdef ACL_DEVICE
   void** m_scratchpads{};
   size_t* m_scratchpadSizes{};
-  ConditionalBatchTableT m_conditionalBatchTable{};
+  std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
+  ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
+  DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
+  ConditionalMaterialTable m_conditionalMaterialTable{};
+  ConditionalIndicesTable m_conditionalIndicesTable;
 #endif
 
 public:
@@ -259,12 +264,60 @@ public:
   }
 
 #ifdef ACL_DEVICE
-  ConditionalBatchTableT& getCondBatchTable() {
-    return m_conditionalBatchTable;
+  template<typename InnerKeyType>
+  auto& getConditionalTable() {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
+      return m_conditionalPointersToRealsTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
+      return m_drConditionalPointersToRealsTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+      return m_conditionalMaterialTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
+      return m_conditionalIndicesTable;
+    }
   }
 
-  const ConditionalBatchTableT& getCondBatchTable() const {
-    return m_conditionalBatchTable;
+  template<typename InnerKeyType>
+  const auto& getConditionalTable() const {
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Wp>) {
+      return m_conditionalPointersToRealsTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Dr>) {
+      return m_drConditionalPointersToRealsTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Material>) {
+      return m_conditionalMaterialTable;
+    }
+
+    if constexpr (std::is_same_v<InnerKeyType, inner_keys::Indices>) {
+      return m_conditionalIndicesTable;
+    }
+  }
+
+  device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
+    if (m_computeGraphHandles.find(graphKey) != m_computeGraphHandles.end()) {
+      return m_computeGraphHandles[graphKey];
+    }
+    else {
+      return device::DeviceGraphHandle();
+    }
+  }
+
+  void updateDeviceComputeGraphHandle(GraphKey graphKey,
+                                      device::DeviceGraphHandle graphHandle) {
+    assert(m_computeGraphHandles.find(graphKey) == m_computeGraphHandles.end()
+           && "an entry of hash table must be empty on write");
+    if (graphHandle.isInitialized()) {
+      m_computeGraphHandles[graphKey] = graphHandle;
+    }
   }
 #endif // ACL_DEVICE
 };

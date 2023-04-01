@@ -38,7 +38,7 @@ private:
   std::string fileName;
 };
 
-  class AnalysisWriter {
+class AnalysisWriter {
 private:
     struct data {
       double val;
@@ -57,7 +57,7 @@ public:
               std::string_view fileNamePrefix) {
       isEnabled = true;
       this->meshReader = meshReader;
-      fileName = std::string(fileNamePrefix) + "_analysis.csv";
+      fileName = std::string(fileNamePrefix) + "-analysis.csv";
     }  
 
     

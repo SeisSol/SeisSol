@@ -90,15 +90,24 @@ class seissol::kernels::Time : public TimeBase {
     void setHostGlobalData(GlobalData const* global);
     void setGlobalData(const CompoundGlobalData& global);
 
-    void computeAder( double                      i_timeStepWidth,
-                      LocalData&                  data,
-                      LocalTmp&                   tmp,
-                      real                        o_timeIntegrated[tensor::I::size()],
-                      real*                       o_timeDerivatives = NULL );
+    void computeAder(double i_timeStepWidth,
+                     LocalData& data,
+                     LocalTmp& tmp,
+                     real o_timeIntegrated[tensor::I::size()],
+                     real* o_timeDerivatives = nullptr,
+                     bool updateDisplacement = false);
 
+#ifdef USE_STP
+    void executeSTP( double     i_timeStepWidth,
+                     LocalData& data,
+                     real       o_timeIntegrated[tensor::I::size()],
+                     real*      stp );
+#endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
-                            ConditionalBatchTableT &table);
+                            ConditionalPointersToRealsTable &dataTable,
+                            ConditionalMaterialTable &materialTable,
+                            bool updateDisplacement = false);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
@@ -123,13 +132,22 @@ class seissol::kernels::Time : public TimeBase {
                                  real const*  timeDerivatives,
                                  real         timeEvaluated[tensor::Q::size()] );
 
+    void computeDerivativeTaylorExpansion(real time,
+                                          real expansionPoint,
+                                          real const*  timeDerivatives,
+                                          real timeEvaluated[tensor::Q::size()],
+                                          unsigned derivativeOrder);
+
+
   void computeBatchedTaylorExpansion(real time,
                                      real expansionPoint,
                                      real** timeDerivatives,
                                      real** timeEvaluated,
                                      size_t numElements);
 
-    void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+
+  unsigned int* getDerivativesOffsets();
 };
 
 #endif

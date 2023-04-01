@@ -1,0 +1,299 @@
+Checks: '-*,clang-diagnostic-*,cppcoreguidelines-avoid-non-const-global-variables,llvm-*,-llvm-else-after-return,-llvm-header-guard,-llvm-qualified-auto,misc-*,misc-const-correctness,misc-misplaced-const,-misc-non-private-member-variables-in-classes,-misc-unused-parameters,modernize-use-override,modernize-use-equals-default,performance-move-const-arg,readability-non-const-parameter,readability-const-return-type,readability-identifier-naming'
+WarningsAsErrors: '*'
+CheckOptions:
+#  - key:             readability-identifier-naming.AbstractClassCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.AbstractClassPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.AbstractClassSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassConstantCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassConstantPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassConstantSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassMemberCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassMemberPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassMemberSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.ClassMethodCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.ClassMethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ClassMethodSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.ConstantCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.ConstantPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantMemberCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantMemberPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantMemberSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantParameterSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantPointerParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantPointerParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstantPointerParameterSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprFunctionCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.ConstexprFunctionPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstexprFunctionSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstexprMethodCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstexprMethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstexprMethodSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.ConstexprVariablePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ConstexprVariableSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+#  - key:             readability-identifier-naming.EnumPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.EnumSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.EnumConstantCase
+    value:           CamelCase
+#  - key:             readability-identifier-naming.EnumConstantPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.EnumConstantSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.FunctionCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.FunctionPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.FunctionSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalConstantCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalConstantPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalConstantSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalConstantPointerCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalConstantPointerPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalConstantPointerSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalFunctionCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalFunctionPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalFunctionSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalPointerCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalPointerPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalPointerSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalVariableCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalVariablePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.GlobalVariableSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.IgnoreMainLikeFunctions
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.InlineNamespaceCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.InlineNamespacePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.InlineNamespaceSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.LocalConstantCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.LocalConstantPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalConstantSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalConstantPointerCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalConstantPointerPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalConstantPointerSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalPointerCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalPointerPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalPointerSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.LocalVariableCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.LocalVariablePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.LocalVariableSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.MemberCase
+    value:           camelBack
+  - key:             readability-identifier-naming.MemberPrefix
+    value:           ""
+#  - key:             readability-identifier-naming.MemberSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.MethodCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.MethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.MethodSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.NamespaceCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.NamespacePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.NamespaceSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.ParameterCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.ParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ParameterSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ParameterPackCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ParameterPackPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ParameterPackSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PointerParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PointerParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PointerParameterSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PrivateMemberCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PrivateMemberPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PrivateMemberSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PrivateMethodCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PrivateMethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PrivateMethodSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ProtectedMemberCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ProtectedMemberPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ProtectedMemberSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ProtectedMethodCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ProtectedMethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ProtectedMethodSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PublicMemberCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PublicMemberPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PublicMemberSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PublicMethodCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PublicMethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.PublicMethodSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StaticConstantCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StaticConstantPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StaticConstantSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StaticVariableCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StaticVariablePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StaticVariableSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.StructCase
+    value:           CamelCase
+#  - key:             readability-identifier-naming.StructPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.StructSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TemplateParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TemplateParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TemplateParameterSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TemplateTemplateParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TemplateTemplateParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TemplateTemplateParameterSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypeAliasCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypeAliasPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypeAliasSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypedefCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypedefPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypedefSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypeTemplateParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypeTemplateParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.TypeTemplateParameterSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.UnionCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.UnionPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.UnionSuffix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ValueTemplateParameterCase
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ValueTemplateParameterPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.ValueTemplateParameterSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.VariableCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.VariablePrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.VariableSuffix
+#    value:           CamelCase
+  - key:             readability-identifier-naming.VirtualMethodCase
+    value:           camelBack
+#  - key:             readability-identifier-naming.VirtualMethodPrefix
+#    value:           CamelCase
+#  - key:             readability-identifier-naming.VirtualMethodSuffix
+#    value:           CamelCase

@@ -83,8 +83,14 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/InputAux.hpp>
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
+#include <Initializer/time_stepping/LtsParameters.h>
+
+
+#include <DynamicRupture/Factory.h>
+#include <yaml-cpp/yaml.h>
 
 namespace seissol {
   namespace initializers {
@@ -155,8 +161,14 @@ class seissol::initializers::MemoryManager {
     LTSTree               m_ltsTree;
     LTS                   m_lts;
     
-    LTSTree               m_dynRupTree;
-    DynamicRupture        m_dynRup;
+    LTSTree m_dynRupTree;
+    std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
+    std::unique_ptr<dr::initializers::BaseDRInitializer> m_DRInitializer = nullptr;
+    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
+    std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
+    std::shared_ptr<dr::DRParameters> m_dynRupParameters = nullptr;
+    std::shared_ptr<YAML::Node> m_inputParams = nullptr;
+    std::shared_ptr<time_stepping::LtsParameters> ltsParameters = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -183,23 +195,26 @@ class seissol::initializers::MemoryManager {
      * Initializes the pointers of the internal state.
      **/
     void initializeBuffersDerivatives();
-    
+
+    /**
+    * Derives the size of the displacement accumulation buffer.
+    */
+    void deriveFaceDisplacementsBucket();
+
     /**
      * Derives the size of the displacement accumulation buffer.
      */
     void deriveDisplacementsBucket();
 
-#ifdef ACL_DEVICE
-    /**
-     * Derives the sizes of scratch memory required during the computations
-     */
-    void deriveRequiredScratchpadMemory();
-#endif
-    
     /**
      * Initializes the displacement accumulation buffer.
      */
     void initializeDisplacements();
+
+    /**
+     * Initializes the displacement accumulation buffer.
+     */
+  void initializeFaceDisplacements();
 
     /**
      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
@@ -303,7 +318,7 @@ class seissol::initializers::MemoryManager {
     }
                           
     inline DynamicRupture* getDynamicRupture() {
-      return &m_dynRup;
+      return m_dynRup.get();
     }
 
     inline LTSTree* getBoundaryTree() {
@@ -320,16 +335,69 @@ class seissol::initializers::MemoryManager {
       return &m_easiBoundary;
     }
 
+    inline dr::friction_law::FrictionSolver* getFrictionLaw() {
+        return m_FrictionLaw.get();
+    }
+    inline  dr::initializers::BaseDRInitializer* getDRInitializer() {
+        return m_DRInitializer.get();
+    }
+    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
+        return m_faultOutputManager.get();
+    }
+    inline seissol::dr::DRParameters* getDRParameters() {
+        return m_dynRupParameters.get();
+    }
+
+    inline time_stepping::LtsParameters* getLtsParameters() {
+        return ltsParameters.get();
+    };
+
+    void setInputParams(std::shared_ptr<YAML::Node> params) {
+      m_inputParams = params;
+      m_dynRupParameters = dr::readParametersFromYaml(m_inputParams);
+      ltsParameters = std::make_shared<time_stepping::LtsParameters>(time_stepping::readLtsParametersFromYaml(m_inputParams));
+    }
+
+    std::string getOutputPrefix() const {
+      return getUnsafe<std::string>((*m_inputParams)["output"], "outputfile");
+    }
+
+    bool isLoopStatisticsNetcdfOutputOn() const {
+      return getWithDefault((*m_inputParams)["output"], "loopstatisticsnetcdfoutput", false);
+    }
+
 #ifdef ACL_DEVICE
   void recordExecutionPaths(bool usePlasticity);
+
+  /**
+   * Derives sizes of scratch memory required during computations of Wave Propagation solver
+   **/
+  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+
+  /**
+   * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
+   **/
+  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
 #endif
+
+  void initializeFrictionLaw();
+  void initFaultOutputManager();
+  void initFrictionData();
 };
 
 
 namespace seissol {
     namespace initializers {
-        bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
-        bool requiresNodalFlux(FaceType f);
+    bool isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
+                                                  unsigned int face);
+    bool isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
+                                                 unsigned int face);
+    bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+
+    bool requiresDisplacement(CellLocalInformation cellLocalInformation,
+                              CellMaterialData &material,
+                              unsigned int face);
+    bool requiresNodalFlux(FaceType f);
     }
 }
 

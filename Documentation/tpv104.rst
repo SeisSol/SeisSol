@@ -1,3 +1,5 @@
+.. _tpv104:
+
 SCEC TPV104
 ===========
 
@@ -14,6 +16,7 @@ velocity-strengthening friction (Figure [fig:tpv104]).
 .. figure:: LatexFigures/tpv104.png
    :alt: Diagram of TPV104.
    :width: 9.00000cm
+   :align: center
 
    Diagram of TPV104. The vertical planar fault that has
    velocity-weakening friction region (green), which is surrounded by
@@ -83,6 +86,7 @@ RS-SL-SRW are shown in Table [table:tpv104rsl].
 .. figure:: LatexFigures/table104.png
    :alt: table 104
    :width: 12.0cm
+   :align: center
    
    Table of rate-state friction used in tpv104.
 
@@ -99,6 +103,7 @@ The input files of TPV104 can be found at https://github.com/SeisSol/Examples/tr
 .. figure:: LatexFigures/mesh104.png
    :alt: Diagram shows the tetrahedral meshing of TPV 104
    :width: 12.00000cm
+   :align: center
 
    Diagram shows the tetrahedral meshing of TPV 104 shown in the
    ParaView panel. 
@@ -118,12 +123,14 @@ direction at T=5s.
 .. figure:: LatexFigures/SRs_2s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm
+   :align: center
    
    Slip rate along-strike on the fault at 2 s of TPV104. 
    
 .. figure:: LatexFigures/SRs_5s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm   
+   :align: center
    
    Slip rate along-strike on the fault at 5 s of TPV 104.
 

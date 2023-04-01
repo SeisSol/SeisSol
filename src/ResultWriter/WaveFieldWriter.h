@@ -47,6 +47,8 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include <memory>
+#include <unordered_set>
 
 #include "utils/logger.h"
 
@@ -77,7 +79,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	DynStruct::Component<int> m_timestepComp;
 
 	/** False if entire region is to be written */
-	bool m_extractRegion;
+	bool isExtractRegionEnabled;
 
 	/** The asynchronous executor */
 	WaveFieldWriterExecutor m_executor;
@@ -89,7 +91,10 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	std::string m_outputPrefix;
 
 	/** The variable subsampler for the refined mesh */
-	refinement::VariableSubsampler<double>* m_variableSubsampler;
+	std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsampler;
+
+	/** The variable subsampler for the refined mesh (plastic strain) */
+	std::unique_ptr<refinement::VariableSubsampler<double>> m_variableSubsamplerPStrain;
 
 	/** Number of variables */
 	unsigned int m_numVariables;
@@ -139,18 +144,19 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
   
   unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
+	std::vector<unsigned int> generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
+		const std::vector<unsigned> &LtsClusteringData, std::map<int, int> &newToOldCellMap);
 
 public:
 	WaveFieldWriter()
 		: m_enabled(false),
-		  m_extractRegion(false),
-		  m_variableSubsampler(0L),
-		  m_numVariables(0),
-		  m_outputFlags(0L),
-		  m_lowOutputFlags(0L),
-		  m_numCells(0), m_numLowCells(0),
-		  m_dofs(0L), m_pstrain(0L), m_integrals(0L),
-		  m_map(0L)
+      isExtractRegionEnabled(false),
+      m_numVariables(0),
+      m_outputFlags(0L),
+      m_lowOutputFlags(0L),
+      m_numCells(0), m_numLowCells(0),
+      m_dofs(0L), m_pstrain(0L), m_integrals(0L),
+      m_map(0L)
 	{
 	}
 
@@ -191,11 +197,15 @@ public:
 	 * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
-			const MeshReader &meshReader,  const std::vector<unsigned> &LtsClusteringData,
-			const real* dofs,  const real* pstrain, const real* integrals,
-			unsigned int* map,
-			int refinement, int* outputMask, double* outputRegionBounds,
-      xdmfwriter::BackendType backend);
+            const MeshReader &meshReader,
+            const std::vector<unsigned> &LtsClusteringData,
+            const real* dofs, const real* pstrain, const real* integrals,
+            unsigned int* map,
+            int refinement, int* outputMask,
+            int* plasticityMask,
+            const double* outputRegionBounds,
+            const std::unordered_set<int>& outputGroups,
+            xdmfwriter::BackendType backend);
 
 	/**
 	 * Write a time step
@@ -218,13 +228,11 @@ public:
 
 		m_stopwatch.printTime("Time wave field writer frontend:");
 
-		delete m_variableSubsampler;
-		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
 		m_outputFlags = 0L;
 		delete [] m_lowOutputFlags;
 		m_lowOutputFlags = 0L;
-		if (m_extractRegion) {
+		if (isExtractRegionEnabled) {
 			delete [] m_map;
 			m_map = 0L;
 		}

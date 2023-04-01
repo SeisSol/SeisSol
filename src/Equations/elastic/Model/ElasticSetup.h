@@ -168,7 +168,8 @@ namespace seissol {
        
        
          if (faceType == FaceType::freeSurface) {
-           getTransposedFreeSurfaceGodunovState( testIfAcoustic(local.mu), QgodLocal, QgodNeighbor, R);
+           MaterialType materialtype = testIfAcoustic(local.mu) ? MaterialType::acoustic : MaterialType::elastic;
+           getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R);
          } else {
            Matrix99 chi = Matrix99::Zero();
            if (!testIfAcoustic(local.mu)) {

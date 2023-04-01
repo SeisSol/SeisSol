@@ -160,6 +160,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
   def addTime(self, generator, targets):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     dQ = [OptionalDimTensor('dQ({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True) for d in range(self.order)]
+    self.dQs = dQ
     dQext = [OptionalDimTensor('dQext({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeExtended, alignStride=True) for d in range(self.order)]
     dQane = [OptionalDimTensor('dQane({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeAnelastic, alignStride=True) for d in range(self.order)]
 

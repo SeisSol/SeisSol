@@ -46,12 +46,15 @@ from multSim import OptionalDimTensor
 def addKernels(generator, aderdg):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
+  order = aderdg.order
   ## Point sources
   mStiffnessTensor = Tensor('stiffnessTensor', (3,3,3,3))
   mSlip = Tensor('mSlip', (3,))
   mNormal = Tensor('mNormal', (3,))
   mArea = Scalar('mArea')
   basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
+  basisFunctionDerivativesAtPoint = Tensor('basisFunctionDerivativesAtPoint', (numberOf3DBasisFunctions, 3))
+  timeBasisFunctionsAtPoint = Tensor('timeBasisFunctionsAtPoint', (order,))
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
   JInv = Scalar('JInv')
 
@@ -89,3 +92,14 @@ def addKernels(generator, aderdg):
   QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
   evaluateDOFSAtPoint = QAtPoint['p'] <= aderdg.Q['kp'] * basisFunctionsAtPoint['k']
   generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
+  QDerivativeAtPoint = OptionalDimTensor('QDerivativeAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities, 3))
+  evaluateDerivativeDOFSAtPoint = QDerivativeAtPoint['pd'] <= aderdg.Q['kp'] * basisFunctionDerivativesAtPoint['kd']
+  generator.add('evaluateDerivativeDOFSAtPoint', evaluateDerivativeDOFSAtPoint)
+
+  stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
+  spaceTimePredictor = OptionalDimTensor('spaceTimePredictor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
+  evaluateDOFSAtPointSTP = QAtPoint['p'] <= spaceTimePredictor['kpt'] * basisFunctionsAtPoint['k'] * timeBasisFunctionsAtPoint['t']
+  generator.add('evaluateDOFSAtPointSTP', evaluateDOFSAtPointSTP)
+  spaceTimePredictor = OptionalDimTensor('spaceTimePredictor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
+  evaluateDerivativeDOFSAtPointSTP = QDerivativeAtPoint['pd'] <= spaceTimePredictor['kpt'] * basisFunctionDerivativesAtPoint['kd'] * timeBasisFunctionsAtPoint['t']
+  generator.add('evaluateDerivativeDOFSAtPointSTP', evaluateDerivativeDOFSAtPointSTP)

@@ -40,30 +40,40 @@
 #ifndef KERNELS_RECEIVER_H_
 #define KERNELS_RECEIVER_H_
 
-#include <vector>
 #include <Eigen/Dense>
 #include <Geometry/MeshReader.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Initializer/tree/Lut.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/PointMapper.h>
-#include <Kernels/Time.h>
+#include <Initializer/tree/Lut.hpp>
 #include <Kernels/Interface.hpp>
+#include <Kernels/Time.h>
+#include <Numerical_aux/BasisFunction.h>
+#include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
+#include <vector>
 
-class GlobalData;
+struct GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
-      Receiver(unsigned pointId, double xi, double eta, double zeta, kernels::LocalData data, size_t reserved)
-        : pointId(pointId),
-          basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
-          data(data)
-      {
+      Receiver(unsigned pointId,
+               Eigen::Vector3d position,
+               double const* elementCoords[4],
+               kernels::LocalData data, size_t reserved)
+          : pointId(pointId),
+            position(std::move(position)),
+            data(data) {
         output.reserve(reserved);
+
+        auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
+        basisFunctions = basisFunction::SampledBasisFunctions<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
       }
       unsigned pointId;
+      Eigen::Vector3d position;
       basisFunction::SampledBasisFunctions<real> basisFunctions;
+      basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
       kernels::LocalData data;
       std::vector<real> output;
     };
@@ -78,9 +88,12 @@ namespace seissol {
       ReceiverCluster(  GlobalData const*             global,
                         std::vector<unsigned> const&  quantities,
                         double                        samplingInterval,
-                        double                        syncPointInterval )
+                        double                        syncPointInterval,
+                        bool                          computeRotation)
         : m_quantities(quantities),
-          m_samplingInterval(samplingInterval), m_syncPointInterval(syncPointInterval) {
+          m_samplingInterval(samplingInterval),
+          m_syncPointInterval(syncPointInterval),
+          m_computeRotation(computeRotation){
         m_timeKernel.setHostGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
@@ -107,6 +120,9 @@ namespace seissol {
 
       size_t ncols() const {
         size_t ncols = m_quantities.size();
+        if (m_computeRotation) {
+          ncols += 3;
+        }
 #ifdef MULTIPLE_SIMULATIONS
         ncols *= init::QAtPoint::Stop[0]-init::QAtPoint::Start[0];
 #endif
@@ -114,13 +130,15 @@ namespace seissol {
       }
 
     private:
-      std::vector<Receiver>   m_receivers;
-      seissol::kernels::Time  m_timeKernel;
-      std::vector<unsigned>   m_quantities;
-      unsigned                m_nonZeroFlops;
-      unsigned                m_hardwareFlops;
-      double                  m_samplingInterval;
-      double                  m_syncPointInterval;
+      std::vector<Receiver> m_receivers;
+      seissol::kernels::Time m_timeKernel;
+      std::vector<unsigned> m_quantities;
+      unsigned m_nonZeroFlops;
+      unsigned m_hardwareFlops;
+      double m_samplingInterval;
+      double m_syncPointInterval;
+      bool m_computeRotation;
+
     };
   }
 }

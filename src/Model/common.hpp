@@ -41,7 +41,7 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
-#include <Eigen/Eigen>
+#include <Eigen/Dense>
 
 #include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
@@ -54,8 +54,6 @@
 
 namespace seissol {
   namespace model {
-    using Matrix99 = Eigen::Matrix<double, 9, 9>;
-
     bool testIfAcoustic(real mu);
 
     template<typename Tmaterial, typename Tmatrix>
@@ -66,7 +64,7 @@ namespace seissol {
     
     template<typename Tmaterial, typename T>
     void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
-                                                T& E);
+                                                T& E) {}
 
     template<typename Tmaterial, typename Tloc, typename Tneigh>
     void getTransposedGodunovState( Tmaterial const&  local,
@@ -75,11 +73,11 @@ namespace seissol {
                                     Tloc&             QgodLocal,
                                     Tneigh&           QgodNeighbor );
 
-    template<typename T>
-    void getTransposedFreeSurfaceGodunovState( bool isAcoustic,
+    template<typename T, typename Tmatrix>
+    void getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
                                                T& QgodLocal,
                                                T& QgodNeighbor,
-                                               Eigen::Matrix<double, 9, 9>& R);
+                                               Tmatrix& R);
 
     template<typename T>
     void getPlaneWaveOperator( T const& material,
@@ -88,6 +86,7 @@ namespace seissol {
 
     template<typename T, typename S>
     void initializeSpecificLocalData( T const&,
+                                      real timeStepWidth,
                                       S* LocalData ) {}
 
     template<typename T, typename S>
@@ -106,6 +105,12 @@ namespace seissol {
                         VrtxCoords const i_tangent1,
                         VrtxCoords const i_tangent2,
                         real* o_N );
+
+    void getFaceRotationMatrix( Eigen::Vector3d const i_normal,
+                                                Eigen::Vector3d const i_tangent1,
+                                                Eigen::Vector3d const i_tangent2,
+                                                init::T::view::type& o_T,
+                                                init::Tinv::view::type& o_Tinv );
 
     void getFaceRotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
@@ -139,50 +144,72 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
       }
     }
   }
-}
+  Coeff.setZero();
+  getTransposedSourceCoefficientTensor(material, Coeff);
 
-template<typename T>
-void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
-                                                           T&        QgodLocal,
-                                                           T&        QgodNeighbor,
-                                                           Eigen::Matrix<double, 9, 9>& R)
-{
-  for (int i = 0; i < 9; i++) {
-    for (int j = 0; j < 9; j++) {
-      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+  for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+      M(i,j) -= std::complex<real>(0.0, Coeff(j,i));
     }
   }
+}
 
-  QgodLocal.setZero();
-  if (isAcoustic) {
-    // Acoustic material only has one traction (=pressure) and one velocity comp.
-    // relevant to the Riemann problem
-    QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
-    QgodLocal(6, 6) = 1.0;
-  } else {
-    std::array<int, 3> traction_indices = {0,3,5};
-    std::array<int, 3> velocity_indices = {6,7,8};
-    using Matrix33 = Eigen::Matrix<double, 3, 3>;
-    Matrix33 R11 = R(traction_indices, {0,1,2});
-    Matrix33 R21 = R(velocity_indices, {0,1,2});
-    Matrix33 S = (-(R21 * R11.inverse())).eval();
-
+template<typename T, typename Tmatrix, typename Tarray1, typename Tarray2>
+void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocity_indices) {
     //set lower left block
-    int row = 0;
-    for (auto &t: traction_indices) {
       int col = 0;
+    for (auto &t: traction_indices) {
+    int row = 0;
       for (auto &v: velocity_indices) {
         QgodLocal(t, v) = S(row, col);
-        col++;
+        row++;
       }
-      row++;
+      col++;
     }
 
     //set lower right block
     for (auto &v : velocity_indices) {
       QgodLocal(v, v) = 1.0;
     }
+}
+
+template<typename T, typename Tmatrix>
+void seissol::model::getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
+                                                           T&        QgodLocal,
+                                                           T&        QgodNeighbor,
+                                                           Tmatrix&  R)
+{
+  if (materialtype == MaterialType::poroelastic) {
+    logError() << "Poroelastic Free Surface has a template spezialization for the FreeSurfaceGodunovState. You should never end up here";
+  }
+
+  constexpr size_t relevant_quantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+  for (size_t i = 0; i < relevant_quantities; i++) {
+    for (size_t j = 0; j < relevant_quantities; j++) {
+      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+    }
+  }
+
+  QgodLocal.setZero();
+  switch(materialtype) {
+    case MaterialType::acoustic: {
+      // Acoustic material only has one traction (=pressure) and one velocity comp.
+      // relevant to the Riemann problem
+      QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+      QgodLocal(6, 6) = 1.0;
+      break;
+    }
+    default: {
+      std::array<int, 3> traction_indices = {0,3,5};
+      std::array<int, 3> velocity_indices = {6,7,8};
+      using Matrix33 = Eigen::Matrix<double, 3, 3>;
+      Matrix33 R11 = R(traction_indices, {0,1,2});
+      Matrix33 R21 = R(velocity_indices, {0,1,2});
+      Matrix33 S = (-(R21 * R11.inverse())).eval();
+      setBlocks(QgodLocal, S, traction_indices, velocity_indices);
+      break;
+    }
   }
 }
-  
+
 #endif

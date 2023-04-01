@@ -105,20 +105,20 @@ open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
    SELECT CASE(domain%MPI%real_kind)
    CASE(4)
      logInfo0(*) 'Single precision used for real.'
-     logInfo0(*) 'Setting MPI_AUTODOUBLE to MPI_REAL'
+     logInfo(*) 'Setting MPI_AUTODOUBLE to MPI_REAL'
      domain%MPI%MPI_AUTO_REAL = MPI_REAL
    CASE(8)
      logInfo0(*) ' Double precision used for real.'
-     logInfo0(*) ' Setting MPI_AUTODOUBLE to MPI_DOUBLE_PRECISION'
+     logInfo(*) ' Setting MPI_AUTODOUBLE to MPI_DOUBLE_PRECISION'
      domain%MPI%MPI_AUTO_REAL = MPI_DOUBLE_PRECISION
    CASE DEFAULT
      logError(*) 'Unknown kind ', domain%MPI%real_kind
      call MPI_ABORT(domain%MPI%commWorld, 134)
    END SELECT
-   logInfo0(*) ' MPI_AUTO_REAL feature initialized. '
+   logInfo(*) ' MPI_AUTO_REAL feature initialized. '
    domain%MPI%MPI_AUTO_INTEGER = 0
    !  
-   logInfo0(*) ' MPI initialization done. '
+   logInfo(*) ' MPI initialization done. '
    logInfo0('(a)') ' <--------------------------------------------------------->'
    WRITE(domain%IO%ErrorFile,'(a,i5.5,a)') 'IRREGULARITIES.', domain%MPI%myrank, '.log'    ! Name der Datei in die Fehler geschrieben werden
 #else
