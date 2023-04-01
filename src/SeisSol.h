@@ -63,6 +63,8 @@
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
+#include "Physics/InstantaneousTimeMirrorManager.h"
+
 class MeshReader;
 
 namespace seissol
@@ -142,7 +144,8 @@ private:
 
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
-private:
+
+  std::pair<InstantaneousTimeMirrorManager, InstantaneousTimeMirrorManager> timeMirrorManagers;
 	/**
 	 * Only one instance of this class should exist (private constructor).
 	 */
@@ -311,7 +314,10 @@ public:
   	const std::shared_ptr<YAML::Node> getInputParams() {
     		return m_inputParams;
  	}
-
+  
+	decltype(timeMirrorManagers)& getTimeMirrorManagers() {
+	  return timeMirrorManagers;
+	}
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
    * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function

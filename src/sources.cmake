@@ -98,6 +98,9 @@ src/Modules/ModulesF.f90
 src/seissolxx.f90
 src/Physics/ini_model.f90
 src/Physics/InitialField.cpp
+src/Physics/NucleationFunctions.f90
+src/Physics/thermalpressure.f90
+src/Physics/InstantaneousTimeMirrorManager.cpp
 src/Reader/readpar.f90
 src/ResultWriter/inioutput_seissol.f90
 src/Initializer/dg_setup.f90
