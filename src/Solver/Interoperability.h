@@ -105,6 +105,9 @@ class seissol::Interoperability {
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
     void initInitialConditions();
+
+    void copyDynamicRuptureState();
+    
  public:
    /**
     * Constructor.
