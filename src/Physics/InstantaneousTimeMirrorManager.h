@@ -6,6 +6,7 @@
 #include "Modules/Module.h"
 #include "Initializer/tree/LTSTree.hpp"
 #include "Initializer/tree/Lut.hpp"
+#include "Initializer/typedefs.hpp"
 
 namespace seissol {
 
@@ -18,6 +19,8 @@ class InstantaneousTimeMirrorManager : Module {
   initializers::LTSTree* ltsTree{};
   initializers::LTS* lts{};
   initializers::Lut* ltsLut{};
+  TimeStepping* timestepping;
+  
 public:
   InstantaneousTimeMirrorManager() : isEnabled(false) {};
 
@@ -26,13 +29,14 @@ public:
             MeshReader* meshReader,
             initializers::LTSTree* ltsTree,
             initializers::LTS* lts,
-            initializers::Lut* ltsLut);
+            initializers::Lut* ltsLut,
+            TimeStepping* timestepping);
 
   void syncPoint(double currentTime) override;
 
 private:
   void updateVelocities();
-
+  
 };
 
 void initializeTimeMirrorManagers(
@@ -42,7 +46,8 @@ void initializeTimeMirrorManagers(
     initializers::LTS* lts,
     initializers::Lut* ltsLut,
     InstantaneousTimeMirrorManager& increaseManager,
-    InstantaneousTimeMirrorManager& decreaseManager);
+    InstantaneousTimeMirrorManager& decreaseManager,
+    TimeStepping* timestepping);
 } // namespace SeisSol
 
 

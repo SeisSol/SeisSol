@@ -11,7 +11,8 @@ void InstantaneousTimeMirrorManager::init(
     MeshReader* meshReader,
     initializers::LTSTree* ltsTree,
     initializers::LTS* lts,
-    initializers::Lut* ltsLut) {
+    initializers::Lut* ltsLut,
+    TimeStepping* timestepping) {
   isEnabled = true;
   this->velocityScalingFactor = velocityScalingFactor;
   this->triggerTime = triggerTime;
@@ -19,6 +20,7 @@ void InstantaneousTimeMirrorManager::init(
   this->ltsTree = ltsTree;
   this->lts = lts;
   this->ltsLut = ltsLut;
+  this->timestepping = timestepping;
   setSyncInterval(triggerTime);
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
@@ -40,7 +42,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   updateVelocities();
 
   logInfo(rank) << "Updating CellLocalMatrices";
-  initializers::initializeCellLocalMatrices(*meshReader, ltsTree, lts, ltsLut);
+  initializers::initializeCellLocalMatrices(*meshReader, ltsTree, lts, ltsLut, *timestepping);
 
   logInfo(rank) << "Finished flipping.";
   isEnabled = false;
@@ -54,7 +56,6 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
       material.local.rho *= this->velocityScalingFactor * this->velocityScalingFactor;
     }
   }
-
 }
 
 void initializeTimeMirrorManagers(
@@ -64,11 +65,12 @@ void initializeTimeMirrorManagers(
     initializers::LTS* lts,
     initializers::Lut* ltsLut,
     InstantaneousTimeMirrorManager& increaseManager,
-    InstantaneousTimeMirrorManager& decreaseManager
+    InstantaneousTimeMirrorManager& decreaseManager,
+    TimeStepping* timestepping
 ) {
-  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsTree, lts, ltsLut);
+  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsTree, lts, ltsLut, timestepping);
   const double eps = 1e-7; // TODO(Lukas) Use CFL condition for this
-  decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsTree, lts, ltsLut);
+  decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsTree, lts, ltsLut, timestepping);
 };
 
 } // namespace seissol
