@@ -46,9 +46,11 @@ gpu_pre_build:
 
 .common_gpu_test_script: &common_gpu_steps
     - export CTEST_OUTPUT_ON_FAILURE=1
-    - if [[ "${BACKEND}" == "hipsycl" ]]; then
+    - if [[ "${BACKEND}" == "opensycl" ]]; then
         export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH ;
         export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH ;
+        export CC=clang ;
+        export CXX=clang++ ;
       fi ;
     - if [[ "${BACKEND}" == "hip" ]]; then
         . /etc/profile.d/rocm.sh ;
@@ -66,7 +68,7 @@ gpu_build:
         - job: gpu_pre_build
     parallel:
         matrix:
-        - BACKEND: [cuda, hipsycl, hip]
+        - BACKEND: [cuda, opensycl, hip]
     before_script:
         - git submodule init
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
@@ -74,7 +76,7 @@ gpu_build:
         - git submodule --quiet update --init --recursive 
     script:
         - *common_gpu_steps
-        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git@v0.0.207
+        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git@v0.0.208
         - set -euo pipefail
         - for precision in double single; do
             mkdir -p ./build_${BACKEND}_${precision} && cd ./build_${BACKEND}_${precision} ;
@@ -103,7 +105,7 @@ gpu_convergence_test:
         - tum05-k8s-1core-8gb-gpu
     parallel:
         matrix:
-        - BACKEND: [cuda, hipsycl, hip]
+        - BACKEND: [cuda, opensycl, hip]
     script:
         - *common_gpu_steps
         - git clone https://github.com/SeisSol/Examples.git tests
@@ -244,7 +246,7 @@ gpu_performance_test:
         - tum05-k8s-1core-8gb-gpu
     parallel:
         matrix:
-        - BACKEND: [cuda, hipsycl, hip]
+        - BACKEND: [cuda, opensycl, hip]
     script:
         - *common_gpu_steps
         - set -euo pipefail

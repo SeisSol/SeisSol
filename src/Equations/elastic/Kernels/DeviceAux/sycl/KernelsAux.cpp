@@ -19,8 +19,8 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
   cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
 
   queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-    const int tid = item.get_local_id(0);
-    const int elementId = item.get_group().get_group_id(0);
+    const auto tid = item.get_local_id(0);
+    const auto elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       const double rho = rhos[elementId];
       real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
@@ -33,7 +33,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
         const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
         #pragma unroll
-        for (int component{0}; component < 3; ++component) {
+        for (size_t component{0}; component < 3; ++component) {
           elementBoundaryDofs[tid + component * ldINodal] =
             2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * ldINodal];
         }
@@ -77,28 +77,28 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
     cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
 
-      const int tid = item.get_local_id(0);
-      const int elementId = item.get_group().get_group_id(0);
+      const auto tid = item.get_local_id(0);
+      const auto elementId = item.get_group().get_group_id(0);
 
       if (elementId < numElements) {
         real* dofsFaceBoundaryNodal = dofsFaceBoundaryNodalPtrs[elementId];
         real* easiBoundaryMap = easiBoundaryMapPtrs[elementId];
         auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
-        for (int i = tid; i < (ldConstantDim * ConstantDim1); i += item.get_local_range(0)) {
+        for (size_t i = tid; i < (ldConstantDim * ConstantDim1); i += item.get_local_range(0)) {
           const auto b = i % ldConstantDim;
           const auto l = i / ldConstantDim;
           rightTerm[b][l] = easiBoundaryConstant[i];
         }
         item.barrier();
 
-        for (int i = 0; i < INodalDim1; ++i) {
+        for (size_t i = 0; i < INodalDim1; ++i) {
           if (tid < INodalDim0) resultTerm[i][tid] = 0.0;
         }
         item.barrier();
 
-        for (int b = 0; b < MapDim1; ++b) {
-          for (int l = 0; l < MapDim2; ++l) {
+        for (size_t b = 0; b < MapDim1; ++b) {
+          for (size_t l = 0; l < MapDim2; ++l) {
             if (tid < MapDim0) {
               leftTerm[tid][l] = easiBoundaryMap[tid + ldMapDim * (b + l * MapDim1)];
             }
@@ -107,7 +107,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
           if (tid < MapDim2) {
             const real col = dofsFaceBoundaryNodal[tid + b * ldINodalDim];
-            for (int a = 0; a < MapDim0; ++a) {
+            for (size_t a = 0; a < MapDim0; ++a) {
               resultTerm[a][tid] += leftTerm[a][tid] * col;
             }
           }
@@ -115,7 +115,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         }
 
         if (tid < INodalDim0) {
-          for (int a = 0; a < INodalDim1; ++a) {
+          for (size_t a = 0; a < INodalDim1; ++a) {
             dofsFaceBoundaryNodal[tid + a * ldINodalDim] = resultTerm[a][tid] + rightTerm[a][tid];
           }
         }
@@ -139,7 +139,7 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
   cl::sycl::nd_range<1> rng{{numElements * workGroupSize}, {workGroupSize}};
 
   queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-    const int elementId = item.get_group().get_group_id(0);
+    const auto elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       real* displacementToFaceNormal = displacementToFaceNormalPtrs[elementId];
       real* displacementToGlobalData = displacementToGlobalDataPtrs[elementId];
@@ -150,8 +150,8 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
       constexpr auto ldT = yateto::leadDim<seissol::init::T>();
       constexpr auto ldDisplacement = yateto::leadDim<seissol::init::displacementRotationMatrix>();
 
-      const int i = item.get_local_id(0) % 3;
-      const int j = item.get_local_id(0) / 3;
+      const auto i = item.get_local_id(0) % 3;
+      const auto j = item.get_local_id(0) / 3;
 
       displacementToFaceNormal[i + j * ldDisplacement] = Tinv[(i + 6) + (j + 6) * ldTinv];
       displacementToGlobalData[i + j * ldDisplacement] = T[(i + 6) + (j + 6) * ldT];
@@ -172,7 +172,7 @@ void initializeTaylorSeriesForGravitationalBoundary(
   cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
 
   queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-    const int elementId = item.get_group().get_group_id(0);
+    const auto elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       auto* prevCoefficients = prevCoefficientsPtrs[elementId];
       auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
@@ -180,7 +180,7 @@ void initializeTaylorSeriesForGravitationalBoundary(
 
       assert(nodal::tensor::nodes2D::Shape[0] <= yateto::leadDim<seissol::init::rotatedFaceDisplacement>());
 
-      const int tid = item.get_local_id(0);
+      const auto tid = item.get_local_id(0);
       constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[0];
       if (tid < num2dNodes) {
         prevCoefficients[tid] = rotatedFaceDisplacement[tid];
@@ -224,13 +224,13 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
   cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
 
   queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
-    const int elementId = item.get_group().get_group_id(0);
+    const auto elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       constexpr int pIdx = 0;
       constexpr int uIdx = 6;
       constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[0];
 
-      const int tid = item.get_local_id(0);
+      const auto tid = item.get_local_id(0);
       if (tid < num2dNodes) {
 
         real* dofsFaceNodal = dofsFaceNodalPtrs[elementId];
