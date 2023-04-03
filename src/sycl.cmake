@@ -11,9 +11,9 @@ if ("${DEVICE_BACKEND}" STREQUAL "opensycl")
   target_compile_definitions(SeisSol-device-lib PRIVATE DEVICE_HIPSYCL_LANG REAL_SIZE=${REAL_SIZE_IN_BYTES})
   target_link_libraries(SeisSol-device-lib PUBLIC ${Boost_LIBRARIES})
 
-  find_package(OpenSyclConfig REQUIRED)
+  find_package(OpenSYCLSettings REQUIRED)
   find_package(OpenSYCL REQUIRED)
-  target_link_libraries(SeisSol-device-lib PRIVATE opensycl-config::device_flags)
+  target_link_libraries(SeisSol-device-lib PRIVATE opensycl-settings::device_flags)
   add_sycl_to_target(TARGET SeisSol-device-lib SOURCES ${DEVICE_SRC})
 
 elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
