@@ -8,7 +8,7 @@ parts of the application which typically contain some generated code. The latter
 achieve GPU source code portability (e.g., Dynamic Rupture).
 
 SYCL is a standard for cross-platform programming of heterogeneous processors. Below are the instructions for
-installing the *OpenSYCL* implementation of the SYCL standard. If you want to use DPC++ then refer to
+installing the *Open SYCL* implementation of the SYCL standard. If you want to use DPC++ then refer to
 `the followig instructions <https://intel.github.io/llvm-docs/GetStartedGuide.html#create-dpc-workspace>`_.
 
 
@@ -63,7 +63,7 @@ Follow the instructions listed below if you need to configure LLVM with AMD GPU 
 Installing Boost
 ----------------
 
-OpenSYCL depends on 1.69.0 version of the Boost library.
+*Open SYCL* depends on 1.69.0 version of the Boost library.
 
 .. code-block:: bash
 
@@ -84,12 +84,12 @@ OpenSYCL depends on 1.69.0 version of the Boost library.
   cd ..
 
 
-Installing OpenSYCL
--------------------
+Installing Open SYCL
+--------------------
 
-SeisSol requires 0.9.5 version of OpenSYCL. This version is going to be
+SeisSol requires 0.9.5 version of Open SYCL. This version is going to be
 released soon. At this moment, we recommend to take the source code from
-the OpenSYCL master branch. 
+the *Open SYCL* master branch. 
 
 .. code-block:: bash
 
@@ -97,7 +97,7 @@ the OpenSYCL master branch.
   cd opensycl
   mkdir build && cd build
 
-Perform the following steps to configure and install OpenSYCL for Nvidia GPUs.
+Perform the following steps to configure and install *Open SYCL* for Nvidia GPUs.
 Make sure that the clang from the correct LLVM installation is used and check
 the paths carefully.
 
@@ -130,7 +130,7 @@ the paths carefully.
   cd ../..
 
 
-The following steps describe the steps to configure and install OpenSYCL for AMD GPUs.
+The following steps describe the steps to configure and install *Open SYCL* for AMD GPUs.
 Note `ROCM_PATH` is typically set by system administrators. Please, makes sure
 that this environment variable is not empty.
 

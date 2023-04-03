@@ -17,7 +17,7 @@ In order to run SeisSol, you need to first install:
 In addition, the following packages need to be installed for the GPU version of SeisSol:
 
 - CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
-- SYCL: either OpenSYCL >= 0.9.5 or DPC++
+- SYCL: either *Open SYCL* >= 0.9.5 or *DPC++*
 - gemmforge (>= 0.0.208)
 - chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
 

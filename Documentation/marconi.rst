@@ -56,7 +56,7 @@ Installing Main Libraries and Packages
 4. Install SYCL:
 
 See section :ref:`Installing SYCL <installing_SYCL>`. Note, you will need to adjust
-install-prefixes for both `LLVM`, `Boost` and `OpenSYCL` to point to the content
+install-prefixes for both `LLVM`, `Boost` and `Open SYCL` to point to the content
 of `SEISSOL_INSTALL` environment variable.
 
 5. Install hwloc:

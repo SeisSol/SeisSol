@@ -83,8 +83,8 @@ make install && \
 cd ../../ && rm -rf ./llvm-project
 
 
-# Install opensycl
-# Note: we need the latest changes in opensycl which are going
+# Install Open SYCL
+# Note: we need the latest changes in Open SYCL which are going
 #       to appear in v0.9.5
 #RUN export VERSION=0.9.5 && \
 #git clone --depth 1 --branch v${VERSION} https://github.com/OpenSYCL/OpenSYCL opensycl && \
