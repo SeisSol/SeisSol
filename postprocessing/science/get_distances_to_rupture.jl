@@ -56,12 +56,12 @@ end
 function get_ASl(xdmf, timestep_range::Vector{Int})
     
     ntimesteps = size(timesteps_of(xdmf))[1]
-    if !(timestep_range[1] > 0 && (timestep_range[1] < timestep_range[2] || timestep_range[2] == -1) && 
-         timestep_range[1] < ntimesteps && timestep_range[2] <= ntimesteps)
+    timestep_range[2] = (timestep_range[2] == -1 ? ntimesteps : timestep_range[2])
+    
+    if !(timestep_range[1] > 0 && timestep_range[1] < timestep_range[2] && 
+         timestep_range[2] <= ntimesteps)
         error("Parsed timestep range is not compatible with the fault output.")
     end
-    
-    timestep_range[2] = (timestep_range[2] == -1 ? ntimesteps : timestep_range[2])
     
     if timestep_range[1] == 1
         ASl = data_of(xdmf, timestep_range[2], "ASl")
