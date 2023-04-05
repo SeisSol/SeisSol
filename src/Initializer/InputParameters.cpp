@@ -2,6 +2,7 @@
 
 #include "InputAux.hpp"
 #include "utils/logger.h"
+#include "utils/stringutils.h"
 
 #include "Geometry/MeshReader.h"
 #include "SourceTerm/Manager.h"
@@ -17,10 +18,10 @@
 
 using namespace seissol::initializer::parameters;
 
-// converts a string to lower case. Maybe it will trim a string in the future as well.
+// converts a string to lower case, and trims it.
 void sanitize(std::string& input) {
-  // https://stackoverflow.com/a/313990
-  std::transform(input.begin(), input.end(), input.begin(), [](char c) { return std::tolower(c); });
+  utils::StringUtils::trim(input);
+  utils::StringUtils::toLower(input);
 }
 
 // A small helper class which reads a YAML node dictionary. It keeps track of all items that have
