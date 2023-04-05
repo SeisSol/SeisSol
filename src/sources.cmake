@@ -64,6 +64,7 @@ src/Checkpoint/posix/Wavefield.cpp
 src/Checkpoint/posix/Fault.cpp
 src/ResultWriter/AnalysisWriter.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
+src/ResultWriter/ClusteringWriter.cpp
 src/ResultWriter/ThreadsPinningWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/PostProcessor.cpp

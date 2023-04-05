@@ -170,13 +170,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 
   m_memoryManager->setInputParams(m_inputParams);
 
-  if (auto outputDirectory = (*m_inputParams)["output"]["outputfile"]) {
-    writer::ThreadsPinningWriter pinningWriter(outputDirectory.as<std::string>());
-    pinningWriter.write(pinning);
-  }
-  else {
-    logError() << "no output path given";
-  }
+  writer::ThreadsPinningWriter pinningWriter(m_memoryManager->getOutputPrefix());
+  pinningWriter.write(pinning);
 
   return true;
 }

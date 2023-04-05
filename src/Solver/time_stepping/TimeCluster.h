@@ -256,6 +256,7 @@ private:
     template<bool usePlasticity>
     std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializers::Layer& i_layerData,
                                                                       double subTimeStart) {
+      if (i_layerData.getNumberOfCells() == 0) return {0,0};
       SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
       m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
@@ -340,7 +341,7 @@ private:
           i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
           numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
 
-      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 
       return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
     }
@@ -376,6 +377,9 @@ private:
   //! global cluster cluster id
   const unsigned int m_globalClusterId;
 
+  //! id used to identify this cluster (including layer type) when profiling
+  const unsigned int m_profilingId;
+
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
@@ -390,7 +394,7 @@ public:
    * @param i_globalClusterId global id of this cluster.
    * @param usePlasticity true if using plasticity
    **/
-  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, bool usePlasticity,
+  TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId, unsigned int profilingId, bool usePlasticity,
               LayerType layerType, double maxTimeStepSize,
               long timeStepRate, bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler, CompoundGlobalData i_globalData,

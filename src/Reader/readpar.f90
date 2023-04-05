@@ -2298,6 +2298,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: EnergyTerminalOutput
       INTEGER                          :: computeVolumeEnergiesEveryOutput
       real                             :: EnergyOutputInterval
+      INTEGER                          :: LoopStatisticsNetcdfOutput
       INTEGER                          :: ReceiverComputeRotation
 
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iPlasticityMask, iOutputMaskMaterial, &
@@ -2307,7 +2308,8 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 checkPointInterval, checkPointFile, checkPointBackend, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval, nRecordPoints, &
-                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, computeVolumeEnergiesEveryOutput, ReceiverComputeRotation
+                                                EnergyOutput, EnergyTerminalOutput, EnergyOutputInterval, computeVolumeEnergiesEveryOutput, ReceiverComputeRotation, &
+                                                LoopStatisticsNetcdfOutput
 
               !------------------------------------------------------------------------
     !
