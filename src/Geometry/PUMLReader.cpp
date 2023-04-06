@@ -43,7 +43,9 @@
 
 #include "PUMLReader.h"
 
-#include "PUML/PartitionMetis.h"
+#include "PUML/Partition.h"
+#include "PUML/PartitionGraph.h"
+#include "PUML/PartitionTarget.h"
 #include "PUML/Downward.h"
 #include "PUML/Neighbor.h"
 
@@ -74,7 +76,7 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeStep,
+seissol::PUMLReader::PUMLReader(const char *meshFile, const char* partitioningLib, double maximumAllowedTimeStep,
                                 const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights,
                                 double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
@@ -84,11 +86,11 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeS
 
 	read(puml, meshFile);
   
+        generatePUML(puml); // We need to call generatePUML in order to create the dual graph of the mesh
 	if (ltsWeights != nullptr) {
-		generatePUML(puml);
 		ltsWeights->computeWeights(puml, maximumAllowedTimeStep);
 	}
-	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
+	partition(puml, ltsWeights, tpwgt, meshFile, partitioningLib, readPartitionFromFile, checkPointFile);
 
 	generatePUML(puml);
 
@@ -251,57 +253,56 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
                                       initializers::time_stepping::LtsWeights* ltsWeights,
                                       double tpwgt,
                                       const char *meshFile,
+                                      const char *partitioningLib,
                                       bool readPartitionFromFile,
                                       const char *checkPointFile )
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	int* partition = new int[puml.numOriginalCells()];
-
-  auto partitionMetis = [&] {
-    PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
-#ifdef USE_MPI
-    auto* nodeWeights = new double[seissol::MPI::mpi.size()];
-    MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
-    double sum = 0.0;
-    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-     sum += nodeWeights[rk];
+  auto doPartition = [&] {
+    logInfo(MPI::mpi.rank()) << "Using the" << partitioningLib
+                             << "partition library and strategy.";
+    auto partitioner = PUML::TETPartition::get_partitioner(partitioningLib);
+    if (partitioner == nullptr) {
+      logError() << "Unrecognized partition library: " << partitioningLib;
     }
-    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-     nodeWeights[rk] /= sum;
+    auto graph = PUML::TETPartitionGraph(puml);
+    graph.set_vertex_weights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
+
+#ifdef USE_MPI
+    auto nodeWeights = std::vector<double>(MPI::mpi.size());
+    MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+    double sum = 0.0;
+    for (auto const& w : nodeWeights) {
+        sum += w;
+    }
+    for (auto& w : nodeWeights) {
+        w /= sum;
     }
 #else
-    tpwgt = 1.0;
-    double* nodeWeights = &tpwgt;
+    auto nodeWeights = std::vector<double>{1.0};
 #endif
 
-    auto status = metis.partition(partition,
-                                  ltsWeights->vertexWeights(),
-                                  ltsWeights->imbalances(),
-                                  ltsWeights->nWeightsPerVertex(),
-                                  nodeWeights);
+    auto target = PUML::PartitionTarget{};
+    target.set_vertex_weights(nodeWeights);
+    target.set_imbalance(ltsWeights->imbalances()[0] - 1.0);
 
-    if (status == PUML::TETPartitionMetis::Status::Error) {
-      logError() << "mesh partitioning step failed";
-    }
-
-#ifdef USE_MPI
-    delete[] nodeWeights;
-#endif
+    return partitioner->partition(graph, target);
   };
 
+  auto newPartition = std::vector<int>();
   if (readPartitionFromFile) {
-    int status = readPartition(puml, &partition[0], checkPointFile);
+    newPartition.resize(puml.numOriginalCells());
+    int status = readPartition(puml, newPartition.data(), checkPointFile);
     if (status < 0) {
-      partitionMetis();
-      writePartition(puml, partition, checkPointFile);
+      newPartition = doPartition();
+      writePartition(puml, newPartition.data(), checkPointFile);
     }
   } else {
-    partitionMetis();
+    newPartition = doPartition();
   }
 
-	puml.partition(partition);
-	delete [] partition;
+  puml.partition(newPartition.data());
 }
 
 void seissol::PUMLReader::generatePUML(PUML::TETPUML &puml)
@@ -407,7 +408,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	MPI_Request* requests = new MPI_Request[neighborInfo.size() * 4];
 
 	std::unordered_set<unsigned int> t;
+#ifndef NDEBUG
 	unsigned int sum = 0;
+#endif
 	unsigned int k = 0;
 	for (std::unordered_map<int, std::vector<unsigned int> >::iterator it = neighborInfo.begin();
 			it != neighborInfo.end(); ++it, k++) {
@@ -416,7 +419,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		std::sort(it->second.begin(), it->second.end(), faceSorter);
 
 		t.insert(it->second.begin(), it->second.end());
+#ifndef NDEBUG
 		sum += it->second.size();
+#endif
 
 		// Create MPI neighbor list
 		addMPINeighor(puml, it->first, it->second);

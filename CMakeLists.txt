@@ -11,6 +11,7 @@ endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
 
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   set(NVHPC_REQUIRED_VERSION "22.1.0")
   if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS NVHPC_REQUIRED_VERSION)
@@ -21,7 +22,8 @@ endif()
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
-#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND, PROXY_PYBINDING, ENABLE_PIC_COMPILATION
+#       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND,
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -241,7 +243,7 @@ if (HDF5)
 endif()  
 
 # Parmetis
-if (METIS)
+if ("metis" IN_LIST GRAPH_PARTITIONING_LIBS)
   find_package(METIS REQUIRED)
   if (NOT METIS_64_BIT_INTEGER)
     message(WARNING "Found METIS which does not support IDXTYPEWIDTH = 64. But this is required for SeisSol.")
@@ -249,7 +251,20 @@ if (METIS)
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-common-properties INTERFACE ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-common-properties INTERFACE ${PARMETIS_LIBRARIES})
-  target_compile_definitions(SeisSol-common-properties INTERFACE USE_METIS)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_METIS USE_PARMETIS HAVE_GRAPH_PARTITIONING_LIBRARY)
+endif()
+if ("parhip" IN_LIST GRAPH_PARTITIONING_LIBS)
+    find_package(ParHIP REQUIRED)
+    target_link_libraries(SeisSol-common-properties INTERFACE ParHIP::ParHIP)
+    target_compile_definitions(SeisSol-common-properties INTERFACE USE_PARHIP HAVE_GRAPH_PARTITIONING_LIBRARY)
+endif()
+if ("scotch" IN_LIST GRAPH_PARTITIONING_LIBS)
+    find_package(SCOTCH REQUIRED)
+    target_link_libraries(SeisSol-common-properties INTERFACE SCOTCH::ptscotch SCOTCH::ptscotcherr)
+    target_compile_definitions(SeisSol-common-properties INTERFACE USE_PTSCOTCH HAVE_GRAPH_PARTITIONING_LIBRARY)
+endif()
+if (NOT GRAPH_PARTITIONING_LIBS)
+    message(WARNING "Compiling without graph partitioning library; the PUML mesh format is disabled.")
 endif()
 
 find_package(PkgConfig REQUIRED) 
