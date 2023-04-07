@@ -70,6 +70,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   shaheen
   frontera
   marconi
+  heisenbug
 
 .. toctree::
   :maxdepth: 2

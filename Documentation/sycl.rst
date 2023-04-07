@@ -8,15 +8,21 @@ parts of the application which typically contain some generated code. The latter
 achieve GPU source code portability (e.g., Dynamic Rupture).
 
 SYCL is a standard for cross-platform programming of heterogeneous processors. Below are the instructions for
-installing the *hipSYCL* implementation of the SYCL standard. If you want to use DPC++ then refer to
+installing the *hipSYCL* implementation of the SYCL standard. If you want to use *DPC++* then refer to
 `the followig instructions <https://intel.github.io/llvm-docs/GetStartedGuide.html#create-dpc-workspace>`_.
+You can find the latest successfully tested *DPC++* 
+version `here <https://github.com/intel/llvm/releases/tag/2023-WW13>`_. Additionally to *DPC++*,
+you will need to compile *OpenMP* from the same repository for the host-side
+of the application. You can find the corresponding information 
+`there <https://github.com/intel/llvm/tree/sycl/openmp>`_.
 
 
 Installing LLVM
 ---------------
 
 First download and prepare LLVM for building.
-We recommend LLVM14 for modern architectures.
+Please, refer to the hipSYCL documentation regarding a specific version of LLVM.
+Here, we provide an example how to install hipSYCL using LLVM14.
 Note that unpacking the tar archive takes a long time.
 
 .. code-block:: bash
