@@ -20,7 +20,7 @@ void InstantaneousTimeMirrorManager::init(
   this->ltsTree = ltsTree;
   this->lts = lts;
   this->ltsLut = ltsLut;
-  this->timestepping = timestepping;
+  this->timestepping = timestepping; // An empty timestepping is added. Need to discuss what exactly is to be sent here
   setSyncInterval(triggerTime);
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
@@ -42,7 +42,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   updateVelocities();
 
   logInfo(rank) << "Updating CellLocalMatrices";
-  initializers::initializeCellLocalMatrices(*meshReader, ltsTree, lts, ltsLut, *timestepping);
+  initializers::initializeCellLocalMatrices(*meshReader, ltsTree, lts, ltsLut, *timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
   logInfo(rank) << "Finished flipping.";
   isEnabled = false;
@@ -68,9 +68,9 @@ void initializeTimeMirrorManagers(
     InstantaneousTimeMirrorManager& decreaseManager,
     TimeStepping* timestepping
 ) {
-  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsTree, lts, ltsLut, timestepping);
+  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsTree, lts, ltsLut, timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
   const double eps = 1e-7; // TODO(Lukas) Use CFL condition for this
-  decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsTree, lts, ltsLut, timestepping);
+  decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsTree, lts, ltsLut, timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
 };
 
 } // namespace seissol

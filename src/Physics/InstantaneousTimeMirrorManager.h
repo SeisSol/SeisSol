@@ -30,7 +30,7 @@ public:
             initializers::LTSTree* ltsTree,
             initializers::LTS* lts,
             initializers::Lut* ltsLut,
-            TimeStepping* timestepping);
+            TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
   void syncPoint(double currentTime) override;
 
@@ -47,7 +47,7 @@ void initializeTimeMirrorManagers(
     initializers::Lut* ltsLut,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
-    TimeStepping* timestepping);
+    TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
 } // namespace SeisSol
 
 
