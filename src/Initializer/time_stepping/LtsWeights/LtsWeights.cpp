@@ -186,7 +186,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
     wiggleFactor = wiggleFactorResult.wiggleFactor;
     if (ltsParameters->isAutoMergeUsed()) {
       maxClusterIdToEnforce =
-          std::min(maxClusterIdToEnforce, wiggleFactorResult.numberOfClusters - 1);
+          std::min(maxClusterIdToEnforce, wiggleFactorResult.maxClusterId);
     }
   } else {
     wiggleFactor = 1.0;
@@ -305,14 +305,14 @@ LtsWeights::ComputeWiggleFactorResult
 
   // Find best wiggle factor after merging of clusters
   // We compare against cost of baselineCost.
-  int minAdmissibleNumberOfClusters = std::numeric_limits<int>::max();
+  int minAdmissibleMaxClusterId = std::numeric_limits<int>::max();
   if (isAutoMergeUsed) {
     // When merging clusters, we want to find the minimum number of clusters with admissible performance.
     bool foundAdmissibleMerge = false;
     for (const auto& [noOfClusters, cost] : mapNumberOfClustersToLowestCost) {
       if (cost <= maxAdmissibleCost) {
         foundAdmissibleMerge = true;
-        minAdmissibleNumberOfClusters = std::min(minAdmissibleNumberOfClusters, noOfClusters);
+        minAdmissibleMaxClusterId = std::min(minAdmissibleMaxClusterId, noOfClusters);
         logDebug(rank) << "Admissible. cluster:" << noOfClusters << ",cost" << cost
                        << "with wiggle factor" << mapNumberOfClustersToBestWiggleFactor[noOfClusters];
       } else {
@@ -325,7 +325,7 @@ LtsWeights::ComputeWiggleFactorResult
     }
   } else {
     // Otherwise choose one with the smallest cost
-    minAdmissibleNumberOfClusters =
+    minAdmissibleMaxClusterId =
         std::min_element(mapNumberOfClustersToLowestCost.begin(),
                          mapNumberOfClustersToLowestCost.end(),
                          [](const auto& a, const auto& b) { return a.second < b.second; })
@@ -335,10 +335,10 @@ LtsWeights::ComputeWiggleFactorResult
   logInfo(rank) << "Enforcing maximum difference when finding best wiggle factor took"
                 << totalWiggleFactorReductions << "reductions.";
 
-  const auto bestWiggleFactor = mapNumberOfClustersToBestWiggleFactor[minAdmissibleNumberOfClusters];
-  const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAdmissibleNumberOfClusters];
+  const auto bestWiggleFactor = mapNumberOfClustersToBestWiggleFactor[minAdmissibleMaxClusterId];
+  const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAdmissibleMaxClusterId];
   logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor << "with cost"
-                << bestCostEstimate << "and" << minAdmissibleNumberOfClusters << "time clusters";
+                << bestCostEstimate << "and" << minAdmissibleMaxClusterId + 1 << "time clusters";
 
   if (baselineCost > bestCostEstimate) {
     logInfo(rank) << "Cost decreased" << (*baselineCost - bestCostEstimate) / *baselineCost * 100
@@ -351,7 +351,7 @@ LtsWeights::ComputeWiggleFactorResult
     logInfo(rank) << "Note: Cost increased due to cluster merging!";
   }
 
-  return ComputeWiggleFactorResult{ minAdmissibleNumberOfClusters, bestWiggleFactor, bestCostEstimate};
+  return ComputeWiggleFactorResult{minAdmissibleMaxClusterId, bestWiggleFactor, bestCostEstimate};
 }
 
 const int* LtsWeights::vertexWeights() const {

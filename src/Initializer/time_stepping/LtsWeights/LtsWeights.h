@@ -138,7 +138,7 @@ protected:
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds)> clusteringCache; // Maps wiggle factor to clustering
   struct ComputeWiggleFactorResult {
-    int numberOfClusters;
+    int maxClusterId;
     double wiggleFactor;
     double cost;
   };
