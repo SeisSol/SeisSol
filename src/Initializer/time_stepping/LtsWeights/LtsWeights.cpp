@@ -222,8 +222,8 @@ LtsWeights::ComputeWiggleFactorResult
   const auto rank = seissol::MPI::mpi.rank();
 
   // Maps that keep track of number of clusters vs cost
-  auto mapNumberOfClustersToLowestCost = std::map<int, double>{};
-  auto mapNumberOfClustersToBestWiggleFactor = std::map<int, double>{};
+  auto mapMaxClusterIdToLowestCost = std::map<int, double>{};
+  auto maxMapClusterIdToBestWiggleFactor = std::map<int, double>{};
 
   const double minWiggleFactor = ltsParameters->getWiggleFactorMinimum();
   const double maxWiggleFactor = 1.0;
@@ -296,10 +296,10 @@ LtsWeights::ComputeWiggleFactorResult
                                                       m_details.globalMinTimeStep,
                                                       MPI::mpi.comm());
 
-    if (auto it = mapNumberOfClustersToLowestCost.find(maxClusterId);
-        it == mapNumberOfClustersToLowestCost.end() || cost <= it->second) {
-      mapNumberOfClustersToBestWiggleFactor[maxClusterId] = curWiggleFactor;
-      mapNumberOfClustersToLowestCost[maxClusterId] = cost;
+    if (auto it = mapMaxClusterIdToLowestCost.find(maxClusterId);
+        it == mapMaxClusterIdToLowestCost.end() || cost <= it->second) {
+      maxMapClusterIdToBestWiggleFactor[maxClusterId] = curWiggleFactor;
+      mapMaxClusterIdToLowestCost[maxClusterId] = cost;
     }
   }
 
@@ -309,15 +309,15 @@ LtsWeights::ComputeWiggleFactorResult
   if (isAutoMergeUsed) {
     // When merging clusters, we want to find the minimum number of clusters with admissible performance.
     bool foundAdmissibleMerge = false;
-    for (const auto& [noOfClusters, cost] : mapNumberOfClustersToLowestCost) {
+    for (const auto& [noOfClusters, cost] : mapMaxClusterIdToLowestCost) {
       if (cost <= maxAdmissibleCost) {
         foundAdmissibleMerge = true;
         minAdmissibleMaxClusterId = std::min(minAdmissibleMaxClusterId, noOfClusters);
         logDebug(rank) << "Admissible. cluster:" << noOfClusters << ",cost" << cost
-                       << "with wiggle factor" << mapNumberOfClustersToBestWiggleFactor[noOfClusters];
+                       << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
       } else {
         logDebug(rank) << "Not admissible. cluster:" << noOfClusters << ",cost" << cost
-                       << "with wiggle factor" << mapNumberOfClustersToBestWiggleFactor[noOfClusters];
+                       << "with wiggle factor" << maxMapClusterIdToBestWiggleFactor[noOfClusters];
       }
     }
     if (!foundAdmissibleMerge) {
@@ -326,8 +326,8 @@ LtsWeights::ComputeWiggleFactorResult
   } else {
     // Otherwise choose one with the smallest cost
     minAdmissibleMaxClusterId =
-        std::min_element(mapNumberOfClustersToLowestCost.begin(),
-                         mapNumberOfClustersToLowestCost.end(),
+        std::min_element(mapMaxClusterIdToLowestCost.begin(),
+                         mapMaxClusterIdToLowestCost.end(),
                          [](const auto& a, const auto& b) { return a.second < b.second; })
             ->first;
   }
@@ -335,8 +335,8 @@ LtsWeights::ComputeWiggleFactorResult
   logInfo(rank) << "Enforcing maximum difference when finding best wiggle factor took"
                 << totalWiggleFactorReductions << "reductions.";
 
-  const auto bestWiggleFactor = mapNumberOfClustersToBestWiggleFactor[minAdmissibleMaxClusterId];
-  const auto bestCostEstimate = mapNumberOfClustersToLowestCost[minAdmissibleMaxClusterId];
+  const auto bestWiggleFactor = maxMapClusterIdToBestWiggleFactor[minAdmissibleMaxClusterId];
+  const auto bestCostEstimate = mapMaxClusterIdToLowestCost[minAdmissibleMaxClusterId];
   logInfo(rank) << "The best wiggle factor is" << bestWiggleFactor << "with cost"
                 << bestCostEstimate << "and" << minAdmissibleMaxClusterId + 1 << "time clusters";
 
