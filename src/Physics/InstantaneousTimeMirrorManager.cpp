@@ -69,12 +69,10 @@ void initializeTimeMirrorManagers(
     TimeStepping* timestepping
 ) {
   increaseManager.init(scalingFactor, triggerTime, meshReader, ltsTree, lts, ltsLut, timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
-  // const double eps = 1e-7; // TODO(Lukas) Use CFL condition for this
   auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
   auto ITMParamaters = memoryManager.getITMParameters();
-
-  // const double eps = ITMParamaters->getITMTime(); // TODO(Lukas) Use CFL condition for this
-  const double eps = 1.0; 
+  const double eps = ITMParamaters->getITMTime(); // TODO(Lukas) Use CFL condition for this
+  // const double eps = 1.0; 
   decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsTree, lts, ltsLut, timestepping); // An empty timestepping is added. Need to discuss what exactly is to be sent here
 };
 
