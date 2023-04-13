@@ -18,6 +18,7 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializers::Layer& layerData
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
+#pragma omp declare simd
 real BiMaterialFault::strengthHook(real faultStrength,
                                    real localSlipRate,
                                    real deltaT,
