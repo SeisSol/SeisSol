@@ -1,12 +1,12 @@
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Parallel/AcceleratorDevice.h"
 #include <device.h>
 
 namespace seissol::dr::friction_law::gpu {
-GpuBaseFrictionLaw::GpuBaseFrictionLaw(dr::DRParameters* drParameters)
-    : FrictionSolver(drParameters) {}
+FrictionSolverDetails::FrictionSolverDetails(dr::DRParameters* drParameters)
+    : FrictionSolverInterface(drParameters) {}
 
-GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
+FrictionSolverDetails::~FrictionSolverDetails() {
   free(faultStresses, queue);
   free(tractionResults, queue);
   free(stateVariableBuffer, queue);
@@ -16,12 +16,12 @@ GpuBaseFrictionLaw::~GpuBaseFrictionLaw() {
   free(resampleMatrix, queue);
 }
 
-void GpuBaseFrictionLaw::initSyclQueue() {
+void FrictionSolverDetails::initSyclQueue() {
   auto& instance = seissol::AcceleratorDevice::getInstance();
   queue = instance.getSyclDefaultQueue();
 }
 
-void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
+void FrictionSolverDetails::allocateAuxiliaryMemory() {
   faultStresses = static_cast<FaultStresses*>(
       sycl::malloc_shared(maxClusterSize * sizeof(FaultStresses), queue));
 
@@ -50,7 +50,7 @@ void GpuBaseFrictionLaw::allocateAuxiliaryMemory() {
   }
 }
 
-void GpuBaseFrictionLaw::copyStaticDataToDevice() {
+void FrictionSolverDetails::copyStaticDataToDevice() {
   {
     constexpr auto dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto dim1 = misc::dimSize<init::resample, 1>();

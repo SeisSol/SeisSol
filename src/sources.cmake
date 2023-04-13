@@ -135,7 +135,7 @@ set(SYCL_DEPENDENT_SRC_FILES
 
 set(SYCL_ONLY_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.cpp)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp)
 
 target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
