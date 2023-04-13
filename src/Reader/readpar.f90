@@ -231,15 +231,17 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial
-    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration, ITMTime
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial, ITMToggle
+    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration, ITMTime, ITMVelocityScalingFactor, &
+                                  ITMStartingTime
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, UseCellHomogenizedMaterial, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName, GravitationalAcceleration, &
-                                           ITMTime
+                                           ITMTime, ITMVelocityScalingFactor, ITMStartingTime, &
+                                           ITMToggle
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
