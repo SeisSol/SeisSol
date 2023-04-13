@@ -232,13 +232,14 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, UseCellHomogenizedMaterial
-    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration
+    REAL                       :: FreqCentral, FreqRatio, Tv, GravitationalAcceleration, ITMTime
     CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, UseCellHomogenizedMaterial, &
                                            Adjoint,  &
                                            MaterialFileName, BoundaryFileName, FreqCentral, &
-                                           FreqRatio, AdjFileName, GravitationalAcceleration
+                                           FreqRatio, AdjFileName, GravitationalAcceleration, &
+                                           ITMTime
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'

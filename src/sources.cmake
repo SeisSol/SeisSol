@@ -99,6 +99,7 @@ src/seissolxx.f90
 src/Physics/ini_model.f90
 src/Physics/InitialField.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
+src/Physics/InstantaneousTimeMirrorParameters.cpp
 src/Reader/readpar.f90
 src/ResultWriter/inioutput_seissol.f90
 src/Initializer/dg_setup.f90
