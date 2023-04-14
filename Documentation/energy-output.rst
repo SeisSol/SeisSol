@@ -71,7 +71,8 @@ Postprocessing and plotting
 
 The code below suggests a way to process and plot variables of the energy output file:
 
-.. conde-block:: python
+.. code-block:: python
+
 	import pandas as pd
 	import numpy as np
 	import matplotlib.pylab as plt
