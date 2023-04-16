@@ -13,7 +13,7 @@ void InstantaneousTimeMirrorManager::init(
     initializers::LTS* lts,
     initializers::Lut* ltsLut,
     TimeStepping* timestepping) {
-  isEnabled = true;
+  isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM
   this->velocityScalingFactor = velocityScalingFactor;
   this->triggerTime = triggerTime;
   this->meshReader = meshReader;

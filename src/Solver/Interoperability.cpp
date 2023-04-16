@@ -800,9 +800,12 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity)
 #endif
 
   auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+  double ITMVelocityScalingFactor = memoryManager.getITMParameters()->getITMVelocityScalingFactor();
+  double ITMStartingTime = memoryManager.getITMParameters()->getITMStartingTime();
   // TODO(Lukas/Sebastian) Find a better place for this.
-  initializeTimeMirrorManagers(1e3, 0.5, &meshReader, m_ltsTree, m_lts, &m_ltsLut,
+  initializeTimeMirrorManagers(ITMVelocityScalingFactor, ITMStartingTime, &meshReader, m_ltsTree, m_lts, &m_ltsLut,
                                timeMirrorManagers.first, timeMirrorManagers.second, &m_timeStepping);
+  // TODO(Vikas) check timestepping to be used here
 }
 
 template<typename T>
