@@ -20,7 +20,7 @@ ITMParameters::ITMParameters(double ITMTime,
                              double ITMVelocityScalingFactor,
                              double ITMStartingTime, bool ITMToggle)
     : ITMTime(ITMTime), ITMVelocityScalingFactor(ITMVelocityScalingFactor),
-      ITMStartingTime(ITMStartingTime) {
+      ITMStartingTime(ITMStartingTime), ITMToggle(ITMToggle) {
   if (ITMTime < 0.0) {
     logError() << "ITM Time is less than zero. It should be positive!\n";
   }
