@@ -1,7 +1,7 @@
 #ifndef SEISSOL_GPU_RATEANDSTATE_H
 #define SEISSOL_GPU_RATEANDSTATE_H
 
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuFrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 
 namespace seissol::dr::friction_law::gpu {
@@ -10,10 +10,10 @@ namespace seissol::dr::friction_law::gpu {
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
 template <class Derived, class TPMethod>
-class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
+class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
   explicit RateAndStateBase(DRParameters* drParameters)
-      : GpuFrictionSolver<RateAndStateBase<Derived, TPMethod>>::GpuFrictionSolver(drParameters),
+      : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
   ~RateAndStateBase() {
@@ -25,7 +25,7 @@ class RateAndStateBase : public GpuFrictionSolver<RateAndStateBase<Derived, TPMe
   }
 
   void allocateAuxiliaryMemory() override {
-    GpuBaseFrictionLaw::allocateAuxiliaryMemory();
+    FrictionSolverDetails::allocateAuxiliaryMemory();
 
     {
       using gpPointType = real(*)[misc::numPaddedPoints];
