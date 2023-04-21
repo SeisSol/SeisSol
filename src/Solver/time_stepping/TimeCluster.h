@@ -91,6 +91,9 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 #include <Monitoring/ActorStateStatistics.h>
+#include "Initializer/DynamicRupture.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Output/OutputManager.hpp"
 
 #include "AbstractTimeCluster.h"
 

@@ -70,6 +70,11 @@ class MeshReader;
 namespace seissol
 {
 
+	// struct timeMirrorManager{
+	// 	seissol::ITM::InstantaneousTimeMirrorManager first;
+	// 	seissol::ITM::InstantaneousTimeMirrorManager second;
+	// };
+
 /**
  * @todo Initialize rank
  */
@@ -145,7 +150,10 @@ private:
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
-  std::pair<InstantaneousTimeMirrorManager, InstantaneousTimeMirrorManager> timeMirrorManagers;
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager, seissol::ITM::InstantaneousTimeMirrorManager> timeMirrorManagers;
+
+	// timeMirrorManager timeMirrorManagers;
+
 	/**
 	 * Only one instance of this class should exist (private constructor).
 	 */

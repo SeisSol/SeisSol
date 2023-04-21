@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Alex Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -50,9 +52,8 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::time_stepping::TimeManager::TimeManager():
-  m_logUpdates(std::numeric_limits<unsigned int>::max())
-{
+seissol::time_stepping::TimeManager::TimeManager()
+    : m_logUpdates(std::numeric_limits<unsigned int>::max()) {
   m_loopStatistics.addRegion("computeLocalIntegration");
   m_loopStatistics.addRegion("computeNeighboringIntegration");
   m_loopStatistics.addRegion("computeDynamicRupture");
@@ -60,17 +61,16 @@ seissol::time_stepping::TimeManager::TimeManager():
   actorStateStatisticsManager = ActorStateStatisticsManager();
 }
 
-seissol::time_stepping::TimeManager::~TimeManager() {
-}
+seissol::time_stepping::TimeManager::~TimeManager() {}
 
 void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
                                                       MeshStructure* i_meshStructure,
                                                       initializers::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
-  SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
+  SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
-  assert( i_meshStructure         != NULL );
+  assert(i_meshStructure != NULL);
 
   // store the time stepping
   m_timeStepping = i_timeStepping;
@@ -80,7 +80,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   bool foundDynamicRuptureCluster = false;
 
   // iterate over local time clusters
-  for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
+  for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters;
+       localClusterId++) {
     // get memory layout of this cluster
     auto [meshStructure, globalData] = memoryManager.getMemoryLayout(localClusterId);
 
@@ -88,53 +89,54 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     // chop off at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
-         static_cast<long>(l_globalClusterId));
+                                   static_cast<long>(l_globalClusterId));
 
     // Dynamic rupture
     auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
     const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
-        dynRupTree.child(Copy).getNumberOfCells() +
-        dynRupTree.child(Ghost).getNumberOfCells();
+                                     dynRupTree.child(Copy).getNumberOfCells() +
+                                     dynRupTree.child(Ghost).getNumberOfCells();
 
     bool isFirstDynamicRuptureCluster = false;
     if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
       foundDynamicRuptureCluster = true;
       isFirstDynamicRuptureCluster = true;
     }
-    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells,
-                                                                                                        isFirstDynamicRuptureCluster));
+    auto& drScheduler =
+        dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
+            numberOfDynRupCells, isFirstDynamicRuptureCluster));
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
-      const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
+      const bool printProgress =
+          (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       const auto profilingId = l_globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
       auto* dynRupInteriorData = &dynRupTree.child(Interior);
       auto* dynRupCopyData = &dynRupTree.child(Copy);
-      clusters.push_back(std::make_unique<TimeCluster>(
-          localClusterId,
-          l_globalClusterId,
-          profilingId,
-          usePlasticity,
-          type,
-          timeStepSize,
-          timeStepRate,
-          printProgress,
-          drScheduler.get(),
-          globalData,
-          layerData,
-          dynRupInteriorData,
-          dynRupCopyData,
-          memoryManager.getLts(),
-          memoryManager.getDynamicRupture(),
-          memoryManager.getFrictionLaw(),
-          memoryManager.getFaultOutputManager(),
-          &m_loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId))
-      );
+      clusters.push_back(
+          std::make_unique<TimeCluster>(localClusterId,
+                                        l_globalClusterId,
+                                        profilingId,
+                                        usePlasticity,
+                                        type,
+                                        timeStepSize,
+                                        timeStepRate,
+                                        printProgress,
+                                        drScheduler.get(),
+                                        globalData,
+                                        layerData,
+                                        dynRupInteriorData,
+                                        dynRupCopyData,
+                                        memoryManager.getLts(),
+                                        memoryManager.getDynamicRupture(),
+                                        memoryManager.getFrictionLaw(),
+                                        memoryManager.getFaultOutputManager(),
+                                        &m_loopStatistics,
+                                        &actorStateStatisticsManager.addCluster(profilingId)));
 
       const auto clusterSize = layerData->getNumberOfCells();
       const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
@@ -158,26 +160,33 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     // are connected.
     if (localClusterId > 0) {
       assert(clusters.size() >= 4);
-      for (int i = 0; i < 2; ++i)  {
-        copy->connect(
-            *clusters[clusters.size() - 2 - i - 1]
-        );
-        interior->connect(
-            *clusters[clusters.size() - 2 - i - 1]
-        );
+      for (int i = 0; i < 2; ++i) {
+        copy->connect(*clusters[clusters.size() - 2 - i - 1]);
+        interior->connect(*clusters[clusters.size() - 2 - i - 1]);
       }
     }
 
+    auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+    // auto increaseManager = timeMirrorManagers.first;
+    // auto decreaseManager = timeMirrorManagers.second;
+
+    auto& [increaseManager, decreaseManager] = timeMirrorManagers;
+
+    increaseManager.setTimeClusterVector(clusters);
+    decreaseManager.setTimeClusterVector(clusters);
 
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
-    for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
-      const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
-                                                  meshStructure->neighboringClusters + meshStructure->numberOfRegions,
-                                                  [otherGlobalClusterId](const auto& neighbor) {
-        return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
-      });
+    for (unsigned int otherGlobalClusterId = 0;
+         otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters;
+         ++otherGlobalClusterId) {
+      const bool hasNeighborRegions =
+          std::any_of(meshStructure->neighboringClusters,
+                      meshStructure->neighboringClusters + meshStructure->numberOfRegions,
+                      [otherGlobalClusterId](const auto& neighbor) {
+                        return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
+                      });
       if (hasNeighborRegions) {
         assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
         assert(
@@ -223,24 +232,23 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 #else
   bool useCommthread = false;
 #endif
-  if (useCommthread && MPI::mpi.size() == 1)  {
+  if (useCommthread && MPI::mpi.size() == 1) {
     logInfo(MPI::mpi.rank()) << "Only using one mpi rank. Not using communication thread.";
     useCommthread = false;
   }
 
   if (useCommthread) {
-    communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
-                                                                          &seissol::SeisSol::main.getPinning()
-                                                                          );
+    communicationManager = std::make_unique<ThreadedCommunicationManager>(
+        std::move(ghostClusters), &seissol::SeisSol::main.getPinning());
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
-
 }
 
-void seissol::time_stepping::TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
+void seissol::time_stepping::TimeManager::setFaultOutputManager(
+    seissol::dr::output::OutputManager* faultOutputManager) {
   m_faultOutputManager = faultOutputManager;
-  for(auto& cluster : clusters) {
+  for (auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
 }
@@ -250,8 +258,8 @@ seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaul
   return m_faultOutputManager;
 }
 
-void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
-  SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
+void seissol::time_stepping::TimeManager::advanceInTime(const double& synchronizationTime) {
+  SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   // We should always move forward in time
   assert(m_timeStepping.synchronizationTime <= synchronizationTime);
@@ -267,7 +275,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 #ifdef ACL_DEVICE
-  device::DeviceInstance &device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
@@ -292,35 +300,33 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
       }
     });
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
+      if (cluster->getNextLegalAction() != ActorAction::Predict &&
+          cluster->getNextLegalAction() != ActorAction::Nothing) {
         communicationManager->progression();
         cluster->act();
       }
     });
 
     // Update one low priority cluster
-    if (auto predictable = std::find_if(
-          lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
-            return c->getNextLegalAction() == ActorAction::Predict;
-          }
-      );
+    if (auto predictable =
+            std::find_if(lowPrioClusters.begin(),
+                         lowPrioClusters.end(),
+                         [](auto& c) { return c->getNextLegalAction() == ActorAction::Predict; });
         predictable != lowPrioClusters.end()) {
       (*predictable)->act();
     } else {
     }
-    if (auto correctable = std::find_if(
-          lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
-            return c->getNextLegalAction() != ActorAction::Predict && c->getNextLegalAction() != ActorAction::Nothing;
-          }
-      );
+    if (auto correctable = std::find_if(lowPrioClusters.begin(),
+                                        lowPrioClusters.end(),
+                                        [](auto& c) {
+                                          return c->getNextLegalAction() != ActorAction::Predict &&
+                                                 c->getNextLegalAction() != ActorAction::Nothing;
+                                        });
         correctable != lowPrioClusters.end()) {
       (*correctable)->act();
     } else {
     }
-    finished = std::all_of(clusters.begin(), clusters.end(),
-                           [](auto& c) {
-      return c->synced();
-    });
+    finished = std::all_of(clusters.begin(), clusters.end(), [](auto& c) { return c->synced(); });
     finished &= communicationManager->checkIfFinished();
   }
 #ifdef ACL_DEVICE
@@ -349,23 +355,22 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
     cluster->setPointSources(
         clusterMappings[cluster->getLayerType()][cluster->getClusterId()].cellToSources,
         clusterMappings[cluster->getLayerType()][cluster->getClusterId()].numberOfMappings,
-        &(pointSources[cluster->getLayerType()][cluster->getClusterId()])
-        );
+        &(pointSources[cluster->getLayerType()][cluster->getClusterId()]));
   }
 }
 
-void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
-{
+void seissol::time_stepping::TimeManager::setReceiverClusters(
+    writer::ReceiverWriter& receiverWriter) {
   for (auto& cluster : clusters) {
-    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->getClusterId(),
-                                                               cluster->getLayerType()));
+    cluster->setReceiverCluster(
+        receiverWriter.receiverCluster(cluster->getClusterId(), cluster->getLayerType()));
   }
 }
 
-void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
-  assert( i_time >= 0 );
+void seissol::time_stepping::TimeManager::setInitialTimes(double i_time) {
+  assert(i_time >= 0);
 
-  for(auto & cluster : clusters) {
+  for (auto& cluster : clusters) {
     cluster->setPredictionTime(i_time);
     cluster->setCorrectionTime(i_time);
     cluster->setReceiverTime(i_time);
@@ -373,8 +378,7 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
 }
 
 void seissol::time_stepping::TimeManager::setTv(double tv) {
-  for(auto& cluster : clusters) {
+  for (auto& cluster : clusters) {
     cluster->setTv(tv);
   }
 }
-
