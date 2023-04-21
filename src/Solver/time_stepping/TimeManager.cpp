@@ -167,13 +167,10 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
     }
 
     auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
-    // auto increaseManager = timeMirrorManagers.first;
-    // auto decreaseManager = timeMirrorManagers.second;
-
     auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
-    increaseManager.setTimeClusterVector(clusters);
-    decreaseManager.setTimeClusterVector(clusters);
+    increaseManager.setTimeClusterVector(&clusters);
+    decreaseManager.setTimeClusterVector(&clusters);
 
 #ifdef USE_MPI
     // Create ghost time clusters for MPI

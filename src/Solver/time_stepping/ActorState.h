@@ -78,6 +78,8 @@ struct ClusterTimes {
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
                                                double newSyncTime) const;
 
+  [[nodiscard]] double& getTimeStepSize();
+
 };
 
 struct NeighborCluster {

@@ -64,10 +64,20 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   }
 }
 
-void InstantaneousTimeMirrorManager::updateTimeSteps() {}
+void InstantaneousTimeMirrorManager::updateTimeSteps() {
+
+  for(auto& cluster: *timeClusters){
+    auto i = cluster->getClusterId();
+
+    cluster->getClusterTimes().getTimeStepSize() = cluster->getClusterTimes().getTimeStepSize()/this->velocityScalingFactor;
+  }
+
+}
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>> clusters) {}
+    std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters) {
+      timeClusters = clusters;
+    }
 
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,

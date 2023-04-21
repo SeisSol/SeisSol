@@ -22,7 +22,7 @@ class InstantaneousTimeMirrorManager : Module {
   initializers::Lut* ltsLut{};
   TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>> timeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
 
   public:
   InstantaneousTimeMirrorManager() : isEnabled(false){};
@@ -37,7 +37,7 @@ class InstantaneousTimeMirrorManager : Module {
                                          // exactly is to be sent here
 
   void setTimeClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>> clusters);
+      std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
   void syncPoint(double currentTime) override;
 
   private:

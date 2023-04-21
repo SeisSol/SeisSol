@@ -391,6 +391,11 @@ public:
   ActResult act() override;
 
   /**
+   * Returns a reference of ClusterTimes
+  */
+  ClusterTimes& getClusterTimes();
+
+  /**
    * Constructs a new LTS cluster.
    *
    * @param i_clusterId id of this cluster with respect to the current rank.
