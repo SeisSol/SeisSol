@@ -378,7 +378,11 @@ class seissol::initializers::MemoryManager {
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
   static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
-#endif
+#endif // ACL_DEVICE
+
+#ifdef REQUIRED_COMM_LAYERS_PREFETCH
+  seissol::memory::Memkind getCommunicationLayerMpiMemoryType();
+#endif // REQUIRED_COMM_LAYERS_PREFETCH
 
   void initializeFrictionLaw();
   void initFaultOutputManager();

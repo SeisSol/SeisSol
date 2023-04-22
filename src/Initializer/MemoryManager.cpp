@@ -293,6 +293,25 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
       l_offset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
     }
   }
+
+#ifdef REQUIRED_COMM_LAYERS_PREFETCH
+  const auto mpiMemoryType = getCommunicationLayerMpiMemoryType();
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    for (unsigned int region = 0; region < m_meshStructure[tc].numberOfRegions; ++region) {
+      const size_t currentGhostRegionSize = m_meshStructure[tc].ghostRegionSizes[region] * sizeof(real);
+      auto* ghostMpiBuffer = m_memoryAllocator.allocateMemory(currentGhostRegionSize,
+                                                              ALIGNMENT,
+                                                              mpiMemoryType);
+      m_meshStructure[tc].duplicatedGhostRegions[region] = static_cast<real*>(ghostMpiBuffer);
+
+      const size_t currentCopyRegionSize =  m_meshStructure[tc].copyRegionSizes[region] * sizeof(real);
+      auto* copyMpiBuffer = m_memoryAllocator.allocateMemory(currentCopyRegionSize,
+                                                             ALIGNMENT,
+                                                             mpiMemoryType);
+      m_meshStructure[tc].duplicatedCopyRegions[region] = static_cast<real*>(copyMpiBuffer);
+    }
+  }
+#endif // REQUIRED_COMM_LAYERS_PREFETCH
 }
 #endif
 
@@ -475,6 +494,17 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_dynRupTree.allocateScratchPads();
 #endif
 }
+
+#ifdef REQUIRED_COMM_LAYERS_PREFETCH
+seissol::memory::Memkind
+seissol::initializers::MemoryManager::getCommunicationLayerMpiMemoryType() {
+#if defined(PREFETCH_COMM_LAYERS_TO_HOST)
+  return memory::Standard;
+#elif defined(PREFETCH_COMM_LAYERS_TO_DEVICE)
+  return memory::DeviceGlobalMemory;
+#endif
+}
+#endif // REQUIRED_COMM_LAYERS_PREFETCH
 
 void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
   seissol::initializers::LayerMask ghostMask(Ghost);

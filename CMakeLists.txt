@@ -30,7 +30,7 @@ endif()
 #                     MEMORY_LAYOUT, COMMTHREAD,
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
-#                     DR_QUAD_RULE
+#                     DR_QUAD_RULE, MPI_USER_BUFFERS_PREFETCH
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES, WITH_GPU
 #
 include(cmake/process_users_input.cmake)
@@ -213,6 +213,10 @@ endif()
 if (COMMTHREAD)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_COMM_THREAD)
 endif()
+
+string(TOUPPER ${PREFETCH_COMM_LAYERS_TO} MEMORY_TYPE)
+target_compile_definitions(SeisSol-common-properties INTERFACE
+    PREFETCH_COMM_LAYERS_TO_${MEMORY_TYPE})
 
 if (NUMA_AWARE_PINNING)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_NUMA_AWARE_PINNING)

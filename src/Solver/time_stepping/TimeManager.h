@@ -56,7 +56,7 @@
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "GhostTimeCluster.h"
+#include "Solver/time_stepping/GhostTimeClusterType.h"
 
 namespace seissol {
   namespace time_stepping {

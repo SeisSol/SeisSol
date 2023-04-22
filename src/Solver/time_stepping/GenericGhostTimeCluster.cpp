@@ -1,10 +1,8 @@
 #include <Parallel/MPI.h>
-#include <Solver/time_stepping/GhostTimeCluster.h>
-
-#include "GhostTimeCluster.h"
+#include <Solver/time_stepping/GenericGhostTimeCluster.h>
 
 namespace seissol::time_stepping {
-void GhostTimeCluster::sendCopyLayer(){
+void GenericGhostTimeCluster::sendCopyLayer() {
   SCOREP_USER_REGION( "sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
   assert(ct.correctionTime > lastSendTime);
   lastSendTime = ct.correctionTime;
@@ -18,10 +16,12 @@ void GhostTimeCluster::sendCopyLayer(){
                 seissol::MPI::mpi.comm(),
                 meshStructure->sendRequests + region
                );
-      sendQueue.push_back(meshStructure->sendRequests + region);
+      sendQueue.push_back(region);
     }
   }
-} void GhostTimeCluster::receiveGhostLayer(){
+}
+
+void GenericGhostTimeCluster::receiveGhostLayer() {
   SCOREP_USER_REGION( "receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
   assert(ct.predictionTime > lastSendTime);
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
@@ -32,72 +32,75 @@ void GhostTimeCluster::sendCopyLayer(){
                 meshStructure->neighboringClusters[region][0],
                 timeData + meshStructure->receiveIdentifiers[region],
                 seissol::MPI::mpi.comm(),
-                meshStructure->receiveRequests + region
-               );
-      receiveQueue.push_back(meshStructure->receiveRequests + region );
+                meshStructure->receiveRequests + region);
+      receiveQueue.push_back(region);
     }
   }
 }
 
-
-bool GhostTimeCluster::testQueue(std::list<MPI_Request*>& queue) {
-  for (auto request = queue.begin(); request != queue.end(); ) {
+bool GenericGhostTimeCluster::testQueue(MPI_Request* requests,
+                                        std::list<unsigned int>& regions) {
+  for (auto region = regions.begin(); region != regions.end();) {
+    MPI_Request *request = &requests[*region];
     int testSuccess = 0;
-    MPI_Test(*request, &testSuccess, MPI_STATUS_IGNORE);
+    MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
-      request = queue.erase(request);
+      region = regions.erase(region);
     } else {
-      ++request;
+      ++region;
     }
   }
-  return queue.empty();
+  return regions.empty();
 }
-bool GhostTimeCluster::testForGhostLayerReceives(){
+
+bool GenericGhostTimeCluster::testForGhostLayerReceives() {
   SCOREP_USER_REGION( "testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION )
-  return testQueue(receiveQueue);
+  return testQueue(meshStructure->receiveRequests, receiveQueue);
 }
 
-
-bool GhostTimeCluster::testForCopyLayerSends(){
+bool GenericGhostTimeCluster::testForCopyLayerSends() {
   SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
-  return testQueue(sendQueue);
+  return testQueue(meshStructure->sendRequests, sendQueue);
 }
 
-ActResult GhostTimeCluster::act() {
+ActResult GenericGhostTimeCluster::act() {
   // Always check for receives/send for quicker MPI progression.
   testForGhostLayerReceives();
   testForCopyLayerSends();
   return AbstractTimeCluster::act();
 }
 
-void GhostTimeCluster::start() {
+void GenericGhostTimeCluster::start() {
   assert(testForGhostLayerReceives());
   receiveGhostLayer();
 }
 
-void GhostTimeCluster::predict() {
+void GenericGhostTimeCluster::predict() {
     // Doesn't do anything
 }
 
-void GhostTimeCluster::correct() {
+void GenericGhostTimeCluster::correct() {
     // Doesn't do anything
 }
-bool GhostTimeCluster::mayCorrect() {
+
+bool GenericGhostTimeCluster::mayCorrect() {
   return testForCopyLayerSends() && AbstractTimeCluster::mayCorrect();
 }
-bool GhostTimeCluster::mayPredict() {
+
+bool GenericGhostTimeCluster::mayPredict() {
   return testForGhostLayerReceives() && AbstractTimeCluster::mayPredict();
 }
 
-bool GhostTimeCluster::maySync() {
+bool GenericGhostTimeCluster::maySync() {
   return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
 }
 
-void GhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster&) {
+void GenericGhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster&) {
   assert(testForCopyLayerSends());
   sendCopyLayer();
 }
-void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
+
+void GenericGhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
   assert(testForGhostLayerReceives());
 
   auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
@@ -116,43 +119,41 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   }
 }
 
-GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
-                                   int timeStepRate,
-                                   int globalTimeClusterId,
-                                   int otherGlobalTimeClusterId,
-                                   const MeshStructure *meshStructure)
+GenericGhostTimeCluster::GenericGhostTimeCluster(double maxTimeStepSize,
+                                                 int timeStepRate,
+                                                 int globalTimeClusterId,
+                                                 int otherGlobalTimeClusterId,
+                                                 const MeshStructure *meshStructure)
     : AbstractTimeCluster(maxTimeStepSize, timeStepRate),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure) {
-}
-void GhostTimeCluster::reset() {
+      meshStructure(meshStructure) {}
+
+void GenericGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
   assert(testForGhostLayerReceives());
   lastSendTime = -1;
 }
 
-  void GhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-    const auto rank = MPI::mpi.rank();
+void GenericGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+  const auto rank = MPI::mpi.rank();
+  logError()
+      << "Ghost: No update since " << timeSinceLastUpdate.count()
+      << "[s] for global cluster " << globalClusterId
+      << " with other cluster id " << otherGlobalClusterId
+      << " at state " << actorStateToString(state)
+      << " mayPredict = " << mayPredict()
+      << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
+      << " mayCorrect = " << mayCorrect()
+      << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
+      << " maySync = " << maySync();
+  for (auto& neighbor : neighbors) {
     logError()
-        << "Ghost: No update since " << timeSinceLastUpdate.count()
-        << "[s] for global cluster " << globalClusterId
-        << " with other cluster id " << otherGlobalClusterId
-        << " at state " << actorStateToString(state)
-        << " mayPredict = " << mayPredict()
-        << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
-        << " mayCorrect = " << mayCorrect()
-        << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
-        << " maySync = " << maySync();
-    for (auto& neighbor : neighbors) {
-      logError()
-        << "Neighbor with rate = " << neighbor.ct.timeStepRate
-        << "PredTime = " << neighbor.ct.predictionTime
-        << "CorrTime = " << neighbor.ct.correctionTime
-        << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-        << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
-    }
+      << "Neighbor with rate = " << neighbor.ct.timeStepRate
+      << "PredTime = " << neighbor.ct.predictionTime
+      << "CorrTime = " << neighbor.ct.correctionTime
+      << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+      << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
-
-
 }
+} // namespace seissol::time_stepping

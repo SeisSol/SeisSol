@@ -68,7 +68,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                                       initializers::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
-  std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
+  using ghostClusters_t = GhostTimeClusterType::value;
+  std::vector<std::unique_ptr<ghostClusters_t>> ghostClusters;
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
 
@@ -188,11 +189,11 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
             ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
                  static_cast<long>(otherGlobalClusterId));
 
-        ghostClusters.push_back(std::make_unique<GhostTimeCluster>(otherTimeStepSize,
-                                                                   otherTimeStepRate,
-                                                                   globalClusterId,
-                                                                   otherGlobalClusterId,
-                                                                   meshStructure));
+        ghostClusters.push_back(std::make_unique<ghostClusters_t>(otherTimeStepSize,
+                                                                  otherTimeStepRate,
+                                                                  globalClusterId,
+                                                                  otherGlobalClusterId,
+                                                                  meshStructure));
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*copy);
       }
