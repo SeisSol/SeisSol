@@ -108,6 +108,13 @@ struct CellLocalInformation {
   unsigned int clusterId;
 };
 
+#if defined(PREFETCH_COMM_LAYERS_TO_HOST) || defined(PREFETCH_COMM_LAYERS_TO_DEVICE)
+#ifndef ACL_DEVICE
+#error "MPI user-buffers prefetch requires the Device submodule"
+#endif // ACL_DEVICE
+#define REQUIRED_COMM_LAYERS_PREFETCH
+#endif
+
 struct MeshStructure {
   /*
    * Number of regions in the ghost and copy layer.
@@ -142,6 +149,10 @@ struct MeshStructure {
    */
   real** ghostRegions;
 
+#ifdef REQUIRED_COMM_LAYERS_PREFETCH
+  std::vector<real*> duplicatedGhostRegions;
+#endif // REQUIRED_COMM_LAYERS_PREFETCH
+
   /*
    * Sizes of the ghost regions (in reals).
    */
@@ -168,6 +179,10 @@ struct MeshStructure {
    *           The pointers only point to communcation related chunks.
    */
   real** copyRegions;
+
+#ifdef REQUIRED_COMM_LAYERS_PREFETCH
+  std::vector<real*> duplicatedCopyRegions;
+#endif // REQUIRED_COMM_LAYERS_PREFETCH
 
   /*
    * Sizes of the copy regions (in reals).

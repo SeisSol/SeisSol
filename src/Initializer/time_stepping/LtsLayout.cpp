@@ -1539,6 +1539,11 @@ void seissol::initializers::time_stepping::LtsLayout::getMeshStructure( MeshStru
     o_meshStructure[l_cluster].copyRegions                                = new real*[        o_meshStructure[l_cluster].numberOfRegions ];
     o_meshStructure[l_cluster].copyRegionSizes                            = new unsigned int[ o_meshStructure[l_cluster].numberOfRegions ];
 
+#ifdef REQUIRED_COMM_LAYERS_PREFETCH
+    o_meshStructure[l_cluster].duplicatedCopyRegions.resize(o_meshStructure[l_cluster].numberOfRegions);
+    o_meshStructure[l_cluster].duplicatedGhostRegions.resize(o_meshStructure[l_cluster].numberOfRegions);
+#endif // REQUIRED_COMM_LAYERS_PREFETCH
+
     o_meshStructure[l_cluster].numberOfGhostCells = 0;
     o_meshStructure[l_cluster].numberOfCopyCells = 0;
 

@@ -28,7 +28,8 @@ src/Solver/time_stepping/AbstractTimeCluster.cpp
 src/Solver/time_stepping/ActorState.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
-src/Solver/time_stepping/GhostTimeCluster.cpp
+src/Solver/time_stepping/GenericGhostTimeCluster.cpp
+src/Solver/time_stepping/GhostTimeClusterWithPrefetch.cpp
 src/Solver/time_stepping/CommunicationManager.cpp
 
 src/Solver/time_stepping/TimeManager.cpp

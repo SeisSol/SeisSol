@@ -184,6 +184,8 @@ void seissol::SeisSol::finalize()
 
 	const int rank = MPI::mpi.rank();
 
+	m_timeManager.releaseCommunicationManager();
+
 #ifdef ACL_DEVICE
 	device::DeviceInstance &device = device::DeviceInstance::getInstance();
 	device.api->finalize();

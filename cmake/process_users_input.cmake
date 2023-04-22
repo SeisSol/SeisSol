@@ -90,6 +90,10 @@ set(GEMM_TOOLS_OPTIONS "auto" "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS"
         "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
+set(PREFETCH_COMM_LAYERS_TO "none" CACHE STRING "choose a memory type for comm. layers MPI user-buffers for prefetching")
+set(PREFETCH_COMM_LAYERS_OPTIONS none device host)
+set_property(CACHE PREFETCH_COMM_LAYERS_TO PROPERTY STRINGS ${PREFETCH_COMM_LAYERS_OPTIONS})
+
 #-------------------------------------------------------------------------------
 # ------------------------------- ERROR CHECKING -------------------------------
 #-------------------------------------------------------------------------------
@@ -232,4 +236,12 @@ if (PROXY_PYBINDING)
     # Note: ENABLE_PIC_COMPILATION can be used to signal other sub-modules
     # generate position independent code
     set(ENABLE_PIC_COMPILATION ON)
+endif()
+
+if (${DEVICE_BACKEND} STREQUAL "none")
+    if (${PREFETCH_MPI_USER_BUFFERS_TO} MATCHES "device|host")
+        message(FATAL_ERROR "The CPU version of SeisSol does not support "
+                "comm. layers prefetching for point-to-point "
+                "non-blocking communication")
+    endif()
 endif()
