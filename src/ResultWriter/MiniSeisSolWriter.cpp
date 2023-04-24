@@ -1,6 +1,6 @@
 #include "MiniSeisSolWriter.h"
 #include "Parallel/MPI.h"
-#include <filesystem>
+#include "Common/filesystem.h"
 #include <fstream>
 #include <algorithm>
 #include <unistd.h>
@@ -20,8 +20,8 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
       return elapsedTimeVector[i] > elapsedTimeVector[j];
     });
 
-    std::filesystem::path path(outputDirectory);
-    path += std::filesystem::path("-miniSeissol.csv");
+    seissol::filesystem::path path(outputDirectory);
+    path += seissol::filesystem::path("-miniSeissol.csv");
 
     std::fstream fileStream(path, std::ios::out);
     fileStream << "hostname,rank,localRank,elapsedTime,weight\n";
