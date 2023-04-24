@@ -14,9 +14,17 @@ In order to run SeisSol, you need to first install:
 -  CMake (>= 3.20) for the compilation of SeisSol
 
 For run-time partitioning you need to choose one of the following libraries:
+
 -  ParMETIS (with IDXTYPEWIDTH=64)
 -  SCOTCH
 -  ParHIP
+
+The partitioning of SeisSol meshes with ParMETIS was tested in large simulations and is
+generally recommended for academic users.
+SCOTCH and ParHIP are free and open-source alternatives to ParMETIS and should be used by
+users from industry or for-profit institutions (cf. `ParMETIS license <https://github.com/KarypisLab/ParMETIS/blob/main/LICENSE>`_).
+A study comparing partition quality for SeisSol meshes can be found `here <https://home.in.tum.de/~schnelle/publications/bachelorsthesis-informatics-final.pdf>`_.
+
 
 In addition, the following packages need to be installed for the GPU version of SeisSol:
 
