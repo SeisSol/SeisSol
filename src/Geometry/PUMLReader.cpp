@@ -267,7 +267,7 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
       logError() << "Unrecognized partition library: " << partitioningLib;
     }
     auto graph = PUML::TETPartitionGraph(puml);
-    graph.set_vertex_weights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
+    graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
 
 #ifdef USE_MPI
     auto nodeWeights = std::vector<double>(MPI::mpi.size());
@@ -284,8 +284,8 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
 #endif
 
     auto target = PUML::PartitionTarget{};
-    target.set_vertex_weights(nodeWeights);
-    target.set_imbalance(ltsWeights->imbalances()[0] - 1.0);
+    target.setVertexWeights(nodeWeights);
+    target.setImbalance(ltsWeights->imbalances()[0] - 1.0);
 
     return partitioner->partition(graph, target);
   };
