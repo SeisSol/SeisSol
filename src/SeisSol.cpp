@@ -97,6 +97,7 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
 #endif
 #ifdef _OPENMP
+  pinning.checkEnvVariables();
   logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
   logInfo(rank) << "OpenMP worker affinity (this process):" << parallel::Pinning::maskToString(
       pinning.getWorkerUnionMask());

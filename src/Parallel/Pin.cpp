@@ -44,7 +44,9 @@
 #include <sched.h>
 #include <sstream>
 #include <set>
+#include <cstdlib>
 #include "Parallel/MPI.h"
+#include "utils/logger.h"
 
 #ifdef USE_NUMA_AWARE_PINNING
 #include "numa.h"
@@ -53,6 +55,52 @@
 seissol::parallel::Pinning::Pinning() {
   // Affinity mask for the OpenMP workers
   openmpMask = getWorkerUnionMask();
+}
+
+void seissol::parallel::Pinning::checkEnvVariables() {
+  const auto rank = MPI::mpi.rank();
+  if (const char* envVariable = std::getenv("SEISSOL_FREE_CPUS_MASK")) {
+    auto parsedResult = seissol::IntegerMaskParser::parse(std::string(envVariable));
+    if (parsedResult) {
+      parsedFreeCPUsMask = parsedResult.value();
+
+      bool isMaskGood{true};
+      const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
+      if (numLocalProcesses > parsedFreeCPUsMask.size()) {
+        logInfo(rank) << "Num. local processes is greater than free cpus mask";
+        isMaskGood = false;
+      }
+      else {
+        const auto maxCpuId = get_nprocs();
+        for (auto localProcessId = 0; localProcessId < parsedFreeCPUsMask.size(); ++localProcessId) {
+          for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
+            if (cpu > maxCpuId) {
+              logInfo(rank) << "Free cpu mask of the local process"
+                            << localProcessId
+                            << "is out of bounds. CPU/core id"
+                            << cpu << "exceeds max. value"
+                            << maxCpuId;
+              isMaskGood = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isMaskGood) {
+        logInfo(rank) << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
+      }
+      else {
+        logWarning(rank) << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logWarning(rank) << "`SEISSOL_FREE_CPUS_MASK` Format:"
+                         << "(<int>|<range: int-int>|<list: {int,+}>),+";
+        parsedFreeCPUsMask = IntegerMaskParser::MaskType{};
+      }
+    }
+    else {
+      logWarning(rank) << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
+    }
+  }
 }
 
 cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
@@ -81,6 +129,14 @@ cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
 
   cpu_set_t freeMask{};
   CPU_ZERO(&freeMask);
+
+  if (not parsedFreeCPUsMask.empty()) {
+    const auto localProcessor = MPI::mpi.sharedMemMpiRank();
+    for (auto& cpu : parsedFreeCPUsMask[localProcessor]) {
+      CPU_SET(cpu, &freeMask);
+    }
+    return freeMask;
+  }
 
 #ifdef USE_NUMA_AWARE_PINNING
   // Find all numa nodes on which some OpenMP worker is pinned to
