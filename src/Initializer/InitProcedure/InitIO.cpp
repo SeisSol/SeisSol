@@ -193,16 +193,11 @@ static void setIntegralMask() {
       ssp.output.waveFieldParameters.integrationMask);
 }
 
-// TODO(David): do we even need this? Or can we merge it with the PostLts method?
-void seissol::initializer::initprocedure::initIOPreLts() {
-  // checkpointing needs to be enabled first
-  enableCheckpointing();
-
-  enableWaveFieldOutput();
-}
-
-void seissol::initializer::initprocedure::initIOPostLts() {
+void seissol::initializer::initprocedure::initIO() {
   logInfo(seissol::MPI::mpi.rank()) << "Begin init output.";
+  // always enable checkpointing first
+  enableCheckpointing();
+  enableWaveFieldOutput();
   setIntegralMask();
   enableFreeSurfaceOutput();
   initFaultOutputManager();

@@ -38,11 +38,10 @@ static void initSeisSol() {
   seissol::SeisSol::main.getGravitationSetup().acceleration = ssp.model.gravitationalAcceleration;
 
   // initialization procedure
-  seissol::initializer::initprocedure::initIOPreLts();
   seissol::initializer::initprocedure::initMesh();
   seissol::initializer::initprocedure::initModel();
   seissol::initializer::initprocedure::initSideConditions();
-  seissol::initializer::initprocedure::initIOPostLts();
+  seissol::initializer::initprocedure::initIO();
 
   // set up simulator
   auto& sim = seissol::SeisSol::main.simulator();
