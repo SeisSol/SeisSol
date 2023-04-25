@@ -96,6 +96,7 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
