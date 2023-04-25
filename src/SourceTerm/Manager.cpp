@@ -87,16 +87,6 @@
 #include <string>
 #include <cstring>
 
-template <typename T>
-class index_sort_by_value {
-  private:
-  T const* value;
-
-  public:
-  explicit index_sort_by_value(T const* value) : value(value) {}
-  inline bool operator()(unsigned i, unsigned j) const { return value[i] < value[j]; }
-};
-
 /**
  * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
@@ -230,7 +220,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters(
       }
       std::sort(clusterMappings[cluster].sources,
                 clusterMappings[cluster].sources + clusterMappings[cluster].numberOfSources,
-                index_sort_by_value<unsigned>(meshIds));
+                [&](unsigned i, unsigned j) { return meshIds[i] < meshIds[j]; });
 
       unsigned clusterSource = 0;
       unsigned mapping = 0;

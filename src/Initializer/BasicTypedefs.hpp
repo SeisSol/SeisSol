@@ -57,8 +57,8 @@ constexpr bool isInteriorFaceType(FaceType faceType) {
   return faceType == FaceType::regular || faceType == FaceType::dynamicRupture || faceType == FaceType::periodic;
 }
 
-// Checks if a face type is an interior face (i.e. there is only one cell adjacent to it).
-constexpr bool isBoundaryFaceType(FaceType faceType) {
+// Checks if a face type is an external boundary face (i.e. there is only one cell adjacent to it).
+constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
   return faceType == FaceType::freeSurface || faceType == FaceType::freeSurfaceGravity || faceType == FaceType::dirichlet || faceType == FaceType::analytical;
 }
 

@@ -473,15 +473,6 @@ class seissol::initializers::time_stepping::LtsLayout {
     void setMesh( const MeshReader &i_mesh );
 
     /**
-     * Sets the time step width of a specidic cell.
-     *
-     * @param i_cellId id of the cell.
-     * @param i_timeStepWidth time step width of the cell.
-     **/
-    void setTimeStepWidth( unsigned int i_cellId,
-                           double       i_timeStepWidth );
-
-    /**
      * Derives the layout of the LTS scheme.
      *
      * @param i_timeClustering clustering strategy.

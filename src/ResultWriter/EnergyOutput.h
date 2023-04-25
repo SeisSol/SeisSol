@@ -15,6 +15,7 @@
 
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Initializer/InputParameters.hpp"
 
 namespace seissol::writer {
 
@@ -50,10 +51,8 @@ class EnergyOutput : public Module {
             seissol::initializers::LTS* newLts,
             seissol::initializers::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
-            bool newIsTerminalOutputEnabled,
-            int newComputeVolumeEnergiesEveryOutput,
             const std::string& outputFileNamePrefix,
-            double newSyncPointInterval);
+            const seissol::initializer::parameters::EnergyOutputParameters& parameters);
 
   void syncPoint(double time) override;
 

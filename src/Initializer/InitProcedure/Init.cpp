@@ -7,7 +7,7 @@
 #include "Initializer/InputParameters.hpp"
 #include "Parallel/MPI.h"
 
-void reportDeviceMemoryStatus() {
+static void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   constexpr size_t GB = 1024 * 1024 * 1024;
@@ -31,7 +31,7 @@ void reportDeviceMemoryStatus() {
 #endif
 }
 
-void initSeisSol() {
+static void initSeisSol() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // set g
@@ -46,14 +46,14 @@ void initSeisSol() {
 
   // set up simulator
   auto& sim = seissol::SeisSol::main.simulator();
-  sim.setUsePlasticity(ssp.model.plasticity ? 1 : 0);
+  sim.setUsePlasticity(ssp.model.plasticity);
   sim.setFinalTime(ssp.end.endTime);
 
-  // report status (TODO: move somewhere better)
+  // report status (TODO(David): move somewhere better)
   reportDeviceMemoryStatus();
 }
 
-void closeSeisSol() {
+static void closeSeisSol() {
   logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
   // cleanup IO
   seissol::SeisSol::main.waveFieldWriter().close();
@@ -68,13 +68,20 @@ void closeSeisSol() {
 void seissol::initializer::initprocedure::seissolMain() {
   initSeisSol();
 
+  // just put a barrier here to make sure everyone is synched
+  logInfo(seissol::MPI::mpi.rank()) << "Finishing initialization...";
+  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+
   seissol::Stopwatch watch;
   logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
   watch.start();
   seissol::SeisSol::main.simulator().simulate();
   watch.pause();
   watch.printTime("Time spent in simulation:");
+
+  // make sure everyone is really done
   logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
+  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
   closeSeisSol();
 }

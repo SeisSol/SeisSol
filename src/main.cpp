@@ -72,15 +72,10 @@ int main(int argc, char* argv[])
 	// Initialize SeisSol
 	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
-	// Initialize Fortan Part and run SeisSol
-	/*
+	// Run SeisSol
         if (runSeisSol) {
-            fortran_main();
+                seissol::initializer::initprocedure::seissolMain();
         }
-        */
-       if (runSeisSol) {
-        seissol::initializer::initprocedure::seissolMain();
-       }
 #pragma omp parallel
         {
         LIKWID_MARKER_STOP("SeisSol");

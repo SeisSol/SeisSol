@@ -85,7 +85,7 @@ class EasiBoundary;
 
 // temporary struct until we have something like a lazy vector/iterator "map" (as in on-demand,
 // element-wise function application)
-struct C2VArray {
+struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
   using CellToMaterialFunction = std::function<int(size_t)>;
 
@@ -93,11 +93,11 @@ struct C2VArray {
   CellToVertexFunction elementVertices;
   CellToMaterialFunction elementMaterials;
 
-  static C2VArray fromMeshReader(const MeshReader& meshReader);
+  static CellToVertexArray fromMeshReader(const MeshReader& meshReader);
 #ifdef USE_HDF
-  static C2VArray fromPUML(const PUML::TETPUML& mesh);
+  static CellToVertexArray fromPUML(const PUML::TETPUML& mesh);
 #endif
-  static C2VArray fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
+  static CellToVertexArray fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
                               const std::vector<int>& materials);
 };
 
@@ -107,7 +107,7 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool anisotropy,
                                       bool poroelasticity,
                                       bool useCellHomogenizedMaterial,
-                                      const C2VArray& ctov);
+                                      const CellToVertexArray& ctov);
 } // namespace initializers
 } // namespace seissol
 
@@ -120,24 +120,24 @@ class seissol::initializers::QueryGenerator {
 class seissol::initializers::ElementBarycentreGenerator
     : public seissol::initializers::QueryGenerator {
   public:
-  explicit ElementBarycentreGenerator(const C2VArray& ctov) : m_ctov(ctov) {}
+  explicit ElementBarycentreGenerator(const CellToVertexArray& ctov) : m_ctov(ctov) {}
   virtual easi::Query generate() const;
 
   private:
-  C2VArray m_ctov;
+  CellToVertexArray m_ctov;
 };
 
 class seissol::initializers::ElementAverageGenerator
     : public seissol::initializers::QueryGenerator {
   public:
-  explicit ElementAverageGenerator(const C2VArray& ctov);
+  explicit ElementAverageGenerator(const CellToVertexArray& ctov);
   virtual easi::Query generate() const;
   const std::array<double, NUM_QUADPOINTS>& getQuadratureWeights() const {
     return m_quadratureWeights;
   };
 
   private:
-  C2VArray m_ctov;
+  CellToVertexArray m_ctov;
   std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
   std::array<std::array<double, 3>, NUM_QUADPOINTS> m_quadraturePoints;
 };

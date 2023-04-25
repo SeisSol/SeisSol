@@ -62,12 +62,12 @@
 #endif
 #include "utils/logger.h"
 
-seissol::initializers::C2VArray
-    seissol::initializers::C2VArray::fromMeshReader(const MeshReader& meshReader) {
+seissol::initializers::CellToVertexArray
+    seissol::initializers::CellToVertexArray::fromMeshReader(const MeshReader& meshReader) {
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 
-  return C2VArray{.size = elements.size(),
+  return CellToVertexArray{.size = elements.size(),
                   .elementVertices =
                       [&](size_t index) {
                         std::array<Eigen::Vector3d, 4> verts;
@@ -82,12 +82,12 @@ seissol::initializers::C2VArray
 }
 
 #ifdef USE_HDF
-seissol::initializers::C2VArray
-    seissol::initializers::C2VArray::fromPUML(const PUML::TETPUML& mesh) {
+seissol::initializers::CellToVertexArray
+    seissol::initializers::CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
   const int* material = mesh.cellData(0);
   const auto& cells = mesh.cells();
   const auto& vertices = mesh.vertices();
-  return C2VArray{.size = cells.size(),
+  return CellToVertexArray{.size = cells.size(),
                   .elementVertices =
                       [&](size_t cell) {
                         std::array<Eigen::Vector3d, 4> x;
@@ -104,12 +104,12 @@ seissol::initializers::C2VArray
 }
 #endif
 
-seissol::initializers::C2VArray seissol::initializers::C2VArray::fromVectors(
+seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromVectors(
     const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
     const std::vector<int>& materials) {
   assert(vertices.size() == materials.size());
 
-  return C2VArray{.size = vertices.size(),
+  return CellToVertexArray{.size = vertices.size(),
                   .elementVertices =
                       [&](size_t idx) {
                         std::array<Eigen::Vector3d, 4> verts;
@@ -136,7 +136,7 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
   return query;
 }
 
-seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(const C2VArray& ctov)
+seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& ctov)
     : m_ctov(ctov) {
   double quadraturePoints[NUM_QUADPOINTS][3];
   double quadratureWeights[NUM_QUADPOINTS];
@@ -633,7 +633,7 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool anisotropy,
                                       bool poroelasticity,
                                       bool useCellHomogenizedMaterial,
-                                      const C2VArray& ctov) {
+                                      const CellToVertexArray& ctov) {
   QueryGenerator* queryGen = nullptr;
   if (!useCellHomogenizedMaterial) {
     queryGen = new ElementBarycentreGenerator(ctov);

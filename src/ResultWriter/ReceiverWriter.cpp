@@ -52,6 +52,7 @@
 #include <string>
 #include <fstream>
 #include <regex>
+#include "Initializer/InputParameters.hpp"
 
 Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
@@ -173,14 +174,13 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(std::string receiverFileName, std::string fileNamePrefix,
-                                           double syncPointInterval, double samplingInterval, bool computeRotation)
+void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
 {
-  m_receiverFileName = std::move(receiverFileName);
-  m_fileNamePrefix = std::move(fileNamePrefix);
-  m_samplingInterval = samplingInterval;
-  m_computeRotation = computeRotation;
-  setSyncInterval(syncPointInterval);
+  m_fileNamePrefix = fileNamePrefix;
+  m_receiverFileName = parameters.fileName;
+  m_samplingInterval = parameters.samplingInterval;
+  m_computeRotation = parameters.computeRotation;
+  setSyncInterval(parameters.interval);
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 

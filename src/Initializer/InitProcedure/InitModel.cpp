@@ -25,7 +25,7 @@ using MaterialClass = seissol::model::MaterialClass;
 using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
-void synchronize(const seissol::initializers::Variable<T>& handle) {
+static void synchronize(const seissol::initializers::Variable<T>& handle) {
   initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
   unsigned* const(&meshToLts)[seissol::initializers::Lut::MaxDuplicates] =
       memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
@@ -50,7 +50,7 @@ void synchronize(const seissol::initializers::Variable<T>& handle) {
 }
 
 template <typename T>
-std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen,
+static std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen,
                        const std::string& fileName,
                        size_t size) {
   std::vector<T> vectorDB(size);
@@ -61,7 +61,7 @@ std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen,
 }
 
 template <typename T>
-void copyInit(T& target, const T& value) {
+static void copyInit(T& target, const T& value) {
   new (&target) T(value);
 }
 
@@ -70,36 +70,40 @@ void initializeCellMaterial() {
   const auto& meshReader = seissol::SeisSol::main.meshReader();
   initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
 
-  // unpack ghost layer (merely a re-ordering operation)
+  // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now requires an vector there)
   std::vector<std::array<std::array<double, 3>, 4>> ghostVertices;
-  std::vector<int> ghostMaterials;
+  std::vector<int> ghostGroups;
   std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
-  for (const auto& neighbor : meshReader.getMPINeighborVertices()) {
+  for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
     ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
-    for (const auto& vertices : neighbor.second) {
+    for (const auto& metadata : neighbor.second) {
       ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
-      ghostVertices.push_back(vertices);
-    }
-    for (const auto& group : meshReader.getMPINeighborGroups().at(neighbor.first)) {
-      ghostMaterials.push_back(group);
+      std::array<std::array<double, 3>, 4> vertices;
+      for (size_t i = 0; i < 4; ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+          vertices[i][j] = metadata.vertices[i][j];
+        }
+      }
+      ghostVertices.emplace_back(vertices);
+      ghostGroups.push_back(metadata.group);
     }
   }
 
   seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(
-      seissol::initializer::parameters::modelAnelastic(),
+      seissol::initializer::parameters::isModelAnelastic(),
       ssp.model.plasticity,
-      seissol::initializer::parameters::modelAnisotropic(),
-      seissol::initializer::parameters::modelPoroelastic(),
+      seissol::initializer::parameters::isModelAnisotropic(),
+      seissol::initializer::parameters::isModelPoroelastic(),
       ssp.model.useCellHomogenizedMaterial,
-      seissol::initializers::C2VArray::fromMeshReader(meshReader));
+      seissol::initializers::CellToVertexArray::fromMeshReader(meshReader));
   seissol::initializers::QueryGenerator* queryGenGhost =
       seissol::initializers::getBestQueryGenerator(
-          seissol::initializer::parameters::modelAnelastic(),
+          seissol::initializer::parameters::isModelAnelastic(),
           ssp.model.plasticity,
-          seissol::initializer::parameters::modelAnisotropic(),
-          seissol::initializer::parameters::modelPoroelastic(),
+          seissol::initializer::parameters::isModelAnisotropic(),
+          seissol::initializer::parameters::isModelPoroelastic(),
           ssp.model.useCellHomogenizedMaterial,
-          seissol::initializers::C2VArray::fromVectors(ghostVertices, ghostMaterials));
+          seissol::initializers::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
   auto materialsDB =
       queryDB<MaterialClass>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
   auto materialsDBGhost =
@@ -113,7 +117,7 @@ void initializeCellMaterial() {
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
   // we need to compute all model parameters before we can use them...
-  // TODO: integrate this with the Viscoelastic material class or the ParameterDB directly?
+  // TODO(David): integrate this with the Viscoelastic material class or the ParameterDB directly?
   logDebug() << "Initializing attenuation.";
 #ifdef OPENMP
 #pragma omp parallel for schedule(static)
@@ -179,7 +183,7 @@ void initializeCellMaterial() {
       }
 
       // if enabled, set up the plasticity as well
-      // TODO: move to material initalization maybe? Or an initializer for the PlasticityData
+      // TODO(David): move to material initalization maybe? Or an initializer for the PlasticityData
       // struct?
       if (ssp.model.plasticity) {
         auto& plasticity = plasticityArray[cell];
@@ -213,7 +217,6 @@ void initializeCellMaterial() {
     seissol::SeisSol::main.timeManager().setTv(ssp.model.tv);
   }
 
-  // TODO: check if sync is still necessary
   // synchronize data
   synchronize(memoryManager.getLts()->material);
   if (ssp.model.plasticity) {
@@ -230,7 +233,7 @@ struct LtsInfo {
   // RUNTIME
 };
 
-void initializeCellMatrices(LtsInfo& ltsInfo) {
+static void initializeCellMatrices(LtsInfo& ltsInfo) {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // \todo Move this to some common initialization place
@@ -280,7 +283,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo) {
   }
 }
 
-void initializeClusteredLts(LtsInfo& ltsInfo) {
+static void initializeClusteredLts(LtsInfo& ltsInfo) {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // assert a valid clustering
@@ -325,7 +328,7 @@ void initializeClusteredLts(LtsInfo& ltsInfo) {
   seissol::SeisSol::main.getLtsLayout().getCellInformation(
       m_ltsTree->var(m_lts->cellInformation), ltsToMesh, numberOfMeshCells);
 
-  // TODO: move all of this method to the MemoryManager
+  // TODO(David): move all of this method to the MemoryManager
   seissol::SeisSol::main.getMemoryManager().getLtsLutUnsafe().createLuts(
       m_ltsTree, ltsToMesh, numberOfMeshCells);
 
@@ -337,7 +340,7 @@ void initializeClusteredLts(LtsInfo& ltsInfo) {
                                                         m_ltsTree->var(m_lts->cellInformation));
 }
 
-void initializeMemoryLayout(LtsInfo& ltsInfo) {
+static void initializeMemoryLayout(LtsInfo& ltsInfo) {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // initialize memory layout
@@ -384,8 +387,7 @@ void seissol::initializer::initprocedure::initModel() {
   logInfo(seissol::MPI::mpi.rank()) << "Initialize Memory layout.";
   initializeMemoryLayout(ltsInfo);
 
-  // init cell matrices (TODO: what is the dependency here? However, it was called after init memory
-  // layout in the FORTRAN code, so we'll do this here as well)
+  // init cell matrices
   logInfo(seissol::MPI::mpi.rank()) << "Initialize cell-local matrices.";
   initializeCellMatrices(ltsInfo);
 

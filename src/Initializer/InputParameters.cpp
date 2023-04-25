@@ -19,14 +19,14 @@
 using namespace seissol::initializer::parameters;
 
 // converts a string to lower case, and trims it.
-void sanitize(std::string& input) {
+static void sanitize(std::string& input) {
   utils::StringUtils::trim(input);
   utils::StringUtils::toLower(input);
 }
 
 // A small helper class which reads a YAML node dictionary. It keeps track of all items that have
 // been read and reports all values which are not used or not used anymore.
-// TODO: maybe make the reader more tree-like (i.e. keep a central set on which nodes have been
+// TODO(David): maybe make the reader more tree-like (i.e. keep a central set on which nodes have been
 // visited), and output all non-understood values at the end and not between sections
 class ParameterReader {
   public:
@@ -92,7 +92,7 @@ class ParameterReader {
     }
   }
 
-  void warnLeftover() {
+  void warnUnknown() {
     for (const auto& subnodes : node) {
       auto field = subnodes.first.as<std::string>();
       if (visited.find(field) == visited.end()) {
@@ -136,7 +136,7 @@ class ParameterReader {
       }
     } catch (std::exception& e) {
       logError() << "Error while reading field" << field << ":" << e.what();
-      return T(); // unreachable. TODO: use compiler hint instead
+      return T(); // unreachable. TODO(David): use compiler hint instead
     }
   }
 
@@ -145,19 +145,20 @@ class ParameterReader {
   std::unordered_set<std::string> visited;
 };
 
-void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("equations");
 
   ssp.model.materialFileName =
       reader.readOrFail<std::string>("materialfilename", "No material file given.");
   ssp.model.boundaryFileName = reader.readWithDefault("boundaryfilename", std::string(""));
+  ssp.model.hasBoundaryFile = ssp.model.boundaryFileName != "";
 
   ssp.model.gravitationalAcceleration = reader.readWithDefault("gravitationalacceleration", 9.81);
 
   ssp.model.plasticity = reader.readWithDefault("plasticity", false);
   ssp.model.tv = reader.readWithDefault("tv", 0.1);
   ssp.model.useCellHomogenizedMaterial =
-      reader.readWithDefault("usecellhomogenizedmaterial", false);
+      reader.readWithDefault("usecellhomogenizedmaterial", true);
 
 #if NUMBER_OF_RELAXATION_MECHANISMS > 0
   ssp.model.freqCentral = reader.readOrFail<double>(
@@ -170,20 +171,20 @@ void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
 #endif
 
   reader.warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
-  reader.warnLeftover();
+  reader.warnUnknown();
 }
 
-void readDynamicRupture(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("boundaries");
   ssp.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
 
-  // TODO: ? port DR reading here, maybe.
+  // TODO(David): ? port DR reading here, maybe.
 
   reader.warnDeprecated({"bc_fs", "bc_nc", "bc_if", "bc_of", "bc_pe"});
-  reader.warnLeftover();
+  reader.warnUnknown();
 }
 
-void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("meshnml");
 
   ssp.mesh.meshFileName = reader.readOrFail<std::string>("meshfile", "No mesh file given.");
@@ -207,14 +208,14 @@ void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
       reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 100);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
-  reader.warnLeftover();
+  reader.warnUnknown();
 }
 
-void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("discretization");
 
   ssp.timestepping.cfl = reader.readWithDefault("cfl", 0.5);
-  ssp.timestepping.maxTimestep = reader.readWithDefault("fixtimestep", 5000.0);
+  ssp.timestepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
   ssp.timestepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
   ssp.timestepping.lts.weighttype = reader.readWithDefaultEnum(
       "ltsweighttypeid",
@@ -235,10 +236,10 @@ void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp) {
                          "order",
                          "material",
                          "npolymap"});
-  reader.warnLeftover();
+  reader.warnUnknown();
 }
 
-void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("inicondition");
 
   ssp.initialization.type = reader.readWithDefaultStringEnum<InitializationType>(
@@ -260,10 +261,10 @@ void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
   ssp.initialization.ampField =
       reader.readWithDefault("ampfield", std::array<double, NUMBER_OF_QUANTITIES>{0});
 
-  reader.warnLeftover();
+  reader.warnUnknown();
 }
 
-void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("output");
 
   // general params
@@ -316,12 +317,14 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
       !(bounds[0] == 0 && bounds[1] == 0 && bounds[2] == 0 && bounds[3] == 0 && bounds[4] == 0 &&
         bounds[5] == 0);
 
+  ssp.output.waveFieldParameters.enabled = reader.readWithDefault("wavefieldoutput", true);
   // output time interval
   if (ssp.output.format != OutputFormat::None) {
     ssp.output.waveFieldParameters.interval =
         reader.readOrFail<double>("timeinterval", "No output interval specified.");
   } else {
     reader.markUnused("timeinterval");
+    ssp.output.waveFieldParameters.interval = 0;
   }
   ssp.output.waveFieldParameters.refinement =
       reader.readWithDefaultEnum<OutputRefinement>("refinement",
@@ -331,7 +334,7 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
                                                     OutputRefinement::Refine8,
                                                     OutputRefinement::Refine32});
 
-  ssp.output.waveFieldParameters.enabled = ssp.output.waveFieldParameters.interval > 0;
+  ssp.output.waveFieldParameters.enabled &= ssp.output.waveFieldParameters.interval > 0;
 
   auto groupsVector = reader.readWithDefault("outputgroups", std::vector<int>());
   ssp.output.waveFieldParameters.groups =
@@ -366,11 +369,11 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   ssp.output.energyParameters.terminalOutput =
       reader.readWithDefault("energyterminaloutput", false);
   ssp.output.energyParameters.computeVolumeEnergiesEveryOutput =
-      reader.readWithDefault("computevolumeenergieseveryoutput", true);
+      reader.readWithDefault("computevolumeenergieseveryoutput", 1);
 
   // output: refinement
   ssp.output.receiverParameters.enabled =
-      reader.readWithDefault("receiveroutput", true); // TODO: document
+      reader.readWithDefault("receiveroutput", true);
   ssp.output.receiverParameters.interval =
       reader.readWithDefault("receiveroutputinterval", 1.0e100);
   ssp.output.receiverParameters.enabled &= ssp.output.receiverParameters.interval > 0;
@@ -387,27 +390,25 @@ void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   ssp.output.loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
 
-  // TODO: check if ioutputmaskmaterial is still in use...
   reader.warnDeprecated({"rotation",
                          "interval",
                          "nrecordpoints",
                          "printintervalcriterion",
                          "pickdttype",
                          "ioutputmaskmaterial"});
-  reader.warnLeftover();
+  reader.warnUnknown();
 }
 
-void readEnd(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readAbortCriteria(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("abortcriteria");
 
   ssp.end.endTime = reader.readWithDefault("endtime", 15.0);
-  ssp.end.maxIterations = reader.readWithDefault("maxiterations", 1000000000);
 
-  reader.warnDeprecated({"MaxTolerance", "MaxTolCriterion", "WallTime_h", "Delay_h"});
-  reader.warnLeftover();
+  reader.warnDeprecated({"maxiterations", "maxtolerance", "maxtolcriterion", "walltime_h", "delay_h"});
+  reader.warnUnknown();
 }
 
-void readSource(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readSource(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("sourcetype");
 
   ssp.source.type = reader.readWithDefaultEnum("type",
@@ -421,8 +422,8 @@ void readSource(ParameterReader& baseReader, SeisSolParameters& ssp) {
     reader.markUnused("filename");
   }
 
-  reader.warnDeprecated({"Rtype", "nDirac", "nPulseSource", "nRicker"});
-  reader.warnLeftover();
+  reader.warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
+  reader.warnUnknown();
 }
 
 void SeisSolParameters::readPar(const YAML::Node& baseNode) {
@@ -431,13 +432,18 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
   ParameterReader baseReader(baseNode, false);
 
   readModel(baseReader, *this);
-  readDynamicRupture(baseReader, *this);
+  readBoundaries(baseReader, *this);
   readMesh(baseReader, *this);
   readTimestepping(baseReader, *this);
   readInitialization(baseReader, *this);
   readOutput(baseReader, *this);
   readSource(baseReader, *this);
-  readEnd(baseReader, *this);
+  readAbortCriteria(baseReader, *this);
+
+  // TODO(David): remove once DR parameter reading is integrated here
+  baseReader.markUnused("dynamicrupture");
+  baseReader.markUnused("elementwise");
+  baseReader.markUnused("pickpoint");
 
   baseReader.warnDeprecated({"rffile",
                              "inflowbound",
@@ -450,13 +456,15 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
                              "source19",
                              "spongelayer",
                              "sponges"});
-  baseReader.warnLeftover();
+  baseReader.warnUnknown();
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
-}
 
-void SeisSolParameters::printInfo() {
-  // logInfo() << "SeisSol parameters.";
-
-  // TODO: printing some model info at least would be nice (if still needed)
+  logInfo(seissol::MPI::mpi.rank()) << "Model information:";
+  logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << isModelElastic();
+  logInfo(seissol::MPI::mpi.rank()) << "Viscoelastic model:" << isModelViscoelastic();
+  logInfo(seissol::MPI::mpi.rank()) << "Anelastic model:" << isModelAnelastic();
+  logInfo(seissol::MPI::mpi.rank()) << "Poroelastic model:" << isModelPoroelastic();
+  logInfo(seissol::MPI::mpi.rank()) << "Anisotropic model:" << isModelAnisotropic();
+  logInfo(seissol::MPI::mpi.rank()) << "Plasticity" << this->model.plasticity;
 }

@@ -8,7 +8,7 @@
 
 #include "Parallel/MPI.h"
 
-void setupCheckpointing() {
+static void setupCheckpointing() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
 
@@ -64,7 +64,7 @@ void setupCheckpointing() {
   }
 }
 
-void setupOutput() {
+static void setupOutput() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
   auto* lts = memmng.getLts();
@@ -76,7 +76,7 @@ void setupOutput() {
 
   constexpr auto numberOfQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
-  // TODO: handle attenuation properly here. We'll probably not want it to be contained in
+  // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter NUMBER_OF_QUANTITIES contains it
   // nonetheless.
 
@@ -99,12 +99,7 @@ void setupOutput() {
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissol::SeisSol::main.postProcessor().getIntegrals(ltsTree),
         ltsLut->getMeshToLtsLut(lts->dofs.mask)[0],
-        ssp.output.waveFieldParameters.refinement,
-        std::vector<bool>(ssp.output.waveFieldParameters.outputMask.begin(),
-                          ssp.output.waveFieldParameters.outputMask.end()),
-        ssp.output.waveFieldParameters.plasticityMask,
-        ssp.output.waveFieldParameters.bounds,
-        ssp.output.waveFieldParameters.groups,
+        ssp.output.waveFieldParameters,
         ssp.output.xdmfWriterBackend);
   }
 
@@ -120,11 +115,8 @@ void setupOutput() {
   if (ssp.output.receiverParameters.enabled) {
     auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
     // Initialize receiver output
-    receiverWriter.init(ssp.output.receiverParameters.fileName,
-                        ssp.output.prefix,
-                        ssp.output.receiverParameters.interval,
-                        ssp.output.receiverParameters.samplingInterval,
-                        ssp.output.receiverParameters.computeRotation);
+    receiverWriter.init(ssp.output.prefix,
+                        ssp.output.receiverParameters);
     receiverWriter.addPoints(seissol::SeisSol::main.meshReader(), *ltsLut, *lts, globalData);
     seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
   }
@@ -140,10 +132,8 @@ void setupOutput() {
                       lts,
                       ltsLut,
                       ssp.model.plasticity,
-                      ssp.output.energyParameters.terminalOutput,
-                      ssp.output.energyParameters.computeVolumeEnergiesEveryOutput,
-                      ssp.output.prefix.c_str(),
-                      ssp.output.energyParameters.interval);
+                      ssp.output.prefix,
+                      ssp.output.energyParameters);
   }
 
   seissol::SeisSol::main.flopCounter().init(ssp.output.prefix.c_str());
@@ -152,7 +142,7 @@ void setupOutput() {
                                                ssp.output.prefix.c_str());
 }
 
-void enableCheckpointing() {
+static void enableCheckpointing() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   if (ssp.output.checkpointParameters.enabled) {
     seissol::SeisSol::main.simulator().setCheckPointInterval(
@@ -163,7 +153,7 @@ void enableCheckpointing() {
   }
 }
 
-void initFaultOutputManager() {
+static void initFaultOutputManager() {
   seissol::SeisSol::main.getMemoryManager().initFaultOutputManager();
 
   auto* faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
@@ -172,7 +162,7 @@ void initFaultOutputManager() {
   seissol::SeisSol::main.getMemoryManager().getFaultOutputManager()->initFaceToLtsMap();
 }
 
-void enableWaveFieldOutput() {
+static void enableWaveFieldOutput() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   if (ssp.output.waveFieldParameters.enabled) {
     seissol::SeisSol::main.waveFieldWriter().enable();
@@ -182,7 +172,7 @@ void enableWaveFieldOutput() {
   }
 }
 
-void enableFreeSurfaceOutput() {
+static void enableFreeSurfaceOutput() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
   if (ssp.output.freeSurfaceParameters.enabled) {
@@ -197,13 +187,13 @@ void enableFreeSurfaceOutput() {
   }
 }
 
-void setIntegralMask() {
+static void setIntegralMask() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   seissol::SeisSol::main.postProcessor().setIntegrationMask(
       ssp.output.waveFieldParameters.integrationMask);
 }
 
-// do we even need this? Or can we merge it with the PostLts method?
+// TODO(David): do we even need this? Or can we merge it with the PostLts method?
 void seissol::initializer::initprocedure::initIOPreLts() {
   // checkpointing needs to be enabled first
   enableCheckpointing();

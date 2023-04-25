@@ -49,11 +49,10 @@
 #include <Solver/time_stepping/TimeManager.h>
 #include <Geometry/MeshReader.h>
 #include <inttypes.h>
-#include <yaml-cpp/yaml.h>
 
 namespace seissol {
 namespace sourceterm {
-enum class SourceType { None = 0, NrfSource = 42, FsrmSource = 50 };
+enum class SourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 
 void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
                                   real* mInvJInvPhisAtSources,

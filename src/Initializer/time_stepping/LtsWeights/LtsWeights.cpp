@@ -406,7 +406,7 @@ int LtsWeights::ipow(int x, int y) {
 }
 
 seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::C2VArray::fromPUML(*m_mesh));
+  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh));
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
@@ -430,7 +430,7 @@ std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
   const auto &cells = m_mesh->cells();
   std::vector<int> clusterIds(cells.size(), 0);
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    clusterIds[cell] = getCluster(m_details.elementTimeStep[cell],
+    clusterIds[cell] = getCluster(m_details.cellTimeStepWidths[cell],
                                   m_details.globalMinTimeStep, curWiggleFactor,
                                   m_rate);
   }

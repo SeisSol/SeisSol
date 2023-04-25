@@ -25,7 +25,7 @@
 
 #include "Parallel/MPI.h"
 
-void postMeshread(MeshReader& meshReader,
+static void postMeshread(MeshReader& meshReader,
                   bool hasFault,
                   const std::array<double, 3>& displacement,
                   const std::array<std::array<double, 3>, 3>& scalingMatrix) {
@@ -35,17 +35,17 @@ void postMeshread(MeshReader& meshReader,
   meshReader.scaleMesh(scalingMatrix);
 
   if (hasFault) {
-    logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information";
+    logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
 
     auto* drParameters = seissol::SeisSol::main.getMemoryManager().getDRParameters();
     VrtxCoords center{drParameters->referencePoint[0],
                       drParameters->referencePoint[1],
                       drParameters->referencePoint[2]};
-    meshReader.findFault(center, drParameters->refPointMethod);
+    meshReader.extractFaultInformation(center, drParameters->refPointMethod);
   }
 
-  meshReader.exchangeVerticesWithMPINeighbors();
-  meshReader.exchangeGroupsWithMPINeighbors();
+  logInfo(seissol::MPI::mpi.rank()) << "Exchanging ghostlayer metadata.";
+  meshReader.exchangeGhostlayerMetadata();
 
   seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
 
@@ -53,7 +53,7 @@ void postMeshread(MeshReader& meshReader,
   seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
 }
 
-void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& ssp) {
+static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& ssp) {
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
   const int rank = seissol::MPI::mpi.rank();
   double tpwgt = 1.0;
@@ -95,7 +95,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& ssp
   auto ltsWeights =
       getLtsWeightsImplementation(ssp.timestepping.lts.weighttype, config, ltsParameters);
   auto meshReader = new seissol::PUMLReader(ssp.mesh.meshFileName.c_str(),
-                                            ssp.timestepping.maxTimestep,
+                                            ssp.timestepping.maxTimestepWidth,
                                             ssp.output.checkpointParameters.fileName.c_str(),
                                             ltsWeights.get(),
                                             tpwgt,
@@ -131,23 +131,16 @@ void seissol::initializer::initprocedure::initMesh() {
   seissol::Stopwatch watch;
   watch.start();
 
-  auto meshformat = ssp.mesh.meshFormat;
+  const auto meshFormat = ssp.mesh.meshFormat;
 
-  auto commrank = seissol::MPI::mpi.rank();
-  auto commsize = seissol::MPI::mpi.size();
+  const auto commRank = seissol::MPI::mpi.rank();
+  const auto commSize = seissol::MPI::mpi.size();
 
-  // this choice of filename imitates readpar.f90. While it may not be ideal, Gambit3D is a legacy
-  // format anyways
-  std::string partitionfile = ssp.mesh.meshFileName + std::string(".met");
-  switch (meshformat) {
-  case MeshFormat::Gambit3D:
-    seissol::SeisSol::main.setMeshReader(
-        new GambitReader(commrank, ssp.mesh.meshFileName.c_str(), partitionfile.c_str()));
-    break;
+  switch (meshFormat) {
   case MeshFormat::Netcdf:
 #if USE_NETCDF
     seissol::SeisSol::main.setMeshReader(
-        new NetcdfReader(commrank, commsize, ssp.mesh.meshFileName.c_str()));
+        new NetcdfReader(commRank, commSize, ssp.mesh.meshFileName.c_str()));
 #else
     logError()
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
@@ -157,7 +150,7 @@ void seissol::initializer::initprocedure::initMesh() {
     readMeshPUML(ssp);
     break;
   default:
-    logError() << "Mesh reader not implemented for format" << static_cast<int>(meshformat);
+    logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);
   }
 
   postMeshread(seissol::SeisSol::main.meshReader(),

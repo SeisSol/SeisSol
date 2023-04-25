@@ -15,12 +15,26 @@
 #include "time_stepping/LtsWeights/WeightsFactory.h"
 
 namespace seissol::initializer::parameters {
-// constexpr auto NUMBER_OF_QUANTITIES = tensor::Q::Shape[ sizeof(tensor::Q::Shape) /
-// sizeof(tensor::Q::Shape[0]) - 1];
 
-constexpr bool modelAnelastic() { return NUMBER_OF_RELAXATION_MECHANISMS > 0; }
+constexpr bool isModelAnelastic() { return NUMBER_OF_RELAXATION_MECHANISMS > 0; }
 
-constexpr bool modelPoroelastic() {
+constexpr bool isModelElastic() {
+#ifdef USE_ELASTIC
+  return true;
+#else
+  return false;
+#endif
+}
+
+constexpr bool isModelViscoelastic() {
+#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
+  return true;
+#else
+  return false;
+#endif
+}
+
+constexpr bool isModelPoroelastic() {
 #ifdef USE_POROELASTIC
   return true;
 #else
@@ -28,7 +42,7 @@ constexpr bool modelPoroelastic() {
 #endif
 }
 
-constexpr bool modelAnisotropic() {
+constexpr bool isModelAnisotropic() {
 #ifdef USE_ANISOTROPIC
   return true;
 #else
@@ -45,9 +59,10 @@ struct ModelParameters {
   double freqRatio = 0.0;
   std::string materialFileName = "";
   std::string boundaryFileName = "";
+  bool hasBoundaryFile = false;
 };
 
-enum class InitializationType {
+enum class InitializationType : int {
   Zero,
   Planarwave,
   SuperimposedPlanarwave,
@@ -68,12 +83,12 @@ struct InitializationParameters {
 
 struct DynamicRuptureParameters {
   bool hasFault;
-  // TODO: port rest of the DR parameters here?
+  // TODO(David): port rest of the DR parameters here?
 };
 
-enum class OutputFormat { None = 10, Xdmf = 6 };
+enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
-enum class OutputRefinement { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
+enum class OutputRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
 
 struct VertexWeightParameters {
   int weightElement;
@@ -108,32 +123,37 @@ struct OutputBounds {
   }
 };
 
-struct OutputBaseParameters {
+struct ReceiverOutputParameters {
   bool enabled = false;
   double interval = 1.0e100;
-};
-
-struct OutputReceiverParameters : public OutputBaseParameters {
   bool computeRotation = false;
-  std::string fileName;
+  std::string fileName = "";
   double samplingInterval = 0.0;
 };
 
-struct OutputSurfaceParameters : public OutputBaseParameters {
+struct FreeSurfaceOutputParameters {
+  bool enabled = false;
+  double interval = 1.0e100;
   unsigned refinement;
 };
 
-struct OutputEnergyParameters : public OutputBaseParameters {
+struct EnergyOutputParameters {
+  bool enabled = false;
+  double interval = 1.0e100;
   bool terminalOutput = false;
-  bool computeVolumeEnergiesEveryOutput = true;
+  int computeVolumeEnergiesEveryOutput = 1;
 };
 
-struct CheckpointParameters : public OutputBaseParameters {
+struct CheckpointParameters {
+  bool enabled = false;
+  double interval = 1.0e100;
   std::string fileName;
   seissol::checkpoint::Backend backend;
 };
 
-struct OutputWaveFieldParameters : public OutputBaseParameters {
+struct WaveFieldOutputParameters {
+  bool enabled = false;
+  double interval = 1.0e100;
   OutputRefinement refinement = OutputRefinement::NoRefine;
   OutputBounds bounds;
   std::array<bool, NUMBER_OF_QUANTITIES> outputMask;
@@ -147,10 +167,10 @@ struct OutputParameters {
   OutputFormat format = OutputFormat::None;
   xdmfwriter::BackendType xdmfWriterBackend;
   CheckpointParameters checkpointParameters;
-  OutputWaveFieldParameters waveFieldParameters;
-  OutputReceiverParameters receiverParameters;
-  OutputSurfaceParameters freeSurfaceParameters;
-  OutputEnergyParameters energyParameters;
+  WaveFieldOutputParameters waveFieldParameters;
+  ReceiverOutputParameters receiverParameters;
+  FreeSurfaceOutputParameters freeSurfaceParameters;
+  EnergyOutputParameters energyParameters;
   bool faultOutput = false;
   bool loopStatisticsNetcdfOutput = false;
 };
@@ -163,7 +183,7 @@ struct LtsParameters {
 
 struct TimesteppingParameters {
   double cfl = 0.5;
-  double maxTimestep = 5000;
+  double maxTimestepWidth = 5000;
   LtsParameters lts;
   VertexWeightParameters vertexWeight;
 };
@@ -175,7 +195,6 @@ struct SourceParameters {
 
 struct EndParameters {
   double endTime = 15.0;
-  uint64_t maxIterations = 100000000;
 };
 
 struct SeisSolParameters {
@@ -189,7 +208,6 @@ struct SeisSolParameters {
   EndParameters end;
 
   void readPar(const YAML::Node& baseNode);
-  void printInfo();
 };
 } // namespace seissol::initializer::parameters
 

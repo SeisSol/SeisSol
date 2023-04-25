@@ -16,14 +16,14 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial& vm,
   constexpr std::size_t kmax =
       2 * nummech - 1; // slight note: if nummech == 0, this does not make any sense
 
-  double w0 = 2 * M_PI * freqCentral;
-  double wmin = w0 / std::sqrt(freqRatio);
+  const double w0 = 2 * M_PI * freqCentral;
+  const double wmin = w0 / std::sqrt(freqRatio);
 
   Eigen::VectorXd w(kmax);
 
   if (nummech > 1) {
-    double logwmin = std::log(wmin);
-    double logfreqratio = std::log(freqRatio);
+    const double logwmin = std::log(wmin);
+    const double logfreqratio = std::log(freqRatio);
     for (std::size_t i = 0; i < kmax; ++i) {
       w(i) = std::exp(logwmin + (i / static_cast<double>(kmax - 1)) * logfreqratio);
     }
@@ -40,17 +40,17 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial& vm,
 
   for (size_t i = 0; i < kmax; ++i) {
     for (size_t j = 0; j < nummech; ++j) {
-      double wjsq = w(2 * j) * w(2 * j);
-      double wisq = w(i) * w(i);
-      double norm = wjsq + wisq;
-      double sc1 = w(2 * j) * w(i);
+      const double wjsq = w(2 * j) * w(2 * j);
+      const double wisq = w(i) * w(i);
+      const double norm = wjsq + wisq;
+      const double sc1 = w(2 * j) * w(i);
       AP(i, j) = (sc1 + wjsq / vm.Qp) / norm;
       AS(i, j) = (sc1 + wjsq / vm.Qs) / norm;
     }
   }
 
-  auto qpinv = Eigen::VectorXd::Constant(kmax, 1 / vm.Qp);
-  auto qsinv = Eigen::VectorXd::Constant(kmax, 1 / vm.Qs);
+  Eigen::VectorXd::Constant qpinv(kmax, 1 / vm.Qp);
+  Eigen::VectorXd::Constant qsinv(kmax, 1 / vm.Qs);
 
   auto APodc = AP.completeOrthogonalDecomposition();
   auto ASodc = AS.completeOrthogonalDecomposition();
@@ -74,16 +74,16 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial& vm,
     psi1s = psi1s - beta(i) / w0dwsq1;
     psi2s = psi2s + beta(i) * (w0dw / w0dwsq1);
   }
-  double rp = std::sqrt(psi1p * psi1p + psi2p * psi2p);
-  double var_p = (vm.lambda + 2 * vm.mu) * (rp + psi1p) / (2 * rp * rp);
-  double rs = std::sqrt(psi1s * psi1s + psi2s * psi2s);
-  double var_mu = vm.mu * (rs + psi1s) / (2 * rs * rs);
+  const double rp = std::sqrt(psi1p * psi1p + psi2p * psi2p);
+  const double var_p = (vm.lambda + 2 * vm.mu) * (rp + psi1p) / (2 * rp * rp);
+  const double rs = std::sqrt(psi1s * psi1s + psi2s * psi2s);
+  const double var_mu = vm.mu * (rs + psi1s) / (2 * rs * rs);
   // replace end
 
-  double var_lambda = var_p - 2 * var_mu;
+  const double var_lambda = var_p - 2 * var_mu;
   for (size_t i = 0; i < nummech; ++i) {
-    double t1 = -var_p * alpha(i);
-    double t2 = -2.0 * var_mu * beta(i);
+    const double t1 = -var_p * alpha(i);
+    const double t2 = -2.0 * var_mu * beta(i);
     vm.theta[i][0] = t1;
     vm.theta[i][1] = t1 - t2;
     vm.theta[i][2] = t2;

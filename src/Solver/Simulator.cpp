@@ -72,8 +72,8 @@ void seissol::Simulator::setFinalTime( double i_finalTime ) {
   m_finalTime = i_finalTime;
 }
 
-void seissol::Simulator::setUsePlasticity( int i_plasticity ) {
-  m_usePlasticity = i_plasticity==1 ? true : false;
+void seissol::Simulator::setUsePlasticity( bool plasticity ) {
+  m_usePlasticity = plasticity;
 }
 
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {

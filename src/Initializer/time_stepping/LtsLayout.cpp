@@ -83,32 +83,21 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader 
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();
 
-  m_cellTimeStepWidths = new double[       m_cells.size() ];
   m_cellClusterIds     = new unsigned int[ m_cells.size() ];
 
   // initialize with invalid values
   for (unsigned int l_cell = 0; l_cell < m_cells.size(); ++l_cell) {
-    m_cellTimeStepWidths[l_cell] = std::numeric_limits<double>::min();
     m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
   }
 
   auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
 
   // compute timesteps
-  auto gts = seissol::initializer::computeTimesteps(ssp.timestepping.cfl, ssp.timestepping.maxTimestep, ssp.model.materialFileName,
-        seissol::initializers::C2VArray::fromMeshReader(i_mesh));
+  auto timesteps = seissol::initializer::computeTimesteps(ssp.timestepping.cfl, ssp.timestepping.maxTimestepWidth, ssp.model.materialFileName,
+        seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh));
   
-  for (size_t i = 0; i < gts.elementTimeStep.size(); ++i) {
-    m_cellTimeStepWidths[i] = gts.elementTimeStep[i];
-  }
-}
-
-void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned int i_cellId,
-                                                                        double       i_timeStepWidth ) {
-  if( i_cellId >= m_cells.size() ) logError() << "cell id >= mesh size: " << i_cellId << m_cells.size() << "aborting";
-
-  // set time step width
-  //m_cellTimeStepWidths[i_cellId] = i_timeStepWidth;
+  m_cellTimeStepWidths = new double[m_cells.size()];
+  std::copy(timesteps.cellTimeStepWidths.begin(), timesteps.cellTimeStepWidths.end(), m_cellTimeStepWidths);
 }
 
 FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {

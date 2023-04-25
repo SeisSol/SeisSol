@@ -3,7 +3,7 @@
  * This file is part of SeisSol.
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2023, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,7 @@
 // particular, this reader is not programmed to be very fail-safe...
 
 template <size_t N>
-void read_array_or_zero(std::ifstream& filestream,
+static void readArrayOrZero(std::ifstream& filestream,
                         std::string& header,
                         const std::string& keyword,
                         real* data) {
@@ -92,9 +92,9 @@ void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
 
   // comment
   std::getline(filestream, lineval);
-  read_array_or_zero<3>(filestream, lineval, "velocity", this->solidVelocityComponent);
-  read_array_or_zero<1>(filestream, lineval, "pressure", &this->pressureComponent);
-  read_array_or_zero<3>(filestream, lineval, "fluid", this->fluidVelocityComponent);
+  readArrayOrZero<3>(filestream, lineval, "velocity", this->solidVelocityComponent);
+  readArrayOrZero<1>(filestream, lineval, "pressure", &this->pressureComponent);
+  readArrayOrZero<3>(filestream, lineval, "fluid", this->fluidVelocityComponent);
   // (we've last read a header/comment line at this point here)
 
   // read faults

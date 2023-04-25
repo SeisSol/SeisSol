@@ -35,7 +35,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Point source computation.
+ * Point source datastructure.
  **/
 
 #ifndef READER_FSRMREADER_H_

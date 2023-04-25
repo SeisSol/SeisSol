@@ -323,7 +323,7 @@ class seissol::initializers::MemoryManager {
       return &m_ltsLut;
     }
 
-    // TODO: remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
+    // TODO(David): remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
     inline Lut& getLtsLutUnsafe() {
       return m_ltsLut;
     }

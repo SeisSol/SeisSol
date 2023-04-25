@@ -8,12 +8,12 @@
 
 namespace seissol::initializer {
     struct GlobalTimestep {
-        std::vector<double> elementTimeStep;
+        std::vector<double> cellTimeStepWidths;
         double globalMinTimeStep;
         double globalMaxTimeStep;
     };
 
-    GlobalTimestep computeTimesteps(double cfl, double maximumAllowedTimeStep, const std::string& velocityModel, const seissol::initializers::C2VArray& ctov);
+    GlobalTimestep computeTimesteps(double cfl, double maximumAllowedTimeStep, const std::string& velocityModel, const seissol::initializers::CellToVertexArray& ctov);
 }
 
 #endif

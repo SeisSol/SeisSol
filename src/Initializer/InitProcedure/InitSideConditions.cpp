@@ -8,7 +8,7 @@
 
 #include "Parallel/MPI.h"
 
-TravellingWaveParameters getTravellingWaveInformation() {
+static TravellingWaveParameters getTravellingWaveInformation() {
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
 
   TravellingWaveParameters m_travellingWaveParameters;
@@ -24,7 +24,7 @@ TravellingWaveParameters getTravellingWaveInformation() {
   return m_travellingWaveParameters;
 }
 
-std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList() {
+static std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList() {
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
   std::vector<std::unique_ptr<physics::InitialField>> iniconds;
@@ -94,7 +94,7 @@ std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList() 
   return iniconds;
 }
 
-void initInitialCondition() {
+static void initInitialCondition() {
   auto iniconds = buildInitialConditionList();
   const auto& icparams = seissol::SeisSol::main.getSeisSolParameters().initialization;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
@@ -110,7 +110,7 @@ void initInitialCondition() {
   memmng.setInitialConditions(std::move(iniconds));
 }
 
-void initSource() {
+static void initSource() {
   const auto& srcparams = seissol::SeisSol::main.getSeisSolParameters().source;
   auto& memmng = seissol::SeisSol::main.getMemoryManager();
   SeisSol::main.sourceTermManager().loadSources(srcparams.type,
@@ -122,10 +122,9 @@ void initSource() {
                                                 seissol::SeisSol::main.timeManager());
 }
 
-void initBoundary() {
+static void initBoundary() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  if (ssp.model.boundaryFileName !=
-      "") { // TODO: better check than != ""; maybe some `enabled` field?
+  if (ssp.model.hasBoundaryFile) {
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(
         ssp.model.boundaryFileName.c_str());
   }

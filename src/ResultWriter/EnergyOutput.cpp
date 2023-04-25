@@ -4,6 +4,7 @@
 #include "DynamicRupture/Misc.h"
 #include <Parallel/MPI.h>
 #include "SeisSol.h"
+#include "Initializer/InputParameters.hpp"
 
 namespace seissol::writer {
 
@@ -33,11 +34,9 @@ void EnergyOutput::init(GlobalData* newGlobal,
                         seissol::initializers::LTS* newLts,
                         seissol::initializers::Lut* newLtsLut,
                         bool newIsPlasticityEnabled,
-                        bool newIsTerminalOutputEnabled,
-                        int newComputeVolumeEnergiesEveryOutput,
                         const std::string& outputFileNamePrefix,
-                        double newSyncPointInterval) {
-  if (newSyncPointInterval > 0) {
+                        const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
+  if (parameters.enabled && parameters.interval > 0) {
     isEnabled = true;
   } else {
     return;
@@ -46,8 +45,8 @@ void EnergyOutput::init(GlobalData* newGlobal,
   logInfo(rank) << "Initializing energy output.";
 
   isFileOutputEnabled = rank == 0;
-  isTerminalOutputEnabled = newIsTerminalOutputEnabled && (rank == 0);
-  computeVolumeEnergiesEveryOutput = newComputeVolumeEnergiesEveryOutput;
+  isTerminalOutputEnabled = parameters.terminalOutput && (rank == 0);
+  computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
@@ -62,7 +61,7 @@ void EnergyOutput::init(GlobalData* newGlobal,
 
   Modules::registerHook(*this, SIMULATION_START);
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
-  setSyncInterval(newSyncPointInterval);
+  setSyncInterval(parameters.interval);
 }
 
 void EnergyOutput::syncPoint(double time) {
