@@ -786,7 +786,7 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity) 
   // auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
   const bool ITMToggle = memoryManager.getITMParameters()->getITMToggle();
 
-  if (ITMToggle == 1) {
+  if (ITMToggle) {
     auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
     double ITMVelocityScalingFactor =
         memoryManager.getITMParameters()->getITMVelocityScalingFactor();
@@ -802,7 +802,6 @@ void seissol::Interoperability::initializeCellLocalMatrices(bool usePlasticity) 
                                  timeMirrorManagers.second,
                                  &m_timeStepping);
     // TODO(Vikas) check timestepping to be used here
-    // TODO(Vikas/Lukas) Check if this is the best way to do this
   }
 }
 

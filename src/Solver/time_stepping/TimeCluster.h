@@ -453,6 +453,8 @@ public:
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
   void setReceiverTime(double receiverTime);
+
+  std::vector<NeighborCluster>& getNeighborClusters();
 };
 
 #endif
