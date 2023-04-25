@@ -53,7 +53,6 @@
 #include "Parallel/MPI.h"
 
 enum class MeshFormat : int {
-    Gambit3D,
     Netcdf,
     PUML
 };

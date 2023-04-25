@@ -51,7 +51,6 @@ src/SourceTerm/PointSource.cpp
 src/Parallel/Pin.cpp
 src/Parallel/mpiC.cpp
 src/Parallel/FaultMPI.cpp
-src/Geometry/GambitReader.cpp
 
 src/Geometry/MeshTools.cpp
 src/Monitoring/FlopCounter.cpp

@@ -8,7 +8,6 @@
 #include "utils/logger.h"
 
 #include "SeisSol.h"
-#include "Geometry/GambitReader.h"
 #ifdef USE_NETCDF
 #include "Geometry/NetcdfReader.h"
 #endif // USE_NETCDF
