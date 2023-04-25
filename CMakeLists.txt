@@ -308,6 +308,15 @@ find_package(Eigen3 3.4 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 target_link_libraries(SeisSol-common-properties INTERFACE Eigen3::Eigen yaml-cpp)
 
+# Note: eigen3 enables cuda support in its headers by default.
+# The problem happens in `eigen3/Eigen/src/Core/util/Meta.h` while
+# including `math_constants.h`. This header file is located in
+# a different sub-folder in case of ROCm HIP. SeisSol does not
+# use eigen in GPU kernels. Therefore, it is better to change
+# the default behaviour (which assumes CUDA support) and
+# set `EIGEN_NO_CUDA`
+target_compile_definitions(SeisSol-common-properties INTERFACE EIGEN_NO_CUDA)
+
 if (EIGEN3_INCLUDE_DIR)
   target_include_directories(SeisSol-common-properties INTERFACE ${EIGEN3_INCLUDE_DIR})
 endif()

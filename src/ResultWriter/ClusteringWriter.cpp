@@ -1,6 +1,6 @@
 #include "ClusteringWriter.h"
 
-#include <filesystem>
+#include "Common/filesystem.h"
 #include <fstream>
 
 #include <Parallel/MPI.h>
@@ -23,7 +23,7 @@ void ClusteringWriter::addCluster(unsigned profilingId,
 }
 
 void ClusteringWriter::write() const {
-  using namespace std::filesystem;
+  using namespace seissol::filesystem;
   const auto& mpi = MPI::mpi;
 
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());

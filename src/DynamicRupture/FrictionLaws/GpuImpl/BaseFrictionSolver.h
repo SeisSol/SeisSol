@@ -1,7 +1,7 @@
-#ifndef SEISSOL_GPU_FRICTION_SOLVER_H
-#define SEISSOL_GPU_FRICTION_SOLVER_H
+#ifndef SEISSOL_BASE_FRICTION_SOLVER_H
+#define SEISSOL_BASE_FRICTION_SOLVER_H
 
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
@@ -9,10 +9,11 @@
 namespace seissol::dr::friction_law::gpu {
 
 template <typename Derived>
-class GpuFrictionSolver : public GpuBaseFrictionLaw {
+class BaseFrictionSolver : public FrictionSolverDetails {
   public:
-  GpuFrictionSolver<Derived>(dr::DRParameters* drParameters) : GpuBaseFrictionLaw(drParameters) {}
-  ~GpuFrictionSolver<Derived>() = default;
+  explicit BaseFrictionSolver<Derived>(dr::DRParameters* drParameters)
+      : FrictionSolverDetails(drParameters) {}
+  ~BaseFrictionSolver<Derived>() = default;
 
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture const* const dynRup,
@@ -136,4 +137,4 @@ class GpuFrictionSolver : public GpuBaseFrictionLaw {
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_FRICTION_SOLVER_H
+#endif // SEISSOL_BASE_FRICTION_SOLVER_H

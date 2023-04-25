@@ -86,7 +86,7 @@
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
 #include "device.h"
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #endif // ACL_DEVICE
 
 
@@ -862,7 +862,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
 #ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLaw.get())) {
       impl->initSyclQueue();
 
       LayerMask mask = seissol::initializers::LayerMask(Ghost);
