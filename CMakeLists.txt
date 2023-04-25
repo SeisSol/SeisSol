@@ -9,6 +9,11 @@ if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
 endif()
 
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+endif()
+
 project(SeisSol LANGUAGES C CXX Fortran)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")

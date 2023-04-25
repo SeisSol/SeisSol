@@ -5,6 +5,10 @@ default:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version
         entrypoint: [""]
 
+cache:
+    key: $CI_REGISTRY_USER/$cpu_image_name
+    paths: /ccache_dir
+
 variables:
     HOST: "hsw"
 
@@ -26,6 +30,10 @@ fetch_submodules:
         - sed -i 's/\.\.\/\.\./https\:\/\/github\.com/g' .gitmodules
         - git submodule sync
         - git submodule update --init --recursive
+        - cat /root/.ccache/ccache.conf
+        - cat $HOME/.ccache/ccache.conf
+        - ccache -p
+        - ls -l /ccache_dir
     artifacts:
         paths:
             - submodules
