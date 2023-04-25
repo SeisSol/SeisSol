@@ -77,7 +77,7 @@ public:
 seissol::PUMLReader::PUMLReader(const char *meshFile, double maximumAllowedTimeStep,
                                 const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights,
                                 double tpwgt, bool readPartitionFromFile)
-	: MeshReader(MPI::mpi.rank())
+	: seissol::geometry::MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
 	puml.setComm(MPI::mpi.comm());

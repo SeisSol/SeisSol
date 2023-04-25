@@ -189,11 +189,10 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
 
   ssp.mesh.meshFileName = reader.readOrFail<std::string>("meshfile", "No mesh file given.");
   ssp.mesh.meshFormat =
-      reader.readWithDefaultStringEnum<MeshFormat>("meshgenerator",
+      reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>("meshgenerator",
                                                    "puml",
-                                                   {{"gambit3d-fast", MeshFormat::Gambit3D},
-                                                    {"netcdf", MeshFormat::Netcdf},
-                                                    {"puml", MeshFormat::PUML}});
+                                                   {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
+                                                    {"puml", seissol::geometry::MeshFormat::PUML}});
 
   ssp.mesh.displacement = reader.readWithDefault("displacement", std::array<double, 3>{0, 0, 0});
   auto scalingX = reader.readWithDefault("scalingmatrixx", std::array<double, 3>{1, 0, 0});

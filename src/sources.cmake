@@ -53,6 +53,7 @@ src/Parallel/mpiC.cpp
 src/Parallel/FaultMPI.cpp
 
 src/Geometry/MeshTools.cpp
+src/Geometry/MeshReader.cpp
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
 

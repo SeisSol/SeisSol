@@ -1,7 +1,7 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
 
 namespace seissol::dr::output {
-void ReceiverBasedOutputBuilder::setMeshReader(const MeshReader* reader) {
+void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
   meshReader = reader;
   localRank = MPI::mpi.rank();
 }

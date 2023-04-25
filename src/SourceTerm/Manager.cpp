@@ -94,7 +94,7 @@
 void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
                                                        real* mInvJInvPhisAtSources,
                                                        unsigned meshId,
-                                                       MeshReader const& mesh) {
+                                                       seissol::geometry::MeshReader const& mesh) {
   auto const& elements = mesh.getElements();
   auto const& vertices = mesh.getVertices();
 
@@ -120,7 +120,7 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& ce
 
 void seissol::sourceterm::transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
                                                              unsigned meshId,
-                                                             MeshReader const& mesh,
+                                                             seissol::geometry::MeshReader const& mesh,
                                                              Subfault const& subfault,
                                                              Offsets const& offsets,
                                                              Offsets const& nextOffsets,
@@ -252,7 +252,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters(
 
 void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
                                                char const* fileName,
-                                               MeshReader const& mesh,
+                                               seissol::geometry::MeshReader const& mesh,
                                                seissol::initializers::LTSTree* ltsTree,
                                                seissol::initializers::LTS* lts,
                                                seissol::initializers::Lut* ltsLut,
@@ -278,7 +278,7 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
-                                                       MeshReader const& mesh,
+                                                       seissol::geometry::MeshReader const& mesh,
                                                        seissol::initializers::LTSTree* ltsTree,
                                                        seissol::initializers::LTS* lts,
                                                        seissol::initializers::Lut* ltsLut,
@@ -389,7 +389,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
 // TODO Add support for passive netCDF
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
-                                                      MeshReader const& mesh,
+                                                      seissol::geometry::MeshReader const& mesh,
                                                       seissol::initializers::LTSTree* ltsTree,
                                                       seissol::initializers::LTS* lts,
                                                       seissol::initializers::Lut* ltsLut,

@@ -66,7 +66,7 @@ namespace seissol::writer {
       void init(const std::string& fileNamePrefix, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
       void addPoints(
-          const MeshReader& mesh,
+          const seissol::geometry::MeshReader& mesh,
           const seissol::initializers::Lut& ltsLut,
           const seissol::initializers::LTS& lts,
           const GlobalData* global);

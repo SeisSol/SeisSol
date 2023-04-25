@@ -470,7 +470,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      *
      * @param i_mesh mesh.
      **/
-    void setMesh( const MeshReader &i_mesh );
+    void setMesh( const seissol::geometry::MeshReader &i_mesh );
 
     /**
      * Derives the layout of the LTS scheme.

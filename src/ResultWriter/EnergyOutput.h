@@ -46,7 +46,7 @@ class EnergyOutput : public Module {
   void init(GlobalData* newGlobal,
             seissol::initializers::DynamicRupture* newDynRup,
             seissol::initializers::LTSTree* newDynRuptTree,
-            MeshReader* newMeshReader,
+            seissol::geometry::MeshReader* newMeshReader,
             seissol::initializers::LTSTree* newLtsTree,
             seissol::initializers::LTS* newLts,
             seissol::initializers::Lut* newLtsLut,
@@ -94,7 +94,7 @@ class EnergyOutput : public Module {
   const GlobalData* global = nullptr;
   seissol::initializers::DynamicRupture* dynRup = nullptr;
   seissol::initializers::LTSTree* dynRupTree = nullptr;
-  MeshReader* meshReader = nullptr;
+  seissol::geometry::MeshReader* meshReader = nullptr;
   seissol::initializers::LTSTree* ltsTree = nullptr;
   seissol::initializers::LTS* lts = nullptr;
   seissol::initializers::Lut* ltsLut = nullptr;

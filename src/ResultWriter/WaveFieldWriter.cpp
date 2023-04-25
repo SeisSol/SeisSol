@@ -148,7 +148,7 @@ std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClust
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
                                             int order,
                                             int numAlignedDOF,
-                                            const MeshReader& meshReader,
+                                            const seissol::geometry::MeshReader& meshReader,
                                             const std::vector<unsigned>& LtsClusteringData,
                                             const real* dofs,
                                             const real* pstrain,

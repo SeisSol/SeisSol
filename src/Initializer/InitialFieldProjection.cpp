@@ -60,7 +60,7 @@ namespace seissol {
 
 void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
                                                 GlobalData const& globalData,
-                                                MeshReader const& meshReader,
+                                                seissol::geometry::MeshReader const& meshReader,
                                                 LTS const& lts,
                                                 Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();

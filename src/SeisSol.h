@@ -64,10 +64,12 @@
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
-class MeshReader;
-
 namespace seissol
 {
+
+namespace geometry {
+	class MeshReader;
+}
 
 /**
  * @todo Initialize rank
@@ -91,7 +93,7 @@ private:
 	/** Async I/O handler (needs to be initialize before other I/O modules) */
 	io::AsyncIO m_asyncIO;
 
-	MeshReader* m_meshReader;
+	seissol::geometry::MeshReader* m_meshReader;
 
 	/*
 	 * initializers
@@ -274,7 +276,7 @@ public:
 	/**
 	 * Set the mesh reader
 	 */
-	void setMeshReader(MeshReader* meshReader)
+	void setMeshReader(seissol::geometry::MeshReader* meshReader)
 	{
 		if (m_meshReader != 0L)
 			logError() << "Mesh reader already initialized";
@@ -296,7 +298,7 @@ public:
 	/**
 	 * Get the mesh reader
 	 */
-	const MeshReader& meshReader() const
+	const seissol::geometry::MeshReader& meshReader() const
 	{
 		return *m_meshReader;
 	}
@@ -304,7 +306,7 @@ public:
 	/**
 	 * Get the mesh reader
 	 */
-	MeshReader& meshReader()
+	seissol::geometry::MeshReader& meshReader()
 	{
 		return *m_meshReader;
 	}

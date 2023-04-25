@@ -24,7 +24,7 @@
 
 #include "Parallel/MPI.h"
 
-static void postMeshread(MeshReader& meshReader,
+static void postMeshread(seissol::geometry::MeshReader& meshReader,
                   bool hasFault,
                   const std::array<double, 3>& displacement,
                   const std::array<std::array<double, 3>, 3>& scalingMatrix) {
@@ -136,7 +136,7 @@ void seissol::initializer::initprocedure::initMesh() {
   const auto commSize = seissol::MPI::mpi.size();
 
   switch (meshFormat) {
-  case MeshFormat::Netcdf:
+  case seissol::geometry::MeshFormat::Netcdf:
 #if USE_NETCDF
     seissol::SeisSol::main.setMeshReader(
         new NetcdfReader(commRank, commSize, ssp.mesh.meshFileName.c_str()));
@@ -145,7 +145,7 @@ void seissol::initializer::initprocedure::initMesh() {
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
 #endif
     break;
-  case MeshFormat::PUML:
+  case seissol::geometry::MeshFormat::PUML:
     readMeshPUML(ssp);
     break;
   default:

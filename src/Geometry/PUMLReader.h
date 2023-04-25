@@ -52,7 +52,7 @@ namespace seissol {
 
 namespace seissol
 {
-class PUMLReader : public MeshReader
+class PUMLReader : public seissol::geometry::MeshReader
 {
 public:
         PUMLReader(const char* meshFile, double maximumAllowedTimeStep, const char* checkPointFile,

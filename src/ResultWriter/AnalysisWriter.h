@@ -43,14 +43,14 @@ private:
     };
 
     bool isEnabled; // TODO(Lukas) Do we need this?
-    const MeshReader* meshReader;
+    const seissol::geometry::MeshReader* meshReader;
 
     std::string fileName;
 public:
   AnalysisWriter() :
     isEnabled(false) { }
 
-    void init(const MeshReader* meshReader,
+    void init(const seissol::geometry::MeshReader* meshReader,
               std::string_view fileNamePrefix) {
       isEnabled = true;
       this->meshReader = meshReader;

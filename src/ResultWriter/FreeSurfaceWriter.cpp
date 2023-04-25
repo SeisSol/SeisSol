@@ -51,7 +51,7 @@
 #include <Geometry/MeshTools.h>
 #include <Modules/Modules.h>
 
-void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const& meshReader,
+void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
                                                                 unsigned*&        cells,
                                                                 double*&          vertices,
                                                                 unsigned&         nCells,
@@ -127,7 +127,7 @@ void seissol::writer::FreeSurfaceWriter::enable()
 }
 
 
-void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&                       meshReader,
+void seissol::writer::FreeSurfaceWriter::init(  seissol::geometry::MeshReader const&                       meshReader,
                                                 seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
                                                 char const*                             outputPrefix,
                                                 double                                  interval,

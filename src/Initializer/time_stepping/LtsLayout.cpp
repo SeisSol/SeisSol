@@ -78,7 +78,7 @@ seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   delete[] m_plainCopyRegions;
 }
 
-void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader &i_mesh ) {
+void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::geometry::MeshReader &i_mesh ) {
   // TODO: remove the copy by a pointer once the mesh stays constant
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();

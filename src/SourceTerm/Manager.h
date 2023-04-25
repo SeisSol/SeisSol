@@ -57,10 +57,10 @@ enum class SourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 void computeMInvJInvPhisAtSources(Eigen::Vector3d const& centre,
                                   real* mInvJInvPhisAtSources,
                                   unsigned meshId,
-                                  MeshReader const& mesh);
+                                  seissol::geometry::MeshReader const& mesh);
 void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
                                         unsigned meshId,
-                                        MeshReader const& mesh,
+                                        seissol::geometry::MeshReader const& mesh,
                                         Subfault const& subfault,
                                         Offsets const& offsets,
                                         Offsets const& nextOffsets,
@@ -83,7 +83,7 @@ class seissol::sourceterm::Manager {
 
   void loadSources(SourceType sourceType,
                    char const* fileName,
-                   MeshReader const& mesh,
+                   seissol::geometry::MeshReader const& mesh,
                    seissol::initializers::LTSTree* ltsTree,
                    seissol::initializers::LTS* lts,
                    seissol::initializers::Lut* ltsLut,
@@ -96,7 +96,7 @@ class seissol::sourceterm::Manager {
                                  seissol::initializers::Lut* ltsLut);
 
   void loadSourcesFromFSRM(char const* fileName,
-                           MeshReader const& mesh,
+                           seissol::geometry::MeshReader const& mesh,
                            seissol::initializers::LTSTree* ltsTree,
                            seissol::initializers::LTS* lts,
                            seissol::initializers::Lut* ltsLut,
@@ -104,7 +104,7 @@ class seissol::sourceterm::Manager {
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
   void loadSourcesFromNRF(char const* fileName,
-                          MeshReader const& mesh,
+                          seissol::geometry::MeshReader const& mesh,
                           seissol::initializers::LTSTree* ltsTree,
                           seissol::initializers::LTS* lts,
                           seissol::initializers::Lut* ltsLut,

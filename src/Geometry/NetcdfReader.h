@@ -65,11 +65,11 @@
 
 #include "utils/logger.h"
 
-class NetcdfReader : public MeshReader
+class NetcdfReader : public seissol::geometry::MeshReader
 {
 public:
 	NetcdfReader(int rank, int nProcs, const char* meshFile)
-		: MeshReader(rank)
+		: seissol::geometry::MeshReader(rank)
 	{
 		// Open nc file
 		int ncFile;

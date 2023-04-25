@@ -184,7 +184,7 @@ void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, co
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 
-void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
+void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
                                                 const seissol::initializers::Lut& ltsLut,
                                                 const seissol::initializers::LTS& lts,
                                                 const GlobalData* global ) {

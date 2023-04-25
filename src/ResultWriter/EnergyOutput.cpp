@@ -29,7 +29,7 @@ double& EnergiesStorage::seismicMoment() { return energies[8]; }
 void EnergyOutput::init(GlobalData* newGlobal,
                         seissol::initializers::DynamicRupture* newDynRup,
                         seissol::initializers::LTSTree* newDynRuptTree,
-                        MeshReader* newMeshReader,
+                        seissol::geometry::MeshReader* newMeshReader,
                         seissol::initializers::LTSTree* newLtsTree,
                         seissol::initializers::LTS* newLts,
                         seissol::initializers::Lut* newLtsLut,

@@ -93,7 +93,7 @@ struct CellToVertexArray {
   CellToVertexFunction elementVertices;
   CellToMaterialFunction elementMaterials;
 
-  static CellToVertexArray fromMeshReader(const MeshReader& meshReader);
+  static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
   static CellToVertexArray fromPUML(const PUML::TETPUML& mesh);
 #endif
@@ -145,23 +145,23 @@ class seissol::initializers::ElementAverageGenerator
 class seissol::initializers::FaultBarycentreGenerator
     : public seissol::initializers::QueryGenerator {
   public:
-  FaultBarycentreGenerator(MeshReader const& meshReader, unsigned numberOfPoints)
+  FaultBarycentreGenerator(seissol::geometry::MeshReader const& meshReader, unsigned numberOfPoints)
       : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
   virtual easi::Query generate() const;
 
   private:
-  MeshReader const& m_meshReader;
+  seissol::geometry::MeshReader const& m_meshReader;
   unsigned m_numberOfPoints;
 };
 
 class seissol::initializers::FaultGPGenerator : public seissol::initializers::QueryGenerator {
   public:
-  FaultGPGenerator(MeshReader const& meshReader, std::vector<unsigned> const& faceIDs)
+  FaultGPGenerator(seissol::geometry::MeshReader const& meshReader, std::vector<unsigned> const& faceIDs)
       : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
   virtual easi::Query generate() const;
 
   private:
-  MeshReader const& m_meshReader;
+  seissol::geometry::MeshReader const& m_meshReader;
   std::vector<unsigned> const& m_faceIDs;
 };
 
