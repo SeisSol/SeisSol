@@ -49,8 +49,8 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial& vm,
     }
   }
 
-  Eigen::VectorXd::Constant qpinv(kmax, 1 / vm.Qp);
-  Eigen::VectorXd::Constant qsinv(kmax, 1 / vm.Qs);
+  Eigen::VectorXd qpinv = Eigen::VectorXd::Constant(kmax, 1 / vm.Qp);
+  Eigen::VectorXd qsinv = Eigen::VectorXd::Constant(kmax, 1 / vm.Qs);
 
   auto APodc = AP.completeOrthogonalDecomposition();
   auto ASodc = AS.completeOrthogonalDecomposition();
