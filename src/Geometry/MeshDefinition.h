@@ -58,7 +58,6 @@ typedef int ElemFaultTags[4];
 struct Element {
 	int localId;
 	ElemVertices vertices;
-	int rank; // WARNING: may be unused
 	ElemNeighbors neighbors;
 	ElemNeighborSides neighborSides;
 	ElemSideOrientations sideOrientations;
