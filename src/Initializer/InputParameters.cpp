@@ -459,11 +459,13 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
 
+  auto printYesNo = [](bool yesno){return yesno ? "yes" : "no";}
+
   logInfo(seissol::MPI::mpi.rank()) << "Model information:";
-  logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << isModelElastic();
-  logInfo(seissol::MPI::mpi.rank()) << "Viscoelastic model:" << isModelViscoelastic();
-  logInfo(seissol::MPI::mpi.rank()) << "Anelastic model:" << isModelAnelastic();
-  logInfo(seissol::MPI::mpi.rank()) << "Poroelastic model:" << isModelPoroelastic();
-  logInfo(seissol::MPI::mpi.rank()) << "Anisotropic model:" << isModelAnisotropic();
-  logInfo(seissol::MPI::mpi.rank()) << "Plasticity" << this->model.plasticity;
+  logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << printYesNo(isModelElastic());
+  logInfo(seissol::MPI::mpi.rank()) << "Viscoelastic model:" << printYesNo(isModelViscoelastic());
+  logInfo(seissol::MPI::mpi.rank()) << "Anelastic model:" << printYesNo(isModelAnelastic());
+  logInfo(seissol::MPI::mpi.rank()) << "Poroelastic model:" << printYesNo(isModelPoroelastic());
+  logInfo(seissol::MPI::mpi.rank()) << "Anisotropic model:" << printYesNo(isModelAnisotropic());
+  logInfo(seissol::MPI::mpi.rank()) << "Plasticity:" << printYesNo(this->model.plasticity);
 }
