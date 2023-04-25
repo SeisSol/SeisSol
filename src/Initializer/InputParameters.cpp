@@ -459,7 +459,7 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
 
-  auto printYesNo = [](bool yesno){return yesno ? "yes" : "no";}
+  auto printYesNo = [](bool yesno){return yesno ? "yes" : "no";};
 
   logInfo(seissol::MPI::mpi.rank()) << "Model information:";
   logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << printYesNo(isModelElastic());
