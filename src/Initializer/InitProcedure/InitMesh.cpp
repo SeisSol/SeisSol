@@ -97,7 +97,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
   auto ltsWeights =
       getLtsWeightsImplementation(ssp.timestepping.lts.weighttype, config, ltsParameters);
-  auto meshReader = new seissol::PUMLReader(ssp.mesh.meshFileName.c_str(),
+  auto meshReader = new seissol::geometry::PUMLReader(ssp.mesh.meshFileName.c_str(),
                                             ssp.timestepping.maxTimestepWidth,
                                             ssp.output.checkpointParameters.fileName.c_str(),
                                             ltsWeights.get(),
@@ -143,7 +143,7 @@ void seissol::initializer::initprocedure::initMesh() {
   case seissol::geometry::MeshFormat::Netcdf:
 #if USE_NETCDF
     seissol::SeisSol::main.setMeshReader(
-        new NetcdfReader(commRank, commSize, ssp.mesh.meshFileName.c_str()));
+        new seissol::geometry::NetcdfReader(commRank, commSize, ssp.mesh.meshFileName.c_str()));
 #else
     logError()
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";

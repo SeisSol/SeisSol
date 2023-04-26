@@ -50,7 +50,7 @@ namespace seissol {
   }
 }
 
-namespace seissol
+namespace seissol::geometry
 {
 class PUMLReader : public seissol::geometry::MeshReader
 {
@@ -98,7 +98,7 @@ enum class BCType {
 /**
  * Decodes the boundary condition tag into a BCType.
  */
-inline BCType bcToType(int id) {
+constexpr BCType bcToType(int id) {
 	if (id == 0 || id == 3 || id > 64) {
 		return BCType::internal;
 	} else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 6 || id == 7) {

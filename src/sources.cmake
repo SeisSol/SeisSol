@@ -150,6 +150,7 @@ endif()
 if (NETCDF)
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp # if netCDF
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
     )
 endif()
 
