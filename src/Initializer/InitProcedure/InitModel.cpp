@@ -42,14 +42,14 @@ static void synchronize(const seissol::initializers::Variable<T>& handle) {
 #endif
   for (unsigned dupMeshId = 0; dupMeshId < numberOfDuplicatedMeshIds; ++dupMeshId) {
     const unsigned meshId = duplicatedMeshIds[dupMeshId];
-    T* ref = &var[meshToLts[0][meshId]];
+    const T* ref = &var[meshToLts[0][meshId]];
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates &&
                            meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max();
          ++dup) {
       
       // copy data on a byte-wise level (we need to initialize memory here as well)
       memcpy(reinterpret_cast<void*>(&var[meshToLts[dup][meshId]]),
-             reinterpret_cast<void*>(ref),
+             reinterpret_cast<const void*>(ref),
              sizeof(T));
     }
   }
