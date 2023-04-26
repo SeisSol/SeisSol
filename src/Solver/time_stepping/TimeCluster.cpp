@@ -177,9 +177,9 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   }
 }
 
-std::vector<seissol::time_stepping::NeighborCluster>&
+std::vector<seissol::time_stepping::NeighborCluster>*
     seissol::time_stepping::TimeCluster::getNeighborClusters() {
-  return neighbors;
+  return &neighbors;
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {

@@ -454,7 +454,7 @@ public:
   [[nodiscard]] LayerType getLayerType() const;
   void setReceiverTime(double receiverTime);
 
-  std::vector<NeighborCluster>& getNeighborClusters();
+  std::vector<NeighborCluster>* getNeighborClusters();
 };
 
 #endif

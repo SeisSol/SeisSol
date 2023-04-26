@@ -12,7 +12,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           initializers::LTS* lts,
                                           initializers::Lut* ltsLut,
                                           TimeStepping* timestepping) {
-  isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM
+  isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM. Need this by default as true for it to work. 
   this->velocityScalingFactor = velocityScalingFactor;
   this->triggerTime = triggerTime;
   this->meshReader = meshReader;
@@ -71,7 +71,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
         cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
 
     auto neighborClusters = cluster->getNeighborClusters();
-    for (auto& neighborCluster : neighborClusters) {
+    for (auto& neighborCluster : *neighborClusters) {
       neighborCluster.ct.getTimeStepSize() =
           neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
     }
