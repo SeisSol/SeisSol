@@ -47,6 +47,27 @@ does not use a workload manager but is equipped with multiple GPUs per node.
    Correct process pinning of 4 MPI processes where each process
    controls 3 OpenMP threads and one communication thread.
 
+Some systems have complex numbering of processing units and/or NUMA domains.
+Sometime it is very difficult to achieve desirable pinning of the communication and/or
+output-writing threads with HPC resource managers like SLURM. Therefore, SeisSol provides
+*SEISSOL_FREE_CPUS_MASK* environment variable which helps to describe locations
+of the auxiliary threads per local MPI process. The variable accepts a comma separated
+list of elements where an element can be either 1) an integer, or 2) a range of
+integers defined as *[start, end]* or 3) a comma separated list of integers
+surrounded by the curly brackets. The *i*-th list element describes the free cpus
+locations for the *i*-th local MPI process.
+
+.. code-block:: bash
+
+  # SEISSOL_FREE_CPUS_MASK="(int | range: <int-int> | list: {int,+})+"
+  # Examples,
+  export SEISSOL_FREE_CPUS_MASK="24,28,32,36"
+  export SEISSOL_FREE_CPUS_MASK="24-27,28-31,32-35,36-39"
+  export SEISSOL_FREE_CPUS_MASK="{24,25},{28,29},{32,33},{36,37}"
+
+  # Note, it is allowed to mix the formats of list elements. For example,
+  export SEISSOL_FREE_CPUS_MASK="24,28-31,{28,29},36"
+
 Supported SeisSol Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
