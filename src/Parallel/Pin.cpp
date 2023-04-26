@@ -67,7 +67,9 @@ void seissol::parallel::Pinning::checkEnvVariables() {
       bool isMaskGood{true};
       const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
       if (numLocalProcesses > parsedFreeCPUsMask.size()) {
-        logInfo(rank) << "Num. local processes is greater than free cpus mask";
+        logInfo(rank) << "There are more communication (and/or output-writing) threads"
+                      << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
+
         isMaskGood = false;
       }
       else {
