@@ -30,6 +30,10 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
                   const std::array<std::array<double, 3>, 3>& scalingMatrix) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
+  if (meshReader.getElements().empty()) {
+    logWarning(seissol::MPI::mpi.rank()) << "There are no local mesh elements on this rank. Is your mesh big enough?";
+  }
+
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
