@@ -25,6 +25,11 @@ using MaterialClass = seissol::model::MaterialClass;
 using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
+static void initAssign(T& target, const T& value) {
+  new (&target) T(value);
+}
+
+template <typename T>
 static void synchronize(const seissol::initializers::Variable<T>& handle) {
   auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
@@ -61,11 +66,6 @@ static std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen,
   return vectorDB;
 }
 
-template <typename T>
-static void initAssign(T& target, const T& value) {
-  new (&target) T(value);
-}
-
 void initializeCellMaterial() {
   const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
   const auto& meshReader = seissol::SeisSol::main.meshReader();
@@ -90,31 +90,36 @@ void initializeCellMaterial() {
     }
   }
 
-  seissol::initializers::QueryGenerator* queryGen = seissol::initializers::getBestQueryGenerator(
+  // just a helper function for better readability
+  auto getBestQueryGenerator = [&](const seissol::initializers::CellToVertexArray& ctvArray) {
+    return seissol::initializers::getBestQueryGenerator(
       seissol::initializer::parameters::isModelAnelastic(),
       ssp.model.plasticity,
       seissol::initializer::parameters::isModelAnisotropic(),
       seissol::initializer::parameters::isModelPoroelastic(),
       ssp.model.useCellHomogenizedMaterial,
+      ctvArray);
+  };
+
+  // material retrieval for copy+interior layers
+  seissol::initializers::QueryGenerator* queryGen = getBestQueryGenerator(
       seissol::initializers::CellToVertexArray::fromMeshReader(meshReader));
-  seissol::initializers::QueryGenerator* queryGenGhost =
-      seissol::initializers::getBestQueryGenerator(
-          seissol::initializer::parameters::isModelAnelastic(),
-          ssp.model.plasticity,
-          seissol::initializer::parameters::isModelAnisotropic(),
-          seissol::initializer::parameters::isModelPoroelastic(),
-          ssp.model.useCellHomogenizedMaterial,
-          seissol::initializers::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
   auto materialsDB =
       queryDB<MaterialClass>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
-  auto materialsDBGhost =
-      queryDB<MaterialClass>(queryGenGhost, ssp.model.materialFileName, ghostVertices.size());
+  
+  // plasticity (if needed)
   std::vector<Plasticity> plasticityDB;
   if (ssp.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
     plasticityDB =
         queryDB<Plasticity>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
   }
+
+  // material retrieval for ghost layers
+  seissol::initializers::QueryGenerator* queryGenGhost = getBestQueryGenerator(
+          seissol::initializers::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
+  auto materialsDBGhost =
+      queryDB<MaterialClass>(queryGenGhost, ssp.model.materialFileName, ghostVertices.size());
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
   // we need to compute all model parameters before we can use them...
@@ -125,14 +130,14 @@ void initializeCellMaterial() {
 #endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
-    seissol::physics::fitAttenuation(cellmat, ssp.model.freqCentral, ssp.model.freqRatio);
+    seissol::physics::fitAttenuation(cellMat, ssp.model.freqCentral, ssp.model.freqRatio);
   }
 #ifdef OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
     auto& cellMat = materialsDBGhost[i];
-    seissol::physics::fitAttenuation(cellmat, ssp.model.freqCentral, ssp.model.freqRatio);
+    seissol::physics::fitAttenuation(cellMat, ssp.model.freqCentral, ssp.model.freqRatio);
   }
 #endif
 
