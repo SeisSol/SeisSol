@@ -73,7 +73,8 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
 
 OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
-void OutputManager::setInputParam(const YAML::Node& inputData, seissol::geometry::MeshReader& userMesher) {
+void OutputManager::setInputParam(const YAML::Node& inputData,
+                                  seissol::geometry::MeshReader& userMesher) {
   using namespace initializers;
   meshReader = &userMesher;
 

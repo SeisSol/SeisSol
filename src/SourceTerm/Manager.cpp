@@ -118,16 +118,17 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& ce
   krnl.execute();
 }
 
-void seissol::sourceterm::transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
-                                                             unsigned meshId,
-                                                             seissol::geometry::MeshReader const& mesh,
-                                                             Subfault const& subfault,
-                                                             Offsets const& offsets,
-                                                             Offsets const& nextOffsets,
-                                                             double* const sliprates[3],
-                                                             seissol::model::Material* material,
-                                                             PointSources& pointSources,
-                                                             unsigned index) {
+void seissol::sourceterm::transformNRFSourceToInternalSource(
+    Eigen::Vector3d const& centre,
+    unsigned meshId,
+    seissol::geometry::MeshReader const& mesh,
+    Subfault const& subfault,
+    Offsets const& offsets,
+    Offsets const& nextOffsets,
+    double* const sliprates[3],
+    seissol::model::Material* material,
+    PointSources& pointSources,
+    unsigned index) {
   computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   real* faultBasis = pointSources.tensor[index];

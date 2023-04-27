@@ -46,7 +46,7 @@ static void synchronize(const seissol::initializers::Variable<T>& handle) {
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates &&
                            meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max();
          ++dup) {
-      
+
       // copy data on a byte-wise level (we need to initialize memory here as well)
       memcpy(reinterpret_cast<void*>(&var[meshToLts[dup][meshId]]),
              reinterpret_cast<const void*>(ref),
@@ -57,8 +57,8 @@ static void synchronize(const seissol::initializers::Variable<T>& handle) {
 
 template <typename T>
 static std::vector<T> queryDB(seissol::initializers::QueryGenerator* queryGen,
-                       const std::string& fileName,
-                       size_t size) {
+                              const std::string& fileName,
+                              size_t size) {
   std::vector<T> vectorDB(size);
   seissol::initializers::MaterialParameterDB<T> parameterDB;
   parameterDB.setMaterialVector(&vectorDB);
@@ -71,7 +71,8 @@ void initializeCellMaterial() {
   const auto& meshReader = seissol::SeisSol::main.meshReader();
   initializers::MemoryManager& memoryManager = seissol::SeisSol::main.getMemoryManager();
 
-  // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now requires an vector there)
+  // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now
+  // requires an vector there)
   std::vector<std::array<std::array<double, 3>, 4>> ghostVertices;
   std::vector<int> ghostGroups;
   std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
@@ -93,20 +94,20 @@ void initializeCellMaterial() {
   // just a helper function for better readability
   auto getBestQueryGenerator = [&](const seissol::initializers::CellToVertexArray& ctvArray) {
     return seissol::initializers::getBestQueryGenerator(
-      seissol::initializer::parameters::isModelAnelastic(),
-      ssp.model.plasticity,
-      seissol::initializer::parameters::isModelAnisotropic(),
-      seissol::initializer::parameters::isModelPoroelastic(),
-      ssp.model.useCellHomogenizedMaterial,
-      ctvArray);
+        seissol::initializer::parameters::isModelAnelastic(),
+        ssp.model.plasticity,
+        seissol::initializer::parameters::isModelAnisotropic(),
+        seissol::initializer::parameters::isModelPoroelastic(),
+        ssp.model.useCellHomogenizedMaterial,
+        ctvArray);
   };
 
   // material retrieval for copy+interior layers
-  seissol::initializers::QueryGenerator* queryGen = getBestQueryGenerator(
-      seissol::initializers::CellToVertexArray::fromMeshReader(meshReader));
+  seissol::initializers::QueryGenerator* queryGen =
+      getBestQueryGenerator(seissol::initializers::CellToVertexArray::fromMeshReader(meshReader));
   auto materialsDB =
       queryDB<MaterialClass>(queryGen, ssp.model.materialFileName, meshReader.getElements().size());
-  
+
   // plasticity (if needed)
   std::vector<Plasticity> plasticityDB;
   if (ssp.model.plasticity) {
@@ -117,7 +118,7 @@ void initializeCellMaterial() {
 
   // material retrieval for ghost layers
   seissol::initializers::QueryGenerator* queryGenGhost = getBestQueryGenerator(
-          seissol::initializers::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
+      seissol::initializers::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
   auto materialsDBGhost =
       queryDB<MaterialClass>(queryGenGhost, ssp.model.materialFileName, ghostVertices.size());
 

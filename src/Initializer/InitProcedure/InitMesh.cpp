@@ -25,13 +25,14 @@
 #include "Parallel/MPI.h"
 
 static void postMeshread(seissol::geometry::MeshReader& meshReader,
-                  bool hasFault,
-                  const std::array<double, 3>& displacement,
-                  const std::array<std::array<double, 3>, 3>& scalingMatrix) {
+                         bool hasFault,
+                         const std::array<double, 3>& displacement,
+                         const std::array<std::array<double, 3>, 3>& scalingMatrix) {
   logInfo(seissol::MPI::mpi.rank()) << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
-    logWarning(seissol::MPI::mpi.rank()) << "There are no local mesh elements on this rank. Is your mesh big enough?";
+    logWarning(seissol::MPI::mpi.rank())
+        << "There are no local mesh elements on this rank. Is your mesh big enough?";
   }
 
   meshReader.displaceMesh(displacement);
@@ -97,12 +98,13 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
   auto ltsWeights =
       getLtsWeightsImplementation(ssp.timestepping.lts.weighttype, config, ltsParameters);
-  auto meshReader = new seissol::geometry::PUMLReader(ssp.mesh.meshFileName.c_str(),
-                                            ssp.timestepping.maxTimestepWidth,
-                                            ssp.output.checkpointParameters.fileName.c_str(),
-                                            ltsWeights.get(),
-                                            tpwgt,
-                                            readPartitionFromFile);
+  auto meshReader =
+      new seissol::geometry::PUMLReader(ssp.mesh.meshFileName.c_str(),
+                                        ssp.timestepping.maxTimestepWidth,
+                                        ssp.output.checkpointParameters.fileName.c_str(),
+                                        ltsWeights.get(),
+                                        tpwgt,
+                                        readPartitionFromFile);
   seissol::SeisSol::main.setMeshReader(meshReader);
 
   watch.pause();
