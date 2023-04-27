@@ -89,6 +89,10 @@ struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
   using CellToMaterialFunction = std::function<int(size_t)>;
 
+  CellToVertexArray(size_t size,
+                    const CellToVertexFunction& elementVertices,
+                    const CellToMaterialFunction& elementMaterials);
+
   size_t size;
   CellToVertexFunction elementVertices;
   CellToMaterialFunction elementMaterials;

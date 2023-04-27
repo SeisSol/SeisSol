@@ -62,23 +62,29 @@
 #endif
 #include "utils/logger.h"
 
+seissol::initializers::CellToVertexArray::CellToVertexArray(
+    size_t size,
+    const CellToVertexFunction& elementVertices,
+    const CellToMaterialFunction& elementMaterials)
+    : size(size), elementVertices(elementVertices), elementMaterials(elementMaterials) {}
+
 seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromMeshReader(
     const seissol::geometry::MeshReader& meshReader) {
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 
-  return CellToVertexArray{.size = elements.size(),
-                           .elementVertices =
-                               [&](size_t index) {
-                                 std::array<Eigen::Vector3d, 4> verts;
-                                 for (size_t i = 0; i < 4; ++i) {
-                                   auto vindex = elements[index].vertices[i];
-                                   const auto& vertex = vertices[vindex];
-                                   verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
-                                 }
-                                 return verts;
-                               },
-                           .elementMaterials = [&](size_t index) { return elements[index].group; }};
+  return CellToVertexArray(
+      elements.size(),
+      [&](size_t index) {
+        std::array<Eigen::Vector3d, 4> verts;
+        for (size_t i = 0; i < 4; ++i) {
+          auto vindex = elements[index].vertices[i];
+          const auto& vertex = vertices[vindex];
+          verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
+        }
+        return verts;
+      },
+      [&](size_t index) { return elements[index].group; });
 }
 
 #ifdef USE_HDF
@@ -87,20 +93,20 @@ seissol::initializers::CellToVertexArray
   const int* material = mesh.cellData(0);
   const auto& cells = mesh.cells();
   const auto& vertices = mesh.vertices();
-  return CellToVertexArray{.size = cells.size(),
-                           .elementVertices =
-                               [&](size_t cell) {
-                                 std::array<Eigen::Vector3d, 4> x;
-                                 unsigned vertLids[4];
-                                 PUML::Downward::vertices(mesh, cells[cell], vertLids);
-                                 for (unsigned vtx = 0; vtx < 4; ++vtx) {
-                                   for (unsigned d = 0; d < 3; ++d) {
-                                     x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
-                                   }
-                                 }
-                                 return x;
-                               },
-                           .elementMaterials = [material](size_t cell) { return material[cell]; }};
+  return CellToVertexArray(
+      cells.size(),
+      [&](size_t cell) {
+        std::array<Eigen::Vector3d, 4> x;
+        unsigned vertLids[4];
+        PUML::Downward::vertices(mesh, cells[cell], vertLids);
+        for (unsigned vtx = 0; vtx < 4; ++vtx) {
+          for (unsigned d = 0; d < 3; ++d) {
+            x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
+          }
+        }
+        return x;
+      },
+      [material](size_t cell) { return material[cell]; });
 }
 #endif
 
@@ -109,17 +115,16 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
     const std::vector<int>& materials) {
   assert(vertices.size() == materials.size());
 
-  return CellToVertexArray{.size = vertices.size(),
-                           .elementVertices =
-                               [&](size_t idx) {
-                                 std::array<Eigen::Vector3d, 4> verts;
-                                 for (size_t i = 0; i < 4; ++i) {
-                                   verts[i] << vertices[idx][i][0], vertices[idx][i][1],
-                                       vertices[idx][i][2];
-                                 }
-                                 return verts;
-                               },
-                           .elementMaterials = [&](size_t i) { return materials[i]; }};
+  return CellToVertexArray(
+      vertices.size(),
+      [&](size_t idx) {
+        std::array<Eigen::Vector3d, 4> verts;
+        for (size_t i = 0; i < 4; ++i) {
+          verts[i] << vertices[idx][i][0], vertices[idx][i][1], vertices[idx][i][2];
+        }
+        return verts;
+      },
+      [&](size_t i) { return materials[i]; });
 }
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
