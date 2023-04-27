@@ -97,8 +97,9 @@ struct CellToVertexArray {
 #ifdef USE_HDF
   static CellToVertexArray fromPUML(const PUML::TETPUML& mesh);
 #endif
-  static CellToVertexArray fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
-                              const std::vector<int>& materials);
+  static CellToVertexArray
+      fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
+                  const std::vector<int>& materials);
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
@@ -156,7 +157,8 @@ class seissol::initializers::FaultBarycentreGenerator
 
 class seissol::initializers::FaultGPGenerator : public seissol::initializers::QueryGenerator {
   public:
-  FaultGPGenerator(seissol::geometry::MeshReader const& meshReader, std::vector<unsigned> const& faceIDs)
+  FaultGPGenerator(seissol::geometry::MeshReader const& meshReader,
+                   std::vector<unsigned> const& faceIDs)
       : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
   virtual easi::Query generate() const;
 

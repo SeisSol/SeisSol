@@ -62,23 +62,23 @@
 #endif
 #include "utils/logger.h"
 
-seissol::initializers::CellToVertexArray
-    seissol::initializers::CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
+seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromMeshReader(
+    const seissol::geometry::MeshReader& meshReader) {
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 
   return CellToVertexArray{.size = elements.size(),
-                  .elementVertices =
-                      [&](size_t index) {
-                        std::array<Eigen::Vector3d, 4> verts;
-                        for (size_t i = 0; i < 4; ++i) {
-                          auto vindex = elements[index].vertices[i];
-                          const auto& vertex = vertices[vindex];
-                          verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
-                        }
-                        return verts;
-                      },
-                  .elementMaterials = [&](size_t index) { return elements[index].group; }};
+                           .elementVertices =
+                               [&](size_t index) {
+                                 std::array<Eigen::Vector3d, 4> verts;
+                                 for (size_t i = 0; i < 4; ++i) {
+                                   auto vindex = elements[index].vertices[i];
+                                   const auto& vertex = vertices[vindex];
+                                   verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
+                                 }
+                                 return verts;
+                               },
+                           .elementMaterials = [&](size_t index) { return elements[index].group; }};
 }
 
 #ifdef USE_HDF
@@ -88,19 +88,19 @@ seissol::initializers::CellToVertexArray
   const auto& cells = mesh.cells();
   const auto& vertices = mesh.vertices();
   return CellToVertexArray{.size = cells.size(),
-                  .elementVertices =
-                      [&](size_t cell) {
-                        std::array<Eigen::Vector3d, 4> x;
-                        unsigned vertLids[4];
-                        PUML::Downward::vertices(mesh, cells[cell], vertLids);
-                        for (unsigned vtx = 0; vtx < 4; ++vtx) {
-                          for (unsigned d = 0; d < 3; ++d) {
-                            x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
-                          }
-                        }
-                        return x;
-                      },
-                  .elementMaterials = [material](size_t cell) { return material[cell]; }};
+                           .elementVertices =
+                               [&](size_t cell) {
+                                 std::array<Eigen::Vector3d, 4> x;
+                                 unsigned vertLids[4];
+                                 PUML::Downward::vertices(mesh, cells[cell], vertLids);
+                                 for (unsigned vtx = 0; vtx < 4; ++vtx) {
+                                   for (unsigned d = 0; d < 3; ++d) {
+                                     x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
+                                   }
+                                 }
+                                 return x;
+                               },
+                           .elementMaterials = [material](size_t cell) { return material[cell]; }};
 }
 #endif
 
@@ -110,21 +110,22 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
   assert(vertices.size() == materials.size());
 
   return CellToVertexArray{.size = vertices.size(),
-                  .elementVertices =
-                      [&](size_t idx) {
-                        std::array<Eigen::Vector3d, 4> verts;
-                        for (size_t i = 0; i < 4; ++i) {
-                          verts[i] << vertices[idx][i][0], vertices[idx][i][1], vertices[idx][i][2];
-                        }
-                        return verts;
-                      },
-                  .elementMaterials = [&](size_t i) { return materials[i]; }};
+                           .elementVertices =
+                               [&](size_t idx) {
+                                 std::array<Eigen::Vector3d, 4> verts;
+                                 for (size_t i = 0; i < 4; ++i) {
+                                   verts[i] << vertices[idx][i][0], vertices[idx][i][1],
+                                       vertices[idx][i][2];
+                                 }
+                                 return verts;
+                               },
+                           .elementMaterials = [&](size_t i) { return materials[i]; }};
 }
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   easi::Query query(m_ctov.size, 3);
 
-#pragma omp parallel for schedule(static)
+  #pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
     auto vertices = m_ctov.elementVertices(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
@@ -136,7 +137,8 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
   return query;
 }
 
-seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& ctov)
+seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(
+    const CellToVertexArray& ctov)
     : m_ctov(ctov) {
   double quadraturePoints[NUM_QUADPOINTS][3];
   double quadratureWeights[NUM_QUADPOINTS];
@@ -156,8 +158,8 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(m_ctov.size * NUM_QUADPOINTS, 3);
 
-// Transform quadrature points to global coordinates for all elements
-#pragma omp parallel for schedule(static) collapse(2)
+  // Transform quadrature points to global coordinates for all elements
+  #pragma omp parallel for schedule(static) collapse(2)
   for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
       auto vertices = m_ctov.elementVertices(elem);
@@ -345,9 +347,9 @@ void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
     const unsigned numElems = numPoints / NUM_QUADPOINTS;
     std::array<double, NUM_QUADPOINTS> quadratureWeights{gen->getQuadratureWeights()};
 
-// Compute homogenized material parameters for every element in a specialization for the particular
-// material
-#pragma omp parallel for
+    // Compute homogenized material parameters for every element in a specialization for the
+    // particular material
+    #pragma omp parallel for
     for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
       m_materials->at(elementIdx) =
           this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
