@@ -26,8 +26,8 @@ static void sanitize(std::string& input) {
 
 // A small helper class which reads a YAML node dictionary. It keeps track of all items that have
 // been read and reports all values which are not used or not used anymore.
-// TODO(David): maybe make the reader more tree-like (i.e. keep a central set on which nodes have been
-// visited), and output all non-understood values at the end and not between sections
+// TODO(David): maybe make the reader more tree-like (i.e. keep a central set on which nodes have
+// been visited), and output all non-understood values at the end and not between sections
 class ParameterReader {
   public:
   ParameterReader(const YAML::Node& node, bool empty) : node(node), empty(empty) {}
@@ -157,8 +157,7 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
 
   ssp.model.plasticity = reader.readWithDefault("plasticity", false);
   ssp.model.tv = reader.readWithDefault("tv", 0.1);
-  ssp.model.useCellHomogenizedMaterial =
-      reader.readWithDefault("usecellhomogenizedmaterial", true);
+  ssp.model.useCellHomogenizedMaterial = reader.readWithDefault("usecellhomogenizedmaterial", true);
 
 #if NUMBER_OF_RELAXATION_MECHANISMS > 0
   ssp.model.freqCentral = reader.readOrFail<double>(
@@ -188,11 +187,11 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.subreader("meshnml");
 
   ssp.mesh.meshFileName = reader.readOrFail<std::string>("meshfile", "No mesh file given.");
-  ssp.mesh.meshFormat =
-      reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>("meshgenerator",
-                                                   "puml",
-                                                   {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
-                                                    {"puml", seissol::geometry::MeshFormat::PUML}});
+  ssp.mesh.meshFormat = reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>(
+      "meshgenerator",
+      "puml",
+      {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
+       {"puml", seissol::geometry::MeshFormat::PUML}});
 
   ssp.mesh.displacement = reader.readWithDefault("displacement", std::array<double, 3>{0, 0, 0});
   auto scalingX = reader.readWithDefault("scalingmatrixx", std::array<double, 3>{1, 0, 0});
@@ -371,8 +370,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
       reader.readWithDefault("computevolumeenergieseveryoutput", 1);
 
   // output: refinement
-  ssp.output.receiverParameters.enabled =
-      reader.readWithDefault("receiveroutput", true);
+  ssp.output.receiverParameters.enabled = reader.readWithDefault("receiveroutput", true);
   ssp.output.receiverParameters.interval =
       reader.readWithDefault("receiveroutputinterval", 1.0e100);
   ssp.output.receiverParameters.enabled &= ssp.output.receiverParameters.interval > 0;
@@ -403,7 +401,8 @@ static void readAbortCriteria(ParameterReader& baseReader, SeisSolParameters& ss
 
   ssp.end.endTime = reader.readWithDefault("endtime", 15.0);
 
-  reader.warnDeprecated({"maxiterations", "maxtolerance", "maxtolcriterion", "walltime_h", "delay_h"});
+  reader.warnDeprecated(
+      {"maxiterations", "maxtolerance", "maxtolcriterion", "walltime_h", "delay_h"});
   reader.warnUnknown();
 }
 
@@ -459,7 +458,7 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
 
-  auto printYesNo = [](bool yesno){return yesno ? "yes" : "no";};
+  auto printYesNo = [](bool yesno) { return yesno ? "yes" : "no"; };
 
   logInfo(seissol::MPI::mpi.rank()) << "Model information:";
   logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << printYesNo(isModelElastic());
