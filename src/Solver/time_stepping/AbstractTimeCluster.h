@@ -37,6 +37,9 @@ protected:
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
+  void postPredict();
+  void postCorrect();
+
 
   long timeStepRate;
   //! number of time steps

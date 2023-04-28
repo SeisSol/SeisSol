@@ -5,6 +5,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
 #include "Kernels/DynamicRupture.h"
+#include <memory>
 
 namespace seissol::dr::friction_law {
 /**
@@ -15,6 +16,8 @@ namespace seissol::dr::friction_law {
  */
 class FrictionSolver {
   public:
+  using TimeWeightType = double[CONVERGENCE_ORDER];
+
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(dr::DRParameters* userDrParameters) : drParameters(userDrParameters) {
     std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
@@ -27,6 +30,12 @@ class FrictionSolver {
                         seissol::initializers::DynamicRupture const* const dynRup,
                         real fullUpdateTime,
                         const double timeWeights[CONVERGENCE_ORDER]) = 0;
+  
+  virtual void copyData(seissol::initializers::Layer& layerData,
+                seissol::initializers::DynamicRupture const* const dynRup,
+                real fullUpdateTime) = 0;
+  virtual void evaluateSingle(unsigned face, const TimeWeightType timeWeights) = 0;
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   /**
    * compute the DeltaT from the current timePoints call this function before evaluate

@@ -285,21 +285,45 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     communicationManager->progression();
 
     // Update all high priority clusters
-    std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+    /*std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
       if (cluster->getNextLegalAction() == ActorAction::Predict) {
         communicationManager->progression();
         cluster->act();
       }
-    });
+    });*/
+
+    // sync
     std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
+      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Correct && cluster->getNextLegalAction() != ActorAction::Nothing) {
+        communicationManager->progression();
+        cluster->act();
+      }
+    });
+    std::for_each(lowPrioClusters.begin(), lowPrioClusters.end(), [&](auto& cluster) {
+      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Correct && cluster->getNextLegalAction() != ActorAction::Nothing) {
         communicationManager->progression();
         cluster->act();
       }
     });
 
+    auto toPredict = TimeCluster::collectMayPredict(highPrioClusters, lowPrioClusters, 100000);
+    communicationManager->progression();
+    TimeCluster::collectivePredict(toPredict);
+    communicationManager->progression();
+    auto toCorrect = TimeCluster::collectMayCorrect(highPrioClusters, lowPrioClusters, 100000);
+    communicationManager->progression();
+    TimeCluster::collectiveCorrect(toCorrect);
+    communicationManager->progression();
+
+    /*std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+      if (cluster->getNextLegalAction() != ActorAction::Predict && cluster->getNextLegalAction() != ActorAction::Nothing) {
+        communicationManager->progression();
+        cluster->act();
+      }
+    });*/
+
     // Update one low priority cluster
-    if (auto predictable = std::find_if(
+    /*if (auto predictable = std::find_if(
           lowPrioClusters.begin(), lowPrioClusters.end(), [](auto& c) {
             return c->getNextLegalAction() == ActorAction::Predict;
           }
@@ -316,7 +340,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
         correctable != lowPrioClusters.end()) {
       (*correctable)->act();
     } else {
-    }
+    }*/
     finished = std::all_of(clusters.begin(), clusters.end(),
                            [](auto& c) {
       return c->synced();

@@ -162,6 +162,8 @@ private:
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
     dr::friction_law::FrictionSolver* frictionSolver;
+    std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverLocalInterior;
+    std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverLocalCopy;
     dr::output::OutputManager* faultOutputManager;
 
     //! Mapping of cells to point sources
@@ -217,6 +219,8 @@ private:
      **/
     void computeDynamicRupture( seissol::initializers::Layer&  layerData );
 
+    static void collectiveComputeDynamicRupture(const std::vector<TimeCluster*>& clusters);
+
     /**
      * Computes all cell local integration.
      *
@@ -236,6 +240,9 @@ private:
      * @param io_dofs degrees of freedom.
      **/
     void computeLocalIntegration( seissol::initializers::Layer&  i_layerData, bool resetBuffers);
+
+    static void collectiveComputeLocalIntegration(const std::vector<TimeCluster*>& clusters);
+    static void collectiveComputeSources(const std::vector<TimeCluster*>& clusters);
 
     /**
      * Computes the contribution of the neighboring cells to the boundary integral.
@@ -345,6 +352,124 @@ private:
 
       return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
     }
+
+    template<bool usePlasticity>
+    static void collectiveComputeNeighboringIntegrationImplementation(const std::vector<TimeCluster*>& clusters) {
+      SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+      for (TimeCluster* cluster : clusters) {
+        cluster->m_loopStatistics->begin(cluster->m_regionComputeNeighboringIntegration);
+      }
+
+      std::vector<kernels::NeighborData::Loader> loaders(clusters.size());
+
+    std::vector<size_t> clusterOffset(clusters.size() + 1);
+
+    std::vector<double> subTimeStart(clusters.size());
+
+    for (size_t i = 0; i < clusters.size(); ++i) {
+      subTimeStart[i] = clusters[i]->ct.correctionTime - clusters[i]->lastSubTime;
+
+      loaders[i].load(*clusters[i]->m_lts, *clusters[i]->m_clusterData);
+
+      clusterOffset[i+1] = clusterOffset[i] + clusters[i]->m_clusterData->getNumberOfCells();
+    }
+
+      
+
+      real *l_timeIntegrated[4];
+      real *l_faceNeighbors_prefetch[4];
+
+      auto totalCellCount = *clusterOffset.rbegin();
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
+#endif
+      for (size_t i = 0; i < totalCellCount; ++i) {
+        // https://en.cppreference.com/w/cpp/algorithm/upper_bound
+        auto idElement = std::upper_bound(clusterOffset.begin(), clusterOffset.end(), i);
+        size_t clusterId = std::distance(clusterOffset.begin(), idElement) - 1;
+
+        assert(i > clusterOffset[clusterId]);
+        unsigned l_cell = i - clusterOffset[clusterId];
+
+        auto data = loaders[clusterId].entry(l_cell);
+
+        real* (*faceNeighbors)[4] = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->faceNeighbors);
+        CellDRMapping (*drMapping)[4] = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->drMapping);
+        CellLocalInformation* cellInformation = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->cellInformation);
+        PlasticityData* plasticity = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->plasticity);
+        real (*pstrain)[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->pstrain);
+
+        seissol::kernels::TimeCommon::computeIntegrals(clusters[clusterId]->m_timeKernel,
+                                                       data.cellInformation.ltsSetup,
+                                                       data.cellInformation.faceTypes,
+                                                       subTimeStart[clusterId],
+                                                       clusters[clusterId]->timeStepSize(),
+                                                       faceNeighbors[l_cell],
+#ifdef _OPENMP
+                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(clusters[clusterId]->m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+#else
+            *reinterpret_cast<real (*)[4][tensor::I::size()]>(clusters[clusterId]->m_globalData->integrationBufferLTS),
+#endif
+                                                       l_timeIntegrated);
+
+        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
+                                      faceNeighbors[l_cell][1] :
+                                      drMapping[l_cell][1].godunov;
+        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
+                                      faceNeighbors[l_cell][2] :
+                                      drMapping[l_cell][2].godunov;
+        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
+                                      faceNeighbors[l_cell][3] :
+                                      drMapping[l_cell][3].godunov;
+
+        // fourth face's prefetches
+        if (l_cell < (clusters[clusterId]->m_clusterData->getNumberOfCells()-1) ) {
+          // get the next face of the same cluster
+          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+                                        faceNeighbors[l_cell+1][0] :
+                                        drMapping[l_cell+1][0].godunov;
+        } else if (clusterId < clusters.size()-1) {
+          // we'll handle another cluster in the next iteration... So prefetch the first face from there already now.
+          real* (*nextFaceNeighbors)[4] = clusters[clusterId+1]->m_clusterData->var(clusters[clusterId+1]->m_lts->faceNeighbors);
+          CellDRMapping (*nextDrMapping)[4] = clusters[clusterId+1]->m_clusterData->var(clusters[clusterId+1]->m_lts->drMapping);
+          CellLocalInformation* nextCellInformation = clusters[clusterId+1]->m_clusterData->var(clusters[clusterId+1]->m_lts->cellInformation);
+          l_faceNeighbors_prefetch[3] = (nextCellInformation[0].faceTypes[0] != FaceType::dynamicRupture) ?
+                                        nextFaceNeighbors[0][0] :
+                                        nextDrMapping[0][0].godunov;
+        } else {
+          // we've hit the very last element in the iteration. Nothing more to prefetch.
+          l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
+        }
+
+        clusters[clusterId]->m_neighborKernel.computeNeighborsIntegral( data,
+                                                   drMapping[l_cell],
+                                                   l_timeIntegrated, l_faceNeighbors_prefetch
+        );
+
+        if constexpr (usePlasticity) {
+          clusters[clusterId]->updateRelaxTime();
+          seissol::kernels::Plasticity::computePlasticity( clusters[clusterId]->m_oneMinusIntegratingFactor,
+                                                                                             clusters[clusterId]->timeStepSize(),
+                                                                                             clusters[clusterId]->m_tv,
+                                                                                             clusters[clusterId]->m_globalDataOnHost,
+                                                                                             &plasticity[l_cell],
+                                                                                             data.dofs,
+                                                                                             pstrain[l_cell] );
+        }
+#ifdef INTEGRATE_QUANTITIES
+        seissol::SeisSol::main.postProcessor().integrateQuantities( clusters[clusterId]->m_timeStepWidth,
+                                                              clusters[clusterId]->m_clusterData,
+                                                              l_cell,
+                                                              dofs[l_cell] );
+#endif // INTEGRATE_QUANTITIES
+      }
+
+      for (TimeCluster* cluster : clusters) {
+        cluster->m_loopStatistics->end(cluster->m_regionComputeNeighboringIntegration, cluster->m_clusterData->getNumberOfCells(), cluster->m_profilingId);
+      }
+    }
 #endif // ACL_DEVICE
 
     void computeLocalIntegrationFlops(unsigned numberOfCells,
@@ -445,6 +570,12 @@ public:
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
   void setReceiverTime(double receiverTime);
+
+  static void collectivePredict(const std::vector<TimeCluster*>& clusters);
+  static void collectiveCorrect(const std::vector<TimeCluster*>& clusters);
+
+  static std::vector<TimeCluster*> collectMayPredict(const std::vector<TimeCluster*>& highPriority, const std::vector<TimeCluster*>& lowPriority, size_t threshold);
+  static std::vector<TimeCluster*> collectMayCorrect(const std::vector<TimeCluster*>& highPriority, const std::vector<TimeCluster*>& lowPriority, size_t threshold);
 };
 
 #endif

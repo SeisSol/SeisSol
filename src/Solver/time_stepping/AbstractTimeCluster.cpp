@@ -52,43 +52,12 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     case ActorAction::Correct:
       assert(state == ActorState::Predicted);
       correct();
-      ct.correctionTime += timeStepSize();
-      ++numberOfTimeSteps;
-      ct.stepsSinceLastSync += ct.timeStepRate;
-      ct.stepsSinceStart += ct.timeStepRate;
-      for (auto &neighbor : neighbors) {
-        const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-        const bool sendMessage = justBeforeSync
-                                 || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
-        if (sendMessage) {
-          AdvancedCorrectionTimeMessage message{};
-          message.time = ct.correctionTime;
-          message.stepsSinceSync = ct.stepsSinceLastSync;
-          neighbor.outbox->push(message);
-        }
-      }
-      state = ActorState::Corrected;
+      postCorrect();
       break;
     case ActorAction::Predict:
       assert(state == ActorState::Corrected);
       predict();
-      ct.predictionsSinceLastSync += ct.timeStepRate;
-      ct.predictionsSinceStart += ct.timeStepRate;
-      ct.predictionTime += timeStepSize();
-
-      for (auto &neighbor : neighbors) {
-        // Maybe check also how many steps neighbor has to sync!
-        const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
-        const bool sendMessage = justBeforeSync
-                                 || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
-        if (sendMessage) {
-          AdvancedPredictionTimeMessage message{};
-          message.time = ct.predictionTime;
-          message.stepsSinceSync = ct.predictionsSinceLastSync;
-          neighbor.outbox->push(message);
-        }
-      }
-      state = ActorState::Predicted;
+      postPredict();
       break;
     case ActorAction::Sync:
       assert(state == ActorState::Corrected);
@@ -107,6 +76,45 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       logError() << "Invalid actor action in getNextLegalAction()" << static_cast<int>(state);
       break;
   }
+}
+
+void AbstractTimeCluster::postPredict() {
+  ct.predictionsSinceLastSync += ct.timeStepRate;
+  ct.predictionsSinceStart += ct.timeStepRate;
+  ct.predictionTime += timeStepSize();
+
+  for (auto &neighbor : neighbors) {
+    // Maybe check also how many steps neighbor has to sync!
+    const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
+    const bool sendMessage = justBeforeSync
+                              || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
+    if (sendMessage) {
+      AdvancedPredictionTimeMessage message{};
+      message.time = ct.predictionTime;
+      message.stepsSinceSync = ct.predictionsSinceLastSync;
+      neighbor.outbox->push(message);
+    }
+  }
+  state = ActorState::Predicted;
+}
+
+void AbstractTimeCluster::postCorrect() {
+  ct.correctionTime += timeStepSize();
+  ++numberOfTimeSteps;
+  ct.stepsSinceLastSync += ct.timeStepRate;
+  ct.stepsSinceStart += ct.timeStepRate;
+  for (auto &neighbor : neighbors) {
+    const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
+    const bool sendMessage = justBeforeSync
+                              || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
+    if (sendMessage) {
+      AdvancedCorrectionTimeMessage message{};
+      message.time = ct.correctionTime;
+      message.stepsSinceSync = ct.stepsSinceLastSync;
+      neighbor.outbox->push(message);
+    }
+  }
+  state = ActorState::Corrected;
 }
 
 ActResult AbstractTimeCluster::act() {

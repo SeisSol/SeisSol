@@ -157,6 +157,9 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
+
+  frictionSolverLocalInterior = std::move(frictionSolver->clone());
+  frictionSolverLocalCopy = std::move(frictionSolver->clone());
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
@@ -880,6 +883,458 @@ LayerType TimeCluster::getLayerType() const {
 void TimeCluster::setReceiverTime(double receiverTime) {
   m_receiverTime = receiverTime;
 }
+
+void TimeCluster::collectiveComputeLocalIntegration(const std::vector<TimeCluster*>& clusters) {
+  SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  for (TimeCluster* cluster : clusters) {
+    cluster->m_loopStatistics->begin(cluster->m_regionComputeLocalIntegration);
+  }
+
+  std::vector<bool> resetBuffers(clusters.size());
+  std::vector<kernels::LocalData::Loader> loaders(clusters.size());
+
+  std::vector<size_t> clusterOffset(clusters.size() + 1);
+
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    resetBuffers[i] = true;
+    for (const auto& neighbor : clusters[i]->neighbors) {
+        if (neighbor.ct.timeStepRate > clusters[i]->ct.timeStepRate
+            && clusters[i]->ct.stepsSinceLastSync > neighbor.ct.stepsSinceLastSync) {
+            resetBuffers[i] = false;
+          }
+    }
+    if (clusters[i]->ct.stepsSinceLastSync == 0) {
+      resetBuffers[i] = true;
+    }
+
+    loaders[i].load(*clusters[i]->m_lts, *clusters[i]->m_clusterData);
+
+    clusterOffset[i+1] = clusterOffset[i] + clusters[i]->m_clusterData->getNumberOfCells();
+  }
+  
+
+  // local integration buffer
+  real l_integrationBuffer[tensor::I::size()] alignas(ALIGNMENT);
+  // pointer for the call of the ADER-function
+  real* l_bufferPointer;
+  kernels::LocalTmp tmp{};
+
+  auto totalCellCount = *clusterOffset.rbegin();
+
+#ifdef _OPENMP
+  #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer, tmp) schedule(static)
+#endif
+  //for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
+  for (size_t i = 0; i < totalCellCount; ++i) {
+    // https://en.cppreference.com/w/cpp/algorithm/upper_bound
+    auto idElement = std::upper_bound(clusterOffset.begin(), clusterOffset.end(), i);
+    size_t clusterId = std::distance(clusterOffset.begin(), idElement) - 1;
+
+    assert(i > clusterOffset[clusterId]);
+    unsigned l_cell = i - clusterOffset[clusterId];
+
+    auto data = loaders[clusterId].entry(l_cell);
+    real** buffers = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->buffers);
+    real** derivatives = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->derivatives);
+    CellMaterialData* materialData = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->material);
+
+    // We need to check, whether we can overwrite the buffer or if it is
+    // needed by some other time cluster.
+    // If we cannot overwrite the buffer, we compute everything in a temporary
+    // local buffer and accumulate the results later in the shared buffer.
+    const bool buffersProvided = (data.cellInformation.ltsSetup >> 8) % 2 == 1; // buffers are provided
+    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers[clusterId] ); // they should be reset
+
+    if (resetMyBuffers) {
+      // assert presence of the buffer
+      assert(buffers[l_cell] != nullptr);
+
+      l_bufferPointer = buffers[l_cell];
+    } else {
+      // work on local buffer
+      l_bufferPointer = l_integrationBuffer;
+    }
+
+    clusters[clusterId]->m_timeKernel.computeAder(clusters[clusterId]->timeStepSize(),
+                             data,
+                             tmp,
+                             l_bufferPointer,
+                             derivatives[l_cell],
+                             true);
+
+    // Compute local integrals (including some boundary conditions)
+    CellBoundaryMapping (*boundaryMapping)[4] = clusters[clusterId]->m_clusterData->var(clusters[clusterId]->m_lts->boundaryMapping);
+    clusters[clusterId]->m_localKernel.computeIntegral(l_bufferPointer,
+                                  data,
+                                  tmp,
+                                  &materialData[l_cell],
+                                  &boundaryMapping[l_cell],
+                                  clusters[clusterId]->ct.correctionTime,
+                                  clusters[clusterId]->timeStepSize()
+    );
+
+    for (unsigned face = 0; face < 4; ++face) {
+      auto& curFaceDisplacements = data.faceDisplacements[face];
+      // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
+      if (curFaceDisplacements != nullptr
+          && data.cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity) {
+        kernel::addVelocity addVelocityKrnl;
+
+        addVelocityKrnl.V3mTo2nFace = clusters[clusterId]->m_globalDataOnHost->V3mTo2nFace;
+        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.faceDisplacement = data.faceDisplacements[face];
+        addVelocityKrnl.I = l_bufferPointer;
+        addVelocityKrnl.execute(face);
+      }
+    }
+
+    // TODO: Integrate this step into the kernel
+    // We've used a temporary buffer -> need to accumulate update in
+    // shared buffer.
+    if (!resetMyBuffers && buffersProvided) {
+      assert(buffers[l_cell] != nullptr);
+
+      for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
+        buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
+      }
+    }
+  }
+
+  for (TimeCluster* cluster : clusters) {
+    cluster->m_loopStatistics->end(cluster->m_regionComputeLocalIntegration, cluster->m_clusterData->getNumberOfCells(), cluster->m_profilingId);
+  }
+}
+
+void TimeCluster::collectiveComputeSources(const std::vector<TimeCluster*>& clusters) {
+#ifdef ACL_DEVICE
+  device.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
+#endif
+  SCOREP_USER_REGION( "computeSources", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  std::vector<size_t> clusterOffset(clusters.size() + 1);
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    clusterOffset[i+1] = clusterOffset[i] + clusters[i]->m_numberOfCellToPointSourcesMappings;
+  }
+
+  auto sourceCount = *clusterOffset.rbegin();
+
+  // Return when point sources not initialised. This might happen if there
+  // are no point sources on this rank.
+  if (sourceCount > 0) {
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+    for (unsigned i = 0; i < sourceCount; ++i) {
+      auto idElement = std::upper_bound(clusterOffset.begin(), clusterOffset.end(), i);
+      size_t clusterId = std::distance(clusterOffset.begin(), idElement) - 1;
+
+      assert(i > clusterOffset[clusterId]);
+      unsigned mapping = i - clusterOffset[clusterId];
+
+      unsigned startSource = clusters[clusterId]->m_cellToPointSources[mapping].pointSourcesOffset;
+      unsigned endSource = startSource + clusters[clusterId]->m_cellToPointSources[mapping].numberOfPointSources;
+      if (clusters[clusterId]->m_pointSources->mode == sourceterm::PointSources::NRF) {
+        for (unsigned source = startSource; source < endSource; ++source) {
+          sourceterm::addTimeIntegratedPointSourceNRF(clusters[clusterId]->m_pointSources->mInvJInvPhisAtSources[source],
+                                                      clusters[clusterId]->m_pointSources->tensor[source],
+                                                      clusters[clusterId]->m_pointSources->A[source],
+                                                      clusters[clusterId]->m_pointSources->stiffnessTensor[source],
+                                                      clusters[clusterId]->m_pointSources->slipRates[source],
+                                                      clusters[clusterId]->ct.correctionTime,
+                                                      clusters[clusterId]->ct.correctionTime + clusters[clusterId]->timeStepSize(),
+                                                      *clusters[clusterId]->m_cellToPointSources[mapping].dofs);
+        }
+      } else {
+        for (unsigned source = startSource; source < endSource; ++source) {
+          sourceterm::addTimeIntegratedPointSourceFSRM(clusters[clusterId]->m_pointSources->mInvJInvPhisAtSources[source],
+                                                       clusters[clusterId]->m_pointSources->tensor[source],
+                                                       clusters[clusterId]->m_pointSources->slipRates[source][0],
+                                                       clusters[clusterId]->ct.correctionTime,
+                                                       clusters[clusterId]->ct.correctionTime + clusters[clusterId]->timeStepSize(),
+                                                       *clusters[clusterId]->m_cellToPointSources[mapping].dofs);
+        }
+      }
+    }
+  }
+#ifdef ACL_DEVICE
+  device.api->popLastProfilingMark();
+#endif
+}
+
+void TimeCluster::collectivePredict(const std::vector<TimeCluster*>& clusters) {
+  for (TimeCluster* cluster : clusters) {
+    assert(cluster->state == ActorState::Corrected);
+  }
+
+  /*logInfo(seissol::MPI::mpi.rank()) << "Collective prediction. " << clusters.size() << "clusters.";
+  for (TimeCluster* cluster : clusters) {
+    logInfo(seissol::MPI::mpi.rank()) << "Cluster ID:" << cluster->m_clusterId << ". Layer type: " << static_cast<int>(cluster->layerType);
+  }*/
+
+  if (clusters.empty()) {
+    return;
+  }
+
+  // writing receivers is still serial
+  for (TimeCluster* cluster : clusters) {
+    cluster->writeReceivers();
+  }
+  collectiveComputeLocalIntegration(clusters);
+  collectiveComputeSources(clusters);
+
+  // TODO(David): need parallelization here? Most likely not. But just in case... That's why this TODO's here.
+  for (TimeCluster* cluster : clusters) {
+    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsLocal(cluster->m_flops_nonZero[static_cast<int>(ComputePart::Local)]);
+    seissol::SeisSol::main.flopCounter().incrementHardwareFlopsLocal(cluster->m_flops_hardware[static_cast<int>(ComputePart::Local)]);
+  }
+
+  // TODO(David): is it really worth it to put a parallel for here? Maybe we should also directly update all neighbors which are in the time cluster list...
+  #pragma omp parallel for
+  for (TimeCluster* cluster : clusters) {
+    cluster->postPredict();
+  }
+}
+
+std::vector<TimeCluster*> TimeCluster::collectMayPredict(const std::vector<TimeCluster*>& highPriority, const std::vector<TimeCluster*>& lowPriority, size_t threshold) {
+    std::vector<TimeCluster*> clusters;
+
+    // take all high-priority clusters which may predict
+    size_t cellCount = 0;
+    for (TimeCluster* cluster : highPriority) {
+      auto numCells = cluster->m_clusterData->getNumberOfCells();
+      if (cluster->getNextLegalAction() == ActorAction::Predict) {
+        clusters.push_back(cluster);
+        cellCount += numCells;
+      }
+    }
+
+    // for the low-priority clusters, take all which still fit in (do this sort greedily, for now at least)
+    // or, if we have not found a high-priority cluster, take the first-best low-priority cluster at least
+    if (cellCount < threshold) {
+      size_t cellCount = 0;
+      for (TimeCluster* cluster : lowPriority) {
+        auto numCells = cluster->m_clusterData->getNumberOfCells();
+        if (cluster->getNextLegalAction() == ActorAction::Predict && (cellCount + numCells < threshold || cellCount == 0)) {
+          clusters.push_back(cluster);
+          cellCount += numCells;
+        }
+      }
+    }
+
+    return clusters;
+  }
+
+void TimeCluster::collectiveCorrect(const std::vector<TimeCluster*>& clusters) {
+  for (TimeCluster* cluster : clusters) {
+    assert(cluster->state == ActorState::Predicted);
+  }
+
+  /*logInfo(seissol::MPI::mpi.rank()) << "Collective correction. " << clusters.size() << "clusters.";
+  for (TimeCluster* cluster : clusters) {
+    logInfo(seissol::MPI::mpi.rank()) << "Cluster ID:" << cluster->m_clusterId << ". Layer type: " << static_cast<int>(cluster->layerType) << "" << cluster->ct.predictionTime << "" << cluster->ct.correctionTime;
+  }*/
+
+  // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
+  // Otherwise, this is an interior layer actor, and we need only the FL_Int.
+  // We need to avoid computing it twice.
+
+  if (clusters.empty()) {
+    return;
+  }
+
+  /*for (TimeCluster* cluster : clusters) {
+    if (cluster->dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
+      if (cluster->dynamicRuptureScheduler->mayComputeInterior(cluster->ct.stepsSinceStart)) {
+        cluster->computeDynamicRupture(*cluster->dynRupInteriorData);
+        seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsDynamicRupture(cluster->m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+        seissol::SeisSol::main.flopCounter().incrementHardwareFlopsDynamicRupture(cluster->m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+        cluster->dynamicRuptureScheduler->setLastCorrectionStepsInterior(cluster->ct.stepsSinceStart);
+      }
+      if (cluster->layerType == Copy) {
+        cluster->computeDynamicRupture(*cluster->dynRupCopyData);
+        seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsDynamicRupture(cluster->m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+        seissol::SeisSol::main.flopCounter().incrementHardwareFlopsDynamicRupture(cluster->m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+        cluster->dynamicRuptureScheduler->setLastCorrectionStepsCopy((cluster->ct.stepsSinceStart));
+      }
+
+    }
+  }*/
+
+  collectiveComputeDynamicRupture(clusters);
+
+  // TODO(David): adjust plasticity check
+  if (clusters.size() > 0 && clusters[0]->usePlasticity) {
+    collectiveComputeNeighboringIntegrationImplementation<true>(clusters);
+  }
+  else {
+    collectiveComputeNeighboringIntegrationImplementation<false>(clusters);
+  }
+
+  for (TimeCluster* cluster : clusters) {
+    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsDynamicRupture(cluster->m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+    seissol::SeisSol::main.flopCounter().incrementHardwareFlopsDynamicRupture(cluster->m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
+
+    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsDynamicRupture(cluster->m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+    seissol::SeisSol::main.flopCounter().incrementHardwareFlopsDynamicRupture(cluster->m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
+
+    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsNeighbor(cluster->m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)]);
+    seissol::SeisSol::main.flopCounter().incrementHardwareFlopsNeighbor(cluster->m_flops_hardware[static_cast<int>(ComputePart::Neighbor)]);
+    seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsDynamicRupture(cluster->m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)]);
+    seissol::SeisSol::main.flopCounter().incrementHardwareFlopsDynamicRupture(cluster->m_flops_hardware[static_cast<int>(ComputePart::DRNeighbor)]);
+
+    // First cluster calls fault receiver output
+    // Call fault output only if both interior and copy parts of DR were computed
+    // TODO: Change from iteration based to time based
+
+    if (cluster->dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces()
+        && cluster->dynamicRuptureScheduler->mayComputeFaultOutput(cluster->ct.stepsSinceStart)) {
+      cluster->faultOutputManager->writePickpointOutput(cluster->ct.correctionTime + cluster->timeStepSize(), cluster->timeStepSize());
+      cluster->dynamicRuptureScheduler->setLastFaultOutput(cluster->ct.stepsSinceStart);
+    }
+
+    // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
+    const auto nextCorrectionSteps = cluster->ct.nextCorrectionSteps();
+    if constexpr (USE_MPI) {
+      if (cluster->printProgress && (((nextCorrectionSteps / cluster->timeStepRate) % 100) == 0)) {
+        const int rank = MPI::mpi.rank();
+        logInfo(rank) << "#max-updates since sync: " << nextCorrectionSteps
+                      << " @ " << cluster->ct.nextCorrectionTime(cluster->syncTime);
+
+        }
+    }
+  }
+
+  // TODO(David): is it really worth it to put a parallel for here? Maybe we should also directly update all neighbors which are in the time cluster list...
+  #pragma omp parallel for
+  for (TimeCluster* cluster : clusters) {
+    cluster->postCorrect();
+  }
+}
+
+void TimeCluster::collectiveComputeDynamicRupture(const std::vector<TimeCluster*>& clusters) {
+  for (TimeCluster* cluster : clusters) {
+    cluster->m_loopStatistics->begin(cluster->m_regionComputeDynamicRupture);
+  }
+
+  std::set<DynamicRuptureScheduler*> schedulers;
+  std::vector<size_t> clusterOffset(2*clusters.size() + 1);
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    size_t numCells
+      = clusters[i]->dynamicRuptureScheduler->hasDynamicRuptureFaces()
+      && clusters[i]->dynamicRuptureScheduler->mayComputeInterior(clusters[i]->ct.stepsSinceStart)
+      && clusters[i]->layerType == Interior // that's new.
+      ? clusters[i]->dynRupInteriorData->getNumberOfCells() : 0;
+    clusterOffset[i+1] = clusterOffset[i] + numCells;
+  }
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    size_t numCells
+      = clusters[i]->dynamicRuptureScheduler->hasDynamicRuptureFaces()
+      && clusters[i]->layerType == Copy
+      ? clusters[i]->dynRupCopyData->getNumberOfCells() : 0;
+    clusterOffset[clusters.size() + i+1] = clusterOffset[clusters.size() + i] + numCells;
+  }
+
+  for (TimeCluster* cluster : clusters) {
+    cluster->m_dynamicRuptureKernel.setTimeStepWidth(cluster->timeStepSize());
+
+    cluster->frictionSolverLocalInterior->computeDeltaT(cluster->m_dynamicRuptureKernel.timePoints);
+    cluster->frictionSolverLocalCopy->computeDeltaT(cluster->m_dynamicRuptureKernel.timePoints);
+
+    cluster->frictionSolverLocalInterior->copyData(*cluster->dynRupInteriorData, cluster->m_dynRup, cluster->ct.correctionTime);
+    cluster->frictionSolverLocalCopy->copyData(*cluster->dynRupCopyData, cluster->m_dynRup, cluster->ct.correctionTime);
+  }
+
+  auto totalCount = *clusterOffset.rbegin();  
+
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+  for (size_t i = 0; i < totalCount; ++i) {
+
+    auto idElement = std::upper_bound(clusterOffset.begin(), clusterOffset.end(), i);
+    size_t clusterOffsetId = std::distance(clusterOffset.begin(), idElement) - 1;
+
+    assert(i > clusterOffset[clusterOffsetId]);
+    unsigned face = i - clusterOffset[clusterOffsetId];
+
+    size_t clusterId = clusterOffsetId % clusters.size();
+    auto& layerData = clusterId == clusterOffsetId ? *clusters[clusterId]->dynRupInteriorData : *clusters[clusterId]->dynRupCopyData;
+    auto* cluster = clusters[clusterId];
+
+    auto& layerDataPrefetch = clusterId == clusterOffsetId ? *clusters[clusterId]->dynRupInteriorData : *clusters[clusterId]->dynRupCopyData;
+    auto* clusterPrefetch = clusterId < clusterOffset.size() - 2 ? clusters[(clusterId+1) % clusters.size()] : clusters[clusterId];
+
+    DRFaceInformation* faceInformation = layerData.var(cluster->m_dynRup->faceInformation);
+    DRGodunovData* godunovData = layerData.var(cluster->m_dynRup->godunovData);
+    DREnergyOutput* drEnergyOutput = layerData.var(cluster->m_dynRup->drEnergyOutput);
+    real** timeDerivativePlus = layerData.var(cluster->m_dynRup->timeDerivativePlus);
+    real** timeDerivativeMinus = layerData.var(cluster->m_dynRup->timeDerivativeMinus);
+    auto* qInterpolatedPlus = layerData.var(cluster->m_dynRup->qInterpolatedPlus);
+    auto* qInterpolatedMinus = layerData.var(cluster->m_dynRup->qInterpolatedMinus);
+
+    real** timeDerivativePlusPrefetch = layerDataPrefetch.var(clusterPrefetch->m_dynRup->timeDerivativePlus);
+    real** timeDerivativeMinusPrefetch = layerDataPrefetch.var(clusterPrefetch->m_dynRup->timeDerivativeMinus);
+
+    // right now, this ignores the very last cell (for which it may be better just to reload the same face again)
+    unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : 0;
+
+    cluster->m_dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
+                                                  cluster->m_globalDataOnHost,
+                                                  &godunovData[face],
+                                                  &drEnergyOutput[face],
+                                                  timeDerivativePlus[face],
+                                                  timeDerivativeMinus[face],
+                                                  qInterpolatedPlus[face],
+                                                  qInterpolatedMinus[face],
+                                                  timeDerivativePlusPrefetch[prefetchFace],
+                                                  timeDerivativeMinusPrefetch[prefetchFace]);
+
+    // TODO(David): check if this part should be moved into some loop of its own
+    auto* frictionSolver = clusterId == clusterOffsetId ? clusters[clusterId]->frictionSolverLocalInterior.get() : clusters[clusterId]->frictionSolverLocalCopy.get();
+
+    frictionSolver->evaluateSingle(face, cluster->m_dynamicRuptureKernel.timeWeights);
+  }
+
+  for (size_t i = 0; i < clusters.size(); ++i) {
+    TimeCluster* cluster = clusters[i];
+    size_t numCells = clusterOffset[i+1] - clusterOffset[i] + clusterOffset[i+1+clusters.size()] - clusterOffset[i+clusters.size()];
+
+    if (clusterOffset[i+1] > clusterOffset[i]) { cluster->dynamicRuptureScheduler->setLastCorrectionStepsInterior(cluster->ct.stepsSinceStart); }
+    if (clusterOffset[i+1+clusters.size()] > clusterOffset[i+clusters.size()]) { cluster->dynamicRuptureScheduler->setLastCorrectionStepsCopy(cluster->ct.stepsSinceStart); }
+
+    cluster->m_loopStatistics->end(cluster->m_regionComputeDynamicRupture, numCells, cluster->m_profilingId);
+  }
+}
+
+std::vector<TimeCluster*> TimeCluster::collectMayCorrect(const std::vector<TimeCluster*>& highPriority, const std::vector<TimeCluster*>& lowPriority, size_t threshold) {
+    std::vector<TimeCluster*> clusters;
+
+    // take all high-priority clusters which may predict
+    size_t cellCount = 0;
+    for (TimeCluster* cluster : highPriority) {
+      auto numCells = cluster->m_clusterData->getNumberOfCells();
+      if (cluster->getNextLegalAction() == ActorAction::Correct) {
+        clusters.push_back(cluster);
+        cellCount += numCells;
+      }
+    }
+
+    // for the low-priority clusters, take all which still fit in (do this sort greedily, for now at least)
+    // or, if we have not found a high-priority cluster, take the first-best low-priority cluster at least
+    if (cellCount < threshold) {
+      size_t cellCount = 0;
+      for (TimeCluster* cluster : lowPriority) {
+        auto numCells = cluster->m_clusterData->getNumberOfCells();
+        if (cluster->getNextLegalAction() == ActorAction::Correct && (cellCount + numCells < threshold || cellCount == 0)) {
+          clusters.push_back(cluster);
+          cellCount += numCells;
+        }
+      }
+    }
+
+    return clusters;
+  }
 
 }
 
