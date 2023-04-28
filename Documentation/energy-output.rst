@@ -21,12 +21,14 @@ The energy output computes the energy of the simulation. It is divided into mult
     - Elastic energy 
         :math:`\int_{\Omega_e} \frac{1}{2} \epsilon_{ij} \sigma_{kl} \,\mathbf{dx}`, with  :math:`\epsilon_{ij}` the strain tensor and :math:`\sigma_{ij}` the stress tensor. It reduces for isotropic materials to :math:`\int_{\Omega_e} \frac{1}{2\mu} (\sigma_{ij} \sigma_{ij} -\frac{\lambda}{3\lambda+2\mu} \sigma_{kk}^2)\,\mathbf{dx}`, with :math:`\lambda` and :math:`\mu` the Lame coefficients.
 - Earthquake source energy
-    - Total frictional work 
-        :math:`\int_{0}^{t_f} \int_{\Sigma} \frac{1}{2} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{\dot{u}}(t) \,\mathbf{dx}dt` with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t)` the shear traction change, and :math:`\Delta\mathbf{\dot{u}}(t)` the fault slip rate, and :math:`t_f` the end time of the simulation.
-    - Static frictional work 
-        :math:`\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}`.
+    - Total frictional work done by the stress change
+        :math:`W_\mathrm{total} = -\int_{0}^{t_f} \int_{\Sigma} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{\dot{u}}(t) \,\mathbf{dx}dt`, with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t) = \mathbf{\sigma}(0) - \mathbf{\sigma}(t)` the shear traction change, and :math:`\Delta\mathbf{\dot{u}}(t)` the fault slip rate, and :math:`t_f` the end time of the simulation (see eq. 3 in Ma and Archuleta, 2006). 
+    - Static frictional work done by the stress change
+        :math:`W_\mathrm{static} = -\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}` (see eq. 4 in Ma and Archuleta, 2006).
+    - Radiated energy can then be computed with:
+        :math:`E_\mathrm{r} = W_\mathrm{total} - W_\mathrm{static}` (see eq. 5 in Ma and Archuleta, 2006).
 - Seismic moment
-        :math:`\int_{\Sigma} \frac{1}{2} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
+        :math:`\int_{\Sigma} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
 - Plastic moment 
     :math:`\int_{\Omega_e} \mu \eta  \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and \eta a scalar quantity measuring the accumulated material damage.
 
