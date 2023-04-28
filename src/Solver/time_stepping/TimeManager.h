@@ -56,7 +56,7 @@
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "Solver/time_stepping/GhostTimeClusterType.h"
+#include "Solver/time_stepping/GhostTimeClusterFactory.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -186,7 +186,7 @@ class seissol::time_stepping::TimeManager {
 
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
-    void releaseCommunicationManager();
+    void freeCommunicationManager();
 };
 
 #endif

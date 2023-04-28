@@ -68,8 +68,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
                                                       initializers::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
-  using ghostClusters_t = GhostTimeClusterType::value;
-  std::vector<std::unique_ptr<ghostClusters_t>> ghostClusters;
+  std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
 
@@ -172,6 +171,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
+    const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
     for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
       const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
@@ -189,11 +189,14 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
             ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
                  static_cast<long>(otherGlobalClusterId));
 
-        ghostClusters.push_back(std::make_unique<ghostClusters_t>(otherTimeStepSize,
-                                                                  otherTimeStepRate,
-                                                                  globalClusterId,
-                                                                  otherGlobalClusterId,
-                                                                  meshStructure));
+        auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
+                                                         otherTimeStepRate,
+                                                         globalClusterId,
+                                                         otherGlobalClusterId,
+                                                         meshStructure,
+                                                         preferredDataTransferMode);
+        ghostClusters.push_back(std::move(ghostCluster));
+
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*copy);
       }
@@ -379,7 +382,7 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
   }
 }
 
-void seissol::time_stepping::TimeManager::releaseCommunicationManager() {
+void seissol::time_stepping::TimeManager::freeCommunicationManager() {
   communicationManager.reset(nullptr);
 }
 
