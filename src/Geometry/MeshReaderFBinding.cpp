@@ -48,9 +48,9 @@
 #ifdef USE_NETCDF
 #include "NetcdfReader.h"
 #endif // USE_NETCDF
-#if defined(HAVE_GRAPH_PARTITIONING_LIBRARY) && defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF) && defined(USE_MPI)
 #include "PUMLReader.h"
-#endif // defined(HAVE_GRAPH_PARTITIONING_LIBRARY) && defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
@@ -301,7 +301,7 @@ void read_mesh_puml_c(const char* meshfile,
                       double maximumAllowedTimeStep) {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-#if defined(HAVE_GRAPH_PARTITIONING_LIBRARY) && defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();
 	double tpwgt = 1.0;
 
@@ -366,9 +366,9 @@ void read_mesh_puml_c(const char* meshfile,
 	watch.pause();
 	watch.printTime("Mesh initialized in:");
 
-#else // defined(HAVE_GRAPH_PARTITIONING_LIBRARY) && defined(USE_HDF) && defined(USE_MPI)
+#else // defined(USE_HDF) && defined(USE_MPI)
 	logError() << "PUML is currently only supported for MPI";
-#endif // defined(HAVE_GRAPH_PARTITIONING_LIBRARY) && defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF) && defined(USE_MPI)
 }
 
 }

@@ -1946,7 +1946,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 #elif defined(USE_PARHIP)
     PartitioningLib = 'parhip-ultrafast'
 #else
-    PartitioningLib = ''
+    PartitioningLib = 'none'
 #endif
     displacement(:) = 0.
     ScalingMatrixX(:) = 0.0
@@ -1989,11 +1989,11 @@ ALLOCATE( SpacePositionx(nDirac), &
             logInfo0(*) 'Read a netCDF mesh ...'
             Name = trim(IO%MeshFile) // '.nc'
           elseif (IO%meshgenerator .eq. 'PUML') then
-#if defined(HAVE_GRAPH_PARTITIONING_LIBRARY) && defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF) && defined(USE_MPI)
             Name = trim(IO%MeshFile)
             logInfo0(*) 'Read a PUML mesh file'
 #else
-            logError(*) 'PUML requires a graph partitioning library and HDF5'
+            logError(*) 'PUML requires MPI and HDF5'
 #endif
           else
             logInfo0(*) 'Read a Gambit 3-D neutral mesh ... '

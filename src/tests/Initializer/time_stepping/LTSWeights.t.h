@@ -22,7 +22,7 @@ TEST_CASE("LTS Weights") {
 #elif defined(USE_PARHIP)
   char const* partLib = "parhip-ultrafast";
 #else
-  char const* partLib = "";
+  char const* partLib = "none";
 #endif
   seissol::PUMLReader pumlReader("Testing/mesh.h5", partLib, 5000.0, "", ltsWeights.get());
   std::cout.clear();
