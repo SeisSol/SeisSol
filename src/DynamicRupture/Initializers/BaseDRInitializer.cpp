@@ -55,7 +55,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
         parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
       }
 #ifdef USE_POROELASTIC
-      parameterToStorageMap.insert({"p", getRawData(initialStress.p)});
+      parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
 #else
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
@@ -282,6 +282,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
+#ifdef USE_POROELASTIC
+  if (readNucleation) {
+    tractionNames.push_back("nuc_p");
+    cartesianNames.push_back("nuc_p");
+  } else {
+    tractionNames.push_back("p");
+    cartesianNames.push_back("p");
+  }
+#endif
 
   bool allTractionParametersSupplied = true;
   bool allCartesianParametersSupplied = true;
