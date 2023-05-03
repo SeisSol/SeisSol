@@ -117,12 +117,6 @@ class MeshReader {
   void extractFaultInformation(const VrtxCoords refPoint, const int refPointMethod);
 
   void exchangeGhostlayerMetadata();
-
-  protected:
-  static bool compareLocalMPINeighbor(const MPINeighborElement& elem1,
-                                      const MPINeighborElement& elem2);
-  static bool compareRemoteMPINeighbor(const MPINeighborElement& elem1,
-                                       const MPINeighborElement& elem2);
 };
 
 } // namespace seissol::geometry
