@@ -343,7 +343,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   seissol::initializers::convertStringToMask(iOutputMask,
                                              ssp.output.waveFieldParameters.outputMask);
 
-  auto iPlasticityMask = reader.readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 0"));
+  auto iPlasticityMask = reader.readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
   seissol::initializers::convertStringToMask(iPlasticityMask,
                                              ssp.output.waveFieldParameters.plasticityMask);
 
