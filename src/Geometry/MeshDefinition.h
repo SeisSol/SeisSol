@@ -88,18 +88,6 @@ struct MPINeighborElement {
 	int neighborElement;
 	/** Side of the neighbor element */
 	int neighborSide;
-
-	/**
-	 * Sort elements by according to the local order
-	 *
-	 * @todo Remove this function, since we need to sort by local and neighbor ids
-	 */
-	bool operator<(const MPINeighborElement &other) const
-	{
-		return (localElement < other.localElement)
-				|| (localElement == other.localElement
-						&& localSide < other.localSide);
-	}
 };
 
 struct Fault {
