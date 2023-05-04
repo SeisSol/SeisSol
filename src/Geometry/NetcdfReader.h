@@ -35,7 +35,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Read Gambit Mesh and Metis Partition in memory efficient way
+ * Read a mesh in the Netcdf format
  **/
 
 #ifndef NETCDF_READER_H

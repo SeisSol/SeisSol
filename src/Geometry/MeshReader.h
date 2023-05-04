@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Read Gambit Mesh and Metis Partition in memory efficient way
+ * Read a mesh file in memory efficient way
  **/
 
 #ifndef MESH_READER_H
