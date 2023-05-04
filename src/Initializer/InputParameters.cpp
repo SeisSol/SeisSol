@@ -453,7 +453,10 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
                              "source17",
                              "source19",
                              "spongelayer",
-                             "sponges"});
+                             "sponges",
+                             "analysis",
+                             "analysisfields",
+                             "debugging"});
   baseReader.warnUnknown();
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
