@@ -108,6 +108,7 @@ LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging c
 FaultOutputFlag = 1                  ! DR output (add this line only if DR is active)
 OutputFile = '../output_tpv33/tpv33'
 Format = 10                          ! Format (10= no output, 6=hdf5 output)
+WavefieldOutput = 1                  ! disable/enable wavefield output (right now, format=6 needs to be set as well)
 !             |stress     |vel
 iOutputMask = 0 0 0 0 0 0 1 1 1
 !                 |strain     |eta
@@ -132,6 +133,7 @@ SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
 
 !Checkpointing
+Checkpoint = 1                       ! enable/disable checkpointing
 checkPointFile = 'checkpoint/checkpoint'
 checkPointBackend = 'mpio'           ! Checkpoint backend
 checkPointInterval = 6
@@ -149,5 +151,5 @@ LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produ
 /
            
 &AbortCriteria
-EndTime = 13.0
+EndTime = 15.0
 /

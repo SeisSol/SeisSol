@@ -276,6 +276,24 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
 static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.readSubNode("output");
 
+  constexpr double veryLongTime = 1.0e100;
+
+  auto warnIntervalAndDisable =
+      [](bool& enabled, double interval, const std::string& valName, const std::string& intName) {
+        if (enabled && interval <= 0) {
+          auto intPhrase = valName + " = 0";
+          logInfo() << "In your parameter file, you have specified a non-positive interval for"
+                    << intName
+                    << ". This mechanism is deprecated and may be removed in a future version of "
+                       "SeisSol. Consider disabling the whole module by setting"
+                    << valName << "to 0 instead by adding" << intPhrase
+                    << "to the \"output\" section of your parameter file instead.";
+
+          // still, replicate the old behavior.
+          enabled = false;
+        }
+      };
+
   // general params
   ssp.output.format = reader.readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
@@ -292,6 +310,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
       });
 
   // checkpointing
+  ssp.output.checkpointParameters.enabled = reader.readWithDefault("checkpoint", true);
   ssp.output.checkpointParameters.backend =
       reader.readWithDefaultStringEnum<seissol::checkpoint::Backend>(
           "checkpointbackend",
@@ -303,7 +322,12 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
            {"mpio_async", seissol::checkpoint::Backend::MPIO_ASYNC},
            {"sionlib", seissol::checkpoint::Backend::SIONLIB}});
   ssp.output.checkpointParameters.interval = reader.readWithDefault("checkpointinterval", 0.0);
-  ssp.output.checkpointParameters.enabled = ssp.output.checkpointParameters.interval > 0;
+
+  warnIntervalAndDisable(ssp.output.checkpointParameters.enabled,
+                         ssp.output.checkpointParameters.interval,
+                         "checkpoint",
+                         "checkpointinterval");
+
   if (ssp.output.checkpointParameters.enabled) {
     ssp.output.checkpointParameters.fileName =
         reader.readOrFail<std::string>("checkpointfile", "No checkpoint filename given.");
@@ -327,14 +351,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
         bounds[5] == 0);
 
   ssp.output.waveFieldParameters.enabled = reader.readWithDefault("wavefieldoutput", true);
-  // output time interval
-  if (ssp.output.format != OutputFormat::None) {
-    ssp.output.waveFieldParameters.interval =
-        reader.readOrFail<double>("timeinterval", "No output interval specified.");
-  } else {
-    reader.markUnused("timeinterval");
-    ssp.output.waveFieldParameters.interval = 0;
-  }
+  ssp.output.waveFieldParameters.interval = reader.readWithDefault("timeinterval", veryLongTime);
   ssp.output.waveFieldParameters.refinement =
       reader.readWithDefaultEnum<OutputRefinement>("refinement",
                                                    OutputRefinement::NoRefine,
@@ -343,7 +360,19 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
                                                     OutputRefinement::Refine8,
                                                     OutputRefinement::Refine32});
 
-  ssp.output.waveFieldParameters.enabled &= ssp.output.waveFieldParameters.interval > 0;
+  warnIntervalAndDisable(ssp.output.waveFieldParameters.enabled,
+                         ssp.output.waveFieldParameters.interval,
+                         "wavefieldoutput",
+                         "timeinterval");
+
+  if (ssp.output.waveFieldParameters.enabled && ssp.output.format == OutputFormat::None) {
+    logInfo() << "Disabling the wavefield output by setting \"outputformat = 10\" is deprecated "
+                 "and may be removed in a future version of SeisSol. Consider using the parameter "
+                 "\"wavefieldoutput\" instead. To disable wavefield output, add \"wavefieldoutput "
+                 "= 0\" to the \"output\" section of your parameters file.";
+
+    ssp.output.waveFieldParameters.enabled = false;
+  }
 
   auto groupsVector = reader.readWithDefault("outputgroups", std::vector<int>());
   ssp.output.waveFieldParameters.groups =
@@ -366,30 +395,45 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   // output: surface
   ssp.output.freeSurfaceParameters.enabled = reader.readWithDefault("surfaceoutput", false);
   ssp.output.freeSurfaceParameters.interval =
-      reader.readWithDefault("surfaceoutputinterval", 1.0e100);
-  ssp.output.freeSurfaceParameters.enabled &= ssp.output.freeSurfaceParameters.interval > 0;
+      reader.readWithDefault("surfaceoutputinterval", veryLongTime);
   ssp.output.freeSurfaceParameters.refinement =
       reader.readWithDefault("surfaceoutputrefinement", 0u);
 
+  warnIntervalAndDisable(ssp.output.freeSurfaceParameters.enabled,
+                         ssp.output.freeSurfaceParameters.interval,
+                         "surfaceoutput",
+                         "surfaceoutputinterval");
+
   // output: energy
   ssp.output.energyParameters.enabled = reader.readWithDefault("energyoutput", false);
-  ssp.output.energyParameters.interval = reader.readWithDefault("energyoutputinterval", 1.0e100);
+  ssp.output.energyParameters.interval =
+      reader.readWithDefault("energyoutputinterval", veryLongTime);
   ssp.output.energyParameters.enabled &= ssp.output.energyParameters.interval > 0;
   ssp.output.energyParameters.terminalOutput =
       reader.readWithDefault("energyterminaloutput", false);
   ssp.output.energyParameters.computeVolumeEnergiesEveryOutput =
       reader.readWithDefault("computevolumeenergieseveryoutput", 1);
 
+  warnIntervalAndDisable(ssp.output.energyParameters.enabled,
+                         ssp.output.energyParameters.interval,
+                         "energyoutput",
+                         "energyoutputinterval");
+
   // output: refinement
   ssp.output.receiverParameters.enabled = reader.readWithDefault("receiveroutput", true);
   ssp.output.receiverParameters.interval =
-      reader.readWithDefault("receiveroutputinterval", 1.0e100);
+      reader.readWithDefault("receiveroutputinterval", veryLongTime);
   ssp.output.receiverParameters.enabled &= ssp.output.receiverParameters.interval > 0;
   ssp.output.receiverParameters.computeRotation =
       reader.readWithDefault("receivercomputerotation", false);
   ssp.output.receiverParameters.fileName =
       reader.readOrFail<std::string>("rfilename", "No receiver output file name specified.");
   ssp.output.receiverParameters.samplingInterval = reader.readWithDefault("pickdt", 0.0);
+
+  warnIntervalAndDisable(ssp.output.receiverParameters.enabled,
+                         ssp.output.receiverParameters.interval,
+                         "receiveroutput",
+                         "receiveroutputinterval");
 
   // output: fault
   ssp.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
