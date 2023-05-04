@@ -55,7 +55,12 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
         parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
       }
 #ifdef USE_POROELASTIC
-      parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+      if (isFaultParameterizedByTraction) {
+        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+      }
+      else {
+        parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+      }
 #else
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
