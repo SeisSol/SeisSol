@@ -18,15 +18,30 @@
 #include "Parallel/MPI.h"
 
 #include <cmath>
+#include <type_traits>
 
 using namespace seissol::initializer;
 
 using MaterialClass = seissol::model::MaterialClass;
 using Plasticity = seissol::model::Plasticity;
 
+/*
+Assigns the given value to the target object, initializing the memory in the process.
+
+NOTE: std::copy (or the likes) do not work here, since they do not initialize the _vptr for virtual
+function calls (rather, they leave it undefined), since they do merely assign `value` to `target`.
+*/
 template <typename T>
 static void initAssign(T& target, const T& value) {
-  new (&target) T(value);
+  if constexpr (std::is_trivially_copyable_v<T>) {
+    // if the object is trivially copyable, we may just memcpy it.
+    std::memcpy(&target, &value, sizeof(T));
+  } else {
+    // otherwise, call the class/struct initializer.
+    new (&target) T(value);
+  }
+  // (these two methods cannot be combined, unless we have some way for C-style arrays, i.e. S[N]
+  // for <typename S, size_t N>, to use a copy constructor as well)
 }
 
 template <typename T>
@@ -48,9 +63,7 @@ static void synchronize(const seissol::initializers::Variable<T>& handle) {
          ++dup) {
 
       // copy data on a byte-wise level (we need to initialize memory here as well)
-      memcpy(reinterpret_cast<void*>(&var[meshToLts[dup][meshId]]),
-             reinterpret_cast<const void*>(ref),
-             sizeof(T));
+      initAssign(var[meshToLts[dup][meshId]], *ref);
     }
   }
 }
