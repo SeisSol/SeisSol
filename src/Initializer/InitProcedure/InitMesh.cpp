@@ -131,21 +131,27 @@ void seissol::initializer::initprocedure::initMesh() {
   // Call the pre mesh initialization hook
   seissol::Modules::callHook<seissol::PRE_MESH>();
 
-  logInfo(seissol::MPI::mpi.rank()) << "Mesh file: " << ssp.mesh.meshFileName;
+  const auto meshFormat = ssp.mesh.meshFormat;
+
+  logInfo(seissol::MPI::mpi.rank()) << "Mesh file:" << ssp.mesh.meshFileName;
 
   seissol::Stopwatch watch;
   watch.start();
 
-  const auto meshFormat = ssp.mesh.meshFormat;
-
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
 
+  std::string realMeshFileName = ssp.mesh.meshFileName;
   switch (meshFormat) {
   case seissol::geometry::MeshFormat::Netcdf:
 #if USE_NETCDF
+    realMeshFileName = ssp.mesh.meshFileName + ".nc";
+    logInfo(seissol::MPI::mpi.rank())
+        << "By old SeisSol conventions for Netcdf meshes, the Netcdf file extension \".nc\" is "
+           "always appended. Thus, the (new) mesh file name is"
+        << realMeshFileName;
     seissol::SeisSol::main.setMeshReader(
-        new seissol::geometry::NetcdfReader(commRank, commSize, ssp.mesh.meshFileName.c_str()));
+        new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
 #else
     logError()
         << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
