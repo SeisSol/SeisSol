@@ -90,11 +90,11 @@ struct CellToVertexArray {
   using CellToGroupFunction = std::function<int(size_t)>;
 
   CellToVertexArray(size_t size,
-                    const CellToVertexFunction& elementVertices,
+                    const CellToVertexFunction& elementCoordinates,
                     const CellToGroupFunction& elementGroups);
 
   size_t size;
-  CellToVertexFunction elementVertices;
+  CellToVertexFunction elementCoordinates;
   CellToGroupFunction elementGroups;
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);

@@ -64,9 +64,9 @@
 
 seissol::initializers::CellToVertexArray::CellToVertexArray(
     size_t size,
-    const CellToVertexFunction& elementVertices,
+    const CellToVertexFunction& elementCoordinates,
     const CellToGroupFunction& elementGroups)
-    : size(size), elementVertices(elementVertices), elementGroups(elementGroups) {}
+    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
 
 seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromMeshReader(
     const seissol::geometry::MeshReader& meshReader) {
@@ -132,7 +132,7 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
 
   #pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
-    auto vertices = m_ctov.elementVertices(elem);
+    auto vertices = m_ctov.elementCoordinates(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
     query.x(elem, 0) = barycenter(0);
     query.x(elem, 1) = barycenter(1);
@@ -167,7 +167,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   #pragma omp parallel for schedule(static) collapse(2)
   for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
-      auto vertices = m_ctov.elementVertices(elem);
+      auto vertices = m_ctov.elementCoordinates(elem);
       Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
           vertices[0], vertices[1], vertices[2], vertices[3], m_quadraturePoints[i].data());
       query.x(elem * NUM_QUADPOINTS + i, 0) = transformed(0);
@@ -233,7 +233,7 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
       sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
     }
 
-    auto coords = ctov.elementVertices(element);
+    auto coords = ctov.elementCoordinates(element);
     for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3];
       double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
