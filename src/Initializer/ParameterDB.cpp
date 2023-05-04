@@ -65,8 +65,8 @@
 seissol::initializers::CellToVertexArray::CellToVertexArray(
     size_t size,
     const CellToVertexFunction& elementVertices,
-    const CellToMaterialFunction& elementMaterials)
-    : size(size), elementVertices(elementVertices), elementMaterials(elementMaterials) {}
+    const CellToGroupFunction& elementGroups)
+    : size(size), elementVertices(elementVertices), elementGroups(elementGroups) {}
 
 seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromMeshReader(
     const seissol::geometry::MeshReader& meshReader) {
@@ -90,15 +90,15 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 #ifdef USE_HDF
 seissol::initializers::CellToVertexArray
     seissol::initializers::CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
-  const int* material = mesh.cellData(0);
-  const auto& cells = mesh.cells();
+  const int* groups = mesh.cellData(0);
+  const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   return CellToVertexArray(
-      cells.size(),
+      elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
         unsigned vertLids[4];
-        PUML::Downward::vertices(mesh, cells[cell], vertLids);
+        PUML::Downward::vertices(mesh, elements[cell], vertLids);
         for (unsigned vtx = 0; vtx < 4; ++vtx) {
           for (unsigned d = 0; d < 3; ++d) {
             x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
@@ -106,14 +106,14 @@ seissol::initializers::CellToVertexArray
         }
         return x;
       },
-      [material](size_t cell) { return material[cell]; });
+      [groups](size_t cell) { return groups[cell]; });
 }
 #endif
 
 seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromVectors(
     const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
-    const std::vector<int>& materials) {
-  assert(vertices.size() == materials.size());
+    const std::vector<int>& groups) {
+  assert(vertices.size() == groups.size());
 
   return CellToVertexArray(
       vertices.size(),
@@ -124,7 +124,7 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
         }
         return verts;
       },
-      [&](size_t i) { return materials[i]; });
+      [&](size_t i) { return groups[i]; });
 }
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
@@ -137,7 +137,7 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
     query.x(elem, 0) = barycenter(0);
     query.x(elem, 1) = barycenter(1);
     query.x(elem, 2) = barycenter(2);
-    query.group(elem) = m_ctov.elementMaterials(elem);
+    query.group(elem) = m_ctov.elementGroups(elem);
   }
   return query;
 }
@@ -173,7 +173,7 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
       query.x(elem * NUM_QUADPOINTS + i, 0) = transformed(0);
       query.x(elem * NUM_QUADPOINTS + i, 1) = transformed(1);
       query.x(elem * NUM_QUADPOINTS + i, 2) = transformed(2);
-      query.group(elem * NUM_QUADPOINTS + i) = m_ctov.elementMaterials(elem);
+      query.group(elem * NUM_QUADPOINTS + i) = m_ctov.elementGroups(elem);
     }
   }
 
@@ -212,7 +212,7 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
 easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   std::vector<Fault> const& fault = m_meshReader.getFault();
   std::vector<Element> const& elements = m_meshReader.getElements();
-  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
+  auto ctov = CellToVertexArray::fromMeshReader(m_meshReader);
 
   constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
@@ -233,12 +233,9 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
       sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
     }
 
-    double const* coords[4];
-    for (unsigned v = 0; v < 4; ++v) {
-      coords[v] = vertices[elements[element].vertices[v]].coords;
-    }
+    auto coords = ctov.elementVertices(element);
     for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
-      double xiEtaZeta[3], xyz[3];
+      double xiEtaZeta[3];
       double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::numberOfBoundaryGaussPoints) {
@@ -247,10 +244,10 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
       }
 
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
-      seissol::transformations::tetrahedronReferenceToGlobal(
-          coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
+      Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
+          coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
       for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(q, dim) = xyz[dim];
+        query.x(q, dim) = xyz(dim);
       }
       query.group(q) = elements[element].faultTags[side];
     }

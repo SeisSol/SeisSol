@@ -87,15 +87,15 @@ class EasiBoundary;
 // element-wise function application)
 struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
-  using CellToMaterialFunction = std::function<int(size_t)>;
+  using CellToGroupFunction = std::function<int(size_t)>;
 
   CellToVertexArray(size_t size,
                     const CellToVertexFunction& elementVertices,
-                    const CellToMaterialFunction& elementMaterials);
+                    const CellToGroupFunction& elementGroups);
 
   size_t size;
   CellToVertexFunction elementVertices;
-  CellToMaterialFunction elementMaterials;
+  CellToGroupFunction elementGroups;
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
@@ -103,7 +103,7 @@ struct CellToVertexArray {
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
-                  const std::vector<int>& materials);
+                  const std::vector<int>& groups);
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
