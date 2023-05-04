@@ -51,15 +51,15 @@ constexpr bool isModelAnisotropic() {
 }
 
 struct ModelParameters {
-  double gravitationalAcceleration = 9.81;
-  double tv = 0.1;
-  bool plasticity = false;
-  bool useCellHomogenizedMaterial = false;
-  double freqCentral = 0.0;
-  double freqRatio = 0.0;
-  std::string materialFileName = "";
-  std::string boundaryFileName = "";
-  bool hasBoundaryFile = false;
+  double gravitationalAcceleration;
+  double tv;
+  bool plasticity;
+  bool useCellHomogenizedMaterial;
+  double freqCentral;
+  double freqRatio;
+  std::string materialFileName;
+  std::string boundaryFileName;
+  bool hasBoundaryFile;
 };
 
 enum class InitializationType : int {
@@ -111,7 +111,7 @@ struct OutputInterval {
 };
 
 struct OutputBounds {
-  bool enabled = false;
+  bool enabled;
   OutputInterval boundsX, boundsY, boundsZ;
 
   bool contains(double x, double y, double z) const {
@@ -124,37 +124,37 @@ struct OutputBounds {
 };
 
 struct ReceiverOutputParameters {
-  bool enabled = false;
-  double interval = 1.0e100;
-  bool computeRotation = false;
-  std::string fileName = "";
-  double samplingInterval = 0.0;
+  bool enabled;
+  double interval;
+  bool computeRotation;
+  std::string fileName;
+  double samplingInterval;
 };
 
 struct FreeSurfaceOutputParameters {
-  bool enabled = false;
-  double interval = 1.0e100;
+  bool enabled;
+  double interval;
   unsigned refinement;
 };
 
 struct EnergyOutputParameters {
-  bool enabled = false;
-  double interval = 1.0e100;
-  bool terminalOutput = false;
-  int computeVolumeEnergiesEveryOutput = 1;
+  bool enabled;
+  double interval;
+  bool terminalOutput;
+  int computeVolumeEnergiesEveryOutput;
 };
 
 struct CheckpointParameters {
-  bool enabled = false;
-  double interval = 1.0e100;
+  bool enabled;
+  double interval;
   std::string fileName;
   seissol::checkpoint::Backend backend;
 };
 
 struct WaveFieldOutputParameters {
-  bool enabled = false;
-  double interval = 1.0e100;
-  OutputRefinement refinement = OutputRefinement::NoRefine;
+  bool enabled;
+  double interval;
+  OutputRefinement refinement;
   OutputBounds bounds;
   std::array<bool, NUMBER_OF_QUANTITIES> outputMask;
   std::array<bool, 7> plasticityMask;
@@ -163,38 +163,37 @@ struct WaveFieldOutputParameters {
 };
 
 struct OutputParameters {
-  std::string prefix = "data";
-  OutputFormat format = OutputFormat::None;
+  std::string prefix;
+  OutputFormat format;
   xdmfwriter::BackendType xdmfWriterBackend;
   CheckpointParameters checkpointParameters;
   WaveFieldOutputParameters waveFieldParameters;
   ReceiverOutputParameters receiverParameters;
   FreeSurfaceOutputParameters freeSurfaceParameters;
   EnergyOutputParameters energyParameters;
-  bool faultOutput = false;
-  bool loopStatisticsNetcdfOutput = false;
+  bool faultOutput;
+  bool loopStatisticsNetcdfOutput;
 };
 
 struct LtsParameters {
-  unsigned rate = 2;
-  seissol::initializers::time_stepping::LtsWeightsTypes weighttype =
-      seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights;
+  unsigned rate;
+  seissol::initializers::time_stepping::LtsWeightsTypes weighttype;
 };
 
 struct TimesteppingParameters {
-  double cfl = 0.5;
-  double maxTimestepWidth = 5000;
+  double cfl;
+  double maxTimestepWidth;
   LtsParameters lts;
   VertexWeightParameters vertexWeight;
 };
 
 struct SourceParameters {
-  seissol::sourceterm::SourceType type = seissol::sourceterm::SourceType::None;
-  std::string fileName = "";
+  seissol::sourceterm::SourceType type;
+  std::string fileName;
 };
 
 struct EndParameters {
-  double endTime = 15.0;
+  double endTime;
 };
 
 struct SeisSolParameters {

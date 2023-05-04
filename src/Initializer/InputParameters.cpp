@@ -44,6 +44,9 @@ class ParameterReader {
     return value;
   }
 
+  // TODO(David): long-term (if we don't switch to another format first), merge readWithDefaultEnum
+  // with readWithDefaultStringEnum, i.e. allow both numerical and textual values for an enum (can
+  // we maybe auto-generate a parser from an enum definition?)
   template <typename T>
   T readWithDefaultEnum(const std::string& field,
                         const T& defaultValue,
@@ -59,7 +62,7 @@ class ParameterReader {
   T readWithDefaultStringEnum(const std::string& field,
                               const std::string& defaultValue,
                               const std::unordered_map<std::string, T>& validValues) {
-    std::string value = readWithDefault(field, defaultValue); // TODO: sanitize string
+    std::string value = readWithDefault(field, defaultValue); // TODO(David): sanitize string
     sanitize(value);
     if (validValues.find(value) == validValues.end()) {
       logError() << "The field" << field << "had an invalid enum value:" << value;
@@ -73,14 +76,14 @@ class ParameterReader {
       return readUnsafe<T>(field);
     } else {
       logError() << "The field" << field << "was not found, but it is required.";
-      return T(); // unreachable. TODO: use compiler hint instead
+      return T(); // unreachable. TODO(David): use compiler hint instead
     }
   }
 
   void warnDeprecatedSingle(const std::string& field) {
     if (hasField(field)) {
       visited.emplace(field);
-      logWarning(seissol::MPI::mpi.rank())
+      logInfo(seissol::MPI::mpi.rank())
           << "The field" << field
           << "is no longer in use. You may safely remove it from your parameters file.";
     }
@@ -102,12 +105,11 @@ class ParameterReader {
   }
 
   void markUnused(const std::string& field) {
-    logDebug(seissol::MPI::mpi.rank())
-        << "The field" << field << "is ignored (regardless of if it exists or not)";
+    logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
     visited.emplace(field);
   }
 
-  ParameterReader subreader(const std::string& subnodeName) {
+  ParameterReader readSubNode(const std::string& subnodeName) {
     visited.emplace(subnodeName);
     logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
     if (hasField(subnodeName)) {
@@ -146,7 +148,7 @@ class ParameterReader {
 };
 
 static void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("equations");
+  auto reader = baseReader.readSubNode("equations");
 
   ssp.model.materialFileName =
       reader.readOrFail<std::string>("materialfilename", "No material file given.");
@@ -174,7 +176,7 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
 }
 
 static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("boundaries");
+  auto reader = baseReader.readSubNode("boundaries");
   ssp.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
 
   // TODO(David): ? port DR reading here, maybe.
@@ -184,7 +186,7 @@ static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& ssp) 
 }
 
 static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("meshnml");
+  auto reader = baseReader.readSubNode("meshnml");
 
   ssp.mesh.meshFileName = reader.readOrFail<std::string>("meshfile", "No mesh file given.");
   ssp.mesh.meshFormat = reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>(
@@ -210,7 +212,7 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
 }
 
 static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("discretization");
+  auto reader = baseReader.readSubNode("discretization");
 
   ssp.timestepping.cfl = reader.readWithDefault("cfl", 0.5);
   ssp.timestepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
@@ -223,6 +225,15 @@ static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp
           seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialBalancedWeights,
           seissol::initializers::time_stepping::LtsWeightsTypes::EncodedBalancedWeights,
       });
+
+  // TODO(David): integrate LTS parameters here
+  reader.markUnused("ltswigglefactormin");
+  reader.markUnused("ltswigglefactorstepsize");
+  reader.markUnused("ltswigglefactorenforcemaximumdifference");
+  reader.markUnused("ltsmaxnumberofclusters");
+  reader.markUnused("ltsautomergeclusters");
+  reader.markUnused("ltsallowedrelativeperformancelossautomerge");
+  reader.markUnused("ltsautomergecostbaseline");
 
   reader.warnDeprecated({"ckmethod",
                          "dgfineout1d",
@@ -238,7 +249,7 @@ static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp
 }
 
 static void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("inicondition");
+  auto reader = baseReader.readSubNode("inicondition");
 
   ssp.initialization.type = reader.readWithDefaultStringEnum<InitializationType>(
       "cictype",
@@ -263,7 +274,7 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
 }
 
 static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("output");
+  auto reader = baseReader.readSubNode("output");
 
   // general params
   ssp.output.format = reader.readWithDefaultEnum<OutputFormat>(
@@ -397,7 +408,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
 }
 
 static void readAbortCriteria(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("abortcriteria");
+  auto reader = baseReader.readSubNode("abortcriteria");
 
   ssp.end.endTime = reader.readWithDefault("endtime", 15.0);
 
@@ -407,7 +418,7 @@ static void readAbortCriteria(ParameterReader& baseReader, SeisSolParameters& ss
 }
 
 static void readSource(ParameterReader& baseReader, SeisSolParameters& ssp) {
-  auto reader = baseReader.subreader("sourcetype");
+  auto reader = baseReader.readSubNode("sourcetype");
 
   ssp.source.type = reader.readWithDefaultEnum("type",
                                                seissol::sourceterm::SourceType::None,
