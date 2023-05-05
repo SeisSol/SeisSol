@@ -1939,15 +1939,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     ! Setting default values
     MeshFile = 'LOH1'
     meshgenerator = 'Gambit3D-fast'
-#if defined(USE_PARMETIS)
-    PartitioningLib = 'parmetis'
-#elif defined(USE_PTSCOTCH)
-    PartitioningLib = 'ptscotch'
-#elif defined(USE_PARHIP)
-    PartitioningLib = 'parhip-ultrafast'
-#else
-    PartitioningLib = 'none'
-#endif
+    PartitioningLib = 'Default'
     displacement(:) = 0.
     ScalingMatrixX(:) = 0.0
     ScalingMatrixX(1) = 1.0

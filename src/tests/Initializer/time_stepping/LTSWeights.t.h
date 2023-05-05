@@ -15,16 +15,7 @@ TEST_CASE("LTS Weights") {
   auto ltsParameters = std::make_unique<LtsParameters>(
       2, 1.0, 0.01, false, 100, false, 1.0, AutoMergeCostBaseline::MaxWiggleFactor);
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, ltsParameters.get());
-#if defined(USE_PARMETIS)
-  char const* partLib = "parmetis";
-#elif defined(USE_PTSCOTCH)
-  char const* partLib = "ptscotch";
-#elif defined(USE_PARHIP)
-  char const* partLib = "parhip-ultrafast";
-#else
-  char const* partLib = "none";
-#endif
-  seissol::PUMLReader pumlReader("Testing/mesh.h5", partLib, 5000.0, "", ltsWeights.get());
+  seissol::PUMLReader pumlReader("Testing/mesh.h5", "Default", 5000.0, "", ltsWeights.get());
   std::cout.clear();
 
   std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,

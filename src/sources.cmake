@@ -158,6 +158,7 @@ endif()
 
 if (HDF5 AND MPI)
   target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PartitioningLib.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/LtsWeights.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/WeightsModels.cpp

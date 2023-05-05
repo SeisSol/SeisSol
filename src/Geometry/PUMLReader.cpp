@@ -42,6 +42,7 @@
 #include <unordered_map>
 
 #include "PUMLReader.h"
+#include "PartitioningLib.h"
 
 #include "PUML/Partition.h"
 #include "PUML/PartitionGraph.h"
@@ -56,6 +57,7 @@
 #include <hdf5.h>
 #include <sstream>
 #include <fstream>
+#include <string_view>
 
 class GlobalFaceSorter
 {
@@ -260,9 +262,14 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto doPartition = [&] {
-    logInfo(MPI::mpi.rank()) << "Using the" << partitioningLib
-                             << "partition library and strategy.";
-    auto partitioner = PUML::TETPartition::get_partitioner(partitioningLib);
+    auto partType = toPartitionerType(std::string_view(partitioningLib));
+    logInfo(MPI::mpi.rank()) << "Using the" << toStringView(partType) << "partition library and strategy.";
+    if (partType == PUML::PartitionerType::None) {
+        logWarning(MPI::mpi.rank())
+            << partitioningLib
+            << "not found. Expect poor performance as the mesh is not properly partitioned.";
+    }
+    auto partitioner = PUML::TETPartition::getPartitioner(partType);
     if (partitioner == nullptr) {
       logError() << "Unrecognized partition library: " << partitioningLib;
     }
