@@ -50,12 +50,12 @@
 #endif // USE_NETCDF
 #if defined(USE_HDF) && defined(USE_MPI)
 #include "PUMLReader.h"
+#include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
 #endif // defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical_aux/Statistics.h"
-#include "Initializer/time_stepping/LtsWeights/WeightsFactory.h"
 #include "Solver/time_stepping/MiniSeisSol.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 
