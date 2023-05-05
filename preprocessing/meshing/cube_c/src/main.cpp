@@ -179,10 +179,10 @@ int main(int argc, char* argv[])
 	args.addOption("boundary", 'b', "boundary condition (default: 1)", utils::Args::Required, false);
 	args.addOption("minx", 0, "boundary condition at the start of x dimension", utils::Args::Required, false);
 	args.addOption("maxx", 0, "boundary condition at the end of x dimension", utils::Args::Required, false);
-    args.addOption("miny", 0, "boundary condition at the start of y dimension", utils::Args::Required, false);
-    args.addOption("maxy", 0, "boundary condition at the end of y dimension", utils::Args::Required, false);
-    args.addOption("minz", 0, "boundary condition at the start of z dimension", utils::Args::Required, false);
-    args.addOption("maxz", 0, "boundary condition at the end of z dimension", utils::Args::Required, false);
+	args.addOption("miny", 0, "boundary condition at the start of y dimension", utils::Args::Required, false);
+	args.addOption("maxy", 0, "boundary condition at the end of y dimension", utils::Args::Required, false);
+	args.addOption("minz", 0, "boundary condition at the start of z dimension", utils::Args::Required, false);
+	args.addOption("maxz", 0, "boundary condition at the end of z dimension", utils::Args::Required, false);
 	args.addOption("netcdf", 'n', "for compatibility with the Python script", utils::Args::No, false);
 	args.addOption("x", 'x', "number of cubes in x dimension");
 	args.addOption("y", 'y', "number of cubes in y dimension");
@@ -228,19 +228,19 @@ int main(int argc, char* argv[])
 	unsigned int boundary = args.getArgument("boundary", 1u);
 	if (boundary > 100)
 		boundary -= 100;
-	unsigned int boundary_minx = args.getArgument("minx", boundary);
-	unsigned int boundary_maxx = args.getArgument("maxx", boundary);
-	unsigned int boundary_miny = args.getArgument("miny", boundary);
-	unsigned int boundary_maxy = args.getArgument("maxy", boundary);
-	unsigned int boundary_minz = args.getArgument("minz", boundary);
-	unsigned int boundary_maxz = args.getArgument("maxz", boundary);
+	unsigned int boundaryMinx = args.getArgument("minx", boundary);
+	unsigned int boundaryMaxx = args.getArgument("maxx", boundary);
+	unsigned int boundaryMiny = args.getArgument("miny", boundary);
+	unsigned int boundaryMaxy = args.getArgument("maxy", boundary);
+	unsigned int boundaryMinz = args.getArgument("minz", boundary);
+	unsigned int boundaryMaxz = args.getArgument("maxz", boundary);
 	logInfo() << "Boundary condition:" << boundary;
-	logInfo() << "Boundary_minx condition:" << boundary_minx;
-	logInfo() << "Boundary_maxx condition:" << boundary_maxx;
-	logInfo() << "Boundary_miny condition:" << boundary_miny;
-	logInfo() << "Boundary_maxy condition:" << boundary_maxy;
-	logInfo() << "Boundary_minz condition:" << boundary_minz;
-	logInfo() << "Boundary_maxz condition:" << boundary_maxz;
+	logInfo() << "boundaryMinx condition:" << boundaryMinx;
+	logInfo() << "boundaryMaxx condition:" << boundaryMaxx;
+	logInfo() << "boundaryMiny condition:" << boundaryMiny;
+	logInfo() << "boundaryMaxy condition:" << boundaryMaxy;
+	logInfo() << "boundaryMinz condition:" << boundaryMinz;
+	logInfo() << "boundaryMaxz condition:" << boundaryMaxz;
 
 	// Compute additional sizes
 	numCubes[3] = numCubes[0] * numCubes[1] * numCubes[2];
@@ -444,7 +444,7 @@ int main(int argc, char* argv[])
 
 				if (xx == 0) { // first cube in a partition in x dimension
 					if (odd) {
-						if (boundary_minx == 6 && numPartitions[0] == 1) {
+						if (boundaryMinx == 6 && numPartitions[0] == 1) {
 							elemNeighbors[c] += numCubesPerPart[0]*5;
 							elemNeighbors[c+10] += numCubesPerPart[0]*5;
 						} else {
@@ -452,7 +452,7 @@ int main(int argc, char* argv[])
 							elemNeighbors[c+10] = numElemPerPart[3];
 						}
 					} else {
-						if (boundary_minx == 6 && numPartitions[0] == 1) {
+						if (boundaryMinx == 6 && numPartitions[0] == 1) {
 							elemNeighbors[c+2] += numCubesPerPart[0]*5;
 							elemNeighbors[c+12] += numCubesPerPart[0]*5;
 						} else {
@@ -462,7 +462,7 @@ int main(int argc, char* argv[])
 					}
 				} else if (xx == numCubesPerPart[0]-1) { // last cube in a partition in x dimension
 					if (odd) {
-						if (boundary_maxx == 6 && numPartitions[0] == 1) {
+						if (boundaryMaxx == 6 && numPartitions[0] == 1) {
 							elemNeighbors[c+7] -= numCubesPerPart[0]*5;
 							elemNeighbors[c+12] -= numCubesPerPart[0]*5;
 						} else {
@@ -470,7 +470,7 @@ int main(int argc, char* argv[])
 							elemNeighbors[c+12] = numElemPerPart[3];
 						}
 					} else {
-						if (boundary_maxx == 6 && numPartitions[0] == 1) {
+						if (boundaryMaxx == 6 && numPartitions[0] == 1) {
 							elemNeighbors[c+6] -= numCubesPerPart[0]*5;
 							elemNeighbors[c+9] -= numCubesPerPart[0]*5;
 						} else {
@@ -481,7 +481,7 @@ int main(int argc, char* argv[])
 				}
 				if (yy == 0) { // first cube in a partition in y dimension
 					if (odd) {
-						if (boundary_miny == 6 && numPartitions[1] == 1) {
+						if (boundaryMiny == 6 && numPartitions[1] == 1) {
 							elemNeighbors[c+6] += numCubesPerPart[0]*numCubesPerPart[1]*5;
 							elemNeighbors[c+9] += numCubesPerPart[0]*numCubesPerPart[1]*5;
 						} else {
@@ -489,7 +489,7 @@ int main(int argc, char* argv[])
 							elemNeighbors[c+9] = numElemPerPart[3];
 						}
 					} else {
-						if (boundary_miny == 6 && numPartitions[1] == 1) {
+						if (boundaryMiny == 6 && numPartitions[1] == 1) {
 							elemNeighbors[c+1] += numCubesPerPart[0]*numCubesPerPart[1]*5;
 							elemNeighbors[c+10] += numCubesPerPart[0]*numCubesPerPart[1]*5;
 						} else {
@@ -499,7 +499,7 @@ int main(int argc, char* argv[])
 					}
 				} else if (yy == numCubesPerPart[1]-1) { // last cube in a partition in y dimension
 					if (odd) {
-						if (boundary_maxy == 6 && numPartitions[1] == 1) {
+						if (boundaryMaxy == 6 && numPartitions[1] == 1) {
 							elemNeighbors[c+3] -= numCubesPerPart[0]*numCubesPerPart[1]*5;
 							elemNeighbors[c+14] -= numCubesPerPart[0]*numCubesPerPart[1]*5;
 						} else {
@@ -507,7 +507,7 @@ int main(int argc, char* argv[])
 							elemNeighbors[c+14] = numElemPerPart[3];
 						}
 					} else {
-						if (boundary_maxy == 6 && numPartitions[1] == 1) {
+						if (boundaryMaxy == 6 && numPartitions[1] == 1) {
 							elemNeighbors[c+7] -= numCubesPerPart[0]*numCubesPerPart[1]*5;
 							elemNeighbors[c+13] -= numCubesPerPart[0]*numCubesPerPart[1]*5;
 						} else {
@@ -518,7 +518,7 @@ int main(int argc, char* argv[])
 				}
 				if (zz == 0) { // first cube in a partition in z dimension
 					if (odd) {
-						if (boundary_minz == 6 && numPartitions[2] == 1) {
+						if (boundaryMinz == 6 && numPartitions[2] == 1) {
 							elemNeighbors[c+1] += numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 							elemNeighbors[c+5] += numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 						} else {
@@ -526,7 +526,7 @@ int main(int argc, char* argv[])
 							elemNeighbors[c+5] = numElemPerPart[3];
 						}
 					} else {
-						if (boundary_minz == 6 && numPartitions[2] == 1) {
+						if (boundaryMinz == 6 && numPartitions[2] == 1) {
 							elemNeighbors[c] += numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 							elemNeighbors[c+5] += numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 						} else {
@@ -536,7 +536,7 @@ int main(int argc, char* argv[])
 					}
 				} else if (zz == numCubesPerPart[2]-1) { // last cube in a partition in z dimension
 					if (odd) {
-						if (boundary_maxz == 6 && numPartitions[2] == 1) {
+						if (boundaryMaxz == 6 && numPartitions[2] == 1) {
 							elemNeighbors[c+11] -= numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 							elemNeighbors[c+15] -= numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 						} else {
@@ -544,7 +544,7 @@ int main(int argc, char* argv[])
 							elemNeighbors[c+15] = numElemPerPart[3];
 						}
 					} else {
-						if (boundary_maxz == 6 && numPartitions[2] == 1) {
+						if (boundaryMaxz == 6 && numPartitions[2] == 1) {
 							elemNeighbors[c+11] -= numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 							elemNeighbors[c+15] -= numCubesPerPart[0]*numCubesPerPart[1]*numCubesPerPart[2]*5;
 						} else {
@@ -577,11 +577,11 @@ int main(int argc, char* argv[])
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 							int odd = (zz+yy) % 2;
 							if (odd) {
-								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20] = boundary_minx;
-								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20 + 10] = boundary_minx;
+								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20] = boundaryMinx;
+								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20 + 10] = boundaryMinx;
 							} else {
-								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20 + 2] = boundary_minx;
-								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20 + 12] = boundary_minx;
+								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20 + 2] = boundaryMinx;
+								elemBoundaries[(zz*numCubesPerPart[1]+yy)*numCubesPerPart[0] * 20 + 12] = boundaryMinx;
 							}
 						}
 					}
@@ -593,11 +593,11 @@ int main(int argc, char* argv[])
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 							int odd = (zz+yy+1) % 2;
 							if (odd) {
-								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 7] = boundary_maxx;
-								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 12] = boundary_maxx;
+								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 7] = boundaryMaxx;
+								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 12] = boundaryMaxx;
 							} else {
-								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 6] = boundary_maxx;
-								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 9] = boundary_maxx;
+								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 6] = boundaryMaxx;
+								elemBoundaries[((zz*numCubesPerPart[1]+yy)*numCubesPerPart[0]+numCubesPerPart[0]-1) * 20 + 9] = boundaryMaxx;
 							}
 						}
 					}
@@ -608,11 +608,11 @@ int main(int argc, char* argv[])
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
 							int odd = (zz+xx) % 2;
 							if (odd) {
-								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 6] = boundary_miny;
-								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 9] = boundary_miny;
+								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 6] = boundaryMiny;
+								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 9] = boundaryMiny;
 							} else {
-								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 1] = boundary_miny;
-								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 10] = boundary_miny;
+								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 1] = boundaryMiny;
+								elemBoundaries[(zz*numCubesPerPart[1]*numCubesPerPart[0]+xx) * 20 + 10] = boundaryMiny;
 							}
 						}
 					}
@@ -623,11 +623,11 @@ int main(int argc, char* argv[])
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
 							int odd = (zz+xx+1) % 2;
 							if (odd) {
-								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 3] = boundary_maxy;
-								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 14] = boundary_maxy;
+								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 3] = boundaryMaxy;
+								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 14] = boundaryMaxy;
 							} else {
-								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 7] = boundary_maxy;
-								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 13] = boundary_maxy;
+								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 7] = boundaryMaxy;
+								elemBoundaries[((zz*numCubesPerPart[1]+numCubesPerPart[1]-1)*numCubesPerPart[0]+xx) * 20 + 13] = boundaryMaxy;
 							}
 						}
 					}
@@ -638,11 +638,11 @@ int main(int argc, char* argv[])
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
 							int odd = (yy+xx) % 2;
 							if (odd) {
-								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20 + 1] = boundary_minz;
-								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20 + 5] = boundary_minz;
+								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20 + 1] = boundaryMinz;
+								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20 + 5] = boundaryMinz;
 							} else {
-								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20] = boundary_minz;
-								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20 + 5] = boundary_minz;
+								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20] = boundaryMinz;
+								elemBoundaries[(yy*numCubesPerPart[0]+xx) * 20 + 5] = boundaryMinz;
 							}
 						}
 					}
@@ -653,11 +653,11 @@ int main(int argc, char* argv[])
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
 //							int odd = (yy+xx+1) % 2;
 //							if (odd) {
-								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 11] = boundary_maxz;
-								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 15] = boundary_maxz;
+								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 11] = boundaryMaxz;
+								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 15] = boundaryMaxz;
 //							} else {
-//								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 11] = boundary_maxz;
-//								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 15] = boundary_maxz;
+//								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 11] = boundaryMaxz;
+//								elemBoundaries[(((numCubesPerPart[2]-1)*numCubesPerPart[1]+yy)*numCubesPerPart[0]+xx) * 20 + 15] = boundaryMaxz;
 //							}
 						}
 					}
@@ -690,7 +690,7 @@ int main(int argc, char* argv[])
 			for (unsigned int x = 0; x < numPartitions[0]; x++) {
 				memcpy(elemNeighborSides, elemNeighborSidesDef, sizeof(int)*numElemPerPart[3]*4);
 
-				if (boundary_minx != 6 && x == 0) { //first partition in x dimension
+				if (boundaryMinx != 6 && x == 0) { //first partition in x dimension
 					#pragma omp parallel for
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -705,7 +705,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_maxx != 6 && x == numPartitions[0]-1) { // last partition in x dimension
+				if (boundaryMaxx != 6 && x == numPartitions[0]-1) { // last partition in x dimension
 					#pragma omp parallel for
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -720,7 +720,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_miny != 6 && y == 0) { // first partition in y dimension
+				if (boundaryMiny != 6 && y == 0) { // first partition in y dimension
 					#pragma omp parallel for
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -735,7 +735,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_maxy != 6 && y == numPartitions[1]-1) { // last partition in y dimension
+				if (boundaryMaxy != 6 && y == numPartitions[1]-1) { // last partition in y dimension
 					#pragma omp parallel for
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -750,7 +750,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_minz != 6 && z == 0) { // first partition in z dimension
+				if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
 					#pragma omp parallel for
 					for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -765,7 +765,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_maxz != 6 && z == numPartitions[2]-1) { // last partition in z dimension
+				if (boundaryMaxz != 6 && z == numPartitions[2]-1) { // last partition in z dimension
 					#pragma omp parallel for
 					for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -809,7 +809,7 @@ int main(int argc, char* argv[])
 			for (unsigned int x = 0; x < numPartitions[0]; x++) {
 				memcpy(elemSideOrientations, elemSideOrientationsDef, sizeof(int)*numElemPerPart[3]*4);
 
-				if (boundary_minx != 6 && x == 0) { // first partition in x dimension
+				if (boundaryMinx != 6 && x == 0) { // first partition in x dimension
 					#pragma omp parallel for
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -824,7 +824,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_maxx != 6 && x == numPartitions[0]-1) { // last partition in x dimension
+				if (boundaryMaxx != 6 && x == numPartitions[0]-1) { // last partition in x dimension
 					#pragma omp parallel for
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -840,7 +840,7 @@ int main(int argc, char* argv[])
 					}
 				}
 				// There are zero anyway
-//				if (boundary_miny != 6 && y == 0) { // first partition in y dimension
+//				if (boundaryMiny != 6 && y == 0) { // first partition in y dimension
 //					#pragma omp parallel for
 //					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 //						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -855,7 +855,7 @@ int main(int argc, char* argv[])
 //						}
 //					}
 //				}
-//				if (boundary_maxy != 6 && y == numPartitions[1]-1) { // last partition in y dimension
+//				if (boundaryMaxy != 6 && y == numPartitions[1]-1) { // last partition in y dimension
 //					#pragma omp parallel for
 //					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 //						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -870,7 +870,7 @@ int main(int argc, char* argv[])
 //						}
 //					}
 //				}
-				if (boundary_minz != 6 && z == 0) { // first partition in z dimension
+				if (boundaryMinz != 6 && z == 0) { // first partition in z dimension
 					#pragma omp parallel for
 					for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -885,7 +885,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if (boundary_maxz != 6 && z == numPartitions[2]-1) { // last partition in z dimension
+				if (boundaryMaxz != 6 && z == numPartitions[2]-1) { // last partition in z dimension
 					#pragma omp parallel for
 					for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -920,7 +920,7 @@ int main(int argc, char* argv[])
 
 				std::fill(elemNeighborRanks, elemNeighborRanks+numElemPerPart[3]*4, myrank);
 
-				if ((boundary_minx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
+				if ((boundaryMinx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
 					int rank = (z*numPartitions[1] + y)*numPartitions[0] + (x-1+numPartitions[0])%numPartitions[0];
 
 					#pragma omp parallel for
@@ -937,7 +937,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if ((boundary_maxx == 6 && numPartitions[0] > 1) || x != numPartitions[0]-1) { // last partition in x dimension
+				if ((boundaryMaxx == 6 && numPartitions[0] > 1) || x != numPartitions[0]-1) { // last partition in x dimension
 					int rank = (z*numPartitions[1] + y)*numPartitions[0] + (x+1)%numPartitions[0];
 
 					#pragma omp parallel for
@@ -954,7 +954,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if ((boundary_miny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
+				if ((boundaryMiny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
 					int rank = (z*numPartitions[1] + (y-1+numPartitions[1])%numPartitions[1])*numPartitions[0] + x;
 
 					#pragma omp parallel for
@@ -971,7 +971,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if ((boundary_maxy == 6 && numPartitions[1] > 1) || y != numPartitions[1]-1) { // last partition in y dimension
+				if ((boundaryMaxy == 6 && numPartitions[1] > 1) || y != numPartitions[1]-1) { // last partition in y dimension
 					int rank = (z*numPartitions[1] + (y+1)%numPartitions[1])*numPartitions[0] + x;
 
 					#pragma omp parallel for
@@ -988,7 +988,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if ((boundary_minz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
+				if ((boundaryMinz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
 					int rank = (((z-1+numPartitions[2])%numPartitions[2])*numPartitions[1] + y)*numPartitions[0] + x;
 
 					#pragma omp parallel for
@@ -1005,7 +1005,7 @@ int main(int argc, char* argv[])
 						}
 					}
 				}
-				if ((boundary_maxz == 6 && numPartitions[2] > 1) || z != numPartitions[2]-1) { // last partition in z dimension
+				if ((boundaryMaxz == 6 && numPartitions[2] > 1) || z != numPartitions[2]-1) { // last partition in z dimension
 					int rank = (((z+1)%numPartitions[2])*numPartitions[1] + y)*numPartitions[0] + x;
 
 					#pragma omp parallel for
@@ -1042,7 +1042,7 @@ int main(int argc, char* argv[])
 
 				unsigned int bndSize = 0;
 
-				if ((boundary_minz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
+				if ((boundaryMinz == 6 && numPartitions[2] > 1) || z != 0) { // first partition in z dimension
 					int nextMPIIndex = 0;
 					for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1070,7 +1070,7 @@ int main(int argc, char* argv[])
 
 					bndSize++;
 				}
-				if ((boundary_miny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
+				if ((boundaryMiny == 6 && numPartitions[1] > 1) || y != 0) { // first partition in y dimension
 					int nextMPIIndex = 0;
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1098,7 +1098,7 @@ int main(int argc, char* argv[])
 
 					bndSize++;
 				}
-				if ((boundary_minx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
+				if ((boundaryMinx == 6 && numPartitions[0] > 1) || x != 0) { // first partition in x dimension
 					int nextMPIIndex = 0;
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -1126,7 +1126,7 @@ int main(int argc, char* argv[])
 
 					bndSize++;
 				}
-				if ((boundary_maxx == 6 && numPartitions[0] > 1) || x != numPartitions[0]-1) { // last partition in x dimension
+				if ((boundaryMaxx == 6 && numPartitions[0] > 1) || x != numPartitions[0]-1) { // last partition in x dimension
 					int nextMPIIndex = 0;
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
@@ -1155,7 +1155,7 @@ int main(int argc, char* argv[])
 
 					bndSize++;
 				}
-				if ((boundary_maxy == 6 && numPartitions[1] > 1) || y != numPartitions[1]-1) { // last partition in y dimension
+				if ((boundaryMaxy == 6 && numPartitions[1] > 1) || y != numPartitions[1]-1) { // last partition in y dimension
 					int nextMPIIndex = 0;
 					for (unsigned int zz = 0; zz < numCubesPerPart[2]; zz++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
@@ -1184,7 +1184,7 @@ int main(int argc, char* argv[])
 
 					bndSize++;
 				}
-				if ((boundary_maxz == 6 && numPartitions[2] > 1) || z != numPartitions[2]-1) { // last partition in z dimension
+				if ((boundaryMaxz == 6 && numPartitions[2] > 1) || z != numPartitions[2]-1) { // last partition in z dimension
 					int nextMPIIndex = 0;
 					for (unsigned int yy = 0; yy < numCubesPerPart[1]; yy++) {
 						for (unsigned int xx = 0; xx < numCubesPerPart[0]; xx++) {
