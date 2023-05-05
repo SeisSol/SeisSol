@@ -118,3 +118,20 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
+
+
+Currently, SeisSol allocates MPI user-buffers using the unified/managed memory
+type. Some MPI implementations perform poorly during non-blocking
+point-to-point communication. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
+environment variable which can be used to select the memory type for the user-buffers.
+The *host* value means that the data will be copied to/from the host memory
+before/after each *MPI_Isend* / *MPI_Irecv*. Setting the variable to *device*
+will result in utilizing the regular device memory for non-blocking
+communication. The default value is *direct* which means that the communication
+goes over the unified/managed memory and thus does not involve explicit data
+copies.
+
+.. figure:: LatexFigures/gpu-comm-layer-data-flow.png
+   :alt: Data Flow Diagram 
+   :width: 10.0cm
+   :align: center

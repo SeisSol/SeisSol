@@ -1,28 +1,27 @@
-#ifndef SEISSOL_GHOSTTIMECLUSTER_H
-#define SEISSOL_GHOSTTIMECLUSTER_H
+#pragma once
 
 #include <list>
 #include "Initializer/typedefs.hpp"
 #include "AbstractTimeCluster.h"
 
-namespace seissol::time_stepping {
 
-class GhostTimeCluster : public AbstractTimeCluster {
- private:
+namespace seissol::time_stepping {
+class AbstractGhostTimeCluster : public AbstractTimeCluster {
+  protected:
   const int globalClusterId;
   const int otherGlobalClusterId;
   const MeshStructure* meshStructure;
-  std::list<MPI_Request*> sendQueue;
-  std::list<MPI_Request*> receiveQueue;
+  std::list<unsigned int> sendQueue;
+  std::list<unsigned int> receiveQueue;
 
   double lastSendTime = -1.0;
 
-  void sendCopyLayer();
-  void receiveGhostLayer();
+  virtual void sendCopyLayer() = 0;
+  virtual void receiveGhostLayer() = 0;
 
-  static bool testQueue(std::list<MPI_Request*>& queue);
+  bool testQueue(MPI_Request* requests, std::list<unsigned int>& regions);
   bool testForCopyLayerSends();
-  bool testForGhostLayerReceives();
+  virtual bool testForGhostLayerReceives() = 0;
 
   void start() override;
   void predict() override;
@@ -34,21 +33,15 @@ class GhostTimeCluster : public AbstractTimeCluster {
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
- public:
-  GhostTimeCluster(double maxTimeStepSize,
-                   int timeStepRate,
-                   int globalTimeClusterId,
-                   int otherGlobalTimeClusterId,
-                   const MeshStructure* meshStructure
-  );
+  public:
+  AbstractGhostTimeCluster(double maxTimeStepSize,
+                          int timeStepRate,
+                          int globalTimeClusterId,
+                          int otherGlobalTimeClusterId,
+                          const MeshStructure* meshStructure);
+
   void reset() override;
   ActResult act() override;
 
 };
-
-
-}
-
-
-
-#endif //SEISSOL_GHOSTTIMECLUSTER_H
+} // namespace seissol::time_stepping

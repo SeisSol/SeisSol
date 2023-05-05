@@ -53,6 +53,7 @@
 #include <Initializer/typedefs.hpp>
 #include <Equations/Setup.h>
 #include <Numerical_aux/BasisFunction.h>
+#include <Numerical_aux/Statistics.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
 
@@ -1126,7 +1127,13 @@ void seissol::Interoperability::reportDeviceMemoryStatus() {
   }
   else {
     double fraction = device.api->getCurrentlyOccupiedMem() / static_cast<double>(device.api->getMaxAvailableMem());
-    logInfo() << "occupied memory on device(" << rank << "): " << fraction * 100.0 << "%";
+    const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
+    logInfo(rank) << "occupied memory on devices (%):"
+                  << " mean =" << summary.mean
+                  << " std =" << summary.std
+                  << " min =" << summary.min
+                  << " median =" << summary.median
+                  << " max =" << summary.max;
   }
 #endif
 }

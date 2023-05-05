@@ -68,15 +68,8 @@ typedef MPIDummy MPI;
  * Make sure only one instance of this class exists!
  */
 class MPI : public MPIBasic {
-  private:
-  MPI_Comm m_comm;
-  MPI_Comm m_sharedMemComm;
-  MPI() : m_comm(MPI_COMM_NULL) {}
-
-  std::vector<std::string> hostNames{};
-
   public:
-  ~MPI() {}
+  ~MPI() override = default;
 
 #ifdef ACL_DEVICE
   /**
@@ -160,7 +153,7 @@ class MPI : public MPIBasic {
     std::vector<int> displacements(commSize);
     displacements[0] = 0;
     for (std::size_t i = 1; i < displacements.size(); ++i) {
-      displacements[i] = displacements[i-1] + lengths[i-1];
+      displacements[i] = displacements[i - 1] + lengths[i - 1];
     }
 
     const auto recvBufferSize = std::accumulate(lengths.begin(), lengths.end(), 0);
@@ -212,8 +205,20 @@ class MPI : public MPIBasic {
     MPI_Finalize();
   }
 
+  void setDataTransferModeFromEnv();
+
+  enum class DataTransferMode { Direct, CopyInCopyOutDevice, CopyInCopyOutHost };
+  DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode; }
+
   /** The only instance of the class */
   static MPI mpi;
+
+  private:
+  MPI_Comm m_comm;
+  MPI_Comm m_sharedMemComm;
+  MPI() : m_comm(MPI_COMM_NULL) {}
+  DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
+  std::vector<std::string> hostNames{};
 };
 
 #endif // USE_MPI
