@@ -41,6 +41,8 @@
 #include "MPI.h"
 #include "utils/stringutils.h"
 #include <unistd.h>
+#include <cstdlib>
+#include <cctype>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
@@ -89,5 +91,37 @@ void seissol::MPI::bindAcceleratorDevice() {
   instance.bindAcceleratorDevice(0);
 }
 #endif
+
+void seissol::MPI::setDataTransferModeFromEnv() {
+  // TODO (Ravil, David): switch to reading this option from the parameter-file.
+  // Waiting for David to finish his `no-fortran` PR
+  if (const char* envVariable = std::getenv("SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE")) {
+    std::string option{envVariable};
+    std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
+      return std::tolower(c);
+    });
+
+    if (option == "direct") {
+      preferredDataTransferMode = DataTransferMode::Direct;
+    } else if (option == "device") {
+      preferredDataTransferMode = DataTransferMode::CopyInCopyOutDevice;
+    } else if (option == "host") {
+      preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
+    } else {
+      logWarning(m_rank) << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
+                         << "Expected values: direct, device, host.";
+      option = "direct";
+    }
+#ifndef ACL_DEVICE
+    if (preferredDataTransferMode != DataTransferMode::Direct) {
+      logWarning(m_rank) << "The CPU version of SeisSol supports"
+                         << "only the `direct` MPI transfer mode.";
+      option = "direct";
+      preferredDataTransferMode = DataTransferMode::Direct;
+    }
+#endif
+      logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
+  }
+}
 
 seissol::MPI seissol::MPI::mpi;
