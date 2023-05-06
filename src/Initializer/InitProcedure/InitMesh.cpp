@@ -57,25 +57,25 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
 }
 
-static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& ssp) {
+static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
 #if defined(USE_HDF) && defined(USE_MPI)
   const int rank = seissol::MPI::mpi.rank();
-  double tpwgt = 1.0;
+  double nodeWeight = 1.0;
 
 #ifdef USE_MINI_SEISSOL
   if (seissol::MPI::mpi.size() > 1) {
     logInfo(rank) << "Running mini SeisSol to determine node weight";
-    auto elapsedTime =
-        seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(), ssp.model.plasticity);
-    tpwgt = 1.0 / elapsedTime;
+    auto elapsedTime = seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager(),
+                                            seissolParams.model.plasticity);
+    nodeWeight = 1.0 / elapsedTime;
 
-    const auto summary = seissol::statistics::parallelSummary(tpwgt);
+    const auto summary = seissol::statistics::parallelSummary(nodeWeight);
     logInfo(rank) << "Node weights: mean =" << summary.mean << " std =" << summary.std
                   << " min =" << summary.min << " median =" << summary.median
                   << " max =" << summary.max;
 
-    writer::MiniSeisSolWriter writer(ssp.output.prefix.c_str());
-    writer.write(elapsedTime, tpwgt);
+    writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
+    writer.write(elapsedTime, nodeWeight);
   }
 #else
   logInfo(rank) << "Skipping mini SeisSol";
@@ -89,22 +89,22 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 
   using namespace seissol::initializers::time_stepping;
-  LtsWeightsConfig config{ssp.model.materialFileName,
-                          static_cast<unsigned int>(ssp.timestepping.lts.rate),
-                          ssp.timestepping.vertexWeight.weightElement,
-                          ssp.timestepping.vertexWeight.weightDynamicRupture,
-                          ssp.timestepping.vertexWeight.weightFreeSurfaceWithGravity};
+  LtsWeightsConfig config{seissolParams.model.materialFileName,
+                          static_cast<unsigned int>(seissolParams.timestepping.lts.rate),
+                          seissolParams.timestepping.vertexWeight.weightElement,
+                          seissolParams.timestepping.vertexWeight.weightDynamicRupture,
+                          seissolParams.timestepping.vertexWeight.weightFreeSurfaceWithGravity};
 
   const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
   auto ltsWeights =
-      getLtsWeightsImplementation(ssp.timestepping.lts.weighttype, config, ltsParameters);
+      getLtsWeightsImplementation(seissolParams.timestepping.lts.weighttype, config, ltsParameters);
   auto meshReader =
-      new seissol::geometry::PUMLReader(ssp.mesh.meshFileName.c_str(),
-                                        ssp.mesh.partitioningLib.c_str(),
-                                        ssp.timestepping.maxTimestepWidth,
-                                        ssp.output.checkpointParameters.fileName.c_str(),
+      new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
+                                        seissolParams.mesh.partitioningLib.c_str(),
+                                        seissolParams.timestepping.maxTimestepWidth,
+                                        seissolParams.output.checkpointParameters.fileName.c_str(),
                                         ltsWeights.get(),
-                                        tpwgt,
+                                        nodeWeight,
                                         readPartitionFromFile);
   seissol::SeisSol::main.setMeshReader(meshReader);
 
@@ -125,16 +125,16 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 void seissol::initializer::initprocedure::initMesh() {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
   logInfo(seissol::MPI::mpi.rank()) << "Begin init mesh.";
 
   // Call the pre mesh initialization hook
   seissol::Modules::callHook<seissol::PRE_MESH>();
 
-  const auto meshFormat = ssp.mesh.meshFormat;
+  const auto meshFormat = seissolParams.mesh.meshFormat;
 
-  logInfo(seissol::MPI::mpi.rank()) << "Mesh file:" << ssp.mesh.meshFileName;
+  logInfo(seissol::MPI::mpi.rank()) << "Mesh file:" << seissolParams.mesh.meshFileName;
 
   seissol::Stopwatch watch;
   watch.start();
@@ -142,11 +142,11 @@ void seissol::initializer::initprocedure::initMesh() {
   const auto commRank = seissol::MPI::mpi.rank();
   const auto commSize = seissol::MPI::mpi.size();
 
-  std::string realMeshFileName = ssp.mesh.meshFileName;
+  std::string realMeshFileName = seissolParams.mesh.meshFileName;
   switch (meshFormat) {
   case seissol::geometry::MeshFormat::Netcdf:
 #if USE_NETCDF
-    realMeshFileName = ssp.mesh.meshFileName + ".nc";
+    realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
     logInfo(seissol::MPI::mpi.rank())
         << "By old SeisSol conventions for Netcdf meshes, the Netcdf file extension \".nc\" is "
            "always appended. Thus, the (new) mesh file name is"
@@ -159,16 +159,16 @@ void seissol::initializer::initprocedure::initMesh() {
 #endif
     break;
   case seissol::geometry::MeshFormat::PUML:
-    readMeshPUML(ssp);
+    readMeshPUML(seissolParams);
     break;
   default:
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);
   }
 
   postMeshread(seissol::SeisSol::main.meshReader(),
-               ssp.dynamicRupture.hasFault,
-               ssp.mesh.displacement,
-               ssp.mesh.scaling);
+               seissolParams.dynamicRupture.hasFault,
+               seissolParams.mesh.displacement,
+               seissolParams.mesh.scaling);
 
   watch.pause();
   watch.printTime("Mesh initialized in:");

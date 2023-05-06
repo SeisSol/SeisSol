@@ -112,7 +112,7 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool anisotropy,
                                       bool poroelasticity,
                                       bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& ctov);
+                                      const CellToVertexArray& cellToVertex);
 } // namespace initializers
 } // namespace seissol
 
@@ -125,24 +125,25 @@ class seissol::initializers::QueryGenerator {
 class seissol::initializers::ElementBarycentreGenerator
     : public seissol::initializers::QueryGenerator {
   public:
-  explicit ElementBarycentreGenerator(const CellToVertexArray& ctov) : m_ctov(ctov) {}
+  explicit ElementBarycentreGenerator(const CellToVertexArray& cellToVertex)
+      : m_cellToVertex(cellToVertex) {}
   virtual easi::Query generate() const;
 
   private:
-  CellToVertexArray m_ctov;
+  CellToVertexArray m_cellToVertex;
 };
 
 class seissol::initializers::ElementAverageGenerator
     : public seissol::initializers::QueryGenerator {
   public:
-  explicit ElementAverageGenerator(const CellToVertexArray& ctov);
+  explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
   virtual easi::Query generate() const;
   const std::array<double, NUM_QUADPOINTS>& getQuadratureWeights() const {
     return m_quadratureWeights;
   };
 
   private:
-  CellToVertexArray m_ctov;
+  CellToVertexArray m_cellToVertex;
   std::array<double, NUM_QUADPOINTS> m_quadratureWeights;
   std::array<std::array<double, 3>, NUM_QUADPOINTS> m_quadraturePoints;
 };

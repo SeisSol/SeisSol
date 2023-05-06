@@ -128,23 +128,23 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 }
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
-  easi::Query query(m_ctov.size, 3);
+  easi::Query query(m_cellToVertex.size, 3);
 
   #pragma omp parallel for schedule(static)
-  for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
-    auto vertices = m_ctov.elementCoordinates(elem);
+  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
+    auto vertices = m_cellToVertex.elementCoordinates(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
     query.x(elem, 0) = barycenter(0);
     query.x(elem, 1) = barycenter(1);
     query.x(elem, 2) = barycenter(2);
-    query.group(elem) = m_ctov.elementGroups(elem);
+    query.group(elem) = m_cellToVertex.elementGroups(elem);
   }
   return query;
 }
 
 seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(
-    const CellToVertexArray& ctov)
-    : m_ctov(ctov) {
+    const CellToVertexArray& cellToVertex)
+    : m_cellToVertex(cellToVertex) {
   double quadraturePoints[NUM_QUADPOINTS][3];
   double quadratureWeights[NUM_QUADPOINTS];
   seissol::quadrature::TetrahedronQuadrature(
@@ -161,19 +161,19 @@ seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(
 
 easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
-  easi::Query query(m_ctov.size * NUM_QUADPOINTS, 3);
+  easi::Query query(m_cellToVertex.size * NUM_QUADPOINTS, 3);
 
   // Transform quadrature points to global coordinates for all elements
   #pragma omp parallel for schedule(static) collapse(2)
-  for (unsigned elem = 0; elem < m_ctov.size; ++elem) {
+  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
-      auto vertices = m_ctov.elementCoordinates(elem);
+      auto vertices = m_cellToVertex.elementCoordinates(elem);
       Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
           vertices[0], vertices[1], vertices[2], vertices[3], m_quadraturePoints[i].data());
       query.x(elem * NUM_QUADPOINTS + i, 0) = transformed(0);
       query.x(elem * NUM_QUADPOINTS + i, 1) = transformed(1);
       query.x(elem * NUM_QUADPOINTS + i, 2) = transformed(2);
-      query.group(elem * NUM_QUADPOINTS + i) = m_ctov.elementGroups(elem);
+      query.group(elem * NUM_QUADPOINTS + i) = m_cellToVertex.elementGroups(elem);
     }
   }
 
@@ -212,7 +212,7 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
 easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   std::vector<Fault> const& fault = m_meshReader.getFault();
   std::vector<Element> const& elements = m_meshReader.getElements();
-  auto ctov = CellToVertexArray::fromMeshReader(m_meshReader);
+  auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
   constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
@@ -233,7 +233,7 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
       sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
     }
 
-    auto coords = ctov.elementCoordinates(element);
+    auto coords = cellToVertex.elementCoordinates(element);
     for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3];
       double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
@@ -637,29 +637,29 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
                                       bool anisotropy,
                                       bool poroelasticity,
                                       bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& ctov) {
+                                      const CellToVertexArray& cellToVertex) {
   QueryGenerator* queryGen = nullptr;
   if (!useCellHomogenizedMaterial) {
-    queryGen = new ElementBarycentreGenerator(ctov);
+    queryGen = new ElementBarycentreGenerator(cellToVertex);
   } else {
     const auto rank = MPI::mpi.rank();
     if (anisotropy) {
       logWarning(rank)
           << "Material Averaging is not implemented for anisotropic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(ctov);
+      queryGen = new ElementBarycentreGenerator(cellToVertex);
     } else if (plasticity) {
       logWarning(rank)
           << "Material Averaging is not implemented for plastic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(ctov);
+      queryGen = new ElementBarycentreGenerator(cellToVertex);
     } else if (poroelasticity) {
       logWarning(rank)
           << "Material Averaging is not implemented for poroelastic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(ctov);
+      queryGen = new ElementBarycentreGenerator(cellToVertex);
     } else {
-      queryGen = new ElementAverageGenerator(ctov);
+      queryGen = new ElementAverageGenerator(cellToVertex);
     }
   }
   return queryGen;

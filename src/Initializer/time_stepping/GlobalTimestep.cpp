@@ -37,29 +37,29 @@ static double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices
 GlobalTimestep computeTimesteps(double cfl,
                                 double maximumAllowedTimeStep,
                                 const std::string& velocityModel,
-                                const seissol::initializers::CellToVertexArray& ctov) {
+                                const seissol::initializers::CellToVertexArray& cellToVertex) {
   using Material = seissol::model::MaterialClass;
 
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
   auto* queryGen = seissol::initializers::getBestQueryGenerator(
       seissol::initializer::parameters::isModelAnelastic(),
-      ssp.model.plasticity,
+      seissolParams.model.plasticity,
       seissol::initializer::parameters::isModelAnisotropic(),
       seissol::initializer::parameters::isModelPoroelastic(),
-      ssp.model.useCellHomogenizedMaterial,
-      ctov);
-  std::vector<Material> materials(ctov.size);
+      seissolParams.model.useCellHomogenizedMaterial,
+      cellToVertex);
+  std::vector<Material> materials(cellToVertex.size);
   seissol::initializers::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(velocityModel, queryGen);
 
   GlobalTimestep timestep;
-  timestep.cellTimeStepWidths.resize(ctov.size);
+  timestep.cellTimeStepWidths.resize(cellToVertex.size);
 
-  for (unsigned cell = 0; cell < ctov.size; ++cell) {
+  for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
     double pWaveVel = materials[cell].getMaxWaveSpeed();
-    std::array<Eigen::Vector3d, 4> vertices = ctov.elementCoordinates(cell);
+    std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
         computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep);
   }

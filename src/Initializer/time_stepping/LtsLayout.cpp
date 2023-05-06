@@ -90,10 +90,10 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::ge
     m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
   }
 
-  auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
   // compute timesteps
-  auto timesteps = seissol::initializer::computeTimesteps(ssp.timestepping.cfl, ssp.timestepping.maxTimestepWidth, ssp.model.materialFileName,
+  auto timesteps = seissol::initializer::computeTimesteps(seissolParams.timestepping.cfl, seissolParams.timestepping.maxTimestepWidth, seissolParams.model.materialFileName,
         seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh));
   
   m_cellTimeStepWidths = new double[m_cells.size()];

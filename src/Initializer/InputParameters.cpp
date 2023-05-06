@@ -147,24 +147,27 @@ class ParameterReader {
   std::unordered_set<std::string> visited;
 };
 
-static void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("equations");
 
-  ssp.model.materialFileName =
+  seissolParams.model.materialFileName =
       reader.readOrFail<std::string>("materialfilename", "No material file given.");
-  ssp.model.boundaryFileName = reader.readWithDefault("boundaryfilename", std::string(""));
-  ssp.model.hasBoundaryFile = ssp.model.boundaryFileName != "";
+  seissolParams.model.boundaryFileName =
+      reader.readWithDefault("boundaryfilename", std::string(""));
+  seissolParams.model.hasBoundaryFile = seissolParams.model.boundaryFileName != "";
 
-  ssp.model.gravitationalAcceleration = reader.readWithDefault("gravitationalacceleration", 9.81);
+  seissolParams.model.gravitationalAcceleration =
+      reader.readWithDefault("gravitationalacceleration", 9.81);
 
-  ssp.model.plasticity = reader.readWithDefault("plasticity", false);
-  ssp.model.tv = reader.readWithDefault("tv", 0.1);
-  ssp.model.useCellHomogenizedMaterial = reader.readWithDefault("usecellhomogenizedmaterial", true);
+  seissolParams.model.plasticity = reader.readWithDefault("plasticity", false);
+  seissolParams.model.tv = reader.readWithDefault("tv", 0.1);
+  seissolParams.model.useCellHomogenizedMaterial =
+      reader.readWithDefault("usecellhomogenizedmaterial", true);
 
 #if NUMBER_OF_RELAXATION_MECHANISMS > 0
-  ssp.model.freqCentral = reader.readOrFail<double>(
+  seissolParams.model.freqCentral = reader.readOrFail<double>(
       "freqcentral", "equations.freqcentral is needed for the attenuation fitting.");
-  ssp.model.freqRatio = reader.readOrFail<double>(
+  seissolParams.model.freqRatio = reader.readOrFail<double>(
       "freqratio", "equations.freqratio is needed for the attenuation fitting.");
 #else
   reader.markUnused("freqcentral");
@@ -175,9 +178,9 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& ssp) {
   reader.warnUnknown();
 }
 
-static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("boundaries");
-  ssp.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
+  seissolParams.dynamicRupture.hasFault = reader.readWithDefault("bc_dr", false);
 
   // TODO(David): ? port DR reading here, maybe.
 
@@ -185,40 +188,44 @@ static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& ssp) 
   reader.warnUnknown();
 }
 
-static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("meshnml");
 
-  ssp.mesh.meshFileName = reader.readOrFail<std::string>("meshfile", "No mesh file given.");
-  ssp.mesh.partitioningLib = reader.readWithDefault("partitioninglib", std::string("Default"));
-  ssp.mesh.meshFormat = reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>(
+  seissolParams.mesh.meshFileName =
+      reader.readOrFail<std::string>("meshfile", "No mesh file given.");
+  seissolParams.mesh.partitioningLib =
+      reader.readWithDefault("partitioninglib", std::string("Default"));
+  seissolParams.mesh.meshFormat = reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>(
       "meshgenerator",
       "puml",
       {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
        {"puml", seissol::geometry::MeshFormat::PUML}});
 
-  ssp.mesh.displacement = reader.readWithDefault("displacement", std::array<double, 3>{0, 0, 0});
+  seissolParams.mesh.displacement =
+      reader.readWithDefault("displacement", std::array<double, 3>{0, 0, 0});
   auto scalingX = reader.readWithDefault("scalingmatrixx", std::array<double, 3>{1, 0, 0});
   auto scalingY = reader.readWithDefault("scalingmatrixy", std::array<double, 3>{0, 1, 0});
   auto scalingZ = reader.readWithDefault("scalingmatrixz", std::array<double, 3>{0, 0, 1});
-  ssp.mesh.scaling = {scalingX, scalingY, scalingZ};
+  seissolParams.mesh.scaling = {scalingX, scalingY, scalingZ};
 
-  ssp.timestepping.vertexWeight.weightElement = reader.readWithDefault("vertexWeightElement", 100);
-  ssp.timestepping.vertexWeight.weightDynamicRupture =
+  seissolParams.timestepping.vertexWeight.weightElement =
+      reader.readWithDefault("vertexWeightElement", 100);
+  seissolParams.timestepping.vertexWeight.weightDynamicRupture =
       reader.readWithDefault("vertexWeightDynamicRupture", 100);
-  ssp.timestepping.vertexWeight.weightFreeSurfaceWithGravity =
+  seissolParams.timestepping.vertexWeight.weightFreeSurfaceWithGravity =
       reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 100);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
 }
 
-static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("discretization");
 
-  ssp.timestepping.cfl = reader.readWithDefault("cfl", 0.5);
-  ssp.timestepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
-  ssp.timestepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
-  ssp.timestepping.lts.weighttype = reader.readWithDefaultEnum(
+  seissolParams.timestepping.cfl = reader.readWithDefault("cfl", 0.5);
+  seissolParams.timestepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
+  seissolParams.timestepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
+  seissolParams.timestepping.lts.weighttype = reader.readWithDefaultEnum(
       "ltsweighttypeid",
       seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights,
       {
@@ -249,10 +256,10 @@ static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& ssp
   reader.warnUnknown();
 }
 
-static void readInitialization(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readInitialization(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("inicondition");
 
-  ssp.initialization.type = reader.readWithDefaultStringEnum<InitializationType>(
+  seissolParams.initialization.type = reader.readWithDefaultStringEnum<InitializationType>(
       "cictype",
       "zero",
       {
@@ -266,15 +273,15 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
           {"ocean_1", InitializationType::Ocean1},
           {"ocean_2", InitializationType::Ocean2},
       });
-  ssp.initialization.origin = reader.readWithDefault("origin", std::array<double, 3>{0});
-  ssp.initialization.kVec = reader.readWithDefault("kvec", std::array<double, 3>{0});
-  ssp.initialization.ampField =
+  seissolParams.initialization.origin = reader.readWithDefault("origin", std::array<double, 3>{0});
+  seissolParams.initialization.kVec = reader.readWithDefault("kvec", std::array<double, 3>{0});
+  seissolParams.initialization.ampField =
       reader.readWithDefault("ampfield", std::array<double, NUMBER_OF_QUANTITIES>{0});
 
   reader.warnUnknown();
 }
 
-static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("output");
 
   constexpr double veryLongTime = 1.0e100;
@@ -296,23 +303,24 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
       };
 
   // general params
-  ssp.output.format = reader.readWithDefaultEnum<OutputFormat>(
+  seissolParams.output.format = reader.readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  ssp.output.prefix =
+  seissolParams.output.prefix =
       reader.readOrFail<std::string>("outputfile", "Output file prefix not defined.");
-  ssp.output.xdmfWriterBackend = reader.readWithDefaultStringEnum<xdmfwriter::BackendType>(
-      "xdmfwriterbackend",
-      "posix",
-      {
-          {"posix", xdmfwriter::BackendType::POSIX},
+  seissolParams.output.xdmfWriterBackend =
+      reader.readWithDefaultStringEnum<xdmfwriter::BackendType>(
+          "xdmfwriterbackend",
+          "posix",
+          {
+              {"posix", xdmfwriter::BackendType::POSIX},
 #ifdef USE_HDF
-          {"hdf5", xdmfwriter::BackendType::H5},
+              {"hdf5", xdmfwriter::BackendType::H5},
 #endif
-      });
+          });
 
   // checkpointing
-  ssp.output.checkpointParameters.enabled = reader.readWithDefault("checkpoint", true);
-  ssp.output.checkpointParameters.backend =
+  seissolParams.output.checkpointParameters.enabled = reader.readWithDefault("checkpoint", true);
+  seissolParams.output.checkpointParameters.backend =
       reader.readWithDefaultStringEnum<seissol::checkpoint::Backend>(
           "checkpointbackend",
           "none",
@@ -322,15 +330,16 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
            {"mpio", seissol::checkpoint::Backend::MPIO},
            {"mpio_async", seissol::checkpoint::Backend::MPIO_ASYNC},
            {"sionlib", seissol::checkpoint::Backend::SIONLIB}});
-  ssp.output.checkpointParameters.interval = reader.readWithDefault("checkpointinterval", 0.0);
+  seissolParams.output.checkpointParameters.interval =
+      reader.readWithDefault("checkpointinterval", 0.0);
 
-  warnIntervalAndDisable(ssp.output.checkpointParameters.enabled,
-                         ssp.output.checkpointParameters.interval,
+  warnIntervalAndDisable(seissolParams.output.checkpointParameters.enabled,
+                         seissolParams.output.checkpointParameters.interval,
                          "checkpoint",
                          "checkpointinterval");
 
-  if (ssp.output.checkpointParameters.enabled) {
-    ssp.output.checkpointParameters.fileName =
+  if (seissolParams.output.checkpointParameters.enabled) {
+    seissolParams.output.checkpointParameters.fileName =
         reader.readOrFail<std::string>("checkpointfile", "No checkpoint filename given.");
   } else {
     reader.markUnused("checkpointfile");
@@ -341,19 +350,21 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
 
   // bounds
   auto bounds = reader.readWithDefault("outputregionbounds", std::array<double, 6>{0});
-  ssp.output.waveFieldParameters.bounds.boundsX.lower = bounds[0];
-  ssp.output.waveFieldParameters.bounds.boundsX.upper = bounds[1];
-  ssp.output.waveFieldParameters.bounds.boundsY.lower = bounds[2];
-  ssp.output.waveFieldParameters.bounds.boundsY.upper = bounds[3];
-  ssp.output.waveFieldParameters.bounds.boundsZ.lower = bounds[4];
-  ssp.output.waveFieldParameters.bounds.boundsZ.upper = bounds[5];
-  ssp.output.waveFieldParameters.bounds.enabled =
+  seissolParams.output.waveFieldParameters.bounds.boundsX.lower = bounds[0];
+  seissolParams.output.waveFieldParameters.bounds.boundsX.upper = bounds[1];
+  seissolParams.output.waveFieldParameters.bounds.boundsY.lower = bounds[2];
+  seissolParams.output.waveFieldParameters.bounds.boundsY.upper = bounds[3];
+  seissolParams.output.waveFieldParameters.bounds.boundsZ.lower = bounds[4];
+  seissolParams.output.waveFieldParameters.bounds.boundsZ.upper = bounds[5];
+  seissolParams.output.waveFieldParameters.bounds.enabled =
       !(bounds[0] == 0 && bounds[1] == 0 && bounds[2] == 0 && bounds[3] == 0 && bounds[4] == 0 &&
         bounds[5] == 0);
 
-  ssp.output.waveFieldParameters.enabled = reader.readWithDefault("wavefieldoutput", true);
-  ssp.output.waveFieldParameters.interval = reader.readWithDefault("timeinterval", veryLongTime);
-  ssp.output.waveFieldParameters.refinement =
+  seissolParams.output.waveFieldParameters.enabled =
+      reader.readWithDefault("wavefieldoutput", true);
+  seissolParams.output.waveFieldParameters.interval =
+      reader.readWithDefault("timeinterval", veryLongTime);
+  seissolParams.output.waveFieldParameters.refinement =
       reader.readWithDefaultEnum<OutputRefinement>("refinement",
                                                    OutputRefinement::NoRefine,
                                                    {OutputRefinement::NoRefine,
@@ -361,86 +372,90 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
                                                     OutputRefinement::Refine8,
                                                     OutputRefinement::Refine32});
 
-  warnIntervalAndDisable(ssp.output.waveFieldParameters.enabled,
-                         ssp.output.waveFieldParameters.interval,
+  warnIntervalAndDisable(seissolParams.output.waveFieldParameters.enabled,
+                         seissolParams.output.waveFieldParameters.interval,
                          "wavefieldoutput",
                          "timeinterval");
 
-  if (ssp.output.waveFieldParameters.enabled && ssp.output.format == OutputFormat::None) {
+  if (seissolParams.output.waveFieldParameters.enabled &&
+      seissolParams.output.format == OutputFormat::None) {
     logInfo() << "Disabling the wavefield output by setting \"outputformat = 10\" is deprecated "
                  "and may be removed in a future version of SeisSol. Consider using the parameter "
                  "\"wavefieldoutput\" instead. To disable wavefield output, add \"wavefieldoutput "
                  "= 0\" to the \"output\" section of your parameters file.";
 
-    ssp.output.waveFieldParameters.enabled = false;
+    seissolParams.output.waveFieldParameters.enabled = false;
   }
 
   auto groupsVector = reader.readWithDefault("outputgroups", std::vector<int>());
-  ssp.output.waveFieldParameters.groups =
+  seissolParams.output.waveFieldParameters.groups =
       std::unordered_set<int>(groupsVector.begin(), groupsVector.end());
 
   // output mask
   auto iOutputMask = reader.readOrFail<std::string>("ioutputmask", "No output mask given.");
   seissol::initializers::convertStringToMask(iOutputMask,
-                                             ssp.output.waveFieldParameters.outputMask);
+                                             seissolParams.output.waveFieldParameters.outputMask);
 
   auto iPlasticityMask = reader.readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  seissol::initializers::convertStringToMask(iPlasticityMask,
-                                             ssp.output.waveFieldParameters.plasticityMask);
+  seissol::initializers::convertStringToMask(
+      iPlasticityMask, seissolParams.output.waveFieldParameters.plasticityMask);
 
   auto integrationMask =
       reader.readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  seissol::initializers::convertStringToMask(integrationMask,
-                                             ssp.output.waveFieldParameters.integrationMask);
+  seissol::initializers::convertStringToMask(
+      integrationMask, seissolParams.output.waveFieldParameters.integrationMask);
 
   // output: surface
-  ssp.output.freeSurfaceParameters.enabled = reader.readWithDefault("surfaceoutput", false);
-  ssp.output.freeSurfaceParameters.interval =
+  seissolParams.output.freeSurfaceParameters.enabled =
+      reader.readWithDefault("surfaceoutput", false);
+  seissolParams.output.freeSurfaceParameters.interval =
       reader.readWithDefault("surfaceoutputinterval", veryLongTime);
-  ssp.output.freeSurfaceParameters.refinement =
+  seissolParams.output.freeSurfaceParameters.refinement =
       reader.readWithDefault("surfaceoutputrefinement", 0u);
 
-  warnIntervalAndDisable(ssp.output.freeSurfaceParameters.enabled,
-                         ssp.output.freeSurfaceParameters.interval,
+  warnIntervalAndDisable(seissolParams.output.freeSurfaceParameters.enabled,
+                         seissolParams.output.freeSurfaceParameters.interval,
                          "surfaceoutput",
                          "surfaceoutputinterval");
 
   // output: energy
-  ssp.output.energyParameters.enabled = reader.readWithDefault("energyoutput", false);
-  ssp.output.energyParameters.interval =
+  seissolParams.output.energyParameters.enabled = reader.readWithDefault("energyoutput", false);
+  seissolParams.output.energyParameters.interval =
       reader.readWithDefault("energyoutputinterval", veryLongTime);
-  ssp.output.energyParameters.enabled &= ssp.output.energyParameters.interval > 0;
-  ssp.output.energyParameters.terminalOutput =
+  seissolParams.output.energyParameters.enabled &=
+      seissolParams.output.energyParameters.interval > 0;
+  seissolParams.output.energyParameters.terminalOutput =
       reader.readWithDefault("energyterminaloutput", false);
-  ssp.output.energyParameters.computeVolumeEnergiesEveryOutput =
+  seissolParams.output.energyParameters.computeVolumeEnergiesEveryOutput =
       reader.readWithDefault("computevolumeenergieseveryoutput", 1);
 
-  warnIntervalAndDisable(ssp.output.energyParameters.enabled,
-                         ssp.output.energyParameters.interval,
+  warnIntervalAndDisable(seissolParams.output.energyParameters.enabled,
+                         seissolParams.output.energyParameters.interval,
                          "energyoutput",
                          "energyoutputinterval");
 
   // output: refinement
-  ssp.output.receiverParameters.enabled = reader.readWithDefault("receiveroutput", true);
-  ssp.output.receiverParameters.interval =
+  seissolParams.output.receiverParameters.enabled = reader.readWithDefault("receiveroutput", true);
+  seissolParams.output.receiverParameters.interval =
       reader.readWithDefault("receiveroutputinterval", veryLongTime);
-  ssp.output.receiverParameters.enabled &= ssp.output.receiverParameters.interval > 0;
-  ssp.output.receiverParameters.computeRotation =
+  seissolParams.output.receiverParameters.enabled &=
+      seissolParams.output.receiverParameters.interval > 0;
+  seissolParams.output.receiverParameters.computeRotation =
       reader.readWithDefault("receivercomputerotation", false);
-  ssp.output.receiverParameters.fileName =
+  seissolParams.output.receiverParameters.fileName =
       reader.readOrFail<std::string>("rfilename", "No receiver output file name specified.");
-  ssp.output.receiverParameters.samplingInterval = reader.readWithDefault("pickdt", 0.0);
+  seissolParams.output.receiverParameters.samplingInterval = reader.readWithDefault("pickdt", 0.0);
 
-  warnIntervalAndDisable(ssp.output.receiverParameters.enabled,
-                         ssp.output.receiverParameters.interval,
+  warnIntervalAndDisable(seissolParams.output.receiverParameters.enabled,
+                         seissolParams.output.receiverParameters.interval,
                          "receiveroutput",
                          "receiveroutputinterval");
 
   // output: fault
-  ssp.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
+  seissolParams.output.faultOutput = reader.readWithDefault("faultoutputflag", false);
 
   // output: loop statistics
-  ssp.output.loopStatisticsNetcdfOutput =
+  seissolParams.output.loopStatisticsNetcdfOutput =
       reader.readWithDefault("loopstatisticsnetcdfoutput", false);
 
   reader.warnDeprecated({"rotation",
@@ -452,26 +467,28 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& ssp) {
   reader.warnUnknown();
 }
 
-static void readAbortCriteria(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readAbortCriteria(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("abortcriteria");
 
-  ssp.end.endTime = reader.readWithDefault("endtime", 15.0);
+  seissolParams.end.endTime = reader.readWithDefault("endtime", 15.0);
 
   reader.warnDeprecated(
       {"maxiterations", "maxtolerance", "maxtolcriterion", "walltime_h", "delay_h"});
   reader.warnUnknown();
 }
 
-static void readSource(ParameterReader& baseReader, SeisSolParameters& ssp) {
+static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("sourcetype");
 
-  ssp.source.type = reader.readWithDefaultEnum("type",
-                                               seissol::sourceterm::SourceType::None,
-                                               {seissol::sourceterm::SourceType::None,
-                                                seissol::sourceterm::SourceType::FsrmSource,
-                                                seissol::sourceterm::SourceType::NrfSource});
-  if (ssp.source.type != seissol::sourceterm::SourceType::None) {
-    ssp.source.fileName = reader.readOrFail<std::string>("filename", "No source file specified.");
+  seissolParams.source.type =
+      reader.readWithDefaultEnum("type",
+                                 seissol::sourceterm::SourceType::None,
+                                 {seissol::sourceterm::SourceType::None,
+                                  seissol::sourceterm::SourceType::FsrmSource,
+                                  seissol::sourceterm::SourceType::NrfSource});
+  if (seissolParams.source.type != seissol::sourceterm::SourceType::None) {
+    seissolParams.source.fileName =
+        reader.readOrFail<std::string>("filename", "No source file specified.");
   } else {
     reader.markUnused("filename");
   }

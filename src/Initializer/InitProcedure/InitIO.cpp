@@ -9,13 +9,13 @@
 #include "Parallel/MPI.h"
 
 static void setupCheckpointing() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  auto& memmng = seissol::SeisSol::main.getMemoryManager();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
 
-  auto* lts = memmng.getLts();
-  auto* ltsTree = memmng.getLtsTree();
-  auto* dynRup = memmng.getDynamicRupture();
-  auto* dynRupTree = memmng.getDynamicRuptureTree();
+  auto* lts = memoryManager.getLts();
+  auto* ltsTree = memoryManager.getLtsTree();
+  auto* dynRup = memoryManager.getDynamicRupture();
+  auto* dynRupTree = memoryManager.getDynamicRuptureTree();
 
   // Initialize checkpointing
   int faultTimeStep;
@@ -65,14 +65,14 @@ static void setupCheckpointing() {
 }
 
 static void setupOutput() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  auto& memmng = seissol::SeisSol::main.getMemoryManager();
-  auto* lts = memmng.getLts();
-  auto* ltsTree = memmng.getLtsTree();
-  auto* ltsLut = memmng.getLtsLut();
-  auto* dynRup = memmng.getDynamicRupture();
-  auto* dynRupTree = memmng.getDynamicRuptureTree();
-  auto* globalData = memmng.getGlobalDataOnHost();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
+  auto* lts = memoryManager.getLts();
+  auto* ltsTree = memoryManager.getLtsTree();
+  auto* ltsLut = memoryManager.getLtsLut();
+  auto* dynRup = memoryManager.getDynamicRupture();
+  auto* dynRupTree = memoryManager.getDynamicRuptureTree();
+  auto* globalData = memoryManager.getGlobalDataOnHost();
 
   constexpr auto numberOfQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
@@ -80,7 +80,7 @@ static void setupOutput() {
   // numberOfQuantities. But the compile-time parameter NUMBER_OF_QUANTITIES contains it
   // nonetheless.
 
-  if (ssp.output.waveFieldParameters.enabled) {
+  if (seissolParams.output.waveFieldParameters.enabled) {
     // record the clustering info i.e., distribution of elements within an LTS tree
     const std::vector<Element>& meshElements = seissol::SeisSol::main.meshReader().getElements();
     std::vector<unsigned> ltsClusteringData(meshElements.size());
@@ -99,28 +99,29 @@ static void setupOutput() {
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissol::SeisSol::main.postProcessor().getIntegrals(ltsTree),
         ltsLut->getMeshToLtsLut(lts->dofs.mask)[0],
-        ssp.output.waveFieldParameters,
-        ssp.output.xdmfWriterBackend);
+        seissolParams.output.waveFieldParameters,
+        seissolParams.output.xdmfWriterBackend);
   }
 
-  if (ssp.output.freeSurfaceParameters.enabled) {
+  if (seissolParams.output.freeSurfaceParameters.enabled) {
     // Initialize free surface output
-    seissol::SeisSol::main.freeSurfaceWriter().init(seissol::SeisSol::main.meshReader(),
-                                                    &seissol::SeisSol::main.freeSurfaceIntegrator(),
-                                                    ssp.output.prefix.c_str(),
-                                                    ssp.output.freeSurfaceParameters.interval,
-                                                    ssp.output.xdmfWriterBackend);
+    seissol::SeisSol::main.freeSurfaceWriter().init(
+        seissol::SeisSol::main.meshReader(),
+        &seissol::SeisSol::main.freeSurfaceIntegrator(),
+        seissolParams.output.prefix.c_str(),
+        seissolParams.output.freeSurfaceParameters.interval,
+        seissolParams.output.xdmfWriterBackend);
   }
 
-  if (ssp.output.receiverParameters.enabled) {
+  if (seissolParams.output.receiverParameters.enabled) {
     auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
     // Initialize receiver output
-    receiverWriter.init(ssp.output.prefix, ssp.output.receiverParameters);
+    receiverWriter.init(seissolParams.output.prefix, seissolParams.output.receiverParameters);
     receiverWriter.addPoints(seissol::SeisSol::main.meshReader(), *ltsLut, *lts, globalData);
     seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
   }
 
-  if (ssp.output.energyParameters.enabled) {
+  if (seissolParams.output.energyParameters.enabled) {
     auto& energyOutput = seissol::SeisSol::main.energyOutput();
 
     energyOutput.init(globalData,
@@ -130,25 +131,26 @@ static void setupOutput() {
                       ltsTree,
                       lts,
                       ltsLut,
-                      ssp.model.plasticity,
-                      ssp.output.prefix,
-                      ssp.output.energyParameters);
+                      seissolParams.model.plasticity,
+                      seissolParams.output.prefix,
+                      seissolParams.output.energyParameters);
   }
 
-  seissol::SeisSol::main.flopCounter().init(ssp.output.prefix.c_str());
+  seissol::SeisSol::main.flopCounter().init(seissolParams.output.prefix.c_str());
 
   seissol::SeisSol::main.analysisWriter().init(&seissol::SeisSol::main.meshReader(),
-                                               ssp.output.prefix.c_str());
+                                               seissolParams.output.prefix.c_str());
 }
 
 static void enableCheckpointing() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  if (ssp.output.checkpointParameters.enabled) {
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  if (seissolParams.output.checkpointParameters.enabled) {
     seissol::SeisSol::main.simulator().setCheckPointInterval(
-        ssp.output.checkpointParameters.interval);
-    seissol::SeisSol::main.checkPointManager().setBackend(ssp.output.checkpointParameters.backend);
+        seissolParams.output.checkpointParameters.interval);
+    seissol::SeisSol::main.checkPointManager().setBackend(
+        seissolParams.output.checkpointParameters.backend);
     seissol::SeisSol::main.checkPointManager().setFilename(
-        ssp.output.checkpointParameters.fileName.c_str());
+        seissolParams.output.checkpointParameters.fileName.c_str());
   }
 }
 
@@ -162,34 +164,34 @@ static void initFaultOutputManager() {
 }
 
 static void enableWaveFieldOutput() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  if (ssp.output.waveFieldParameters.enabled) {
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  if (seissolParams.output.waveFieldParameters.enabled) {
     seissol::SeisSol::main.waveFieldWriter().enable();
-    seissol::SeisSol::main.waveFieldWriter().setFilename(ssp.output.prefix.c_str());
+    seissol::SeisSol::main.waveFieldWriter().setFilename(seissolParams.output.prefix.c_str());
     seissol::SeisSol::main.waveFieldWriter().setWaveFieldInterval(
-        ssp.output.waveFieldParameters.interval);
+        seissolParams.output.waveFieldParameters.interval);
   }
 }
 
 static void enableFreeSurfaceOutput() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
-  auto& memmng = seissol::SeisSol::main.getMemoryManager();
-  if (ssp.output.freeSurfaceParameters.enabled) {
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
+  if (seissolParams.output.freeSurfaceParameters.enabled) {
     seissol::SeisSol::main.freeSurfaceWriter().enable();
 
     seissol::SeisSol::main.freeSurfaceIntegrator().initialize(
-        ssp.output.freeSurfaceParameters.refinement,
-        memmng.getGlobalDataOnHost(),
-        memmng.getLts(),
-        memmng.getLtsTree(),
-        memmng.getLtsLut());
+        seissolParams.output.freeSurfaceParameters.refinement,
+        memoryManager.getGlobalDataOnHost(),
+        memoryManager.getLts(),
+        memoryManager.getLtsTree(),
+        memoryManager.getLtsLut());
   }
 }
 
 static void setIntegralMask() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
   seissol::SeisSol::main.postProcessor().setIntegrationMask(
-      ssp.output.waveFieldParameters.integrationMask);
+      seissolParams.output.waveFieldParameters.integrationMask);
 }
 
 void seissol::initializer::initprocedure::initIO() {

@@ -32,10 +32,11 @@ static void reportDeviceMemoryStatus() {
 }
 
 static void initSeisSol() {
-  const auto& ssp = seissol::SeisSol::main.getSeisSolParameters();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
   // set g
-  seissol::SeisSol::main.getGravitationSetup().acceleration = ssp.model.gravitationalAcceleration;
+  seissol::SeisSol::main.getGravitationSetup().acceleration =
+      seissolParams.model.gravitationalAcceleration;
 
   // initialization procedure
   seissol::initializer::initprocedure::initMesh();
@@ -45,8 +46,8 @@ static void initSeisSol() {
 
   // set up simulator
   auto& sim = seissol::SeisSol::main.simulator();
-  sim.setUsePlasticity(ssp.model.plasticity);
-  sim.setFinalTime(ssp.end.endTime);
+  sim.setUsePlasticity(seissolParams.model.plasticity);
+  sim.setFinalTime(seissolParams.end.endTime);
 
   // report status (TODO(David): move somewhere better)
   reportDeviceMemoryStatus();
