@@ -56,7 +56,7 @@
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "GhostTimeCluster.h"
+#include "Solver/time_stepping/GhostTimeClusterFactory.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -116,7 +116,7 @@ class seissol::time_stepping::TimeManager {
     LoopStatistics m_loopStatistics;
     ActorStateStatisticsManager actorStateStatisticsManager;
     
-    //! c++ impl. of dynamic rupture output
+    //! dynamic rupture output
     dr::output::OutputManager* m_faultOutputManager{};
 
   public:
@@ -185,6 +185,8 @@ class seissol::time_stepping::TimeManager {
     void setInitialTimes( double i_time = 0 );
 
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+
+    void freeCommunicationManager();
 };
 
 #endif

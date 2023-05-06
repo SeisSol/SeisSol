@@ -1,6 +1,10 @@
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
-option(METIS "Use metis for partitioning" ON)
+
+set(GRAPH_PARTITIONING_LIBS "parmetis" CACHE STRING "Graph partitioning library for mesh partitioning")
+set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
+set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
+
 option(MPI "Use MPI parallelization" ON)
 option(MINI_SEISSOL "Use MiniSeisSol to compute node weights for load balancing" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
@@ -143,9 +147,9 @@ if (NOT ${DEVICE_ARCH} STREQUAL "none")
     endif()
 
     if (${DEVICE_ARCH} MATCHES "sm_*")
-        set(ALIGNMENT  64)
-    elseif(${DEVICE_ARCH} MATCHES "gfx*")
         set(ALIGNMENT  128)
+    elseif(${DEVICE_ARCH} MATCHES "gfx*")
+        set(ALIGNMENT  256)
     else()
         set(ALIGNMENT 128)
         message(STATUS "Assume ALIGNMENT = 32, for DEVICE_ARCH=${DEVICE_ARCH}")

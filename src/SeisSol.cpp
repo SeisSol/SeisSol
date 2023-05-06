@@ -95,6 +95,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 
 #ifdef USE_MPI
   logInfo(rank) << "Using MPI with #ranks:" << MPI::mpi.size();
+  // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
+  MPI::mpi.setDataTransferModeFromEnv();
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
@@ -185,6 +187,8 @@ void seissol::SeisSol::finalize()
 	m_asyncIO.finalize();
 
 	const int rank = MPI::mpi.rank();
+
+	m_timeManager.freeCommunicationManager();
 
 #ifdef ACL_DEVICE
 	device::DeviceInstance &device = device::DeviceInstance::getInstance();
