@@ -21,13 +21,13 @@
 
 namespace seissol::model {
 #if defined(USE_ANISOTROPIC)
-using MaterialClass = AnisotropicMaterial;
+using Material_t = AnisotropicMaterial;
 #elif defined(USE_VISCOELASTIC) || defined (USE_VISCOELASTIC2)
-using MaterialClass = ViscoElasticMaterial;
+using Material_t = ViscoElasticMaterial;
 #elif defined(USE_ELASTIC)
-using MaterialClass = ElasticMaterial;
+using Material_t = ElasticMaterial;
 #elif defined(USE_POROELASTIC)
-using MaterialClass = PoroElasticMaterial;
+using Material_t = PoroElasticMaterial;
 #else
 #error "Material class unknown."
 #endif

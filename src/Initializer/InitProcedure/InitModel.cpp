@@ -22,7 +22,7 @@
 
 using namespace seissol::initializer;
 
-using MaterialClass = seissol::model::MaterialClass;
+using Material_t = seissol::model::Material_t;
 using Plasticity = seissol::model::Plasticity;
 
 /*
@@ -135,7 +135,7 @@ void initializeCellMaterial() {
   // material retrieval for copy+interior layers
   seissol::initializers::QueryGenerator* queryGen =
       getBestQueryGenerator(seissol::initializers::CellToVertexArray::fromMeshReader(meshReader));
-  auto materialsDB = queryDB<MaterialClass>(
+  auto materialsDB = queryDB<Material_t>(
       queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
 
   // plasticity (if needed)
@@ -149,7 +149,7 @@ void initializeCellMaterial() {
   // material retrieval for ghost layers
   seissol::initializers::QueryGenerator* queryGenGhost = getBestQueryGenerator(
       seissol::initializers::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
-  auto materialsDBGhost = queryDB<MaterialClass>(
+  auto materialsDBGhost = queryDB<Material_t>(
       queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)

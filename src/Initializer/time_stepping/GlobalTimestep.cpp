@@ -38,7 +38,7 @@ GlobalTimestep computeTimesteps(double cfl,
                                 double maximumAllowedTimeStep,
                                 const std::string& velocityModel,
                                 const seissol::initializers::CellToVertexArray& cellToVertex) {
-  using Material = seissol::model::MaterialClass;
+  using Material = seissol::model::Material_t;
 
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
