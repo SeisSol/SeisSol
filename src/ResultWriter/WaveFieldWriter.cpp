@@ -45,7 +45,7 @@
 #include "WaveFieldWriter.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 #include <Modules/Modules.h>
 
 void seissol::writer::WaveFieldWriter::setUp() {

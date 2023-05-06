@@ -2,7 +2,7 @@
 #ifndef PRE_PROCESSOR_MACROS_HPP
 #define PRE_PROCESSOR_MACROS_HPP
 
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 #include <cstddef>
 
 #define STR_HELPER(x) #x

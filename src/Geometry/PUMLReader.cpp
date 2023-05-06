@@ -50,7 +50,7 @@
 #include "PUML/Downward.h"
 #include "PUML/Neighbor.h"
 
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 
 #include "Initializer/time_stepping/LtsWeights/LtsWeights.h"
 

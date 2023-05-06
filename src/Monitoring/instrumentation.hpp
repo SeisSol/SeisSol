@@ -39,20 +39,13 @@
 !! Defines macros for instrumentation
 #endif
 
-#ifndef INSTRUMENTATION_FPP
-#define INSTRUMENTATION_FPP
+#ifndef INSTRUMENTATION_HPP
+#define INSTRUMENTATION_HPP
 
-#if 0
-! Manual instrumentation for Scalasca with epik.
-! Override function calls if not compiled with EPIK.
-#endif
-
+// Manual instrumentation for Scalasca with epik.
+// Override function calls if not compiled with EPIK.
 #if defined(EPIK)
-#if (!defined(__STDC__) || (defined(BG) && !defined(__bg__)))
-#include "epik_user.inc"
-#else
 #include "epik_user.h"
-#endif 
 #else
 #define EPIK_FUNC_REG(str)
 #define EPIK_FUNC_START()
@@ -63,50 +56,9 @@
 #define EPIK_TRACER(str)
 #endif
 
-#if 0
-! empty score-p definitions without usage
-#endif
-
+// empty score-p definitions without usage
 #if defined(SCOREP_USER_ENABLE)
-
-#if (!defined(__STDC__) || (defined(BG) && !defined(__bg__)))
-#include <scorep/SCOREP_User.inc>
-#else
 #include <scorep/SCOREP_User.h>
-#endif
-
-#else
-
-#if (!defined(__STDC__) || (defined(BG) && !defined(__bg__)))
-#define SCOREP_USER_REGION_DEFINE( handle )
-#define SCOREP_USER_REWIND_DEFINE( handle )
-#define SCOREP_USER_OA_PHASE_BEGIN( handle, name, type  )
-#define SCOREP_USER_OA_PHASE_END( handle )
-#define SCOREP_USER_REWIND_POINT( handle, name )
-#define SCOREP_USER_REGION_BEGIN( handle, name, type )
-#define SCOREP_USER_REGION_INIT( handle, name, type )
-#define SCOREP_USER_REGION_END( handle )
-#define SCOREP_USER_REWIND_CHECK( handle, value )
-#define SCOREP_USER_REGION_ENTER( handle )
-#define SCOREP_USER_FUNC_DEFINE()
-#define SCOREP_USER_FUNC_BEGIN( name )
-#define SCOREP_USER_FUNC_END()
-#define SCOREP_USER_GLOBAL_REGION_DEFINE( handle )
-#define SCOREP_USER_GLOBAL_REGION_EXTERNAL( handle )
-#define SCOREP_USER_PARAMETER_DEFINE( handle )
-#define SCOREP_USER_PARAMETER_INT64( handle, name, value )
-#define SCOREP_USER_PARAMETER_UINT64( handle, name, value )
-#define SCOREP_USER_PARAMETER_STRING( handle, name, value )
-#define SCOREP_USER_METRIC_GLOBAL( metricHandle )
-#define SCOREP_USER_METRIC_EXTERNAL( metricHandle )
-#define SCOREP_USER_METRIC_LOCAL( metricHandle )
-#define SCOREP_USER_METRIC_INIT( metricHandle, name, unit, type, context )
-#define SCOREP_USER_METRIC_INT64( metricHandle, value )
-#define SCOREP_USER_METRIC_UINT64( metricHandle, value )
-#define SCOREP_USER_METRIC_DOUBLE( metricHandle, value )
-#define SCOREP_RECORDING_ON()
-#define SCOREP_RECORDING_OFF()
-#define SCOREP_RECORDING_IS_ON( isOn ) isOn = .false.
 #else
 #define SCOREP_USER_REGION( name, type )
 #define SCOREP_USER_REGION_DEFINE( handle )
@@ -120,6 +72,7 @@
 #define SCOREP_USER_FUNC_END()
 #define SCOREP_GLOBAL_REGION_DEFINE( handle )
 #define SCOREP_GLOBAL_REGION_EXTERNAL( handle )
+#define SCOREP_USER_PARAMETER_DEFINE( handle )
 #define SCOREP_USER_PARAMETER_INT64( name, value )
 #define SCOREP_USER_PARAMETER_UINT64( name, value )
 #define SCOREP_USER_PARAMETER_STRING( name, value )
@@ -135,9 +88,8 @@
 #define SCOREP_RECORDING_IS_ON() 0
 #endif
 
-#endif
-
-#if defined(LIKWID_PERFMON) && defined(__STDC__)
+// likwid
+#if defined(LIKWID_PERFMON)
 #include <likwid-marker.h>
 #else
 #define LIKWID_MARKER_INIT

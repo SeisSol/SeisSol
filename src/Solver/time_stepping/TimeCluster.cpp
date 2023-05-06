@@ -82,7 +82,7 @@
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
-#include <Monitoring/instrumentation.fpp>
+#include <Monitoring/instrumentation.hpp>
 
 #include <cassert>
 #include <cstring>
