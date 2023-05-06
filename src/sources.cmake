@@ -61,10 +61,6 @@ src/Monitoring/LoopStatistics.cpp
 
 src/Checkpoint/Manager.cpp
 
-
-# Checkpoint/sionlib/Wavefield.cpp
-# Checkpoint/sionlib/Fault.cpp
-
 src/Checkpoint/Backend.cpp
 src/Checkpoint/Fault.cpp
 src/Checkpoint/posix/Wavefield.cpp
@@ -82,7 +78,6 @@ src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/EnergyOutput.cpp
 
-# Fortran:
 src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
 src/Physics/Attenuation.cpp
