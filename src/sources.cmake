@@ -1,6 +1,15 @@
 # Source code
 add_library(SeisSol-lib
 
+# do YATeTo first, since kernel.cpp usually takes really long
+
+# kernel.cpp usually takes the longest
+# (for CPUs, at least; for GPUs, we have a different library alltogether)
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
+
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/GlobalData.cpp
@@ -88,10 +97,6 @@ src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
 src/Common/IntegerMaskParser.cpp
 
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
