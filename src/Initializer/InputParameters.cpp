@@ -189,6 +189,7 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& ssp) {
   auto reader = baseReader.readSubNode("meshnml");
 
   ssp.mesh.meshFileName = reader.readOrFail<std::string>("meshfile", "No mesh file given.");
+  ssp.mesh.partitioningLib = reader.readWithDefault("partitioninglib", std::string("Default"));
   ssp.mesh.meshFormat = reader.readWithDefaultStringEnum<seissol::geometry::MeshFormat>(
       "meshgenerator",
       "puml",

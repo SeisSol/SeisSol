@@ -11,9 +11,9 @@
 #ifdef USE_NETCDF
 #include "Geometry/NetcdfReader.h"
 #endif // USE_NETCDF
-#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF) && defined(USE_MPI)
 #include "Geometry/PUMLReader.h"
-#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
@@ -58,7 +58,7 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
 }
 
 static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& ssp) {
-#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF) && defined(USE_MPI)
   const int rank = seissol::MPI::mpi.rank();
   double tpwgt = 1.0;
 
@@ -100,6 +100,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
       getLtsWeightsImplementation(ssp.timestepping.lts.weighttype, config, ltsParameters);
   auto meshReader =
       new seissol::geometry::PUMLReader(ssp.mesh.meshFileName.c_str(),
+                                        ssp.mesh.partitioningLib.c_str(),
                                         ssp.timestepping.maxTimestepWidth,
                                         ssp.output.checkpointParameters.fileName.c_str(),
                                         ltsWeights.get(),
@@ -110,7 +111,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
   watch.pause();
   watch.printTime("PUML mesh read in:");
 
-#else // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#else // defined(USE_HDF) && defined(USE_MPI)
 #ifndef USE_MPI
   logError() << "Tried to load a PUML mesh. However, PUML is currently only supported with MPI "
                 "(and this build of SeisSol does not use MPI).";
@@ -118,7 +119,7 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 #ifndef USE_HDF
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
 #endif
-#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF) && defined(USE_MPI)
 }
 
 void seissol::initializer::initprocedure::initMesh() {

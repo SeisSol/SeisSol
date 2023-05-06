@@ -98,6 +98,7 @@ struct VertexWeightParameters {
 
 struct MeshParameters {
   std::string meshFileName;
+  std::string partitioningLib;
   seissol::geometry::MeshFormat meshFormat;
   std::array<double, 3> displacement;
   std::array<std::array<double, 3>, 3> scaling;
