@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2014, SeisSol Group
@@ -52,133 +54,190 @@
 
 /**
  * Uses SFINAE to generate the following functions:
- * 
+ *
  * has_NAME<T>::value -> true if class T has member NAME and false otherwise
- * set_NAME<T>(kernel, ptr) -> sets kernel.NAME = ptr if class T has member NAME and does nothing otherwise
- * get_static_ptr_NAME<T>() returns &T::NAME[0] if class T has member NAME and nullptr otherwise
- * get_ptr_NAME<T>(T& obj) returns &obj.NAME[0] if class T has member NAME and nullptr otherwise 
+ * set_NAME<T>(kernel, ptr) -> sets kernel.NAME = ptr if class T has member NAME and does nothing
+ * otherwise get_static_ptr_NAME<T>() returns &T::NAME[0] if class T has member NAME and nullptr
+ * otherwise get_ptr_NAME<T>(T& obj) returns &obj.NAME[0] if class T has member NAME and nullptr
+ * otherwise
  */
-#define GENERATE_HAS_MEMBER(NAME) namespace seissol { namespace kernels { \
-  template<typename T> \
-  struct has_ ## NAME { \
-    template<typename U> static constexpr decltype(std::declval<U>().NAME, bool()) test(int) { return true; } \
-    template<typename U> static constexpr bool test(...) { return false; } \
-    static constexpr bool value = test<T>(int()); \
-  }; \
-  template<class T> auto set_ ## NAME (T& kernel, decltype(T::NAME) ptr) -> typename std::enable_if<has_ ## NAME <T>::value>::type  { kernel.NAME = ptr; } \
-  template<class T> auto set_ ## NAME (T&, void*) -> typename std::enable_if<!has_ ## NAME <T>::value>::type  {} \
-  template<class T> constexpr auto get_static_ptr_ ## NAME () -> typename std::enable_if<has_ ## NAME <T>::value, decltype(&T::NAME[0])>::type  { return &T::NAME[0]; } \
-  template<class T> constexpr auto get_static_ptr_ ## NAME () -> typename std::enable_if<!has_ ## NAME <T>::value, void*>::type { return nullptr; } \
-  template<class T> constexpr auto get_ptr_ ## NAME (T& obj) -> typename std::enable_if<has_ ## NAME <T>::value, decltype(&obj.NAME[0])>::type  { return &obj.NAME[0]; } \
-  template<class T> constexpr auto get_ptr_ ## NAME (T&) -> typename std::enable_if<!has_ ## NAME <T>::value, void*>::type { return nullptr; } \
-  }}
-
-namespace seissol {
-  namespace kernels {
-    /**
-     * Gets the number of basis functions for the given convergence order.
-     *
-     * @param i_convergenceOrder convergence order.
-     * @return number of basis funcitons.
-     **/
-    constexpr unsigned int getNumberOfBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER ) {
-      return i_convergenceOrder*(i_convergenceOrder+1)*(i_convergenceOrder+2)/6;
-    }
-
-    /**
-     * Gets the number of aligned reals, i.e. the number padded to the size of the alignment.
-     *
-     * @param i_alignment alignment in bytes.
-     * @return aligned number of reals.
-     **/
-    constexpr unsigned int getNumberOfAlignedReals( unsigned int i_numberOfReals,
-                                                    unsigned int i_alignment = ALIGNMENT ) {
-      // in principle, we could simplify this formula by substituting alignment = i_alignment / sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real) which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if there is ever such a use case, and if the alignment then still makes much sense).
-      return (i_numberOfReals * sizeof(real) + (i_alignment - (i_numberOfReals * sizeof(real)) % i_alignment) % i_alignment) / sizeof(real);
-    }
-
-    /**
-     * Get the # of basis functions aligned to the given boundaries.
-     *
-     * @param i_convergenceOrder convergence order.
-     * @param i_alignment alignment in bytes.
-     * @return aligned number of basis functions.
-     **/
-    constexpr unsigned int getNumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                                            unsigned int i_alignment        = ALIGNMENT ) {
-      // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) * REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
-      unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions( i_convergenceOrder);
-      return getNumberOfAlignedReals( l_numberOfBasisFunctions );
-    }
-
-    /**
-     * Get the # of derivatives of basis functions aligned to the given boundaries.
-     *
-     * @param i_convergenceOrder convergence order.
-     * @param i_alignment alignment in bytes.
-     * @return aligned number of basis functions.
-     **/
-    constexpr unsigned getNumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                                                  unsigned int i_alignment        = ALIGNMENT) {
-      return (i_convergenceOrder > 0) ? getNumberOfAlignedBasisFunctions(i_convergenceOrder) + getNumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder-1) : 0;
-    }
-
-    /**
-     * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without zero padding) storage.
-     *
-     * @param i_alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
-     * @param o_unalignedDofs unaligned degrees of freedom.
-     **/
-    template<typename real_from, typename real_to>
-    void convertAlignedDofs( const real_from i_alignedDofs[tensor::Q::size()],
-                                   real_to   o_unalignedDofs[tensor::QFortran::size()] ) {
-      kernel::copyQToQFortran krnl;
-      krnl.Q = i_alignedDofs;
-#ifdef MULTIPLE_SIMULATIONS
-      krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
-#endif
-
-      if (std::is_same<real_from, real_to>::value) {
-        krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
-        krnl.execute();
-      } else {
-        real_from unalignedDofs[tensor::QFortran::size()];
-        krnl.QFortran = unalignedDofs;
-        krnl.execute();
-        std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
-      }
-    }
-
-    /**
-     * uses SFINAE to check if class T has a size() function.
-     */
-    template<typename T>
-    struct has_size
-    {
-      template<typename U> static constexpr decltype(std::declval<U>().size(), bool()) test(int) { return true; }
-      template<typename U> static constexpr bool test(...) { return false; }
-      static constexpr bool value = test<T>(int());
-    };
-    
-    /**
-     * returns T::size() if T has size function and 0 otherwise
-     */
-    template<class T> constexpr auto size() -> typename std::enable_if<has_size<T>::value, unsigned>::type  { return T::size(); }
-    template<class T> constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type { return 0; }
+#define GENERATE_HAS_MEMBER(NAME)                                                                  \
+  namespace seissol {                                                                              \
+  namespace kernels {                                                                              \
+  template <typename T>                                                                            \
+  struct has_##NAME {                                                                              \
+    template <typename U>                                                                          \
+    static constexpr decltype(std::declval<U>().NAME, bool()) test(int) {                          \
+      return true;                                                                                 \
+    }                                                                                              \
+    template <typename U>                                                                          \
+    static constexpr bool test(...) {                                                              \
+      return false;                                                                                \
+    }                                                                                              \
+    static constexpr bool value = test<T>(int());                                                  \
+  };                                                                                               \
+  template <class T>                                                                               \
+  auto set_##NAME(T& kernel, decltype(T::NAME) ptr) ->                                             \
+      typename std::enable_if<has_##NAME<T>::value>::type {                                        \
+    kernel.NAME = ptr;                                                                             \
+  }                                                                                                \
+  template <class T>                                                                               \
+  auto set_##NAME(T&, void*) -> typename std::enable_if<!has_##NAME<T>::value>::type {}            \
+  template <class T>                                                                               \
+  constexpr auto get_static_ptr_##NAME() ->                                                        \
+      typename std::enable_if<has_##NAME<T>::value, decltype(&T::NAME[0])>::type {                 \
+    return &T::NAME[0];                                                                            \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_static_ptr_##NAME() ->                                                        \
+      typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
+    return nullptr;                                                                                \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_ptr_##NAME(T& obj) ->                                                         \
+      typename std::enable_if<has_##NAME<T>::value, decltype(&obj.NAME[0])>::type {                \
+    return &obj.NAME[0];                                                                           \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_ptr_##NAME(T&) ->                                                             \
+      typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
+    return nullptr;                                                                                \
+  }                                                                                                \
+  }                                                                                                \
   }
 
-  constexpr bool isDeviceOn() {
-#ifdef ACL_DEVICE
-    return true;
+namespace seissol {
+namespace kernels {
+/**
+ * Gets the number of basis functions for the given convergence order.
+ *
+ * @param i_convergenceOrder convergence order.
+ * @return number of basis funcitons.
+ **/
+constexpr unsigned int
+    getNumberOfBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER) {
+  return i_convergenceOrder * (i_convergenceOrder + 1) * (i_convergenceOrder + 2) / 6;
+}
+
+/**
+ * Gets the number of aligned reals, i.e. the number padded to the size of the alignment.
+ *
+ * @param i_alignment alignment in bytes.
+ * @return aligned number of reals.
+ **/
+constexpr unsigned int getNumberOfAlignedReals(unsigned int i_numberOfReals,
+                                               unsigned int i_alignment = ALIGNMENT) {
+  // in principle, we could simplify this formula by substituting alignment = i_alignment /
+  // sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real)
+  // which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if
+  // there is ever such a use case, and if the alignment then still makes much sense).
+  return (i_numberOfReals * sizeof(real) +
+          (i_alignment - (i_numberOfReals * sizeof(real)) % i_alignment) % i_alignment) /
+         sizeof(real);
+}
+
+/**
+ * Get the # of basis functions aligned to the given boundaries.
+ *
+ * @param i_convergenceOrder convergence order.
+ * @param i_alignment alignment in bytes.
+ * @return aligned number of basis functions.
+ **/
+constexpr unsigned int
+    getNumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
+                                     unsigned int i_alignment = ALIGNMENT) {
+  // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
+  // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
+  unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions(i_convergenceOrder);
+  return getNumberOfAlignedReals(l_numberOfBasisFunctions);
+}
+
+/**
+ * Get the # of derivatives of basis functions aligned to the given boundaries.
+ *
+ * @param i_convergenceOrder convergence order.
+ * @param i_alignment alignment in bytes.
+ * @return aligned number of basis functions.
+ **/
+constexpr unsigned
+    getNumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
+                                               unsigned int i_alignment = ALIGNMENT) {
+  return (i_convergenceOrder > 0)
+             ? getNumberOfAlignedBasisFunctions(i_convergenceOrder) +
+                   getNumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
+             : 0;
+}
+
+/**
+ * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
+ *zero padding) storage.
+ *
+ * @param i_alignedDofs aligned degrees of freedom (zero padding in the basis functions / columns).
+ * @param o_unalignedDofs unaligned degrees of freedom.
+ **/
+template <typename real_from, typename real_to>
+void convertAlignedDofs(const real_from i_alignedDofs[tensor::Q::size()],
+                        real_to o_unalignedDofs[tensor::QFortran::size()]) {
+  kernel::copyQToQFortran krnl;
+  krnl.Q = i_alignedDofs;
+#ifdef MULTIPLE_SIMULATIONS
+  krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
 #endif
-    return false;
+
+  if (std::is_same<real_from, real_to>::value) {
+    krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
+    krnl.execute();
+  } else {
+    real_from unalignedDofs[tensor::QFortran::size()];
+    krnl.QFortran = unalignedDofs;
+    krnl.execute();
+    std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
   }
 }
 
+/**
+ * uses SFINAE to check if class T has a size() function.
+ */
+template <typename T>
+struct has_size {
+  template <typename U>
+  static constexpr decltype(std::declval<U>().size(), bool()) test(int) {
+    return true;
+  }
+  template <typename U>
+  static constexpr bool test(...) {
+    return false;
+  }
+  static constexpr bool value = test<T>(int());
+};
+
+/**
+ * returns T::size() if T has size function and 0 otherwise
+ */
+template <class T>
+constexpr auto size() -> typename std::enable_if<has_size<T>::value, unsigned>::type {
+  return T::size();
+}
+template <class T>
+constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type {
+  return 0;
+}
+} // namespace kernels
+
+constexpr bool isDeviceOn() {
+#ifdef ACL_DEVICE
+  return true;
+#endif
+  return false;
+}
+} // namespace seissol
+
 // for now, make these #defines constexprs. Soon, they should be namespaced.
 constexpr unsigned int NUMBER_OF_BASIS_FUNCTIONS = seissol::kernels::getNumberOfBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_BASIS_FUNCTIONS = seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS = seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
+constexpr unsigned int NUMBER_OF_ALIGNED_BASIS_FUNCTIONS =
+    seissol::kernels::getNumberOfAlignedBasisFunctions();
+constexpr unsigned int NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS =
+    seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
 
 // for attenuation
 constexpr unsigned int NUMBER_OF_ALIGNED_STRESS_DOFS = 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;

@@ -23,8 +23,11 @@ format() {
         src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
+        src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
+        src/Kernels/common.hpp
+        src/Monitoring/instrumentation.hpp
         src/SourceTerm/Manager.h
         src/SourceTerm/Manager.cpp
         src/SourceTerm/FSRMReader.h
