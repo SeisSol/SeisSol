@@ -81,20 +81,20 @@ namespace seissol {
      * @param i_convergenceOrder convergence order.
      * @return number of basis funcitons.
      **/
-    inline unsigned int getNumberOfBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER ) {
+    constexpr unsigned int getNumberOfBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER ) {
       return i_convergenceOrder*(i_convergenceOrder+1)*(i_convergenceOrder+2)/6;
     }
 
     /**
-     * Gets the number of aligned reals.
+     * Gets the number of aligned reals, i.e. the number padded to the size of the alignment.
      *
      * @param i_alignment alignment in bytes.
      * @return aligned number of reals.
      **/
-    inline unsigned int getNumberOfAlignedReals( unsigned int i_numberOfReals,
-                                                 unsigned int i_alignment = ALIGNMENT ) {
-      unsigned int const alignment = i_alignment / sizeof(real);
-      return i_numberOfReals + (alignment-(i_numberOfReals % alignment))%alignment;
+    constexpr unsigned int getNumberOfAlignedReals( unsigned int i_numberOfReals,
+                                                    unsigned int i_alignment = ALIGNMENT ) {
+      // in principle, we could simplify this formula by substituting alignment = i_alignment / sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real) which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if there is ever such a use case, and if the alignment then still makes much sense).
+      return (i_numberOfReals * sizeof(real) + (i_alignment - (i_numberOfReals * sizeof(real)) % i_alignment) % i_alignment) / sizeof(real);
     }
 
     /**
@@ -104,10 +104,23 @@ namespace seissol {
      * @param i_alignment alignment in bytes.
      * @return aligned number of basis functions.
      **/
-    inline unsigned int getNumberOfAlignedBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                                   unsigned int i_alignment        = ALIGNMENT ) {
+    constexpr unsigned int getNumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
+                                                            unsigned int i_alignment        = ALIGNMENT ) {
+      // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) * REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
       unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions( i_convergenceOrder);
       return getNumberOfAlignedReals( l_numberOfBasisFunctions );
+    }
+
+    /**
+     * Get the # of derivatives of basis functions aligned to the given boundaries.
+     *
+     * @param i_convergenceOrder convergence order.
+     * @param i_alignment alignment in bytes.
+     * @return aligned number of basis functions.
+     **/
+    constexpr unsigned getNumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
+                                                                  unsigned int i_alignment        = ALIGNMENT) {
+      return (i_convergenceOrder > 0) ? getNumberOfAlignedBasisFunctions(i_convergenceOrder) + getNumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder-1) : 0;
     }
 
     /**
@@ -161,5 +174,13 @@ namespace seissol {
     return false;
   }
 }
+
+// for now, make these #defines constexprs. Soon, they should be namespaced.
+constexpr unsigned int NUMBER_OF_BASIS_FUNCTIONS = seissol::kernels::getNumberOfBasisFunctions();
+constexpr unsigned int NUMBER_OF_ALIGNED_BASIS_FUNCTIONS = seissol::kernels::getNumberOfAlignedBasisFunctions();
+constexpr unsigned int NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS = seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
+
+// for attenuation
+constexpr unsigned int NUMBER_OF_ALIGNED_STRESS_DOFS = 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
 
 #endif

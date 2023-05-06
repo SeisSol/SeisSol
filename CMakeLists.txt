@@ -432,7 +432,7 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
     # 1. -Mpreprocess enables a C preprocessor macro
     # 2. -Mfree specifies fortran free format
     # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
-    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
+    # 4. BG (see, Initializer/preProcessorMacros.hpp) around logDebug, logInfo, etc.
   target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
   target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)

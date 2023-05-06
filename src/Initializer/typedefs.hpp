@@ -48,8 +48,8 @@
 #endif
 
 #include "BasicTypedefs.hpp"
-#include <Initializer/preProcessorMacros.fpp>
-#include <Kernels/equations.hpp>
+#include <Initializer/preProcessorMacros.hpp>
+#include <Kernels/common.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
 #include <DynamicRupture/Typedefs.hpp>

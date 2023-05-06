@@ -20,7 +20,7 @@
 #endif // NETCDF_PASSIVE
 
 #include "MeshReader.h"
-#include "Initializer/preProcessorMacros.fpp"
+#include "Initializer/preProcessorMacros.hpp"
 
 #include "utils/logger.h"
 #include "utils/env.h"

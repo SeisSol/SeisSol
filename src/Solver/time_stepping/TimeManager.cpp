@@ -43,7 +43,7 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include <Initializer/preProcessorMacros.fpp>
+#include <Initializer/preProcessorMacros.hpp>
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 #include <ResultWriter/ClusteringWriter.h>
