@@ -1920,8 +1920,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                          :: periodic
     REAL                             :: ScalingMatrixX(3), ScalingMatrixY(3), ScalingMatrixZ(3), &
                                         displacement(3)
-    CHARACTER(LEN=600)               :: MeshFile, meshgenerator
-    NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
+    CHARACTER(LEN=600)               :: MeshFile, meshgenerator, PartitioningLib
+    NAMELIST                         /MeshNml/ MeshFile, meshgenerator, PartitioningLib, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
                                             ScalingMatrixY, ScalingMatrixZ, &
                                             vertexWeightElement, vertexWeightDynamicRupture, vertexWeightFreeSurfaceWithGravity
@@ -1939,6 +1939,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     ! Setting default values
     MeshFile = 'LOH1'
     meshgenerator = 'Gambit3D-fast'
+    PartitioningLib = 'Default'
     displacement(:) = 0.
     ScalingMatrixX(:) = 0.0
     ScalingMatrixX(1) = 1.0
@@ -1966,6 +1967,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     MESH%iniDiscMesh   = .FALSE.
 
     IO%meshgenerator = trim(meshgenerator)
+    IO%PartitioningLib = trim(PartitioningLib)
 
     EQN%HexaDimension = 3
 
@@ -1979,11 +1981,11 @@ ALLOCATE( SpacePositionx(nDirac), &
             logInfo0(*) 'Read a netCDF mesh ...'
             Name = trim(IO%MeshFile) // '.nc'
           elseif (IO%meshgenerator .eq. 'PUML') then
-#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF) && defined(USE_MPI)
             Name = trim(IO%MeshFile)
             logInfo0(*) 'Read a PUML mesh file'
 #else
-            logError(*) 'PUML requires METIS and HDF5'
+            logError(*) 'PUML requires MPI and HDF5'
 #endif
           else
             logInfo0(*) 'Read a Gambit 3-D neutral mesh ... '

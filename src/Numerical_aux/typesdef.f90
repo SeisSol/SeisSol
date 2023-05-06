@@ -899,6 +899,7 @@ MODULE TypesDef
      CHARACTER(LEN=600)                     :: ParameterFile                    !< Parameter filename
      CHARACTER(LEN=20)                      :: meshgenerator                    !< ='emc2_am_fmt' or 'emc2_ftq'
                                                                                 !<  or 'triangle'
+     CHARACTER(LEN=600)                     :: PartitioningLib
      CHARACTER(LEN=200)                     :: RFileName                        !< Receiver file name
      REAL,POINTER                           :: MaterialVal(:,:)                 !< Read in lines of (x,y,z,rho,mu,lamda) of material property structured grid
      CHARACTER(LEN=35)                      :: DATAFile                         !< Cfd Solver interface filename,

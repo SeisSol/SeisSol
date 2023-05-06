@@ -1,6 +1,10 @@
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
-option(METIS "Use metis for partitioning" ON)
+
+set(GRAPH_PARTITIONING_LIBS "parmetis" CACHE STRING "Graph partitioning library for mesh partitioning")
+set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
+set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
+
 option(MPI "Use MPI parallelization" ON)
 option(MINI_SEISSOL "Use MiniSeisSol to compute node weights for load balancing" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
