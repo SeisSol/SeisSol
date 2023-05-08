@@ -40,6 +40,8 @@
 #include "LoopStatistics.h"
 
 #include <cmath>
+#include <cstdint>
+#include <cstddef>
 #ifdef USE_NETCDF
 #include <netcdf.h>
 #ifdef USE_MPI
