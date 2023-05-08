@@ -207,7 +207,7 @@ struct SeisSolParameters {
   SourceParameters source;
   EndParameters end;
 
-  void readParametersconst YAML::Node& baseNode);
+  void readParameters(const YAML::Node& baseNode);
 };
 } // namespace seissol::initializer::parameters
 

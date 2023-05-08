@@ -497,7 +497,7 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
   reader.warnUnknown();
 }
 
-void SeisSolParameters::readParametersconst YAML::Node& baseNode) {
+void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
 
   ParameterReader baseReader(baseNode, false);
