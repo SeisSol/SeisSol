@@ -130,7 +130,7 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, 3);
 
-  #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
     auto vertices = m_cellToVertex.elementCoordinates(elem);
     Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
@@ -163,8 +163,8 @@ easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(m_cellToVertex.size * NUM_QUADPOINTS, 3);
 
-  // Transform quadrature points to global coordinates for all elements
-  #pragma omp parallel for schedule(static) collapse(2)
+// Transform quadrature points to global coordinates for all elements
+#pragma omp parallel for schedule(static) collapse(2)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
     for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
       auto vertices = m_cellToVertex.elementCoordinates(elem);
@@ -349,9 +349,9 @@ void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
     const unsigned numElems = numPoints / NUM_QUADPOINTS;
     std::array<double, NUM_QUADPOINTS> quadratureWeights{gen->getQuadratureWeights()};
 
-    // Compute homogenized material parameters for every element in a specialization for the
-    // particular material
-    #pragma omp parallel for
+// Compute homogenized material parameters for every element in a specialization for the
+// particular material
+#pragma omp parallel for
     for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
       m_materials->at(elementIdx) =
           this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
