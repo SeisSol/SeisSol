@@ -34,8 +34,12 @@ format() {
         src/SourceTerm/FSRMReader.cpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
+        src/Geometry/NetcdfReader.h
+        src/Geometry/NetcdfReader.cpp
         src/Geometry/PUMLReader.h
         src/Geometry/PUMLReader.cpp
+        src/Geometry/PartitioningLib.h
+        src/Geometry/PartitioningLib.cpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
         src/ResultWriter/WaveFieldWriter.h
