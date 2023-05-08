@@ -208,24 +208,24 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
   auto scalingZ = reader.readWithDefault("scalingmatrixz", std::array<double, 3>{0, 0, 1});
   seissolParams.mesh.scaling = {scalingX, scalingY, scalingZ};
 
-  seissolParams.timestepping.vertexWeight.weightElement =
+  seissolParams.timeStepping.vertexWeight.weightElement =
       reader.readWithDefault("vertexWeightElement", 100);
-  seissolParams.timestepping.vertexWeight.weightDynamicRupture =
+  seissolParams.timeStepping.vertexWeight.weightDynamicRupture =
       reader.readWithDefault("vertexWeightDynamicRupture", 100);
-  seissolParams.timestepping.vertexWeight.weightFreeSurfaceWithGravity =
+  seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity =
       reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 100);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
 }
 
-static void readTimestepping(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
+static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("discretization");
 
-  seissolParams.timestepping.cfl = reader.readWithDefault("cfl", 0.5);
-  seissolParams.timestepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
-  seissolParams.timestepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
-  seissolParams.timestepping.lts.weighttype = reader.readWithDefaultEnum(
+  seissolParams.timeStepping.cfl = reader.readWithDefault("cfl", 0.5);
+  seissolParams.timeStepping.maxTimestepWidth = reader.readWithDefault("fixtimestep", 5000.0);
+  seissolParams.timeStepping.lts.rate = reader.readWithDefault("clusteredlts", 2u);
+  seissolParams.timeStepping.lts.weighttype = reader.readWithDefaultEnum(
       "ltsweighttypeid",
       seissol::initializers::time_stepping::LtsWeightsTypes::ExponentialWeights,
       {
@@ -497,7 +497,7 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
   reader.warnUnknown();
 }
 
-void SeisSolParameters::readPar(const YAML::Node& baseNode) {
+void SeisSolParameters::readParametersconst YAML::Node& baseNode) {
   logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
 
   ParameterReader baseReader(baseNode, false);
@@ -505,7 +505,7 @@ void SeisSolParameters::readPar(const YAML::Node& baseNode) {
   readModel(baseReader, *this);
   readBoundaries(baseReader, *this);
   readMesh(baseReader, *this);
-  readTimestepping(baseReader, *this);
+  readTimeStepping(baseReader, *this);
   readInitialization(baseReader, *this);
   readOutput(baseReader, *this);
   readSource(baseReader, *this);

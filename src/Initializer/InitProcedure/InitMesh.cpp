@@ -90,18 +90,18 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 
   using namespace seissol::initializers::time_stepping;
   LtsWeightsConfig config{seissolParams.model.materialFileName,
-                          static_cast<unsigned int>(seissolParams.timestepping.lts.rate),
-                          seissolParams.timestepping.vertexWeight.weightElement,
-                          seissolParams.timestepping.vertexWeight.weightDynamicRupture,
-                          seissolParams.timestepping.vertexWeight.weightFreeSurfaceWithGravity};
+                          static_cast<unsigned int>(seissolParams.timeStepping.lts.rate),
+                          seissolParams.timeStepping.vertexWeight.weightElement,
+                          seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
+                          seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
 
   const auto* ltsParameters = seissol::SeisSol::main.getMemoryManager().getLtsParameters();
   auto ltsWeights =
-      getLtsWeightsImplementation(seissolParams.timestepping.lts.weighttype, config, ltsParameters);
+      getLtsWeightsImplementation(seissolParams.timeStepping.lts.weighttype, config, ltsParameters);
   auto meshReader =
       new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                         seissolParams.mesh.partitioningLib.c_str(),
-                                        seissolParams.timestepping.maxTimestepWidth,
+                                        seissolParams.timeStepping.maxTimestepWidth,
                                         seissolParams.output.checkpointParameters.fileName.c_str(),
                                         ltsWeights.get(),
                                         nodeWeight,

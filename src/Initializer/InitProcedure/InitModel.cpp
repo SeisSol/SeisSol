@@ -323,13 +323,13 @@ static void initializeCellMatrices(LtsInfo& ltsInfo) {
 static void initializeClusteredLts(LtsInfo& ltsInfo) {
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
 
-  assert(seissolParams.timestepping.lts.rate > 0);
+  assert(seissolParams.timeStepping.lts.rate > 0);
 
-  if (seissolParams.timestepping.lts.rate == 1) {
+  if (seissolParams.timeStepping.lts.rate == 1) {
     seissol::SeisSol::main.getLtsLayout().deriveLayout(single, 1);
   } else {
     seissol::SeisSol::main.getLtsLayout().deriveLayout(multiRate,
-                                                       seissolParams.timestepping.lts.rate);
+                                                       seissolParams.timeStepping.lts.rate);
   }
 
   seissol::SeisSol::main.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);

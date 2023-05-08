@@ -181,7 +181,7 @@ struct LtsParameters {
   seissol::initializers::time_stepping::LtsWeightsTypes weighttype;
 };
 
-struct TimesteppingParameters {
+struct TimeSteppingParameters {
   double cfl;
   double maxTimestepWidth;
   LtsParameters lts;
@@ -203,11 +203,11 @@ struct SeisSolParameters {
   MeshParameters mesh;
   InitializationParameters initialization;
   OutputParameters output;
-  TimesteppingParameters timestepping;
+  TimeSteppingParameters timeStepping;
   SourceParameters source;
   EndParameters end;
 
-  void readPar(const YAML::Node& baseNode);
+  void readParametersconst YAML::Node& baseNode);
 };
 } // namespace seissol::initializer::parameters
 
