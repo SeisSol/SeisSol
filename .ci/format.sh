@@ -66,7 +66,7 @@ format() {
     done
 
     for file in ${whitelist_file}; do
-        ${formatter} -i -style=file $file
+        ${formatter} -i -style=file ${SEISSOL_SOURCE_DIR}/$file
     done
 }
 
