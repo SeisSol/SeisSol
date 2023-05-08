@@ -148,8 +148,7 @@ void seissol::initializer::initprocedure::initMesh() {
 #if USE_NETCDF
     realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
     logInfo(seissol::MPI::mpi.rank())
-        << "By old SeisSol conventions for Netcdf meshes, the Netcdf file extension \".nc\" is "
-           "always appended. Thus, the (new) mesh file name is"
+        << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
         << realMeshFileName;
     seissol::SeisSol::main.setMeshReader(
         new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileName.c_str()));
