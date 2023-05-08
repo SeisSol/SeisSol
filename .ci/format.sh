@@ -3,8 +3,8 @@
 # NOTE: This script was taken from PointCloudLibrary/pcl and adapted for SeisSol
 
 # sample command line usage: $0 clang-format(version >= 6.0) $SEISSOL_SOURCE_DIR
-# $ sh ./.ci/format.sh `which clang-format` ./
-# $ sh format.sh `which clang-format` ../
+# $ cd $SEISSOL_SOURCE_DIR; sh ./.ci/format.sh `which clang-format` ./
+# $ cd $SEISSOL_SOURCE_DIR/.ci; sh format.sh `which clang-format` ../
 
 format() {
     # don't use a directory with whitespace
@@ -34,8 +34,13 @@ format() {
         src/SourceTerm/FSRMReader.cpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
+        src/Geometry/PUMLReader.h
+        src/Geometry/PUMLReader.cpp
         src/Physics/Attenuation.hpp
         src/Physics/Attenuation.cpp
+        src/ResultWriter/WaveFieldWriter.h
+        src/ResultWriter/EnergyOutput.h
+        src/ResultWriter/EnergyOutput.cpp
         "
 
     local SEISSOL_SOURCE_DIR="${2}"
@@ -56,16 +61,12 @@ format() {
         path=${SEISSOL_SOURCE_DIR}/${dir}
         files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
         for file in ${files}; do
-            sed -i 's/#pragma omp/\/\/#pragma omp/g' $file
             ${formatter} -i -style=file $file
-            sed -i 's/\/\/ *#pragma omp/#pragma omp/g' $file
         done
     done
 
     for file in ${whitelist_file}; do
-        sed -i 's/#pragma omp/\/\/#pragma omp/g' $file
         ${formatter} -i -style=file $file
-        sed -i 's/\/\/ *#pragma omp/#pragma omp/g' $file
     done
 }
 
