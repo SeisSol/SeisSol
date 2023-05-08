@@ -54,7 +54,6 @@
 #include <iomanip>
 
 seissol::initializers::time_stepping::LtsLayout::LtsLayout():
- m_cellTimeStepWidths(       NULL ),
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
  m_globalTimeStepRates(      NULL ),
@@ -64,7 +63,6 @@ seissol::initializers::time_stepping::LtsLayout::LtsLayout():
 
 seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
-  delete[] m_cellTimeStepWidths;
   delete[] m_cellClusterIds;
   delete[] m_globalTimeStepWidths;
   delete[] m_globalTimeStepRates;
@@ -96,8 +94,7 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const seissol::ge
   auto timesteps = seissol::initializer::computeTimesteps(seissolParams.timestepping.cfl, seissolParams.timestepping.maxTimestepWidth, seissolParams.model.materialFileName,
         seissol::initializers::CellToVertexArray::fromMeshReader(i_mesh));
   
-  m_cellTimeStepWidths = new double[m_cells.size()];
-  std::copy(timesteps.cellTimeStepWidths.begin(), timesteps.cellTimeStepWidths.end(), m_cellTimeStepWidths);
+  m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
 }
 
 FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
@@ -1163,7 +1160,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   if( m_clusteringStrategy == single ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  std::numeric_limits<unsigned int>::max(),
-                                 m_cellTimeStepWidths,
+                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
                                  m_globalTimeStepWidths,
@@ -1172,7 +1169,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
   else if ( m_clusteringStrategy == multiRate ) {
     MultiRate::deriveClusterIds( m_cells.size(),
                                  i_clusterRate,
-                                 m_cellTimeStepWidths,
+                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
                                  m_cellClusterIds,
                                  m_numberOfGlobalClusters,
                                  m_globalTimeStepWidths,

@@ -74,7 +74,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     std::vector<Fault> m_fault;
 
     //! time step widths of the cells (cfl)
-    double       *m_cellTimeStepWidths;
+    std::vector<double>       m_cellTimeStepWidths;
 
     //! cluster ids of the cells
     unsigned int *m_cellClusterIds;
