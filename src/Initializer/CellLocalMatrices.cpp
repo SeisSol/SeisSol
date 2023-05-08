@@ -161,12 +161,6 @@ void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::Mesh
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-        seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                    material[cell].neighbor[side],
-                                                    cellInformation[cell].faceTypes[side],
-                                                    QgodLocal,
-                                                    QgodNeighbor );
-
         VrtxCoords normal;
         VrtxCoords tangent1;
         VrtxCoords tangent2;
