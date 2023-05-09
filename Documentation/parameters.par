@@ -81,7 +81,7 @@ meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
 vertexWeightElement = 100 ! Base vertex weight for each element used as input to ParMETIS
 vertexWeightDynamicRupture = 200 ! Weight that's added for each DR face to element vertex weight
 vertexWeightFreeSurfaceWithGravity = 300 ! Weight that's added for each free surface with gravity face to element vertex weight
-
+PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
 /
 
 &Discretization
