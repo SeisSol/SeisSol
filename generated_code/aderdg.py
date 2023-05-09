@@ -123,7 +123,8 @@ class ADERDGBase(ABC):
     self.db.update(project2nFaceTo3m)
 
     selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
-    selectVelocitySpp[6:9,0:3] = np.eye(3)
+    # selectVelocitySpp[6:9,0:3] = np.eye(3)
+    selectVelocitySpp[7:10,0:3] = np.eye(3)
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
     self.selectTractionSpp = np.zeros((self.numberOfQuantities(), 3), dtype=bool)
@@ -294,7 +295,9 @@ class LinearADERDG(ADERDGBase):
           derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
         for j in range(3):
           derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
-
+        ## nonlinear source term
+        if i==1:
+          derivativeSum += self.dQModal['kp']
         derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)

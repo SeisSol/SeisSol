@@ -11,6 +11,15 @@ namespace seissol {
     struct DamagedElasticMaterial : Material {
       double lambda;
       double mu;
+      double sigmaxx_alpha;
+      double sigmaxy_alpha;
+      double sigmaxz_alpha;
+      double sigmayx_alpha;
+      double sigmayy_alpha;
+      double sigmayz_alpha;
+      double sigmazx_alpha;
+      double sigmazy_alpha;
+      double sigmazz_alpha;
 
       DamagedElasticMaterial() {};
       DamagedElasticMaterial(double* materialValues, int numMaterialValues)
@@ -20,6 +29,15 @@ namespace seissol {
         this->rho = materialValues[0];
         this->mu = materialValues[1];
         this->lambda = materialValues[2];
+        this->sigmaxx_alpha = materialValues[3];
+        this->sigmaxy_alpha = materialValues[4];
+        this->sigmaxz_alpha = materialValues[5];
+        this->sigmayx_alpha = materialValues[6];
+        this->sigmayy_alpha = materialValues[7];
+        this->sigmayz_alpha = materialValues[8];
+        this->sigmazx_alpha = materialValues[9];
+        this->sigmazy_alpha = materialValues[10];
+        this->sigmazz_alpha = materialValues[11];
       }
 
       virtual ~DamagedElasticMaterial() {};

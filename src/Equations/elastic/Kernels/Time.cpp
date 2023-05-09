@@ -100,6 +100,7 @@ seissol::kernels::TimeBase::TimeBase() {
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
+      std::cout << tensor::dQ::size(order-1) << " " << yateto::computeFamilySize<tensor::dQ>() << std::endl;
     }
   }
 }
@@ -183,10 +184,51 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
+  real const damage_para1 = 1.2e4/2;
+  real const damage_para2 = 3e-6;
+  real const lambda0 = 9.71e10;
+  kernel::damageConvertToNodal d_converToKrnl;
+  #ifdef USE_DAMAGEDELASTIC
+  // Compute the nodal solutions
+  alignas(PAGESIZE_STACK) real solNData[tensor::QNodal::size()];
+  // auto solN = tensor::QNodal::view::create(solNData);
+  d_converToKrnl.v = init::v::Values;
+  d_converToKrnl.QNodal = solNData;
+  d_converToKrnl.Q = data.dofs;
+  d_converToKrnl.execute();
+
+  // Compute rhs of damage evolution
+  alignas(PAGESIZE_STACK) real fNodalData[tensor::FNodal::size()] = {0};
+  real* exxNodal = (solNData + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* eyyNodal = (solNData + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* ezzNodal = (solNData + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
+  for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+    fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 
+    1.0e0/(damage_para2*damage_para1)
+      *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
+    // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
+  }
+  
+  // Convert them back to modal space
+  alignas(PAGESIZE_STACK) real dQModalData[tensor::dQModal::size()];
+  kernel::damageAssignFToDQ d_assignFToDQ;
+  d_assignFToDQ.vInv = init::vInv::Values;
+  d_assignFToDQ.dQModal = dQModalData;
+  d_assignFToDQ.FNodal = fNodalData;
+  d_assignFToDQ.execute();
+  // std::cout << " " << dQModalData[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + 2] << std::endl;
+  
+  // Assign the modal solutions to dQ(1)
+
+  #endif
+
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
-
+  
   kernel::derivative krnl = m_krnlPrototype;
+  krnl.dQModal = dQModalData;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
@@ -200,6 +242,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   kernel::derivativeTaylorExpansion intKrnl;
+  // intKrnl.dQModal = dQModalData;
   intKrnl.I = o_timeIntegrated;
   intKrnl.dQ(0) = data.dofs;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -226,6 +269,23 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     intKrnl.execute(der);
   }
 
+  // if (o_timeDerivatives == nullptr) {
+  //   std::cout << "null " << std::endl;
+  //   std::cout << o_timeDerivatives << std::endl;
+  // }
+  // else{
+  //   std::cout << "not null " << std::endl;
+  //   std::cout << o_timeDerivatives << std::endl;
+  // }
+
+  // for (int i_out = 0; i_out<10; ++i_out){
+  //   std::cout << derivativesBuffer[20*i_out+0] << " " << data.dofs[20*i_out+0];
+  //   std::cout 
+  //   // << tensor::dQ::size(0) 
+  //   << std::endl;
+  // }
+  
+
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
@@ -249,6 +309,70 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     }
   }
+
+  // Do integration of the nonlinear source here - Is there a better way?
+  #ifdef USE_DAMAGEDELASTIC  
+  // Compute the Q at quadrature points in space and time
+  /// Get quadrature points in time
+  double timePoints[CONVERGENCE_ORDER];
+  double timeWeights[CONVERGENCE_ORDER];
+  seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
+  for (unsigned int point = 0; point < CONVERGENCE_ORDER; ++point) {
+    timePoints[point] = 0.5 * (i_timeStepWidth * timePoints[point] + i_timeStepWidth);
+    timeWeights[point] = 0.5 * i_timeStepWidth * timeWeights[point];
+  }
+
+  /// Get Q_{lp}(tau_z) at different time quadrature points
+  alignas(PAGESIZE_STACK) real QInterpolatedBody[CONVERGENCE_ORDER][tensor::Q::size()]; // initializations?
+  alignas(PAGESIZE_STACK) real* QInterpolatedBodyi;
+  alignas(PAGESIZE_STACK) real QInterpolatedBodyNodal[CONVERGENCE_ORDER][tensor::QNodal::size()];
+  alignas(PAGESIZE_STACK) real* QInterpolatedBodyNodali;
+
+  for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
+    QInterpolatedBodyi = QInterpolatedBody[timeInterval];
+    QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
+    computeTaylorExpansion(timePoints[timeInterval], 0.0, derivativesBuffer, QInterpolatedBodyi);
+    /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
+    d_converToKrnl.v = init::v::Values;
+    d_converToKrnl.QNodal = QInterpolatedBodyNodali;
+    d_converToKrnl.Q = data.dofs;
+    d_converToKrnl.execute();
+  }
+
+
+
+  alignas(PAGESIZE_STACK) real FInterpolatedBody[CONVERGENCE_ORDER][tensor::QNodal::size()] = {{0}}; // initializations?
+  for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
+    real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+    real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+    real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+    real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+    // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
+    for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
+      FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 
+      1.0e0/(damage_para2*damage_para1)
+        *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
+      // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
+    }
+  }
+
+  /// Convert Q_{lp} at the initial time step from modal to nodal sp
+  kernel::damageIntegration d_timeIntegration;
+  for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
+    /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
+    d_timeIntegration.vInv = init::vInv::Values;
+    d_timeIntegration.QTNodal(timeInterval) = FInterpolatedBody[timeInterval];
+    d_timeIntegration.Q = data.dofs;
+    d_timeIntegration.Tweight = (timeWeights[timeInterval]);
+    d_timeIntegration.execute(timeInterval);
+  }
+
+
+  /// Quadrature in time in nodal space and directly convert 
+  /// the summation results back into modal space in the python kernel
+
+  //================================END OF DAMAGE===============================
+  #endif
 #endif //USE_STP
 }
 
@@ -399,12 +523,19 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_firstTerm  = (real) 1;
   real l_secondTerm = (real) 1;
   real l_factorial  = (real) 1;
-  
+  // std::cout << *i_timeDerivatives << std::endl;
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
+
+  // for (int i_out = 0; i_out<9; ++i_out){
+  //   std::cout << i_timeDerivatives[20*i_out+0] << " ";
+  // }
+  // std::cout << i_timeDerivatives[20*9] << " "<< std::endl;
+
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
   }
+  // std::cout << m_derivativesOffsets[0] << std::endl;
  
   // iterate over time derivatives
   for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {

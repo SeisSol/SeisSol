@@ -50,6 +50,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     case ActorAction::Nothing:
       break;
     case ActorAction::Correct:
+      // std::cout << "Correcting at: " << ct.correctionTime << std::endl;
       assert(state == ActorState::Predicted);
       correct();
       ct.correctionTime += timeStepSize();
@@ -70,6 +71,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       state = ActorState::Corrected;
       break;
     case ActorAction::Predict:
+      // std::cout << "Predicting at: " << ct.predictionTime << std::endl;
       assert(state == ActorState::Corrected);
       predict();
       ct.predictionsSinceLastSync += ct.timeStepRate;
@@ -91,6 +93,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       state = ActorState::Predicted;
       break;
     case ActorAction::Sync:
+      // std::cout << "Synchronizing at: " << ct.correctionTime << std::endl;
       assert(state == ActorState::Corrected);
       logDebug(MPI::mpi.rank()) << "synced at" << syncTime
                                 << ", corrTime =" << ct.correctionTime
@@ -100,6 +103,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       state = ActorState::Synced;
       break;
     case ActorAction::RestartAfterSync:
+      // std::cout << "RestartAfterSync... " << std::endl;
       start();
       state = ActorState::Corrected;
       break;
@@ -149,6 +153,7 @@ bool AbstractTimeCluster::processMessages() {
           neighbor.ct.correctionTime = msg.time;
           neighbor.ct.stepsSinceLastSync = msg.stepsSinceSync;
           handleAdvancedCorrectionTimeMessage(neighbor);
+          // std::cout << "Received message" << std::endl;
         } else {
           static_assert(always_false<T>::value, "non-exhaustive visitor!");
         }
@@ -246,6 +251,10 @@ void AbstractTimeCluster::setCorrectionTime(double time) {
 
 long AbstractTimeCluster::getTimeStepRate() {
   return timeStepRate;
+}
+
+double AbstractTimeCluster::getMaxTimeStepSize() {
+  return ct.maxTimeStepSize;
 }
 
 }

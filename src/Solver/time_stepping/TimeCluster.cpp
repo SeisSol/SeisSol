@@ -79,11 +79,16 @@
 #include "TimeCluster.h"
 #include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
+
+#include <Equations/Setup.h>
+
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <Monitoring/instrumentation.fpp>
+
+#include <Numerical_aux/Quadrature.h>
 
 #include <cassert>
 #include <cstring>
@@ -92,6 +97,12 @@
 
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
+
+void setStarMatrix( real* i_AT,
+                    real* i_BT,
+                    real* i_CT,
+                    real  i_grad[3],
+                    real* o_starMatrix );
 
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  bool usePlasticity,
@@ -381,7 +392,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                              derivatives[l_cell],
                              ct.correctionTime,
                              true);
-
+    
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
     m_localKernel.computeIntegral(l_bufferPointer,
@@ -431,6 +442,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
+
+  std::cout<<'Using ACL_DEVICE==================\n';
 
   real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
   auto& dataTable = i_layerData.getConditionalTable<inner_keys::Wp>();
@@ -628,6 +641,337 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
           );
 }
 
+void seissol::time_stepping::TimeCluster::updateDerivatives() {
+  // SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+  // Access the neighboring solutions
+  seissol::initializers::Layer& i_layerData = *m_clusterData;
+  real** derivatives = i_layerData.var(m_lts->buffers);
+
+  kernels::LocalData::Loader loader;
+  loader.load(*m_lts, i_layerData);
+  // kernels::LocalTmp tmp{};
+
+#ifdef _OPENMP
+  #pragma omp parallel
+    {
+#endif
+
+#ifdef _OPENMP
+    #pragma omp for schedule(static)
+#endif
+    for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
+      auto data = loader.entry(l_cell);
+      if (derivatives[l_cell] != NULL) {
+        for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
+          // zero time integration buffers
+          derivatives[l_cell][dof] = data.dofs[dof]*getMaxTimeStepSize();
+          // std::cout << getMaxTimeStepSize() << std::endl;
+        }
+      }
+    }
+
+#ifdef _OPENMP
+    }
+#endif
+
+  // m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+}
+
+void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializers::Layer& i_layerData) {
+  // SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  // m_loopStatistics->begin(m_regionComputeLocalIntegration);
+
+  // / To recompute the matrices, information required includes:
+  // mesh information, material input, 
+
+  MeshReader& meshReader = seissol::SeisSol::main.meshReader();
+  std::vector<Element> const& elements = meshReader.getElements();
+  std::vector<Vertex> const& vertices = meshReader.getVertices();
+
+  // CellMaterialData* materialData = i_layerData.var(m_lts->material);
+  CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
+
+  // Access the neighboring solutions
+  real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
+  // real** derivatives = i_layerData.var(m_lts->buffers);
+
+  kernels::LocalData::Loader loader;
+  loader.load(*m_lts, i_layerData);
+  // kernels::LocalTmp tmp{};
+
+#ifdef _OPENMP
+  #pragma omp parallel
+    {
+#endif
+    CellMaterialData* materialData = i_layerData.var(m_lts->material);
+    real ATData[tensor::star::size(0)];
+    real ATtildeData[tensor::star::size(0)];
+    real BTData[tensor::star::size(1)];
+    real CTData[tensor::star::size(2)];
+    auto AT = init::star::view<0>::create(ATData);
+    // AT with elastic parameters in local coordinate system, used for flux kernel
+    auto ATtilde = init::star::view<0>::create(ATtildeData);
+    auto BT = init::star::view<0>::create(BTData);
+    auto CT = init::star::view<0>::create(CTData);
+
+    real TData[seissol::tensor::T::size()];
+    real TinvData[seissol::tensor::Tinv::size()];
+    auto T = init::T::view::create(TData);
+    auto Tinv = init::Tinv::view::create(TinvData);
+
+    real QgodLocalData[tensor::QgodLocal::size()];
+    real QgodNeighborData[tensor::QgodNeighbor::size()];
+    auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
+    auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+    kernel::cellAve m_cellAverageKernel;
+    // real Q_aveData[NUMBER_OF_QUANTITIES];
+    real Q_aveData[tensor::QAve::size()];
+    auto Q_ave = init::QAve::view::create(Q_aveData);
+
+    // real Q_aveNeighborData[tensor::QAve::size()];
+    // auto Q_aveNeighbor = init::QAve::view::create(Q_aveNeighborData);
+
+    // seissol::model::DamagedElasticMaterial changed_materialLocal;
+    // seissol::model::DamagedElasticMaterial changed_materialNeighbor[4]; 
+
+#ifdef _OPENMP
+    #pragma omp for schedule(static)
+#endif
+    for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
+      auto data = loader.entry(l_cell);
+
+      real * derivatives_neighbor[4];
+      for (unsigned int i_nei=0; i_nei<4; i_nei++){
+        derivatives_neighbor[i_nei] = faceNeighbors[l_cell][i_nei];
+      }
+
+      // TODO: compute cell-average of solutions and compute new material properties
+      // real Q_ave[NUMBER_OF_QUANTITIES];
+      m_cellAverageKernel.phiAve = init::phiAve::Values;
+      m_cellAverageKernel.Q = data.dofs;
+      m_cellAverageKernel.QAve = Q_aveData;
+      m_cellAverageKernel.execute();
+
+
+      // std::cout << data.dofs[0+0] << std::endl;
+      // END TODO
+      real EspI = Q_aveData[0] + Q_aveData[1] + Q_aveData[2];
+      real alphaAve = Q_aveData[9];
+      real lambda0 = 9.71e10;
+      real mu0 = 8.27e10;
+      real beta_m = 1e2;
+
+      unsigned int meshId = data.localIntegration.globalMeshId;
+
+      // changed_materialLocal = materialData[l_cell].local;
+      // changed_materialLocal.mu 
+      // = materialData[l_cell].local.mu*(1-1e6*EspI); 
+
+      
+      // for (unsigned side = 0; side < 4; ++side){
+      //   changed_materialNeighbor[side].lambda 
+      //   = materialData[l_cell].neighbor[side].lambda*0.9;
+      // }
+
+       materialData[l_cell].local.mu = (1-alphaAve)*mu0*(1-beta_m*EspI);
+       materialData[l_cell].local.lambda = (1-alphaAve)*lambda0*(1-beta_m*EspI);
+
+       materialData[l_cell].local.sigmaxx_alpha = lambda0*EspI + 2*mu0*Q_aveData[0];
+       materialData[l_cell].local.sigmaxy_alpha = 2*mu0*Q_aveData[3];
+       materialData[l_cell].local.sigmaxz_alpha = 2*mu0*Q_aveData[5];
+       materialData[l_cell].local.sigmayx_alpha = 2*mu0*Q_aveData[3];
+       materialData[l_cell].local.sigmayy_alpha = lambda0*EspI + 2*mu0*Q_aveData[1];
+       materialData[l_cell].local.sigmayz_alpha = 2*mu0*Q_aveData[4];
+       materialData[l_cell].local.sigmazx_alpha = 2*mu0*Q_aveData[5];
+       materialData[l_cell].local.sigmazy_alpha = 2*mu0*Q_aveData[4];
+       materialData[l_cell].local.sigmazz_alpha = lambda0*EspI + 2*mu0*Q_aveData[2];
+
+      //  for (unsigned side = 0; side < 4; ++side){
+      //   materialData[l_cell].neighbor[side].mu = 8.27e10*(1-1e7*EspI);
+      // }
+
+      // if (meshId > 1000 && meshId < 1002){
+      //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
+      //   // std::cout << materialData[l_cell].local.lambda << std::endl;
+      //   // std::cout << changed_material.lambda << std::endl;
+      //   // std::cout << changed_materialLocal.mu/materialData[l_cell].local.mu << std::endl;
+      //   std::cout << materialData[l_cell].local.sigmaxx_alpha << std::endl;
+      //   // std::cout << Q_ave.size() << std::endl;
+      // }
+
+      /// global coordinates of the vertices
+      real x[4];
+      real y[4];
+      real z[4];
+      real gradXi[3];
+      real gradEta[3];
+      real gradZeta[3];
+
+      // Iterate over all 4 vertices of the tetrahedron
+      for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
+        x[vertex] = coords[0];
+        y[vertex] = coords[1];
+        z[vertex] = coords[2];
+      }
+
+      seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
+      // seissol::model::getTransposedCoefficientMatrix( changed_materialLocal, 0, AT );
+      // seissol::model::getTransposedCoefficientMatrix( changed_materialLocal, 1, BT );
+      // seissol::model::getTransposedCoefficientMatrix( changed_materialLocal, 2, CT );
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, AT );
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 1, BT );
+      seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 2, CT );
+      setStarMatrix(ATData, BTData, CTData, gradXi, data.localIntegration.starMatrices[0]);
+      setStarMatrix(ATData, BTData, CTData, gradEta, data.localIntegration.starMatrices[1]);
+      setStarMatrix(ATData, BTData, CTData, gradZeta, data.localIntegration.starMatrices[2]);
+
+
+      // if (meshId > 1000 && meshId < 1002){
+      //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
+      //   std::cout << CTData[26]*gradXi[2] << std::endl;
+      // }
+
+      double volume = MeshTools::volume(elements[meshId], vertices);
+
+      // for (int i_out = 0; i_out<50; ++i_out){
+      //   std::cout 
+      //             // << faceNeighbors[l_cell][0][20*i_out+0] << " "
+      //             << derivatives[l_cell][20*i_out+0] 
+      //             << "s";
+      // }
+      // std::cout << faceNeighbors[l_cell][0][50] << " "<< std::endl;
+
+      for (unsigned side = 0; side < 4; ++side) {
+        // seissol::model::getTransposedGodunovState(  materialData[l_cell].local,
+        //                                             materialData[l_cell].neighbor[side],
+        //                                             cellInformation[l_cell].faceTypes[side],
+        //                                             QgodLocal,
+        //                                             QgodNeighbor );
+
+        // // const real *deri_n_s = derivatives_neighbor[side];
+        // // derivatives_neighbor[side] = faceNeighbors[l_cell][side];
+        // if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
+        // cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
+        //   // auto solutions = init::Q::view::create(derivatives_neighbor[side]);
+        //   std::cout << derivatives_neighbor[side][0] << ' '  << std::endl;  
+        // }
+        
+        if (cellInformation[l_cell].faceTypes[side] != FaceType::outflow &&
+        cellInformation[l_cell].faceTypes[side] != FaceType::dynamicRupture ) {
+          m_cellAverageKernel.phiAve = init::phiAve::Values;
+          m_cellAverageKernel.Q = derivatives_neighbor[side];
+          m_cellAverageKernel.QAve = Q_aveData;
+          m_cellAverageKernel.execute();
+
+          real EspINeigh = (Q_aveData[0] + Q_aveData[1] + Q_aveData[2])/timeStepSize();
+          real alphaAveNeigh = Q_aveData[9]/timeStepSize();
+
+          // // Print nodes corresponding to exx and vx:
+          // auto faceNeighborsView = init::Q::view::create(faceNeighbors[l_cell][side]);
+          // for (int i_out = 0; i_out<2; ++i_out){
+          //   std::cout 
+          //             << faceNeighbors[l_cell][side][20*i_out*6+0] << " "
+          //             << faceNeighborsView(0,i_out*6)/timeStepSize() << " "
+          //             << data.dofs[20*i_out*6+0]
+          //             // << derivatives[l_cell][20*i_out+0] 
+          //             << "s ";
+          // }
+          // std::cout << faceNeighbors[l_cell][side][20*6+0]/faceNeighbors[l_cell][side][20*0+0] 
+          //           << " " << data.dofs[20*6+0]/data.dofs[20*0+0] << std::endl;
+
+          materialData[l_cell].neighbor[side].mu = (1-alphaAveNeigh)*mu0*(1-beta_m*EspINeigh);
+          materialData[l_cell].neighbor[side].lambda = (1-alphaAveNeigh)*lambda0*(1-beta_m*EspINeigh);
+
+          materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmaxz_alpha = 2*mu0*Q_aveData[5]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmayx_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmayy_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[1]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmayz_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmazx_alpha = 2*mu0*Q_aveData[5]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
+          materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2]/timeStepSize();
+        }
+        
+
+        VrtxCoords normal;
+        VrtxCoords tangent1;
+        VrtxCoords tangent2;
+        MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
+        double surface = MeshTools::surface(normal);
+        MeshTools::normalize(normal, normal);
+        MeshTools::normalize(tangent1, tangent1);
+        MeshTools::normalize(tangent2, tangent2);
+
+        real NLocalData[6*6];
+        seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
+        if (materialData[l_cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
+          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)),
+                                                      seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].neighbor[side])),
+                                                      cellInformation[l_cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+          seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)), 0, ATtilde );
+        } else {
+          seissol::model::getTransposedGodunovState(  materialData[l_cell].local,
+                                                      materialData[l_cell].neighbor[side],     
+                                                      cellInformation[l_cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+          seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtilde );
+        }
+
+        // if (meshId > 1000 && meshId < 1002){
+        //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
+        //   std::cout << materialData[l_cell].local.lambda << std::endl;
+        //   std::cout << &materialData[l_cell].local.lambda << std::endl;
+        // }
+
+        
+
+        // Calculate transposed T instead
+        seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
+
+        // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
+        // must be subtracted.
+        real fluxScale = -2.0 * surface / (6.0 * volume);
+
+        kernel::computeFluxSolverLocal localKrnl;
+        localKrnl.fluxScale = fluxScale;
+        localKrnl.AplusT = data.localIntegration.nApNm1[side];
+        localKrnl.QgodLocal = QgodLocalData;
+        localKrnl.T = TData;
+        localKrnl.Tinv = TinvData;
+        localKrnl.star(0) = ATtildeData;
+        localKrnl.execute();
+        
+        kernel::computeFluxSolverNeighbor neighKrnl;
+        neighKrnl.fluxScale = fluxScale;
+        neighKrnl.AminusT = data.neighboringIntegration.nAmNm1[side];
+        neighKrnl.QgodNeighbor = QgodNeighborData;
+        neighKrnl.T = TData;
+        neighKrnl.Tinv = TinvData;
+        neighKrnl.star(0) = ATtildeData;
+        if (cellInformation[l_cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+          // Already rotated!
+          neighKrnl.Tinv = init::identityT::Values;
+        }
+        neighKrnl.execute();
+      }
+
+
+    }
+
+#ifdef _OPENMP
+    }
+#endif
+
+  // m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+}
+
 namespace seissol::time_stepping {
 ActResult TimeCluster::act() {
   actorStateStatistics->enter(state);
@@ -657,17 +1001,47 @@ void TimeCluster::predict() {
     resetBuffers = true;
   }
 
+  // 02.02.2023, change material matrices based on the solution at the last time-step
+  // real aa;
+  
+  // kernels::LocalData::Loader loader;
+  // loader.load(*m_lts, *m_clusterData);
+  // auto data = loader.entry(10);
+  // for (unsigned int ii = 26; ii<27; ++ii){
+  //   std::cout << data.localIntegration.starMatrices[0][ii] << " ";
+  //   aa = data.localIntegration.starMatrices[0][ii];
+  // }
+  // std::cout << std::endl;
+
+  // std::cout << "called" << std::endl;
+
+  // updateDerivates(*m_clusterData);
+
+  updateMaterialLocal(*m_clusterData);
+  
+  // kernels::LocalData::Loader loader1;
+  // loader1.load(*m_lts, *m_clusterData);
+  // auto data1 = loader1.entry(10);
+  // for (unsigned int ii = 26; ii<27; ++ii){
+  //   std::cout << "after: " << data1.localIntegration.starMatrices[0][ii] - aa;
+  // }
+  // std::cout << std::endl;
+  
+
   // These methods compute the receivers/sources for both interior and copy cluster
   // and are called in actors for both copy AND interior.
   writeReceivers();
+
   computeLocalIntegration(*m_clusterData, resetBuffers);
   computeSources();
+  // updateMaterialLocal(*m_clusterData);
 
   seissol::SeisSol::main.flopCounter().incrementNonZeroFlopsLocal(m_flops_nonZero[static_cast<int>(ComputePart::Local)]);
   seissol::SeisSol::main.flopCounter().incrementHardwareFlopsLocal(m_flops_hardware[static_cast<int>(ComputePart::Local)]);
 }
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
+  // std::cout << "layer type: " << layerType << std::endl;
 
   /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
    * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time refers to the derivation of the surrounding time derivatives, which

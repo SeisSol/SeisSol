@@ -21,7 +21,7 @@ protected:
   std::vector<NeighborCluster> neighbors;
   double syncTime = 0.0;
 
-  [[nodiscard]] double timeStepSize() const;
+  // [[nodiscard]] double timeStepSize() const;
 
   void unsafePerformAction(ActorAction action);
   AbstractTimeCluster(double maxTimeStepSize, long timeStepRate);
@@ -64,6 +64,10 @@ public:
   void setCorrectionTime(double time);
 
   long getTimeStepRate();
+
+  double getMaxTimeStepSize();
+
+  [[nodiscard]] double timeStepSize() const;
 
 };
 

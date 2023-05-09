@@ -134,7 +134,7 @@ CONTAINS
 ! HDF5 variables end
      integer :: l_ruptureFace, l_side, l_elementId, l_localFaceId ! loop counter of the dynamic rupture faces
      real :: l_jInv
-     real, dimension(9, 9) :: l_A, l_B
+     ! real, dimension(9, 9) :: l_A, l_B
      real, dimension(3, 3) :: l_attenuation
 
     !--------------------------------------------------------------------------

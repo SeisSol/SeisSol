@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<matrices>
+	<matrix name="phiAve" columns="1" rows="10">
+		<entry column="1" row="1" value="0.1666666666666667"/>
+	</matrix>
+</matrices>
+

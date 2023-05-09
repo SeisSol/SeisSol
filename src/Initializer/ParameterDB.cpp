@@ -298,6 +298,22 @@ namespace seissol {
       adapter.addBindingPoint("c55", &AnisotropicMaterial::c55);
       adapter.addBindingPoint("c56", &AnisotropicMaterial::c56);
       adapter.addBindingPoint("c66", &AnisotropicMaterial::c66);
+    }
+
+    template<>
+    void MaterialParameterDB<DamagedElasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<DamagedElasticMaterial> &adapter) {
+      adapter.addBindingPoint("rho", &DamagedElasticMaterial::rho);
+      adapter.addBindingPoint("lambda", &DamagedElasticMaterial::lambda);
+      adapter.addBindingPoint("mu", &DamagedElasticMaterial::mu);
+      adapter.addBindingPoint("sigmaxx_alpha", &DamagedElasticMaterial::sigmaxx_alpha);
+      adapter.addBindingPoint("sigmaxy_alpha", &DamagedElasticMaterial::sigmaxy_alpha);
+      adapter.addBindingPoint("sigmaxz_alpha", &DamagedElasticMaterial::sigmaxz_alpha);
+      adapter.addBindingPoint("sigmayx_alpha", &DamagedElasticMaterial::sigmayx_alpha);
+      adapter.addBindingPoint("sigmayy_alpha", &DamagedElasticMaterial::sigmayy_alpha);
+      adapter.addBindingPoint("sigmayz_alpha", &DamagedElasticMaterial::sigmayz_alpha);
+      adapter.addBindingPoint("sigmazx_alpha", &DamagedElasticMaterial::sigmazx_alpha);
+      adapter.addBindingPoint("sigmazy_alpha", &DamagedElasticMaterial::sigmazy_alpha);
+      adapter.addBindingPoint("sigmazz_alpha", &DamagedElasticMaterial::sigmazz_alpha);
     }                                                               
     
     template<class T>
@@ -611,5 +627,6 @@ template class seissol::initializers::MaterialParameterDB<seissol::model::Elasti
 template class seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::Plasticity>;
+template class seissol::initializers::MaterialParameterDB<seissol::model::DamagedElasticMaterial>;
 
 

@@ -141,6 +141,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       real gradEta[3];
       real gradZeta[3];
 
+      localIntegration[cell].globalMeshId = meshId;
+
       // Iterate over all 4 vertices of the tetrahedron
       for (unsigned vertex = 0; vertex < 4; ++vertex) {
         VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
@@ -157,15 +159,21 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
       setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
+      
+      // auto staM = CTData[26]*gradXi[2];
+      // if (meshId > 1000 && meshId < 1002){
+      //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
+      //   std::cout << staM << std::endl;
+      // }
 
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-        seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                    material[cell].neighbor[side],
-                                                    cellInformation[cell].faceTypes[side],
-                                                    QgodLocal,
-                                                    QgodNeighbor );
+        // seissol::model::getTransposedGodunovState(  material[cell].local,
+        //                                             material[cell].neighbor[side],
+        //                                             cellInformation[cell].faceTypes[side],
+        //                                             QgodLocal,
+        //                                             QgodNeighbor );
 
         VrtxCoords normal;
         VrtxCoords tangent1;

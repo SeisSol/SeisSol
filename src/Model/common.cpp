@@ -133,6 +133,10 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   unsigned origin = 10; 
   seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
+#elif USE_DAMAGEDELASTIC
+  //damage
+  o_T(9, 9) = 1;
+  o_Tinv(9,9) = 1;
 #endif 
 }
 

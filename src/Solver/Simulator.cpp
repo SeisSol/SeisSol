@@ -94,8 +94,9 @@ void seissol::Simulator::simulate() {
   stopwatch.start();
 
   // Set start time (required for checkpointing)
+  
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
-
+  
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
@@ -115,6 +116,10 @@ void seissol::Simulator::simulate() {
   upcomingTime = std::min( upcomingTime, Modules::callSyncHook(m_currentTime, 0.0) );
   upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
 
+  // Link derivatives to data.dofs
+  // std::cout << "here" << upcomingTime << std::endl;
+  seissol::SeisSol::main.timeManager().initialDerivativesToIC();
+  // std::cout << "there" << std::endl;
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
     if (upcomingTime < m_currentTime + l_timeTolerance)
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;

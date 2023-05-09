@@ -2,6 +2,7 @@
 #include <Solver/time_stepping/GhostTimeCluster.h>
 
 #include "GhostTimeCluster.h"
+#include <iostream>
 
 namespace seissol::time_stepping {
 void GhostTimeCluster::sendCopyLayer(){
@@ -65,6 +66,7 @@ bool GhostTimeCluster::testForCopyLayerSends(){
 
 ActResult GhostTimeCluster::act() {
   // Always check for receives/send for quicker MPI progression.
+  // std::cout << "acting in ghost cluster" << std::endl;
   testForGhostLayerReceives();
   testForCopyLayerSends();
   return AbstractTimeCluster::act();

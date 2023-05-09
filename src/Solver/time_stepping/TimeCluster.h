@@ -94,6 +94,8 @@
 
 #include "AbstractTimeCluster.h"
 
+#include <generated_code/kernel.h>
+
 #ifdef ACL_DEVICE
 #include <device.h>
 #include <Solver/Pipeline/DrPipeline.h>
@@ -139,6 +141,9 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor m_neighborKernel;
+
+    // //! cell average kernel
+    // kernel::cellAve m_cellAverageKernel;
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
@@ -217,6 +222,22 @@ private:
      **/
     void computeDynamicRupture( seissol::initializers::Layer&  layerData );
 
+    
+    /**
+     * Update all cell local material properties and the resulted matrices.
+     *
+     * This are:
+     *  * time integration
+     *  * volume integration
+     *  * local boundary integration
+     *
+     * Remark: After this step the DOFs are only updated half with the boundary contribution
+     *         of the neighborings cells missing.
+     *
+     * @param i_layerData number of cells.
+     **/
+    void updateMaterialLocal( seissol::initializers::Layer&  i_layerData);
+
     /**
      * Computes all cell local integration.
      *
@@ -273,11 +294,39 @@ private:
       real *l_timeIntegrated[4];
       real *l_faceNeighbors_prefetch[4];
 
+      real** derivatives = i_layerData.var(m_lts->derivatives);
+
+      // for (int i_out = 0; i_out<50; ++i_out){
+      //   std::cout << faceNeighbors[i_out][0][20*6+0] << " ";
+      // }
+      // std::cout << faceNeighbors[50][0][20*9] << " "<< std::endl;
+
+      // // Print nodes corresponding to exx and vx:
+      // auto faceNeighborsView = init::Q::view::create(faceNeighbors[100][0]);
+      // auto data1 = loader.entry(100);
+      // // real* derivative = derivatives[100];
+      // for (int i_out = 0; i_out<2; ++i_out){
+      //   std::cout 
+      //             << faceNeighbors[100][0][20*i_out*6+0]/timeStepSize() << " "
+      //             << faceNeighborsView(0,i_out*6)/timeStepSize() << " "
+      //             << data1.dofs[20*i_out*6+0] << " "
+      //             // << derivative[0]
+      //             // << derivatives[l_cell][20*i_out+0] 
+      //             << "s ";
+      // }
+      // std::cout << faceNeighbors[100][0][20*6+0]/faceNeighbors[100][0][20*0+0] 
+      //           << " " << data1.dofs[20*6+0]/data1.dofs[20*0+0] << std::endl;
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
+
+        // for (int i_out = 0; i_out<50; ++i_out){
+        //   std::cout << faceNeighbors[l_cell][0][20*i_out+0] << " ";
+        // }
+        // std::cout << faceNeighbors[l_cell][0][50] << " "<< std::endl;
         seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                                        data.cellInformation.ltsSetup,
                                                        data.cellInformation.faceTypes,
@@ -439,6 +488,14 @@ public:
     m_tv = tv;
     updateRelaxTime();
   }
+
+  /**
+   * Initialize the derivatives with data.dofs.
+   *
+   * Remark: This is called before entering time loop.
+   *
+   **/
+  void updateDerivatives();
 
 
   void reset() override;

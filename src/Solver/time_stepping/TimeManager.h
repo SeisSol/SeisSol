@@ -147,6 +147,11 @@ class seissol::time_stepping::TimeManager {
     seissol::dr::output::OutputManager* getFaultOutputManager();
 
     /**
+     * link derivatives to initial field.
+     **/
+    void initialDerivativesToIC();
+    
+    /**
      * Advance in time until all clusters reach the next synchronization time.
      **/
     void advanceInTime( const double &synchronizationTime );

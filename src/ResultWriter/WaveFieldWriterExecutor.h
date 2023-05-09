@@ -164,6 +164,8 @@ public:
 			"u_f",
 			"v_f",
 			"w_f",
+#elif USE_DAMAGEDELASTIC
+			"damage",
 #endif
 			"ep_xx",
 			"ep_yy",
@@ -179,6 +181,8 @@ public:
 			if (m_outputFlags[i]) {
 #ifdef USE_POROELASTIC
 				assert(i < 20);
+#elif USE_DAMAGEDELASTIC
+				assert(i < 17);
 #else
 				assert(i < 16);
 #endif

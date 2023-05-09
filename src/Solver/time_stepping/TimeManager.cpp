@@ -234,6 +234,13 @@ seissol::dr::output::OutputManager* seissol::time_stepping::TimeManager::getFaul
   return m_faultOutputManager;
 }
 
+void seissol::time_stepping::TimeManager::initialDerivativesToIC() {
+  for (auto& cluster : clusters) {
+    // std::cout << cluster->getMaxTimeStepSize() << std::endl;
+    cluster->updateDerivatives();
+  }
+}
+
 void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -243,8 +250,17 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   m_timeStepping.synchronizationTime = synchronizationTime;
 
   for (auto& cluster : clusters) {
+    // double t_temp1 = cluster->timeStepSize();
     cluster->setSyncTime(synchronizationTime);
     cluster->reset();
+    // cluster->updateDerivatives();
+    // double t_temp2 = cluster->timeStepSize();
+    
+    // std::cout << cluster->timeStepSize() << std::endl;
+    // if ( t_temp2-t_temp1 > 1e-20 ){
+    //   cluster->updateDerivatives();
+    // }
+    // std::cout << cluster->timeStepSize() << std::endl;
   }
 
   communicationManager->reset(synchronizationTime);
@@ -266,6 +282,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
+    // std::cout << "loop" << std::endl;
     communicationManager->progression();
 
     // Update all high priority clusters

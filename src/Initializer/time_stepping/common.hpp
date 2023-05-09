@@ -163,6 +163,16 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
       // GTS relation
       else if( i_localClusterId == i_neighboringClusterIds[l_face] ) {
         l_ltsSetup |= ( 1 << (l_face + 4) );
+
+        #ifdef USE_DAMAGEDELASTIC
+        // l_ltsSetup |= ( 1 <<  l_face      );
+        // l_ltsSetup |= ( 1 << 9 );
+        // l_ltsSetup |= ( 1 << 8 ); // now it does not have any buffers
+        // if( i_copy ) { // set the buffer invalid in copy layers
+                      // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
+          // l_ltsSetup |= ( 1 << 10 );
+        // }
+        #endif
       }
 
       // cell is required to provide derivatives
