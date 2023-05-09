@@ -192,6 +192,8 @@ endif()
 # PDE-Settings
 if (EQUATIONS STREQUAL "poroelastic")
   set(NUMBER_OF_QUANTITIES "13")
+elseif (EQUATIONS STREQUAL "damaged-elastic")
+  MATH(EXPR NUMBER_OF_QUANTITIES "10 + 6 * ${NUMBER_OF_MECHANISMS}")
 else()
   MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
 endif()
