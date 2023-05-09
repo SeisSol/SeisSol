@@ -98,7 +98,7 @@ module MeshReaderCBinding
                                     maximumAllowedTimeStep) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
-            character( kind=c_char ), dimension(*), intent(in) :: meshfile, partitioningLib, \
+            character( kind=c_char ), dimension(*), intent(in) :: meshfile, partitioningLib, &
                                                                   checkPointFile, outputDirectory
             character( kind=c_char ), dimension(*), intent(in) :: easiVelocityModel
             logical( kind=c_bool ), value :: hasFault
