@@ -201,7 +201,7 @@ void initializeCellMaterial() {
 
       initAssign(material.local, localMaterial);
       for (std::size_t side = 0; side < 4; ++side) {
-        if (isInteriorFaceType(localCellInformation.faceTypes[side])) {
+        if (isInternalFaceType(localCellInformation.faceTypes[side])) {
           // use the neighbor face material info in case that we are not at a boundary
           if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) {
             // material from interior or copy

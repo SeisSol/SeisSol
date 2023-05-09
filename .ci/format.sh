@@ -19,6 +19,7 @@ format() {
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
     local whitelist_file="
+        src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputParameters.hpp
         src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
