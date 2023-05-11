@@ -346,8 +346,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       normalStress[pointIndex] =
           std::min(static_cast<real>(0.0),
                    faultStresses.normalStress[timeIndex][pointIndex] +
-                       this->initialStressInFaultCS[ltsFace][pointIndex][0] -
-                       faultStresses.fluidPressure[timeIndex][pointIndex] -
+                       this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+                       faultStresses.fluidPressure[timeIndex][pointIndex] +
                        this->initialPressure[ltsFace][pointIndex] -
                        tpMethod.getFluidPressure(ltsFace, pointIndex));
     }

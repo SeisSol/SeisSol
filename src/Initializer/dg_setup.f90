@@ -284,6 +284,9 @@ CONTAINS
     if (IC%cICType == "Travelling") then
       call c_interoperability_setTravellingWaveInformation(IC%origin, IC%kVec, IC%ampField)
     endif
+    if (IC%cICType == "PressureInjection") then
+      call c_interoperability_setPressureInjectionInformation(IC%origin, IC%magnitude, IC%width)
+    endif
 
     ! malloc fortran arrays
     call ini_calc_deltaT( eqn%eqType,     &

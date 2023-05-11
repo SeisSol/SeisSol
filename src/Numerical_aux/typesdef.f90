@@ -984,6 +984,7 @@ MODULE TypesDef
      REAL                                   :: origin(3)
      REAL                                   :: kVec(3)
      REAL                                   :: ampField(NUMBER_OF_QUANTITIES)
+     REAL                                   :: magnitude, width
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<

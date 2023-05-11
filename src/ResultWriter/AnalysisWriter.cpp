@@ -48,7 +48,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  if (initialConditionType == "Zero" || initialConditionType == "Travelling") {
+  if (initialConditionType == "Zero" || 
+      initialConditionType == "Travelling" ||
+      initialConditionType == "PressureInjection") {
     return;
   }
   logInfo(mpi.rank())

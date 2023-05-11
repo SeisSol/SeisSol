@@ -551,8 +551,9 @@ CONTAINS
     !------------------------------------------------------------------------
     CHARACTER(Len=600)         :: cICType
     REAL                       :: origin(3), kVec(3), ampField(NUMBER_OF_QUANTITIES)
+    REAL                       :: magnitude, width
     INTEGER                    :: readStat
-    NAMELIST                   /IniCondition/ cICType, origin, kVec, ampField
+    NAMELIST                   /IniCondition/ cICType, origin, kVec, ampField, magnitude, width
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -566,6 +567,8 @@ CONTAINS
     origin(:) = 0
     kVec(:) = 0
     ampField(:) = 0
+    magnitude = 0
+    width = 0
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
@@ -576,6 +579,8 @@ CONTAINS
     IC%origin = origin
     IC%kVec = kVec
     IC%ampField = ampField
+    IC%magnitude = magnitude
+    IC%width = width
   END SUBROUTINE readpar_ini_condition
 
   !============================================================================

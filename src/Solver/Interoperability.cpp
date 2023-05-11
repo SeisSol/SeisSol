@@ -98,6 +98,10 @@ extern "C" {
     e_interoperability.setTravellingWaveInformation(origin, kVec, ampField);
   }
 
+  void c_interoperability_setPressureInjectionInformation(const double* origin, double magnitude, double width) {
+    e_interoperability.setPressureInjectionInformation(origin, magnitude, width);
+  }
+
   void c_interoperability_setInitialConditionType(char* type)
   {
     e_interoperability.setInitialConditionType(type);
@@ -396,6 +400,14 @@ void seissol::Interoperability::setTravellingWaveInformation(const double* origi
       m_travellingWaveParameters.ampField.push_back(ampField[i]);
     }
   }
+}
+
+void seissol::Interoperability::setPressureInjectionInformation(const double* origin, double magnitude, double width) {
+  assert(origin != nullptr);
+
+  m_pressureInjectionParameters.origin = {origin[0], origin[1], origin[2]};
+  m_pressureInjectionParameters.width = width;
+  m_pressureInjectionParameters.magnitude = magnitude;
 }
 
 void seissol::Interoperability::setInitialConditionType(char const* type) {
@@ -1019,6 +1031,9 @@ void seissol::Interoperability::initInitialConditions()
   } else if (m_initialConditionType == "Scholte") {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::ScholteWave());
+  } else if (m_initialConditionType == "PressureInjection") {
+    initialConditionDescription = "Pressure Injection (poroelastic)";
+    m_iniConds.emplace_back(new physics::PressureInjection(m_pressureInjectionParameters));
   } else if (m_initialConditionType == "Snell") {
     initialConditionDescription = "Snell's law (elastic-acoustic)";
     m_iniConds.emplace_back(new physics::SnellsLaw());
