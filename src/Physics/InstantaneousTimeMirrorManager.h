@@ -8,6 +8,7 @@
 #include "Initializer/tree/Lut.hpp"
 #include "Initializer/typedefs.hpp"
 #include "Solver/time_stepping/TimeCluster.h"
+#include "Solver/time_stepping/GhostTimeCluster.h"
 
 namespace seissol::ITM {
 
@@ -23,6 +24,7 @@ class InstantaneousTimeMirrorManager : Module {
   TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>* ghostTimeClusters;
 
   public:
   InstantaneousTimeMirrorManager() : isEnabled(false){};
@@ -38,6 +40,10 @@ class InstantaneousTimeMirrorManager : Module {
 
   void setTimeClusterVector(
       std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
+
+  void setGhostClusterVector(
+      std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>* clusters);
+
   void syncPoint(double currentTime) override;
 
   private:

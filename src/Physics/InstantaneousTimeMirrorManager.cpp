@@ -12,7 +12,8 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           initializers::LTS* lts,
                                           initializers::Lut* ltsLut,
                                           TimeStepping* timestepping) {
-  isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM. Need this by default as true for it to work. 
+  isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
+                    // Need this by default as true for it to work.
   this->velocityScalingFactor = velocityScalingFactor;
   this->triggerTime = triggerTime;
   this->meshReader = meshReader;
@@ -76,11 +77,26 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
           neighborCluster.ct.getTimeStepSize() / velocityScalingFactor;
     }
   }
+
+  for (auto& cluster : *ghostTimeClusters) {
+    cluster->getClusterTimes().getTimeStepSize() =
+        cluster->getClusterTimes().getTimeStepSize() / velocityScalingFactor;
+    auto ghostNeighborClusters = cluster->getNeighborClusters();
+    for (auto& neighborcluster : *ghostNeighborClusters) {
+      neighborcluster.ct.getTimeStepSize() =
+          neighborcluster.ct.getTimeStepSize() / velocityScalingFactor;
+    }
+  }
 }
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
     std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters) {
   timeClusters = clusters;
+}
+
+void InstantaneousTimeMirrorManager::setGhostClusterVector(
+    std::vector<std::unique_ptr<seissol::time_stepping::GhostTimeCluster>>* clusters) {
+  ghostTimeClusters = clusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,
