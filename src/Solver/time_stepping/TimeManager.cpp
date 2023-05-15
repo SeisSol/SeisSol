@@ -203,10 +203,6 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
       }
     }
 #endif
-    auto ghostClusterPointer = communicationManager->getGhostClusters();
-
-    increaseManager.setGhostClusterVector(ghostClusterPointer);
-    decreaseManager.setGhostClusterVector(ghostClusterPointer);
   }
 
   clusteringWriter.write();
@@ -243,6 +239,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
+  auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
+
+  auto ghostClusterPointer = communicationManager->getGhostClusters();
+
+  increaseManager.setGhostClusterVector(ghostClusterPointer);
+  decreaseManager.setGhostClusterVector(ghostClusterPointer);
+
 }
 
 void seissol::time_stepping::TimeManager::setFaultOutputManager(
