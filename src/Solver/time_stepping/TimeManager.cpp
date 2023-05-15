@@ -171,7 +171,6 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
 
     increaseManager.setTimeClusterVector(&clusters);
     decreaseManager.setTimeClusterVector(&clusters);
-
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
@@ -240,6 +239,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
+
+  auto& timeMirrorManagers = seissol::SeisSol::main.getTimeMirrorManagers();
+  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
+
+  auto ghostClusterPointer = communicationManager->getGhostClusters();
+
+  increaseManager.setGhostClusterVector(ghostClusterPointer);
+  decreaseManager.setGhostClusterVector(ghostClusterPointer);
+
 }
 
 void seissol::time_stepping::TimeManager::setFaultOutputManager(

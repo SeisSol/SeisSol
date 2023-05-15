@@ -70,6 +70,15 @@ ActResult GhostTimeCluster::act() {
   return AbstractTimeCluster::act();
 }
 
+ClusterTimes& GhostTimeCluster::getClusterTimes(){
+  return ct;
+}
+
+std::vector<seissol::time_stepping::NeighborCluster>*
+    seissol::time_stepping::GhostTimeCluster::getNeighborClusters() {
+  return &neighbors;
+}
+
 void GhostTimeCluster::start() {
   assert(testForGhostLayerReceives());
   receiveGhostLayer();

@@ -8,7 +8,7 @@
 namespace seissol::time_stepping {
 
 class GhostTimeCluster : public AbstractTimeCluster {
- private:
+  private:
   const int globalClusterId;
   const int otherGlobalClusterId;
   const MeshStructure* meshStructure;
@@ -34,21 +34,19 @@ class GhostTimeCluster : public AbstractTimeCluster {
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
- public:
+  public:
   GhostTimeCluster(double maxTimeStepSize,
                    int timeStepRate,
                    int globalTimeClusterId,
                    int otherGlobalTimeClusterId,
-                   const MeshStructure* meshStructure
-  );
+                   const MeshStructure* meshStructure);
   void reset() override;
   ActResult act() override;
 
+  ClusterTimes& getClusterTimes();
+
+  std::vector<seissol::time_stepping::NeighborCluster>* getNeighborClusters();
 };
+} // namespace seissol::time_stepping
 
-
-}
-
-
-
-#endif //SEISSOL_GHOSTTIMECLUSTER_H
+#endif // SEISSOL_GHOSTTIMECLUSTER_H
