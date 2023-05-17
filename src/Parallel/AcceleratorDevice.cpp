@@ -41,15 +41,6 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
 
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-
-#ifdef _OPENMP
-#pragma omp parallel
-  {
-#pragma omp critical
-    { device.api->setDevice(deviceId); }
-  }
-#else
   device.api->setDevice(deviceId);
-#endif
 }
 } // namespace seissol
