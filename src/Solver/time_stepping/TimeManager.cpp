@@ -43,12 +43,10 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include <Initializer/preProcessorMacros.fpp>
+#include <Initializer/preProcessorMacros.hpp>
 #include <Initializer/time_stepping/common.hpp>
 #include "SeisSol.h"
 #include <ResultWriter/ClusteringWriter.h>
-
-extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())

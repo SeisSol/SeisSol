@@ -22,7 +22,7 @@ endif()
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
-#       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND,
+#       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
 #                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION
 #
 #       user's input: HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
@@ -432,7 +432,7 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
     # 1. -Mpreprocess enables a C preprocessor macro
     # 2. -Mfree specifies fortran free format
     # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
-    # 4. BG (see, Initializer/preProcessorMacros.fpp) around logDebug, logInfo, etc.
+    # 4. BG (see, Initializer/preProcessorMacros.hpp) around logDebug, logInfo, etc.
   target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
   target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
@@ -582,6 +582,17 @@ if (TESTING)
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/ResultWriter/receiver_correct.dat
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
+    COPYONLY
+  )
+
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source1.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source1.dat
+    COPYONLY
+  )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/fsrm_source2.dat
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/fsrm_source2.dat
     COPYONLY
   )
 

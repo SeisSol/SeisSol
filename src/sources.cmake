@@ -1,6 +1,15 @@
 # Source code
 add_library(SeisSol-lib
 
+# do YATeTo first, since kernel.cpp usually takes really long
+
+# kernel.cpp usually takes the longest
+# (for CPUs, at least; for GPUs, we have a different library alltogether)
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
+${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
+
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/GlobalData.cpp
@@ -10,11 +19,19 @@ src/Initializer/CellLocalMatrices.cpp
 
 src/Initializer/time_stepping/LtsLayout.cpp
 src/Initializer/time_stepping/LtsParameters.cpp
+src/Initializer/time_stepping/GlobalTimestep.cpp
 src/Initializer/tree/Lut.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/InitialFieldProjection.cpp
+src/Initializer/InputParameters.cpp
+
+src/Initializer/InitProcedure/InitMesh.cpp
+src/Initializer/InitProcedure/InitModel.cpp
+src/Initializer/InitProcedure/InitIO.cpp
+src/Initializer/InitProcedure/InitSideConditions.cpp
+src/Initializer/InitProcedure/Init.cpp
+
 src/Modules/Modules.cpp
-src/Modules/ModulesC.cpp
 src/Model/common.cpp
 src/Numerical_aux/Functions.cpp
 src/Numerical_aux/Transformation.cpp
@@ -22,7 +39,6 @@ src/Numerical_aux/Statistics.cpp
 
 src/Solver/Simulator.cpp
 src/Solver/FreeSurfaceIntegrator.cpp
-src/Solver/Interoperability.cpp
 
 src/Solver/time_stepping/AbstractTimeCluster.cpp
 src/Solver/time_stepping/ActorState.cpp
@@ -41,24 +57,18 @@ src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
 src/SeisSol.cpp
 src/SourceTerm/Manager.cpp
-
+src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
 src/Parallel/Pin.cpp
 src/Parallel/mpiC.cpp
 src/Parallel/FaultMPI.cpp
-src/Geometry/GambitReader.cpp
 
-src/Geometry/MeshReaderFBinding.cpp
 src/Geometry/MeshTools.cpp
+src/Geometry/MeshReader.cpp
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
-src/Reader/readparC.cpp
-#Reader/StressReaderC.cpp
+
 src/Checkpoint/Manager.cpp
-
-
-# Checkpoint/sionlib/Wavefield.cpp
-# Checkpoint/sionlib/Fault.cpp
 
 src/Checkpoint/Backend.cpp
 src/Checkpoint/Fault.cpp
@@ -77,48 +87,20 @@ src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/EnergyOutput.cpp
 
-# Fortran:
-src/Geometry/allocate_mesh.f90
-src/Geometry/MeshReaderCBinding.f90
-src/Solver/close_seissol.f90
-src/Solver/calc_deltat.f90
-src/Solver/mpiexchangevalues.f90
-src/Solver/calc_seissol.f90
-src/Solver/f_ctof_bind_interoperability.f90
-src/Solver/f_ftoc_bind_interoperability.f90
-src/Numerical_aux/quadpoints.f90
-src/Numerical_aux/jacobinormal.f90
-src/Numerical_aux/convertxieta2xy.f90
-src/Numerical_aux/trilinearinterpolation.f90
-src/Numerical_aux/typesdef.f90
-src/Numerical_aux/dgbasis.f90
-src/Numerical_aux/gauss.f90
-src/Numerical_aux/operators.f90
 src/Numerical_aux/ODEInt.cpp
 src/Numerical_aux/ODEVector.cpp
-src/Modules/ModulesF.f90
-src/seissolxx.f90
-src/Physics/ini_model.f90
+src/Physics/Attenuation.cpp
 src/Physics/InitialField.cpp
-src/Reader/readpar.f90
-src/ResultWriter/inioutput_seissol.f90
-src/Initializer/dg_setup.f90
-src/Initializer/ini_optionalfields.f90
-src/Initializer/ini_seissol.f90
-src/Parallel/mpiF.f90
 
 src/Equations/poroelastic/Model/datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
 src/Common/IntegerMaskParser.cpp
 
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
 )
 
 set(SYCL_DEPENDENT_SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Misc.cpp
@@ -173,6 +155,7 @@ endif()
 if (NETCDF)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp # if netCDF
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
     )
 endif()
 

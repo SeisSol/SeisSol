@@ -676,7 +676,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
   }
 }
 
-void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFreeSurfaceIntegration)
+void seissol::initializers::MemoryManager::initializeMemoryLayout()
 {
   // correct LTS-information in the ghost layer
   correctGhostRegionSetups();
@@ -847,7 +847,7 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
     m_faultOutputManager->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &m_lts,
-                                     e_interoperability.getLtsLut(),
+                                     &m_ltsLut,
                                      &m_dynRupTree,
                                      m_dynRup.get());
     m_faultOutputManager->init();

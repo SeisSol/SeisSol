@@ -171,6 +171,8 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   // read parameter file input
   readInputParams();
 
+  m_seissolparameters.readParameters(*m_inputParams);
+
   m_memoryManager->setInputParams(m_inputParams);
 
   writer::ThreadsPinningWriter pinningWriter(m_memoryManager->getOutputPrefix());

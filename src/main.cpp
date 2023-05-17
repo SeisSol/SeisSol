@@ -38,6 +38,7 @@
  */
 
 #include "SeisSol.h"
+#include "Initializer/InitProcedure/Init.hpp"
 
 #include <yaml-cpp/yaml.h>
 
@@ -71,9 +72,10 @@ int main(int argc, char* argv[])
 	// Initialize SeisSol
 	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
-	// Initialize Fortan Part and run SeisSol
-	if (runSeisSol)
-		fortran_main();
+	// Run SeisSol
+        if (runSeisSol) {
+                seissol::initializer::initprocedure::seissolMain();
+        }
 #pragma omp parallel
         {
         LIKWID_MARKER_STOP("SeisSol");

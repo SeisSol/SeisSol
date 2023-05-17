@@ -47,6 +47,7 @@
 #include "utils/logger.h"
 
 #include "Checkpoint/Manager.h"
+#include "Initializer/InputParameters.hpp"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Initializer/typedefs.hpp"
 #include "Monitoring/FlopCounter.hpp"
@@ -63,10 +64,12 @@
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
-class MeshReader;
-
 namespace seissol
 {
+
+namespace geometry {
+	class MeshReader;
+}
 
 /**
  * @todo Initialize rank
@@ -90,7 +93,7 @@ private:
 	/** Async I/O handler (needs to be initialize before other I/O modules) */
 	io::AsyncIO m_asyncIO;
 
-	MeshReader* m_meshReader;
+	seissol::geometry::MeshReader* m_meshReader;
 
 	/*
 	 * initializers
@@ -142,6 +145,8 @@ private:
 
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
+
+  seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
 private:
 	/**
 	 * Only one instance of this class should exist (private constructor).
@@ -271,7 +276,7 @@ public:
 	/**
 	 * Set the mesh reader
 	 */
-	void setMeshReader(MeshReader* meshReader)
+	void setMeshReader(seissol::geometry::MeshReader* meshReader)
 	{
 		if (m_meshReader != 0L)
 			logError() << "Mesh reader already initialized";
@@ -293,7 +298,7 @@ public:
 	/**
 	 * Get the mesh reader
 	 */
-	const MeshReader& meshReader() const
+	const seissol::geometry::MeshReader& meshReader() const
 	{
 		return *m_meshReader;
 	}
@@ -301,7 +306,7 @@ public:
 	/**
 	 * Get the mesh reader
 	 */
-	MeshReader& meshReader()
+	seissol::geometry::MeshReader& meshReader()
 	{
 		return *m_meshReader;
 	}
@@ -311,6 +316,10 @@ public:
   	const std::shared_ptr<YAML::Node> getInputParams() {
     		return m_inputParams;
  	}
+
+	const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+		return m_seissolparameters;
+	}
 
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and

@@ -90,7 +90,7 @@ class seissol::Simulator {
      *
      * @param i_plasticity = 1 if plasticity is on
      **/
-    void setUsePlasticity( int i_plasticity );
+    void setUsePlasticity( bool plasticity );
 
     /**
      * Sets the current time of the simulation (useful for checkpoints)
