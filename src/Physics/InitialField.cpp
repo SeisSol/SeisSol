@@ -178,7 +178,7 @@ seissol::physics::PressureInjection::PressureInjection(const PressureInjectionPa
   const auto o_3 = m_parameters.origin[2];
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
-  logInfo() << "Prepare gaussian pressure pertubation with center at (" << o_1 << 
+  logInfo(0) << "Prepare gaussian pressure pertubation with center at (" << o_1 << 
               ", " << o_2 << ", " << o_3 << "), magnitude = " << magnitude <<
               ", width = " << width << ".";
 }
