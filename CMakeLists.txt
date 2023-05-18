@@ -9,7 +9,7 @@ if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
 endif()
 
-project(SeisSol LANGUAGES C CXX Fortran)
+project(SeisSol LANGUAGES C CXX)
 
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
@@ -192,7 +192,6 @@ target_link_libraries(SeisSol-common-properties INTERFACE easi::easi)
 if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_CXX)
-  target_link_libraries(SeisSol-common-properties INTERFACE OpenMP::OpenMP_Fortran)
   target_compile_definitions(SeisSol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
 endif()
 
@@ -201,9 +200,6 @@ if (MPI)
 
   target_include_directories(SeisSol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
   target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_C)
-
-  target_include_directories(SeisSol-common-properties SYSTEM INTERFACE ${MPI_Fortran_INCLUDE_PATH})
-  target_link_libraries(SeisSol-common-properties INTERFACE MPI::MPI_Fortran)
 
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_MPI PARALLEL)
 
@@ -293,7 +289,6 @@ if(${EQUATIONS} STREQUAL "poroelastic")
     FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
     find_package(LAPACK REQUIRED)
     target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-    message(${LAPACK_LIBRARIES})
     target_link_libraries(SeisSol-lib PUBLIC ${LAPACK_LIBRARIES})
   else()
     message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
@@ -417,25 +412,6 @@ if (WITH_GPU)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
   target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
-endif()
-
-
-# Fortran compliler settings
-if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
-elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
-  # todo intel, is needed:  -align -align array64byte
-  # todo -r8 -WB is needed for intel (8 byte precision for reals)
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC|PGI")
-    # NOTE:
-    # 1. -Mpreprocess enables a C preprocessor macro
-    # 2. -Mfree specifies fortran free format
-    # 3. -r8 Interpret REAL variables as DOUBLE PRECISION
-    # 4. BG (see, Initializer/preProcessorMacros.hpp) around logDebug, logInfo, etc.
-  target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-Mpreprocess -Mfree -r8 -DBG>)
-elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Flang")
-  target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-form -fdefault-real-8 -DBG>)
 endif()
 
 # C++ compiler settings
