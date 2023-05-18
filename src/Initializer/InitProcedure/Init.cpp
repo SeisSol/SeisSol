@@ -6,6 +6,8 @@
 #include "SeisSol.h"
 #include "Initializer/InputParameters.hpp"
 #include "Parallel/MPI.h"
+#include <Numerical_aux/Statistics.h>
+#include <sstream>
 
 static void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
@@ -15,18 +17,20 @@ static void reportDeviceMemoryStatus() {
   if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
     std::stringstream stream;
 
-    stream << "Device(" << rank << ")  memory is overloaded.\n"
-           << "Totally allocated device memory, GB: " << device.api->getCurrentlyOccupiedMem() / GB
-           << '\n'
-           << "Allocated unified memory, GB: " << device.api->getCurrentlyOccupiedUnifiedMem() / GB
-           << '\n'
-           << "Memory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
+    stream << "Device(" << rank << ")  memory is overloaded."
+           << "\nTotally allocated device memory, GB: "
+           << device.api->getCurrentlyOccupiedMem() / GB << "\nAllocated unified memory, GB: "
+           << device.api->getCurrentlyOccupiedUnifiedMem() / GB
+           << "\nMemory capacity of device, GB: " << device.api->getMaxAvailableMem() / GB;
 
     logError() << stream.str();
   } else {
     double fraction = device.api->getCurrentlyOccupiedMem() /
                       static_cast<double>(device.api->getMaxAvailableMem());
-    logInfo() << "occupied memory on device(" << rank << "): " << fraction * 100.0 << "%";
+    const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
+    logInfo(rank) << "occupied memory on devices (%):"
+                  << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min
+                  << " median =" << summary.median << " max =" << summary.max;
   }
 #endif
 }
