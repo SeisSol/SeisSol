@@ -187,23 +187,58 @@ class Pick(Filter):
   def __init__(self, parent = None):
     super(Pick, self).__init__('Pick components', parent)
     self.cb_widget_list = []
+    self.layout = QGridLayout()
+    self.setLayout(self.layout)
+
+  def create_checkbox(self, name):
+    widget = QCheckBox(name)
+    widget.stateChanged.connect(self.filterChanged)
+    return widget
+
+  def add_widgts_to_layout(self):
+    cols = 3
+    nwidget_over_3 = len(self.cb_widget_list) // cols
+    rows = nwidget_over_3 + 1
+    for k, widget in enumerate(self.cb_widget_list):
+      row = k // cols
+      col = k - row * cols
+      self.layout.addWidget(widget, row, col)
 
   def create_checkboxes(self, wf):
+    assert self.cb_widget_list == []
+
     for name in wf.waveforms.keys():
-        widget = QCheckBox(name)
-        widget.stateChanged.connect(self.filterChanged)
-        self.cb_widget_list.append(widget)
-    layout = QGridLayout()
-    nwidget_over_3 = len(self.cb_widget_list)//3
-    for k, widget in enumerate(self.cb_widget_list):
-        col = k // nwidget_over_3
-        layout.addWidget(widget, k - col * nwidget_over_3, col)
-    self.setLayout(layout)
+      self.cb_widget_list.append(self.create_checkbox(name))
+
+    self.add_widgts_to_layout()
+
+  def update_checkboxes(self, wf):
+    existing_widgets = [cb.text() for cb in self.cb_widget_list]
+    required_widgets = list(wf.waveforms.keys())
+
+    # remove not needed checkboxes
+    # can't remove from list, while iterating over list
+    widgets_to_remove = []
+    for w in self.cb_widget_list:
+      if not w.text() in required_widgets:
+        widgets_to_remove.append(w)
+    for w in widgets_to_remove:
+      w.setParent(None)
+      self.cb_widget_list.remove(w)
+
+    # add new checkboxes
+    for name in required_widgets:
+      if not name in existing_widgets:
+        self.cb_widget_list.append(self.create_checkbox(name))
+
+    self.add_widgts_to_layout()
 
   def apply(self, wf):
     if not self.cb_widget_list:
-        self.create_checkboxes(wf)
+      self.create_checkboxes(wf)
+    else:
+      self.update_checkboxes(wf)
 
     for widget in self.cb_widget_list:
-        var_name = widget.text()
-        wf.show[var_name] = widget.isChecked()
+      var_name = widget.text()
+      wf.show[var_name] = widget.isChecked()
