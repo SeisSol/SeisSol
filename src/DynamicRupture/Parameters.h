@@ -64,8 +64,9 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     if (((drParameters->frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
          (drParameters->frictionLawType == FrictionLawType::ImposedSlipRatesGaussian)) and
         (drParameters->slipRateOutputType == 1)) {
-      logWarning() << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
-                      "switching to SlipRateOutputType=0";
+      logWarning(seissol::MPI::mpi.rank())
+          << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
+             "switching to SlipRateOutputType=0";
       drParameters->slipRateOutputType = 0;
     }
     drParameters->backgroundType = getWithDefault(yamlDrParams, "backgroundtype", 0);
