@@ -6,6 +6,7 @@
 #include "DynamicRupture/Typedefs.hpp"
 #include "Initializer/InputAux.hpp"
 #include "Kernels/precision.hpp"
+#include "Parallel/MPI.h"
 #include "Typedefs.hpp"
 
 #include <Eigen/Dense>
