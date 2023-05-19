@@ -1,6 +1,9 @@
 #include "CommunicationManager.h"
-
 #include "Parallel/Pin.h"
+
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif // ACL_DEVICE
 
 seissol::time_stepping::AbstractCommunicationManager::AbstractCommunicationManager(
     seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters) : ghostClusters(std::move(ghostClusters)) {
@@ -72,6 +75,10 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
   // Start a new communication thread.
   // Note: Easier than keeping one alive, and not that expensive.
   thread = std::thread([this](){
+#ifdef ACL_DEVICE
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    device.api->setDevice(0);
+#endif // ACL_DEVICE
     // Pin this thread to the last core
     // We compute the mask outside the thread because otherwise
     // it confuses profilers and debuggers!

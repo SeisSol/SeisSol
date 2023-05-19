@@ -67,6 +67,10 @@
 #endif
 
 bool seissol::SeisSol::init(int argc, char* argv[]) {
+#if defined(ACL_DEVICE) && defined(USE_MPI)
+  MPI::mpi.bindAcceleratorDevice();
+#endif
+
 #ifdef USE_ASAGI
   // Construct an instance of AsagiModule, to initialize it.
   // It needs to be done here, as it registers PRE_MPI hooks
@@ -74,10 +78,6 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 #endif
   // Call pre MPI hooks
   seissol::Modules::callHook<seissol::PRE_MPI>();
-
-#if defined(ACL_DEVICE) && defined(USE_MPI)
-  MPI::mpi.bindAcceleratorDevice();
-#endif
 
   MPI::mpi.init(argc, argv);
   const int rank = MPI::mpi.rank();

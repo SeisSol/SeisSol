@@ -290,12 +290,12 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
       [](bool& enabled, double interval, const std::string& valName, const std::string& intName) {
         if (enabled && interval <= 0) {
           auto intPhrase = valName + " = 0";
-          logInfo() << "In your parameter file, you have specified a non-positive interval for"
-                    << intName
-                    << ". This mechanism is deprecated and may be removed in a future version of "
-                       "SeisSol. Consider disabling the whole module by setting"
-                    << valName << "to 0 instead by adding" << intPhrase
-                    << "to the \"output\" section of your parameter file instead.";
+          logInfo(seissol::MPI::mpi.rank())
+              << "In your parameter file, you have specified a non-positive interval for" << intName
+              << ". This mechanism is deprecated and may be removed in a future version of "
+                 "SeisSol. Consider disabling the whole module by setting"
+              << valName << "to 0 instead by adding" << intPhrase
+              << "to the \"output\" section of your parameter file instead.";
 
           // still, replicate the old behavior.
           enabled = false;
@@ -379,10 +379,11 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
 
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.format == OutputFormat::None) {
-    logInfo() << "Disabling the wavefield output by setting \"outputformat = 10\" is deprecated "
-                 "and may be removed in a future version of SeisSol. Consider using the parameter "
-                 "\"wavefieldoutput\" instead. To disable wavefield output, add \"wavefieldoutput "
-                 "= 0\" to the \"output\" section of your parameters file.";
+    logInfo(seissol::MPI::mpi.rank())
+        << "Disabling the wavefield output by setting \"outputformat = 10\" is deprecated "
+           "and may be removed in a future version of SeisSol. Consider using the parameter "
+           "\"wavefieldoutput\" instead. To disable wavefield output, add \"wavefieldoutput "
+           "= 0\" to the \"output\" section of your parameters file.";
 
     seissolParams.output.waveFieldParameters.enabled = false;
   }
