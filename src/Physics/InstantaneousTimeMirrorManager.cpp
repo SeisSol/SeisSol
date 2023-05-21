@@ -47,8 +47,8 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
       *meshReader, ltsTree, lts, ltsLut, *timestepping); // An empty timestepping is added. Need to
                                                          // discuss what exactly is to be sent here
 
-  logInfo(rank) << "Updating TimeSteps";
-  updateTimeSteps();
+   logInfo(rank) << "Updating TimeSteps by a factor of " << 1/velocityScalingFactor;
+   updateTimeSteps();
 
   logInfo(rank) << "Finished flipping.";
   isEnabled = false;
@@ -60,7 +60,16 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     CellMaterialData* materials = it->var(lts->material);
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
       auto& material = materials[cell];
-      material.local.rho *= this->velocityScalingFactor * this->velocityScalingFactor;
+      // material.local.mu = material.local.mu / velocityScalingFactor;
+      // material.local.lambda = material.local.lambda / velocityScalingFactor;
+      // material.local.rho = material.local.rho * velocityScalingFactor;
+      // material.local.rho *= this->velocityScalingFactor * this->velocityScalingFactor;
+      material.local.mu *= velocityScalingFactor*velocityScalingFactor;
+      material.local.lambda *= velocityScalingFactor*velocityScalingFactor;
+      for(int i=0; i<4; i++){
+        material.neighbor[i].mu *= velocityScalingFactor*velocityScalingFactor;
+        material.neighbor[i].lambda *= velocityScalingFactor*velocityScalingFactor;
+      }
     }
   }
 }
