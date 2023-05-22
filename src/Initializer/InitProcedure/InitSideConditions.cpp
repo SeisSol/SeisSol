@@ -100,7 +100,8 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
     logError() << "Non-implemented initial condition type:"
                << static_cast<int>(initConditionParams.type);
   }
-  logInfo(MPI::mpi.rank()) << "Using initial condition" << initialConditionDescription << ".";
+  logInfo(seissol::MPI::mpi.rank())
+      << "Using initial condition" << initialConditionDescription << ".";
   return initConditions;
 }
 
