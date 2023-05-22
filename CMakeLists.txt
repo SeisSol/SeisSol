@@ -69,7 +69,7 @@ include(GetGitRevisionDescription)
 # get GIT info
 get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
-git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(modified\) --broken)
+git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
 if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
   set(PACKAGE_GIT_VERSION "(unknown)")
 endif()
@@ -77,7 +77,7 @@ endif()
 # write file and print info
 configure_file("src/version_template.h"
                "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
-message(STATUS "Latest (Git-tagged) version: " ${PACKAGE_GIT_VERSION})
+message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
