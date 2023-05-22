@@ -223,7 +223,7 @@ class Pick(Filter):
       if not w.text() in required_widgets:
         widgets_to_remove.append(w)
     for w in widgets_to_remove:
-      w.setParent(None)
+      w.deleteLater()
       self.cb_widget_list.remove(w)
 
     # add new checkboxes
