@@ -84,9 +84,10 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2021, SeisSol Group";
-  logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
+  logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo(rank) << "Version:" << VERSION_STRING;
+  logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
+  logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 
   if (MPI::mpi.rank() == 0) {
     const auto& hostNames = MPI::mpi.getHostNames();

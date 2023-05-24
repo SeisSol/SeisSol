@@ -65,11 +65,20 @@ endif()
 # Generate version.h
 
 include(GetGitRevisionDescription)
-git_describe(PACKAGE_GIT_VERSION  --dirty=\ \(modified\) --always)
+
+# get GIT info
+get_git_commit_info(PACKAGE_GIT_HASH PACKAGE_GIT_TIMESTAMP)
+string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
+git_describe(PACKAGE_GIT_VERSION --tags --always --dirty=\ \(dirty\) --broken=\ \(broken\))
+if (${PACKAGE_GIT_VERSION} MATCHES "NOTFOUND")
+  set(PACKAGE_GIT_VERSION "(unknown)")
+endif()
+
+# write file and print info
 configure_file("src/version_template.h"
                "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
-message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
-
+message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
+message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
