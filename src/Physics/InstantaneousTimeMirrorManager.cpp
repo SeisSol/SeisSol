@@ -60,16 +60,20 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     CellMaterialData* materials = it->var(lts->material);
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
       auto& material = materials[cell];
-      // material.local.mu = material.local.mu / velocityScalingFactor;
-      // material.local.lambda = material.local.lambda / velocityScalingFactor;
-      // material.local.rho = material.local.rho * velocityScalingFactor;
-      // material.local.rho *= this->velocityScalingFactor * this->velocityScalingFactor;
       material.local.mu *= velocityScalingFactor*velocityScalingFactor;
       material.local.lambda *= velocityScalingFactor*velocityScalingFactor;
       for(int i=0; i<4; i++){
         material.neighbor[i].mu *= velocityScalingFactor*velocityScalingFactor;
         material.neighbor[i].lambda *= velocityScalingFactor*velocityScalingFactor;
       }
+//      material.local.mu *= velocityScalingFactor;
+//      material.local.lambda *= velocityScalingFactor;
+//      material.local.rho /= velocityScalingFactor;
+//      for(int i=0; i<4; i++){
+//        material.neighbor[i].mu *= velocityScalingFactor;
+//        material.neighbor[i].lambda *= velocityScalingFactor;
+//        material.neighbor[i].rho /= velocityScalingFactor;
+//      }
     }
   }
 }
