@@ -209,11 +209,11 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
   seissolParams.mesh.scaling = {scalingX, scalingY, scalingZ};
 
   seissolParams.timeStepping.vertexWeight.weightElement =
-      reader.readWithDefault("vertexWeightElement", 100);
+      reader.readWithDefault("vertexweightelement", 100);
   seissolParams.timeStepping.vertexWeight.weightDynamicRupture =
-      reader.readWithDefault("vertexWeightDynamicRupture", 100);
+      reader.readWithDefault("vertexweightdynamicrupture", 100);
   seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity =
-      reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 100);
+      reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
@@ -423,8 +423,6 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
   seissolParams.output.energyParameters.enabled = reader.readWithDefault("energyoutput", false);
   seissolParams.output.energyParameters.interval =
       reader.readWithDefault("energyoutputinterval", veryLongTime);
-  seissolParams.output.energyParameters.enabled &=
-      seissolParams.output.energyParameters.interval > 0;
   seissolParams.output.energyParameters.terminalOutput =
       reader.readWithDefault("energyterminaloutput", false);
   seissolParams.output.energyParameters.computeVolumeEnergiesEveryOutput =
@@ -439,12 +437,10 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
   seissolParams.output.receiverParameters.enabled = reader.readWithDefault("receiveroutput", true);
   seissolParams.output.receiverParameters.interval =
       reader.readWithDefault("receiveroutputinterval", veryLongTime);
-  seissolParams.output.receiverParameters.enabled &=
-      seissolParams.output.receiverParameters.interval > 0;
   seissolParams.output.receiverParameters.computeRotation =
       reader.readWithDefault("receivercomputerotation", false);
   seissolParams.output.receiverParameters.fileName =
-      reader.readOrFail<std::string>("rfilename", "No receiver output file name specified.");
+      reader.readWithDefault("rfilename", std::string(""));
   seissolParams.output.receiverParameters.samplingInterval = reader.readWithDefault("pickdt", 0.0);
 
   warnIntervalAndDisable(seissolParams.output.receiverParameters.enabled,
