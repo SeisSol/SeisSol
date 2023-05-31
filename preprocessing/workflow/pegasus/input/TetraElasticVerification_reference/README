@@ -1,9 +1,0 @@
-The predefined workflow works best with this folder containing following files.
-If you want to change anything you also need to change what files Pegasus is looking for in rc.dat
-
-
-Tetra_Elastic_generatedKernels_10
-Tetra_Elastic_generatedKernels_20
-Tetra_Elastic_generatedKernels_35
-Tetra_Elastic_generatedKernels_4
-Tetra_Elastic_generatedKernels_56
