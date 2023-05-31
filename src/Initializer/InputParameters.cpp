@@ -209,11 +209,11 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
   seissolParams.mesh.scaling = {scalingX, scalingY, scalingZ};
 
   seissolParams.timeStepping.vertexWeight.weightElement =
-      reader.readWithDefault("vertexWeightElement", 100);
+      reader.readWithDefault("vertexweightelement", 100);
   seissolParams.timeStepping.vertexWeight.weightDynamicRupture =
-      reader.readWithDefault("vertexWeightDynamicRupture", 100);
+      reader.readWithDefault("vertexweightdynamicrupture", 100);
   seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity =
-      reader.readWithDefault("vertexWeightFreeSurfaceWithGravity", 100);
+      reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
