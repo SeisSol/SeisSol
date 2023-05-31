@@ -439,7 +439,8 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
       reader.readWithDefault("receiveroutputinterval", veryLongTime);
   seissolParams.output.receiverParameters.computeRotation =
       reader.readWithDefault("receivercomputerotation", false);
-  seissolParams.output.receiverParameters.fileName = reader.readWithDefault("rfilename", std::string(""));
+  seissolParams.output.receiverParameters.fileName =
+      reader.readWithDefault("rfilename", std::string(""));
   seissolParams.output.receiverParameters.samplingInterval = reader.readWithDefault("pickdt", 0.0);
 
   warnIntervalAndDisable(seissolParams.output.receiverParameters.enabled,
