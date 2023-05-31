@@ -42,10 +42,6 @@
 
 #include <yaml-cpp/yaml.h>
 
-extern "C" {
-  void fortran_main();
-}
-
 int main(int argc, char* argv[])
 {
         LIKWID_MARKER_INIT;
