@@ -207,9 +207,9 @@ void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainC
   for (unsigned face = 0; face < m_fault.size(); ++face) {
     int meshId = (m_fault[face].element >= 0) ? m_fault[face].element : m_fault[face].neighborElement;
     unsigned localCluster = getLocalClusterId( m_cellClusterIds[meshId] );
-    
+
     assert(localCluster < m_localClusters.size());
-    
+
     // Local dynamic rupture face
     if (m_fault[face].element >= 0 && m_fault[face].neighborElement >= 0) {
       m_dynamicRupturePlainInterior[localCluster].push_back(face);
@@ -484,7 +484,7 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
 unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
   const int rank = seissol::MPI::mpi.rank();
   unsigned reductions = 0;
-  
+
   for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
     int meshId, face;
     if (fault->element >= 0) {
@@ -512,7 +512,7 @@ unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureG
       }
     }
   }
-  
+
   return reductions;
 }
 
@@ -636,7 +636,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
   }
 
   //logInfo() << "Performed a total of" << l_totalMaximumDifference << "reductions (max. diff.) for" << m_cells.size() << "cells," << l_totalDynamicRupture << "reductions (dyn. rup.) for" << m_fault.size() << "faces.";
-  
+
   int* localClusterHistogram = new int[m_numberOfGlobalClusters];
   for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
     localClusterHistogram[cluster] = 0;
@@ -803,6 +803,9 @@ void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clus
         if( m_cellClusterIds[l_neighboringMeshId] > m_cellClusterIds[l_meshId] ) {
           l_reorder = true;
         }
+        // else{
+        //   l_reorder = true;
+        // }
       }
       // reorder also when the "GTS on der"-case is related to another copy region
       // TODO: Strictly speaking this reordering is not required as the cell could operate
@@ -815,7 +818,15 @@ void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clus
         if( l_ghostClusterId > io_copyRegion.first[1] ) {
           l_reorder = true;
         }
+        #ifdef USE_DAMAGEDELASTIC
+        else{
+          l_reorder = true;
+        }
+        #endif
       }
+      // else{
+      //   l_reorder = true;
+      // }
     }
 
     // add cell either to derivatives or buffers
@@ -1200,7 +1211,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
 
   // derive the region sizes of the ghost layer
   deriveClusteredGhost();
-  
+
   // derive dynamic rupture layers
   deriveDynamicRupturePlainCopyInterior();
 }
@@ -1242,11 +1253,11 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( CellLo
 
   // ghost region offsets offsets relative to the absolute start of the lts setup
   std::vector< std::vector< unsigned int > > l_ghostOffsets;
-  l_ghostOffsets.resize( m_clusteredCopy.size() );
+  l_ghostOffsets.resize( m_clusteredGhost.size() );
 
   // copy region offsets offsets relative to the absolute start of the lts setup
   std::vector< std::vector< unsigned int > > l_copyOffsets;
-  l_copyOffsets.resize( m_clusteredGhost.size() );
+  l_copyOffsets.resize( m_clusteredCopy.size() );
 
   // interior offsets offsets relative to the absolute start of the lts setup
   std::vector< unsigned int >  l_interiorOffsets;
@@ -1488,24 +1499,24 @@ void seissol::initializers::time_stepping::LtsLayout::getDynamicRuptureInformati
                                                                                     unsigned*&   numberOfDRInteriorFaces )
 {
   assert( m_dynamicRupturePlainCopy.size() == m_dynamicRupturePlainInterior.size() );
-  
+
   numberOfDRCopyFaces     = new unsigned[ m_dynamicRupturePlainCopy.size()     ];
   numberOfDRInteriorFaces = new unsigned[ m_dynamicRupturePlainInterior.size() ];
-  
+
   unsigned numberOfDRFaces = 0;
   for (unsigned cluster = 0; cluster < m_dynamicRupturePlainCopy.size(); ++cluster) {
     numberOfDRCopyFaces[cluster]      = m_dynamicRupturePlainCopy[cluster].size();
     numberOfDRInteriorFaces[cluster]  = m_dynamicRupturePlainInterior[cluster].size();
     numberOfDRFaces += numberOfDRCopyFaces[cluster] + numberOfDRInteriorFaces[cluster];
   }
-  
+
   ltsToFace = new unsigned[numberOfDRFaces];
-  
+
   unsigned ltsId = 0;
   for (unsigned cluster = 0; cluster < m_dynamicRupturePlainCopy.size(); ++cluster) {
     for (std::vector<int>::const_iterator it = m_dynamicRupturePlainCopy[cluster].begin(); it != m_dynamicRupturePlainCopy[cluster].end(); ++it) {
       ltsToFace[ltsId++] = *it;
-    }  
+    }
     for (std::vector<int>::const_iterator it = m_dynamicRupturePlainInterior[cluster].begin(); it != m_dynamicRupturePlainInterior[cluster].end(); ++it) {
       ltsToFace[ltsId++] = *it;
     }

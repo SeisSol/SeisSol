@@ -239,7 +239,7 @@ if (HDF5)
   target_include_directories(SeisSol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
   target_link_libraries(SeisSol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_HDF)
-endif()  
+endif()
 
 # Parmetis
 if (METIS)
@@ -253,7 +253,7 @@ if (METIS)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_METIS)
 endif()
 
-find_package(PkgConfig REQUIRED) 
+find_package(PkgConfig REQUIRED)
 if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
@@ -391,7 +391,6 @@ else()
   target_sources(SeisSol-lib PUBLIC ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
-
 # Fortran compliler settings
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:Fortran>:-cpp -ffree-line-length-none -fdefault-real-8 -Wno-unused-parameter>)
@@ -421,7 +420,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
   # Activate interprocedual optimization.
-  #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-parameter")
 

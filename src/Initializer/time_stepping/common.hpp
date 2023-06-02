@@ -51,7 +51,7 @@
 namespace seissol {
 namespace initializers {
 namespace time_stepping {
-  
+
 /**
  * Gets the lts setup in relation to the four face neighbors.
  *   Remark: Remember to perform the required normalization step.
@@ -165,8 +165,8 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
         l_ltsSetup |= ( 1 << (l_face + 4) );
 
         #ifdef USE_DAMAGEDELASTIC
-        // l_ltsSetup |= ( 1 <<  l_face      );
-        // l_ltsSetup |= ( 1 << 9 );
+        l_ltsSetup |= ( 1 <<  l_face      );
+        l_ltsSetup |= ( 1 << 9 );
         // l_ltsSetup |= ( 1 << 8 ); // now it does not have any buffers
         // if( i_copy ) { // set the buffer invalid in copy layers
                       // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
@@ -182,6 +182,9 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
       // cell is required to provide a buffer
       else {
         l_ltsSetup |= ( 1 << 8 );
+        #ifdef USE_DAMAGEDELASTIC
+        l_ltsSetup |= ( 1 << 9 );
+        #endif
       }
     }
 

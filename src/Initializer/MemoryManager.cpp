@@ -319,7 +319,7 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 	  cellInformation[cell].faceTypes[face] == FaceType::dynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
-          std::cout << "yes" << std::endl;
+          // std::cout << "yes" << std::endl;
           faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
         }
         // neighboring cell provides a time buffer

@@ -184,8 +184,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real const damage_para1 = 1.2e4/2;
-  real const damage_para2 = 3e-6;
+  real const damage_para1 = 1.4e8/2;
+  real const damage_para2 = 5e-3;
   real const lambda0 = 9.71e10;
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
@@ -205,12 +205,12 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-    fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 
+    fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
     1.0e0/(damage_para2*damage_para1)
       *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
     // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
   }
-  
+
   // Convert them back to modal space
   alignas(PAGESIZE_STACK) real dQModalData[tensor::dQModal::size()];
   kernel::damageAssignFToDQ d_assignFToDQ;
@@ -219,14 +219,14 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   d_assignFToDQ.FNodal = fNodalData;
   d_assignFToDQ.execute();
   // std::cout << " " << dQModalData[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + 2] << std::endl;
-  
+
   // Assign the modal solutions to dQ(1)
 
   #endif
 
   alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
-  
+
   kernel::derivative krnl = m_krnlPrototype;
   krnl.dQModal = dQModalData;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
@@ -265,7 +265,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     krnl.execute(der);
 
     // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
+    intKrnl.power *= i_timeStepWidth / real(der+1);
     intKrnl.execute(der);
   }
 
@@ -280,11 +280,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   // for (int i_out = 0; i_out<10; ++i_out){
   //   std::cout << derivativesBuffer[20*i_out+0] << " " << data.dofs[20*i_out+0];
-  //   std::cout 
-  //   // << tensor::dQ::size(0) 
+  //   std::cout
+  //   // << tensor::dQ::size(0)
   //   << std::endl;
   // }
-  
+
 
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
@@ -311,7 +311,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   // Do integration of the nonlinear source here - Is there a better way?
-  #ifdef USE_DAMAGEDELASTIC  
+  #ifdef USE_DAMAGEDELASTIC
   // Compute the Q at quadrature points in space and time
   /// Get quadrature points in time
   double timePoints[CONVERGENCE_ORDER];
@@ -349,7 +349,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
     // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
     for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-      FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 
+      FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
       1.0e0/(damage_para2*damage_para1)
         *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
       // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
@@ -368,7 +368,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
 
-  /// Quadrature in time in nodal space and directly convert 
+  /// Quadrature in time in nodal space and directly convert
   /// the summation results back into modal space in the python kernel
 
   //================================END OF DAMAGE===============================
@@ -485,12 +485,12 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 unsigned seissol::kernels::Time::bytesAder()
 {
   unsigned reals = 0;
-  
+
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
   // star matrices, source matrix
   reals += yateto::computeFamilySize<tensor::star>();
-           
+
   /// \todo incorporate derivatives
 
   return reals * sizeof(real);
@@ -536,7 +536,7 @@ void seissol::kernels::Time::computeIntegral( double                            
     intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
   }
   // std::cout << m_derivativesOffsets[0] << std::endl;
- 
+
   // iterate over time derivatives
   for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
@@ -627,7 +627,7 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
     intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
   }
   intKrnl.power = 1.0;
- 
+
   // iterate over time derivatives
   for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
     intKrnl.execute(derivative);
