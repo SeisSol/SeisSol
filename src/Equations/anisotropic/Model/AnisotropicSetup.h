@@ -53,6 +53,15 @@ namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
+    template<typename T, typename Tmatrix>
+    void getTransposedFreeSurfaceGodunovState(const AnisotropicMaterial& local,
+       T& QgodLocal,
+                                               T& QgodNeighbor,
+                                               Tmatrix& R)
+                                               {
+      getTransposedFreeSurfaceGodunovState(ElasticMaterial(), QgodLocal, QgodNeighbor, R);
+    }
+
     template<typename T>
     inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
                                                 unsigned                    i_dim,
@@ -262,7 +271,7 @@ namespace seissol {
         getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
         if(faceType == FaceType::freeSurface) {
-          getTransposedFreeSurfaceGodunovState(MaterialType::anisotropic, QgodLocal, QgodNeighbor, R);
+          getTransposedFreeSurfaceGodunovState(local, QgodLocal, QgodNeighbor, R);
 
         } else {
           Matrix99 chi = Matrix99::Zero();
@@ -353,6 +362,23 @@ namespace seissol {
         rotatedMaterial.c66 = rotatedC(5,5);
         return rotatedMaterial;
       }
+
+      template<>
+    inline void getFaceRotationMatrix<AnisotropicMaterial>( VrtxCoords const i_normal,
+                                VrtxCoords const i_tangent1,
+                                VrtxCoords const i_tangent2,
+                                init::T::view::type& o_T,
+                                init::Tinv::view::type& o_Tinv )
+                                {
+      o_T.setZero();
+      o_Tinv.setZero();
+      
+      seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 0, 0);
+      seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
+      
+      seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
+      seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
+    }
   }
 }
 

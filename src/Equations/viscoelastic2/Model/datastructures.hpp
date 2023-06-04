@@ -49,28 +49,33 @@
 namespace seissol {
   namespace model {
 
+    template<std::size_t Mechanisms = NUMBER_OF_RELAXATION_MECHANISMS>
     struct ViscoElasticMaterial : public ElasticMaterial {
+      static constexpr std::size_t NumberOfQuantities = 9;
+      static constexpr std::size_t NumberPerMechanism = 6;
+      static constexpr MaterialType Type = MaterialType::viscoelastic;
+
       //! Relaxation frequencies
-      double omega[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(NUMBER_OF_RELAXATION_MECHANISMS)];
+      double omega[ZeroLengthArrayHandler(Mechanisms)];
       /** Entries of the source matrix (E)
        * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
        * theta[1] = -lambda * Y_lambda
        * theta[2] = -2.0 * mu * Y_mu
        **/
-      double theta[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(NUMBER_OF_RELAXATION_MECHANISMS)][3];
+      double theta[ZeroLengthArrayHandler(Mechanisms)][3];
       double Qp;
       double Qs;
 
-      ViscoElasticMaterial() {};
+      ViscoElasticMaterial() {}
       ViscoElasticMaterial( double* materialValues, int numMaterialValues)
       {
-        assert(numMaterialValues == 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+        assert(numMaterialValues == 3 + Mechanisms * 4);
 
         this->rho = materialValues[0];
         this->mu = materialValues[1];
         this->lambda = materialValues[2];
 
-        for (int mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+        for (int mech = 0; mech < Mechanisms; ++mech) {
           this->omega[mech] = materialValues[3 + 4*mech];
           for (unsigned i = 1; i < 4; ++i) {
             this->theta[mech][i-1] = materialValues[3 + 4*mech + i];
@@ -83,10 +88,10 @@ namespace seissol {
         Qs = std::numeric_limits<double>::signaling_NaN();
       }
 
-      virtual ~ViscoElasticMaterial() {};
+      virtual ~ViscoElasticMaterial() {}
 
-      MaterialType getMaterialType() const override {
-        return MaterialType::viscoelastic;
+      MaterialType getMaterialType() const {
+        return Type;
       }
     };
   }

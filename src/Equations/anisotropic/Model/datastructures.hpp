@@ -50,6 +50,11 @@
 namespace seissol {
   namespace model {
     struct AnisotropicMaterial : Material {
+      static constexpr std::size_t NumberOfQuantities = 9;
+      static constexpr std::size_t NumberPerMechanism = 0;
+      static constexpr std::size_t Mechanisms = 0;
+      static constexpr MaterialType Type = MaterialType::anisotropic;
+
       double c11;
       double c12;
       double c13;
@@ -221,7 +226,7 @@ namespace seissol {
       //An analytic solution for the maximal wave speed is hard to obtain.
       //Instead of solving an optimization problem we sample the velocitiy for
       //different directions and take the maximum.
-      double getMaxWaveSpeed() const final{
+      double getMaxWaveSpeed() const {
         auto samplingDirections = init::samplingDirections::view::create(const_cast<real*>(init::samplingDirections::Values));
 
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
@@ -254,20 +259,24 @@ namespace seissol {
       }
 
       //calculate P-wave speed based on averaged material parameters
-      double getPWaveSpeed() const final {
+      double getPWaveSpeed() const {
         double muBar = (c44 + c55 + c66) / 3.0;
         double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
         return std::sqrt((lambdaBar + 2*muBar) / rho);
       }
 
       //calculate S-wave speed based on averaged material parameters
-      double getSWaveSpeed() const final {
+      double getSWaveSpeed() const {
         double muBar = (c44 + c55 + c66) / 3.0;
         return std::sqrt(muBar / rho);
       }
 
       MaterialType getMaterialType() const {
         return MaterialType::anisotropic;
+      }
+
+      double getMu() const {
+        return (c44 + c55 + c66) / 3.0;
       }
     };
 

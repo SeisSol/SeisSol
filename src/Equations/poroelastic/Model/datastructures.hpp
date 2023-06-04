@@ -7,10 +7,15 @@
 
 namespace seissol {
   namespace model {
-    struct PoroElasticMaterial : Material {
+    struct PoroElasticMaterial : ElasticMaterial {
+      static constexpr std::size_t NumberOfQuantities = 13;
+      static constexpr std::size_t NumberPerMechanism = 0;
+      static constexpr std::size_t Mechanisms = 0;
+      static constexpr MaterialType Type = MaterialType::poroelastic;
+
       double bulkSolid;
-      double lambda;
-      double mu;
+      // double lambda; // given by elasticity
+      // double mu; // given by elasticity
       double porosity;
       double permeability;
       double tortuosity;
@@ -35,32 +40,32 @@ namespace seissol {
         this->rhoFluid = materialValues[8];
         this->viscosity = materialValues[9];  
       };
-      virtual ~PoroElasticMaterial() {};
+      virtual ~PoroElasticMaterial() {}
 
-      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const final 
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const 
       {
         double elasticMaterialVals[] = {this->rho, this->mu, this->lambda};
         ElasticMaterial em(elasticMaterialVals, 3);
         em.getFullStiffnessTensor(fullTensor);
-      };
+      }
 
-      double getMaxWaveSpeed() const final 
+      double getMaxWaveSpeed() const 
       {
         return getPWaveSpeed();
       }
 
       //only declare it here and define in a separate datastructures.cpp
       //to circumvent problems with circular includes
-      double getPWaveSpeed() const final;
+      double getPWaveSpeed() const;
 
-      double getSWaveSpeed() const final
+      double getSWaveSpeed() const
       {
         return std::sqrt(mu / rho);
-      };
+      }
 
-      MaterialType getMaterialType() const override {
-        return MaterialType::poroelastic;
-      };
+      MaterialType getMaterialType() const {
+        return Type;
+      }
     };
   }
 }

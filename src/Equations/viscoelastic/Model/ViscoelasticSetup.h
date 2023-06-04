@@ -79,16 +79,16 @@ namespace seissol {
       }
     }
 
-    template<typename T>
-    inline void getTransposedSourceCoefficientTensor( ViscoElasticMaterial const& material, T& sourceMatrix )
+    template<typename T, std::size_t Mechanisms>
+    inline void getTransposedSourceCoefficientTensor( ViscoElasticMaterial<Mechanisms> const& material, T& sourceMatrix )
     {
       sourceMatrix.setZero();
     
       //       | E_1^T |
       // E^T = |  ...  |
       //       | E_L^T |
-      for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-        unsigned offset = 9 + mech * 6;
+      for (unsigned mech = 0; mech < Mechanisms; ++mech) {
+        unsigned offset = ViscoElasticMaterial<Mechanisms>::NumberOfQuantities + mech * ViscoElasticMaterial<Mechanisms>::NumberPerMechanism;
         double const* theta = material.theta[mech];
         sourceMatrix(offset,     0) = theta[0];
         sourceMatrix(offset + 1, 0) = theta[1];
@@ -105,20 +105,20 @@ namespace seissol {
       }
       
       // E' = diag(-omega_1 I, ..., -omega_L I)
-      for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-        for (unsigned i = 0; i < 6; ++i) {
-          unsigned idx = 9 + 6*mech + i;
+      for (unsigned mech = 0; mech < Mechanisms; ++mech) {
+        for (unsigned i = 0; i < ViscoElasticMaterial<Mechanisms>::NumberPerMechanism; ++i) {
+          unsigned idx = ViscoElasticMaterial<Mechanisms>::NumberOfQuantities + mech * ViscoElasticMaterial<Mechanisms>::NumberPerMechanism + i;
           sourceMatrix(idx, idx) = -material.omega[mech];
         }
       }
     }
     
-    template<typename T>
-    inline void getTransposedCoefficientMatrix(ViscoElasticMaterial const& i_material, unsigned i_dim, T& AT)
+    template<typename T, std::size_t Mechanisms>
+    inline void getTransposedCoefficientMatrix(ViscoElasticMaterial<Mechanisms> const& i_material, unsigned i_dim, T& AT)
     {
       getTransposedCoefficientMatrix(dynamic_cast<ElasticMaterial const&>(i_material), i_dim, AT);
     
-      for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+      for (unsigned mech = 0; mech < Mechanisms; ++mech) {
         getTransposedViscoelasticCoefficientMatrix( i_material.omega[mech],
                                                     i_dim,
                                                     mech,
@@ -126,9 +126,9 @@ namespace seissol {
       }
     }
     
-    template<>
-    inline void getTransposedGodunovState( ViscoElasticMaterial const& local,
-                                           ViscoElasticMaterial const& neighbor,
+    template<std::size_t Mechanisms>
+    inline void getTransposedGodunovState( ViscoElasticMaterial<Mechanisms> const& local,
+                                           ViscoElasticMaterial<Mechanisms> const& neighbor,
                                            FaceType faceType,
                                            init::QgodLocal::view::type& QgodLocal,
                                            init::QgodNeighbor::view::type& QgodNeighbor)
@@ -140,8 +140,8 @@ namespace seissol {
                                  QgodNeighbor);
     }
 
-    template<>
-    inline void initializeSpecificLocalData( ViscoElasticMaterial const& material,
+    template<std::size_t Mechanisms>
+    inline void initializeSpecificLocalData( ViscoElasticMaterial<Mechanisms> const& material,
                                              real timeStepWidth,
                                              ViscoElasticLocalData* localData )
     {

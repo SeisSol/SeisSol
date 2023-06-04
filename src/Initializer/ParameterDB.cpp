@@ -268,13 +268,13 @@ void MaterialParameterDB<ElasticMaterial>::addBindingPoints(
 }
 
 template <>
-void MaterialParameterDB<ViscoElasticMaterial>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<ViscoElasticMaterial>& adapter) {
-  adapter.addBindingPoint("rho", &ViscoElasticMaterial::rho);
-  adapter.addBindingPoint("mu", &ViscoElasticMaterial::mu);
-  adapter.addBindingPoint("lambda", &ViscoElasticMaterial::lambda);
-  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::Qp);
-  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::Qs);
+void MaterialParameterDB<ViscoElasticMaterial<>>::addBindingPoints(
+    easi::ArrayOfStructsAdapter<ViscoElasticMaterial<>>& adapter) {
+  adapter.addBindingPoint("rho", &ViscoElasticMaterial<>::rho);
+  adapter.addBindingPoint("mu", &ViscoElasticMaterial<>::mu);
+  adapter.addBindingPoint("lambda", &ViscoElasticMaterial<>::lambda);
+  adapter.addBindingPoint("Qp", &ViscoElasticMaterial<>::Qp);
+  adapter.addBindingPoint("Qs", &ViscoElasticMaterial<>::Qs);
 }
 
 template <>
@@ -436,10 +436,10 @@ ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
 }
 
 template <>
-ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedMaterial(
+ViscoElasticMaterial<> MaterialParameterDB<ViscoElasticMaterial<>>::computeAveragedMaterial(
     unsigned elementIdx,
     std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<ViscoElasticMaterial> const& materialsFromQuery) {
+    std::vector<ViscoElasticMaterial<>> const& materialsFromQuery) {
   double muMeanInv = 0.0;
   double rhoMean = 0.0;
   double vERatioMean = 0.0;
@@ -466,7 +466,7 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
   double lambdaMean =
       (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
-  ViscoElasticMaterial result{};
+  ViscoElasticMaterial<> result{};
   result.rho = rhoMean;
   result.mu = muMean;
   result.lambda = lambdaMean;
@@ -668,6 +668,6 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
 
 template class seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial>;
-template class seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
+template class seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial<>>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial>;
 template class seissol::initializers::MaterialParameterDB<seissol::model::Plasticity>;

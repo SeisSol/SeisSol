@@ -1,6 +1,8 @@
 #ifndef EQUATIONS_DATASTRUCTURES_H_
 #define EQUATIONS_DATASTRUCTURES_H_
 
+#include "Common/constants.hpp"
+
 //Gather all datastructure Headers here
 #include "Equations/anisotropic/Model/datastructures.hpp"
 #include "Equations/elastic/Model/datastructures.hpp"
@@ -31,6 +33,11 @@ using Material_t = PoroElasticMaterial;
 #else
 #error "Material class unknown."
 #endif
+
+struct MaterialTestStruct {
+    static_assert(::seissol::GivenNumberOfQuantities == Material_t::NumberOfQuantities,
+        "The provided number of quantities (i.e. for which code has been generated) does not match the number of quantities specified by the material.");
+};
 }
 
 #endif

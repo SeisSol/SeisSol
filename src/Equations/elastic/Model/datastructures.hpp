@@ -49,6 +49,11 @@
 namespace seissol {
   namespace model {
     struct ElasticMaterial : Material {
+      static constexpr std::size_t NumberOfQuantities = 9;
+      static constexpr std::size_t NumberPerMechanism = 0;
+      static constexpr std::size_t Mechanisms = 0;
+      static constexpr MaterialType Type = MaterialType::elastic;
+
       double lambda;
       double mu;
 
@@ -64,7 +69,7 @@ namespace seissol {
 
       virtual ~ElasticMaterial() {};
 
-      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const final {
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
 
         auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
         stiffnessTensorView.setZero();
@@ -90,20 +95,102 @@ namespace seissol {
         stiffnessTensorView(2,2,2,2) = lambda + 2*mu;
       }
 
-      double getMaxWaveSpeed() const final {
+      double getMaxWaveSpeed() const {
         return getPWaveSpeed();
       }
 
-      double getPWaveSpeed() const final {
+      double getPWaveSpeed() const {
         return std::sqrt((lambda + 2*mu) / rho);
       }
 
-      double getSWaveSpeed() const final {
+      double getSWaveSpeed() const {
         return std::sqrt(mu / rho);
       }
 
-      MaterialType getMaterialType() const override{
-        return MaterialType::elastic;
+      double getMu() const {
+        return mu;
+      }
+
+      MaterialType getMaterialType() const {
+        return Type;
+      }
+    };
+
+    // TEMPORARY! Should be the other way round, actually.
+    struct AcousticMaterial : ElasticMaterial {
+      static constexpr std::size_t NumberOfQuantities = 9; // TODO(someone): reduce that one
+      static constexpr std::size_t NumberPerMechanism = 0;
+      static constexpr std::size_t Mechanisms = 0;
+      static constexpr MaterialType Type = MaterialType::acoustic;
+
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
+
+        auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
+        stiffnessTensorView.setZero();
+        stiffnessTensorView(0,0,0,0) = lambda;
+        stiffnessTensorView(0,0,1,1) = lambda;
+        stiffnessTensorView(0,0,2,2) = lambda;
+        stiffnessTensorView(1,1,0,0) = lambda;
+        stiffnessTensorView(1,1,1,1) = lambda;
+        stiffnessTensorView(1,1,2,2) = lambda;
+        stiffnessTensorView(2,2,0,0) = lambda;
+        stiffnessTensorView(2,2,1,1) = lambda;
+        stiffnessTensorView(2,2,2,2) = lambda;
+      }
+
+      double getMaxWaveSpeed() const {
+        return getPWaveSpeed();
+      }
+
+      double getPWaveSpeed() const {
+        return std::sqrt(lambda / rho);
+      }
+
+      double getSWaveSpeed() const {
+        return 0;
+      }
+
+      double getMu() const {
+        return 0;
+      }
+
+      MaterialType getMaterialType() const {
+        return Type;
+      }
+    };
+
+    // this one here should be more an absorbing (?) material. Swallows all incoming waves.
+    // TEMPORARY! Should be the other way round, actually.
+    // It's meant mostly as a dummy material
+    struct StaticMaterial : AcousticMaterial {
+      static constexpr std::size_t NumberOfQuantities = 9; // TODO(someone): reduce that one (to... 0, I'd guess)
+      static constexpr std::size_t NumberPerMechanism = 0;
+      static constexpr std::size_t Mechanisms = 0;
+      static constexpr MaterialType Type = MaterialType::solid;
+
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
+        auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
+        stiffnessTensorView.setZero();
+      }
+
+      double getMaxWaveSpeed() const {
+        return 0;
+      }
+
+      double getPWaveSpeed() const {
+        return 0;
+      }
+
+      double getSWaveSpeed() const {
+        return 0;
+      }
+
+      double getMu() const {
+        return 0;
+      }
+
+      MaterialType getMaterialType() const {
+        return Type;
       }
     };
   }

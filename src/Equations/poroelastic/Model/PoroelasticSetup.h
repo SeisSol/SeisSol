@@ -224,16 +224,11 @@ namespace seissol {
     }
 
     template<typename T>
-    void getTransposedFreeSurfaceGodunovState( MaterialType materialtype,
-                                               T&        QgodLocal,
+    void getTransposedFreeSurfaceGodunovState<PoroElasticMaterial>( T&        QgodLocal,
                                                T&        QgodNeighbor,
                                                Eigen::Matrix<double, 13,13>& R)
     {
-      if (materialtype != MaterialType::poroelastic) {
-        logError() << "This is only used for poroelastic materials. You should never end up here.";
-      }
-    
-      constexpr size_t relevantQuantities = NUMBER_OF_QUANTITIES - 6*NUMBER_OF_RELAXATION_MECHANISMS;
+      constexpr size_t relevantQuantities = PoroElasticMaterial::NumberOfQuantities - PoroElasticMaterial::NumberPerMechanism*PoroElasticMaterial::Mechanisms;
       for (size_t i = 0; i < relevantQuantities; i++) {
         for (size_t j = 0; j < relevantQuantities; j++) {
           QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
@@ -262,18 +257,18 @@ namespace seissol {
     {
       //Will be used to check, whether numbers are (numerically) zero
       constexpr auto zeroThreshold = 1e-7;
-      using CMatrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using Matrix = Eigen::Matrix<double, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
-      using CVector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1>;
+      using CMatrix = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumberOfQuantities, PoroElasticMaterial::NumberOfQuantities>;
+      using Matrix = Eigen::Matrix<double, PoroElasticMaterial::NumberOfQuantities, PoroElasticMaterial::NumberOfQuantities>;
+      using CVector = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumberOfQuantities, 1>;
       auto getEigenDecomposition = [&zeroThreshold](PoroElasticMaterial const& material) {
-        std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> AT;
-        auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+        std::array<std::complex<double>, PoroElasticMaterial::NumberOfQuantities*PoroElasticMaterial::NumberOfQuantities> AT;
+        auto ATView = yateto::DenseTensorView<2,std::complex<double>>(AT.data(), {PoroElasticMaterial::NumberOfQuantities, PoroElasticMaterial::NumberOfQuantities});
         getTransposedCoefficientMatrix(material, 0, ATView);
-        std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> A;
+        std::array<std::complex<double>, PoroElasticMaterial::NumberOfQuantities*PoroElasticMaterial::NumberOfQuantities> A;
         //transpose AT to get A
-        for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-          for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
-            A[i+NUMBER_OF_QUANTITIES*j] = AT[NUMBER_OF_QUANTITIES*i+j];
+        for (int i = 0; i < PoroElasticMaterial::NumberOfQuantities; i++) {
+          for (int j = 0; j < PoroElasticMaterial::NumberOfQuantities; j++) {
+            A[i+PoroElasticMaterial::NumberOfQuantities*j] = AT[PoroElasticMaterial::NumberOfQuantities*i+j];
           }
         }
         seissol::eigenvalues::Eigenpair<std::complex<double>, 13> eigenpair;
@@ -286,7 +281,7 @@ namespace seissol {
         //also check that the imaginary parts are zero
         int evNeg = 0;
         int evPos = 0;
-        for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+        for (int i = 0; i < PoroElasticMaterial::NumberOfQuantities; ++i) {
           assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
           if (eigenvalues(i).real() < -zeroThreshold) {
             ++evNeg;
@@ -301,7 +296,7 @@ namespace seissol {
         CMatrix coeff(A.data());
         const CMatrix matrixMult = coeff * eigenvectors;
         CMatrix eigenvalueMatrix = CMatrix::Zero();
-        for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+        for (size_t i = 0; i < PoroElasticMaterial::NumberOfQuantities; i++) {
           eigenvalueMatrix(i,i) = eigenvalues(i);
         }
         const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
@@ -320,7 +315,7 @@ namespace seissol {
 
       CMatrix chiMinus = CMatrix::Zero();
       CMatrix chiPlus = CMatrix::Zero();
-      for(int i = 0; i < 13; i++) {
+      for(int i = 0; i < PoroElasticMaterial::NumberOfQuantities; i++) {
         if(localEigenvalues(i).real() < -zeroThreshold) {
           chiMinus(i,i) = 1.0;
         }
@@ -385,7 +380,7 @@ namespace seissol {
     //constexpr for loop since we need to instatiate the view templates
     template<size_t iStart, size_t iEnd, typename Tview>
     struct zInvInitializerForLoop {
-      zInvInitializerForLoop(real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
+      zInvInitializerForLoop(real ZinvData[PoroElasticMaterial::NumberOfQuantities][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
           Tview &sourceMatrix, 
           real timeStepWidth) {
         auto Zinv = init::Zinv::view<iStart>::create(ZinvData[iStart]); 
@@ -404,13 +399,31 @@ namespace seissol {
       sourceMatrix.setZero();
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-      zInvInitializerForLoop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(localData->Zinv, sourceMatrix, timeStepWidth);
-      std::fill(localData->G, localData->G+NUMBER_OF_QUANTITIES, 0.0);
+      zInvInitializerForLoop<0, PoroElasticMaterial::NumberOfQuantities, decltype(sourceMatrix)>(localData->Zinv, sourceMatrix, timeStepWidth);
+      std::fill(localData->G, localData->G+PoroElasticMaterial::NumberOfQuantities, 0.0);
       localData->G[10] = sourceMatrix(10, 6);
       localData->G[11] = sourceMatrix(11, 7);
       localData->G[12] = sourceMatrix(12, 8);
 
       localData->typicalTimeStepWidth = timeStepWidth;
+    }
+
+    template<>
+    inline void getFaceRotationMatrix<PoroElasticMaterial>( VrtxCoords const i_normal,
+                                VrtxCoords const i_tangent1,
+                                VrtxCoords const i_tangent2,
+                                init::T::view::type& o_T,
+                                init::Tinv::view::type& o_Tinv ){
+      // call base first
+      getFaceRotationMatrix<ElasticMaterial>(i_normal, i_tangent1, i_tangent2, o_T, o_Tinv);
+
+      //pressure
+      o_T(9, 9) = 1;
+      o_Tinv(9,9) = 1;
+      //fluid velocities
+      unsigned origin = 10; 
+      seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
+      seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
     }
   }
 }

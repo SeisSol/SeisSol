@@ -47,7 +47,9 @@
 
 namespace seissol {
   namespace model {
+    // TODO: add rigid, acoustic materials
     enum class MaterialType {
+      solid,
       acoustic,
       elastic,
       viscoelastic,
@@ -56,10 +58,16 @@ namespace seissol {
     };
 
     struct Material {
+      static constexpr std::size_t NumberOfQuantities = 3; // ?
+      static constexpr std::size_t NumberPerMechanism = 0; // ?
+      static constexpr std::size_t Mechanisms = 0; // ?
+      static constexpr MaterialType Type = MaterialType::solid; // ?
+
       double rho;
       virtual double getMaxWaveSpeed() const = 0;
       virtual double getPWaveSpeed() const = 0;
       virtual double getSWaveSpeed() const = 0;
+      virtual double getMu() const = 0;
       virtual void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const = 0; 
       virtual MaterialType getMaterialType() const = 0 ;
       virtual ~Material() {};
@@ -68,12 +76,12 @@ namespace seissol {
     struct Plasticity {
       double bulkFriction;
       double plastCo;  
-      double s_xx;   
-      double s_yy;   
-      double s_zz;   
-      double s_xy;      
-      double s_yz;      
-      double s_xz;        
+      double s_xx;
+      double s_yy;
+      double s_zz;
+      double s_xy;
+      double s_yz;
+      double s_xz;
     };
 
     struct IsotropicWaveSpeeds {

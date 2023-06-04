@@ -49,6 +49,49 @@ namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
+    template<typename T, typename Tmatrix>
+    void getTransposedFreeSurfaceGodunovState(
+                                              const ElasticMaterial& local,
+                                                T& QgodLocal,
+                                               T& QgodNeighbor,
+                                               Tmatrix& R)
+                                               {
+      constexpr size_t relevant_quantities = ElasticMaterial::NumberOfQuantities - ElasticMaterial::NumberPerMechanism*ElasticMaterial::Mechanisms;
+      for (size_t i = 0; i < relevant_quantities; i++) {
+        for (size_t j = 0; j < relevant_quantities; j++) {
+          QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+        }
+      }
+
+      QgodLocal.setZero();
+      std::array<int, 3> traction_indices = {0,3,5};
+      std::array<int, 3> velocity_indices = {6,7,8};
+      using Matrix33 = Eigen::Matrix<double, 3, 3>;
+      Matrix33 R11 = R(traction_indices, {0,1,2});
+      Matrix33 R21 = R(velocity_indices, {0,1,2});
+      Matrix33 S = (-(R21 * R11.inverse())).eval();
+      setBlocks(QgodLocal, S, traction_indices, velocity_indices);
+    }
+
+    template<typename T, typename Tmatrix>
+    void seissol::model::getTransposedFreeSurfaceGodunovState(
+                                                                    const AcousticMaterial& local,
+                                                              T&        QgodLocal,
+                                                              T&        QgodNeighbor,
+                                                              Tmatrix&  R)
+    {
+      constexpr size_t relevant_quantities = AcousticMaterial::NumberOfQuantities - AcousticMaterial::NumberPerMechanism*AcousticMaterial::Mechanisms;
+      for (size_t i = 0; i < relevant_quantities; i++) {
+        for (size_t j = 0; j < relevant_quantities; j++) {
+          QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+        }
+      }
+
+      QgodLocal.setZero();
+      QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+      QgodLocal(6, 6) = 1.0;
+    }
+
     template<typename T>
     inline void getTransposedCoefficientMatrix( ElasticMaterial const&  i_material,
                                                 unsigned                i_dim,
@@ -168,8 +211,13 @@ namespace seissol {
        
        
          if (faceType == FaceType::freeSurface) {
-           MaterialType materialtype = testIfAcoustic(local.mu) ? MaterialType::acoustic : MaterialType::elastic;
-           getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R);
+           MaterialType Type = testIfAcoustic(local.mu) ? MaterialType::acoustic : MaterialType::elastic;
+           if (Type == MaterialType::acoustic) {
+            getTransposedFreeSurfaceGodunovState(local, QgodLocal, QgodNeighbor, R);
+           }
+           else {
+            getTransposedFreeSurfaceGodunovState(local, QgodLocal, QgodNeighbor, R);
+           }
          } else {
            Matrix99 chi = Matrix99::Zero();
            if (!testIfAcoustic(local.mu)) {
@@ -193,6 +241,23 @@ namespace seissol {
            }
          }
       }
+
+    template<>
+    inline void getFaceRotationMatrix<ElasticMaterial>( VrtxCoords const i_normal,
+                                VrtxCoords const i_tangent1,
+                                VrtxCoords const i_tangent2,
+                                init::T::view::type& o_T,
+                                init::Tinv::view::type& o_Tinv )
+                                {
+      o_T.setZero();
+      o_Tinv.setZero();
+      
+      seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 0, 0);
+      seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
+      
+      seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
+      seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
+    }
   }
 }
 #endif
