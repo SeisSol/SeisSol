@@ -41,6 +41,8 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from common import generate_kernel_name_prefix
+from common import tensor_to_numpy
+from common import numpy_to_tensor
 
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
@@ -49,6 +51,8 @@ from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
 from yateto.memory import CSCMemoryLayout
+from yateto.util import create_collection
+
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -247,14 +251,6 @@ class LinearADERDG(ADERDGBase):
       volume = (self.Q['kp'] <= volumeSum)
       generator.add(f'{name_prefix}volume', volume, target=target)
 
-      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
-      localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-      generator.addFamily(f'{name_prefix}localFlux',
-                          simpleParameterSpace(4),
-                          localFlux,
-                          localFluxPrefetch,
-                          target=target)
-
       localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
       localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
       generator.addFamily(f'{name_prefix}localFluxNodal',
@@ -263,16 +259,73 @@ class LinearADERDG(ADERDGBase):
                           localFluxNodalPrefetch,
                           target=target)
 
+    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily(f'localFlux',
+                        simpleParameterSpace(4),
+                        localFlux,
+                        localFluxPrefetch,
+                        target='cpu')
+
+    if 'gpu' in targets:
+      # Note: quadpy used to generate matricies in SeisSol/matrices
+      # requires to a license. Therefore, we use numpy to
+      # precompute. rDivM[i] * fMrT[i]
+      flux_matrices = dict()
+      for i in range(4):
+       rDivM = tensor_to_numpy(self.db.rDivM[i])
+       fMrT = tensor_to_numpy(self.db.fMrT[i])
+
+       matrix = np.matmul(rDivM, fMrT)
+       name = f'fluxPlus({i})'
+       flux_matrices[name] = numpy_to_tensor(name=name,
+                                             np_array=matrix,
+                                             alignStride=True)
+      collection = create_collection(flux_matrices)
+      self.db.update(collection)
+
+      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.fluxPlus[i]['kl'] * self.I['lq'] * self.AplusT['qp']
+      generator.addFamily(f'gpu_localFlux',
+                          simpleParameterSpace(4),
+                          localFlux,
+                          target='gpu')
+
   def addNeighbor(self, generator, targets):
-    for target in targets:
-      name_prefix = generate_kernel_name_prefix(target)
-      neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-      neighbourFluxPrefetch = lambda h,j,i: self.I
-      generator.addFamily(f'{name_prefix}neighboringFlux',
-                          simpleParameterSpace(3,4,4),
+    neighbourFlux = lambda h, j, i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighbourFluxPrefetch = lambda h, j, i: self.I
+    generator.addFamily(f'neighboringFlux',
+                        simpleParameterSpace(3, 4, 4),
+                        neighbourFlux,
+                        neighbourFluxPrefetch,
+                        target='cpu')
+
+    if 'gpu' in targets:
+      # Note: quadpy used to generate matricies in SeisSol/matrices
+      # requires to a license. Therefore, we use numpy to
+      # precompute. rDivM[i] * fP[h] * rT[j]
+      flux_matrices = dict()
+      for h in range(3):
+        for j in range(4):
+          for i in range(4):
+
+            rDivM = tensor_to_numpy(self.db.rDivM[i])
+            fP = tensor_to_numpy(self.db.fP[h])
+            rT = tensor_to_numpy(self.db.rT[j])
+
+            flux_index = h + 3 * j + 12 * i
+            matrix = np.matmul(rDivM, np.matmul(fP, rT))
+            name = f'fluxMinus({flux_index})'
+            flux_matrices[name] = numpy_to_tensor(name=name,
+                                                  np_array=matrix,
+                                                  alignStride=True)
+      collection = create_collection(flux_matrices)
+      self.db.update(collection)
+
+      neighbourFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.fluxMinus[i]['kl'] * self.I['lq'] * self.AminusT['qp']
+      generator.addFamily(f'gpu_neighboringFlux',
+                          simpleParameterSpace(48),
                           neighbourFlux,
-                          neighbourFluxPrefetch,
-                          target=target)
+                          target='gpu')
 
   def addTime(self, generator, targets):
     for target in targets:
