@@ -110,9 +110,7 @@ void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global)
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   checkGlobalData(global.onDevice, deviceAlignment);
 
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
 }

@@ -277,14 +277,14 @@ class LinearADERDG(ADERDGBase):
        fMrT = tensor_to_numpy(self.db.fMrT[i])
 
        matrix = np.matmul(rDivM, fMrT)
-       name = f'fluxPlus({i})'
+       name = f'plusFluxMatrices({i})'
        flux_matrices[name] = numpy_to_tensor(name=name,
                                              np_array=matrix,
                                              alignStride=True)
       collection = create_collection(flux_matrices)
       self.db.update(collection)
 
-      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.fluxPlus[i]['kl'] * self.I['lq'] * self.AplusT['qp']
+      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.plusFluxMatrices[i]['kl'] * self.I['lq'] * self.AplusT['qp']
       generator.addFamily(f'gpu_localFlux',
                           simpleParameterSpace(4),
                           localFlux,
@@ -314,14 +314,14 @@ class LinearADERDG(ADERDGBase):
 
             flux_index = h + 3 * j + 12 * i
             matrix = np.matmul(rDivM, np.matmul(fP, rT))
-            name = f'fluxMinus({flux_index})'
+            name = f'minusFluxMatrices({flux_index})'
             flux_matrices[name] = numpy_to_tensor(name=name,
                                                   np_array=matrix,
                                                   alignStride=True)
       collection = create_collection(flux_matrices)
       self.db.update(collection)
 
-      neighbourFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.fluxMinus[i]['kl'] * self.I['lq'] * self.AminusT['qp']
+      neighbourFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.minusFluxMatrices[i]['kl'] * self.I['lq'] * self.AminusT['qp']
       generator.addFamily(f'gpu_neighboringFlux',
                           simpleParameterSpace(48),
                           neighbourFlux,

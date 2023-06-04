@@ -91,10 +91,8 @@ void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
   checkGlobalData(global.onDevice, deviceAlignment);
 
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-
   deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
 #endif
 }

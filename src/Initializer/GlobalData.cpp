@@ -175,6 +175,11 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize += yateto::alignedUpper(tensor::evalAtQP::size(),  yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(prop.alignment));
 
+#ifdef ACL_DEVICE
+  globalMatrixMemSize += yateto::computeFamilySize<init::plusFluxMatrices>(yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<init::minusFluxMatrices>(yateto::alignedReals<real>(prop.alignment));
+#endif // ACL_DEVICE
+
   real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(globalMatrixMemSize * sizeof(real),
                                                                             prop.pagesizeHeap,
                                                                             memkind));
@@ -192,6 +197,11 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   copyManager.template copyTensorToMemAndSetPtr<init::evalAtQP>(globalMatrixMemPtr, globalData.evalAtQPMatrix, prop.alignment);
   copyManager.template copyTensorToMemAndSetPtr<init::projectQP>(globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
+
+#ifdef ACL_DEVICE
+  copyManager.template copyFamilyToMemAndSetPtr<init::plusFluxMatrices>(globalMatrixMemPtr, globalData.plusFluxMatrices, prop.alignment);
+  copyManager.template copyFamilyToMemAndSetPtr<init::minusFluxMatrices>(globalMatrixMemPtr, globalData.minusFluxMatrices, prop.alignment);
+#endif // ACL_DEVICE
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
