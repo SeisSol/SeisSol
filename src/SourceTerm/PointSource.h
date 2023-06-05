@@ -7,6 +7,7 @@
  *
  * @section LICENSE
  * Copyright (c) 2015 - 2020, SeisSol Group
+ * Copyright (c) 2023, Intel corporation
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +46,8 @@
 #include <Initializer/typedefs.hpp>
 #include "SourceTerm/typedefs.hpp"
 
+#include <array>
+
 namespace seissol {
   namespace sourceterm {
     /** The local moment tensor shall be transformed into the global coordinate system.
@@ -72,32 +75,27 @@ namespace seissol {
                                real strike,
                                real dip,
                                real rake,
-                               real o_forceComponents[seissol::sourceterm::PointSources::TensorSize]);
+                               AlignedArray<real, PointSources::TensorSize>& o_forceComponents);
 
     /** Converts equally spaced time samples to a one-dimensional
      *  piecewise linear function.
      */
     template<typename real_from>
-    void samplesToPiecewiseLinearFunction1D(real_from const* i_samples,
+    PiecewiseLinearFunction1D samplesToPiecewiseLinearFunction1D(real_from const* i_samples,
                                             unsigned i_numberOfSamples,
                                             real i_onsetTime,
-                                            real i_samplingInterval,
-                                            PiecewiseLinearFunction1D* o_pwLF)
-    {
+                                            real i_samplingInterval) {
+      auto pwLF = PiecewiseLinearFunction1D{};
       if (i_numberOfSamples == 0) {
-        o_pwLF->numberOfPieces = 0;
-        o_pwLF->slopes = NULL;
-        o_pwLF->intercepts = NULL;
-        return;        
+        return pwLF;
       }
 
       unsigned l_np = i_numberOfSamples - 1;
       
-      o_pwLF->slopes = new real[l_np];
-      o_pwLF->intercepts = new real[l_np];  
-      o_pwLF->onsetTime = i_onsetTime;
-      o_pwLF->numberOfPieces = l_np;
-      o_pwLF->samplingInterval = i_samplingInterval;
+      pwLF.slopes.resize(l_np);
+      pwLF.intercepts.resize(l_np);
+      pwLF.onsetTime = i_onsetTime;
+      pwLF.samplingInterval = i_samplingInterval;
       
       
       /* The piecewise linear function shall be f(t) = m_j * t + n_j,
@@ -118,38 +116,16 @@ namespace seissol {
        */
       for (unsigned j = 0; j < l_np; ++j) {
         real m = (i_samples[j+1] - i_samples[j]) / i_samplingInterval;
-        o_pwLF->slopes[j] = m;
-        o_pwLF->intercepts[j] = i_samples[j] - m * (i_onsetTime + j * i_samplingInterval);
+        pwLF.slopes[j] = m;
+        pwLF.intercepts[j] = i_samples[j] - m * (i_onsetTime + j * i_samplingInterval);
       }
+      return pwLF;
     }
 
     /** Returns integral_fromTime^toTime i_pwLF dt. */
     real computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
                                  double i_fromTime,
                                  double i_toTime);
-
-    void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
-                                          real const faultBasis[9],
-                                          real A,
-                                          std::array<real, 81> const &stiffnessTensor,
-                                          std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
-                                          double i_fromTime,
-                                          double i_toTime,
-                                          real o_dofUpdate[tensor::Q::size()] );
-    /**
-     * Point sources in SeisSol (\delta(x-x_s) * S(t)).
-     * 
-     * Computes Q_kl += int_a^b S(t) dt * phiAtSource[k] * momentTensor[l], where
-     * Q_kl is a DOF. phiAtSource times momentTensor is to be understood
-     * as outer product of two vectors (i.e. yields a rank-1 dof-update-matrix that shall
-     * be scaled with the time integral of the source term).
-     **/                                      
-    void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
-                                           real const i_forceComponents[tensor::momentFSRM::size()],
-                                           PiecewiseLinearFunction1D const& i_pwLF,
-                                           double i_fromTime,
-                                           double i_toTime,
-                                           real o_dofUpdate[tensor::Q::size()] );
   }
 }
 

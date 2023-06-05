@@ -7,6 +7,7 @@
  *
  * @section LICENSE
  * Copyright (c) 2015 - 2020, SeisSol Group
+ * Copyright (c) 2023, Intel corporation
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -42,9 +43,6 @@
 #include "PointSource.h"
 #include <cmath>
 #include <algorithm>
-#include <generated_code/kernel.h>
-#include <generated_code/init.h>
-#include <iostream>
  
 void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3][3],
                                                 real const i_localSolidVelocityComponent[3],
@@ -53,7 +51,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
                                                 real strike,
                                                 real dip,
                                                 real rake,
-                                                real o_forceComponents[seissol::sourceterm::PointSources::TensorSize])
+                                                AlignedArray<real, PointSources::TensorSize>& o_forceComponents)
 {
   real cstrike = cos(strike);
   real sstrike = sin(strike);
@@ -100,7 +98,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   #error You cannot use PointSource with less than 6 quantities.
 #endif
 
-  std::fill(o_forceComponents, o_forceComponents+NUMBER_OF_QUANTITIES, 0);
+  std::fill(o_forceComponents.data(), o_forceComponents.data() + o_forceComponents.size(), 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u, v, w, p, u_f, v_f, w_f)
   o_forceComponents[0] = M[0][0];
   o_forceComponents[1] = M[1][1];
@@ -130,7 +128,7 @@ real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D cons
    int l_toIndex = (i_toTime - i_pwLF.onsetTime) / i_pwLF.samplingInterval;
    
    l_fromIndex = std::max(0, l_fromIndex);
-   l_toIndex = std::min(static_cast<int>(i_pwLF.numberOfPieces)-1, l_toIndex);
+   l_toIndex = std::min(static_cast<int>(i_pwLF.slopes.size())-1, l_toIndex);
    
   /* The indefinite integral of the j-th linear function is
    * int m_j * t + n_j dt = 1 / 2 * m_j * t^2 + n_j * t
@@ -147,57 +145,3 @@ real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D cons
    return l_integral;
 }
 
-void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
-                                                           real const faultBasis[9],
-                                                           real A,
-                                                           std::array<real, 81> const &stiffnessTensor,
-                                                           std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
-                                                           double i_fromTime,
-                                                           double i_toTime,
-                                                           real o_dofUpdate[tensor::Q::size()] )
-{  
-  real slip[] = { 0.0, 0.0, 0.0};
-  for (unsigned i = 0; i < 3; ++i) {
-    if (slipRates[i].numberOfPieces > 0) {
-      slip[i] = computePwLFTimeIntegral(slipRates[i], i_fromTime, i_toTime);
-    }
-  }
-  
-  real rotatedSlip[] = { 0.0, 0.0, 0.0 };
-  for (unsigned i = 0; i < 3; ++i) {
-    for (unsigned j = 0; j < 3; ++j) {
-      rotatedSlip[j] += faultBasis[j + i*3] * slip[i];
-    }
-  }
-  
-  kernel::sourceNRF krnl;
-  krnl.Q = o_dofUpdate;
-  krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.stiffnessTensor = stiffnessTensor.data();
-  krnl.mSlip = rotatedSlip;
-  krnl.mNormal = faultBasis + 6;
-  krnl.mArea = -A;
-  krnl.momentToNRF = init::momentToNRF::Values;
-#ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
-#endif
-  krnl.execute();
-}
-
-void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
-                                                            real const i_forceComponents[tensor::momentFSRM::size()],
-                                                            PiecewiseLinearFunction1D const& i_pwLF,
-                                                            double i_fromTime,
-                                                            double i_toTime,
-                                                            real o_dofUpdate[tensor::Q::size()] )
-{
-  kernel::sourceFSRM krnl;
-  krnl.Q = o_dofUpdate;
-  krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.momentFSRM = i_forceComponents;
-  krnl.stfIntegral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);
-#ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
-#endif
-  krnl.execute();
-}

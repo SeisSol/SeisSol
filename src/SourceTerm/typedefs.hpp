@@ -6,6 +6,7 @@
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2023, Intel corporation
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -46,9 +47,23 @@
 #include <vector>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
+#include <cstdint>
 
 namespace seissol {
   namespace sourceterm {    
+    template<typename T, std::size_t N>
+    class AlignedArray {
+    public:
+        inline T* data() { return data_; }
+        inline T const* data() const { return data_; }
+        constexpr T& operator[](std::size_t pos) { return data_[pos]; }
+        constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
+        constexpr std::size_t size() const noexcept { return N; }
+
+    private:
+        alignas(ALIGNMENT) T data_[N];
+    };
+
     /** Models point sources of the form
      *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
      * where S(t) : t -> \mathbb R is the moment time history,
@@ -68,7 +83,7 @@ namespace seissol {
       /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
        *  basis function and xi_s, eta_s, and zeta_s are the space position
        *  of the point source in the reference tetrahedron. */
-      real (*mInvJInvPhisAtSources)[tensor::mInvJInvPhisAtSources::size()];
+      std::vector<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
 
       /** NRF: Basis vectors of the fault.
        * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
@@ -76,7 +91,7 @@ namespace seissol {
        * 6-8: NormalX-Z = fault normal
        * 
        * FSRM: Moment tensor */
-      real (*tensor)[TensorSize];
+      std::vector<AlignedArray<real, TensorSize>> tensor;
 
       /// Area
       std::vector<real> A;
@@ -95,8 +110,8 @@ namespace seissol {
       /** Number of point sources in this struct. */
       unsigned numberOfSources;
 
-      PointSources() : mode(NRF), mInvJInvPhisAtSources(nullptr), tensor(nullptr), numberOfSources(0) {}
-      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); }
+      PointSources() : mode(NRF), numberOfSources(0) {}
+      ~PointSources() { numberOfSources = 0; }
     };
 
     struct CellToPointSourcesMapping {
@@ -115,13 +130,8 @@ namespace seissol {
     };
     
     struct ClusterMapping {
-      unsigned*                  sources;
-      unsigned                   numberOfSources;
-      CellToPointSourcesMapping* cellToSources;
-      unsigned                   numberOfMappings;
-      
-      ClusterMapping() : sources(nullptr), numberOfSources(0), cellToSources(nullptr), numberOfMappings(0) {}
-      ~ClusterMapping() { delete[] sources; numberOfSources = 0; delete[] cellToSources; numberOfMappings = 0; }
+      std::vector<unsigned>                  sources;
+      std::vector<CellToPointSourcesMapping> cellToSources;
     };
   }
 }

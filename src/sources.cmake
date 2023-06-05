@@ -53,6 +53,7 @@ src/Solver/time_stepping/TimeManager.cpp
 src/Solver/Pipeline/DrTuner.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
+src/Kernels/PointSourceClusterOnHost.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
 src/SeisSol.cpp

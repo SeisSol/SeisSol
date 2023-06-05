@@ -56,6 +56,7 @@
 #include <DynamicRupture/Misc.h>
 
 #include <cstddef>
+#include <vector>
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -398,23 +399,17 @@ struct CellMaterialData {
  *  j runs through 0,...,n-1.
  **/
 struct PiecewiseLinearFunction1D {
-   /** slopes[i] = m_i */
-  real* slopes;
+  /** slopes[i] = m_i */
+  std::vector<real> slopes;
 
   /** intercepts[i] = n_i */
-  real* intercepts;
-  
-  /** numberOfPieces = n */
-  unsigned numberOfPieces;
+  std::vector<real> intercepts;
   
   /** onsetTime = t_o */
   real onsetTime;
   
   /** samplingInterval = dt */
   real samplingInterval;
-  
-  PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
-  ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
 };
 
 struct DRFaceInformation {

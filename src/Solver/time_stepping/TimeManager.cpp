@@ -345,14 +345,12 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 }
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
-    std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources) {
+    std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> sourceClusters) {
   for (auto& cluster : clusters) {
-    cluster->setPointSources(
-        clusterMappings[cluster->getLayerType()][cluster->getClusterId()].cellToSources,
-        clusterMappings[cluster->getLayerType()][cluster->getClusterId()].numberOfMappings,
-        &(pointSources[cluster->getLayerType()][cluster->getClusterId()])
-        );
+    auto layerClusters = sourceClusters.find(cluster->getLayerType());
+    if (layerClusters != sourceClusters.end() && cluster->getClusterId() < layerClusters->second.size()) {
+      cluster->setPointSources(std::move(layerClusters->second[cluster->getClusterId()]));
+    }
   }
 }
 
