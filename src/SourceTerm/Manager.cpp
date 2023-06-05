@@ -267,14 +267,14 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
   if (sourceType == SourceType::NrfSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-    loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut);
+    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut);
 #else
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == SourceType::FsrmSource) {
     logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
-    loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut);
+    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut);
   } else if (sourceType == SourceType::None) {
     logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
   } else {
