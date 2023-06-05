@@ -174,13 +174,13 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
+void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
 {
   m_fileNamePrefix = fileNamePrefix;
   m_receiverFileName = parameters.fileName;
   m_samplingInterval = parameters.samplingInterval;
   m_computeRotation = parameters.computeRotation;
-  setSyncInterval(parameters.interval);
+  setSyncInterval(std::min(endTime, parameters.interval));
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 

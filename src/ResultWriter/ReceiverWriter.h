@@ -63,7 +63,7 @@ namespace seissol::writer {
 
     class ReceiverWriter : public seissol::Module {
     public:
-      void init(const std::string& fileNamePrefix, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
+      void init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
       void addPoints(
           const seissol::geometry::MeshReader& mesh,
