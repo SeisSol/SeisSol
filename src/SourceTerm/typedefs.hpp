@@ -49,20 +49,70 @@
 #include <generated_code/tensor.h>
 #include <cstdint>
 
+#ifdef ACL_DEVICE
+#include <sycl/sycl.hpp>
+#endif
+
 namespace seissol {
-  namespace sourceterm {    
+  namespace sourceterm {
+#ifdef ACL_DEVICE
+    template <typename T>
+    using AllocatorT = sycl::usm_allocator<T, sycl::usm::alloc::shared>;
+    class AllocatorFactory {
+    public:
+      AllocatorFactory(sycl::queue q) : q_(std::move(q)) {}
+      template <typename T> AllocatorT<T> make() const { return AllocatorT<T>(q_); }
+    private:
+      sycl::queue q_;
+    };
+#else
+    template <typename T>
+    using AllocatorT = std::allocator<T>;
+    class AllocatorFactory {
+    public:
+      template <typename T> AllocatorT<T> make() const { return AllocatorT<T>(); }
+    };
+#endif
+    template <typename T>
+    using VectorT = std::vector<T, AllocatorT<T>>;
+
     template<typename T, std::size_t N>
     class AlignedArray {
     public:
-        inline T* data() { return data_; }
-        inline T const* data() const { return data_; }
-        constexpr T& operator[](std::size_t pos) { return data_[pos]; }
-        constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
-        constexpr std::size_t size() const noexcept { return N; }
+      inline T* data() { return data_; }
+      inline T const* data() const { return data_; }
+      constexpr T& operator[](std::size_t pos) { return data_[pos]; }
+      constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
+      constexpr std::size_t size() const noexcept { return N; }
 
     private:
-        alignas(ALIGNMENT) T data_[N];
+      alignas(ALIGNMENT) T data_[N];
     };
+
+    /** A piecewise linear function.
+     * 
+     *  Say t \in I_j, then
+     *    f(t) = m_j * t + n_j,
+     *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
+     *  j runs through 0,...,n-1.
+     **/
+    struct PiecewiseLinearFunction1D {
+      /** slopes[i] = m_i */
+      VectorT<real> slopes;
+
+      /** intercepts[i] = n_i */
+      VectorT<real> intercepts;
+      
+      /** onsetTime = t_o */
+      real onsetTime;
+      
+      /** samplingInterval = dt */
+      real samplingInterval;
+
+      PiecewiseLinearFunction1D(AllocatorFactory const& a)
+          : slopes(a.make<real>()), intercepts(a.make<real>()) {}
+    };
+
 
     /** Models point sources of the form
      *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
@@ -78,12 +128,12 @@ namespace seissol {
         NRF,
         FSRM
       };
-      enum Mode mode;
+      enum Mode mode = NRF;
 
       /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
        *  basis function and xi_s, eta_s, and zeta_s are the space position
        *  of the point source in the reference tetrahedron. */
-      std::vector<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
+      VectorT<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
 
       /** NRF: Basis vectors of the fault.
        * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
@@ -91,13 +141,13 @@ namespace seissol {
        * 6-8: NormalX-Z = fault normal
        * 
        * FSRM: Moment tensor */
-      std::vector<AlignedArray<real, TensorSize>> tensor;
+      VectorT<AlignedArray<real, TensorSize>> tensor;
 
       /// Area
-      std::vector<real> A;
+      VectorT<real> A;
 
       /// elasticity tensor
-      std::vector<std::array<real, 81>> stiffnessTensor;
+      VectorT<std::array<real, 81>> stiffnessTensor;
 
       /** NRF: slip rate in
        * 0: Tan1 direction
@@ -105,12 +155,19 @@ namespace seissol {
        * 2: Normal direction
        * 
        * FSRM: 0: slip rate (all directions) */
-      std::vector<std::array<PiecewiseLinearFunction1D, 3>> slipRates;
+      std::array<VectorT<PiecewiseLinearFunction1D>, 3> slipRates;
 
       /** Number of point sources in this struct. */
-      unsigned numberOfSources;
+      unsigned numberOfSources = 0;
 
-      PointSources() : mode(NRF), numberOfSources(0) {}
+      PointSources(AllocatorFactory const& a)
+          : mInvJInvPhisAtSources(a.make<decltype(mInvJInvPhisAtSources)::value_type>()),
+            tensor(a.make<decltype(tensor)::value_type>()),
+            A(a.make<real>()),
+            stiffnessTensor(a.make<real>()),
+            slipRates{VectorT<PiecewiseLinearFunction1D>(a.make<PiecewiseLinearFunction1D>()),
+                      VectorT<PiecewiseLinearFunction1D>(a.make<PiecewiseLinearFunction1D>()),
+                      VectorT<PiecewiseLinearFunction1D>(a.make<PiecewiseLinearFunction1D>())} {}
       ~PointSources() { numberOfSources = 0; }
     };
 
@@ -130,8 +187,12 @@ namespace seissol {
     };
     
     struct ClusterMapping {
-      std::vector<unsigned>                  sources;
-      std::vector<CellToPointSourcesMapping> cellToSources;
+      VectorT<unsigned>                  sources;
+      VectorT<CellToPointSourcesMapping> cellToSources;
+
+      ClusterMapping(AllocatorFactory const& a)
+          : sources(a.make<unsigned>()),
+            cellToSources(a.make<CellToPointSourcesMapping>()) {}
     };
   }
 }

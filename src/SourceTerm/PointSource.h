@@ -48,6 +48,10 @@
 
 #include <array>
 
+#ifdef ACL_DEVICE
+#include <sycl/sycl.hpp>
+#endif
+
 namespace seissol {
   namespace sourceterm {
     /** The local moment tensor shall be transformed into the global coordinate system.
@@ -84,8 +88,9 @@ namespace seissol {
     PiecewiseLinearFunction1D samplesToPiecewiseLinearFunction1D(real_from const* i_samples,
                                             unsigned i_numberOfSamples,
                                             real i_onsetTime,
-                                            real i_samplingInterval) {
-      auto pwLF = PiecewiseLinearFunction1D{};
+                                            real i_samplingInterval,
+                                            AllocatorFactory const& alloc) {
+      auto pwLF = PiecewiseLinearFunction1D{alloc};
       if (i_numberOfSamples == 0) {
         return pwLF;
       }
@@ -123,6 +128,9 @@ namespace seissol {
     }
 
     /** Returns integral_fromTime^toTime i_pwLF dt. */
+#ifdef ACL_DEVICE
+    SYCL_EXTERNAL
+#endif
     real computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
                                  double i_fromTime,
                                  double i_toTime);

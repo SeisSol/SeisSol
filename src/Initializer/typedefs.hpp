@@ -391,27 +391,6 @@ struct CellMaterialData {
 #endif
 };
 
-/** A piecewise linear function.
- * 
- *  Say t \in I_j, then
- *    f(t) = m_j * t + n_j,
- *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
- *  j runs through 0,...,n-1.
- **/
-struct PiecewiseLinearFunction1D {
-  /** slopes[i] = m_i */
-  std::vector<real> slopes;
-
-  /** intercepts[i] = n_i */
-  std::vector<real> intercepts;
-  
-  /** onsetTime = t_o */
-  real onsetTime;
-  
-  /** samplingInterval = dt */
-  real samplingInterval;
-};
-
 struct DRFaceInformation {
   unsigned meshFace;
   unsigned plusSide;

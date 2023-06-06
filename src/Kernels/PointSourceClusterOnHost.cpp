@@ -44,8 +44,8 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
                                                                real dofs[tensor::Q::size()]) {
   real slip[] = {0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
-    if (sources_.slipRates[source][i].slopes.size() > 0) {
-      slip[i] = sourceterm::computePwLFTimeIntegral(sources_.slipRates[source][i], from, to);
+    if (sources_.slipRates[i][source].slopes.size() > 0) {
+      slip[i] = sourceterm::computePwLFTimeIntegral(sources_.slipRates[i][source], from, to);
     }
   }
 
@@ -78,7 +78,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
   krnl.Q = dofs;
   krnl.mInvJInvPhisAtSources = sources_.mInvJInvPhisAtSources[source].data();
   krnl.momentFSRM = sources_.tensor[source].data();
-  krnl.stfIntegral = sourceterm::computePwLFTimeIntegral(sources_.slipRates[source][0], from, to);
+  krnl.stfIntegral = sourceterm::computePwLFTimeIntegral(sources_.slipRates[0][source], from, to);
 #ifdef MULTIPLE_SIMULATIONS
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif

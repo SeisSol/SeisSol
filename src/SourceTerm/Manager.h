@@ -70,7 +70,8 @@ void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
                                         double* const sliprates[3],
                                         seissol::model::Material* material,
                                         PointSources& pointSources,
-                                        unsigned index);
+                                        unsigned index,
+                                        AllocatorFactory const& alloc);
 class Manager;
 } // namespace sourceterm
 } // namespace seissol
@@ -93,7 +94,8 @@ class seissol::sourceterm::Manager {
                                  unsigned numberOfSources,
                                  seissol::initializers::LTSTree* ltsTree,
                                  seissol::initializers::LTS* lts,
-                                 seissol::initializers::Lut* ltsLut)
+                                 seissol::initializers::Lut* ltsLut,
+                                 AllocatorFactory const& alloc)
       -> std::unordered_map<LayerType, std::vector<ClusterMapping>>;
 
   auto makePointSourceCluster(ClusterMapping mapping, PointSources sources)
@@ -103,7 +105,8 @@ class seissol::sourceterm::Manager {
                            seissol::geometry::MeshReader const& mesh,
                            seissol::initializers::LTSTree* ltsTree,
                            seissol::initializers::LTS* lts,
-                           seissol::initializers::Lut* ltsLut)
+                           seissol::initializers::Lut* ltsLut,
+                           AllocatorFactory const& alloc)
       -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -111,7 +114,8 @@ class seissol::sourceterm::Manager {
                           seissol::geometry::MeshReader const& mesh,
                           seissol::initializers::LTSTree* ltsTree,
                           seissol::initializers::LTS* lts,
-                          seissol::initializers::Lut* ltsLut)
+                          seissol::initializers::Lut* ltsLut,
+                          AllocatorFactory const& alloc)
       -> std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>;
 #endif
 };
