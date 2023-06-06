@@ -8,8 +8,6 @@
 
 #include "Parallel/MPI.h"
 
-#include <utility>
-
 static TravellingWaveParameters getTravellingWaveInformation() {
   const auto& initConditionParams = seissol::SeisSol::main.getSeisSolParameters().initialization;
 
