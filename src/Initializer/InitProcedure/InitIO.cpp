@@ -91,8 +91,8 @@ static void setupOutput() {
     // Initialize wave field output
     seissol::SeisSol::main.waveFieldWriter().init(
         numberOfQuantities,
-        CONVERGENCE_ORDER,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+        seissol::ConvergenceOrder,
+        seissol::kernels::NumberOfAlignedBasisFunctions(),
         seissol::SeisSol::main.meshReader(),
         ltsClusteringData,
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),

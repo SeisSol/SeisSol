@@ -42,6 +42,7 @@
 #ifndef KERNELS_PLASTICITY_H_
 #define KERNELS_PLASTICITY_H_
 
+#include "Model/plasticity.hpp"
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
 #include <Initializer/BatchRecorders/DataTypes/ConditionalTable.hpp>
@@ -61,7 +62,7 @@ public:
                                      double                      timeStepWidth,
                                      double                      T_v,
                                      GlobalData const*           global,
-                                     PlasticityData const*       plasticityData,
+                                     seissol::model::PlasticityData<> const*       plasticityData,
                                      real                        degreesOfFreedom[tensor::Q::size()],
                                      real*                       pstrain);
 
@@ -70,7 +71,7 @@ public:
                                            double T_v,
                                            GlobalData const *global,
                                            initializers::recording::ConditionalPointersToRealsTable &table,
-                                           PlasticityData *plasticity);
+                                           seissol::model::PlasticityData<> *plasticity);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
                                 long long&  o_hardwareFlopsCheck,

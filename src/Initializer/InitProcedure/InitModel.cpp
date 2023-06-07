@@ -174,17 +174,19 @@ void initializeCellMaterial() {
   }
 #endif
 
-  logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
+  logDebug() << "Setting cell materials in the LTS tree."; // TODO(David): describe plasticity as well
   const auto& elements = meshReader.getElements();
   unsigned* ltsToMesh =
-      memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
+      memoryManager.getLtsLut()->getLtsToMeshLut(seissol::initializers::LayerMask(Ghost));
+  auto* materialDataGlobal = memoryManager.getLtsTree()->var(memoryManager.getLts()->materialData);
 
   for (seissol::initializers::LTSTree::leaf_iterator it =
            memoryManager.getLtsTree()->beginLeaf(seissol::initializers::LayerMask(Ghost));
        it != memoryManager.getLtsTree()->endLeaf();
        ++it) {
     auto* cellInformation = it->var(memoryManager.getLts()->cellInformation);
-    auto* materialArray = it->var(memoryManager.getLts()->material);
+    auto* materialLayer = it->var(memoryManager.getLts()->material);
+    auto* materialDataLayer = it->var(memoryManager.getLts()->materialData);
     auto* plasticityArray =
         seissolParams.model.plasticity ? it->var(memoryManager.getLts()->plasticity) : nullptr;
 
@@ -192,59 +194,47 @@ void initializeCellMaterial() {
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      // this loop does three things at the same time:
+
       // set the materials for the cell volume and its faces
       auto meshId = ltsToMesh[cell];
-      auto& material = materialArray[cell];
-      const auto& localMaterial = materialsDB[meshId];
+      auto& material = materialLayer[cell];
+      auto& materialData = materialDataLayer[cell];
       const auto& element = elements[meshId];
       const auto& localCellInformation = cellInformation[cell];
 
-      initAssign(material.local, localMaterial);
+      // write material data
+      initAssign(materialData, materialsDB[meshId]);
       for (std::size_t side = 0; side < 4; ++side) {
+        // set ghost rank materials
+        if (element.neighborRanks[side] != seissol::MPI::mpi.rank()) {
+          // material from ghost layer (computed locally)
+          auto neighborId = localCellInformation.faceNeighborIds[side];
+
+          auto neighborRank = element.neighborRanks[side];
+          auto neighborRankIdx = element.mpiIndices[side];
+          auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
+          initAssign(materialDataGlobal[neighborId], materialsDBGhost[materialGhostIdx]);
+        }
+        // all other elements are set up locally in some other iteration
+      }
+
+      // set material pointers
+      material.local = &materialData;
+      for (std::size_t side = 0; side < 4; ++side) {
+        auto neighborId = localCellInformation.faceNeighborIds[side];
         if (isInternalFaceType(localCellInformation.faceTypes[side])) {
-          // use the neighbor face material info in case that we are not at a boundary
-          if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) {
-            // material from interior or copy
-            auto neighbor = element.neighbors[side];
-            initAssign(material.neighbor[side], materialsDB[neighbor]);
-          } else {
-            // material from ghost layer (computed locally)
-            auto neighborRank = element.neighborRanks[side];
-            auto neighborRankIdx = element.mpiIndices[side];
-            auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-            initAssign(material.neighbor[side], materialsDBGhost[materialGhostIdx]);
-          }
+          // use neighbor material for internal/interior faces
+          material.neighbor[side] = &materialDataGlobal[neighborId];
         } else {
           // otherwise, use the material from the own cell
-          initAssign(material.neighbor[side], localMaterial);
+          material.neighbor[side] = &materialData;
         }
       }
 
       // if enabled, set up the plasticity as well
-      // TODO(David): move to material initalization maybe? Or an initializer for the PlasticityData
-      // struct?
       if (seissolParams.model.plasticity) {
-        auto& plasticity = plasticityArray[cell];
-        const auto& localPlasticity = plasticityDB[meshId];
-
-        plasticity.initialLoading[0] = localPlasticity.s_xx;
-        plasticity.initialLoading[1] = localPlasticity.s_yy;
-        plasticity.initialLoading[2] = localPlasticity.s_zz;
-        plasticity.initialLoading[3] = localPlasticity.s_xy;
-        plasticity.initialLoading[4] = localPlasticity.s_yz;
-        plasticity.initialLoading[5] = localPlasticity.s_xz;
-
-        const double angularFriction = std::atan(localPlasticity.bulkFriction);
-
-        plasticity.cohesionTimesCosAngularFriction =
-            localPlasticity.plastCo * std::cos(angularFriction);
-        plasticity.sinAngularFriction = std::sin(angularFriction);
-#ifndef USE_ANISOTROPIC
-        plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
-#else
-        plasticity.mufactor =
-            3.0 / (2.0 * (material.local.c44 + material.local.c55 + material.local.c66));
-#endif
+        plasticityArray[cell] = seissol::model::PlasticityData(plasticityDB[meshId], material.local);
       }
     }
     ltsToMesh += it->getNumberOfCells();
@@ -257,6 +247,7 @@ void initializeCellMaterial() {
 
   // synchronize data
   synchronize(memoryManager.getLts()->material);
+  synchronize(memoryManager.getLts()->materialData);
   if (seissolParams.model.plasticity) {
     synchronize(memoryManager.getLts()->plasticity);
   }

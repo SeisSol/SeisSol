@@ -45,27 +45,14 @@
 #include <generated_code/tensor.h>
 #include <Kernels/common.hpp>
 
-#if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
-#error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
-#endif
+#include "Initializer/tree/VariableContainer.hpp"
+#include "Model/plasticity.hpp"
 
 #ifndef ACL_DEVICE
 #   define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#if CONVERGENCE_ORDER <= 7
-#   define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_TIMEDOFS seissol::memory::Standard
-#endif
-#if CONVERGENCE_ORDER <= 4
-#   define MEMKIND_CONSTANT seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_CONSTANT seissol::memory::Standard
-#endif
-#if CONVERGENCE_DOFS <= 3
-#   define MEMKIND_DOFS     seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_DOFS     seissol::memory::Standard
-#endif
+#   define MEMKIND_TIMEDOFS (ConvergenceOrder <= 7 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_CONSTANT (ConvergenceOrder <= 4 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_DOFS     (ConvergenceOrder <= 3 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
 # define MEMKIND_UNIFIED  seissol::memory::Standard
 #else // ACL_DEVICE
 #	define MEMKIND_GLOBAL   seissol::memory::Standard
@@ -84,10 +71,10 @@ namespace seissol {
   }
 }
 
-struct seissol::initializers::LTS {
+struct seissol::initializers::LTS : seissol::initializers::LTSVariableContainer {
   Variable<real[tensor::Q::size()]>       dofs;
   // size is zero if Qane is not defined
-  Variable<real[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<real[ZeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;
@@ -95,10 +82,11 @@ struct seissol::initializers::LTS {
   Variable<LocalIntegrationData>          localIntegration;
   Variable<NeighboringIntegrationData>    neighboringIntegration;
   Variable<CellMaterialData>              material;
-  Variable<PlasticityData>                plasticity;
+  Variable<seissol::model::Material_t>                    materialData;
+  Variable<seissol::model::PlasticityData<>>                plasticity;
   Variable<CellDRMapping[4]>              drMapping;
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
-  Variable<real[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]> pstrain;
+  Variable<real[seissol::model::PlasticityData<>::NumberOfQuantities * seissol::kernels::NumberOfAlignedBasisFunctions()]> pstrain;
   Variable<real*[4]>                      faceDisplacements;
   Bucket                                  buffersDerivatives;
   Bucket                                  faceDisplacementsBuffer;
@@ -110,11 +98,13 @@ struct seissol::initializers::LTS {
   ScratchpadMemory                        derivativesScratch;
   ScratchpadMemory                        nodalAvgDisplacements;
 #endif
+
+  bool Plasticity = false; // TODO(David): long-term, make template parameter
   
   /// \todo Memkind
-  void addTo(LTSTree& tree, bool usePlasticity) {
+  void addTo(LTSTree& tree) override {
     LayerMask plasticityMask;
-    if (usePlasticity) {
+    if (Plasticity) {
       plasticityMask = LayerMask(Ghost);
     } else {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
@@ -131,6 +121,7 @@ struct seissol::initializers::LTS {
     tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+    tree.addVar(                materialData,  LayerMask(),                 1,      seissol::memory::Standard );
     tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
     tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );

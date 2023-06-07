@@ -32,7 +32,7 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
-    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->materialData, 0);
 
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
@@ -48,12 +48,12 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       initConditions.emplace_back(new physics::SuperimposedPlanarwave(
-          memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
+          memoryManager.getLtsLut()->lookup(memoryManager.getLts()->materialData, 0),
           (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS));
     }
 #else
     initConditions.emplace_back(new physics::SuperimposedPlanarwave(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0)));
+        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->materialData, 0)));
 #endif
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::Zero) {
@@ -66,7 +66,7 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
     initialConditionDescription = "Travelling wave";
     auto travellingWaveParameters = getTravellingWaveInformation();
     initConditions.emplace_back(new physics::TravellingWave(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
+        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->materialData, 0),
         travellingWaveParameters));
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::Scholte) {

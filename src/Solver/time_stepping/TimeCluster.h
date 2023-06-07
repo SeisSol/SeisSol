@@ -93,6 +93,8 @@
 #include <Monitoring/ActorStateStatistics.h>
 
 #include "AbstractTimeCluster.h"
+#include <memory>
+#include "WavePropagation/dispatcher.hpp"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -128,17 +130,7 @@ private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
-    /*
-     * integrators
-     */
-    //! time kernel
-    kernels::Time m_timeKernel;
-
-    //! local kernel
-    kernels::Local m_localKernel;
-
-    //! neighbor kernel
-    kernels::Neighbor m_neighborKernel;
+    std::unique_ptr<seissol::waveprop::WavePropDispatcherBase> waveProp;
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
@@ -217,140 +209,7 @@ private:
      **/
     void computeDynamicRupture( seissol::initializers::Layer&  layerData );
 
-    /**
-     * Computes all cell local integration.
-     *
-     * This are:
-     *  * time integration
-     *  * volume integration
-     *  * local boundary integration
-     *
-     * Remark: After this step the DOFs are only updated half with the boundary contribution
-     *         of the neighborings cells missing.
-     *
-     * @param i_numberOfCells number of cells.
-     * @param i_cellInformation cell local information.
-     * @param i_cellData cell data.
-     * @param io_buffers time integration buffers.
-     * @param io_derivatives time derivatives.
-     * @param io_dofs degrees of freedom.
-     **/
-    void computeLocalIntegration( seissol::initializers::Layer&  i_layerData, bool resetBuffers);
-
-    /**
-     * Computes the contribution of the neighboring cells to the boundary integral.
-     *
-     * Remark: After this step (in combination with the local integration) the DOFs are at the next time step.
-     * TODO: This excludes dynamic rupture contribution.
-     *
-     * @param i_numberOfCells number of cells.
-     * @param i_cellInformation cell local information.
-     * @param i_cellData cell data.
-     * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
-     * @param io_dofs degrees of freedom.
-     **/
-    void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart );
-
     void computeLocalIntegrationFlops(seissol::initializers::Layer& layerData);
-#ifndef ACL_DEVICE
-    template<bool usePlasticity>
-    std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializers::Layer& i_layerData,
-                                                                      double subTimeStart) {
-      if (i_layerData.getNumberOfCells() == 0) return {0,0};
-      SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-      m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
-
-      real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
-      CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-      PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-      real (*pstrain)[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = i_layerData.var(m_lts->pstrain);
-      unsigned numberOTetsWithPlasticYielding = 0;
-
-      kernels::NeighborData::Loader loader;
-      loader.load(*m_lts, i_layerData);
-
-      real *l_timeIntegrated[4];
-      real *l_faceNeighbors_prefetch[4];
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
-#endif
-      for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
-        auto data = loader.entry(l_cell);
-        seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                       data.cellInformation.ltsSetup,
-                                                       data.cellInformation.faceTypes,
-                                                       subTimeStart,
-                                                       timeStepSize(),
-                                                       faceNeighbors[l_cell],
-#ifdef _OPENMP
-                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
-#else
-            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
-#endif
-                                                       l_timeIntegrated);
-
-        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][1] :
-                                      drMapping[l_cell][1].godunov;
-        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][2] :
-                                      drMapping[l_cell][2].godunov;
-        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][3] :
-                                      drMapping[l_cell][3].godunov;
-
-        // fourth face's prefetches
-        if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-                                        faceNeighbors[l_cell+1][0] :
-                                        drMapping[l_cell+1][0].godunov;
-        } else {
-          l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
-        }
-
-        m_neighborKernel.computeNeighborsIntegral( data,
-                                                   drMapping[l_cell],
-                                                   l_timeIntegrated, l_faceNeighbors_prefetch
-        );
-
-        if constexpr (usePlasticity) {
-          updateRelaxTime();
-          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
-                                                                                             timeStepSize(),
-                                                                                             m_tv,
-                                                                                             m_globalDataOnHost,
-                                                                                             &plasticity[l_cell],
-                                                                                             data.dofs,
-                                                                                             pstrain[l_cell] );
-        }
-#ifdef INTEGRATE_QUANTITIES
-        seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
-                                                              i_layerData,
-                                                              l_cell,
-                                                              dofs[l_cell] );
-#endif // INTEGRATE_QUANTITIES
-      }
-
-      const long long nonZeroFlopsPlasticity =
-          i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +
-          numberOTetsWithPlasticYielding * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
-      const long long hardwareFlopsPlasticity =
-          i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
-          numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
-
-      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
-
-      return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
-    }
-#endif // ACL_DEVICE
-
-    void computeLocalIntegrationFlops(unsigned numberOfCells,
-                                      CellLocalInformation const* cellInformation,
-                                      long long& nonZeroFlops,
-                                      long long& hardwareFlops);
 
     void computeNeighborIntegrationFlops(seissol::initializers::Layer &layerData);
 

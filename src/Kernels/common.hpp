@@ -47,6 +47,7 @@
 #include <type_traits>
 #include <utility>
 #include <algorithm>
+#include "Common/constants.hpp"
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
@@ -108,14 +109,17 @@
 
 namespace seissol {
 namespace kernels {
-/**
+  constexpr unsigned int Alignment = ALIGNMENT;
+constexpr unsigned int ConvergenceOrder = CONVERGENCE_ORDER;
+
+  /**
  * Gets the number of basis functions for the given convergence order.
  *
  * @param i_convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
 constexpr unsigned int
-    getNumberOfBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER) {
+    NumberOfBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder) {
   return i_convergenceOrder * (i_convergenceOrder + 1) * (i_convergenceOrder + 2) / 6;
 }
 
@@ -125,8 +129,8 @@ constexpr unsigned int
  * @param i_alignment alignment in bytes.
  * @return aligned number of reals.
  **/
-constexpr unsigned int getNumberOfAlignedReals(unsigned int i_numberOfReals,
-                                               unsigned int i_alignment = ALIGNMENT) {
+constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
+                                               unsigned int i_alignment = Alignment) {
   // in principle, we could simplify this formula by substituting alignment = i_alignment /
   // sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real)
   // which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if
@@ -144,12 +148,12 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int i_numberOfReals,
  * @return aligned number of basis functions.
  **/
 constexpr unsigned int
-    getNumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                     unsigned int i_alignment = ALIGNMENT) {
-  // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
+    NumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
+                                     unsigned int i_alignment = Alignment) {
+  // return (NumberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (NumberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
-  unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions(i_convergenceOrder);
-  return getNumberOfAlignedReals(l_numberOfBasisFunctions);
+  unsigned int l_NumberOfBasisFunctions = NumberOfBasisFunctions(i_convergenceOrder);
+  return NumberOfAlignedReals(l_NumberOfBasisFunctions);
 }
 
 /**
@@ -160,13 +164,14 @@ constexpr unsigned int
  * @return aligned number of basis functions.
  **/
 constexpr unsigned
-    getNumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                               unsigned int i_alignment = ALIGNMENT) {
+    NumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
+                                               unsigned int i_alignment = Alignment) {
   return (i_convergenceOrder > 0)
-             ? getNumberOfAlignedBasisFunctions(i_convergenceOrder) +
-                   getNumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
+             ? NumberOfAlignedBasisFunctions(i_convergenceOrder) +
+                   NumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
              : 0;
 }
+
 
 /**
  * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
@@ -231,15 +236,5 @@ constexpr bool isDeviceOn() {
   return false;
 }
 } // namespace seissol
-
-// for now, make these #defines constexprs. Soon, they should be namespaced.
-constexpr unsigned int NUMBER_OF_BASIS_FUNCTIONS = seissol::kernels::getNumberOfBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_BASIS_FUNCTIONS =
-    seissol::kernels::getNumberOfAlignedBasisFunctions();
-constexpr unsigned int NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS =
-    seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
-
-// for attenuation
-constexpr unsigned int NUMBER_OF_ALIGNED_STRESS_DOFS = 6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
 
 #endif
