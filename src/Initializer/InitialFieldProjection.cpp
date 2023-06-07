@@ -77,7 +77,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   #pragma omp parallel
   {
 #endif
-  real iniCondData[tensor::iniCond::size()] __attribute__((aligned(ALIGNMENT))) = {};
+  real iniCondData[tensor::iniCond::size()] __attribute__((aligned(Alignment))) = {};
   auto iniCond = init::iniCond::view::create(iniCondData);
 
   std::vector<std::array<double, 3>> quadraturePointsXyz;

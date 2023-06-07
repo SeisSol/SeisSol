@@ -4,7 +4,6 @@
 #include <optional>
 #include <vector>
 
-
 namespace seissol {
 class IntegerMaskParser {
   public:

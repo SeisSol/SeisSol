@@ -95,7 +95,7 @@ void seissol::kernels::NeighborBase::checkGlobalData(GlobalData const* global, s
 }
 
 void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
-  checkGlobalData(global, ALIGNMENT);
+  checkGlobalData(global, Alignment);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
@@ -121,7 +121,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
                                                           CellDRMapping const (&cellDrMapping)[4],
                                                           real* i_timeIntegrated[4],
                                                           real* faceNeighbors_prefetch[4]) {
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs) % Alignment == 0);
 
   for (unsigned int l_face = 0; l_face < 4; l_face++) {
     switch (data.cellInformation.faceTypes[l_face]) {
@@ -131,7 +131,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
-      assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
+      assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % Alignment == 0 );
       assert(data.cellInformation.faceRelations[l_face][0] < 4
              && data.cellInformation.faceRelations[l_face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
@@ -147,7 +147,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
     case FaceType::dynamicRupture:
       {
       // No neighboring cell contribution, interior bc.
-      assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % Alignment == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;

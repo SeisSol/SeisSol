@@ -63,7 +63,7 @@ void seissol::kernels::DynamicRupture::checkGlobalData(GlobalData const* global,
 }
 
 void seissol::kernels::DynamicRupture::setHostGlobalData(GlobalData const* global) {
-  checkGlobalData(global, ALIGNMENT);
+  checkGlobalData(global, Alignment);
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
   m_timeKernel.setHostGlobalData(global);
 }
@@ -126,10 +126,10 @@ void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformatio
 #ifndef NDEBUG
   assert( timeDerivativePlus != nullptr );
   assert( timeDerivativeMinus != nullptr );
-  assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&QInterpolatedPlus[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&QInterpolatedMinus[0]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeDerivativePlus) % Alignment == 0 );
+  assert( ((uintptr_t)timeDerivativeMinus) % Alignment == 0 );
+  assert( ((uintptr_t)&QInterpolatedPlus[0]) % Alignment == 0 );
+  assert( ((uintptr_t)&QInterpolatedMinus[0]) % Alignment == 0 );
   assert( tensor::Q::size() == tensor::I::size() );
 #endif
 

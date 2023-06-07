@@ -117,7 +117,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
-      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
+      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(Alignment)));
 
       kernel::subTriangleVelocity vkrnl;
       vkrnl.Q = dofs[face];
@@ -173,9 +173,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   const auto projectionMatrixFromFaceMemorySize = projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
   projectionMatrixMemory =
-      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT)));
+      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, Alignment)));
   projectionMatrixFromFace =
-      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, ALIGNMENT)));
+      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, Alignment)));
 
   std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixNumberOfReals);
   std::fill_n(projectionMatrixFromFace.get(), 0, projectionMatrixFromFaceMemoryNumberOfReals);
@@ -327,8 +327,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   surfaceLtsTree.touchVariables();
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
-    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
-    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
+    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
   }
   locationFlags = std::vector<double>(totalNumberOfTriangles, 0.0);
 

@@ -8,8 +8,8 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
 					 real timeIntegrated[tensor::I::size()] 
 					 ) {
   // TODO(Lukas) Only compute integral for displacement, not for all vars.
-  assert(reinterpret_cast<uintptr_t>(timeDerivatives) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
   assert(deltaT > 0);
   
   kernel::derivativeTaylorExpansion intKrnl;

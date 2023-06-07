@@ -127,7 +127,7 @@ public:
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      MEMKIND_STANDARD );
-    tree.addVar(          drEnergyOutput,             mask,         ALIGNMENT,      MEMKIND_STANDARD );
+    tree.addVar(          drEnergyOutput,             mask,         Alignment,      MEMKIND_STANDARD );
     tree.addVar(      impAndEta,                      mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      MEMKIND_STANDARD );
     tree.addVar(      nucleationStressInFaultCS,      mask,                 1,      MEMKIND_STANDARD );
@@ -146,8 +146,8 @@ public:
     tree.addVar(peakSlipRate, mask, 1, MEMKIND_STANDARD);
     tree.addVar(traction1, mask, 1, MEMKIND_STANDARD);
     tree.addVar(traction2, mask, 1, MEMKIND_STANDARD);
-    tree.addVar(qInterpolatedPlus, mask, ALIGNMENT, MEMKIND_STANDARD);
-    tree.addVar(qInterpolatedMinus, mask, ALIGNMENT, MEMKIND_STANDARD);
+    tree.addVar(qInterpolatedPlus, mask, Alignment, MEMKIND_STANDARD);
+    tree.addVar(qInterpolatedMinus, mask, Alignment, MEMKIND_STANDARD);
 
 #ifdef ACL_DEVICE
     tree.addScratchpadMemory(idofsPlusOnDevice,  1, seissol::memory::DeviceGlobalMemory);
@@ -225,15 +225,15 @@ struct seissol::initializers::LTSRateAndStateThermalPressurization : public seis
   virtual void addTo(initializers::LTSTree& tree) override {
     seissol::initializers::LTSRateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(temperature, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(pressure, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(theta, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(sigma, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(thetaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(sigmaTmpBuffer, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(faultStrength, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(halfWidthShearZone, mask, ALIGNMENT, seissol::memory::Standard);
-    tree.addVar(hydraulicDiffusivity, mask, ALIGNMENT, seissol::memory::Standard);
+    tree.addVar(temperature, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(pressure, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(theta, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(sigma, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(thetaTmpBuffer, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(sigmaTmpBuffer, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(faultStrength, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(halfWidthShearZone, mask, Alignment, seissol::memory::Standard);
+    tree.addVar(hydraulicDiffusivity, mask, Alignment, seissol::memory::Standard);
   }
 };
 

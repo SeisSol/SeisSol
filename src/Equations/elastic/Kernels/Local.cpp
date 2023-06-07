@@ -71,7 +71,7 @@ void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size
 }
 
 void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
-  checkGlobalData(global, ALIGNMENT);
+  checkGlobalData(global, Alignment);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
@@ -137,8 +137,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
                                               double time,
                                               double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs) % Alignment == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
@@ -165,7 +165,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       lfKrnl.execute(face);
     }
 
-    alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
@@ -384,7 +384,7 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
         auto cellId = cellIds[index];
         auto data = loader.entry(cellId);
 
-        alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
         assert(initConds->size() == 1);

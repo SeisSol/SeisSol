@@ -66,10 +66,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
-    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     getDofs(dofsPlus, faultInfo.element);
 
-    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {

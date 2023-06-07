@@ -62,7 +62,7 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
 
 {
   alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
-  assert( ((uintptr_t)stp) % ALIGNMENT  == 0);
+  assert( ((uintptr_t)stp) % Alignment  == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = m_krnlPrototype;
@@ -119,9 +119,9 @@ void seissol::kernels::Time::computeAder( double i_timeStepWidth,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
+  assert( ((uintptr_t)data.dofs)              % Alignment == 0 );
+  assert( ((uintptr_t)o_timeIntegrated )      % Alignment == 0 );
+  assert( ((uintptr_t)o_timeDerivatives)      % Alignment == 0 || o_timeDerivatives == NULL );
 
   alignas(PAGESIZE_STACK) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
@@ -167,8 +167,8 @@ void seissol::kernels::Time::computeIntegral( double                            
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % ALIGNMENT == 0 );
+  assert( ((uintptr_t)i_timeDerivatives)  % Alignment == 0 );
+  assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
 
   // assert that this is a forwared integration in time
   assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
@@ -212,8 +212,8 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeDerivatives)  % Alignment == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % Alignment == 0 );
 
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );

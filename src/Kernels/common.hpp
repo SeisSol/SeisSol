@@ -147,8 +147,8 @@ constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
 constexpr unsigned int
     NumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
                                   unsigned int i_alignment = Alignment) {
-  // return (NumberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (NumberOfBasisFunctions(O) *
-  // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
+  // return (NumberOfBasisFunctions(O) * REAL_BYTES + (Alignment - (NumberOfBasisFunctions(O) *
+  // REAL_BYTES) % Alignment) % Alignment) / REAL_BYTES
   unsigned int l_NumberOfBasisFunctions = NumberOfBasisFunctions(i_convergenceOrder);
   return NumberOfAlignedReals(l_NumberOfBasisFunctions);
 }

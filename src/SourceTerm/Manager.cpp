@@ -323,14 +323,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
       sources[cluster].mode = PointSources::FSRM;
       sources[cluster].numberOfSources = clusterMappings[cluster].numberOfSources;
       int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources),
-                                 ALIGNMENT,
+                                 Alignment,
                                  clusterMappings[cluster].numberOfSources *
                                      tensor::mInvJInvPhisAtSources::size() * sizeof(real));
       if (error) {
         logError() << "posix_memalign failed in source term manager.";
       }
       error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].tensor),
-                             ALIGNMENT,
+                             Alignment,
                              clusterMappings[cluster].numberOfSources * PointSources::TensorSize *
                                  sizeof(real));
       if (error) {
@@ -449,14 +449,14 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
       sources[cluster].mode = PointSources::NRF;
       sources[cluster].numberOfSources = clusterMappings[cluster].numberOfSources;
       int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources),
-                                 ALIGNMENT,
+                                 Alignment,
                                  clusterMappings[cluster].numberOfSources *
                                      tensor::mInvJInvPhisAtSources::size() * sizeof(real));
       if (error) {
         logError() << "posix_memalign failed in source term manager.";
       }
       error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].tensor),
-                             ALIGNMENT,
+                             Alignment,
                              clusterMappings[cluster].numberOfSources * PointSources::TensorSize *
                                  sizeof(real));
       if (error) {

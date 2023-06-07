@@ -15,10 +15,10 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses faultStresses{};
   TractionResults tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(ALIGNMENT) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real imposedStatePlus[tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real imposedStateMinus[tensor::QInterpolated::size()];
+  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
+  alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
+  alignas(Alignment) real imposedStatePlus[tensor::QInterpolated::size()];
+  alignas(Alignment) real imposedStateMinus[tensor::QInterpolated::size()];
   double timeWeights[ConvergenceOrder];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
 

@@ -38,9 +38,9 @@ struct ImpedancesAndEta {
  * respective tangential vectors
  */
 struct FaultStresses {
-  alignas(ALIGNMENT) real normalStress[ConvergenceOrder][misc::numPaddedPoints] = {{}};
-  alignas(ALIGNMENT) real traction1[ConvergenceOrder][misc::numPaddedPoints] = {{}};
-  alignas(ALIGNMENT) real traction2[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  alignas(Alignment) real normalStress[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[ConvergenceOrder][misc::numPaddedPoints] = {{}};
 };
 
 /**
@@ -48,8 +48,8 @@ struct FaultStresses {
  * traction1, traction2 in the direction of the respective tangential vectors
  */
 struct TractionResults {
-  alignas(ALIGNMENT) real traction1[ConvergenceOrder][misc::numPaddedPoints] = {{}};
-  alignas(ALIGNMENT) real traction2[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[ConvergenceOrder][misc::numPaddedPoints] = {{}};
+  alignas(Alignment) real traction2[ConvergenceOrder][misc::numPaddedPoints] = {{}};
 };
 
 } // namespace seissol::dr

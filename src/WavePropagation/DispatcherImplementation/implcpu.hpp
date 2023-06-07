@@ -21,7 +21,7 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre {
   virtual void
       dispatchPredict(double timeStepSize, double correctionTime, bool resetBuffers) override {
     // local integration buffer
-    real l_integrationBuffer[tensor::I::size()] alignas(ALIGNMENT);
+    real l_integrationBuffer[tensor::I::size()] alignas(Alignment);
 
     // pointer for the call of the ADER-function
     real* l_bufferPointer;

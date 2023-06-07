@@ -160,7 +160,7 @@ class DirichletBoundary {
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
   
-    alignas(ALIGNMENT) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
     auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
   
     boundaryDofs.setZero();

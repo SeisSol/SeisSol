@@ -55,23 +55,23 @@ inline void checkAlignmentPreCompute(
     const FaultStresses& faultStresses) {
   using namespace dr::misc::quantity_indices;
   for (unsigned o = 0; o < ConvergenceOrder; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % Alignment == 0);
   }
 }
 
@@ -151,38 +151,38 @@ inline void checkAlignmentPostCompute(
     const TractionResults& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % Alignment == 0);
 
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % Alignment == 0);
 
   for (size_t o = 0; o < ConvergenceOrder; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % Alignment == 0);
   }
 }
 

@@ -459,7 +459,7 @@ struct BoundaryFaceInformation {
  * See, an example of a policy-based design in GlobalData.cpp
  * */
 struct MemoryProperties {
-  size_t alignment{ALIGNMENT};
+  size_t alignment{seissol::Alignment};
   size_t pagesizeHeap{PAGESIZE_HEAP};
   size_t pagesizeStack{PAGESIZE_STACK};
 };

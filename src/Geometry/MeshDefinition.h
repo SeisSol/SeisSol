@@ -43,6 +43,8 @@
 
 #include <vector>
 
+namespace seissol {
+
 typedef int ElemVertices[4];
 typedef int ElemNeighbors[4];
 typedef int ElemNeighborSides[4];
@@ -113,5 +115,7 @@ struct MPINeighbor {
 
 	std::vector<MPINeighborElement> elements;
 };
+
+}
 
 #endif // MESH_DEFINITION_H

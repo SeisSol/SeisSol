@@ -104,7 +104,7 @@ real EnergyOutput::computeStaticWork(
 
   alignas(PAGESIZE_STACK) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PAGESIZE_STACK) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(ALIGNMENT) real tractionInterpolated[tensor::tractionInterpolated::size()];
+  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
 
   krnl.QInterpolated = QInterpolatedPlus;
   krnl.Q = degreesOfFreedomPlus;
@@ -227,7 +227,7 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-      alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
+      alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
       auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
       // Evaluate numerical solution at quad. nodes
       kernel::evalAtQP krnl;
@@ -302,7 +302,7 @@ void EnergyOutput::computeVolumeEnergies() {
         // We need to rotate it to the global coordinate system.
         auto& boundaryMapping = boundaryMappings[face];
         auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-        alignas(ALIGNMENT)
+        alignas(Alignment)
             real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
         auto rotateDisplacementToFaceNormal =
@@ -313,7 +313,7 @@ void EnergyOutput::computeVolumeEnergies() {
           }
         }
 
-        alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+        alignas(Alignment) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
             displQuadData{};
         const auto* curFaceDisplacementsData = faceDisplacements[face];
         seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
