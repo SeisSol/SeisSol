@@ -9,7 +9,9 @@
 format() {
     # don't use a directory with whitespace
     local whitelist_dir="
+        src/Common
         src/DynamicRupture
+        src/WavePropagation
         src/tests/DynamicRupture
         src/tests/Model
         src/tests/Reader
@@ -27,6 +29,7 @@ format() {
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
+        src/Initializer/tree/VariableContainer.hpp
         src/Kernels/common.hpp
         src/Monitoring/instrumentation.hpp
         src/SourceTerm/Manager.h
