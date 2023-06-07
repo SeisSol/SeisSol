@@ -174,7 +174,8 @@ void initializeCellMaterial() {
   }
 #endif
 
-  logDebug() << "Setting cell materials in the LTS tree."; // TODO(David): describe plasticity as well
+  logDebug()
+      << "Setting cell materials in the LTS tree."; // TODO(David): describe plasticity as well
   const auto& elements = meshReader.getElements();
   unsigned* ltsToMesh =
       memoryManager.getLtsLut()->getLtsToMeshLut(seissol::initializers::LayerMask(Ghost));
@@ -234,7 +235,8 @@ void initializeCellMaterial() {
 
       // if enabled, set up the plasticity as well
       if (seissolParams.model.plasticity) {
-        plasticityArray[cell] = seissol::model::PlasticityData(plasticityDB[meshId], material.local);
+        plasticityArray[cell] =
+            seissol::model::PlasticityData(plasticityDB[meshId], material.local);
       }
     }
     ltsToMesh += it->getNumberOfCells();

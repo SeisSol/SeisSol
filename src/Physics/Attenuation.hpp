@@ -4,11 +4,11 @@
 
 namespace seissol::physics {
 
-template<std::size_t Mechanisms>
+template <std::size_t Mechanisms>
 void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
                     double freqCentral,
                     double freqRatio) {
-  if constexpr(Mechanisms > 0) {
+  if constexpr (Mechanisms > 0) {
     constexpr std::size_t kmax =
         2 * Mechanisms - 1; // slight note: if Mechanisms == 0, this does not make any sense
 
@@ -18,31 +18,31 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
     Eigen::VectorXd w(kmax);
 
     if (Mechanisms > 1) {
-        const double logwmin = std::log(wmin);
-        const double logfreqratio = std::log(freqRatio);
-        for (std::size_t i = 0; i < kmax; ++i) {
+      const double logwmin = std::log(wmin);
+      const double logfreqratio = std::log(freqRatio);
+      for (std::size_t i = 0; i < kmax; ++i) {
         w(i) = std::exp(logwmin + (i / static_cast<double>(kmax - 1)) * logfreqratio);
-        }
+      }
     } else {
-        w(0) = w0;
+      w(0) = w0;
     }
 
     for (size_t i = 0; i < Mechanisms; ++i) {
-        vm.omega[i] = w(2 * i);
+      vm.omega[i] = w(2 * i);
     }
 
     Eigen::MatrixXd AP(kmax, Mechanisms);
     Eigen::MatrixXd AS(kmax, Mechanisms);
 
     for (size_t i = 0; i < kmax; ++i) {
-        for (size_t j = 0; j < Mechanisms; ++j) {
+      for (size_t j = 0; j < Mechanisms; ++j) {
         const double wjsq = w(2 * j) * w(2 * j);
         const double wisq = w(i) * w(i);
         const double norm = wjsq + wisq;
         const double sc1 = w(2 * j) * w(i);
         AP(i, j) = (sc1 + wjsq / vm.Qp) / norm;
         AS(i, j) = (sc1 + wjsq / vm.Qs) / norm;
-        }
+      }
     }
 
     Eigen::VectorXd qpinv = Eigen::VectorXd::Constant(kmax, 1 / vm.Qp);
@@ -63,12 +63,12 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
     double psi1s = 1;
     double psi2s = 0;
     for (size_t i = 0; i < Mechanisms; ++i) {
-        double w0dw = w0 / w(2 * i);
-        double w0dwsq1 = 1 + w0dw * w0dw;
-        psi1p = psi1p - alpha(i) / w0dwsq1;
-        psi2p = psi2p + alpha(i) * (w0dw / w0dwsq1);
-        psi1s = psi1s - beta(i) / w0dwsq1;
-        psi2s = psi2s + beta(i) * (w0dw / w0dwsq1);
+      double w0dw = w0 / w(2 * i);
+      double w0dwsq1 = 1 + w0dw * w0dw;
+      psi1p = psi1p - alpha(i) / w0dwsq1;
+      psi2p = psi2p + alpha(i) * (w0dw / w0dwsq1);
+      psi1s = psi1s - beta(i) / w0dwsq1;
+      psi2s = psi2s + beta(i) * (w0dw / w0dwsq1);
     }
     const double rp = std::sqrt(psi1p * psi1p + psi2p * psi2p);
     const double var_p = (vm.lambda + 2 * vm.mu) * (rp + psi1p) / (2 * rp * rp);
@@ -78,11 +78,11 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
 
     const double var_lambda = var_p - 2 * var_mu;
     for (size_t i = 0; i < Mechanisms; ++i) {
-        const double t1 = -var_p * alpha(i);
-        const double t2 = -2.0 * var_mu * beta(i);
-        vm.theta[i][0] = t1;
-        vm.theta[i][1] = t1 - t2;
-        vm.theta[i][2] = t2;
+      const double t1 = -var_p * alpha(i);
+      const double t2 = -2.0 * var_mu * beta(i);
+      vm.theta[i][0] = t1;
+      vm.theta[i][1] = t1 - t2;
+      vm.theta[i][2] = t2;
     }
 
     vm.mu = var_mu;
@@ -92,4 +92,4 @@ void fitAttenuation(seissol::model::ViscoElasticMaterial<Mechanisms>& vm,
   // TODO(David?): add for anisotropic, viscoelastic
 }
 
-}
+} // namespace seissol::physics

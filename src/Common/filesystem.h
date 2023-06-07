@@ -15,7 +15,7 @@ inline bool directoryExists(seissol::filesystem::directory_entry entry) {
   struct stat info;
   return stat(pathName.c_str(), &info) != 0;
 }
-}
+} // namespace seissol
 
 #else
 
@@ -23,12 +23,9 @@ inline bool directoryExists(seissol::filesystem::directory_entry entry) {
 namespace seissol {
 namespace filesystem = std::filesystem;
 
-inline bool directoryExists(seissol::filesystem::directory_entry entry) {
-  return entry.exists();
-}
-}
+inline bool directoryExists(seissol::filesystem::directory_entry entry) { return entry.exists(); }
+} // namespace seissol
 
 #endif // EXPERIMENTAL_FS
 
 #endif // SEISSOL_FILESYSTEM_H
-

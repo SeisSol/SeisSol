@@ -147,8 +147,7 @@ seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(
     : m_cellToVertex(cellToVertex) {
   double quadraturePoints[NUM_QUADPOINTS][3];
   double quadratureWeights[NUM_QUADPOINTS];
-  seissol::quadrature::TetrahedronQuadrature(
-      quadraturePoints, quadratureWeights, ConvergenceOrder);
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, ConvergenceOrder);
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));

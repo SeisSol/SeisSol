@@ -205,147 +205,149 @@ void EnergyOutput::computeVolumeEnergies() {
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     real volume = MeshTools::volume(elements[elementId], vertices);
     seissol::model::Material_t& material = ltsLut->lookup(lts->materialData, elementId);
-if constexpr(seissol::model::Material_t::Type == seissol::model::MaterialType::elastic || seissol::model::Material_t::Type == seissol::model::MaterialType::viscoelastic) {
-    auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
-    auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
+    if constexpr (seissol::model::Material_t::Type == seissol::model::MaterialType::elastic ||
+                  seissol::model::Material_t::Type == seissol::model::MaterialType::viscoelastic) {
+      auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
+      auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
-    constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
+      constexpr auto quadPolyDegree = ConvergenceOrder + 1;
+      constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
-    double quadraturePointsTet[numQuadraturePointsTet][3];
-    double quadratureWeightsTet[numQuadraturePointsTet];
-    seissol::quadrature::TetrahedronQuadrature(
-        quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
+      double quadraturePointsTet[numQuadraturePointsTet][3];
+      double quadratureWeightsTet[numQuadraturePointsTet];
+      seissol::quadrature::TetrahedronQuadrature(
+          quadraturePointsTet, quadratureWeightsTet, quadPolyDegree);
 
-    constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
-    double quadraturePointsTri[numQuadraturePointsTri][2];
-    double quadratureWeightsTri[numQuadraturePointsTri];
-    seissol::quadrature::TriangleQuadrature(
-        quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
+      constexpr auto numQuadraturePointsTri = quadPolyDegree * quadPolyDegree;
+      double quadraturePointsTri[numQuadraturePointsTri][2];
+      double quadratureWeightsTri[numQuadraturePointsTri];
+      seissol::quadrature::TriangleQuadrature(
+          quadraturePointsTri, quadratureWeightsTri, quadPolyDegree);
 
-    // Needed to weight the integral.
-    const auto jacobiDet = 6 * volume;
+      // Needed to weight the integral.
+      const auto jacobiDet = 6 * volume;
 
-    alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
-    auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
-    // Evaluate numerical solution at quad. nodes
-    kernel::evalAtQP krnl;
-    krnl.evalAtQP = global->evalAtQPMatrix;
-    krnl.dofsQP = numericalSolutionData;
-    krnl.Q = ltsLut->lookup(lts->dofs, elementId);
-    krnl.execute();
+      alignas(ALIGNMENT) real numericalSolutionData[tensor::dofsQP::size()];
+      auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+      // Evaluate numerical solution at quad. nodes
+      kernel::evalAtQP krnl;
+      krnl.evalAtQP = global->evalAtQPMatrix;
+      krnl.dofsQP = numericalSolutionData;
+      krnl.Q = ltsLut->lookup(lts->dofs, elementId);
+      krnl.execute();
 
 #ifdef MULTIPLE_SIMULATIONS
-    auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
 #else
-    auto numSub = numericalSolution;
+      auto numSub = numericalSolution;
 #endif
-    for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
-      constexpr int uIdx = 6;
-      const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-      const auto rho = material.rho;
+      for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
+        constexpr int uIdx = 6;
+        const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
+        const auto rho = material.rho;
 
-      const auto u = numSub(qp, uIdx + 0);
-      const auto v = numSub(qp, uIdx + 1);
-      const auto w = numSub(qp, uIdx + 2);
-      const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
+        const auto u = numSub(qp, uIdx + 0);
+        const auto v = numSub(qp, uIdx + 1);
+        const auto w = numSub(qp, uIdx + 2);
+        const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
 
-      if (std::abs(material.mu) < 10e-14) {
-        // Acoustic
-        constexpr int pIdx = 0;
-        const auto K = material.lambda;
-        const auto p = numSub(qp, pIdx);
+        if (std::abs(material.mu) < 10e-14) {
+          // Acoustic
+          constexpr int pIdx = 0;
+          const auto K = material.lambda;
+          const auto p = numSub(qp, pIdx);
 
-        const double curAcousticEnergy = (p * p) / (2 * K);
-        totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
-        totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
-      } else {
-        // Elastic
-        totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
-        auto getStressIndex = [](int i, int j) {
-          const static auto lookup =
-              std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
-          return lookup[i][j];
-        };
-        auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
+          const double curAcousticEnergy = (p * p) / (2 * K);
+          totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
+          totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
+        } else {
+          // Elastic
+          totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
+          auto getStressIndex = [](int i, int j) {
+            const static auto lookup =
+                std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
+            return lookup[i][j];
+          };
+          auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-        const auto lambda = material.lambda;
-        const auto mu = material.mu;
-        const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
-        auto computeStrain = [&](int i, int j) {
-          double strain = 0.0;
-          const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
-          if (i == j) {
-            strain += factor * sumUniaxialStresses;
+          const auto lambda = material.lambda;
+          const auto mu = material.mu;
+          const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
+          auto computeStrain = [&](int i, int j) {
+            double strain = 0.0;
+            const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
+            if (i == j) {
+              strain += factor * sumUniaxialStresses;
+            }
+            strain += 1.0 / (2.0 * mu) * getStress(i, j);
+            return strain;
+          };
+          double curElasticEnergy = 0.0;
+          for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+              curElasticEnergy += getStress(i, j) * computeStrain(i, j);
+            }
           }
-          strain += 1.0 / (2.0 * mu) * getStress(i, j);
-          return strain;
-        };
-        double curElasticEnergy = 0.0;
+          totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
+        }
+      }
+
+      auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
+      // Compute gravitational energy
+      for (int face = 0; face < 4; ++face) {
+        if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
+          continue;
+
+        // Displacements are stored in face-aligned coordinate system.
+        // We need to rotate it to the global coordinate system.
+        auto& boundaryMapping = boundaryMappings[face];
+        auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+        alignas(ALIGNMENT)
+            real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+
+        auto rotateDisplacementToFaceNormal =
+            init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
         for (int i = 0; i < 3; ++i) {
           for (int j = 0; j < 3; ++j) {
-            curElasticEnergy += getStress(i, j) * computeStrain(i, j);
+            rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
           }
         }
-        totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
-      }
-    }
 
-    auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
-    // Compute gravitational energy
-    for (int face = 0; face < 4; ++face) {
-      if (cellInformation.faceTypes[face] != FaceType::freeSurfaceGravity)
-        continue;
+        alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+            displQuadData{};
+        const auto* curFaceDisplacementsData = faceDisplacements[face];
+        seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
+        evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
+        evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
+        evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
+        evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
+        evalKrnl.execute();
 
-      // Displacements are stored in face-aligned coordinate system.
-      // We need to rotate it to the global coordinate system.
-      auto& boundaryMapping = boundaryMappings[face];
-      auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-      alignas(ALIGNMENT)
-          real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+        // Perform quadrature
+        const auto surface = MeshTools::surface(elements[elementId], face, vertices);
+        const auto rho = material.rho;
 
-      auto rotateDisplacementToFaceNormal =
-          init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
-      for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-          rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+        static_assert(numQuadraturePointsTri ==
+                      init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
+        auto rotatedFaceDisplacement =
+            init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
+        for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+          // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
+          // derivation.
+          const auto displ = rotatedFaceDisplacement(i, 0);
+          const auto curEnergy = 0.5 * rho * g * displ * displ;
+          const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
+          totalGravitationalEnergyLocal += curWeight * curEnergy;
         }
       }
-
-      alignas(ALIGNMENT) std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
-          displQuadData{};
-      const auto* curFaceDisplacementsData = faceDisplacements[face];
-      seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
-      evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
-      evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
-      evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
-      evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
-      evalKrnl.execute();
-
-      // Perform quadrature
-      const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-      const auto rho = material.rho;
-
-      static_assert(numQuadraturePointsTri ==
-                    init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
-      auto rotatedFaceDisplacement =
-          init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
-      for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
-        // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
-        // derivation.
-        const auto displ = rotatedFaceDisplacement(i, 0);
-        const auto curEnergy = 0.5 * rho * g * displ * displ;
-        const auto curWeight = 2.0 * surface * quadratureWeightsTri[i];
-        totalGravitationalEnergyLocal += curWeight * curEnergy;
-      }
     }
-}
 
     if (isPlasticityEnabled) {
       // plastic moment
       real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
       real mu = material.getMu();
-      totalPlasticMoment += mu * volume * pstrainCell[6 * seissol::kernels::NumberOfAlignedBasisFunctions()];
+      totalPlasticMoment +=
+          mu * volume * pstrainCell[6 * seissol::kernels::NumberOfAlignedBasisFunctions()];
     }
   }
 }

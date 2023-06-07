@@ -110,14 +110,13 @@
 namespace seissol {
 namespace kernels {
 
-  /**
+/**
  * Gets the number of basis functions for the given convergence order.
  *
  * @param i_convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int
-    NumberOfBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder) {
+constexpr unsigned int NumberOfBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder) {
   return i_convergenceOrder * (i_convergenceOrder + 1) * (i_convergenceOrder + 2) / 6;
 }
 
@@ -128,7 +127,7 @@ constexpr unsigned int
  * @return aligned number of reals.
  **/
 constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
-                                               unsigned int i_alignment = Alignment) {
+                                            unsigned int i_alignment = Alignment) {
   // in principle, we could simplify this formula by substituting alignment = i_alignment /
   // sizeof(real). However, this will cause errors, if i_alignment is not dividable by sizeof(real)
   // which could happen e.g. if i_alignment < sizeof(real), or if we have real == long double (if
@@ -147,7 +146,7 @@ constexpr unsigned int NumberOfAlignedReals(unsigned int i_numberOfReals,
  **/
 constexpr unsigned int
     NumberOfAlignedBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
-                                     unsigned int i_alignment = Alignment) {
+                                  unsigned int i_alignment = Alignment) {
   // return (NumberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (NumberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   unsigned int l_NumberOfBasisFunctions = NumberOfBasisFunctions(i_convergenceOrder);
@@ -163,13 +162,12 @@ constexpr unsigned int
  **/
 constexpr unsigned
     NumberOfAlignedDerivativeBasisFunctions(unsigned int i_convergenceOrder = ConvergenceOrder,
-                                               unsigned int i_alignment = Alignment) {
+                                            unsigned int i_alignment = Alignment) {
   return (i_convergenceOrder > 0)
              ? NumberOfAlignedBasisFunctions(i_convergenceOrder) +
                    NumberOfAlignedDerivativeBasisFunctions(i_convergenceOrder - 1)
              : 0;
 }
-
 
 /**
  * Converts memory aligned degrees of freedom (with zero padding) to unaligned (compressed, without
