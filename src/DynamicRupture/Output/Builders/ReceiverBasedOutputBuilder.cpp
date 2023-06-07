@@ -1,5 +1,5 @@
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.hpp"
-#include "Model/common.hpp"
+#include "Equations/Setup.h"
 
 namespace seissol::dr::output {
 void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
