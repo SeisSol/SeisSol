@@ -6,17 +6,19 @@
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
 #include "Kernels/Plasticity.h"
+#include "Kernels/TimeCommon.h"
 #include "Model/plasticity.hpp"
 #include "implbase.hpp"
 
 #include <vector>
 
 namespace seissol::waveprop {
-template <bool Plasticity>
-class WavePropDispatcherGPU : public WavePropDispatcherPre {
+
+template <typename Config>
+class WavePropDispatcherGPU : public WavePropDispatcherPre<Config> {
   public:
   WavePropDispatcherGPU(const seissol::initializers::LTS& lts, seissol::initializers::Layer& layer)
-      : WavePropDispatcherPre(lts, layer) {}
+      : WavePropDispatcherPre<Config>(lts, layer) {}
 
 #ifdef ACL_DEVICE
   virtual void
@@ -167,7 +169,7 @@ class WavePropDispatcherGPU : public WavePropDispatcherPre {
       device.api->syncGraph(computeGraphHandle);
     }
 
-    if constexpr (Plasticity) {
+    if constexpr (Config::Plasticity) {
       seissol::model::PlasticityData<>* plasticity = layer.var(lts.plasticity);
       auto oneMinusIntegratingFactor = (tv > 0.0) ? 1.0 - exp(-timeStepSize / tv) : 1.0;
       unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(

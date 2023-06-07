@@ -78,11 +78,12 @@
 #include "SeisSol.h"
 #include "TimeCluster.h"
 #include <SourceTerm/PointSource.h>
-#include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <Monitoring/instrumentation.hpp>
+#include "Common/cellconfigconv.hpp"
+#include "Kernels/Plasticity.h"
 
 #include <cassert>
 #include <cstring>
@@ -131,7 +132,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler),
-    waveProp(std::move(waveprop::getDispatcher(*i_lts, *i_clusterData, usePlasticity)))
+    waveProp(std::move(waveprop::getDispatcher(*i_lts, *i_clusterData, defaultConfig(usePlasticity))))
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );

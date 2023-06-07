@@ -82,12 +82,7 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 
-#include <Kernels/Time.h>
-#include <Kernels/Local.h>
-#include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
-#include <Kernels/Plasticity.h>
-#include <Kernels/TimeCommon.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 #include <Monitoring/ActorStateStatistics.h>

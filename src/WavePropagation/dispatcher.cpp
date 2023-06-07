@@ -1,23 +1,30 @@
 #include "dispatcher.hpp"
 #include "DispatcherImplementation/implcpu.hpp"
 #include "DispatcherImplementation/implgpu.hpp"
+#include "Common/configs.hpp"
+
+#include <variant>
 
 namespace seissol::waveprop {
 std::unique_ptr<WavePropDispatcherBase> getDispatcher(const seissol::initializers::LTS& lts,
                                                       seissol::initializers::Layer& layer,
-                                                      bool plasticity) {
+                                                      const SupportedConfigs& config) {
 #ifdef ACL_DEVICE
-  if (plasticity) {
-    return std::make_unique<WavePropDispatcherGPU<true>>(lts, layer);
-  } else {
-    return std::make_unique<WavePropDispatcherGPU<false>>(lts, layer);
-  }
+  return std::visit(
+      [&](auto&& elem) {
+        using ConfigT = std::decay_t<decltype(elem)>;
+        auto ptr = std::make_unique<WavePropDispatcherGPU<ConfigT>>(lts, layer);
+        return static_cast<std::unique_ptr<WavePropDispatcherBase>>(std::move(ptr));
+      },
+      config);
 #else
-  if (plasticity) {
-    return std::make_unique<WavePropDispatcherCPU<true>>(lts, layer);
-  } else {
-    return std::make_unique<WavePropDispatcherCPU<false>>(lts, layer);
-  }
+  return std::visit(
+      [&](auto&& elem) {
+        using ConfigT = std::decay_t<decltype(elem)>;
+        auto ptr = std::make_unique<WavePropDispatcherCPU<ConfigT>>(lts, layer);
+        return static_cast<std::unique_ptr<WavePropDispatcherBase>>(std::move(ptr));
+      },
+      config);
 #endif
 }
 } // namespace seissol::waveprop

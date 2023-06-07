@@ -3,6 +3,7 @@
 #include <memory>
 #include "Initializer/LTS.h"
 #include "Initializer/tree/Layer.hpp"
+#include "Common/configs.hpp"
 
 namespace seissol::waveprop {
 class WavePropDispatcherBase {
@@ -21,5 +22,5 @@ class WavePropDispatcherBase {
 
 std::unique_ptr<WavePropDispatcherBase> getDispatcher(const seissol::initializers::LTS& lts,
                                                       seissol::initializers::Layer& layer,
-                                                      bool plasticity);
+                                                      const SupportedConfigs& config);
 } // namespace seissol::waveprop

@@ -7,10 +7,13 @@
 #include "Kernels/Neighbor.h"
 #include "SeisSol.h"
 
+#include "Common/cellconfig.hpp"
+
 #include <vector>
 
 namespace seissol::waveprop {
-// template<bool Plasticity> <-- one day, templates may be added here
+
+template <typename Config>
 class WavePropDispatcherPre : public WavePropDispatcherBase {
   public:
   WavePropDispatcherPre(const seissol::initializers::LTS& lts, seissol::initializers::Layer& layer)
