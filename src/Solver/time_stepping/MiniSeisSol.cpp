@@ -224,7 +224,8 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager, bool use
   initializers::LTSTree ltsTree;
   initializers::LTS     lts;
 
-  lts.addTo(ltsTree, usePlasticity);
+  lts.Plasticity = usePlasticity;
+  lts.addTo(ltsTree);
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
 

@@ -97,7 +97,7 @@ real EnergyOutput::computeStaticWork(
     const real slip[seissol::tensor::slipRateInterpolated::size()]) {
   real points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];
   real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER + 1);
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
@@ -204,12 +204,12 @@ void EnergyOutput::computeVolumeEnergies() {
 #endif
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     real volume = MeshTools::volume(elements[elementId], vertices);
-    CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
-#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
+    seissol::model::Material_t& material = ltsLut->lookup(lts->materialData, elementId);
+if constexpr(seissol::model::Material_t::Type == seissol::model::MaterialType::elastic || seissol::model::Material_t::Type == seissol::model::MaterialType::viscoelastic) {
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
-    constexpr auto quadPolyDegree = CONVERGENCE_ORDER + 1;
+    constexpr auto quadPolyDegree = ConvergenceOrder + 1;
     constexpr auto numQuadraturePointsTet = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
     double quadraturePointsTet[numQuadraturePointsTet][3];
@@ -243,17 +243,17 @@ void EnergyOutput::computeVolumeEnergies() {
     for (size_t qp = 0; qp < numQuadraturePointsTet; ++qp) {
       constexpr int uIdx = 6;
       const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-      const auto rho = material.local.rho;
+      const auto rho = material.rho;
 
       const auto u = numSub(qp, uIdx + 0);
       const auto v = numSub(qp, uIdx + 1);
       const auto w = numSub(qp, uIdx + 2);
       const double curKineticEnergy = 0.5 * rho * (u * u + v * v + w * w);
 
-      if (std::abs(material.local.mu) < 10e-14) {
+      if (std::abs(material.mu) < 10e-14) {
         // Acoustic
         constexpr int pIdx = 0;
-        const auto K = material.local.lambda;
+        const auto K = material.lambda;
         const auto p = numSub(qp, pIdx);
 
         const double curAcousticEnergy = (p * p) / (2 * K);
@@ -269,8 +269,8 @@ void EnergyOutput::computeVolumeEnergies() {
         };
         auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-        const auto lambda = material.local.lambda;
-        const auto mu = material.local.mu;
+        const auto lambda = material.lambda;
+        const auto mu = material.mu;
         const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
         auto computeStrain = [&](int i, int j) {
           double strain = 0.0;
@@ -324,7 +324,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
       // Perform quadrature
       const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-      const auto rho = material.local.rho;
+      const auto rho = material.rho;
 
       static_assert(numQuadraturePointsTri ==
                     init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
@@ -339,17 +339,13 @@ void EnergyOutput::computeVolumeEnergies() {
         totalGravitationalEnergyLocal += curWeight * curEnergy;
       }
     }
-#endif
+}
 
     if (isPlasticityEnabled) {
       // plastic moment
       real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-#ifdef USE_ANISOTROPIC
-      real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
-#else
-      real mu = material.local.mu;
-#endif
-      totalPlasticMoment += mu * volume * pstrainCell[6 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+      real mu = material.getMu();
+      totalPlasticMoment += mu * volume * pstrainCell[6 * seissol::kernels::NumberOfAlignedBasisFunctions()];
     }
   }
 }

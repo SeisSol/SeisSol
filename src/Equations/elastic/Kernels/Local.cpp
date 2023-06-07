@@ -121,7 +121,7 @@ struct ApplyAnalyticalSolution {
     }
 
     assert(initCondition != nullptr);
-    initCondition->evaluate(time, nodesVec, localData.material, boundaryDofs);
+    initCondition->evaluate(time, nodesVec, localData.materialData, boundaryDofs);
   }
 
 private:
@@ -185,7 +185,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             const real*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const double rho = materialData->local.rho;
+            const double rho = materialData->local->rho;
             const double g = getGravitationalAcceleration(); // [m/s^2]
             const double pressureAtBnd = -1 * rho * g * displacement(i);
 
@@ -446,9 +446,9 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
       break;
     case FaceType::analytical:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	CONVERGENCE_ORDER * seissol::kernel::updateINodal::NonZeroFlops;
+	ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	CONVERGENCE_ORDER * seissol::kernel::updateINodal::HardwareFlops;
+	ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
       break;
     default:
       break;

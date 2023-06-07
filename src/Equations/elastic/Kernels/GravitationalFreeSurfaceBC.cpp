@@ -19,7 +19,7 @@ GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType
   nonZeroFlops += 1 * numberOfNodes;
 
   // Before adjusting the range of the loop, check range of loop in computation!
-  for (int order = 1; order < CONVERGENCE_ORDER + 1; ++order) {
+  for (int order = 1; order < ConvergenceOrder+ 1; ++order) {
 #ifdef USE_ELASTIC
     constexpr auto flopsPerQuadpoint =
         4 + // Computing coefficient

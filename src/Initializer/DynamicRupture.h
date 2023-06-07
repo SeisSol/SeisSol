@@ -45,6 +45,8 @@
 #include <generated_code/tensor.h>
 #include <DynamicRupture/Misc.h>
 
+#include "Initializer/tree/VariableContainer.hpp"
+
 namespace seissol {
   namespace initializers {
     struct DynamicRupture;
@@ -71,7 +73,7 @@ namespace seissol {
 #define MEMKIND_STANDARD seissol::memory::DeviceUnifiedMemory
 #endif
 
-struct seissol::initializers::DynamicRupture {
+struct seissol::initializers::DynamicRupture : seissol::initializers::LTSVariableContainer {
 public:
   virtual ~DynamicRupture() = default;
   Variable<real*>                                                   timeDerivativePlus;
@@ -105,15 +107,15 @@ public:
   Variable<real[dr::misc::numPaddedPoints]> peakSlipRate;
   Variable<real[dr::misc::numPaddedPoints]> traction1;
   Variable<real[dr::misc::numPaddedPoints]> traction2;
-  Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedPlus;
-  Variable<real[CONVERGENCE_ORDER][tensor::QInterpolated::size()]> qInterpolatedMinus;
+  Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedPlus;
+  Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
 #ifdef ACL_DEVICE
   ScratchpadMemory                        idofsPlusOnDevice;
   ScratchpadMemory                        idofsMinusOnDevice;
 #endif
   
-  virtual void addTo(LTSTree& tree) {
+  virtual void addTo(LTSTree& tree) override {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
@@ -162,7 +164,7 @@ struct seissol::initializers::LTSLinearSlipWeakening : public seissol::initializ
     Variable<real[dr::misc::numPaddedPoints]> forcedRuptureTime;
 
 
-    virtual void addTo(initializers::LTSTree& tree) {
+    virtual void addTo(initializers::LTSTree& tree) override {
         seissol::initializers::DynamicRupture::addTo(tree);
         LayerMask mask = LayerMask(Ghost);
         tree.addVar(dC, mask, 1, MEMKIND_STANDARD);
@@ -176,7 +178,7 @@ struct seissol::initializers::LTSLinearSlipWeakening : public seissol::initializ
 struct seissol::initializers::LTSLinearSlipWeakeningBimaterial : public seissol::initializers::LTSLinearSlipWeakening {
   Variable<real[dr::misc::numPaddedPoints]> regularisedStrength;
 
-  virtual void addTo(initializers::LTSTree& tree) {
+  virtual void addTo(initializers::LTSTree& tree) override {
     seissol::initializers::LTSLinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(regularisedStrength, mask, 1, MEMKIND_STANDARD);
@@ -188,7 +190,7 @@ struct seissol::initializers::LTSRateAndState : public seissol::initializers::Dy
   Variable<real[dr::misc::numPaddedPoints]> rsSl0;
   Variable<real[dr::misc::numPaddedPoints]> stateVariable;
 
-  virtual void addTo(initializers::LTSTree& tree) {
+  virtual void addTo(initializers::LTSTree& tree) override {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(rsA, mask, 1, MEMKIND_STANDARD);
@@ -201,7 +203,7 @@ struct seissol::initializers::LTSRateAndState : public seissol::initializers::Dy
 struct seissol::initializers::LTSRateAndStateFastVelocityWeakening : public seissol::initializers::LTSRateAndState {
   Variable<real[dr::misc::numPaddedPoints]> rsSrW;
 
-  virtual void addTo(initializers::LTSTree& tree) {
+  virtual void addTo(initializers::LTSTree& tree) override {
     seissol::initializers::LTSRateAndState::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(rsSrW, mask, 1, MEMKIND_STANDARD);
@@ -220,7 +222,7 @@ struct seissol::initializers::LTSRateAndStateThermalPressurization : public seis
   Variable<real[dr::misc::numPaddedPoints]>halfWidthShearZone;
   Variable<real[dr::misc::numPaddedPoints]> hydraulicDiffusivity;
 
-  virtual void addTo(initializers::LTSTree& tree) {
+  virtual void addTo(initializers::LTSTree& tree) override {
     seissol::initializers::LTSRateAndStateFastVelocityWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(temperature, mask, ALIGNMENT, seissol::memory::Standard);

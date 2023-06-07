@@ -4,6 +4,8 @@
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 
+#include "Initializer/tree/VariableContainer.hpp"
+
 
 #ifndef ACL_DEVICE
 # define MEMKIND_BOUNDARY  seissol::memory::Standard
@@ -17,10 +19,10 @@ namespace seissol {
   }
 }
 
-struct seissol::initializers::Boundary {
+struct seissol::initializers::Boundary : seissol::initializers::LTSVariableContainer {
   Variable<BoundaryFaceInformation> faceInformation;
   
-  void addTo(LTSTree& tree) {
+  virtual void addTo(LTSTree& tree) override {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(faceInformation, mask, 1, MEMKIND_BOUNDARY);
   }

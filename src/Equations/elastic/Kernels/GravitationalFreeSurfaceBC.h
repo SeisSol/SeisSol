@@ -29,7 +29,7 @@ public:
   static std::pair<long long, long long> getFlopsDisplacementFace(unsigned face,
                                                                   [[maybe_unused]] FaceType faceType);
 
-  template<typename TimeKrnl, typename MappingKrnl>
+  template<typename TimeKrnl, typename MappingKrnl, typename MaterialT>
   void evaluate(unsigned faceIdx,
                 MappingKrnl&& projectKernelPrototype,
                 const CellBoundaryMapping& boundaryMapping,
@@ -38,7 +38,7 @@ public:
                 TimeKrnl& timeKernel,
                 real* derivatives,
                 double timeStepWidth,
-                CellMaterialData& materialData,
+                const MaterialT& materialData,
                 FaceType faceType) {
     // This function does two things:
     // 1: Compute eta (for all three dimensions) at the end of the timestep
@@ -114,14 +114,12 @@ public:
       projectKernel.dQ(i) = derivatives + derivativesOffsets[i];
     }
 
-#ifdef USE_ELASTIC
-    const double rho = materialData.local.rho;
+    const double rho = materialData.rho;
+    const double Z = MaterialT::Type == seissol::model::MaterialType::elastic ? std::sqrt(materialData.lambda * rho) : 1; // TODO non-elastic
     const double g = getGravitationalAcceleration(); // [m/s^2]
-    const double Z = std::sqrt(materialData.local.lambda * rho) ;
-#endif
 
-    // Note: Probably need to increase CONVERGENCE_ORDER by 1 here!
-    for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
+    // Note: Probably need to increase ConvergenceOrdery 1 here!
+    for (int order = 1; order < ConvergenceOrder; ++order) {
       dofsFaceNodal.setZero();
 
       projectKernel.execute(order - 1, faceIdx);
@@ -140,13 +138,9 @@ public:
         const auto wInside = dofsFaceNodal(i, uIdx + 2);
         const auto pressureInside = dofsFaceNodal(i, pIdx);
 
-#ifdef USE_ELASTIC
-        const double curCoeff = uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside);
+        const double curCoeff = MaterialT::Type == seissol::model::MaterialType::elastic ? (uInside - (1.0/Z) * (rho * g * prevCoefficients[i] + pressureInside)) : uInside;
         // Basically uInside - C_1 * (c_2 * prevCoeff[i] + pressureInside)
         // 2 add, 2 mul = 4 flops
-#else
-        const double curCoeff = uInside;
-#endif
         prevCoefficients[i] = curCoeff;
 
         // 2 * 3 = 6 flops for updating displacement
@@ -263,7 +257,7 @@ public:
       const double g = getGravitationalAcceleration();
 
       auto** derivativesPtrs = dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (int order = 1; order < CONVERGENCE_ORDER+1; ++order) {
+      for (int order = 1; order < ConvergenceOrder+1; ++order) {
 
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);

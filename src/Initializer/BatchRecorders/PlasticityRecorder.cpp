@@ -11,7 +11,7 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   loader.load(handler, layer);
   setUpContext(handler, layer, loader);
 
-  real(*pstrains)[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] =
+  real(*pstrains)[7 * seissol::kernels::NumberOfAlignedBasisFunctions()] =
       currentLayer->var(currentHandler->pstrain);
   size_t nodalStressTensorCounter = 0;
   real* scratchMem =

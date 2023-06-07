@@ -66,7 +66,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
 
-  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+  constexpr auto quadPolyDegree = ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -101,7 +101,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
-    const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
+    const seissol::model::Material_t& material = ltsLut.lookup(lts.materialData, meshId);
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());

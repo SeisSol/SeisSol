@@ -68,7 +68,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
+  constexpr auto quadPolyDegree = ConvergenceOrder+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -151,7 +151,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       krnl.execute();
 
       // Evaluate analytical solution at quad. nodes
-      const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
+      const seissol::model::Material_t& material = ltsLut->lookup(lts->materialData, meshId);
       iniFields[sim % iniFields.size()]->evaluate(simulationTime,
 						  quadraturePointsXyz,
 						  material,

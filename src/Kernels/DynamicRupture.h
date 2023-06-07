@@ -46,7 +46,7 @@
 #include <generated_code/kernel.h>
 #include <Kernels/Time.h>
 
-#define NUMBER_OF_SPACE_QUADRATURE_POINTS ((CONVERGENCE_ORDER+1)*(CONVERGENCE_ORDER+1))
+#define NUMBER_OF_SPACE_QUADRATURE_POINTS ((ConvergenceOrder+1)*(ConvergenceOrder+1))
 
 namespace seissol {
   namespace kernels {
@@ -64,8 +64,8 @@ class seissol::kernels::DynamicRupture {
 #endif
 
   public:
-    double timePoints[CONVERGENCE_ORDER];
-    double timeWeights[CONVERGENCE_ORDER];
+    double timePoints[ConvergenceOrder];
+    double timeWeights[ConvergenceOrder];
 
   DynamicRupture() {}
 
@@ -81,8 +81,8 @@ class seissol::kernels::DynamicRupture {
                                 DREnergyOutput*             drEnergyOutput,
                                 real const*                 timeDerivativePlus,
                                 real const*                 timeDerivativeMinus,
-                                real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
-                                real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                real                        QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+                                real                        QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
                                 real const*                 timeDerivativePlus_prefetch,
                                 real const*                 timeDerivativeMinus_prefetch);
 

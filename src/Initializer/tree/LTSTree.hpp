@@ -44,6 +44,8 @@
 #include "LTSInternalNode.hpp"
 #include "TimeCluster.hpp"
 
+#include <memory>
+#include "Initializer/tree/VariableContainer.hpp"
 #include <Initializer/MemoryAllocator.h>
 
 namespace seissol {
@@ -69,10 +71,24 @@ private:
   std::vector<int> scratchpadMemIds{};
 #endif  // ACL_DEVICE
 
+  std::unique_ptr<LTSVariableContainer> m_lts;
+
 public:
   LTSTree() : m_vars(NULL), m_buckets(NULL) {}
   
   ~LTSTree() { delete[] m_vars; delete[] m_buckets; }
+
+  // delete the copy constructor. It would not work here right now.
+  LTSTree(const LTSTree&) = delete;
+
+  void attachLTS(std::unique_ptr<LTSVariableContainer>&& vlts) {
+    m_lts = std::move(vlts);
+    m_lts->addTo(*this);
+  }
+
+  const LTSVariableContainer& lts() const {
+    return *m_lts;
+  }
   
   void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
     setChildren<TimeCluster>(numberOfTimeCluster);

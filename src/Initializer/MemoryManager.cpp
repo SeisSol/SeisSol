@@ -431,7 +431,8 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_meshStructure = i_meshStructure;
 
   // Setup tree variables
-  m_lts.addTo(m_ltsTree, usePlasticity);
+  m_lts.Plasticity = usePlasticity;
+  m_lts.addTo(m_ltsTree);
   seissol::SeisSol::main.postProcessor().allocateMemory(&m_ltsTree);
   m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
 
@@ -790,7 +791,7 @@ bool seissol::initializers::isAcousticSideOfElasticAcousticInterface(CellMateria
   return false;
 #else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face].mu > eps && material.local.mu < eps;
+  return material.neighbor[face]->getMu() > eps && material.local->getMu() < eps;
 #endif
 }
 bool seissol::initializers::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
@@ -799,7 +800,7 @@ bool seissol::initializers::isElasticSideOfElasticAcousticInterface(CellMaterial
   return false;
 #else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.local.mu > eps && material.neighbor[face].mu < eps;
+  return material.local->getMu() > eps && material.neighbor[face]->getMu() < eps;
 #endif
 }
 

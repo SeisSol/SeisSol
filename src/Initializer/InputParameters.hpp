@@ -13,6 +13,7 @@
 #include "SourceTerm/Manager.h"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
+#include "Model/datastructures.hpp"
 
 namespace seissol::initializer::parameters {
 
@@ -78,7 +79,7 @@ struct InitializationParameters {
   InitializationType type;
   std::array<double, 3> origin;
   std::array<double, 3> kVec;
-  std::array<double, NUMBER_OF_QUANTITIES> ampField;
+  std::array<double, seissol::model::Material_t::NumberOfQuantities> ampField;
 };
 
 struct DynamicRuptureParameters {

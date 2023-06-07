@@ -354,8 +354,8 @@ namespace seissol {
         Tview &sourceMatrix, 
         size_t quantity,
         real timeStepWidth) {
-      using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
-      using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
+      using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
+      using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
 
       Matrix Z(init::Z::Values);
       //sourceMatrix[i,i] = 0 for i < 10
@@ -366,11 +366,11 @@ namespace seissol {
       }
 
       auto solver = Z.colPivHouseholderQr();
-      for(int col = 0; col < CONVERGENCE_ORDER; col++) {
+      for(int col = 0; col < ConvergenceOrder; col++) {
         Vector rhs = Vector::Zero();
         rhs(col) = 1.0;
         auto ZinvCol = solver.solve(rhs);
-        for(int row = 0; row < CONVERGENCE_ORDER; row++) {
+        for(int row = 0; row < ConvergenceOrder; row++) {
           //save as transposed
           Zinv(col,row) = ZinvCol(row);
         }
@@ -380,7 +380,7 @@ namespace seissol {
     //constexpr for loop since we need to instatiate the view templates
     template<size_t iStart, size_t iEnd, typename Tview>
     struct zInvInitializerForLoop {
-      zInvInitializerForLoop(real ZinvData[PoroElasticMaterial::NumberOfQuantities][CONVERGENCE_ORDER*CONVERGENCE_ORDER],
+      zInvInitializerForLoop(real ZinvData[PoroElasticMaterial::NumberOfQuantities][ConvergenceOrder*ConvergenceOrder],
           Tview &sourceMatrix, 
           real timeStepWidth) {
         auto Zinv = init::Zinv::view<iStart>::create(ZinvData[iStart]); 

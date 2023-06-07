@@ -137,7 +137,7 @@ int seissol::geometry::PUMLReader::readPartition(PUML::TETPUML& puml,
   H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
 
   std::ostringstream os;
-  os << checkPointFile << "_partitions_o" << CONVERGENCE_ORDER << "_n" << nrank << ".h5";
+  os << checkPointFile << "_partitions_o" << ConvergenceOrder << "_n" << nrank << ".h5";
   std::string fname = os.str();
 
   std::ifstream ifile(fname.c_str());
@@ -212,7 +212,7 @@ void seissol::geometry::PUMLReader::writePartition(PUML::TETPUML& puml,
   H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
 
   std::ostringstream os;
-  os << checkPointFile << "_partitions_o" << CONVERGENCE_ORDER << "_n" << nrank << ".h5";
+  os << checkPointFile << "_partitions_o" << ConvergenceOrder << "_n" << nrank << ".h5";
   std::string fname = os.str();
 
   hid_t file = H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);

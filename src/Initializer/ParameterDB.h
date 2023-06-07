@@ -69,7 +69,7 @@ class Component;
 
 namespace seissol {
 namespace initializers {
-constexpr auto NUM_QUADPOINTS = CONVERGENCE_ORDER * CONVERGENCE_ORDER * CONVERGENCE_ORDER;
+constexpr auto NUM_QUADPOINTS = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
 
 class QueryGenerator;
 class ElementBarycentreGenerator;

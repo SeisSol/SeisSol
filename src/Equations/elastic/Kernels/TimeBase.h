@@ -72,6 +72,7 @@
 #define KERNELS_TIMEBASE_H_
 
 #include <generated_code/kernel.h>
+#include "Common/constants.hpp"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -104,7 +105,7 @@ class seissol::kernels::TimeBase {
    *   ...
    * * Offset are always counted from position zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
    */
-  unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+  unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;

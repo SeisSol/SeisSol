@@ -120,7 +120,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
+  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
   double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
 
   for (auto& geoPoint : geoPoints) {
@@ -188,7 +188,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
     auto referenceCoords = transformations::tetrahedronGlobalToReference(
         *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
     basisFunction::SampledBasisFunctions<real> sampler(
-        CONVERGENCE_ORDER, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.m_data;
   };
 

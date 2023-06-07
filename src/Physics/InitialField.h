@@ -7,6 +7,7 @@
 #include "Initializer/typedefs.hpp"
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
+#include "Equations/datastructures.hpp"
 
 namespace seissol {
   namespace physics {
@@ -15,7 +16,7 @@ namespace seissol {
       virtual ~InitialField() = default;
       virtual void evaluate(double time,
                             std::vector<std::array<double, 3>> const& points,
-                            const CellMaterialData& materialData,
+                            const seissol::model::Material_t& materialData,
                             yateto::DenseTensorView<2,real,unsigned>& dofsQP) const = 0;
     };
 
@@ -23,7 +24,7 @@ namespace seissol {
     public:
       void evaluate(double,
                     std::vector<std::array<double, 3>> const&,
-                    const CellMaterialData& materialData,
+                    const seissol::model::Material_t& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override {
         dofsQP.setZero();
       }
@@ -33,19 +34,19 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-    Planarwave(const CellMaterialData& materialData, 
+    Planarwave(const seissol::model::Material_t& materialData, 
                double phase,
                std::array<double, 3> kVec,
                std::vector<int> varField,
                std::vector<std::complex<double>> ampField
                );
-    explicit Planarwave(const CellMaterialData& materialData,
+    explicit Planarwave(const seissol::model::Material_t& materialData,
                         double phase = 0.0,
                         std::array<double, 3> kVec = {M_PI, M_PI, M_PI});
 
       void evaluate( double time,
                      std::vector<std::array<double, 3>> const& points,
-                     const CellMaterialData& materialData,
+                     const seissol::model::Material_t& materialData,
                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const override;
     protected:
       std::vector<int> m_varField;
@@ -55,18 +56,18 @@ namespace seissol {
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> m_eigenvectors;
   private:
-      void init(const CellMaterialData& materialData);
+      void init(const seissol::model::Material_t& materialData);
     };
 
     //superimpose three planar waves travelling into different directions
     class SuperimposedPlanarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-      SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+      SuperimposedPlanarwave(const seissol::model::Material_t& materialData, real phase = 0.0);
 
       void evaluate( double time,
                      std::vector<std::array<double, 3>> const& points,
-                     const CellMaterialData& materialData,
+                     const seissol::model::Material_t& materialData,
                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const override;
     private:
       const std::array<std::array<double, 3>, 3>  m_kVec;
@@ -77,11 +78,11 @@ namespace seissol {
     //A part of a planar wave travelling in one direction
     class TravellingWave : public Planarwave{
     public:
-      TravellingWave(const CellMaterialData& materialData, const TravellingWaveParameters& travellingWaveParameters);
+      TravellingWave(const seissol::model::Material_t& materialData, const TravellingWaveParameters& travellingWaveParameters);
 
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
-                    const CellMaterialData& materialData,
+                    const seissol::model::Material_t& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
       private:
       std::array<double, 3> m_origin;
@@ -92,7 +93,7 @@ namespace seissol {
       ScholteWave() = default;
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
-                    const CellMaterialData& materialData,
+                    const seissol::model::Material_t& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
     };
     class SnellsLaw : public InitialField {
@@ -100,7 +101,7 @@ namespace seissol {
       SnellsLaw() = default;
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
-                    const CellMaterialData& materialData,
+                    const seissol::model::Material_t& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
     };
     /*
@@ -121,7 +122,7 @@ namespace seissol {
           Ocean(int mode, double gravitationalAcceleration);
           void evaluate(double time,
                         std::vector<std::array<double, 3>> const& points,
-                        const CellMaterialData& materialData,
+                        const seissol::model::Material_t& materialData,
                         yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
       };
   }

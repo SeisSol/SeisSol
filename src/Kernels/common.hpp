@@ -109,8 +109,6 @@
 
 namespace seissol {
 namespace kernels {
-  constexpr unsigned int Alignment = ALIGNMENT;
-constexpr unsigned int ConvergenceOrder = CONVERGENCE_ORDER;
 
   /**
  * Gets the number of basis functions for the given convergence order.

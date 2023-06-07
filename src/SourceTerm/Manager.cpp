@@ -105,7 +105,7 @@ void seissol::sourceterm::computeMInvJInvPhisAtSources(Eigen::Vector3d const& ce
   auto const xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
   auto const basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
-      CONVERGENCE_ORDER, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+      ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   double volume = MeshTools::volume(elements[meshId], vertices);
   double JInv = 1.0 / (6.0 * volume);
@@ -360,10 +360,10 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
           sources[cluster].tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
 #ifndef USE_POROELASTIC
-        seissol::model::Material& material =
+        seissol::model::Material* material =
             ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
         for (unsigned i = 0; i < 3; ++i) {
-          sources[cluster].tensor[clusterSource][6 + i] /= material.rho;
+          sources[cluster].tensor[clusterSource][6 + i] /= material->rho;
         }
 #else
         logWarning() << "The poroelastic equation does not scale the force components with the "
@@ -479,7 +479,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
             nrf.sroffsets[nrfIndex],
             nrf.sroffsets[nrfIndex + 1],
             nrf.sliprates,
-            &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
+            ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
             sources[cluster],
             clusterSource);
       }

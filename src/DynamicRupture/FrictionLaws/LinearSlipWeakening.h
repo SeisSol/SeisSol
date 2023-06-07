@@ -211,7 +211,7 @@ class NoSpecialization {
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
-   * the reference triangle with degree less or equal than CONVERGENCE_ORDER-1, and then evaluates
+   * the reference triangle with degree less or equal than ConvergenceOrder-1, and then evaluates
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::numPaddedPoints],

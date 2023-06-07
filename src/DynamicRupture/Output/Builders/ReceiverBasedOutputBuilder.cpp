@@ -112,7 +112,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
       auto glbToFaceAligned =
           init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
 
-      seissol::model::getFaceRotationMatrix(
+      seissol::model::getFaceRotationMatrix<seissol::model::Material_t>(
           faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
     }
   }
@@ -176,7 +176,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
-  constexpr int numPoly = CONVERGENCE_ORDER - 1;
+  constexpr int numPoly = ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");

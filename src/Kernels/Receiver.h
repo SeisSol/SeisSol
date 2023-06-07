@@ -66,8 +66,8 @@ namespace seissol {
         output.reserve(reserved);
 
         auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
-        basisFunctions = basisFunction::SampledBasisFunctions<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctions = basisFunction::SampledBasisFunctions<real>(ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
         basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
       }
       unsigned pointId;

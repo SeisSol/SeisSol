@@ -3,6 +3,7 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical_aux/SyclFunctions.h"
+#include "Common/constants.hpp"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include <algorithm>
 
@@ -18,13 +19,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializers::Layer& layerData,
                 seissol::initializers::DynamicRupture const* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER]) override {
+                const double timeWeights[ConvergenceOrder]) override {
 
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
-    size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
     this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes).wait();
 
     {
@@ -50,7 +51,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       });
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
+      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};

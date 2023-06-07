@@ -23,7 +23,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 seissol::kernels::TimeBase::TimeBase(){
   m_derivativesOffsets[0] = 0;
-  for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
+  for (int order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
     }
@@ -31,7 +31,7 @@ seissol::kernels::TimeBase::TimeBase(){
 }
 
 void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
-  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+  for (int n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
         m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
@@ -86,7 +86,7 @@ void seissol::kernels::Time::executeSTP( double                      i_timeStepW
   //we have to recalculate it
   if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
-    real ZinvData[NUMBER_OF_QUANTITIES][CONVERGENCE_ORDER*CONVERGENCE_ORDER];
+    real ZinvData[NUMBER_OF_QUANTITIES][ConvergenceOrder*ConvergenceOrder];
     model::zInvInitializerForLoop<0, NUMBER_OF_QUANTITIES, decltype(sourceMatrix)>(ZinvData, sourceMatrix, i_timeStepWidth);
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
       krnl.Zinv(i) = ZinvData[i];
@@ -193,7 +193,7 @@ void seissol::kernels::Time::computeIntegral( double                            
   }
  
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
+  for(int der = 0; der < ConvergenceOrder; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
     l_factorial  *= (real)(der+1);
@@ -230,7 +230,7 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   intKrnl.power = 1.0;
  
   // iterate over time derivatives
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+  for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.execute(derivative);
     intKrnl.power *= deltaT / real(derivative+1);
   }
@@ -241,7 +241,7 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
   nonZeroFlops = 0; hardwareFlops = 0;
 
   // interate over derivatives
-  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for (unsigned der = 0; der < ConvergenceOrder; ++der) {
     nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
     hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }

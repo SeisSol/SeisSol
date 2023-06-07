@@ -48,6 +48,7 @@
 #include <Kernels/common.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/VariableContainer.hpp>
 #include <Initializer/tree/Lut.hpp>
 
 #define FREESURFACE_MAX_REFINEMENT 3
@@ -63,14 +64,14 @@ private:
     FreeSurface = 2,
     FreeSurfaceWithGravity = 3
   };
-  struct SurfaceLTS {
+  struct SurfaceLTS : seissol::initializers::LTSVariableContainer {
     seissol::initializers::Variable<real*> dofs;
     seissol::initializers::Variable<real*> displacementDofs;
     seissol::initializers::Variable<unsigned> side;
     seissol::initializers::Variable<unsigned> meshId;
     seissol::initializers::Variable<CellBoundaryMapping*> boundaryMapping;
 
-    void addTo(seissol::initializers::LTSTree& surfaceLtsTree);
+    void addTo(seissol::initializers::LTSTree& surfaceLtsTree) override;
   };
 
   std::unique_ptr<real> projectionMatrixMemory;
@@ -79,7 +80,7 @@ private:
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
 
-  static constexpr auto polyDegree = CONVERGENCE_ORDER-1;
+  static constexpr auto polyDegree = ConvergenceOrder-1;
   static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
   bool m_enabled;
   

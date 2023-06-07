@@ -366,28 +366,15 @@ struct NeighboringIntegrationData {
   seissol::model::ElasticNeighborData specific;
 #elif defined USE_POROELASTIC
   seissol::model::PoroelasticNeighborData specific;
-#endif
-};
-
-// material constants per cell
-struct CellMaterialData {
-  //TODO(Lukas/Sebastian):
-  //Get rid of ifdefs
-#if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicMaterial local;
-  seissol::model::AnisotropicMaterial neighbor[4];
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticMaterial local;
-  seissol::model::ViscoElasticMaterial neighbor[4];
-#elif defined USE_ELASTIC
-  seissol::model::ElasticMaterial local;
-  seissol::model::ElasticMaterial neighbor[4];
-#elif defined USE_POROELASTIC
-  seissol::model::PoroElasticMaterial local;
-  seissol::model::PoroElasticMaterial neighbor[4];
 #else
   static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
+};
+
+// material constants per cell (right now, only pointers)
+struct CellMaterialData {
+  seissol::model::Material* local;
+  seissol::model::Material* neighbor[4];
 };
 
 /** A piecewise linear function.
