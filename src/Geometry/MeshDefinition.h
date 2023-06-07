@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+ * @author Sebastian Rettenberger (rettenbs AT in.tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -58,64 +59,64 @@ typedef int ElemGroup;
 typedef int ElemFaultTags[4];
 
 struct Element {
-	int localId;
-	ElemVertices vertices;
-	ElemNeighbors neighbors;
-	ElemNeighborSides neighborSides;
-	ElemSideOrientations sideOrientations;
-	/** Domain boundary condition, or 0 for inner elements and MPI boundaries */
-	ElemBoundaries boundaries;
-	ElemNeighborRanks neighborRanks;
-	ElemMPIIndices mpiIndices;
-	ElemMPIIndices mpiFaultIndices;
-	/** Material of the element */
-	ElemGroup group;
-   ElemFaultTags faultTags; // member of struct Element
+  int localId;
+  ElemVertices vertices;
+  ElemNeighbors neighbors;
+  ElemNeighborSides neighborSides;
+  ElemSideOrientations sideOrientations;
+  /** Domain boundary condition, or 0 for inner elements and MPI boundaries */
+  ElemBoundaries boundaries;
+  ElemNeighborRanks neighborRanks;
+  ElemMPIIndices mpiIndices;
+  ElemMPIIndices mpiFaultIndices;
+  /** Material of the element */
+  ElemGroup group;
+  ElemFaultTags faultTags; // member of struct Element
 };
 
 typedef double VrtxCoords[3];
 
 struct Vertex {
-	VrtxCoords coords;
-	/** Elements sharing this neighbor */
-	std::vector<int> elements;
+  VrtxCoords coords;
+  /** Elements sharing this neighbor */
+  std::vector<int> elements;
 };
 
 struct MPINeighborElement {
-	/** Local number of the local element */
-	int localElement;
-	/** Side of the local element */
-	int localSide;
-	/** Global number neighbor element */
-	int neighborElement;
-	/** Side of the neighbor element */
-	int neighborSide;
+  /** Local number of the local element */
+  int localElement;
+  /** Side of the local element */
+  int localSide;
+  /** Global number neighbor element */
+  int neighborElement;
+  /** Side of the neighbor element */
+  int neighborSide;
 };
 
 struct Fault {
-	/** The element which contains this fault */
-	int element;
-	/** The side of the element */
-	int side;
+  /** The element which contains this fault */
+  int element;
+  /** The side of the element */
+  int side;
 
-	int neighborElement;
-	int neighborSide;
+  int neighborElement;
+  int neighborSide;
 
-	/** Normal of the fault face */
-	VrtxCoords normal;
+  /** Normal of the fault face */
+  VrtxCoords normal;
 
-	/** Rotation matrix */
-	VrtxCoords tangent1;
-	VrtxCoords tangent2;
+  /** Rotation matrix */
+  VrtxCoords tangent1;
+  VrtxCoords tangent2;
 };
 
 struct MPINeighbor {
-	/** Local ID of the MPI neighbor */
-	int localID;
+  /** Local ID of the MPI neighbor */
+  int localID;
 
-	std::vector<MPINeighborElement> elements;
+  std::vector<MPINeighborElement> elements;
 };
 
-}
+} // namespace seissol
 
 #endif // MESH_DEFINITION_H
