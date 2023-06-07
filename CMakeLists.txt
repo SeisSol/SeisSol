@@ -594,6 +594,9 @@ if (TESTING)
             ${seissol_test_sources}
             src/tests/test_main.cpp)
   target_link_libraries(SeisSol-serial-test PRIVATE SeisSol-lib)
+if(WITH_GPU)
+  target_link_libraries(SeisSol-serial-test PRIVATE general-sycl-offloading)
+endif()
   target_include_directories(SeisSol-serial-test PUBLIC external/)
   doctest_discover_tests(SeisSol-serial-test)
 

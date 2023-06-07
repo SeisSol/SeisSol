@@ -16,7 +16,7 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
 
   private:
   static void addTimeIntegratedPointSourceNRF(
-      std::array<sourceterm::PiecewiseLinearFunction1D const*, 3> slipRates,
+      std::array<sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const*, 3> slipRates,
       real* mInvJInvPhisAtSources,
       real* tensor,
       real A,
@@ -24,13 +24,13 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
       double from,
       double to,
       real* dofs);
-  static void
-      addTimeIntegratedPointSourceFSRM(sourceterm::PiecewiseLinearFunction1D const* slipRate0,
-                                       real* mInvJInvPhisAtSources,
-                                       real* tensor,
-                                       double from,
-                                       double to,
-                                       real* dofs);
+  static void addTimeIntegratedPointSourceFSRM(
+      sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const* slipRate0,
+      real* mInvJInvPhisAtSources,
+      real* tensor,
+      double from,
+      double to,
+      real* dofs);
 
   sourceterm::ClusterMapping clusterMapping_;
   sourceterm::PointSources sources_;

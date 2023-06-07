@@ -71,7 +71,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
 }
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(
-    std::array<sourceterm::PiecewiseLinearFunction1D const*, 3> slipRates,
+    std::array<sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const*, 3> slipRates,
     real* mInvJInvPhisAtSources,
     real* tensor,
     real A,
@@ -82,7 +82,7 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(
   real slip[3] = {real(0.0)};
   for (unsigned i = 0; i < 3; ++i) {
     if (slipRates[i]->slopes.size() > 0) {
-      slip[i] = sourceterm::computePwLFTimeIntegral(*slipRates[i], from, to);
+      slip[i] = slipRates[i]->timeIntegral(from, to);
     }
   }
 
@@ -112,13 +112,13 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSourceNRF(
 }
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSourceFSRM(
-    sourceterm::PiecewiseLinearFunction1D const* slipRate0,
+    sourceterm::PiecewiseLinearFunction1D<sourceterm::AllocatorT> const* slipRate0,
     real* mInvJInvPhisAtSources,
     real* tensor,
     double from,
     double to,
     real* dofs) {
-  auto stfIntegral = sourceterm::computePwLFTimeIntegral(*slipRate0, from, to);
+  auto stfIntegral = slipRate0->timeIntegral(from, to);
   for (unsigned p = 0; p < tensor::momentFSRM::Shape[0]; ++p) {
     for (unsigned k = 0; k < tensor::mInvJInvPhisAtSources::Shape[0]; ++k) {
       dofs[k + p * (init::Q::Stop[0] - init::Q::Start[0])] +=

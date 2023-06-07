@@ -116,32 +116,3 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   o_forceComponents[12] = f[5];
 #endif
 }
-
-real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
-                                               double i_fromTime,
-                                               double i_toTime)
-{
-   real l_integral;
-   // j_{from} := \argmax_j s.t. t_{from} >= t_{onset} + j*dt   =   floor[(t_{from} - t_{onset}) / dt]
-   int l_fromIndex = (i_fromTime - i_pwLF.onsetTime) / i_pwLF.samplingInterval;
-   // j_{to}   := \argmin_j s.t. t_{to}   >= t_{onset} + j*dt   =   floor[(t_{to} - t_{onset}) / dt]
-   int l_toIndex = (i_toTime - i_pwLF.onsetTime) / i_pwLF.samplingInterval;
-   
-   l_fromIndex = std::max(0, l_fromIndex);
-   l_toIndex = std::min(static_cast<int>(i_pwLF.slopes.size())-1, l_toIndex);
-   
-  /* The indefinite integral of the j-th linear function is
-   * int m_j * t + n_j dt = 1 / 2 * m_j * t^2 + n_j * t
-   */
-   real l_time = i_pwLF.onsetTime + l_fromIndex * i_pwLF.samplingInterval;
-   l_integral = 0.0;
-   for (int j = l_fromIndex; j <= l_toIndex; ++j) {
-     real tFrom = std::max((real)i_fromTime, l_time);
-     l_time += i_pwLF.samplingInterval;
-     real tTo = std::min((real)i_toTime, l_time);
-     l_integral += 0.5 * i_pwLF.slopes[j] * (tTo * tTo - tFrom * tFrom) + i_pwLF.intercepts[j] * (tTo - tFrom);
-   }
-   
-   return l_integral;
-}
-

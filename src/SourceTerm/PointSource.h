@@ -81,59 +81,7 @@ namespace seissol {
                                real rake,
                                AlignedArray<real, PointSources::TensorSize>& o_forceComponents);
 
-    /** Converts equally spaced time samples to a one-dimensional
-     *  piecewise linear function.
-     */
-    template<typename real_from>
-    PiecewiseLinearFunction1D samplesToPiecewiseLinearFunction1D(real_from const* i_samples,
-                                            unsigned i_numberOfSamples,
-                                            real i_onsetTime,
-                                            real i_samplingInterval,
-                                            AllocatorFactory const& alloc) {
-      auto pwLF = PiecewiseLinearFunction1D{alloc};
-      if (i_numberOfSamples == 0) {
-        return pwLF;
-      }
 
-      unsigned l_np = i_numberOfSamples - 1;
-      
-      pwLF.slopes.resize(l_np);
-      pwLF.intercepts.resize(l_np);
-      pwLF.onsetTime = i_onsetTime;
-      pwLF.samplingInterval = i_samplingInterval;
-      
-      
-      /* The piecewise linear function shall be f(t) = m_j * t + n_j,
-       * where I_j is the half-open interval [t_o + j*dt, t_o + j*dt).
-       * For the j-th sample (say S[j]) we have f(t_o + (j+1)*dt) := S[j].
-       * 
-       * Hence, S[j] = m_j * (t_o + j*dt) + n_j.
-       * Due to the continuity requirement of the PwLF we have
-       *        S[j+1] = m_j * (t_o + (j+1)*dt) + n_j
-       * Hence, S[j+1] - S[j] = (j+1)*dt*m_j - j*dt*m_j = m_j*dt and thus
-       *   
-       *   m_j = (S[j+1] - S[j]) / dt;
-       * 
-       * Further, S[j] = m_j * (t_o + j*dt) + n_j
-       * 
-       *   n_j = S[j] - m_j * (t_o + j*dt)
-       * 
-       */
-      for (unsigned j = 0; j < l_np; ++j) {
-        real m = (i_samples[j+1] - i_samples[j]) / i_samplingInterval;
-        pwLF.slopes[j] = m;
-        pwLF.intercepts[j] = i_samples[j] - m * (i_onsetTime + j * i_samplingInterval);
-      }
-      return pwLF;
-    }
-
-    /** Returns integral_fromTime^toTime i_pwLF dt. */
-#ifdef ACL_DEVICE
-    SYCL_EXTERNAL
-#endif
-    real computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
-                                 double i_fromTime,
-                                 double i_toTime);
   }
 }
 

@@ -42,10 +42,12 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
+#include "PiecewiseLinearFunction1D.h"
+
 #include <cstdlib>
 #include <array>
 #include <vector>
-#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
 #include <generated_code/tensor.h>
 #include <cstdint>
 
@@ -56,25 +58,12 @@
 namespace seissol {
   namespace sourceterm {
 #ifdef ACL_DEVICE
-    template <typename T>
-    using AllocatorT = sycl::usm_allocator<T, sycl::usm::alloc::shared>;
-    class AllocatorFactory {
-    public:
-      AllocatorFactory(sycl::queue q) : q_(std::move(q)) {}
-      template <typename T> AllocatorT<T> make() const { return AllocatorT<T>(q_); }
-    private:
-      sycl::queue q_;
-    };
+    using AllocatorT = sycl::usm_allocator<real, sycl::usm::alloc::shared>;
 #else
-    template <typename T>
-    using AllocatorT = std::allocator<T>;
-    class AllocatorFactory {
-    public:
-      template <typename T> AllocatorT<T> make() const { return AllocatorT<T>(); }
-    };
+    using AllocatorT = std::allocator<real>;
 #endif
     template <typename T>
-    using VectorT = std::vector<T, AllocatorT<T>>;
+    using VectorT = std::vector<T, typename std::allocator_traits<AllocatorT>::template rebind_alloc<T>>;
 
     template<typename T, std::size_t N>
     class AlignedArray {
@@ -87,30 +76,6 @@ namespace seissol {
 
     private:
       alignas(ALIGNMENT) T data_[N];
-    };
-
-    /** A piecewise linear function.
-     * 
-     *  Say t \in I_j, then
-     *    f(t) = m_j * t + n_j,
-     *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
-     *  j runs through 0,...,n-1.
-     **/
-    struct PiecewiseLinearFunction1D {
-      /** slopes[i] = m_i */
-      VectorT<real> slopes;
-
-      /** intercepts[i] = n_i */
-      VectorT<real> intercepts;
-      
-      /** onsetTime = t_o */
-      real onsetTime;
-      
-      /** samplingInterval = dt */
-      real samplingInterval;
-
-      PiecewiseLinearFunction1D(AllocatorFactory const& a)
-          : slopes(a.make<real>()), intercepts(a.make<real>()) {}
     };
 
 
@@ -155,19 +120,19 @@ namespace seissol {
        * 2: Normal direction
        * 
        * FSRM: 0: slip rate (all directions) */
-      std::array<VectorT<PiecewiseLinearFunction1D>, 3> slipRates;
+      std::array<VectorT<PiecewiseLinearFunction1D<AllocatorT>>, 3> slipRates;
 
       /** Number of point sources in this struct. */
       unsigned numberOfSources = 0;
 
-      PointSources(AllocatorFactory const& a)
-          : mInvJInvPhisAtSources(a.make<decltype(mInvJInvPhisAtSources)::value_type>()),
-            tensor(a.make<decltype(tensor)::value_type>()),
-            A(a.make<real>()),
-            stiffnessTensor(a.make<real>()),
-            slipRates{VectorT<PiecewiseLinearFunction1D>(a.make<PiecewiseLinearFunction1D>()),
-                      VectorT<PiecewiseLinearFunction1D>(a.make<PiecewiseLinearFunction1D>()),
-                      VectorT<PiecewiseLinearFunction1D>(a.make<PiecewiseLinearFunction1D>())} {}
+      PointSources(AllocatorT const& alloc)
+          : mInvJInvPhisAtSources(decltype(mInvJInvPhisAtSources)::allocator_type(alloc)),
+            tensor(decltype(tensor)::allocator_type(alloc)),
+            A(alloc),
+            stiffnessTensor(decltype(stiffnessTensor)::allocator_type(alloc)),
+            slipRates{VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc),
+                      VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc),
+                      VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc)} {}
       ~PointSources() { numberOfSources = 0; }
     };
 
@@ -190,9 +155,9 @@ namespace seissol {
       VectorT<unsigned>                  sources;
       VectorT<CellToPointSourcesMapping> cellToSources;
 
-      ClusterMapping(AllocatorFactory const& a)
-          : sources(a.make<unsigned>()),
-            cellToSources(a.make<CellToPointSourcesMapping>()) {}
+      ClusterMapping(AllocatorT const& alloc)
+          : sources(alloc),
+            cellToSources(decltype(cellToSources)::allocator_type(alloc)) {}
     };
   }
 }
