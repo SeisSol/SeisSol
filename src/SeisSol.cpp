@@ -140,13 +140,17 @@ bool seissol::SeisSol::init(int argc, char* argv[]) {
   utils::Args args;
   args.addAdditionalOption("file", "The parameter file", false);
   switch (args.parse(argc, argv)) {
-  case utils::Args::Help:
-  case utils::Args::Error:
+  case utils::Args::Help: {
+    [[fallthrough]];
+  }
+  case utils::Args::Error: {
     MPI::mpi.finalize();
     exit(1);
     break;
-  case utils::Args::Success:
+  }
+  case utils::Args::Success: {
     break;
+  }
   }
 
   // Initialize the ASYNC I/O library

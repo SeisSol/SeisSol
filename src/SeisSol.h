@@ -75,6 +75,129 @@ class MeshReader;
  * @todo Initialize rank
  */
 class SeisSol {
+  public:
+  /**
+   * Cleanup data structures
+   */
+  virtual ~SeisSol() { delete m_meshReader; }
+
+  const parallel::Pinning& getPinning() { return pinning; }
+
+  /**
+   * Initialize C++ part of the program
+   */
+  bool init(int argc, char* argv[]);
+
+  /**
+   * Finalize SeisSol
+   */
+  void finalize();
+
+  const char* parameterFile() const { return m_parameterFile.c_str(); }
+
+  initializers::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
+
+  initializers::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+
+  time_stepping::TimeManager& timeManager() { return m_timeManager; }
+
+  Simulator& simulator() { return m_simulator; }
+
+  checkpoint::Manager& checkPointManager() { return m_checkPointManager; }
+
+  sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
+
+  solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return m_freeSurfaceIntegrator; }
+
+  writer::FreeSurfaceWriter& freeSurfaceWriter() { return m_freeSurfaceWriter; }
+
+  writer::AnalysisWriter& analysisWriter() { return m_analysisWriter; }
+
+  /** Get the post processor module
+   */
+  writer::PostProcessor& postProcessor() { return m_postProcessor; }
+
+  io::AsyncIO& asyncIO() { return m_asyncIO; }
+
+  /**
+   * Get the wave field writer module
+   */
+  writer::WaveFieldWriter& waveFieldWriter() { return m_waveFieldWriter; }
+
+  /**
+   * Get the fault writer module
+   */
+  writer::FaultWriter& faultWriter() { return m_faultWriter; }
+
+  /**
+   * Get the receiver writer module
+   */
+  writer::ReceiverWriter& receiverWriter() { return m_receiverWriter; }
+
+  /**
+   * Get the energy writer module
+   */
+  writer::EnergyOutput& energyOutput() { return m_energyOutput; }
+
+  /**
+   * Get the flop counter
+   */
+  monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+
+  /**
+   * Set the mesh reader
+   */
+  void setMeshReader(seissol::geometry::MeshReader* meshReader) {
+    if (m_meshReader != nullptr) {
+      logError() << "Mesh reader already initialized";
+    }
+
+    m_meshReader = meshReader;
+  }
+
+  /**
+   * Delete the mesh reader to free memory resources.
+   *
+   * Should be called after initialization
+   */
+  void freeMeshReader() {
+    delete m_meshReader;
+    m_meshReader = 0L;
+  }
+
+  /**
+   * Get the mesh reader
+   */
+  const seissol::geometry::MeshReader& meshReader() const { return *m_meshReader; }
+
+  /**
+   * Get the mesh reader
+   */
+  seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
+
+  void readInputParams();
+
+  const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
+
+  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+    return m_seissolparameters;
+  }
+
+  /**
+   * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
+   * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
+   * at the very end of a program execution
+   */
+  void deleteMemoryManager() { m_memoryManager.reset(nullptr); }
+
+  GravitationSetup& getGravitationSetup() { return gravitationSetup; }
+
+  double wiggleFactorLts = 1.0;
+  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
+
+  /** The only instance of this class; the main C++ functionality */
+  static SeisSol main;
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -145,135 +268,12 @@ class SeisSol {
 
   seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
 
-  private:
   /**
    * Only one instance of this class should exist (private constructor).
    */
-  SeisSol() : m_meshReader(0L) {
+  SeisSol() : pinning(), m_meshReader(nullptr) {
     m_memoryManager = std::make_unique<initializers::MemoryManager>();
   }
-
-  public:
-  const parallel::Pinning& getPinning() { return pinning; }
-
-  /**
-   * Cleanup data structures
-   */
-  virtual ~SeisSol() { delete m_meshReader; }
-
-  /**
-   * Initialize C++ part of the program
-   */
-  bool init(int argc, char* argv[]);
-
-  /**
-   * Finalize SeisSol
-   */
-  void finalize();
-
-  const char* parameterFile() const { return m_parameterFile.c_str(); }
-
-  initializers::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
-
-  initializers::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
-
-  time_stepping::TimeManager& timeManager() { return m_timeManager; }
-
-  Simulator& simulator() { return m_simulator; }
-
-  checkpoint::Manager& checkPointManager() { return m_checkPointManager; }
-
-  sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
-
-  solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return m_freeSurfaceIntegrator; }
-
-  writer::FreeSurfaceWriter& freeSurfaceWriter() { return m_freeSurfaceWriter; }
-
-  writer::AnalysisWriter& analysisWriter() { return m_analysisWriter; }
-
-  /** Get the post processor module
-   */
-  writer::PostProcessor& postProcessor() { return m_postProcessor; }
-
-  io::AsyncIO& asyncIO() { return m_asyncIO; }
-
-  /**
-   * Get the wave field writer module
-   */
-  writer::WaveFieldWriter& waveFieldWriter() { return m_waveFieldWriter; }
-
-  /**
-   * Get the fault writer module
-   */
-  writer::FaultWriter& faultWriter() { return m_faultWriter; }
-
-  /**
-   * Get the receiver writer module
-   */
-  writer::ReceiverWriter& receiverWriter() { return m_receiverWriter; }
-
-  /**
-   * Get the energy writer module
-   */
-  writer::EnergyOutput& energyOutput() { return m_energyOutput; }
-
-  /**
-   * Get the flop counter
-   */
-  monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
-
-  /**
-   * Set the mesh reader
-   */
-  void setMeshReader(seissol::geometry::MeshReader* meshReader) {
-    if (m_meshReader != 0L)
-      logError() << "Mesh reader already initialized";
-
-    m_meshReader = meshReader;
-  }
-
-  /**
-   * Delete the mesh reader to free memory resources.
-   *
-   * Should be called after initialization
-   */
-  void freeMeshReader() {
-    delete m_meshReader;
-    m_meshReader = 0L;
-  }
-
-  /**
-   * Get the mesh reader
-   */
-  const seissol::geometry::MeshReader& meshReader() const { return *m_meshReader; }
-
-  /**
-   * Get the mesh reader
-   */
-  seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
-
-  void readInputParams();
-
-  const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
-
-  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
-    return m_seissolparameters;
-  }
-
-  /**
-   * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
-   * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function
-   * at the very end of a program execution
-   */
-  void deleteMemoryManager() { m_memoryManager.reset(nullptr); }
-
-  GravitationSetup& getGravitationSetup() { return gravitationSetup; }
-
-  double wiggleFactorLts = 1.0;
-  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
-
-  /** The only instance of this class; the main C++ functionality */
-  static SeisSol main;
 };
 
 } // namespace seissol

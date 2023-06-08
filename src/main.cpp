@@ -46,15 +46,14 @@
 #endif
 
 int main(int argc, char* argv[]) {
-#if defined(ACL_DEVICE) && defined(USE_MPI)
-  MPI::mpi.bindAcceleratorDevice();
-#endif
-
 #ifdef ACL_DEVICE
+#ifdef USE_MPI
+  MPI::mpi.bindAcceleratorDevice();
+#endif // USE_MPI
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();
   device.api->allocateStackMem();
-#endif
+#endif // ACL_DEVICE
 
   LIKWID_MARKER_INIT;
 #pragma omp parallel
