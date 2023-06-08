@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2014-2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -40,44 +41,58 @@
 #include "SeisSol.h"
 #include "Initializer/InitProcedure/Init.hpp"
 
-#include <yaml-cpp/yaml.h>
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
 
-int main(int argc, char* argv[])
-{
-        LIKWID_MARKER_INIT;
+int main(int argc, char* argv[]) {
+#if defined(ACL_DEVICE) && defined(USE_MPI)
+  MPI::mpi.bindAcceleratorDevice();
+#endif
+
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device.api->initialize();
+  device.api->allocateStackMem();
+#endif
+
+  LIKWID_MARKER_INIT;
 #pragma omp parallel
-        {
-        LIKWID_MARKER_THREADINIT;
-        LIKWID_MARKER_REGISTER("SeisSol");
-        LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
-        LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
-        LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
-        LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
-        LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
-        LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
-        LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
-        }
+  {
+    LIKWID_MARKER_THREADINIT;
+    LIKWID_MARKER_REGISTER("SeisSol");
+    LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
+    LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
+    LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
+    LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
+    LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+    LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
+    LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+  }
+
 #pragma omp parallel
-        {
-        LIKWID_MARKER_START("SeisSol");
-        }
+  { LIKWID_MARKER_START("SeisSol"); }
 
-	EPIK_TRACER("SeisSol");
-	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
+  EPIK_TRACER("SeisSol");
+  SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	// Initialize SeisSol
-	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
+  // Initialize SeisSol
+  bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
-	// Run SeisSol
-        if (runSeisSol) {
-                seissol::initializer::initprocedure::seissolMain();
-        }
+  // Run SeisSol
+  if (runSeisSol) {
+    seissol::initializer::initprocedure::seissolMain();
+  }
+
 #pragma omp parallel
-        {
-        LIKWID_MARKER_STOP("SeisSol");
-        }
+  { LIKWID_MARKER_STOP("SeisSol"); }
 
-        LIKWID_MARKER_CLOSE;
-	// Finalize SeisSol
-	seissol::SeisSol::main.finalize();
+  LIKWID_MARKER_CLOSE;
+  // Finalize SeisSol
+  seissol::SeisSol::main.finalize();
+
+#ifdef ACL_DEVICE
+  device.api->finalize();
+#endif
+  return 0;
 }
