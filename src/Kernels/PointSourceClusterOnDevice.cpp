@@ -5,11 +5,9 @@
 
 #include <generated_code/tensor.h>
 #include <generated_code/init.h>
-#include <Parallel/AcceleratorDevice.h>
 #include <SourceTerm/PointSource.h>
-
+#include <Parallel/AcceleratorDevice.h>
 #include <utility>
-#include <sycl/sycl.hpp>
 
 namespace seissol::kernels {
 
@@ -29,43 +27,43 @@ void PointSourceClusterOnDevice::addTimeIntegratedPointSources(double from, doub
     auto* tensor = sources_.tensor.data();
     auto* A = sources_.A.data();
     auto* stiffnessTensor = sources_.stiffnessTensor.data();
+
+    sycl::range rng{mapping.size()};
     if (sources_.mode == sourceterm::PointSources::NRF) {
-      queue
-          .parallel_for({mapping.size()},
-                        [=](sycl::item<1> id) {
-                          unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
-                          unsigned endSource = mapping_ptr[id[0]].pointSourcesOffset +
-                                               mapping_ptr[id[0]].numberOfPointSources;
-                          for (unsigned source = startSource; source < endSource; ++source) {
-                            addTimeIntegratedPointSourceNRF(
-                                {&slipRates0[source], &slipRates1[source], &slipRates2[source]},
-                                mInvJInvPhisAtSources[source].data(),
-                                tensor[source].data(),
-                                A[source],
-                                stiffnessTensor[source].data(),
-                                from,
-                                to,
-                                *mapping_ptr[id[0]].dofs);
-                          }
-                        })
-          .wait();
+      queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::item<1> id) {
+          unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
+          unsigned endSource = mapping_ptr[id[0]].pointSourcesOffset +
+                               mapping_ptr[id[0]].numberOfPointSources;
+          for (unsigned source = startSource; source < endSource; ++source) {
+            addTimeIntegratedPointSourceNRF(
+                {&slipRates0[source], &slipRates1[source], &slipRates2[source]},
+                mInvJInvPhisAtSources[source].data(),
+                tensor[source].data(),
+                A[source],
+                stiffnessTensor[source].data(),
+                from,
+                to,
+                *mapping_ptr[id[0]].dofs);
+          }
+        });
+      }).wait();
     } else {
-      queue
-          .parallel_for({mapping.size()},
-                        [=](sycl::item<1> id) {
-                          unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
-                          unsigned endSource = mapping_ptr[id[0]].pointSourcesOffset +
-                                               mapping_ptr[id[0]].numberOfPointSources;
-                          for (unsigned source = startSource; source < endSource; ++source) {
-                            addTimeIntegratedPointSourceFSRM(&slipRates0[source],
-                                                             mInvJInvPhisAtSources[source].data(),
-                                                             tensor[source].data(),
-                                                             from,
-                                                             to,
-                                                             *mapping_ptr[id[0]].dofs);
-                          }
-                        })
-          .wait();
+      queue.submit([&](sycl::handler& cgh) {
+        cgh.parallel_for(rng, [=](sycl::item<1> id) {
+          unsigned startSource = mapping_ptr[id[0]].pointSourcesOffset;
+          unsigned endSource = mapping_ptr[id[0]].pointSourcesOffset +
+                               mapping_ptr[id[0]].numberOfPointSources;
+          for (unsigned source = startSource; source < endSource; ++source) {
+            addTimeIntegratedPointSourceFSRM(&slipRates0[source],
+                                             mInvJInvPhisAtSources[source].data(),
+                                             tensor[source].data(),
+                                             from,
+                                             to,
+                                             *mapping_ptr[id[0]].dofs);
+          }
+        });
+      }).wait();
     }
   }
 }

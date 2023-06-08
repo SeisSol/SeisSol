@@ -5,7 +5,6 @@
 #define KERNELS_POINTSOURCECLUSTERONDEVICE_H_
 
 #include "PointSourceCluster.h"
-
 #include <SourceTerm/typedefs.hpp>
 
 namespace seissol::kernels {

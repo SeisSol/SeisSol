@@ -91,6 +91,7 @@
 #ifdef ACL_DEVICE
 #include <Kernels/PointSourceClusterOnDevice.h>
 #include <Parallel/AcceleratorDevice.h>
+#include "Device/UsmAllocator.h"
 #endif
 
 /**
@@ -269,8 +270,8 @@ void seissol::sourceterm::Manager::loadSources(SourceType sourceType,
                                                seissol::initializers::Lut* ltsLut,
                                                time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
-  auto queue = seissol::AcceleratorDevice::getInstance().getSyclDefaultQueue();
-  auto alloc = AllocatorT(std::move(queue));
+  auto& instance = device::DeviceInstance::getInstance();
+  auto alloc = device::UsmAllocator<real>(instance);
 #else
   auto alloc = AllocatorT();
 #endif

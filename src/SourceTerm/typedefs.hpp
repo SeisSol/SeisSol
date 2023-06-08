@@ -52,13 +52,13 @@
 #include <cstdint>
 
 #ifdef ACL_DEVICE
-#include <sycl/sycl.hpp>
+#include "Device/UsmAllocator.h"
 #endif
 
 namespace seissol {
   namespace sourceterm {
 #ifdef ACL_DEVICE
-    using AllocatorT = sycl::usm_allocator<real, sycl::usm::alloc::shared>;
+    using AllocatorT = device::UsmAllocator<real>;
 #else
     using AllocatorT = std::allocator<real>;
 #endif
