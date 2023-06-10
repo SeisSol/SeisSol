@@ -56,8 +56,8 @@ namespace seissol {
 
 class seissol::initializers::LTSTree : public seissol::initializers::LTSInternalNode {
 private:
-  void** m_vars;
-  void** m_buckets;
+  std::vector<void*> m_vars;
+  std::vector<void*> m_buckets;
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
@@ -74,9 +74,9 @@ private:
   std::unique_ptr<LTSVariableContainer> m_lts;
 
 public:
-  LTSTree() : m_vars(NULL), m_buckets(NULL) {}
+  LTSTree() {}
   
-  ~LTSTree() { delete[] m_vars; delete[] m_buckets; }
+  ~LTSTree() {}
 
   // delete the copy constructor. It would not work here right now.
   LTSTree(const LTSTree&) = delete;
@@ -115,7 +115,7 @@ public:
   template<typename T>
   T* var(Variable<T> const& handle) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
+    assert(!m_vars.empty()/* && m_vars[handle.index] != nullptr*/);
     return static_cast<T*>(m_vars[handle.index]);
   }
 
@@ -158,7 +158,7 @@ public:
 #endif // ACL_DEVICE
   
   void allocateVariables() {
-    m_vars = new void*[varInfo.size()];
+    m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
@@ -177,7 +177,7 @@ public:
   }
   
   void allocateBuckets() {
-    m_buckets = new void*[bucketInfo.size()];
+    m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
     
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {

@@ -99,13 +99,13 @@ class seissol::initializers::Layer : public seissol::initializers::Node {
 private:
   enum LayerType m_layerType;
   unsigned m_numberOfCells;
-  void** m_vars;
-  void** m_buckets;
-  size_t* m_bucketSizes;
+  std::vector<void*> m_vars;
+  std::vector<void*> m_buckets;
+  std::vector<size_t> m_bucketSizes;
 
 #ifdef ACL_DEVICE
-  void** m_scratchpads{};
-  size_t* m_scratchpadSizes{};
+  std::vector<void*> m_scratchpads{};
+  std::vector<size_t> m_scratchpadSizes{};
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
   DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
@@ -114,26 +114,26 @@ private:
 #endif
 
 public:
-  Layer() : m_numberOfCells(0), m_vars(NULL), m_buckets(NULL), m_bucketSizes(NULL) {}
-  ~Layer() { delete[] m_vars; delete[] m_buckets; delete[] m_bucketSizes; }
+  Layer() : m_numberOfCells(0) {}
+  ~Layer() {}
   
   template<typename T>
   T* var(Variable<T> const& handle) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
+    assert(!m_vars.empty()/* && m_vars[handle.index] != nullptr*/);
     return static_cast<T*>(m_vars[handle.index]);
   }
 
   void* bucket(Bucket const& handle) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_buckets != nullptr && m_buckets[handle.index] != nullptr);
+    assert(!m_buckets.empty() != nullptr && m_buckets[handle.index] != nullptr);
     return m_buckets[handle.index];
   }
 
 #ifdef ACL_DEVICE
   void* getScratchpadMemory(ScratchpadMemory const& handle) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_scratchpads != NULL/* && m_vars[handle.index] != NULL*/);
+    assert(!m_scratchpads.empty());
     return (m_scratchpads[handle.index]);
   }
 #endif
@@ -160,41 +160,41 @@ public:
   }
   
   inline void allocatePointerArrays(unsigned numVars, unsigned numBuckets) {
-    assert(m_vars == NULL && m_buckets == NULL && m_bucketSizes == NULL);    
-    m_vars = new void*[numVars];
-    std::fill(m_vars, m_vars + numVars, static_cast<void*>(NULL));
-    m_buckets = new void*[numBuckets];
-    std::fill(m_buckets, m_buckets + numBuckets, static_cast<void*>(NULL));
-    m_bucketSizes = new size_t[numBuckets];
-    std::fill(m_bucketSizes, m_bucketSizes + numBuckets, 0);
+    assert(m_vars.empty() && m_buckets.empty() && m_bucketSizes.empty());    
+    m_vars.resize(numVars);
+    std::fill(m_vars.begin(), m_vars.end(), static_cast<void*>(NULL));
+    m_buckets.resize(numBuckets);
+    std::fill(m_buckets.begin(), m_buckets.end(), static_cast<void*>(NULL));
+    m_bucketSizes.resize(numBuckets);
+    std::fill(m_bucketSizes.begin(), m_bucketSizes.end(), 0);
   }
 
 #ifdef ACL_DEVICE
   inline void allocateScratchpadArrays(unsigned numScratchPads) {
-    assert(m_scratchpads == nullptr && m_scratchpadSizes == nullptr);
+    assert(m_scratchpads.empty() && m_scratchpadSizes.empty());
 
-    m_scratchpads = new void*[numScratchPads];
-    std::fill(m_scratchpads, m_scratchpads + numScratchPads, nullptr);
+    m_scratchpads.resize(numScratchPads);
+    std::fill(m_scratchpads.begin(), m_scratchpads.end(), nullptr);
 
-    m_scratchpadSizes = new size_t[numScratchPads];
-    std::fill(m_scratchpadSizes, m_scratchpadSizes + numScratchPads, 0);
+    m_scratchpadSizes.resize(numScratchPads);
+    std::fill(m_scratchpadSizes.begin(), m_scratchpadSizes.end(), 0);
   }
 #endif
   
   inline void setBucketSize(Bucket const& handle, size_t size) {
-    assert(m_bucketSizes != NULL);
+    assert(handle.index < m_bucketSizes.size());
     m_bucketSizes[handle.index] = size;
   }
 
 #ifdef ACL_DEVICE
   inline void setScratchpadSize(ScratchpadMemory const& handle, size_t size) {
-    assert(m_scratchpadSizes != NULL);
+    assert(handle.index < m_scratchpadSizes.size());
     m_scratchpadSizes[handle.index] = size;
   }
 #endif
 
   inline size_t getBucketSize(Bucket const& handle) {
-    assert(m_bucketSizes != nullptr);
+    assert(handle.index < m_bucketSizes.size());
     return m_bucketSizes[handle.index];
     }
   
@@ -222,8 +222,8 @@ public:
   }
 #endif
 
-  void setMemoryRegionsForVariables(std::vector<MemoryInfo> const& vars, void** memory, std::vector<size_t>& offsets) {
-    assert(m_vars != NULL);
+  void setMemoryRegionsForVariables(std::vector<MemoryInfo> const& vars, const std::vector<void*>& memory, std::vector<size_t>& offsets) {
+    assert(m_vars.size() <= vars.size());
     for (unsigned var = 0; var < vars.size(); ++var) {
       if (!isMasked(vars[var].mask)) {
         m_vars[var] = static_cast<char*>(memory[var]) + offsets[var];
@@ -231,16 +231,16 @@ public:
     }
   }
 
-  void setMemoryRegionsForBuckets(void** memory, std::vector<size_t>& offsets) {
-    assert(m_buckets != NULL);
+  void setMemoryRegionsForBuckets(const std::vector<void*>& memory, std::vector<size_t>& offsets) {
+    assert(m_buckets.size() <= offsets.size());
     for (unsigned bucket = 0; bucket < offsets.size(); ++bucket) {
       m_buckets[bucket] = static_cast<char*>(memory[bucket]) + offsets[bucket];
     }
   }
 
 #ifdef ACL_DEVICE
-  void setMemoryRegionsForScratchpads(void** memory, size_t numScratchPads) {
-    assert(m_scratchpads != NULL);
+  void setMemoryRegionsForScratchpads(const std::vector<void*>& memory, size_t numScratchPads) {
+    assert(m_scratchpads.size() <= numScratchPads);
     for (size_t id = 0; id < numScratchPads; ++id) {
       m_scratchpads[id] = static_cast<char*>(memory[id]);
     }
