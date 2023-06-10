@@ -8,6 +8,7 @@
 #include "Parallel/MPI.h"
 #include <Numerical_aux/Statistics.h>
 #include <sstream>
+#include "Common/cellconfigconv.hpp"
 
 static void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
@@ -71,6 +72,8 @@ static void closeSeisSol() {
 
 void seissol::initializer::initprocedure::seissolMain() {
   initSeisSol();
+
+  printSupportedConfigs();
 
   // just put a barrier here to make sure everyone is synched
   logInfo(seissol::MPI::mpi.rank()) << "Finishing initialization...";
