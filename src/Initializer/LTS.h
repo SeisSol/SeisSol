@@ -50,9 +50,9 @@
 
 #ifndef ACL_DEVICE
 #   define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#   define MEMKIND_TIMEDOFS (ConvergenceOrder <= 7 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
-#   define MEMKIND_CONSTANT (ConvergenceOrder <= 4 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
-#   define MEMKIND_DOFS     (ConvergenceOrder <= 3 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_TIMEDOFS (Config::ConvergenceOrder <= 7 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_CONSTANT (Config::ConvergenceOrder <= 4 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
+#   define MEMKIND_DOFS     (Config::ConvergenceOrder <= 3 ? seissol::memory::HighBandwidth : seissol::memory::Standard)
 # define MEMKIND_UNIFIED  seissol::memory::Standard
 #else // ACL_DEVICE
 #	define MEMKIND_GLOBAL   seissol::memory::Standard
@@ -63,81 +63,86 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  namespace initializers {
-    struct LTS;
-  }
   namespace tensor {
     class Qane;
   }
 }
 
-struct seissol::initializers::LTS : seissol::initializers::LTSVariableContainer {
-  Variable<real[tensor::Q::size()]>       dofs;
-  // size is zero if Qane is not defined
-  Variable<real[ZeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
-  Variable<real*>                         buffers;
-  Variable<real*>                         derivatives;
-  Variable<CellLocalInformation>          cellInformation;
-  Variable<real*[4]>                      faceNeighbors;
-  Variable<LocalIntegrationData>          localIntegration;
-  Variable<NeighboringIntegrationData>    neighboringIntegration;
-  Variable<CellMaterialData>              material;
-  Variable<seissol::model::Material_t>                    materialData;
-  Variable<seissol::model::PlasticityData<>>                plasticity;
-  Variable<CellDRMapping[4]>              drMapping;
-  Variable<CellBoundaryMapping[4]>        boundaryMapping;
-  Variable<real[seissol::model::PlasticityData<>::NumberOfQuantities * seissol::kernels::NumberOfAlignedBasisFunctions()]> pstrain;
-  Variable<real*[4]>                      faceDisplacements;
-  Bucket                                  buffersDerivatives;
-  Bucket                                  faceDisplacementsBuffer;
+namespace seissol::initializers {
+  template<typename Config>
+  struct seissol::initializers::LTS : seissol::initializers::LTSVariableContainer {
+    static constexpr std::size_t DofsElaSize = Config::MaterialT::NumberOfQuantities * Config::ConvergenceOrder;
+    static constexpr std::size_t DofsAneSize = Config::MaterialT::NumberPerMechanism * Config::MaterialT::Mechanisms * Config::ConvergenceOrder;
+    static constexpr std::size_t PStrainSize = seissol::model::PlasticityData<Config>::NumberOfQuantities * seissol::kernels::NumberOfAlignedBasisFunctions(Config::ConvergenceOrder);
 
-#ifdef ACL_DEVICE
-  Variable<LocalIntegrationData>          localIntegrationOnDevice;
-  Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
-  ScratchpadMemory                        integratedDofsScratch;
-  ScratchpadMemory                        derivativesScratch;
-  ScratchpadMemory                        nodalAvgDisplacements;
-#endif
+    static_assert(DofsElaSize == tensor::Q::size(), "Tensor sizes do no match. Internal error.");
+    static_assert(DofsAneSize == kernels::size<tensor::Qane>(), "Anelastic tensor sizes do no match. Internal error.");
 
-  bool Plasticity = false; // TODO(David): long-term, make template parameter
-  
-  /// \todo Memkind
-  void addTo(LTSTree& tree) override {
-    LayerMask plasticityMask;
-    if (Plasticity) {
-      plasticityMask = LayerMask(Ghost);
-    } else {
-      plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    Variable<Config::RealT[DofsElaSize]>       dofs;
+    // size is zero if Qane is not defined
+    Variable<Config::RealT[ZeroLengthArrayHandler(Dofsanesize)]> dofsAne;
+    Variable<Config::RealT*>                         buffers;
+    Variable<Config::RealT*>                         derivatives;
+    Variable<CellLocalInformation>          cellInformation;
+    Variable<Config::RealT*[4]>                      faceNeighbors;
+    Variable<LocalIntegrationData<Config>>          localIntegration;
+    Variable<NeighboringIntegrationData<Config>>    neighboringIntegration;
+    Variable<CellMaterialData>              material;
+    Variable<Config::MaterialT>                    materialData;
+    Variable<seissol::model::PlasticityData<Config>>                plasticity;
+    Variable<CellDRMapping[4]>              drMapping;
+    Variable<CellBoundaryMapping[4]>        boundaryMapping;
+    Variable<Config::RealT[PStrainSize]> pstrain;
+    Variable<Config::RealT*[4]>                      faceDisplacements;
+    Bucket                                  buffersDerivatives;
+    Bucket                                  faceDisplacementsBuffer;
+
+  #ifdef ACL_DEVICE
+    Variable<LocalIntegrationData>          localIntegrationOnDevice;
+    Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
+    ScratchpadMemory                        integratedDofsScratch;
+    ScratchpadMemory                        derivativesScratch;
+    ScratchpadMemory                        nodalAvgDisplacements;
+  #endif
+    
+    /// \todo Memkind
+    void addTo(LTSTree& tree) override {
+      LayerMask plasticityMask;
+      if constexpr (Config::Plasticity) {
+        plasticityMask = LayerMask(Ghost);
+      } else {
+        plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+      }
+
+      tree.addVar(                    dofs, LayerMask(Ghost),     PagesizeHeap,      MEMKIND_DOFS );
+      if (DofsAneSize > 0) {
+        tree.addVar(                 dofsAne, LayerMask(Ghost),     PagesizeHeap,      MEMKIND_DOFS );
+      }
+      tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
+      tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
+      tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
+      tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS );
+      tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
+      tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
+      tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+      tree.addVar(                materialData,  LayerMask(),                 1,      seissol::memory::Standard );
+      tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
+      tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
+      tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
+      tree.addVar(                 pstrain,   plasticityMask,     PagesizeHeap,      MEMKIND_UNIFIED );
+      tree.addVar(       faceDisplacements, LayerMask(Ghost),     PagesizeHeap,      seissol::memory::Standard );
+
+      tree.addBucket(buffersDerivatives,                          PagesizeHeap,      MEMKIND_TIMEDOFS );
+      tree.addBucket(faceDisplacementsBuffer,                     PagesizeHeap,      MEMKIND_TIMEDOFS );
+
+  #ifdef ACL_DEVICE
+      tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
+      tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
+      tree.addScratchpadMemory(  integratedDofsScratch,             1,      seissol::memory::DeviceUnifiedMemory);
+      tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
+      tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
+  #endif
     }
-
-    tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
-    if (kernels::size<tensor::Qane>() > 0) {
-      tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
-    }
-    tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
-    tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
-    tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS );
-    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
-    tree.addVar(                materialData,  LayerMask(),                 1,      seissol::memory::Standard );
-    tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
-    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
-    tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
-
-    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
-    tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
-
-#ifdef ACL_DEVICE
-    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  integratedDofsScratch,             1,      seissol::memory::DeviceUnifiedMemory);
-    tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
-#endif
-  }
-};
+  };
+}
 #endif

@@ -49,10 +49,11 @@
 namespace seissol {
   namespace model {
 
-    template<std::size_t Mechanisms = NUMBER_OF_RELAXATION_MECHANISMS>
+    template<std::size_t MechanismsP = NUMBER_OF_RELAXATION_MECHANISMS>
     struct ViscoElasticMaterial : public ElasticMaterial {
       static constexpr std::size_t NumberOfQuantities = 9;
       static constexpr std::size_t NumberPerMechanism = 6;
+      static constexpr std::size_t Mechansims = MechanismsP;
       static constexpr MaterialType Type = MaterialType::viscoelastic;
 
       //! Relaxation frequencies

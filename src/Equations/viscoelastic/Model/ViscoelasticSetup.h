@@ -192,10 +192,10 @@ namespace seissol {
         }
       } 
 
-    template<std::size_t Mechanisms>
+    template<typename Config, std::size_t Mechanisms>
     inline void initializeSpecificLocalData( ViscoElasticMaterial<Mechanisms> const& material,
-                                             real timeStepWidth,
-                                             ViscoElasticLocalData* localData )
+                                             double timeStepWidth,
+                                             LocalSpecificData<Config>* localData )
     {
       auto E = init::E::view::create(localData->E);
       E.setZero();
@@ -210,9 +210,9 @@ namespace seissol {
       }
     }
 
-    template<std::size_t Mechanisms>
+    template<typename Config, std::size_t Mechanisms>
     inline void initializeSpecificNeighborData(  ViscoElasticMaterial<Mechanisms> const& localMaterial,
-                                                 ViscoElasticNeighborData* neighborData )
+                                                 NeighborSpecificData<Config>* neighborData )
     {
       // We only need the local omegas
       auto w = init::w::view::create(neighborData->w);
@@ -230,15 +230,7 @@ namespace seissol {
       // call base first
       getFaceRotationMatrix<ElasticMaterial>(i_normal, i_tangent1, i_tangent2, o_T, o_Tinv);
 
-      #ifdef USE_VISCOELASTIC
-        for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-          unsigned const origin = MaterialT::NumberOfQuantities + mech * MaterialT::NumberPerMechanism;
-          seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
-          seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
-        }
-      #elif USE_VISCOELASTIC2
-        seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
-      #endif
+      seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
     }
   }
 }

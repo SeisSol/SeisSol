@@ -8,7 +8,7 @@
 namespace seissol {
 template <std::size_t I>
 void printSupportedConfigsSub() {
-  if constexpr (I < std::variant_size_v <SupportedConfigs>) {
+  if constexpr (I < std::variant_size_v<SupportedConfigs>) {
     using ConfigI = std::variant_alternative_t<I, SupportedConfigs>;
     logInfo() << I << ":::" << typeid(ConfigI).name();
     printSupportedConfigsSub<I+1>();

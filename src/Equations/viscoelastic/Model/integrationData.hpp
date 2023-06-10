@@ -3,16 +3,22 @@
 
 #include <generated_code/tensor.h>
 
+#include <type_traits>
+#include "Model/common_datastructures.hpp"
+#include "datastructures.hpp"
+
 namespace seissol {
   namespace model {
-
-    struct ViscoElasticLocalData {
-      real E[tensor::E::size()];
-      real w[tensor::w::size()];
-      real W[tensor::W::size()];
+    template<typename Config, int Mechanisms, std::enable_if<std::is_same_v<Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
+    struct LocalSpecificData {
+      Config::RealT E[tensor::E::size()];
+      Config::RealT w[tensor::w::size()];
+      Config::RealT W[tensor::W::size()];
     };
-    struct ViscoElasticNeighborData {
-      real w[tensor::w::size()];
+
+    template<typename Config, int Mechanisms, std::enable_if<std::is_same_v<Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
+    struct NeighborSpecificData {
+      Config::RealT w[tensor::w::size()];
     };
   }
 }

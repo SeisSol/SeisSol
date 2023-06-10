@@ -106,14 +106,14 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
                                double const n[3],
                                std::complex<double> Mdata[T::NumberOfQuantities*T::NumberOfQuantities] );
 
-    template<typename T, typename S>
-    void initializeSpecificLocalData( T const&,
-                                      real timeStepWidth,
-                                      S* LocalData ) {}
+    template<typename Config>
+    void initializeSpecificLocalData( const Config::MaterialT&,
+                                      double timeStepWidth,
+                                      LocalSpecificData<Config>* LocalData ) {}
 
-    template<typename T, typename S>
-    void initializeSpecificNeighborData(  T const&,
-                                          S* NeighborData ) {}
+    template<typename Config>
+    void initializeSpecificNeighborData(  const Config::MaterialT&,
+                                          NeighborSpecificData<Config>* NeighborData ) {}
 
     /* 
      * Calculates the so called Bond matrix. Anisotropic materials are characterized by 
@@ -134,7 +134,6 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
                                 VrtxCoords const i_tangent2,
                                 init::T::view::type& o_T,
                                 init::Tinv::view::type& o_Tinv );
-  }
 
     template<typename MaterialT>
     void getFaceRotationMatrix( Eigen::Vector3d const i_normal,
@@ -149,6 +148,12 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
   getFaceRotationMatrix<MaterialT>(n, s, t, o_T, o_Tinv);
 
 }
+
+    template<typename Config>
+    struct LocalSpecificData;
+
+    template<typename Config>
+    struct NeighborSpecificData;
 }
 
 

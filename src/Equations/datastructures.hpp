@@ -11,12 +11,8 @@
 
 #include "Equations/anisotropic/Model/integrationData.hpp"
 #include "Equations/elastic/Model/integrationData.hpp"
-#ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/integrationData.hpp"
-#endif
-#ifdef USE_VISCOELASTIC2
 #include "Equations/viscoelastic/Model/integrationData.hpp"
-#endif
 
 namespace seissol::model {
 #if defined(USE_ANISOTROPIC)

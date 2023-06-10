@@ -391,9 +391,10 @@ namespace seissol {
       };
     };
 
+    template<typename Config>
     inline void initializeSpecificLocalData( PoroElasticMaterial const& material,
-        real timeStepWidth,
-        PoroelasticLocalData* localData )
+        double timeStepWidth,
+        LocalSpecificData<Config>* localData )
     {
       auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
       sourceMatrix.setZero();
