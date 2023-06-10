@@ -52,7 +52,7 @@
 #include "Model/common_datastructures.hpp"
 
 // for now
-#include "Equations/viscoelastic2/Model/datastructures.hpp"
+#include "Equations/viscoelastic/Model/datastructures.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
 
 namespace seissol {
