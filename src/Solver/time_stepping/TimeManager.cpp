@@ -378,7 +378,10 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
   }
 }
 
-void seissol::time_stepping::TimeManager::freeCommunicationManager() {
+void seissol::time_stepping::TimeManager::freeDynamicResources() {
+  for (auto& cluster : clusters) {
+    cluster->freePointSources();
+  }
   communicationManager.reset(nullptr);
 }
 

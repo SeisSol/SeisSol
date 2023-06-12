@@ -411,6 +411,7 @@ public:
    * @param sourceCluster Contains point sources for cluster
    */
   void setPointSources(std::unique_ptr<kernels::PointSourceCluster> sourceCluster);
+  void freePointSources() { m_sourceCluster.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
     m_receiverCluster = receiverCluster;
