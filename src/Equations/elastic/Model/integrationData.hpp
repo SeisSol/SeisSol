@@ -1,18 +1,18 @@
 #ifndef MODEL_ELASTIC_INTEGRATIONDATA_H_
 #define MODEL_ELASTIC_INTEGRATIONDATA_H_
 
-#include <type_traits>
 #include "Model/common_datastructures.hpp"
 #include "datastructures.hpp"
+#include <type_traits>
 
 namespace seissol {
   namespace model {
 
-    template<typename Config, std::enable_if<std::is_same_v<Config::MaterialT, ElasticMaterial>, bool> = true>
+    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ElasticMaterial>, bool> = true>
     struct LocalSpecificData {
     };
 
-    template<typename Config, std::enable_if<std::is_same_v<Config::MaterialT, ElasticMaterial>, bool> = true>
+    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ElasticMaterial>, bool> = true>
     struct NeighborSpecificData {
     };
   }

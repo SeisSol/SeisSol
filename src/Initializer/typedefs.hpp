@@ -329,46 +329,26 @@ struct CompoundGlobalData {
 };
 
 // data for the cell local integration
+template<typename Config>
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)];
+  Config::RealT starMatrices[3][seissol::tensor::star::size(0)];
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT::size()];
+  Config::RealT nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
-  //TODO(Lukas/Sebastian):
-  //Get rid of ifdefs
-#if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicLocalData specific;
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticLocalData specific;
-#elif defined USE_ELASTIC
-  seissol::model::ElasticLocalData specific;
-#elif defined USE_POROELASTIC
-  seissol::model::PoroelasticLocalData specific;
-#endif
+  seissol::model::LocalSpecificData<Config> specific;
 };
 
 // data for the neighboring boundary integration
+template<typename Config>
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT::size()];
+  Config::RealT nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
-  //TODO(Lukas/Sebastian):
-  //Get rid of ifdefs
-#if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicNeighborData specific;
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticNeighborData specific;
-#elif defined USE_ELASTIC
-  seissol::model::ElasticNeighborData specific;
-#elif defined USE_POROELASTIC
-  seissol::model::PoroelasticNeighborData specific;
-#else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
-#endif
+  seissol::model::NeighborSpecificData<Config> specific;
 };
 
 // material constants per cell (right now, only pointers)

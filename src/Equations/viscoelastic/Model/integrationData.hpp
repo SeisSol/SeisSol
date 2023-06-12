@@ -9,14 +9,14 @@
 
 namespace seissol {
   namespace model {
-    template<typename Config, int Mechanisms, std::enable_if<std::is_same_v<Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
+    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
     struct LocalSpecificData {
       Config::RealT E[tensor::E::size()];
       Config::RealT w[tensor::w::size()];
       Config::RealT W[tensor::W::size()];
     };
 
-    template<typename Config, int Mechanisms, std::enable_if<std::is_same_v<Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
+    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
     struct NeighborSpecificData {
       Config::RealT w[tensor::w::size()];
     };

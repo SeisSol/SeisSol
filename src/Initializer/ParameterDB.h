@@ -49,6 +49,8 @@
 #include <unordered_map>
 #include <set>
 
+#include "Common/configs.hpp"
+
 #include "Geometry/MeshReader.h"
 #include "Kernels/precision.hpp"
 #include "Initializer/typedefs.hpp"
@@ -88,10 +90,12 @@ class EasiBoundary;
 struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
   using CellToGroupFunction = std::function<int(size_t)>;
+  using CellToConfigFunction = std::function<SupportedConfigs(size_t)>;
 
   CellToVertexArray(size_t size,
                     const CellToVertexFunction& elementCoordinates,
-                    const CellToGroupFunction& elementGroups);
+                    const CellToGroupFunction& elementGroups,
+                    const CellToConfigFunction& elementConfigs);
 
   size_t size;
   CellToVertexFunction elementCoordinates;
@@ -103,7 +107,8 @@ struct CellToVertexArray {
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
-                  const std::vector<int>& groups);
+                  const std::vector<int>& groups,
+                  const std::vector<CellConfigT>& configs);
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);

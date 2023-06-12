@@ -8,11 +8,11 @@
 namespace seissol {
   namespace model {
 
-    template<typename Config, std::enable_if<std::is_same_v<Config::MaterialT, AnisotropicMaterial>, bool> = true>
+    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, AnisotropicMaterial>, bool> = true>
     struct LocalSpecificData {
     };
 
-    template<typename Config, std::enable_if<std::is_same_v<Config::MaterialT, AnisotropicMaterial>, bool> = true>
+    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, AnisotropicMaterial>, bool> = true>
     struct NeighborSpecificData {
     };
   }

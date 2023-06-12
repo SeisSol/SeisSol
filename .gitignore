@@ -20,6 +20,9 @@ generated_code/.idea
 .vcode
 .vscode
 
+# clangd
+.cache
+
 # VIM
 *.swo
 *.swp
