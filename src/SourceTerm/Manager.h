@@ -51,6 +51,8 @@
 #include <Geometry/MeshReader.h>
 #include <inttypes.h>
 #include <memory>
+#include <array>
+#include <vector>
 
 namespace seissol {
 namespace sourceterm {
@@ -67,7 +69,7 @@ void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
                                         Subfault const& subfault,
                                         Offsets const& offsets,
                                         Offsets const& nextOffsets,
-                                        double* const sliprates[3],
+                                        std::array<std::vector<double>, 3> const& sliprates,
                                         seissol::model::Material* material,
                                         PointSources& pointSources,
                                         unsigned index,

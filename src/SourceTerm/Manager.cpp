@@ -133,7 +133,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource(
     Subfault const& subfault,
     Offsets const& offsets,
     Offsets const& nextOffsets,
-    double* const sliprates[3],
+    std::array<std::vector<double>, 3> const& sliprates,
     seissol::model::Material* material,
     PointSources& pointSources,
     unsigned index,
@@ -326,28 +326,28 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
 
   logInfo(rank) << "Finding meshIds for point sources...";
 
-  short* contained = new short[fsrm.numberOfSources];
-  unsigned* meshIds = new unsigned[fsrm.numberOfSources];
+  auto contained = std::vector<short>(fsrm.numberOfSources);
+  auto meshIds = std::vector<unsigned>(fsrm.numberOfSources);
 
-  initializers::findMeshIds(fsrm.centers.data(), mesh, fsrm.numberOfSources, contained, meshIds);
+  initializers::findMeshIds(
+      fsrm.centers.data(), mesh, fsrm.numberOfSources, contained.data(), meshIds.data());
 
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  initializers::cleanDoubles(contained, fsrm.numberOfSources);
+  initializers::cleanDoubles(contained.data(), fsrm.numberOfSources);
 #endif
 
-  unsigned* originalIndex = new unsigned[fsrm.numberOfSources];
+  auto originalIndex = std::vector<unsigned>(fsrm.numberOfSources);
   unsigned numSources = 0;
   for (unsigned source = 0; source < fsrm.numberOfSources; ++source) {
     originalIndex[numSources] = source;
     meshIds[numSources] = meshIds[source];
     numSources += contained[source];
   }
-  delete[] contained;
 
   logInfo(rank) << "Mapping point sources to LTS cells...";
   auto layeredClusterMapping =
-      mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut, alloc);
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, alloc);
   std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>
       layeredSourceClusters;
 
@@ -408,8 +408,6 @@ auto seissol::sourceterm::Manager::loadSourcesFromFSRM(char const* fileName,
           makePointSourceCluster(std::move(clusterMappings[cluster]), std::move(sources));
     }
   }
-  delete[] originalIndex;
-  delete[] meshIds;
 
   logInfo(rank) << ".. finished point source initialization.";
 
@@ -435,25 +433,24 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
   NRF nrf;
   readNRF(fileName, nrf);
 
-  short* contained = new short[nrf.source];
-  unsigned* meshIds = new unsigned[nrf.source];
+  auto contained = std::vector<short>(nrf.size());
+  auto meshIds = std::vector<unsigned>(nrf.size());
 
   logInfo(rank) << "Finding meshIds for point sources...";
-  initializers::findMeshIds(nrf.centres, mesh, nrf.source, contained, meshIds);
+  initializers::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
 
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  initializers::cleanDoubles(contained, nrf.source);
+  initializers::cleanDoubles(contained.data(), nrf.size());
 #endif
 
-  unsigned* originalIndex = new unsigned[nrf.source];
+  auto originalIndex = std::vector<unsigned>(nrf.size());
   unsigned numSources = 0;
-  for (unsigned source = 0; source < nrf.source; ++source) {
+  for (unsigned source = 0; source < nrf.size(); ++source) {
     originalIndex[numSources] = source;
     meshIds[numSources] = meshIds[source];
     numSources += contained[source];
   }
-  delete[] contained;
 
   // Checking that all sources are within the domain
   int globalnumSources = numSources;
@@ -462,16 +459,16 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
 #endif
 
   if (rank == 0) {
-    int numSourceOutside = nrf.source - globalnumSources;
+    int numSourceOutside = nrf.size() - globalnumSources;
     if (numSourceOutside > 0) {
-      logError() << nrf.source - globalnumSources << " point sources are outside the domain.";
+      logError() << nrf.size() - globalnumSources << " point sources are outside the domain.";
     }
   }
 
   logInfo(rank) << "Mapping point sources to LTS cells...";
 
   auto layeredClusterMapping =
-      mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut, alloc);
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, alloc);
   std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>>
       layeredSourceClusters;
 
@@ -512,8 +509,6 @@ auto seissol::sourceterm::Manager::loadSourcesFromNRF(char const* fileName,
           makePointSourceCluster(std::move(clusterMappings[cluster]), std::move(sources));
     }
   }
-  delete[] originalIndex;
-  delete[] meshIds;
 
   logInfo(rank) << ".. finished point source initialization.";
 
