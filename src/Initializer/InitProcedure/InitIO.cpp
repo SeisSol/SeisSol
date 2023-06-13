@@ -5,6 +5,7 @@
 #include <cstring>
 #include <vector>
 #include "DynamicRupture/Misc.h"
+#include "Common/filesystem.h"
 
 #include "Parallel/MPI.h"
 
@@ -197,7 +198,19 @@ static void setIntegralMask() {
 }
 
 void seissol::initializer::initprocedure::initIO() {
-  logInfo(seissol::MPI::mpi.rank()) << "Begin init output.";
+  const auto rank = MPI::mpi.rank();
+  logInfo(rank) << "Begin init output.";
+
+  const auto& seissolParams = SeisSol::main.getSeisSolParameters();
+  const filesystem::path outputPath(seissolParams.output.prefix);
+  const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
+  if (!filesystem::exists(outputDir)) {
+    if (rank == 0) {
+      filesystem::create_directory(outputDir);
+    }
+    MPI::mpi.barrier(MPI::mpi.comm());
+  }
+
   // always enable checkpointing first
   enableCheckpointing();
   enableWaveFieldOutput();
@@ -206,5 +219,5 @@ void seissol::initializer::initprocedure::initIO() {
   initFaultOutputManager();
   setupCheckpointing();
   setupOutput();
-  logInfo(seissol::MPI::mpi.rank()) << "End init output.";
+  logInfo(rank) << "End init output.";
 }
