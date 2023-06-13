@@ -178,7 +178,7 @@ void seissol::SeisSol::finalize() {
 
   const int rank = MPI::mpi.rank();
 
-  m_timeManager.freeCommunicationManager();
+  m_timeManager.freeDynamicResources();
 
   MPI::mpi.finalize();
 

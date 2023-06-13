@@ -56,6 +56,7 @@
 #include <DynamicRupture/Misc.h>
 
 #include <cstddef>
+#include <vector>
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -388,33 +389,6 @@ struct CellMaterialData {
 #else
   static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
-};
-
-/** A piecewise linear function.
- * 
- *  Say t \in I_j, then
- *    f(t) = m_j * t + n_j,
- *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
- *  j runs through 0,...,n-1.
- **/
-struct PiecewiseLinearFunction1D {
-   /** slopes[i] = m_i */
-  real* slopes;
-
-  /** intercepts[i] = n_i */
-  real* intercepts;
-  
-  /** numberOfPieces = n */
-  unsigned numberOfPieces;
-  
-  /** onsetTime = t_o */
-  real onsetTime;
-  
-  /** samplingInterval = dt */
-  real samplingInterval;
-  
-  PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
-  ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
 };
 
 struct DRFaceInformation {

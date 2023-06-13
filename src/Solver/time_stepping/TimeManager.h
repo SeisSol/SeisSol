@@ -52,6 +52,7 @@
 #include <utils/logger.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
+#include <Kernels/PointSourceCluster.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
@@ -159,12 +160,10 @@ class seissol::time_stepping::TimeManager {
     /**
      * Distributes point sources pointers to clusters
      * 
-     * @param clusterMappings Maps layers+clusters to point sources
-     * @param pointSources Map from layer to list of point sources
+     * @param sourceClusters Collection of point sources for clusters
      */
     void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
-        std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources);
+        std::unordered_map<LayerType, std::vector<std::unique_ptr<kernels::PointSourceCluster>>> sourceClusters);
 
   /**
    * Returns the writer for the receivers
@@ -186,7 +185,7 @@ class seissol::time_stepping::TimeManager {
 
     void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
-    void freeCommunicationManager();
+    void freeDynamicResources();
 };
 
 #endif
