@@ -15,6 +15,7 @@ format() {
         src/tests/Reader
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/SourceTerm
         "
     
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
@@ -29,10 +30,6 @@ format() {
         src/Initializer/time_stepping/GlobalTimestep.cpp
         src/Kernels/common.hpp
         src/Monitoring/instrumentation.hpp
-        src/SourceTerm/Manager.h
-        src/SourceTerm/Manager.cpp
-        src/SourceTerm/FSRMReader.h
-        src/SourceTerm/FSRMReader.cpp
         src/Geometry/MeshReader.h
         src/Geometry/MeshReader.cpp
         src/Geometry/NetcdfReader.h

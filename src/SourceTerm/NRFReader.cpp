@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -45,14 +46,13 @@
 
 #include <cassert>
 
-void check_err(const int stat, const int line, const char *file) {
+void check_err(const int stat, const int line, const char* file) {
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
 }
 
-void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
-{
+void seissol::sourceterm::readNRF(char const* filename, NRF& nrf) {
   int ncid;
   int stat;
 
@@ -78,58 +78,58 @@ void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
 
   /* open nrf */
   stat = nc_open(filename, NC_NOWRITE, &ncid);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   /* get dimensions */
   stat = nc_inq_dimid(ncid, "source", &source_dim);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
   stat = nc_inq_dimlen(ncid, source_dim, &source_len);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_dimid(ncid, "sroffset", &sroffset_dim);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
   stat = nc_inq_dimlen(ncid, sroffset_dim, &sroffset_len);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_dimid(ncid, "sample1", &sample1_dim);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
   stat = nc_inq_dimlen(ncid, sample1_dim, &sample_len[0]);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_dimid(ncid, "sample2", &sample2_dim);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
   stat = nc_inq_dimlen(ncid, sample2_dim, &sample_len[1]);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_dimid(ncid, "sample3", &sample3_dim);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
   stat = nc_inq_dimlen(ncid, sample3_dim, &sample_len[2]);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
-  assert( source_len + 1 == sroffset_len );
+  assert(source_len + 1 == sroffset_len);
 
   /* get varids */
   stat = nc_inq_varid(ncid, "centres", &centres_id);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_varid(ncid, "subfaults", &subfaults_id);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_varid(ncid, "sroffsets", &sroffsets_id);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_varid(ncid, "sliprates1", &sliprates1_id);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_varid(ncid, "sliprates2", &sliprates2_id);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_inq_varid(ncid, "sliprates3", &sliprates3_id);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   /* allocate memory */
-  static_assert(sizeof(Eigen::Vector3d) == 3*sizeof(double), 
-      "sizeof(Eigen::Vector3d) does not equal 3*sizeof(double).");
+  static_assert(sizeof(Eigen::Vector3d) == 3 * sizeof(double),
+                "sizeof(Eigen::Vector3d) does not equal 3*sizeof(double).");
   nrf.centres.resize(source_len);
   nrf.sroffsets.resize(source_len + 1);
   nrf.subfaults.resize(source_len);
@@ -139,24 +139,24 @@ void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
 
   /* get values */
   stat = nc_get_var(ncid, centres_id, nrf.centres.data());
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_get_var(ncid, sroffsets_id, nrf.sroffsets.data());
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_get_var(ncid, subfaults_id, nrf.subfaults.data());
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_get_var_double(ncid, sliprates1_id, nrf.sliprates[0].data());
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_get_var_double(ncid, sliprates2_id, nrf.sliprates[1].data());
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   stat = nc_get_var_double(ncid, sliprates3_id, nrf.sliprates[2].data());
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 
   /* close nrf */
   stat = nc_close(ncid);
-  check_err(stat,__LINE__,__FILE__);
+  check_err(stat, __LINE__, __FILE__);
 }

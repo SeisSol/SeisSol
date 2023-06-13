@@ -48,8 +48,7 @@
 #include <Eigen/Dense>
 #include <vector>
 
-namespace seissol {
-namespace sourceterm {
+namespace seissol::sourceterm {
 typedef struct Subfault_units {
   char* tinit;
   char* timestep;
@@ -79,7 +78,6 @@ struct NRF {
   std::array<std::vector<double>, 3u> sliprates;
   inline std::size_t size() { return centres.size(); }
 };
-} // namespace sourceterm
-} // namespace seissol
+} // namespace seissol::sourceterm
 
 #endif

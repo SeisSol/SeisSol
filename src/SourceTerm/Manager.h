@@ -54,8 +54,7 @@
 #include <array>
 #include <vector>
 
-namespace seissol {
-namespace sourceterm {
+namespace seissol::sourceterm {
 enum class SourceType : int { None = 0, NrfSource = 42, FsrmSource = 50 };
 
 void computeMInvJInvPhisAtSources(
@@ -75,8 +74,7 @@ void transformNRFSourceToInternalSource(Eigen::Vector3d const& centre,
                                         unsigned index,
                                         AllocatorT const& alloc);
 class Manager;
-} // namespace sourceterm
-} // namespace seissol
+} // namespace seissol::sourceterm
 
 class seissol::sourceterm::Manager {
   public:
