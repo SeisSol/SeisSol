@@ -181,6 +181,38 @@ class MPI : public MPIBasic {
   }
 
   /**
+   * sends a value to all processors
+   */
+  template <typename T>
+  void broadcast(T* value, int root, std::optional<MPI_Comm> comm = {}) const {
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    auto mpiType = castToMpiType<T>();
+    MPI_Bcast(value, 1, mpiType, root, comm.value());
+  }
+
+  /**
+   * sends a container to all processors
+   */
+  template <typename ContainerType>
+  void broadcastContainer(ContainerType& container,
+                          int root,
+                          std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = typename ContainerType::value_type;
+    if (not comm.has_value()) {
+      comm = std::optional<MPI_Comm>(m_comm);
+    }
+    auto size = static_cast<unsigned>(container.size());
+    broadcast(&size, root);
+    if (m_rank != root) {
+      container.resize(size);
+    }
+    auto mpiType = castToMpiType<InternalType>();
+    MPI_Bcast(const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
+  }
+
+  /**
    * @return The main communicator for the application
    */
   MPI_Comm comm() const { return m_comm; }

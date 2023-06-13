@@ -74,6 +74,7 @@ static void setupOutput() {
   auto* dynRup = memoryManager.getDynamicRupture();
   auto* dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalDataOnHost();
+  const auto& backupTimeStamp = seissol::SeisSol::main.getBackupTimeStamp();
 
   constexpr auto numberOfQuantities =
       tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
@@ -101,7 +102,8 @@ static void setupOutput() {
         seissol::SeisSol::main.postProcessor().getIntegrals(ltsTree),
         ltsLut->getMeshToLtsLut(lts->dofs.mask)[0],
         seissolParams.output.waveFieldParameters,
-        seissolParams.output.xdmfWriterBackend);
+        seissolParams.output.xdmfWriterBackend,
+        backupTimeStamp);
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -111,7 +113,8 @@ static void setupOutput() {
         &seissol::SeisSol::main.freeSurfaceIntegrator(),
         seissolParams.output.prefix.c_str(),
         seissolParams.output.freeSurfaceParameters.interval,
-        seissolParams.output.xdmfWriterBackend);
+        seissolParams.output.xdmfWriterBackend,
+        backupTimeStamp);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {
@@ -158,8 +161,8 @@ static void enableCheckpointing() {
 }
 
 static void initFaultOutputManager() {
-  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager();
-
+  const auto& backupTimeStamp = seissol::SeisSol::main.getBackupTimeStamp();
+  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto* faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
   seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
 

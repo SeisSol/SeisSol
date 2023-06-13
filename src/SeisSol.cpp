@@ -191,4 +191,9 @@ void seissol::SeisSol::readInputParams() {
   }
 }
 
+void seissol::SeisSol::setBackupTimeStamp(const std::string& stamp) {
+  m_backupTimeStamp = stamp;
+  MPI::mpi.broadcastContainer(m_backupTimeStamp, 0);
+}
+
 seissol::SeisSol seissol::SeisSol::main;
