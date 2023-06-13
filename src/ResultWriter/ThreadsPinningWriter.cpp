@@ -50,7 +50,7 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 }
 } // namespace seissol::writer::pinning::details
 
-void seissol::writer::ThreadsPinningWriter::write(seissol::parallel::Pinning& pinning) {
+void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
   auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask());
 #ifdef USE_COMM_THREAD
   auto freeCpus = pinning.getFreeCPUsMask();
