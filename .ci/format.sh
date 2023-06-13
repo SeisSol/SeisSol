@@ -43,6 +43,9 @@ format() {
         src/ResultWriter/WaveFieldWriter.h
         src/ResultWriter/EnergyOutput.h
         src/ResultWriter/EnergyOutput.cpp
+        src/SeisSol.h
+        src/SeisSol.cpp
+        src/main.cpp
         "
 
     local SEISSOL_SOURCE_DIR="${2}"

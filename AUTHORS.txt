@@ -6,6 +6,7 @@ The SeisSol group appreciates the work of following contributors and former core
  * Breuer, Alexander - UCSD
  * Brietzke, Gilbert - LRZ
  * Castro, Cristobal E.
+ * Dorozhinskii, Ravil - TUM
  * van Driel, Martin - ETH
  * Dumbser, Michael - UniTN
  * Gratl, Fabio
@@ -16,6 +17,7 @@ The SeisSol group appreciates the work of following contributors and former core
  * Imperatori, Walter - KAUST
  * Jordan, Kirk - IBM Research
  * Kaeser, Martin - MunichRE
+ * Krenz, Lukas - TUM
  * Li, Yang - TUM
  * Madden, Elizabeth - LMU
  * Mai, Martin - KAUST
@@ -27,9 +29,11 @@ The SeisSol group appreciates the work of following contributors and former core
  * Rannabauer, Leonhard - TUM
  * Rettenberger, Sebastian - TUM
  * Sachdeva, Vipin - IBM Research
+ * Schneller, David - TUM
  * Simon, Marek
- * Uphoff, Carsten - TUM, LMU
+ * Uphoff, Carsten - TUM, LMU, Intel
  * Wenk, Stefan
+ * Wolf, Sebastian - TUM
  * Wollherr, Stephanie - LMU
 
 The SeisSol group appreciates the work of the developers of Hydsol, the early roots of the SeisSol code:
@@ -38,14 +42,16 @@ The SeisSol group appreciates the work of the developers of Hydsol, the early ro
  * Utzmann, Jens - UniS
  * Munz, Claus-Dieter - UniS
 
-website: https://seissol.org/
+SeisSol webpage: https://seissol.org/
 
 TUM: 
-Technische Universitaet Muenchen
-Department of Informatics
+Technical University of Munich
+TUM School of Computation, Information and Technology
 Chair of Scientific Computing
+Boltzmannstrasse 3
+85748 Garching
 Germany
-http://www5.in.tum.de/
+https://www.cs.cit.tum.de/sccs/
 
 LMU:
 Geophysik
@@ -70,7 +76,6 @@ Boltzmannstraße 1
 85748 Garching bei München
 Germany
 http://www.lrz.de/
-
 
 KAUST:
 King Abdullah University of Science and Technology
