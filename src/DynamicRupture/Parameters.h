@@ -43,7 +43,7 @@ struct DRParameters {
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName{""};
-  bool isEnergyFrictionRequired{false};
+  bool isFrictionEnergyRequired{false};
 };
 
 inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML::Node>& params) {
@@ -117,8 +117,10 @@ inline std::unique_ptr<DRParameters> readParametersFromYaml(std::shared_ptr<YAML
     drParameters->isDynamicRuptureEnabled = false;
   }
 
+  const YAML::Node& yamlOutputParams = (*params)["output"];
   if ((*params)["output"]) {
-    drParameters->isEnergyFrictionRequired = getWithDefault(yamlDrParams, "energyoutput", false);
+    drParameters->isFrictionEnergyRequired =
+        getWithDefault(yamlOutputParams, "energyoutput", false);
   }
 
   return drParameters;

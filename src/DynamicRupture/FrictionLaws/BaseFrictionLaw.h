@@ -112,7 +112,7 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
 
-      if (this->drParameters->isEnergyFrictionRequired) {
+      if (this->drParameters->isFrictionEnergyRequired) {
         common::computeFrictionEnergy(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],

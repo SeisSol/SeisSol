@@ -106,7 +106,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devEnergyData{this->energyData};
       auto* devGodunovData{this->godunovData};
 
-      auto isFrictionEnergyRequired{this->drParameters->isEnergyFrictionRequired};
+      auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           auto ltsFace = item.get_group().get_group_id(0);
