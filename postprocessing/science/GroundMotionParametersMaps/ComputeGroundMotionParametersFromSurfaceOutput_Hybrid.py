@@ -193,7 +193,6 @@ parser.add_argument('--periods', nargs='+', help='list of periods for computing 
 parser.add_argument('--ipp',  dest='ipp', action='store_true' , default = False, help='use gmrotipp rather than the period dependant estimate (~30 times slower)')
 parser.add_argument('--CAV',  dest='CAV', action='store_true' , default = False, help='compute cumulated absolute velocity (slow down the code by a factor ~3)')
 parser.add_argument('--lowpass', nargs=1, metavar=('cutoff_freq'), help='low pass filter the velocity waveforms prior to computing the GME. cutoff_freq in Hz' ,type=float)
-parser.add_argument('--volume',  dest='volume', action='store_true' , default = False, help='makes script compatible with volume output')
 args = parser.parse_args()
 
 if args.noMPI:
@@ -214,6 +213,17 @@ sx = seissolxdmf.seissolxdmf(args.filename)
 dt = sx.ReadTimeStep()
 nElements = sx.nElements
 
+isVolumeData = True if sx.ReadConnect().shape[1] == 4 else False
+
+if isVolumeData:
+    prefixType = "-volume"
+    nElementVertices = 4
+    topologyType = "Tetrahedron"
+else:
+    prefixType = "-surface"
+    nElementVertices = 3
+    topologyType = "Triangle"
+
 #split the input array in nranks inputs
 inputs0 = np.arange(0, nElements)
 inputsi = chunk(inputs0,nranks)
@@ -229,7 +239,7 @@ u=np.transpose(u)
 v=np.transpose(v)
 ndt = u.shape[1]
 if irank==0:
-   print("done reading surface data: %f" % (time.time()-start))
+    print(f"done reading {prefixType[1:]} data: {time.time()-start}")
 
 #parameters for response spectrum
 damping=0.05
@@ -284,7 +294,7 @@ h5f.close()
 
 
 mypath, fn = os.path.split(args.filename)
-prefix = fn.split('-')[-2] if not args.volume else fn.split('.')[-2]
+prefix = fn.split('-')[-2] if not isVolumeData else fn.split('.')[-2]
 
 sLowPass=f'_lp{args.lowpass[0]:.1f}' if args.lowpass else ''
 prefixGME = f'{prefix}{sLowPass}-GME'
@@ -294,8 +304,8 @@ if not args.noMPI:
 
 if irank==0:
   #Write GME data to hdf5
-  outputType = ["-volume", 4, "Tetrahedron"] if args.volume else ["-surface", 3, "Triangle"]
-  h5f = h5py.File(prefixGME + outputType[0] +'_cell.h5','w')
+    
+  h5f = h5py.File(prefixGME + prefixType +'_cell.h5','w')
 
   for i,dname in enumerate(dataName):
      hdname = "mesh0/"+dname
@@ -311,12 +321,12 @@ if irank==0:
      os.remove(fname)
 
   # Copy connect and geometry: 
-  h5f.create_dataset('mesh0/connect', (nElements,outputType[1]), dtype='i8')
+  h5f.create_dataset('mesh0/connect', (nElements,nElementVertices), dtype='i8')
   connect = sx.ReadConnect()
   h5f['mesh0/connect'][:,:] = connect[:,:]
   del connect
   h5f.close()
-  h5f = h5py.File(prefixGME + outputType[0] + '_vertex.h5','w')
+  h5f = h5py.File(prefixGME + prefixType + '_vertex.h5','w')
   xyz = sx.ReadGeometry()
   Nvertex=xyz.shape[0]
   h5f.create_dataset('mesh0/geometry', xyz.shape, dtype='d')
@@ -329,15 +339,15 @@ if irank==0:
   a = ET.SubElement(a0,'Domain')
   b = ET.SubElement(a, 'Grid', attrib={'Name':"TimeSeries", 'GridType':'Collection','CollectionType':'Temporal'})
   c = ET.SubElement(b, 'Grid', attrib={'Name':'step_000000000000', 'GridType':'Uniform'})
-  d = ET.SubElement(c, 'Topology', attrib={'TopologyType':outputType[2], 'NumberOfElements':str(nElements)})
-  dimension = ('%d ' %nElements) + str(outputType[1])
+  d = ET.SubElement(c, 'Topology', attrib={'TopologyType':topologyType, 'NumberOfElements':str(nElements)})
+  dimension = ('%d ' %nElements) + str(nElementVertices)
   e = ET.SubElement(d, 'DataItem', attrib={'NumberType':'Int', 'Precision':'8', 'Format':'HDF', 'Dimensions': dimension})
-  e.text = prefixGME + outputType[0] + "_cell.h5:/mesh0/connect"
+  e.text = f"{prefixGME}{prefixType}_cell.h5:/mesh0/connect"
 
   d1 = ET.SubElement(c, 'Geometry', attrib={'Name':'geo', 'GeometryType':'XYZ', 'NumberOfElements':str(Nvertex)})
   dimension = '%d 3' %Nvertex
   e1 = ET.SubElement(d1, 'DataItem', attrib={'NumberType':'Float', 'Precision':'8', 'Format':'HDF', 'Dimensions': dimension})
-  e1.text = prefixGME + outputType[0] + "_vertex.h5:/mesh0/geometry"
+  e1.text = f"{prefixGME}{prefixType}_vertex.h5:/mesh0/geometry"
   d2 = ET.SubElement(c, 'Time', attrib={'Value':'0'})
 
   for i,dname in enumerate(dataName):
@@ -347,9 +357,9 @@ if irank==0:
      f1.text = '0 0 1 1 1 %d' %nElements
      dimension = '1 %d' %nElements
      f2 = ET.SubElement(e3, 'DataItem', attrib={'NumberType':'Float', 'Precision':'8', 'Format':'HDF', 'Dimensions':dimension})
-     f2.text = prefixGME + outputType[0] + "_cell.h5:/mesh0/" + dname
+     f2.text = f"{prefixGME}{prefixType}_cell.h5:/mesh0/{dname}"
 
-  fout=open(prefixGME+outputType[0]+'.xdmf','w')
+  fout=open(prefixGME+prefixType+'.xdmf','w')
   fout.write('<?xml version="1.0" ?>\n')
   fout.write('<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>\n')
   fout.write(ET.tostring(a0, pretty_print=True, encoding="unicode"))
