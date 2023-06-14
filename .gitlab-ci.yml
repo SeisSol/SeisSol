@@ -33,7 +33,7 @@ Testing_SeisSol_GPU:
 pages:
     stage: post-test
     tags:
-        - 10core-docker-runner
+        - lrzcc-k8s-4cores-10gb
     allow_failure: false
     image:
         name: $CI_REGISTRY_USER/$cpu_image_name:$cpu_image_version

@@ -74,7 +74,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     std::vector<Fault> m_fault;
 
     //! time step widths of the cells (cfl)
-    double       *m_cellTimeStepWidths;
+    std::vector<double>       m_cellTimeStepWidths;
 
     //! cluster ids of the cells
     unsigned int *m_cellClusterIds;
@@ -470,16 +470,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      *
      * @param i_mesh mesh.
      **/
-    void setMesh( const MeshReader &i_mesh );
-
-    /**
-     * Sets the time step width of a specidic cell.
-     *
-     * @param i_cellId id of the cell.
-     * @param i_timeStepWidth time step width of the cell.
-     **/
-    void setTimeStepWidth( unsigned int i_cellId,
-                           double       i_timeStepWidth );
+    void setMesh( const seissol::geometry::MeshReader &i_mesh );
 
     /**
      * Derives the layout of the LTS scheme.

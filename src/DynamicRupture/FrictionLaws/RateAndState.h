@@ -67,8 +67,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {
-    // copy state variable from last time step
-    #pragma omp simd
+// copy state variable from last time step
+#pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       stateVariableBuffer[pointIndex] = this->stateVariable[ltsFace][pointIndex];
     }
@@ -118,7 +118,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::array<real, misc::numPaddedPoints> temporarySlipRate;
 
     updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
-    #pragma omp simd
+#pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
@@ -149,7 +149,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       unsigned int ltsFace) {
     std::array<real, misc::numPaddedPoints> testSlipRate{0};
     for (unsigned j = 0; j < settings.numberStateVariableUpdates; j++) {
-      #pragma omp simd
+#pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
         // timestep/iteration update state variable using sliprate from the previous time step
@@ -174,7 +174,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       hasConverged = this->invertSlipRateIterative(
           ltsFace, localStateVariable, normalStress, absoluteShearStress, testSlipRate);
 
-      #pragma omp simd
+#pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
@@ -204,7 +204,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                TractionResults& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
-    #pragma omp simd
+#pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
       localStateVariable[pointIndex] =
@@ -272,7 +272,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void saveDynamicStressOutput(unsigned int face) {
-    #pragma omp simd
+#pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 
       if (this->ruptureTime[face][pointIndex] > 0.0 &&
@@ -314,7 +314,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
 
     for (unsigned i = 0; i < settings.maxNumberSlipRateUpdates; i++) {
-      #pragma omp simd
+#pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
         muF[pointIndex] = static_cast<Derived*>(this)->updateMu(
@@ -334,7 +334,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       if (hasConverged) {
         return hasConverged;
       }
-      #pragma omp simd
+#pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
 
         // derivative of g
@@ -353,7 +353,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           FaultStresses const& faultStresses,
                           size_t timeIndex,
                           size_t ltsFace) {
-    #pragma omp simd
+#pragma omp simd
     for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +

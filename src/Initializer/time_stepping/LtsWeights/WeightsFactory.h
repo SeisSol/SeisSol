@@ -16,11 +16,11 @@ enum class LtsWeightsTypes: int {
   Count
 };
 
-bool isLtsWeightsTypeAllowed(int id) {
+inline bool isLtsWeightsTypeAllowed(int id) {
   return ((id >= 0) && (id < static_cast<int>(LtsWeightsTypes::Count)));
 }
 
-LtsWeightsTypes convertLtsIdToType(int id) {
+inline LtsWeightsTypes convertLtsIdToType(int id) {
   if (isLtsWeightsTypeAllowed(id)) {
     return static_cast<LtsWeightsTypes>(id);
   }
@@ -31,7 +31,7 @@ LtsWeightsTypes convertLtsIdToType(int id) {
   }
 }
 
-std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type,
+inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type,
                                                         const LtsWeightsConfig& config,
                                                         const LtsParameters* ltsParameters) {
   switch (type) {

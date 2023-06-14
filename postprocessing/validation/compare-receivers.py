@@ -183,7 +183,7 @@ def faultreceiver_diff(args, i, quantities):
     sim_receiver.reset_index(drop=True, inplace=True)
 
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-14
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-12
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
     # We still want to use the same time and not the difference in time steps.

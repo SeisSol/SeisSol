@@ -31,7 +31,7 @@ if (IS_NVCC_PLATFORM)
                     --compiler-options -fPIC;
                     -DCUDA_UNDERHOOD)
 else()
-    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --amdgpu-target=${DEVICE_ARCH})
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --offload-arch=${DEVICE_ARCH})
 endif()
 
 

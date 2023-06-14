@@ -7,7 +7,7 @@
 #include "DynamicRupture/Parameters.h"
 #include "FrictionSolver.h"
 #include "FrictionSolverCommon.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/instrumentation.hpp"
 
 namespace seissol::dr::friction_law {
 /**

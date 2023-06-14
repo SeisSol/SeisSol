@@ -16,7 +16,7 @@ class ReceiverBasedOutputBuilder {
   virtual ~ReceiverBasedOutputBuilder() = default;
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
-  void setMeshReader(const MeshReader* reader);
+  void setMeshReader(const seissol::geometry::MeshReader* reader);
 
   protected:
   virtual void initTimeCaching() = 0;
@@ -29,7 +29,7 @@ class ReceiverBasedOutputBuilder {
   void assignNearestInternalGaussianPoints();
 
   protected:
-  const MeshReader* meshReader{};
+  const seissol::geometry::MeshReader* meshReader{};
   std::shared_ptr<ReceiverOutputData> outputData;
   int localRank{-1};
 };

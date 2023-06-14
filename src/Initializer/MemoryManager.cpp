@@ -86,7 +86,7 @@
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
 #include "device.h"
-#include "DynamicRupture/FrictionLaws/GpuImpl/GpuBaseFrictionLaw.h"
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #endif // ACL_DEVICE
 
 
@@ -676,7 +676,7 @@ void seissol::initializers::MemoryManager::initializeFaceDisplacements()
   }
 }
 
-void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFreeSurfaceIntegration)
+void seissol::initializers::MemoryManager::initializeMemoryLayout()
 {
   // correct LTS-information in the ghost layer
   correctGhostRegionSetups();
@@ -847,7 +847,7 @@ void seissol::initializers::MemoryManager::initFaultOutputManager() {
     m_faultOutputManager->setInputParam(*m_inputParams, seissol::SeisSol::main.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &m_lts,
-                                     e_interoperability.getLtsLut(),
+                                     &m_ltsLut,
                                      &m_dynRupTree,
                                      m_dynRup.get());
     m_faultOutputManager->init();
@@ -862,7 +862,7 @@ void seissol::initializers::MemoryManager::initFrictionData() {
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
 #ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::GpuBaseFrictionLaw*>(m_FrictionLaw.get())) {
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLaw.get())) {
       impl->initSyclQueue();
 
       LayerMask mask = seissol::initializers::LayerMask(Ghost);

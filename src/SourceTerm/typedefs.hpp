@@ -2,22 +2,24 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2023, Intel corporation
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -41,89 +43,118 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
+#include "PiecewiseLinearFunction1D.h"
+
 #include <cstdlib>
 #include <array>
 #include <vector>
-#include <Initializer/typedefs.hpp>
+#include <Kernels/precision.hpp>
 #include <generated_code/tensor.h>
+#include <cstdint>
 
-namespace seissol {
-  namespace sourceterm {    
-    /** Models point sources of the form
-     *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
-     * where S(t) : t -> \mathbb R is the moment time history,
-     * M \in \mathbb R^{9} contains entries of the moment tensor,
-     * and delta is the 3-dimensional dirac distribution.
-     * 
-     * (The scaling factor (1 / |J|) is due to the coordinate transformation (x,y,z) -> (xi,eta,zeta).)
-     **/
-    struct PointSources {
-      constexpr static unsigned TensorSize = (tensor::momentFSRM::Size > 9) ? tensor::momentFSRM::Size : 9;
-      enum Mode {
-        NRF,
-        FSRM
-      };
-      enum Mode mode;
+#ifdef ACL_DEVICE
+#include "Device/UsmAllocator.h"
+#endif
 
-      /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
-       *  basis function and xi_s, eta_s, and zeta_s are the space position
-       *  of the point source in the reference tetrahedron. */
-      real (*mInvJInvPhisAtSources)[tensor::mInvJInvPhisAtSources::size()];
+namespace seissol::sourceterm {
+#ifdef ACL_DEVICE
+using AllocatorT = device::UsmAllocator<real>;
+#else
+using AllocatorT = std::allocator<real>;
+#endif
+template <typename T>
+using VectorT =
+    std::vector<T, typename std::allocator_traits<AllocatorT>::template rebind_alloc<T>>;
 
-      /** NRF: Basis vectors of the fault.
-       * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
-       * 3-5: Tan2X-Z   = second fault tangent
-       * 6-8: NormalX-Z = fault normal
-       * 
-       * FSRM: Moment tensor */
-      real (*tensor)[TensorSize];
+template <typename T, std::size_t N>
+class AlignedArray {
+  public:
+  inline T* data() { return data_; }
+  inline T const* data() const { return data_; }
+  constexpr T& operator[](std::size_t pos) { return data_[pos]; }
+  constexpr T const& operator[](std::size_t pos) const { return data_[pos]; }
+  constexpr std::size_t size() const noexcept { return N; }
 
-      /// Area
-      std::vector<real> A;
+  private:
+  alignas(ALIGNMENT) T data_[N];
+};
 
-      /// elasticity tensor
-      std::vector<std::array<real, 81>> stiffnessTensor;
+/** Models point sources of the form
+ *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
+ * where S(t) : t -> \mathbb R is the moment time history,
+ * M \in \mathbb R^{9} contains entries of the moment tensor,
+ * and delta is the 3-dimensional dirac distribution.
+ *
+ * (The scaling factor (1 / |J|) is due to the coordinate transformation (x,y,z) -> (xi,eta,zeta).)
+ **/
+struct PointSources {
+  constexpr static unsigned TensorSize =
+      (tensor::momentFSRM::Size > 9) ? tensor::momentFSRM::Size : 9;
+  enum Mode { NRF, FSRM };
+  enum Mode mode = NRF;
 
-      /** NRF: slip rate in
-       * 0: Tan1 direction
-       * 1: Tan2 direction
-       * 2: Normal direction
-       * 
-       * FSRM: 0: slip rate (all directions) */
-      std::vector<std::array<PiecewiseLinearFunction1D, 3>> slipRates;
+  /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is
+   * the l-th basis function and xi_s, eta_s, and zeta_s are the space position
+   *  of the point source in the reference tetrahedron. */
+  VectorT<AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>> mInvJInvPhisAtSources;
 
-      /** Number of point sources in this struct. */
-      unsigned numberOfSources;
+  /** NRF: Basis vectors of the fault.
+   * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
+   * 3-5: Tan2X-Z   = second fault tangent
+   * 6-8: NormalX-Z = fault normal
+   *
+   * FSRM: Moment tensor */
+  VectorT<AlignedArray<real, TensorSize>> tensor;
 
-      PointSources() : mode(NRF), mInvJInvPhisAtSources(nullptr), tensor(nullptr), numberOfSources(0) {}
-      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); }
-    };
+  /// Area
+  VectorT<real> A;
 
-    struct CellToPointSourcesMapping {
-      //! Pointer to DOFs
-      real (*dofs)[tensor::Q::size()];
-      //! First point source that has an effect on the cell
-      unsigned pointSourcesOffset;
-      /** The point sources buffer is ordered by cells, hence the point sources
-       * that affect the cell with copyInteriorOffset reside in
-       * [pointSourcesOffset, pointSourcesOffset + numberOfPointSources)
-       * in the point sources buffer.
-       **/
-      unsigned numberOfPointSources;
-      
-      CellToPointSourcesMapping() : dofs(nullptr), pointSourcesOffset(0), numberOfPointSources(0) {}
-    };
-    
-    struct ClusterMapping {
-      unsigned*                  sources;
-      unsigned                   numberOfSources;
-      CellToPointSourcesMapping* cellToSources;
-      unsigned                   numberOfMappings;
-      
-      ClusterMapping() : sources(nullptr), numberOfSources(0), cellToSources(nullptr), numberOfMappings(0) {}
-      ~ClusterMapping() { delete[] sources; numberOfSources = 0; delete[] cellToSources; numberOfMappings = 0; }
-    };
-  }
-}
+  /// elasticity tensor
+  VectorT<std::array<real, 81>> stiffnessTensor;
+
+  /** NRF: slip rate in
+   * 0: Tan1 direction
+   * 1: Tan2 direction
+   * 2: Normal direction
+   *
+   * FSRM: 0: slip rate (all directions) */
+  std::array<VectorT<PiecewiseLinearFunction1D<AllocatorT>>, 3> slipRates;
+
+  /** Number of point sources in this struct. */
+  unsigned numberOfSources = 0;
+
+  PointSources(AllocatorT const& alloc)
+      : mInvJInvPhisAtSources(decltype(mInvJInvPhisAtSources)::allocator_type(alloc)),
+        tensor(decltype(tensor)::allocator_type(alloc)), A(alloc),
+        stiffnessTensor(decltype(stiffnessTensor)::allocator_type(alloc)),
+        slipRates{VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc),
+                  VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc),
+                  VectorT<PiecewiseLinearFunction1D<AllocatorT>>(alloc)} {}
+  ~PointSources() { numberOfSources = 0; }
+};
+
+struct CellToPointSourcesMapping {
+  //! Pointer to DOFs
+  real (*dofs)[tensor::Q::size()];
+  //! First point source that has an effect on the cell
+  unsigned pointSourcesOffset;
+  /** The point sources buffer is ordered by cells, hence the point sources
+   * that affect the cell with copyInteriorOffset reside in
+   * [pointSourcesOffset, pointSourcesOffset + numberOfPointSources)
+   * in the point sources buffer.
+   **/
+  unsigned numberOfPointSources;
+
+  CellToPointSourcesMapping() : dofs(nullptr), pointSourcesOffset(0), numberOfPointSources(0) {}
+};
+
+struct ClusterMapping {
+  VectorT<unsigned> sources;
+  VectorT<CellToPointSourcesMapping> cellToSources;
+
+  ClusterMapping(AllocatorT const& alloc)
+      : sources(alloc), cellToSources(decltype(cellToSources)::allocator_type(alloc)) {}
+};
+} // namespace seissol::sourceterm
 
 #endif
