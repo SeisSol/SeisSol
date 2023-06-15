@@ -6,37 +6,53 @@ A first example
 This tutorial will guide you through the steps of your first SeisSol
 simulation. We will use the `SCEC TPV33
 benchmark <http://scecdata.usc.edu/cvws/tpv33docs.html>`__ as an example
-in this tutorial. We assume that you have successfully compiled SeisSol.
+in this tutorial. We assume that you have successfully :ref:`compiled SeisSol 
+<Compiling_and_running_seissol>`.
+
+This tutorial is targeted to people who have compiled SeisSol and want 
+to test their installation for the first time. If you are completely new
+to SeisSol and want to explore its features, we recommend our `training 
+material <https://github.com/SeisSol/Training>`__, which bundles a pre-compiled
+version of SeisSol and some scenarios.
+
 
 Setup
 -----
 
 *  Clone our examples repository: https://github.com/SeisSol/Examples/.
 
-*  Navigate to the folder ``tpv33``.
+*  Navigate to the folder ``Examples/tpv33``. We will refer to this directory as 
+   `working directory` in the following.
 
-*  To create the mesh, execute ``./generating_the_mesh.sh``. To do so,
-   you need to install `gmsh <https://gmsh.info>`__, `PUMGen 
-   <https://github.com/SeisSol/PUMGen>`__ and `mirrorMesh 
-   <https://github.com/SeisSol/Meshing/tree/master/mirrorMesh>`__. You 
-   can visualize the mesh file ``paraview tpv33_half_sym.xdmf``. The mesh 
+*  Download the mesh files from `<https://zenodo.org/record/8042664>`__ and
+   store them in the working directory.
+
+*  You can visualize the mesh file with `paraview <https://www.paraview.org/>`__,
+   using e.g. ``paraview tpv33_half_sym.xdmf``. The mesh 
    is described by two files: ``tpv33_half_sym`` and ``tpv33_half_sym.xdmf``.
    The first one is a binary file, which contains all the data (e.g. 
    coordinates, connectivity) and the ``xdmf`` file contains information 
-   on how to read that data for visualization software such as paraview.
+   on how to read that data for visualization software such as Paraview.
+   You can read more about this mesh format here: :ref:`PUML_mesh_format`.
 
-*  **Optional:** For performance reasons, we suggest that you store the
-   mesh file in a scratch file system (if one is available at your
-   cluster) and create symbolic links in your launch directory (e.g.
-   ``ln -s <path/to/tpv33_half_sym> tpv33_half_sym``).
+*  Create the output directory: ``mkdir output``. 
+
+*  **Optional** To create the mesh on your own, execute ``./generating_the_mesh.sh``. 
+   To do so, you need to install `gmsh <https://gmsh.info>`__, `PUMGen 
+   <https://github.com/SeisSol/PUMGen>`__ and `mirrorMesh 
+   <https://github.com/SeisSol/Meshing/tree/master/mirrorMesh>`__.    
+
+*  **Optional:** For performance reasons, we suggest that you store large
+   files (mesh, output) in a scratch file system (if one is available at your cluster) 
+   and create symbolic links in your working directory:
+
+   .. code-block:: bash
+
+     ln -s <path/to/tpv33_half_sym> tpv33_half_sym
+     ln -s <path/to/output/directory> output
+
    You may not see a huge difference in this small test case but for larger
-   meshes, this is the recommended strategy.
-
-*  Create the output directory: ``mkdir output``. For the output files 
-   it might also be beneficial to store them in a scratch file system. 
-   In this case, create the output directory in your scratch file system 
-   and add a symbolic link ``ln -s <path/to/output/directory> output`` to
-   this directory.
+   meshes, this is the recommended strategy. 
 
 Execution
 ---------
