@@ -100,7 +100,7 @@ seissol::kernels::TimeBase::TimeBase() {
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
-      std::cout << tensor::dQ::size(order-1) << " " << yateto::computeFamilySize<tensor::dQ>() << std::endl;
+      // std::cout << tensor::dQ::size(order-1) << " " << yateto::computeFamilySize<tensor::dQ>() << std::endl;
     }
   }
 }
