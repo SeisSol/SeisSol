@@ -21,7 +21,7 @@ class DamagedElasticADERDG(ADERDGBase):
     numberOfNodes = self.t(self.db.v.shape())[0]
     # For cell-average
     self.db.update(parseXMLMatrixFile('{}/phi_ave_{}.xml'.format(matricesDir, order), transpose=self.transpose, alignStride=self.alignStride))
-    
+
     qAveShape = (self.numberOfQuantities(),)
     self.QAve = OptionalDimTensor('QAve', 's', multipleSimulations, 0, qAveShape, alignStride=True)
 
@@ -52,13 +52,54 @@ class DamagedElasticADERDG(ADERDGBase):
 
     generator.add('damageConvertToNodal', self.QNodal['kp'] <= self.db.v[self.t('kl')] * self.Q['lp'] )
     generator.add('damageAssignFToDQ', self.dQModal['kp'] <= self.db.vInv[self.t('kl')] * self.FNodal['lp'])
-    
+
     qNShape = (self.t(self.db.v.shape())[0], self.numberOfQuantities())
     Tweight = Scalar('Tweight')
     for i in range(0,self.order):
       QTNodal = OptionalDimTensor('QTNodal({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qNShape, alignStride=True)
       generator.add(f'damageIntegration({i})', self.Q['kp'] <= self.Q['kp'] + self.db.vInv[self.t('kl')] * QTNodal['lp'] * Tweight )
-    
+
+    # Kernels for volumetric flux integration
+    gradXiEtaZetaX0 = Scalar('gradXiEtaZetaX0')
+    gradXiEtaZetaY0 = Scalar('gradXiEtaZetaY0')
+    gradXiEtaZetaZ0 = Scalar('gradXiEtaZetaZ0')
+    gradXiEtaZetaX1 = Scalar('gradXiEtaZetaX1')
+    gradXiEtaZetaY1 = Scalar('gradXiEtaZetaY1')
+    gradXiEtaZetaZ1 = Scalar('gradXiEtaZetaZ1')
+    gradXiEtaZetaX2 = Scalar('gradXiEtaZetaX2')
+    gradXiEtaZetaY2 = Scalar('gradXiEtaZetaY2')
+    gradXiEtaZetaZ2 = Scalar('gradXiEtaZetaZ2')
+    # TweightN = Scalar('TweightN')
+
+    numberOfNodes = self.t(self.db.v.shape())[0]
+    fluxVolShape = (numberOfNodes, self.numberOfQuantities())
+
+    for i in range(0,self.order):
+      FluxVolX = OptionalDimTensor('FluxVolX({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), fluxVolShape, alignStride=True)
+      FluxVolY = OptionalDimTensor('FluxVolY({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), fluxVolShape, alignStride=True)
+      FluxVolZ = OptionalDimTensor('FluxVolZ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), fluxVolShape, alignStride=True)
+
+      volumeNonl = (self.Q['kp'] <= \
+                    self.Q['kp'] + \
+                    ( \
+                      self.db.kDivM[0][self.t('kl')] \
+                      * self.db.vInv[self.t('lm')] \
+                      * (gradXiEtaZetaX0 * FluxVolX['mp']  \
+                  + gradXiEtaZetaY0 * FluxVolY['mp'] \
+                  + gradXiEtaZetaZ0 * FluxVolZ['mp'] ) \
+                    + self.db.kDivM[1][self.t('kl')] \
+                      * self.db.vInv[self.t('lm')] \
+                      * (gradXiEtaZetaX1 * FluxVolX['mp']  \
+                  + gradXiEtaZetaY1 * FluxVolY['mp'] \
+                  + gradXiEtaZetaZ1 * FluxVolZ['mp']) \
+                    + self.db.kDivM[2][self.t('kl')] \
+                      * self.db.vInv[self.t('lm')] \
+                      * (gradXiEtaZetaX2 * FluxVolX['mp']  \
+                  + gradXiEtaZetaY2 * FluxVolY['mp'] \
+                  + gradXiEtaZetaZ2 * FluxVolZ['mp']) \
+                    ) #* TweightN
+                  )
+      generator.add(f'nonlinearVolumeIntegration({i})', volumeNonl)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

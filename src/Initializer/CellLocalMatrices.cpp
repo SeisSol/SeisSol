@@ -125,7 +125,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     real QgodNeighborData[tensor::QgodNeighbor::size()];
     auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
     auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-    
+
 #ifdef _OPENMP
     #pragma omp for schedule(static)
 #endif
@@ -153,13 +153,21 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
       seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
 
+      #if defined USE_DAMAGEDELASTIC
+      for (unsigned int i_x = 0; i_x<3; i_x++){
+        localIntegration[cell].gradXiEtaZeta[i_x][0] = gradXi[i_x];
+        localIntegration[cell].gradXiEtaZeta[i_x][1] = gradEta[i_x];
+        localIntegration[cell].gradXiEtaZeta[i_x][2] = gradZeta[i_x];
+      }
+      #endif
+
       seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, AT );
       seissol::model::getTransposedCoefficientMatrix( material[cell].local, 1, BT );
       seissol::model::getTransposedCoefficientMatrix( material[cell].local, 2, CT );
       setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
       setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
-      
+
       // auto staM = CTData[26]*gradXi[2];
       // if (meshId > 1000 && meshId < 1002){
       //   std::cout << seissol::MPI::mpi.rank() << "=========================" << std::endl;
@@ -195,7 +203,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
           seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, ATtilde );
         } else {
           seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                      material[cell].neighbor[side],     
+                                                      material[cell].neighbor[side],
                                                       cellInformation[cell].faceTypes[side],
                                                       QgodLocal,
                                                       QgodNeighbor );
@@ -217,7 +225,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
-        
+
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
@@ -515,7 +523,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Wave speeds and Coefficient Matrices
       auto APlus = init::star::view<0>::create(APlusData);
       auto AMinus = init::star::view<0>::create(AMinusData);
-      
+
       waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
       waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
       waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
@@ -551,7 +559,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         }
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
-          //TODO(SW): Make DR work with anisotropy 
+          //TODO(SW): Make DR work with anisotropy
           break;
         }
         case seissol::model::MaterialType::elastic: {

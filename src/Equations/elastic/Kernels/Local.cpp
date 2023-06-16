@@ -140,6 +140,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
+  #ifdef USE_DAMAGEDELASTIC
+  #else
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
@@ -149,8 +151,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+  #endif
 
-  #ifdef USE_DAMAGEDELASTIC  
+  #ifdef USE_DAMAGEDELASTIC
   // // Compute the Q at quadrature points in space and time
   // /// Get quadrature points in time
   // double timePoints[CONVERGENCE_ORDER];
@@ -174,7 +177,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   // /// Convert Q_{lp} at the initial time step from modal to nodal space
 
 
-  // /// Quadrature in time in nodal space and directly convert 
+  // /// Quadrature in time in nodal space and directly convert
   // /// the summation results back into modal space in the python kernel
 
   //================================END OF DAMAGE===============================
@@ -185,8 +188,11 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
-  
+
+  #ifdef USE_DAMAGEDELASTIC
+  #else
   volKrnl.execute();
+  #endif
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
@@ -488,6 +494,6 @@ unsigned seissol::kernels::Local::bytesIntegral()
 
   // DOFs write
   reals += tensor::Q::size();
-  
+
   return reals * sizeof(real);
 }

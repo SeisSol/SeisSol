@@ -9,17 +9,17 @@
  * @section LICENSE
  * Copyright (c) 2013-2020, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -204,47 +204,47 @@ struct MeshStructure {
 
 };
 
-struct GlobalData {  
+struct GlobalData {
   /**
    * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass matrix):
-   * 
+   *
    *    0: \f$ M^{-1} R^1 \f$
    *    1: \f$ M^{-1} R^2 \f$
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
   seissol::tensor::rDivM::Container<real const*> changeOfBasisMatrices;
-  
+
   /**
    * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
-   * 
+   *
    *    0: \f$ F^- ( R^1 )^T \f$
    *    1: \f$ F^- ( R^2 )^T \f$
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
   seissol::tensor::fMrT::Container<real const*> localChangeOfBasisMatricesTransposed;
-  
+
   /**
    * Addresses of the transposed global change of basis matrices:
-   * 
+   *
    *    0: \f$ ( R^1 )^T \f$
    *    1: \f$ ( R^2 )^T \f$
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
   seissol::tensor::rT::Container<real const*> neighbourChangeOfBasisMatricesTransposed;
-  
+
   /**
    * Addresses of the global flux matrices:
-   * 
+   *
    *    0: \f$ F^{+,1} \f$
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
   seissol::tensor::fP::Container<real const*> neighbourFluxMatrices;
 
-  /** 
+  /**
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
    *
    *    0:  \f$ M^{-1} K^\xi \f$
@@ -252,10 +252,10 @@ struct GlobalData {
    *    2:  \f$ M^{-1} K^\zeta f$
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
-   **/ 
+   **/
   seissol::tensor::kDivM::Container<real const*> stiffnessMatrices;
 
-  /** 
+  /**
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass matrix):
    *
    *    0:  \f$ M^{-1} ( K^\xi )^T \f$
@@ -263,15 +263,15 @@ struct GlobalData {
    *    2:  \f$ M^{-1} ( K^\zeta )^T \f$
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
-   **/ 
+   **/
   seissol::tensor::kDivMT::Container<real const*> stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
    **/
   real *integrationBufferLTS{nullptr};
-  
-   /** 
+
+   /**
    * Addresses of the global nodal flux matrices
    *
    *    0:  \f$ P^{+,1} \f$
@@ -284,13 +284,13 @@ struct GlobalData {
    *    7 : \f$ P^{-,2,3} \f$
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
-   **/ 
+   **/
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
 
   seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
   seissol::tensor::project2nFaceTo3m::Container<real const*> project2nFaceTo3m;
 
-  /** 
+  /**
    * Addresses of the global face to nodal matrices
    *
    *    0:  \f$ N^{+,1} \f$
@@ -303,9 +303,9 @@ struct GlobalData {
    *    7 : \f$ N^{-,2,3} \f$
    *    [..]
    *    15: \f$ N^{-,4,3} \f$
-   **/ 
+   **/
 
- 
+
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
@@ -313,7 +313,7 @@ struct GlobalData {
 
   //! Project function evaluated at quadrature points to modal basis
   real* projectQPMatrix{nullptr};
-  
+
   //! Switch to nodal for plasticity
   real* vandermondeMatrix{nullptr};
   real* vandermondeMatrixInverse{nullptr};
@@ -351,6 +351,7 @@ struct LocalIntegrationData {
 #elif defined USE_POROELASTIC
   seissol::model::PoroelasticLocalData specific;
 #elif defined USE_DAMAGEDELASTIC
+  real gradXiEtaZeta[3][3];
   seissol::model::DamagedElasticLocalData specific;
 #else
   static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
@@ -405,7 +406,7 @@ struct CellMaterialData {
 };
 
 /** A piecewise linear function.
- * 
+ *
  *  Say t \in I_j, then
  *    f(t) = m_j * t + n_j,
  *  where I_j is the half-open interval [t_o + j*dt, t_o + (j+1)*dt).
@@ -417,16 +418,16 @@ struct PiecewiseLinearFunction1D {
 
   /** intercepts[i] = n_i */
   real* intercepts;
-  
+
   /** numberOfPieces = n */
   unsigned numberOfPieces;
-  
+
   /** onsetTime = t_o */
   real onsetTime;
-  
+
   /** samplingInterval = dt */
   real samplingInterval;
-  
+
   PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
   ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
 };
