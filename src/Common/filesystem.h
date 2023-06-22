@@ -45,7 +45,7 @@ inline void generateBackupFileIfNecessary(std::string fileName,
 
   if (seissol::directoryExists(entry)) {
     if (!timeStamp.has_value()) {
-      auto stamp = utils::TimeUtils::timeAsString("%F_%T", time(0L));
+      auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
       timeStamp = std::optional<std::string>(stamp);
     }
     std::stringstream backupFileName;
