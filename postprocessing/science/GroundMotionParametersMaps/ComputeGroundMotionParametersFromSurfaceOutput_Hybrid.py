@@ -282,15 +282,6 @@ if args.CAV:
 for per in periods:
    dataName.append('SA%06.3fs' %per)
 
-#write the output in a temp file
-h5f = h5py.File('temp'+str(irank)+'.h5','w')
-for i,dname in enumerate(dataName):
-     hdname = "mesh0/"+dname
-     h5f.create_dataset(hdname, (nElements_i,), dtype='d')
-     h5f[hdname][:] = myres[:,i]
-h5f.close()
-
-
 mypath, fn = os.path.split(args.filename)
 prefix = fn.split('-')[-2] if not isVolumeData else fn.split('.')[-2]
 
