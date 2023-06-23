@@ -8,6 +8,7 @@
 #include <Kernels/precision.hpp>
 
 #include <memory>
+#include <vector>
 #include <algorithm>
 
 namespace seissol::sourceterm {
