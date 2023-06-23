@@ -54,6 +54,7 @@ from multiprocessing import Pool,cpu_count,Manager
 import time
 import lxml.etree as ET
 import seissolxdmf
+import seissolxdmfwriter as sxw
 from scipy import signal
 from scipy.integrate import cumtrapz
 
@@ -212,17 +213,14 @@ else:
 sx = seissolxdmf.seissolxdmf(args.filename)
 dt = sx.ReadTimeStep()
 nElements = sx.nElements
+connect = sx.ReadConnect()
 
-isVolumeData = True if sx.ReadConnect().shape[1] == 4 else False
+isVolumeData = True if connect.shape[1] == 4 else False
 
 if isVolumeData:
     prefixType = "-volume"
-    nElementVertices = 4
-    topologyType = "Tetrahedron"
 else:
     prefixType = "-surface"
-    nElementVertices = 3
-    topologyType = "Triangle"
 
 #split the input array in nranks inputs
 inputs0 = np.arange(0, nElements)
@@ -300,68 +298,12 @@ sLowPass=f'_lp{args.lowpass[0]:.1f}' if args.lowpass else ''
 prefixGME = f'{prefix}{sLowPass}-GME'
 
 if not args.noMPI:
-   comm.Barrier()
+    comm.Barrier()
+    myres = comm.gather(myres, root=0)
 
 if irank==0:
-  #Write GME data to hdf5
-    
-  h5f = h5py.File(prefixGME + prefixType +'_cell.h5','w')
-
-  for i,dname in enumerate(dataName):
-     hdname = "mesh0/"+dname
-     h5f.create_dataset(hdname, (nElements,), dtype='d')
-     for j in range(nranks):
-        fname = 'temp'+str(j)+'.h5'
-        h5fj = h5py.File(fname,'r')
-        h5f[hdname][inputsi[j][0]:(1+inputsi[j][-1])] = h5fj[hdname][:]
-        h5fj.close()
-  
-  for j in range(nranks):
-     fname = 'temp'+str(j)+'.h5'
-     os.remove(fname)
-
-  # Copy connect and geometry: 
-  h5f.create_dataset('mesh0/connect', (nElements,nElementVertices), dtype='i8')
-  connect = sx.ReadConnect()
-  h5f['mesh0/connect'][:,:] = connect[:,:]
-  del connect
-  h5f.close()
-  h5f = h5py.File(prefixGME + prefixType + '_vertex.h5','w')
-  xyz = sx.ReadGeometry()
-  Nvertex=xyz.shape[0]
-  h5f.create_dataset('mesh0/geometry', xyz.shape, dtype='d')
-  h5f['mesh0/geometry'][:,:] = xyz[:,:]
-  del xyz
-  h5f.close()
-
-  #This write a new xdmf file
-  a0 = ET.Element('Xdmf', attrib={'Version':'2.0'})
-  a = ET.SubElement(a0,'Domain')
-  b = ET.SubElement(a, 'Grid', attrib={'Name':"TimeSeries", 'GridType':'Collection','CollectionType':'Temporal'})
-  c = ET.SubElement(b, 'Grid', attrib={'Name':'step_000000000000', 'GridType':'Uniform'})
-  d = ET.SubElement(c, 'Topology', attrib={'TopologyType':topologyType, 'NumberOfElements':str(nElements)})
-  dimension = ('%d ' %nElements) + str(nElementVertices)
-  e = ET.SubElement(d, 'DataItem', attrib={'NumberType':'Int', 'Precision':'8', 'Format':'HDF', 'Dimensions': dimension})
-  e.text = f"{prefixGME}{prefixType}_cell.h5:/mesh0/connect"
-
-  d1 = ET.SubElement(c, 'Geometry', attrib={'Name':'geo', 'GeometryType':'XYZ', 'NumberOfElements':str(Nvertex)})
-  dimension = '%d 3' %Nvertex
-  e1 = ET.SubElement(d1, 'DataItem', attrib={'NumberType':'Float', 'Precision':'8', 'Format':'HDF', 'Dimensions': dimension})
-  e1.text = f"{prefixGME}{prefixType}_vertex.h5:/mesh0/geometry"
-  d2 = ET.SubElement(c, 'Time', attrib={'Value':'0'})
-
-  for i,dname in enumerate(dataName):
-     d3 = ET.SubElement(c, 'Attribute', attrib={'Name':dname, 'Center':'Cell'})
-     e3 = ET.SubElement(d3, 'DataItem', attrib={'ItemType':'HyperSlab', 'Dimensions':str(nElements)})
-     f1 = ET.SubElement(e3, 'DataItem', attrib={'NumberType':'UInt', 'Precision':'4', 'Format':'XML', 'Dimensions':'3 2'})
-     f1.text = '0 0 1 1 1 %d' %nElements
-     dimension = '1 %d' %nElements
-     f2 = ET.SubElement(e3, 'DataItem', attrib={'NumberType':'Float', 'Precision':'8', 'Format':'HDF', 'Dimensions':dimension})
-     f2.text = f"{prefixGME}{prefixType}_cell.h5:/mesh0/{dname}"
-
-  fout=open(prefixGME+prefixType+'.xdmf','w')
-  fout.write('<?xml version="1.0" ?>\n')
-  fout.write('<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>\n')
-  fout.write(ET.tostring(a0, pretty_print=True, encoding="unicode"))
-  fout.close()
-  print("done writing the file: %f" % (time.time()-start))
+    if nranks > 1:
+        myres = np.concatenate(myres, axis=0)
+    geom = sx.ReadGeometry()
+    sxw.write_seissol_output(f"{prefixGME}{prefixType}", geom, connect, dataName,
+                             [myres[:,i] for i in range(myres.shape[1])], 0, [0])
