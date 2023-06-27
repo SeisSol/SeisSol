@@ -43,7 +43,7 @@ build_seissol:
         - cmake --version
         - equation=elastic
         - mechanisms=0
-        - for equation in elastic ;
+        - for equation in [elastic, poroelastic] ;
             do dirname="build_${equation}_${precision}_${build_type}";
             echo "mkdir $dirname";
             if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
@@ -87,6 +87,8 @@ run_unit_tests:
             - DIR: build_elastic_single_Debug
             - DIR: build_elastic_double_Release
             - DIR: build_elastic_single_Release
+            - DIR: build_poroelastic_double_Release
+            - DIR: build_poroelastic_single_Release
     script: 
         - echo "testing"
         - pwd
@@ -104,13 +106,13 @@ run_tpv:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "run TPV${tpv}"
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout b60e02c
+        - git checkout 16487ef
         - cd ..
         - cd build_elastic_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
@@ -141,7 +143,7 @@ check_faultoutput:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV{$tpv}"
         - ls
@@ -161,7 +163,7 @@ check_receivers:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 6, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
@@ -183,7 +185,7 @@ check_energies:
     parallel:
         matrix:
             - precision: [double, single]
-              tpv: [5, 5-nuc, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
+              tpv: [5, 5-nuc, 5-poro, 6, 16, 101, 101-slip, 104, 105, yoffe, gaussian]
     script: 
         - echo "check TPV${tpv}"
         - ls
