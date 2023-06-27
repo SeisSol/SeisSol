@@ -77,23 +77,20 @@
 
 #include "SeisSol.h"
 #include "TimeCluster.h"
-#include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
-#include <Monitoring/instrumentation.fpp>
+#include <Monitoring/instrumentation.hpp>
 
 #include <cassert>
 #include <cstring>
 
 #include <generated_code/kernel.h>
 
-//! fortran interoperability
-extern seissol::Interoperability e_interoperability;
-
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
+                                                 unsigned int profilingId,
                                                  bool usePlasticity,
                                                  LayerType layerType, double maxTimeStepSize,
                                                  long timeStepRate, bool printProgress,
@@ -121,9 +118,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_dynRup(i_dynRup),
     frictionSolver(i_FrictionSolver),
     faultOutputManager(i_faultOutputManager),
-    m_cellToPointSources(nullptr),
-    m_numberOfCellToPointSourcesMappings(0),
-    m_pointSources(nullptr),
+    m_sourceCluster{nullptr},
     // cells
     m_loopStatistics(i_loopStatistics),
     actorStateStatistics(actorStateStatistics),
@@ -132,6 +127,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     printProgress(printProgress),
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
+    m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler)
 {
     // assert all pointers are valid
@@ -146,7 +142,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
 
   m_timeKernel.setGlobalData(i_globalData);
   m_localKernel.setGlobalData(i_globalData);
-  m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
+  m_localKernel.setInitConds(&seissol::SeisSol::main.getMemoryManager().getInitialConditions());
   m_neighborKernel.setGlobalData(i_globalData);
   m_dynamicRuptureKernel.setGlobalData(i_globalData);
 
@@ -163,13 +159,9 @@ seissol::time_stepping::TimeCluster::~TimeCluster() {
 #endif
 }
 
-void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
-                                                           unsigned i_numberOfCellToPointSourcesMappings,
-                                                           sourceterm::PointSources const* i_pointSources )
-{
-  m_cellToPointSources = i_cellToPointSources;
-  m_numberOfCellToPointSourcesMappings = i_numberOfCellToPointSourcesMappings;
-  m_pointSources = i_pointSources;
+void seissol::time_stepping::TimeCluster::setPointSources(
+    std::unique_ptr<kernels::PointSourceCluster> sourceCluster) {
+  m_sourceCluster = std::move(sourceCluster);
 }
 
 void seissol::time_stepping::TimeCluster::writeReceivers() {
@@ -189,36 +181,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
   // Return when point sources not initialised. This might happen if there
   // are no point sources on this rank.
-  if (m_numberOfCellToPointSourcesMappings != 0) {
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-    for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
-      unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
-      unsigned endSource =
-          m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
-      if (m_pointSources->mode == sourceterm::PointSources::NRF) {
-        for (unsigned source = startSource; source < endSource; ++source) {
-          sourceterm::addTimeIntegratedPointSourceNRF(m_pointSources->mInvJInvPhisAtSources[source],
-                                                      m_pointSources->tensor[source],
-                                                      m_pointSources->A[source],
-                                                      m_pointSources->stiffnessTensor[source],
-                                                      m_pointSources->slipRates[source],
-                                                      ct.correctionTime,
-                                                      ct.correctionTime + timeStepSize(),
-                                                      *m_cellToPointSources[mapping].dofs);
-        }
-      } else {
-        for (unsigned source = startSource; source < endSource; ++source) {
-          sourceterm::addTimeIntegratedPointSourceFSRM(m_pointSources->mInvJInvPhisAtSources[source],
-                                                       m_pointSources->tensor[source],
-                                                       m_pointSources->slipRates[source][0],
-                                                       ct.correctionTime,
-                                                       ct.correctionTime + timeStepSize(),
-                                                       *m_cellToPointSources[mapping].dofs);
-        }
-      }
-    }
+  if (m_sourceCluster) {
+    m_sourceCluster->addTimeIntegratedPointSources(ct.correctionTime, ct.correctionTime + timeStepSize());
   }
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
@@ -227,6 +191,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
 #ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
+  if (layerData.getNumberOfCells() == 0) return;
   SCOREP_USER_REGION_DEFINE(myRegionHandle)
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureSpaceTimeInterpolation", SCOREP_USER_REGION_TYPE_COMMON )
 
@@ -281,7 +246,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
   }
 
-  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
 }
 #else
 
@@ -330,7 +295,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                              m_dynamicRuptureKernel.timeWeights);
     device.api->popLastProfilingMark();
   }
-  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells(), m_profilingId);
 }
 #endif
 
@@ -441,7 +406,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     }
   }
 
-  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 }
 #else // ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeLocalIntegration(
@@ -567,7 +532,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(
     device.api->syncGraph(computeGraphHandle);
   }
 
-  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells(), m_profilingId);
   device.api->popLastProfilingMark();
 }
 #endif // ACL_DEVICE
@@ -643,7 +608,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   device.api->syncDefaultStreamWithHost();
   device.api->popLastProfilingMark();
-  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_globalClusterId);
+  m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 }
 #endif // ACL_DEVICE
 
@@ -742,6 +707,8 @@ void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
 }
 void TimeCluster::predict() {
   assert(state == ActorState::Corrected);
+  if (m_clusterData->getNumberOfCells() == 0) return;
+
   bool resetBuffers = true;
   for (auto& neighbor : neighbors) {
       if (neighbor.ct.timeStepRate > ct.timeStepRate
@@ -753,8 +720,6 @@ void TimeCluster::predict() {
     resetBuffers = true;
   }
 
-  // These methods compute the receivers/sources for both interior and copy cluster
-  // and are called in actors for both copy AND interior.
   writeReceivers();
   computeLocalIntegration(*m_clusterData, resetBuffers);
   computeSources();

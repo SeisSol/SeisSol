@@ -150,7 +150,7 @@ ProxyOutput runProxy(ProxyConfig config) {
   }
 
 #ifdef ACL_DEVICE
-  deviceT &device = deviceT::getInstance();
+  deviceType &device = deviceType::getInstance();
   device.api->setDevice(0);
   device.api->initialize();
   device.api->allocateStackMem();

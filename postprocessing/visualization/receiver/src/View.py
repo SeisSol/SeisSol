@@ -217,7 +217,7 @@ class View(QWidget):
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
           #print L2 difference
-          if nWf > 0 and not self.diff.isChecked():
+          if nWf > 0 and not self.diff.isChecked() and name in wf_ref.waveforms:
             t_min = max(wf.time.min(), wf_ref.time.min())
             t_max = min(wf.time.max(), wf_ref.time.max())
             truncate = lambda a: a[(a >= t_min) & (a <= t_max)]

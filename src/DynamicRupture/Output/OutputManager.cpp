@@ -1,8 +1,8 @@
+#include "Common/filesystem.h"
 #include "DynamicRupture/Output/OutputManager.hpp"
 #include "DynamicRupture/Output/ReceiverBasedOutput.hpp"
 #include "ResultWriter/common.hpp"
 #include "SeisSol.h"
-#include <filesystem>
 #include <fstream>
 #include <type_traits>
 #include <unordered_map>
@@ -73,7 +73,8 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
 
 OutputManager::~OutputManager() { flushPickpointDataToFile(); }
 
-void OutputManager::setInputParam(const YAML::Node& inputData, MeshReader& userMesher) {
+void OutputManager::setInputParam(const YAML::Node& inputData,
+                                  seissol::geometry::MeshReader& userMesher) {
   using namespace initializers;
   meshReader = &userMesher;
 
@@ -186,7 +187,7 @@ void OutputManager::initPickpointOutput() {
     filesystem_aux::generateBackupFileIfNecessary(fileName, "dat");
     fileName += ".dat";
 
-    if (!std::filesystem::exists(fileName)) {
+    if (!seissol::filesystem::exists(fileName)) {
       std::ofstream file(fileName, std::ios_base::out);
       if (file.is_open()) {
         std::stringstream title;

@@ -75,7 +75,7 @@ void setStarMatrix( real* i_AT,
   }
 }
 
-void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      i_meshReader,
+void seissol::initializers::initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut,
@@ -240,7 +240,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
   }
 }
 
-void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
+void surfaceAreaAndVolume(  seissol::geometry::MeshReader const&      i_meshReader,
                             unsigned               meshId,
                             unsigned               side,
                             double*                surfaceArea,
@@ -258,7 +258,7 @@ void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
   *surfaceArea = MeshTools::surface(normal);
 }
 
-void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshReader,
+void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::MeshReader& i_meshReader,
                                                        const EasiBoundary* easiBoundary,
                                                        LTSTree* io_ltsTree,
                                                        LTS* i_lts,
@@ -388,7 +388,7 @@ Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<doub
   return M.cast<real>();
 };
 
-void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,
+void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,
                                                               Lut*                   i_ltsLut,

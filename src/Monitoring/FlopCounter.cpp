@@ -85,24 +85,8 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const double accumulatedGflopsPerSecond = newTotalFlops * 1.e-9 / wallTime;
   const double previousGflopsPerSecond = diffFlops * 1.e-9 / diffTime;
 
-  double accumulatedGflopsPerSecondOnRanks[worldSize];
-  double previousGflopsPerSecondOnRanks[worldSize];
-  MPI_Gather(&accumulatedGflopsPerSecond,
-             1,
-             MPI_DOUBLE,
-             accumulatedGflopsPerSecondOnRanks,
-             1,
-             MPI_DOUBLE,
-             0,
-             seissol::MPI::mpi.comm());
-  MPI_Gather(&previousGflopsPerSecond,
-             1,
-             MPI_DOUBLE,
-             previousGflopsPerSecondOnRanks,
-             1,
-             MPI_DOUBLE,
-             0,
-             seissol::MPI::mpi.comm());
+  auto accumulatedGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(accumulatedGflopsPerSecond);
+  auto previousGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(previousGflopsPerSecond);
 
   if (rank == 0) {
     double accumulatedGflopsSum = 0;

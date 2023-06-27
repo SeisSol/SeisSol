@@ -9,10 +9,7 @@
 #include <utility>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
-#include <Solver/Interoperability.h>
 #include <Numerical_aux/Eigenvalues.h>
-
-extern seissol::Interoperability e_interoperability;
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
@@ -172,7 +169,8 @@ void seissol::physics::TravellingWave::evaluate(double time,
   }
 }
 
-seissol::physics::PressureInjection::PressureInjection(const PressureInjectionParameters pressureInjectionParameters) : m_parameters(std::move(pressureInjectionParameters)) {
+seissol::physics::PressureInjection::PressureInjection(const seissol::initializer::parameters::InitializationParameters initializationParameters)
+    : m_parameters(std::move(initializationParameters)) {
   const auto o_1 = m_parameters.origin[0];
   const auto o_2 = m_parameters.origin[1];
   const auto o_3 = m_parameters.origin[2];

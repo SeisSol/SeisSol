@@ -30,9 +30,7 @@ ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 /
 
 &Boundaries
-BC_fs = 1                               ! enable free surface boundaries
 BC_dr = 1                               ! enable fault boundaries
-BC_of = 1                               ! enable absorbing boundaries
 /
 
 &DynamicRupture
@@ -76,17 +74,14 @@ PPFileName = 'tpv33_faultreceivers.dat'
 !Type = 42   ! 42: finite source in netcdf format
 !FileName = 'source_norm.dat'
 /
-
-&SpongeLayer
-/
             
 &MeshNml
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
-meshgenerator = 'PUML'          ! Name of meshgenerator (Gambit3D-fast, Netcdf or PUML)
+meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
 vertexWeightElement = 100 ! Base vertex weight for each element used as input to ParMETIS
 vertexWeightDynamicRupture = 200 ! Weight that's added for each DR face to element vertex weight
 vertexWeightFreeSurfaceWithGravity = 300 ! Weight that's added for each free surface with gravity face to element vertex weight
-
+PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
 /
 
 &Discretization
@@ -95,26 +90,38 @@ FixTimeStep = 5                      ! Manually chosen maximum time step
 ClusteredLTS = 2                     ! 1 for Global time stepping, 2,3,5,... Local time stepping (advised value 2)
 !ClusteredLTS defines the multi-rate for the time steps of the clusters 2 for Local time stepping
 LtsWeightTypeId = 1                  ! 0=exponential, 1=exponential-balanced, 2=encoded
+
+! Wiggle factor settings:
+! Wiggle factor adjusts time step size by a small factor. This can lead to a slightly better clustering.
+LtsWiggleFactorMin = 1.0 ! Minimal wiggle factor applied to time step size. Should be > 1/rate
+LtsWiggleFactorStepsize = 0.01 ! Stepsize for wiggle factor grid search
+LtsWiggleFactorEnforceMaximumDifference = 1 ! 0 or 1: Enforces the maximum difference between neighboring clusters during wiggle factor search
+LtsMaxNumberOfClusters = 20 ! Enforces a maximal number of clusters
+LtsAutoMergeClusters = 0 !  0 or 1: Activates auto merging of clusters
+LtsAllowedRelativePerformanceLossAutoMerge = 0.1 ! Find minimal max number of clusters such that new computational cost is at most increased by this factor
+LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging clusters. Valid options: bestWiggleFactor / maxWiggleFactor
+
+
 /
 
 &Output
 FaultOutputFlag = 1                  ! DR output (add this line only if DR is active)
 OutputFile = '../output_tpv33/tpv33'
 Format = 10                          ! Format (10= no output, 6=hdf5 output)
+WavefieldOutput = 1                  ! disable/enable wavefield output (right now, format=6 needs to be set as well)
 !             |stress     |vel
 iOutputMask = 0 0 0 0 0 0 1 1 1
 !                 |strain     |eta
 iPlasticityMask = 0 0 0 0 0 0 1
-printIntervalCriterion = 2           ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
 TimeInterval = 2.                    ! Index of printed info at time
 refinement = 1
 OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that describes the region 
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
 
 ! off-fault ascii receivers
-RFileName = 'tpv33_receivers.dat'      ! Record Points in extra file
+ReceiverOutput = 1                   ! Enable/disable off-fault ascii receiver output
+RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
-pickDtType = 1                       ! Pickpoint Type
 ! (Optional) Synchronization point for receivers.
 !            If omitted, receivers are written at the end of the simulation.
 ReceiverOutputInterval = 10.0
@@ -126,6 +133,7 @@ SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
 
 !Checkpointing
+Checkpoint = 1                       ! enable/disable checkpointing
 checkPointFile = 'checkpoint/checkpoint'
 checkPointBackend = 'mpio'           ! Checkpoint backend
 checkPointInterval = 6
@@ -137,15 +145,11 @@ xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output
 EnergyOutputInterval = 0.05
+ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval
 
+LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produces terabytes of data!
 /
            
 &AbortCriteria
-EndTime = 13.0
-/
-
-&Analysis
-/
-
-&Debugging
+EndTime = 15.0
 /

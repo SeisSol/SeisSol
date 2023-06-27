@@ -53,7 +53,7 @@ build_seissol:
             cmake ..
             -DNETCDF=OFF
             -DMETIS=ON
-            -DCOMMTHREAD=ON
+            -DCOMMTHREAD=OFF
             -DASAGI=OFF
             -DHDF5=ON
             -DCMAKE_BUILD_TYPE=$build_type

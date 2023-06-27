@@ -16,8 +16,9 @@ com.apple.timemachine.supported
 generated_code/.idea
 .idea
 
-# VisualCode
+# VisualCode / VS Code
 .vcode
+.vscode
 
 # VIM
 *.swo
@@ -46,8 +47,7 @@ src/version.h
 *.mod
 
 # Build
-build/build_*
-build/SeisSol_*
+build/
 Documentation/_build/*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build

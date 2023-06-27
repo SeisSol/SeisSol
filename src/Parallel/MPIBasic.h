@@ -42,36 +42,35 @@
 
 #include "FaultMPI.h"
 
-namespace seissol
-{
+namespace seissol {
 
 /**
  * Basic MPI abstraction
  */
-class MPIBasic
-{
+class MPIBasic {
 protected:
 	/** This rank */
 	int m_rank;
 
+	/** Rank in the shared memory sub-communicator */
+	int m_sharedMemMpiRank;
+
 	/** Number of processors */
 	int m_size;
 
+	/** Number of ranks in the shared memory sub-communicator */
+	int m_sharedMemMpiSize;
+
 	/** Requires threadsafe MPI */
 	bool m_threadsafe;
+
+	MPIBasic() : m_rank(0), m_size(1) {}
 
 public:
 	/** The fault MPI wrapper */
 	FaultMPI fault;
 
-protected:
-	MPIBasic()
-		: m_rank(0), m_size(1)
-	{ }
-
-public:
-	~MPIBasic()
-	{ }
+	virtual ~MPIBasic() = default;
 
 	/**
 	 * @return The rank of this process
@@ -82,6 +81,14 @@ public:
 	}
 
 	/**
+	 * @return The rank within the shared memory sub-communicator
+	 */
+	int sharedMemMpiRank() const
+	{
+		return m_sharedMemMpiRank;
+	}
+
+	/**
 	 * @return The total number of processes
 	 */
 	int size() const
@@ -89,8 +96,14 @@ public:
 		return m_size;
 	}
 
+	/**
+	 * @return The number of ranks within the shared memory sub-communicator
+	 */
+	int sharedMemMpiSize() const
+	{
+		return m_sharedMemMpiSize;
+	}
 };
-
-}
+} // namespace seissol
 
 #endif // MPI_BASIC_H

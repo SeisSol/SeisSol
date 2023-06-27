@@ -16,11 +16,11 @@ enum class LtsWeightsTypes: int {
   Count
 };
 
-bool isLtsWeightsTypeAllowed(int id) {
+inline bool isLtsWeightsTypeAllowed(int id) {
   return ((id >= 0) && (id < static_cast<int>(LtsWeightsTypes::Count)));
 }
 
-LtsWeightsTypes convertLtsIdToType(int id) {
+inline LtsWeightsTypes convertLtsIdToType(int id) {
   if (isLtsWeightsTypeAllowed(id)) {
     return static_cast<LtsWeightsTypes>(id);
   }
@@ -31,16 +31,18 @@ LtsWeightsTypes convertLtsIdToType(int id) {
   }
 }
 
-std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type, const LtsWeightsConfig& config) {
+inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(LtsWeightsTypes type,
+                                                        const LtsWeightsConfig& config,
+                                                        const LtsParameters* ltsParameters) {
   switch (type) {
     case LtsWeightsTypes::ExponentialWeights : {
-      return std::make_unique<ExponentialWeights>(config);
+      return std::make_unique<ExponentialWeights>(config, ltsParameters);
     }
     case LtsWeightsTypes::ExponentialBalancedWeights : {
-      return std::make_unique<ExponentialBalancedWeights>(config);
+      return std::make_unique<ExponentialBalancedWeights>(config, ltsParameters);
     }
     case LtsWeightsTypes::EncodedBalancedWeights : {
-      return std::make_unique<EncodedBalancedWeights>(config);
+      return std::make_unique<EncodedBalancedWeights>(config, ltsParameters);
     }
     default : {
       return std::unique_ptr<LtsWeights>(nullptr);

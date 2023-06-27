@@ -53,6 +53,15 @@ void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
   }
 }
 
+Eigen::Vector3d seissol::transformations::tetrahedronReferenceToGlobal(
+                                                             const Eigen::Vector3d& v0,
+                                                             const Eigen::Vector3d& v1,
+                                                             const Eigen::Vector3d& v2,
+                                                             const Eigen::Vector3d& v3,
+                                                             double const xiEtaZeta[3]) {
+  return v0 + (v1 - v0) * xiEtaZeta[0] + (v2 - v0) * xiEtaZeta[1] + (v3 - v0) * xiEtaZeta[2];
+}
+
 Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference( double const           v0[3],
                                                                         double const           v1[3],
                                                                         double const           v2[3],

@@ -31,7 +31,7 @@ public:
           time_stepping::actorStateToString(state)
           );
       loopStatistics.addSample(region,
-                                sample.numEnteredRegion,
+                                1,
                                 globalClusterId,
                                 sample.begin,
                                 sample.end.value());

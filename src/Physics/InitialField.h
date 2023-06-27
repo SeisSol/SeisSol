@@ -7,6 +7,7 @@
 #include "Initializer/typedefs.hpp"
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
+#include <Initializer/InputParameters.hpp>
 
 namespace seissol {
   namespace physics {
@@ -31,14 +32,15 @@ namespace seissol {
 
     class PressureInjection : public InitialField {
     public:
-      PressureInjection(const PressureInjectionParameters pressureInjectionParameters);
+
+      PressureInjection(const seissol::initializer::parameters::InitializationParameters initializationParameters);
 
       void evaluate(double,
                     std::vector<std::array<double, 3>> const&,
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
     private:
-      PressureInjectionParameters m_parameters;
+      seissol::initializer::parameters::InitializationParameters m_parameters;
     };
 
     //A planar wave travelling in direction kVec
