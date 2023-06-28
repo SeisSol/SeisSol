@@ -278,11 +278,12 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
   seissolParams.initialization.origin = initializers::convertStringToArray<double, 3>(originString);
   const auto kVecString = reader.readWithDefault("kvec", std::string("0.0 0.0 0.0"));
   seissolParams.initialization.kVec = initializers::convertStringToArray<double, 3>(kVecString);
-  const auto ampFieldString = reader.readWithDefault("ampfield",
-                                                     std::string(""));
-  seissolParams.initialization.ampField = initializers::convertStringToArray<double, NUMBER_OF_QUANTITIES>(ampFieldString);
+  const auto ampFieldString = reader.readWithDefault("ampfield", std::string(""));
+  seissolParams.initialization.ampField =
+      initializers::convertStringToArray<double, NUMBER_OF_QUANTITIES>(ampFieldString);
   seissolParams.initialization.magnitude = reader.readWithDefault("magnitude", 0.0);
-  seissolParams.initialization.width = reader.readWithDefault("width", std::numeric_limits<double>::infinity());
+  seissolParams.initialization.width =
+      reader.readWithDefault("width", std::numeric_limits<double>::infinity());
 
   reader.warnUnknown();
 }

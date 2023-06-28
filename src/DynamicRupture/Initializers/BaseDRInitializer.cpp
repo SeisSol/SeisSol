@@ -57,8 +57,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
 #ifdef USE_POROELASTIC
       if (isFaultParameterizedByTraction) {
         parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
-      }
-      else {
+      } else {
         parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
       }
 #else

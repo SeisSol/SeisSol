@@ -96,8 +96,7 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
     initConditions.emplace_back(new physics::Ocean(2, g));
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::PressureInjection) {
-    initialConditionDescription =
-        "Pressure Injection (only viable for poroelastic materials)";
+    initialConditionDescription = "Pressure Injection (only viable for poroelastic materials)";
     initConditions.emplace_back(new physics::PressureInjection(initConditionParams));
   }
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0

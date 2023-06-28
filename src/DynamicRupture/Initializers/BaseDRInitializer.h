@@ -44,7 +44,6 @@ class BaseDRInitializer {
       yz.reserve(size);
       xz.reserve(size);
       p.reserve(size);
-
     }
     using VectorOfArrays_t = std::vector<std::array<real, misc::numPaddedPoints>>;
     VectorOfArrays_t xx;
