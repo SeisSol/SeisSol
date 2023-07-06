@@ -250,11 +250,6 @@ void initializeCellMaterial() {
     ltsToMesh += it->getNumberOfCells();
   }
 
-  // set tv for all time clusters
-  if (seissolParams.model.plasticity) {
-    seissol::SeisSol::main.timeManager().setTv(seissolParams.model.tv);
-  }
-
   // synchronize data
   synchronize(memoryManager.getLts()->material);
   if (seissolParams.model.plasticity) {
@@ -381,6 +376,11 @@ static void initializeMemoryLayout(LtsInfo& ltsInfo) {
                                                    ltsInfo.meshStructure,
                                                    seissol::SeisSol::main.getMemoryManager(),
                                                    seissolParams.model.plasticity);
+
+  // set tv for all time clusters (this needs to be done, after the time clusters start existing)
+  if (seissolParams.model.plasticity) {
+    seissol::SeisSol::main.timeManager().setTv(seissolParams.model.tv);
+  }
 
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
