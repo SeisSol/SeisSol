@@ -213,9 +213,39 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
 
+        #if defined USE_DAMAGEDELASTIC
+        // store T and Tinv
+        auto TStore = init::T::view::create(localIntegration[cell].T[side]);
+        auto TinvStore = init::Tinv::view::create(localIntegration[cell].Tinv[side]);
+        seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2
+        , TStore, TinvStore);
+
+        // Compute TinvT and TT
+        /// This is maybe not required for Rusanov
+        seissol::dynamicRupture::kernel::transposeTinv ttKrnl;
+        ttKrnl.Tinv = TinvData;
+        ttKrnl.TinvT = localIntegration[cell].TinvT[side];
+        ttKrnl.execute();
+
+        kernel::transposeTRot tttKrnl;
+        tttKrnl.T = TData;
+        tttKrnl.TT = localIntegration[cell].TT[side];
+        tttKrnl.execute();
+
+        // store surface normal vectors
+        localIntegration[cell].surfaceNormal[side][0] = normal[0];
+        localIntegration[cell].surfaceNormal[side][1] = normal[1];
+        localIntegration[cell].surfaceNormal[side][2] = normal[2];
+
+        #endif
+
         // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
+
+        #if defined USE_DAMAGEDELASTIC
+        localIntegration[cell].fluxScales[side] = fluxScale;
+        #endif
 
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;

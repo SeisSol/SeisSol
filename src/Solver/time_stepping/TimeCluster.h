@@ -33,21 +33,21 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -76,6 +76,9 @@
 #include <list>
 #endif
 
+#include <sstream>
+#include "DynamicRupture/Misc.h"
+
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
@@ -95,6 +98,8 @@
 #include "AbstractTimeCluster.h"
 
 #include <generated_code/kernel.h>
+
+#include <algorithm>
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -144,8 +149,12 @@ private:
 
     // //! cell average kernel
     // kernel::cellAve m_cellAverageKernel;
-    
+
     kernels::DynamicRupture m_dynamicRuptureKernel;
+
+    kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
+
+    kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;
 
   /*
    * global data
@@ -160,7 +169,7 @@ private:
 
     /*
      * element data
-     */     
+     */
     seissol::initializers::Layer* m_clusterData;
     seissol::initializers::Layer* dynRupInteriorData;
     seissol::initializers::Layer* dynRupCopyData;
@@ -191,13 +200,13 @@ private:
 
     long long m_flops_nonZero[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
     long long m_flops_hardware[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
-    
+
     //! Tv parameter for plasticity
     double m_tv;
-    
+
     //! Relax time for plasticity
     double m_oneMinusIntegratingFactor;
-    
+
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
     ActorStateStatistics* actorStateStatistics;
@@ -222,7 +231,7 @@ private:
      **/
     void computeDynamicRupture( seissol::initializers::Layer&  layerData );
 
-    
+
     /**
      * Update all cell local material properties and the resulted matrices.
      *
@@ -295,6 +304,19 @@ private:
       real *l_faceNeighbors_prefetch[4];
 
       real** derivatives = i_layerData.var(m_lts->derivatives);
+      LocalIntegrationData* localIntegration = i_layerData.var(m_lts->localIntegration);
+      CellMaterialData* materialData = i_layerData.var(m_lts->material);
+
+      #if defined USE_DAMAGEDELASTIC
+      double timePoints[CONVERGENCE_ORDER];
+      double timeWeights[CONVERGENCE_ORDER];
+
+      seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
+      for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+        timePoints[point] = 0.5 * (timeStepSize() * timePoints[point] + timeStepSize());
+        timeWeights[point] = 0.5 * timeStepSize() * timeWeights[point];
+      }
+      #endif
 
       // for (int i_out = 0; i_out<50; ++i_out){
       //   std::cout << faceNeighbors[i_out][0][20*6+0] << " ";
@@ -306,22 +328,300 @@ private:
       // auto data1 = loader.entry(100);
       // // real* derivative = derivatives[100];
       // for (int i_out = 0; i_out<2; ++i_out){
-      //   std::cout 
+      //   std::cout
       //             << faceNeighbors[100][0][20*i_out*6+0]/timeStepSize() << " "
       //             << faceNeighborsView(0,i_out*6)/timeStepSize() << " "
       //             << data1.dofs[20*i_out*6+0] << " "
       //             // << derivative[0]
-      //             // << derivatives[l_cell][20*i_out+0] 
+      //             // << derivatives[l_cell][20*i_out+0]
       //             << "s ";
       // }
-      // std::cout << faceNeighbors[100][0][20*6+0]/faceNeighbors[100][0][20*0+0] 
+      // std::cout << faceNeighbors[100][0][20*6+0]/faceNeighbors[100][0][20*0+0]
       //           << " " << data1.dofs[20*6+0]/data1.dofs[20*0+0] << std::endl;
 
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
-#endif
+      #ifdef _OPENMP
+      #pragma omp parallel for collapse(1) schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(std::cout, materialData, localIntegration, cellInformation, loader, faceNeighbors, derivatives, pstrain, i_layerData, plasticity, drMapping, subTimeStart, timePoints, timeWeights) reduction(+:numberOTetsWithPlasticYielding)
+      #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
+
+        #if defined USE_DAMAGEDELASTIC
+          // Nonlinear surface flux integration -- for regular/periodic flux
+          /// TODO: Check if it works for periodic BCs.
+          // Here, plus side is actually minus (or local solution side),
+          // minus side is neighbor solution side.
+        for (unsigned int side = 0; side < 4; side++ ){
+          if (cellInformation[l_cell].faceTypes[side] == FaceType::regular
+          || cellInformation[l_cell].faceTypes[side] == FaceType::periodic){
+            // Compute local integrals with derivatives and Rusanov flux
+            /// S1: compute the space-time interpolated Q on both side of 4 faces
+            /// S2: at the same time rotate the field to face-aligned coord.
+            alignas(PAGESIZE_STACK) real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+            alignas(PAGESIZE_STACK) real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
+
+            for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+              // alignas(PAGESIZE_STACK)
+              real degreesOfFreedomPlus[tensor::Q::size()];
+              // alignas(PAGESIZE_STACK)
+              real degreesOfFreedomMinus[tensor::Q::size()];
+
+              for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
+                degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
+                degreesOfFreedomMinus[i_f] = static_cast<real>(0.0);
+              }
+
+              // !!! Make sure every time after entering this function, the last input should be reinitialized to zero
+              m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], degreesOfFreedomPlus);
+              m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, faceNeighbors[l_cell][side], degreesOfFreedomMinus);
+
+              /// Prototype is necessary for openmp
+              kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
+                = m_nonlinearInterpolation;
+
+              m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+              m_nonLinInter.Q = degreesOfFreedomPlus;
+              // m_nonlinearInterpolation.TinvT = localIntegration[l_cell].TinvT[side];
+              // m_nonlinearInterpolation._prefetch.QInterpolated = plusPrefetch;
+              m_nonLinInter.execute(side, 0);
+
+              m_nonLinInter.QInterpolated = &QInterpolatedMinus[timeInterval][0];
+              m_nonLinInter.Q = degreesOfFreedomMinus;
+              // m_nonlinearInterpolation.TinvT = localIntegration[l_cell].TinvT[side];
+              // m_nonlinearInterpolation._prefetch.QInterpolated = minusPrefetch;
+              m_nonLinInter.execute(cellInformation[l_cell].faceRelations[side][0]
+                            , cellInformation[l_cell].faceRelations[side][1]+1);
+            }
+
+            /// S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+            //// Reshape the interpolated results
+            using QInterpolatedShapeT = const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
+            // std::cout << seissol::dr::misc::numQuantities << std::endl;
+            auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
+            auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedMinus));
+
+            //// The arrays to store time integrated flux
+            alignas(PAGESIZE_STACK) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+            // alignas(PAGESIZE_STACK) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
+
+            for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
+              rusanovFluxPlus[i_f] = static_cast<real>(0.0);
+            }
+
+            using rusanovFluxShape = real(*)[seissol::dr::misc::numPaddedPoints];
+            auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
+            // auto* rusanovFluxM = reinterpret_cast<rusanovFluxShape>(rusanovFluxMinus);
+
+            /// Checked that, after reshaping, it still uses the same memory address
+            /// S4: Integration in time the Rusanov flux on surface quadrature nodes.
+            using namespace seissol::dr::misc::quantity_indices;
+            unsigned DAM = 9;
+
+            real lambda0 = 9.71e10;
+            real mu0 = 8.27e10;
+            real rho0 = materialData[l_cell].local.rho;
+
+            real lambda_max = 1.0*std::sqrt( (lambda0+2*mu0)/rho0 ) ;
+            real sxxP, syyP, szzP, sxyP, syzP, szxP
+            ,sxxM, syyM, szzM, sxyM, syzM, szxM;
+
+            /// In this time loop, use "qIPlus" and "qIMinus" to interpolate "rusanovFluxP"
+            for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+              auto weight = timeWeights[o];
+
+              for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
+                  i ++) {
+                lambda_max = std::max(
+                  std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0+2*mu0)/rho0 ),
+                  std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0+2*mu0)/rho0 )
+                );
+
+                sxxP = (1-qIPlus[o][DAM][i])*lambda0
+                *(qIPlus[o][XX][i] + qIPlus[o][YY][i] + qIPlus[o][ZZ][i])
+                +
+                2*(1-qIPlus[o][DAM][i])*mu0
+                *qIPlus[o][XX][i];
+
+                syyP = (1-qIPlus[o][DAM][i])*lambda0
+                *(qIPlus[o][XX][i] + qIPlus[o][YY][i] + qIPlus[o][ZZ][i])
+                +
+                2*(1-qIPlus[o][DAM][i])*mu0
+                *qIPlus[o][YY][i];
+
+                szzP = (1-qIPlus[o][DAM][i])*lambda0
+                *(qIPlus[o][XX][i] + qIPlus[o][YY][i] + qIPlus[o][ZZ][i])
+                +
+                2*(1-qIPlus[o][DAM][i])*mu0
+                *qIPlus[o][ZZ][i];
+                sxyP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XY][i];
+                syzP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][YZ][i];
+                szxP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XZ][i];
+
+                sxxM = (1-qIMinus[o][DAM][i])*lambda0
+                *(qIMinus[o][XX][i] + qIMinus[o][YY][i] + qIMinus[o][ZZ][i])
+                +
+                2*(1-qIMinus[o][DAM][i])*mu0
+                *qIMinus[o][XX][i];
+
+                syyM = (1-qIMinus[o][DAM][i])*lambda0
+                *(qIMinus[o][XX][i] + qIMinus[o][YY][i] + qIMinus[o][ZZ][i])
+                +
+                2*(1-qIMinus[o][DAM][i])*mu0
+                *qIMinus[o][YY][i];
+
+                szzM = (1-qIMinus[o][DAM][i])*lambda0
+                *(qIMinus[o][XX][i] + qIMinus[o][YY][i] + qIMinus[o][ZZ][i])
+                +
+                2*(1-qIMinus[o][DAM][i])*mu0
+                *qIMinus[o][ZZ][i];
+                sxyM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XY][i];
+                syzM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][YZ][i];
+                szxM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XZ][i];
+
+                rusanovFluxP[XX][i] += weight * (
+                  (
+                    0.5*(-qIPlus[o][U][i]) + 0.5*(-qIMinus[o][U][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][XX][i]) - 0.5*lambda_max*(qIMinus[o][XX][i])
+                );
+
+                rusanovFluxP[YY][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-qIPlus[o][V][i]) + 0.5*(-qIMinus[o][V][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][YY][i]) - 0.5*lambda_max*(qIMinus[o][YY][i])
+                );
+
+                rusanovFluxP[ZZ][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-qIPlus[o][W][i]) + 0.5*(-qIMinus[o][W][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][ZZ][i]) - 0.5*lambda_max*(qIMinus[o][ZZ][i])
+                );
+
+                rusanovFluxP[XY][i] += weight * (
+                  (
+                    0.5*(-0.5*qIPlus[o][V][i]) + 0.5*(-0.5*qIMinus[o][V][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0.5*qIPlus[o][U][i]) + 0.5*(-0.5*qIMinus[o][U][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][XY][i]) - 0.5*lambda_max*(qIMinus[o][XY][i])
+                );
+
+                rusanovFluxP[YZ][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0.5*qIPlus[o][W][i]) + 0.5*(-0.5*qIMinus[o][W][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0.5*qIPlus[o][V][i]) + 0.5*(-0.5*qIMinus[o][V][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][YZ][i]) - 0.5*lambda_max*(qIMinus[o][YZ][i])
+                );
+
+                rusanovFluxP[XZ][i] += weight * (
+                  (
+                    0.5*(-0.5*qIPlus[o][W][i]) + 0.5*(-0.5*qIMinus[o][W][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0.5*qIPlus[o][U][i]) + 0.5*(-0.5*qIMinus[o][U][i])
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][XZ][i]) - 0.5*lambda_max*(qIMinus[o][XZ][i])
+                );
+
+                rusanovFluxP[U][i] += weight * (
+                  (
+                    0.5*(-sxxP/rho0) + 0.5*(-sxxM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-sxyP/rho0) + 0.5*(-sxyM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-szxP/rho0) + 0.5*(-szxM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][U][i]) - 0.5*lambda_max*(qIMinus[o][U][i])
+                );
+
+                rusanovFluxP[V][i] += weight * (
+                  (
+                    0.5*(-sxyP/rho0) + 0.5*(-sxyM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-syyP/rho0) + 0.5*(-syyM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-syzP/rho0) + 0.5*(-syzM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][V][i]) - 0.5*lambda_max*(qIMinus[o][V][i])
+                );
+
+                rusanovFluxP[W][i] += weight * (
+                  (
+                    0.5*(-szxP/rho0) + 0.5*(-szxM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-syzP/rho0) + 0.5*(-syzM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-szzP/rho0) + 0.5*(-szzM/rho0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][W][i]) - 0.5*lambda_max*(qIMinus[o][W][i])
+                );
+
+                rusanovFluxP[DAM][i] += weight * (
+                  (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][0]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][1]
+                  + (
+                    0.5*(-0) + 0.5*(-0)
+                  ) * localIntegration[l_cell].surfaceNormal[side][2]
+                  + 0.5*lambda_max*(qIPlus[o][DAM][i]) - 0.5*lambda_max*(qIMinus[o][DAM][i])
+                );
+              }
+            } // time integration loop
+            // Tested that after this step, rusanovFluxPlus is also changed
+
+            /// S5: Integrate in space using quadrature.
+            kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+            m_surfIntegral.Q = data.dofs;
+            m_surfIntegral.Flux = rusanovFluxPlus;
+            // m_surfIntegral.TT = localIntegration[l_cell].TT[side];
+            m_surfIntegral.fluxScale = localIntegration[l_cell].fluxScales[side];
+            // m_surfIntegral._prefetch.I = &QInterpolatedPlus[0][0];
+            m_surfIntegral.execute(side, 0);
+          } // if (faceTypes)
+        } // for (side)
+
+        #else
 
         // for (int i_out = 0; i_out<50; ++i_out){
         //   std::cout << faceNeighbors[l_cell][0][20*i_out+0] << " ";
@@ -369,6 +669,7 @@ private:
             l_timeIntegrated
 #endif
         );
+        #endif // end of DAMAGE conditions
 
         if constexpr (usePlasticity) {
           updateRelaxTime();
@@ -411,9 +712,9 @@ private:
     void computeDynamicRuptureFlops(seissol::initializers::Layer &layerData,
                                     long long& nonZeroFlops,
                                     long long& hardwareFlops);
-                                          
+
     void computeFlops();
-    
+
     //! Update relax time for plasticity
     void updateRelaxTime() {
       m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;

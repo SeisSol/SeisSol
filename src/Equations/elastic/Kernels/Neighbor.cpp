@@ -139,9 +139,9 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       nfKrnl.I = i_timeIntegrated[l_face];
       nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
       nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-      nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
-		     data.cellInformation.faceRelations[l_face][0],
-		     l_face);
+      // nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
+		  //    data.cellInformation.faceRelations[l_face][0],
+		  //    l_face);
       break;
       }
     case FaceType::dynamicRupture:
@@ -256,7 +256,7 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
   o_hardwareFlops = 0;
   o_drNonZeroFlops = 0;
   o_drHardwareFlops = 0;
-  
+
   for (unsigned int face = 0; face < 4; face++) {
     // compute the neighboring elements flux matrix id.
     switch (i_faceTypes[face]) {
@@ -288,6 +288,6 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   reals += 4 * tensor::I::size() + 2 * tensor::Q::size();
   // flux solvers load
   reals += 4 * tensor::AminusT::size();
-  
+
   return reals * sizeof(real);
 }

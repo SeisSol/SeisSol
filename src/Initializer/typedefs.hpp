@@ -352,6 +352,12 @@ struct LocalIntegrationData {
   seissol::model::PoroelasticLocalData specific;
 #elif defined USE_DAMAGEDELASTIC
   real gradXiEtaZeta[3][3];
+  real T[4][seissol::tensor::T::size()];
+  real TT[4][seissol::tensor::TT::size()];
+  real Tinv[4][seissol::tensor::Tinv::size()];
+  real TinvT[4][seissol::tensor::TinvT::size()];
+  real fluxScales[4];
+  real surfaceNormal[4][3];
   seissol::model::DamagedElasticLocalData specific;
 #else
   static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_DAMAGEDELASTIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");

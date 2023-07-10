@@ -198,7 +198,10 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
       lfKrnl.AplusT = data.localIntegration.nApNm1[face];
-      lfKrnl.execute(face);
+      if (data.cellInformation.faceTypes[face] != FaceType::regular
+      && data.cellInformation.faceTypes[face] != FaceType::periodic) {
+        lfKrnl.execute(face);
+      }
     }
 
     alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];

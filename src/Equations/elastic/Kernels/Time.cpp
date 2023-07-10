@@ -185,8 +185,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
 #else //USE_STP
-  real const damage_para1 = 1.4e8/2;
-  real const damage_para2 = 5e-3;
+  real const damage_para1 = 1.2e4/2;
+  real const damage_para2 = 3e-6;
   real const lambda0 = 9.71e10;
   real const mu0 = 8.27e10;
   kernel::damageConvertToNodal d_converToKrnl;

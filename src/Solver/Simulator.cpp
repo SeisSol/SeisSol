@@ -94,9 +94,9 @@ void seissol::Simulator::simulate() {
   stopwatch.start();
 
   // Set start time (required for checkpointing)
-  
+
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
-  
+
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot

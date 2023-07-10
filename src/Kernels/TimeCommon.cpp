@@ -57,7 +57,7 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
   assert (i_ltsSetup < 2048 );
   // std::cout << i_timeDofs[0][0] << std::endl;
 
-  
+
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
@@ -96,7 +96,7 @@ void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
     // for (int i_out = 0; i_out<9; ++i_out){
     //   std::cout << i_timeDofs[       l_dofeighbor][20*i_out+1] << " ";
     // }
-    // std::cout << i_timeDofs[       l_dofeighbor][20*6+0]/i_timeDofs[       l_dofeighbor][20*0+0] << " "<< std::endl;    
+    // std::cout << i_timeDofs[       l_dofeighbor][20*6+0]/i_timeDofs[       l_dofeighbor][20*0+0] << " "<< std::endl;
   }
 }
 

@@ -52,6 +52,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   # Load matrices
   db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
   numberOfPoints = db.resample.shape()[0]
+  # print(numberOfPoints)
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
@@ -59,7 +60,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
   flux_solver_spp = aderdg.flux_solver_spp()
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
-  
+
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 

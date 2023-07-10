@@ -161,6 +161,9 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_neighborKernel.setGlobalData(i_globalData);
   m_dynamicRuptureKernel.setGlobalData(i_globalData);
 
+  m_nonlinearInterpolation.V3mTo2n = i_globalData.onHost->faceToNodalMatrices;
+  m_nonlSurfIntPrototype.V3mTo2nTWDivM = i_globalData.onHost->nodalFluxMatrices;
+
   computeFlops();
 
   m_regionComputeLocalIntegration = m_loopStatistics->getRegion("computeLocalIntegration");
@@ -645,7 +648,7 @@ void seissol::time_stepping::TimeCluster::updateDerivatives() {
   // SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
   // Access the neighboring solutions
   seissol::initializers::Layer& i_layerData = *m_clusterData;
-  real** derivatives = i_layerData.var(m_lts->buffers);
+  real** derivatives = i_layerData.var(m_lts->derivatives);
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
@@ -664,8 +667,8 @@ void seissol::time_stepping::TimeCluster::updateDerivatives() {
       if (derivatives[l_cell] != NULL) {
         for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
           // zero time integration buffers
-          derivatives[l_cell][dof] = data.dofs[dof]*getMaxTimeStepSize();
-          // std::cout << getMaxTimeStepSize() << std::endl;
+          derivatives[l_cell][dof] = data.dofs[dof];
+          // std::cout << derivatives[l_cell][dof] << std::endl;
         }
       }
     }

@@ -21,9 +21,9 @@ class DamagedElasticADERDG(ADERDGBase):
     numberOfNodes = self.t(self.db.v.shape())[0]
     # For cell-average
     self.db.update(parseXMLMatrixFile('{}/phi_ave_{}.xml'.format(matricesDir, order), transpose=self.transpose, alignStride=self.alignStride))
-
     qAveShape = (self.numberOfQuantities(),)
     self.QAve = OptionalDimTensor('QAve', 's', multipleSimulations, 0, qAveShape, alignStride=True)
+    self.db.update( parseJSONMatrixFile(f'{matricesDir}/dr_stroud_matrices_{self.order}.json', clones, alignStride=self.alignStride, transpose=self.transpose) )
 
     # For storing nodal values
     qNShape = (numberOfNodes, self.numberOfQuantities())
@@ -32,6 +32,15 @@ class DamagedElasticADERDG(ADERDGBase):
     self.dQModal = OptionalDimTensor('dQModal', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), dqMShape, alignStride=True)
     FNShape = (numberOfNodes, self.numberOfQuantities())
     self.FNodal = OptionalDimTensor('FNodal', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), FNShape, alignStride=True)
+
+    # trans_inv_spp_T = self.transformation_inv_spp().transpose()
+    # self.TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
+    trans_spp_T = self.transformation_spp().transpose()
+    self.TT = Tensor('TT', trans_spp_T.shape, spp=trans_spp_T)
+    trans_inv_spp_T = self.transformation_inv_spp().transpose()
+    self.TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
+
+
     # WShape = (self.order,)
     # self.Weights = OptionalDimTensor('Weights', 's', multipleSimulations, 0, WShape, alignStride=True)
 
@@ -45,6 +54,7 @@ class DamagedElasticADERDG(ADERDGBase):
 
     # For cell average
     generator.add('cellAve', self.QAve['p'] <= self.db.phiAve[self.t('l')] * self.Q['lp'] * 6.0 )
+    generator.add('transposeTRot', self.TT['ij'] <= self.T['ji'])
 
 
   def addTime(self, generator, targets):
@@ -100,6 +110,30 @@ class DamagedElasticADERDG(ADERDGBase):
                     ) #* TweightN
                   )
       generator.add(f'nonlinearVolumeIntegration({i})', volumeNonl)
+
+      # Kernel for Interpolating on the surface quadrature points
+      numberOfPoints = self.db.resample.shape()[0]
+      gShape = (numberOfPoints, self.numberOfQuantities())
+      QInterpolated = OptionalDimTensor('QInterpolated', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), gShape, alignStride=True)
+
+      def interpolateQGenerator(i,h):
+        return QInterpolated['kp'] <= self.db.V3mTo2n[i,h][self.t('kl')] * self.Q['lp'] # * self.TinvT['qp']
+
+      # interpolateQPrefetch = lambda i,h: QInterpolated
+      generator.addFamily(f'nonlEvaluateAndRotateQAtInterpolationPoints',
+                          simpleParameterSpace(4,4),
+                          interpolateQGenerator)
+
+      # Surface integration based on the Rusanov flux values on surface quadrature points.
+      fluxScale = Scalar('fluxScale')
+      Flux = OptionalDimTensor('Flux', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), gShape, alignStride=True)
+
+      nodalFluxGenerator = lambda i,h: self.extendedQTensor()['kp'] <= self.extendedQTensor()['kp'] + fluxScale * self.db.V3mTo2nTWDivM[i,h][self.t('kl')] * Flux['lp'] # * self.TT['qp']
+      # nodalFluxPrefetch = lambda i,h: self.I
+
+      generator.addFamily(f'nonlinearSurfaceIntegral',
+                          simpleParameterSpace(4,4),
+                          nodalFluxGenerator)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
