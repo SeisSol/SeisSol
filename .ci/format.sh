@@ -28,6 +28,7 @@ format() {
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp
+        src/Initializer/tree/LTSSync.hpp
         src/Kernels/common.hpp
         src/Monitoring/instrumentation.hpp
         src/Geometry/MeshReader.h
