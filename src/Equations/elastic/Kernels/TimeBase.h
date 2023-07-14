@@ -92,7 +92,8 @@ class seissol::kernels::TimeBase {
 #else    
     kernel::derivative m_krnlPrototype;
 #endif
-    kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype;
+    kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+
 
   /*
    *! Offsets of the derivatives.
@@ -107,6 +108,7 @@ class seissol::kernels::TimeBase {
 
 #ifdef ACL_DEVICE
     kernel::gpu_derivative deviceKrnlPrototype;
+    kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
@@ -115,6 +117,7 @@ public:
      * Constructor, which initializes the time kernel.
      **/
     TimeBase();
+
 };
 
 #endif

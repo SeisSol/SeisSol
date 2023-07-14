@@ -95,7 +95,6 @@ class seissol::kernels::Time : public TimeBase {
                      LocalTmp& tmp,
                      real o_timeIntegrated[tensor::I::size()],
                      real* o_timeDerivatives = nullptr,
-                     double startTime = 0.0,
                      bool updateDisplacement = false);
 
 #ifdef USE_STP
@@ -106,7 +105,9 @@ class seissol::kernels::Time : public TimeBase {
 #endif
     void computeBatchedAder(double i_timeStepWidth,
                             LocalTmp& tmp,
-                            ConditionalBatchTableT &table);
+                            ConditionalPointersToRealsTable &dataTable,
+                            ConditionalMaterialTable &materialTable,
+                            bool updateDisplacement = false);
 
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
@@ -131,13 +132,22 @@ class seissol::kernels::Time : public TimeBase {
                                  real const*  timeDerivatives,
                                  real         timeEvaluated[tensor::Q::size()] );
 
+    void computeDerivativeTaylorExpansion(real time,
+                                          real expansionPoint,
+                                          real const*  timeDerivatives,
+                                          real timeEvaluated[tensor::Q::size()],
+                                          unsigned derivativeOrder);
+
+
   void computeBatchedTaylorExpansion(real time,
                                      real expansionPoint,
                                      real** timeDerivatives,
                                      real** timeEvaluated,
                                      size_t numElements);
 
-    void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+
+  unsigned int* getDerivativesOffsets();
 };
 
 #endif

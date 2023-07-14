@@ -36,71 +36,187 @@ namespace tensor = seissol::tensor;
 namespace kernels = seissol::kernels;
 
 namespace proxy::device {
-  using deviceT = ::device::DeviceInstance;
+  using deviceType = ::device::DeviceInstance;
   void computeAderIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
 
-    m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
-    device.api->synchDevice();
+    const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+    ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+    auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false);
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    if (!computeGraphHandle) {
+      device.api->streamBeginCapture();
+
+      m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false);
+      assert(device.api->isCircularStreamsJoinedWithDefault() &&
+             "circular streams must be joined with the default stream");
+
+      device.api->streamEndCapture();
+
+      computeGraphHandle = device.api->getLastGraphHandle();
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      device.api->syncDefaultStreamWithHost();
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device.api->launchGraph(computeGraphHandle);
+      device.api->syncGraph(computeGraphHandle);
+    }
   }
 
   void computeLocalWithoutAderIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
+    auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-    m_localKernel.computeBatchedIntegral(table, tmp);
-    device.api->synchDevice();
+    const double timeStepWidth = 0.0;
+    ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+    auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false);
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    if (!computeGraphHandle) {
+      device.api->streamBeginCapture();
+
+      m_localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, timeStepWidth);
+      assert(device.api->isCircularStreamsJoinedWithDefault() &&
+             "circular streams must be joined with the default stream");
+
+      device.api->streamEndCapture();
+      computeGraphHandle = device.api->getLastGraphHandle();
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      device.api->syncDefaultStreamWithHost();
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device.api->launchGraph(computeGraphHandle);
+      device.api->syncGraph(computeGraphHandle);
+    }
   }
 
   void computeLocalIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
 
     kernels::LocalData::Loader loader;
     loader.load(m_lts, layer);
     kernels::LocalTmp tmp;
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
+    auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
+    auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-    m_timeKernel.computeBatchedAder(static_cast<double>(seissol::miniSeisSolTimeStep), tmp, table);
-    m_localKernel.computeBatchedIntegral(table, tmp);
-    device.api->synchDevice();
+    const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+    ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+    auto computeGraphKey = initializers::GraphKey(graphType, timeStepWidth, false);
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    if (!computeGraphHandle) {
+      device.api->streamBeginCapture();
+
+      m_timeKernel.computeBatchedAder(timeStepWidth, tmp, dataTable, materialTable, false);
+      assert(device.api->isCircularStreamsJoinedWithDefault() &&
+             "circular streams must be joined with the default stream");
+
+      m_localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0);
+      assert(device.api->isCircularStreamsJoinedWithDefault() &&
+             "circular streams must be joined with the default stream");
+
+      device.api->streamEndCapture();
+
+      computeGraphHandle = device.api->getLastGraphHandle();
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      device.api->syncDefaultStreamWithHost();
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device.api->launchGraph(computeGraphHandle);
+      device.api->syncGraph(computeGraphHandle);
+    }
   }
 
   void computeNeighboringIntegration() {
-    const deviceT &device = deviceT::getInstance();
+    const deviceType &device = deviceType::getInstance();
     auto& layer = m_ltsTree->child(0).child<Interior>();
 
     kernels::NeighborData::Loader loader;
     loader.load(m_lts, layer);
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
+    const double timeStepWidth = static_cast<double>(seissol::miniSeisSolTimeStep);
+    auto &dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
     seissol::kernels::TimeCommon::computeBatchedIntegrals(m_timeKernel,
                                                           0.0,
-                                                         static_cast<double>(seissol::miniSeisSolTimeStep),
-                                                         table);
-    m_neighborKernel.computeBatchedNeighborsIntegral(table);
-    device.api->synchDevice();
+                                                          timeStepWidth,
+                                                          dataTable);
+
+    ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
+    auto computeGraphKey = initializers::GraphKey(graphType);
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    if (!computeGraphHandle) {
+      device.api->streamBeginCapture();
+
+      m_neighborKernel.computeBatchedNeighborsIntegral(dataTable);
+      assert(device.api->isCircularStreamsJoinedWithDefault() &&
+             "circular streams must be joined with the default stream");
+
+      device.api->streamEndCapture();
+
+      computeGraphHandle = device.api->getLastGraphHandle();
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      device.api->syncDefaultStreamWithHost();
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device.api->launchGraph(computeGraphHandle);
+      device.api->syncGraph(computeGraphHandle);
+    }
   }
 
   void computeDynRupGodunovState() {
+    const deviceType &device = deviceType::getInstance();
+
     auto& layer = m_dynRupTree->child(0).child<Interior>();
 
-    ConditionalBatchTableT &table = layer.getCondBatchTable();
-    m_dynRupKernel.batchedSpaceTimeInterpolation(table);
+    auto &dataTable = layer.getConditionalTable<inner_keys::Dr>();
+
+    ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
+    auto computeGraphKey = initializers::GraphKey(graphType, 0.0);
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    if (!computeGraphHandle) {
+      device.api->streamBeginCapture();
+
+      m_dynRupKernel.batchedSpaceTimeInterpolation(dataTable);
+      assert(device.api->isCircularStreamsJoinedWithDefault() &&
+             "circular streams must be joined with the default stream");
+
+      device.api->streamEndCapture();
+
+      computeGraphHandle = device.api->getLastGraphHandle();
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      device.api->syncDefaultStreamWithHost();
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device.api->launchGraph(computeGraphHandle);
+      device.api->syncGraph(computeGraphHandle);
+    }
   }
 } // namespace proxy::device
 

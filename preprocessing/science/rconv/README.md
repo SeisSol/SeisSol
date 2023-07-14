@@ -35,6 +35,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_PREFIX_PATH=$my_proj4_install_prefix
 make 
+make install
 ```
 
 ## Using rconv

@@ -1,3 +1,5 @@
+.. _wave_field_output:
+
 Wave field output
 =================
 
@@ -57,13 +59,26 @@ OutputRegionBounds
 ------------------
 
 Using the OutputRegionBounds parameter, under the &Output heading, in
-the parameter.par file the user can define the region for which the
+the parameter.par file, the user can define the region for which the
 output is to be written. This region is provided in the following
 format:
 
 .. code-block:: Fortran
 
    OutputRegionBounds = xMin xMax yMin yMax zMin zMax
+
+OutputGroups
+------------------
+
+Similar to the previous parameter, OutputGroups can be used to whitelist a set of
+mesh groups (as specified in the xdmf mesh file) that are included in the wavefield output.
+Cells whose group is not mentioned are not included in the output.
+This feature works with OutputRegionBounds, only cells that satisfy both criteria are included.
+It looks like this:
+
+.. code-block:: Fortran
+
+   OutputGroups = 1 2 ! only include groups 1 and 2
 
 Example
 -------

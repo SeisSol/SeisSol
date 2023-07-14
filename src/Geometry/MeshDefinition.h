@@ -51,14 +51,13 @@ typedef int ElemBoundaries[4];
 typedef int ElemNeighborRanks[4];
 /** The index of this element (side) in the communication array */
 typedef int ElemMPIIndices[4];
-typedef int ElemMaterial;
+typedef int ElemGroup;
 
 typedef int ElemFaultTags[4];
 
 struct Element {
 	int localId;
 	ElemVertices vertices;
-	int rank;
 	ElemNeighbors neighbors;
 	ElemNeighborSides neighborSides;
 	ElemSideOrientations sideOrientations;
@@ -68,7 +67,7 @@ struct Element {
 	ElemMPIIndices mpiIndices;
 	ElemMPIIndices mpiFaultIndices;
 	/** Material of the element */
-	ElemMaterial material;
+	ElemGroup group;
    ElemFaultTags faultTags; // member of struct Element
 };
 
@@ -89,18 +88,6 @@ struct MPINeighborElement {
 	int neighborElement;
 	/** Side of the neighbor element */
 	int neighborSide;
-
-	/**
-	 * Sort elements by according to the local order
-	 *
-	 * @todo Remove this function, since we need to sort by local and neighbor ids
-	 */
-	bool operator<(const MPINeighborElement &other) const
-	{
-		return (localElement < other.localElement)
-				|| (localElement == other.localElement
-						&& localSide < other.localSide);
-	}
 };
 
 struct Fault {

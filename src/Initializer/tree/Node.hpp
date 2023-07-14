@@ -94,11 +94,14 @@ public:
     return m_numChildren;
   }  
 
-  class iterator : public std::iterator<std::input_iterator_tag, Node> {
-  protected:
-    value_type* m_node;
-
+  class iterator {
   public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = Node;
+    using difference_type = size_t;
+    using pointer = Node*;
+    using reference = Node&;
+
     iterator() : m_node(NULL) {}
     iterator(Node* node) : m_node(node) {}
 
@@ -122,6 +125,9 @@ public:
     inline bool operator!=(iterator const& other) const {
       return other.m_node != m_node;
     }
+
+  protected:
+    value_type* m_node;
   };
 
   inline iterator begin() {

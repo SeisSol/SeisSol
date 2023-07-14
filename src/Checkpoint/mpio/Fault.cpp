@@ -61,13 +61,13 @@ bool seissol::checkpoint::mpio::Fault::init(unsigned int numSides, unsigned int 
 	setHeaderType(headerType);
 
 	// Define the file view
-	defineFileView(sizeof(Header), numBndGP * sizeof(double), numSides, NUM_VARIABLES);
+	defineFileView(sizeof(Header), numBndGP * sizeof(real), numSides, NUM_VARIABLES);
 
 	return exists();
 }
 
-void seissol::checkpoint::mpio::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
-	double* slip, double* slip1, double* slip2, double* state, double* strength)
+void seissol::checkpoint::mpio::Fault::load(int &timestepFault, real* mu, real* slipRate1, real* slipRate2,
+	real* slip, real* slip1, real* slip2, real* state, real* strength)
 {
 	if (numSides() == 0)
 		return;
@@ -90,12 +90,12 @@ void seissol::checkpoint::mpio::Fault::load(int &timestepFault, double* mu, doub
 	MPI_Bcast(&header, 1, headerType(), 0, comm());
 	timestepFault = header.timestepFault;
 
-	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
+	real* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
 
 	// Read data
 	checkMPIErr(setDataView(file));
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkMPIErr(MPI_File_read_all(file, data[i], numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+		checkMPIErr(MPI_File_read_all(file, data[i], numSides() * numBndGP(), MPI_C_REAL, MPI_STATUS_IGNORE));
 
 	// Close the file
 	checkMPIErr(MPI_File_close(&file));
@@ -123,7 +123,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 	checkMPIErr(setDataView(file()));
 
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkMPIErr(MPI_File_write_all(file(), const_cast<double*>(data(i)), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+		checkMPIErr(MPI_File_write_all(file(), const_cast<real*>(data(i)), numSides() * numBndGP(), MPI_C_REAL, MPI_STATUS_IGNORE));
 
 	EPIK_USER_END(r_write_fault);
 	SCOREP_USER_REGION_END(r_write_fault);

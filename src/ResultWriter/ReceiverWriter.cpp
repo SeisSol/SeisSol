@@ -52,6 +52,7 @@
 #include <string>
 #include <fstream>
 #include <regex>
+#include "Initializer/InputParameters.hpp"
 
 Eigen::Vector3d seissol::writer::parseReceiverLine(const std::string& line) {
   std::regex rgx("\\s+");
@@ -102,11 +103,15 @@ void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointI
                                                    Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
+  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "v1", "v2", "v3"});
 #ifdef USE_POROELASTIC
-  std::array<std::string, 4> additionalNames({"p", "u_f", "v_f", "w_f"});
+  std::array<std::string, 4> additionalNames({"p", "v1_f", "v2_f", "v3_f"});
   names.insert(names.end() ,additionalNames.begin(), additionalNames.end());
 #endif
+  if (m_computeRotation) {
+    std::array<std::string, 3> rotationNames({"rot1", "rot2", "rot3"});
+    names.insert(names.end(), rotationNames.begin(), rotationNames.end());
+  }
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
@@ -143,23 +148,25 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
 
   m_stopwatch.start();
 
-  for (auto& cluster : m_receiverClusters) {
-    auto ncols = cluster.ncols();
-    for (auto& receiver : cluster) {
-      assert(receiver.output.size() % ncols == 0);
-      size_t nSamples = receiver.output.size() / ncols;
+  for (auto& [layer, clusters] : m_receiverClusters) {
+    for (auto& cluster : clusters) {
+      auto ncols = cluster.ncols();
+      for (auto &receiver : cluster) {
+        assert(receiver.output.size() % ncols == 0);
+        size_t nSamples = receiver.output.size() / ncols;
 
-      std::ofstream file;
-      file.open(fileName(receiver.pointId), std::ios::app);
-      file << std::scientific << std::setprecision(15);
-      for (size_t i = 0; i < nSamples; ++i) {
-        for (size_t q = 0; q < ncols; ++q) {
-          file << "  " << receiver.output[q + i*ncols];
+        std::ofstream file;
+        file.open(fileName(receiver.pointId), std::ios::app);
+        file << std::scientific << std::setprecision(15);
+        for (size_t i = 0; i < nSamples; ++i) {
+          for (size_t q = 0; q < ncols; ++q) {
+            file << "  " << receiver.output[q + i * ncols];
+          }
+          file << std::endl;
         }
-        file << std::endl;
+        file.close();
+        receiver.output.clear();
       }
-      file.close();
-      receiver.output.clear();
     }
   }
 
@@ -167,17 +174,17 @@ void seissol::writer::ReceiverWriter::syncPoint(double)
   int const rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void seissol::writer::ReceiverWriter::init(std::string receiverFileName, std::string fileNamePrefix,
-                                           double syncPointInterval, double samplingInterval)
+void seissol::writer::ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
 {
-  m_receiverFileName = std::move(receiverFileName);
-  m_fileNamePrefix = std::move(fileNamePrefix);
-  m_samplingInterval = samplingInterval;
-  setSyncInterval(syncPointInterval);
+  m_fileNamePrefix = fileNamePrefix;
+  m_receiverFileName = parameters.fileName;
+  m_samplingInterval = parameters.samplingInterval;
+  m_computeRotation = parameters.computeRotation;
+  setSyncInterval(std::min(endTime, parameters.interval));
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 
-void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
+void seissol::writer::ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
                                                 const seissol::initializers::Lut& ltsLut,
                                                 const seissol::initializers::LTS& lts,
                                                 const GlobalData* global ) {
@@ -209,17 +216,22 @@ void seissol::writer::ReceiverWriter::addPoints(MeshReader const& mesh,
 #endif
 
   logInfo(rank) << "Mapping receivers to LTS cells...";
+  m_receiverClusters[Interior].clear();
+  m_receiverClusters[Copy].clear();
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       unsigned meshId = meshIds[point];
       unsigned cluster = ltsLut.cluster(meshId);
+      LayerType layer = ltsLut.layer(meshId);
 
-      for (unsigned c = m_receiverClusters.size(); c <= cluster; ++c) {
-        m_receiverClusters.emplace_back(global, quantities, m_samplingInterval, syncInterval());
+      auto& clusters = m_receiverClusters[layer];
+      // Make sure that needed empty clusters are initialized.
+      for (unsigned c = clusters.size(); c <= cluster; ++c) {
+        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), m_computeRotation);
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
+      m_receiverClusters[layer][cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
     }
   }
 }

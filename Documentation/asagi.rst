@@ -38,53 +38,34 @@ Installing ASAGI
 
 Be careful that the python and gcc package is the same as for the
 compilation of SeisSol in a later step!
-
-example on SuperMuc
-~~~~~~~~~~~~~~~~~~~
-
--  load the following modules 
+First clone ASAGI with:
 
 .. code-block:: bash
 
-   module load intel intel-mpi
-   module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
-   module load gcc/9
-   module load cmake/3.16.5
+  git clone git@github.com:TUM-I5/ASAGI
+  # git clone https://github.com/TUM-I5/ASAGI.git
+  cd ASAGI
+  git submodule update --init
 
--  get the repository
-
-On a cluster without restricted access to outside sources, you could then clone the repository using:
+Set compiler options, e.g. for intel compilers on SuperMUC:
 
 .. code-block:: bash
 
-   git clone --recursive https://github.com/TUM-I5/ASAGI.git
-   
-On supermuc, you have to set up port forwarding as described in :ref:`compile_run_supermuc`.
+  export FC=mpif90
+  export CXX=mpiCC
+  export CC=mpicc
 
-Then you can clone the project with 
-
-.. code-block:: bash
-
-   git clone git@github.com:TUM-I5/ASAGI.git
-   git submodule update --init
-
-
--  install:
+Run cmake, and compile with:
 
 .. code-block:: bash
 
-   mkdir build && cd build
-   export CMAKE_PREFIX_PATH=$NETCDF_BASE
-   cmake FC=mpif90 CXX=mpiCC CC=mpicc .. -DCMAKE_INSTALL_PREFIX=$(pwd)/build
-   make -j8
-   make install
+  mkdir build && cd build
+  CMAKE_PREFIX_PATH=$NETCDF_BASE
+  cmake .. -DSHARED_LIB=no -DSTATIC_LIB=yes -DCMAKE_INSTALL_PREFIX=$HOME
+  make -j 48
+  make install
+  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
 
--  set the following paths
-
-.. code-block:: bash
-
-   export PKG_CONFIG_PATH=<path_to_ASAGI>/build/lib/pkgconfig
-   export LD_LIBRARY_PATH=<path_to_ASAGI>/build/lib
 
 building SeisSol with ASAGI support
 -----------------------------------

@@ -44,33 +44,39 @@
 #include <string_view>
 
 #include <Eigen/Dense>
-#include <Geometry/MeshReader.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/LTS.h>
-#include <Kernels/Receiver.h>
-#include <Modules/Module.h>
-#include <Monitoring/Stopwatch.h>
+#include "Geometry/MeshReader.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Initializer/LTS.h"
+#include "Kernels/Receiver.h"
+#include "Modules/Module.h"
+#include "Monitoring/Stopwatch.h"
 
 struct LocalIntegrationData;
 struct GlobalData;
+namespace seissol::initializer::parameters {
+  struct ReceiverOutputParameters;
+}
+
 namespace seissol::writer {
     Eigen::Vector3d parseReceiverLine(const std::string& line);
     std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
 
     class ReceiverWriter : public seissol::Module {
     public:
-      void init(std::string receiverFileName, std::string fileNamePrefix,
-                double syncPointInterval, double samplingInterval);
+      void init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
       void addPoints(
-          const MeshReader& mesh,
+          const seissol::geometry::MeshReader& mesh,
           const seissol::initializers::Lut& ltsLut,
           const seissol::initializers::LTS& lts,
           const GlobalData* global);
 
-      kernels::ReceiverCluster* receiverCluster(unsigned clusterId) {
-        if (clusterId < m_receiverClusters.size()) {
-          return &m_receiverClusters[clusterId];
+      kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer) {
+        assert(layer != Ghost);
+        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
+        auto& clusters = m_receiverClusters[layer];
+        if (clusterId < clusters.size()) {
+          return &clusters[clusterId];
         }
         return nullptr;
       }
@@ -86,7 +92,9 @@ namespace seissol::writer {
       std::string m_receiverFileName;
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
-      std::vector<kernels::ReceiverCluster> m_receiverClusters;
+      bool        m_computeRotation;
+      // Map needed because LayerType enum casts weirdly to int.
+      std::unordered_map<LayerType, std::vector<kernels::ReceiverCluster>> m_receiverClusters;
       Stopwatch   m_stopwatch;
     };
   }

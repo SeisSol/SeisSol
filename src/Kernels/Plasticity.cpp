@@ -247,7 +247,7 @@ namespace seissol::kernels {
                                                 double timeStepWidth,
                                                 double T_v,
                                                 GlobalData const *global,
-                                                initializers::recording::ConditionalBatchTableT &table,
+                                                initializers::recording::ConditionalPointersToRealsTable &table,
                                                 PlasticityData *plasticityData) {
 #ifdef ACL_DEVICE
     static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
@@ -261,8 +261,8 @@ namespace seissol::kernels {
 
     if (table.find(key) != table.end()) {
       unsigned stackMemCounter{0};
-      BatchTable& entry = table[key];
-      const size_t numElements = (entry.content[*EntityId::Dofs])->getSize();
+      auto& entry = table[key];
+      const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
       //copy dofs for later comparison, only first dof of stresses required
       constexpr unsigned dofsSize = tensor::Q::Size;
@@ -270,17 +270,17 @@ namespace seissol::kernels {
       real *prevDofs = reinterpret_cast<real*>(device.api->getStackMemory(prevDofsSize));
       ++stackMemCounter;
 
-      real** dofsPtrs = (entry.content[*EntityId::Dofs])->getPointers();
+      real** dofsPtrs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       device.algorithms.copyScatterToUniform(dofsPtrs, prevDofs, dofsSize, dofsSize, numElements, defaultStream);
 
 
       // Convert modal to nodal
-      real** modalStressTensors = (entry.content[*EntityId::Dofs])->getPointers();
-      real** nodalStressTensors = (entry.content[*EntityId::NodalStressTensor])->getPointers();
+      real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      real** nodalStressTensors = (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
       assert(global->replicateStresses != nullptr && "replicateStresses has not been initialized");
       static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
-      real** initLoad = (entry.content[*EntityId::InitialLoad])->getPointers();
+      real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
       kernel::gpu_plConvertToNodal m2nKrnl;
       m2nKrnl.v = global->vandermondeMatrix;
       m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
@@ -321,7 +321,6 @@ namespace seissol::kernels {
       n2mKrnl.execute();
 
 
-
       // prepare memory
       const size_t QEtaNodalSize = tensor::QEtaNodal::Size * numElements * sizeof(real);
       real *QEtaNodal = reinterpret_cast<real*>(device.api->getStackMemory(QEtaNodalSize));
@@ -338,7 +337,6 @@ namespace seissol::kernels {
 
       stackMemCounter += 6;
 
-
       device::aux::plasticity::adjustPointers(QEtaNodal,
                                               QEtaNodalPtrs,
                                               QEtaModal,
@@ -349,7 +347,7 @@ namespace seissol::kernels {
                                               defaultStream);
 
       // ------------------------------------------------------------------------------
-      real **pstrains = entry.content[*EntityId::Pstrains]->getPointers();
+      real **pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
       real **dofs = modalStressTensors;
       device::aux::plasticity::computePstrains(pstrains,
                                                plasticityData,
@@ -364,7 +362,7 @@ namespace seissol::kernels {
                                                defaultStream);
 
 
-      /* Convert modal to nodal */
+      // Convert modal to nodal
       static_assert(kernel::gpu_plConvertToNodalNoLoading::TmpMaxMemRequiredInBytes == 0);
       kernel::gpu_plConvertToNodalNoLoading m2nKrnl_dudt_pstrain;
       m2nKrnl_dudt_pstrain.v = global->vandermondeMatrix;
@@ -381,7 +379,7 @@ namespace seissol::kernels {
                                                   numElements,
                                                   defaultStream);
 
-      /* Convert modal to nodal */
+      // Convert modal to nodal
       static_assert(kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
       kernel::gpu_plConvertEtaModal2Nodal m2n_eta_Krnl;
       m2n_eta_Krnl.v = global->vandermondeMatrix;
@@ -400,7 +398,7 @@ namespace seissol::kernels {
                                                numElements,
                                                defaultStream);
 
-      /* Convert nodal to modal */
+      // Convert nodal to modal
       static_assert(kernel::gpu_plConvertEtaNodal2Modal::TmpMaxMemRequiredInBytes == 0);
       kernel::gpu_plConvertEtaNodal2Modal n2m_eta_Krnl;
       n2m_eta_Krnl.vInv = global->vandermondeMatrixInverse;
@@ -426,7 +424,6 @@ namespace seissol::kernels {
                                   static_cast<char>(0),
                                   numElements * sizeof(int),
                                   defaultStream);
-
 
       for (unsigned i = 0; i < stackMemCounter; ++i) {
         device.api->popStackMemory();

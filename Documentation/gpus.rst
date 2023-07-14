@@ -7,7 +7,7 @@ General
 
 .. _gpu_process_pinning:
 
-The current GPU version of SeisSol targets latest NVidia Graphics cards. Therefore, you
+The current GPU version of SeisSol targets the latest NVidia Graphics cards. Therefore, you
 need to have at least **CUDA 10** installed in your environment. Moreover, make sure
 that your installed MPI implementation is **CUDA-Aware**. Here is a list of 
 known CUDA-Aware MPI vendors:
@@ -18,8 +18,8 @@ known CUDA-Aware MPI vendors:
 - IBM Platform MPI
 - SGI MPI
 
-Please, referer to a corresponding documentation if you need to installed
-CUDA-Aware MPI manually. We also ecourage you to bind your MPI with `UCX communication layer
+Please, referer to the corresponding documentation if you need to install
+CUDA-Aware MPI manually. We also encourage you to bind your MPI with `UCX communication layer
 <https://github.com/openucx/ucx>`_ if you need to manually configure CUDA-Aware MPI for a cluster or your local server 
 with an open-source MPI implementation e.g., OpenMPI.
 
@@ -30,7 +30,7 @@ make sure that you launch SeisSol with **M x N** MPI processes.
 To achieve the most efficient CPU-to-GPU communication and vice versa you have 
 to pin your MPI processes to CPU cores which are the closest to the target 
 GPUs. This problem is also known as GPU affinity. Latest versions of workload 
-managers (e.g., SLURM) are aware about this problem and try to provide an 
+managers (e.g., SLURM) are aware of this problem and try to provide an 
 automatic, GPU-aware process pinning. Consider the following SLURM options:
 
 - `--ntasks-per-gpu`
@@ -47,10 +47,33 @@ does not use a workload manager but is equipped with multiple GPUs per node.
    Correct process pinning of 4 MPI processes where each process
    controls 3 OpenMP threads and one communication thread.
 
+Some systems have complex numbering of processing units and/or NUMA domains.
+Sometime it is very difficult to achieve desirable pinning of the communication and/or
+output-writing threads with HPC resource managers like SLURM. Therefore, SeisSol provides
+*SEISSOL_FREE_CPUS_MASK* environment variable which helps to describe locations
+of the auxiliary threads per local MPI process. The variable accepts a comma separated
+list of elements where an element can be either 1) an integer, or 2) a range of
+integers defined as *[start, end]* or 3) a comma separated list of integers
+surrounded by the curly brackets. The *i*-th list element describes the free cpus
+locations for the *i*-th local MPI process.
+
+.. code-block:: bash
+
+  # SEISSOL_FREE_CPUS_MASK="(int | range: <int-int> | list: {int,+})+"
+  # Examples,
+  export SEISSOL_FREE_CPUS_MASK="24,28,32,36"
+  export SEISSOL_FREE_CPUS_MASK="24-27,28-31,32-35,36-39"
+  export SEISSOL_FREE_CPUS_MASK="{24,25},{28,29},{32,33},{36,37}"
+
+  # Note, it is allowed to mix the formats of list elements. For example,
+  export SEISSOL_FREE_CPUS_MASK="24,28-31,{28,29},36"
+
 Supported SeisSol Features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- elastic wave propagation model with kinematic point sources
+- elastic wave propagation model 
+- kinematic point sources
+- dynamic rupture: linear slip weakening, slow and fast velocity weakening friction laws
 - off-fault plasticity model
 
 
@@ -78,14 +101,13 @@ Compile SeisSol with (e.g.)
 Execution
 ~~~~~~~~~
 
-A launching process of GPU version of SeisSol is exactly the same as in case
-of the CPU version. 
+The launching process of the GPU version of SeisSol is similar as the one of the CPU version.
 
 .. code-block:: bash
 
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
-It is important to know that the GPU version of SeisSol allocates 1GB of
+It is important to know that the GPU version of SeisSol by default allocates 1GB of
 GPU memory at the beginning of SeisSol execution. It is necessary for fast allocation/deallocation
 of GPU memory needed for holding temporary data. The default value can be changed by setting
 a necessary one to **DEVICE_STACK_MEM_SIZE** environment variable. For example,
@@ -96,3 +118,20 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
+
+
+Currently, SeisSol allocates MPI user-buffers using the unified/managed memory
+type. Some MPI implementations perform poorly during non-blocking
+point-to-point communication. SeisSol provides the *SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE*
+environment variable which can be used to select the memory type for the user-buffers.
+The *host* value means that the data will be copied to/from the host memory
+before/after each *MPI_Isend* / *MPI_Irecv*. Setting the variable to *device*
+will result in utilizing the regular device memory for non-blocking
+communication. The default value is *direct* which means that the communication
+goes over the unified/managed memory and thus does not involve explicit data
+copies.
+
+.. figure:: LatexFigures/gpu-comm-layer-data-flow.png
+   :alt: Data Flow Diagram 
+   :width: 10.0cm
+   :align: center

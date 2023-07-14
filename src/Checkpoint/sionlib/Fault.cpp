@@ -59,8 +59,8 @@ bool seissol::checkpoint::sionlib::Fault::init(unsigned int numSides, unsigned i
 	return exists();
 }
 
-void seissol::checkpoint::sionlib::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
-	double* slip, double* slip1, double* slip2, double* state, double* strength)
+void seissol::checkpoint::sionlib::Fault::load(int &timestepFault, real* mu, real* slipRate1, real* slipRate2,
+	real* slip, real* slip1, real* slip2, real* state, real* strength)
 {
 	if (numSides() == 0)
 		return;
@@ -79,7 +79,7 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault, double* mu, d
 	// Read header
 	checkErr(sion_coll_fread(&timestepFault, sizeof(timestepFault), 1, file), 1);
 
-	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
+	real* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
 
 	// Read data
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)

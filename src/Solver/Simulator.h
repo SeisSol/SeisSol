@@ -57,6 +57,9 @@ class seissol::Simulator {
     //! final time of the simulation
     double m_finalTime;
 
+    //! usePlasticity = true if plasticity is on
+    bool m_usePlasticity;
+
     //! last time a checkpoint was written
     double m_checkPointTime;
 
@@ -81,6 +84,13 @@ class seissol::Simulator {
      * @param i_finalTime final time.
      **/
     void setFinalTime( double i_finalTime );
+
+    /**
+     * Sets the m_usePlasticity
+     *
+     * @param i_plasticity = 1 if plasticity is on
+     **/
+    void setUsePlasticity( bool plasticity );
 
     /**
      * Sets the current time of the simulation (useful for checkpoints)

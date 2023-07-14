@@ -53,10 +53,6 @@ def addKernels(generator, aderdg, include_tensors, targets):
   numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
 
-  selectVelocitySpp = np.zeros((numberOfQuantities, 3))
-  selectVelocitySpp[6:9,0:3] = np.eye(3)
-  selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
-
   faceDisplacement = OptionalDimTensor('faceDisplacement',
                                        aderdg.Q.optName(),
                                        aderdg.Q.optSize(),
@@ -81,7 +77,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
   displacementRotationMatrix = Tensor('displacementRotationMatrix', (3,3), alignStride=True)
   subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= \
                                           subTriangleProjectionFromFace[depth]['kl'] * aderdg.db.MV2nTo2m['lm'] * faceDisplacement['mp']
-  subTriangleVelocity = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
+  subTriangleVelocity = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * aderdg.selectVelocity['qp']
 
   generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)
   generator.addFamily('subTriangleVelocity', simpleParameterSpace(maxDepth+1), subTriangleVelocity)
@@ -92,12 +88,28 @@ def addKernels(generator, aderdg, include_tensors, targets):
                                               aderdg.Q.optPos(),
                                               (numberOf2DBasisFunctions, 3),
                                               alignStride=True)
-  generator.add('rotateFaceDisplacement',
-                rotatedFaceDisplacement["mp"] <= faceDisplacement['mn'] * displacementRotationMatrix['pn'] )
+  for target in targets:
+    name_prefix = generate_kernel_name_prefix(target)
+    generator.add(f'{name_prefix}rotateFaceDisplacement',
+                  rotatedFaceDisplacement["mp"] <= faceDisplacement['mn'] * displacementRotationMatrix['pn'],
+                  target=target)
 
   addVelocity = lambda f: faceDisplacement['kp'] <= faceDisplacement['kp'] \
-                          + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * selectVelocity['qp']
+                          + aderdg.db.V3mTo2nFace[f]['kl'] * aderdg.I['lq'] * aderdg.selectVelocity['qp']
   generator.addFamily('addVelocity', simpleParameterSpace(4), addVelocity)
+
+  numberOfQuadratureNodes = (aderdg.order+1)**2
+  rotatedFaceDisplacementAtQuadratureNodes = OptionalDimTensor('rotatedFaceDisplacementAtQuadratureNodes',
+                                                               aderdg.Q.optName(),
+                                                               aderdg.Q.optSize(),
+                                                               aderdg.Q.optPos(),
+                                                               (numberOfQuadratureNodes, 3),
+                                                               alignStride=True)
+  generator.add("rotateFaceDisplacementsAndEvaluateAtQuadratureNodes",
+                rotatedFaceDisplacementAtQuadratureNodes['in'] <=
+                aderdg.V2nTo2JacobiQuad['ij'] * \
+              rotatedFaceDisplacement['jp'] * displacementRotationMatrix['np']
+                )
 
   if 'gpu' in targets:
     name_prefix = generate_kernel_name_prefix(target='gpu')

@@ -87,7 +87,6 @@ public:
 	{
 		// Communication threads required
 		if (m_mpiMode == MPI_COMM_THREAD) {
-			MPI::mpi.requireThreadsafe();
 			// Comm threads has to be started before model initialization
 			Modules::registerHook(*this, PRE_MODEL, HIGHEST);
 			// Comm threads has to be stoped after model initialization

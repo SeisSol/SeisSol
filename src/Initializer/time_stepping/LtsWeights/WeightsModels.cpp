@@ -15,7 +15,7 @@ namespace seissol::initializers::time_stepping {
 
 void ExponentialWeights::setVertexWeights() {
   assert(m_ncon == 1 && "single constraint partitioning");
-  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, m_rate);
+  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
     int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
@@ -34,7 +34,7 @@ void ExponentialWeights::setAllowedImbalances() {
 
 void ExponentialBalancedWeights::setVertexWeights() {
   assert(m_ncon == 2 && "binary constaints partitioning");
-  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, m_rate);
+  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
     int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
@@ -59,7 +59,7 @@ void ExponentialBalancedWeights::setAllowedImbalances() {
 
 
 int EncodedBalancedWeights::evaluateNumberOfConstraints() {
-  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, m_rate);
+  int maxCluster = getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
   return maxCluster + 1;
 }
 

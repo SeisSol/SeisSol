@@ -62,6 +62,19 @@ public:
   inline Layer& child() {
     return *static_cast<Layer*>(m_children[ Log2<LAYER>::Result ]);
   }
+
+  inline Layer& child(LayerType type) {
+    switch (type) {
+      case Ghost:
+        return child<Ghost>();
+      case Copy:
+        return child<Copy>();
+      case Interior:
+        return child<Interior>();
+      default:
+        throw;
+    }
+  }
 };
 
 #endif

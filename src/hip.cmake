@@ -31,7 +31,7 @@ if (IS_NVCC_PLATFORM)
                     --compiler-options -fPIC;
                     -DCUDA_UNDERHOOD)
 else()
-    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --amdgpu-target=${DEVICE_ARCH})
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --offload-arch=${DEVICE_ARCH})
 endif()
 
 
@@ -47,7 +47,8 @@ ${HCC_PATH} \
 
 set(DEVICE_SRC ${DEVICE_SRC}
                ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp)
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp)
 
 
 set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)

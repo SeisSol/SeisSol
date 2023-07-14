@@ -3,21 +3,21 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2019, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -35,7 +35,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * 
+ *
  **/
 
 #include "Pin.h"
@@ -44,7 +44,9 @@
 #include <sched.h>
 #include <sstream>
 #include <set>
+#include <cstdlib>
 #include "Parallel/MPI.h"
+#include "utils/logger.h"
 
 #ifdef USE_NUMA_AWARE_PINNING
 #include "numa.h"
@@ -53,6 +55,54 @@
 seissol::parallel::Pinning::Pinning() {
   // Affinity mask for the OpenMP workers
   openmpMask = getWorkerUnionMask();
+}
+
+void seissol::parallel::Pinning::checkEnvVariables() {
+  const auto rank = MPI::mpi.rank();
+  if (const char* envVariable = std::getenv("SEISSOL_FREE_CPUS_MASK")) {
+    auto parsedResult = seissol::IntegerMaskParser::parse(std::string(envVariable));
+    if (parsedResult) {
+      parsedFreeCPUsMask = parsedResult.value();
+
+      bool isMaskGood{true};
+      const auto numLocalProcesses = MPI::mpi.sharedMemMpiSize();
+      if (numLocalProcesses > parsedFreeCPUsMask.size()) {
+        logInfo(rank) << "There are more communication (and/or output-writing) threads"
+                      << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
+
+        isMaskGood = false;
+      }
+      else {
+        const auto maxCpuId = get_nprocs();
+        for (auto localProcessId = 0; localProcessId < parsedFreeCPUsMask.size(); ++localProcessId) {
+          for (auto cpu : parsedFreeCPUsMask[localProcessId]) {
+            if (cpu > maxCpuId) {
+              logInfo(rank) << "Free cpu mask of the local process"
+                            << localProcessId
+                            << "is out of bounds. CPU/core id"
+                            << cpu << "exceeds max. value"
+                            << maxCpuId;
+              isMaskGood = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isMaskGood) {
+        logInfo(rank) << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
+      }
+      else {
+        logWarning(rank) << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logWarning(rank) << "`SEISSOL_FREE_CPUS_MASK` Format:"
+                         << "(<int>|<range: int-int>|<list: {int,+}>),+";
+        parsedFreeCPUsMask = IntegerMaskParser::MaskType{};
+      }
+    }
+    else {
+      logWarning(rank) << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
+    }
+  }
 }
 
 cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
@@ -70,7 +120,7 @@ cpu_set_t seissol::parallel::Pinning::getWorkerUnionMask() const {
     }
   }
 #else
-  sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);
+sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);
 #endif
 
   return workerUnion;
@@ -81,6 +131,14 @@ cpu_set_t seissol::parallel::Pinning::getFreeCPUsMask() const {
 
   cpu_set_t freeMask{};
   CPU_ZERO(&freeMask);
+
+  if (not parsedFreeCPUsMask.empty()) {
+    const auto localProcessor = MPI::mpi.sharedMemMpiRank();
+    for (auto& cpu : parsedFreeCPUsMask[localProcessor]) {
+      CPU_SET(cpu, &freeMask);
+    }
+    return freeMask;
+  }
 
 #ifdef USE_NUMA_AWARE_PINNING
   // Find all numa nodes on which some OpenMP worker is pinned to

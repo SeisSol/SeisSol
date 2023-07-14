@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<matrices>
+	<matrix name="V2mTo2JacobiQuad" columns="3" rows="9">
+		<entry column="1" row="1" value="1.0"/>
+		<entry column="2" row="1" value="0.7637283294737663"/>
+		<entry column="3" row="1" value="-0.4347717821437831"/>
+		<entry column="1" row="2" value="1.0"/>
+		<entry column="2" row="2" value="0.6814891926412706"/>
+		<entry column="3" row="2" value="-0.6814891926412701"/>
+		<entry column="1" row="3" value="1.0"/>
+		<entry column="2" row="3" value="0.5992500558087748"/>
+		<entry column="3" row="3" value="-0.9282066031387579"/>
+		<entry column="1" row="4" value="1.0"/>
+		<entry column="2" row="4" value="0.34291279660157076"/>
+		<entry column="3" row="4" value="0.5719372031603016"/>
+		<entry column="1" row="5" value="1.0"/>
+		<entry column="2" row="5" value="0.11420029666110301"/>
+		<entry column="3" row="5" value="-0.11420029666110221"/>
+		<entry column="1" row="6" value="1.0"/>
+		<entry column="2" row="6" value="-0.11451220327936486"/>
+		<entry column="3" row="6" value="-0.8003377964825056"/>
+		<entry column="1" row="7" value="1.0"/>
+		<entry column="2" row="7" value="-0.014129695296921764"/>
+		<entry column="3" row="7" value="1.4260831570330081"/>
+		<entry column="1" row="8" value="1.0"/>
+		<entry column="2" row="8" value="-0.36711806073094294"/>
+		<entry column="3" row="8" value="0.3671180607309448"/>
+		<entry column="1" row="9" value="1.0"/>
+		<entry column="2" row="9" value="-0.7201064261649643"/>
+		<entry column="3" row="9" value="-0.6918470355711199"/>
+	</matrix>
+</matrices>
+

@@ -6,23 +6,58 @@
 #include <Physics/InitialField.h>
 #include <Equations/Setup.h>
 #include <Model/common.hpp>
+#include <utility>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>
-#include <Solver/Interoperability.h>
 #include <Numerical_aux/Eigenvalues.h>
-
-extern seissol::Interoperability e_interoperability;
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
                double phase,
                std::array<double, 3> kVec,
                std::vector<int> varField, 
                std::vector<std::complex<double>> ampField)
-  : m_varField(varField),
-    m_ampField(ampField),
+  : m_varField(std::move(varField)),
+    m_ampField(std::move(ampField)),
     m_phase(phase),
     m_kVec(kVec)
 {
+  init(materialData);
+}
+
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
+                                         double phase,
+                                         std::array<double, 3> kVec)
+    : m_phase(phase), m_kVec(kVec) {
+
+#ifndef USE_POROELASTIC
+  bool isAcoustic = false;
+#ifndef USE_ANISOTROPIC
+  isAcoustic = materialData.local.mu <= 1e-15;
+#endif
+  if (isAcoustic) {
+    // Acoustic materials has the following wave modes:
+    // -P, N, N, N, N, N, N, N, P
+    // Here we impose the P mode
+    m_varField = {8} ;
+    m_ampField = {1.0};
+  } else {
+    // Elastic materials have the following wave modes:
+    // -P, -S2, -S1, N, N, N, S1, S2, P
+    // Here we impose the -S2 and P mode
+    m_varField = {1, 8};
+    m_ampField = {1.0, 1.0};
+  }
+#else
+  //Poroelastic materials have the following wave modes:
+  //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+  //Here we impose -S1, -Ps and P
+  m_varField = {2,3,12};
+  m_ampField = {1.0, 1.0, 1.0};
+#endif
+  init(materialData);
+}
+
+void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   assert(m_varField.size() == m_ampField.size());
 
   std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> planeWaveOperator{};
@@ -249,14 +284,14 @@ void seissol::physics::Ocean::evaluate(double time,
     const double k_y = pi / Ly; // 1/km
 
     constexpr auto k_stars = std::array<double, 3>{
-      0.4452003497054692,
+      0.4433813748841239,
       1.5733628061766445,
       4.713305873881573
     };
 
     // Note: Could be computed on the fly but it's better to pre-compute them with higher precision!
     constexpr auto omegas = std::array<double, 3>{
-      0.0427240277969087,
+      0.0425599572628432,
       2.4523337594491745,
       7.1012991617572165
     };
