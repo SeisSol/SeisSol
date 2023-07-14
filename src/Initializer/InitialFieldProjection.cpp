@@ -35,7 +35,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * 
+ *
  **/
 
 #include "InitialFieldProjection.h"

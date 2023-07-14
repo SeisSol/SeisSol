@@ -14,10 +14,10 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, 
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                double phase,
                std::array<double, 3> kVec,
-               std::vector<int> varField, 
+               std::vector<int> varField,
                std::vector<std::complex<double>> ampField)
   : m_varField(std::move(varField)),
     m_ampField(std::move(ampField)),
@@ -105,7 +105,7 @@ seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMater
     m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
           Planarwave(materialData, phase, m_kVec.at(1)),
           Planarwave(materialData, phase, m_kVec.at(2))})
-{ 
+{
 }
 
 void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
@@ -114,7 +114,7 @@ void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
                                                          yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
- 
+
   real dofsPW_data[tensor::dofsQP::size()];
   yateto::DenseTensorView<2,real,unsigned> dofsPW = init::dofsQP::view::create(dofsPW_data);
 
@@ -160,9 +160,9 @@ void seissol::physics::TravellingWave::evaluate(double time,
       for (size_t i = 0; i < points.size(); ++i) {
         auto arg = std::complex<double>(0.0, 1.0) * (
                           omega * time
-                        - m_kVec[0]*(points[i][0] - m_origin[0]) 
-                        - m_kVec[1]*(points[i][1] - m_origin[1]) 
-                        - m_kVec[2]*(points[i][2] - m_origin[2]) 
+                        - m_kVec[0]*(points[i][0] - m_origin[0])
+                        - m_kVec[1]*(points[i][1] - m_origin[1])
+                        - m_kVec[2]*(points[i][2] - m_origin[2])
                         + m_phase);
         if(arg.imag() > -0.5*M_PI && arg.imag() < 1.5*M_PI) {
           dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();

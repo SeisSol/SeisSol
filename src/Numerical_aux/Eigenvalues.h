@@ -16,7 +16,7 @@ namespace seissol::eigenvalues{
    */
   template<typename T, size_t dim>
   struct Eigenpair{
-    /** 
+    /**
      * vectors: Matrix of Eigenvectors in column-major format
      */
     std::array<T, dim*dim> vectors;
@@ -75,34 +75,34 @@ namespace seissol::eigenvalues{
   extern "C" {
 #define FC_zgeev FC_GLOBAL(zgeev, ZGEEV)
     extern void FC_zgeev(char* jobVl, char* jobVr, int* n, std::complex<double>* A,
-        int* lda, std::complex<double>* ev, std::complex<double>* vl, int* ldvl, 
-        std::complex<double>* vr, int* ldvr, std::complex<double>* work, 
+        int* lda, std::complex<double>* ev, std::complex<double>* vl, int* ldvl,
+        std::complex<double>* vr, int* ldvr, std::complex<double>* work,
         int* lwork, double* rwork, int* info );
 #define FC_cgeev FC_GLOBAL(cgeev, CGEEV)
     extern void FC_cgeev(char* jobVl, char* jobVr, int* n, std::complex<float>* A,
-        int* lda, std::complex<float>* ev, std::complex<float>* vl, int* ldvl, 
-        std::complex<float>* vr, int* ldvr, std::complex<float>* work, 
+        int* lda, std::complex<float>* ev, std::complex<float>* vl, int* ldvl,
+        std::complex<float>* vr, int* ldvr, std::complex<float>* work,
         int* lwork, float* rwork, int* info );
   }
 
 template<typename T>
 void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::complex<T>* A,
-        int* lda, std::complex<T>* ev, std::complex<T>* vl, int* ldvl, 
-        std::complex<T>* vr, int* ldvr, std::complex<T>* work, 
+        int* lda, std::complex<T>* ev, std::complex<T>* vl, int* ldvl,
+        std::complex<T>* vr, int* ldvr, std::complex<T>* work,
         int* lwork, T* rwork, int* info) {}
 
 template<>
 inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::complex<double>* A,
         int* lda, std::complex<double>* ev, std::complex<double>* vl, int* ldvl,
-        std::complex<double>* vr, int* ldvr, std::complex<double>* work, 
+        std::complex<double>* vr, int* ldvr, std::complex<double>* work,
         int* lwork, double* rwork, int* info) {
   FC_zgeev(jobVl, jobVr, n, A, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
 }
 
 template<>
 inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::complex<float>* A,
-        int* lda, std::complex<float>* ev, std::complex<float>* vl, int* ldvl, 
-        std::complex<float>* vr, int* ldvr, std::complex<float>* work, 
+        int* lda, std::complex<float>* ev, std::complex<float>* vl, int* ldvl,
+        std::complex<float>* vr, int* ldvr, std::complex<float>* work,
         int* lwork, float* rwork, int* info) {
   FC_cgeev(jobVl, jobVr, n, A, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
 };
@@ -117,7 +117,7 @@ inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::c
   template<typename T, size_t dim>
   void computeEigenvaluesWithLapack(std::array<std::complex<T>, dim*dim>& M, Eigenpair<std::complex<T>, dim>& output) {
     //set up lapack variables
-    int n = dim, lda = dim, ldvl = dim, ldvr = dim; 
+    int n = dim, lda = dim, ldvl = dim, ldvr = dim;
     int info;
     int lwork = 2*dim;
     T rwork[2*dim];
@@ -140,7 +140,7 @@ inline void callLapackEigenvalueRoutine(char* jobVl, char* jobVr, int* n, std::c
         });
 
     for (size_t i = 0; i < dim; ++i) {
-      output.values[i] = w[sortedIndices[i]]; 
+      output.values[i] = w[sortedIndices[i]];
     }
 
     auto R = yateto::DenseTensorView<2,std::complex<T>>(output.vectors.data(), {dim, dim});
