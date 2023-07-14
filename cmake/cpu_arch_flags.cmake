@@ -60,7 +60,6 @@ function(get_arch_flags architecture compiler)
             set(HAS_REDZONE OFF PARENT_SCOPE)
             set(CPU_ARCH_FLAGS "-mtune=power9" PARENT_SCOPE)
         endif()
-    endif()
 
     elseif ("${HOST_ARCH}" STREQUAL "a64fx")
         set(HAS_REDZONE OFF PARENT_SCOPE)
@@ -72,5 +71,4 @@ function(get_arch_flags architecture compiler)
         set(HAS_REDZONE OFF PARENT_SCOPE)
     endif()
 
->>>>>>> master
 endfunction()
