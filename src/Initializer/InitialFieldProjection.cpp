@@ -123,8 +123,8 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
   }
 #endif
 
-  seissol::initializer::synchronize(lts.dofs);
+  seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofs);
   if (kernels::size<tensor::Qane>() > 0) {
-    seissol::initializer::synchronize(lts.dofsAne);
+    seissol::initializer::synchronizeLTSTreeDuplicates(lts.dofsAne);
   }
 }

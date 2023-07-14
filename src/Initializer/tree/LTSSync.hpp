@@ -20,7 +20,7 @@ function calls (rather, they leave it undefined), since they do merely assign `v
 */
 
 template <typename T>
-static void initAssign(T& target, const T& value) {
+void initAssign(T& target, const T& value) {
   if constexpr (std::is_trivially_copyable_v<T>) {
     // if the object is trivially copyable, we may just memcpy it (it's safe to do that in this
     // case).
@@ -49,7 +49,7 @@ static void initAssign(T& target, const T& value) {
 }
 
 template <typename T>
-static void synchronize(const seissol::initializers::Variable<T>& handle) {
+void synchronizeLTSTreeDuplicates(const seissol::initializers::Variable<T>& handle) {
   auto& memoryManager = seissol::SeisSol::main.getMemoryManager();
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
   unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
@@ -61,13 +61,14 @@ static void synchronize(const seissol::initializers::Variable<T>& handle) {
 #endif
   for (unsigned dupMeshId = 0; dupMeshId < numberOfDuplicatedMeshIds; ++dupMeshId) {
     const unsigned meshId = duplicatedMeshIds[dupMeshId];
-    const T* ref = &var[meshToLts[0][meshId]];
+    const T& ref = var[meshToLts[0][meshId]];
     for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates &&
                            meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max();
          ++dup) {
 
+      T& target = var[meshToLts[dup][meshId]];
       // copy data on a byte-wise level (we need to initialize memory here as well)
-      initAssign(var[meshToLts[dup][meshId]], *ref);
+      initAssign(target, ref);
     }
   }
 }

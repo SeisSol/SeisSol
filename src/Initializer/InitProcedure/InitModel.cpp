@@ -190,12 +190,6 @@ void initializeCellMaterial() {
     }
     ltsToMesh += it->getNumberOfCells();
   }
-
-  // synchronize data
-  synchronize(memoryManager.getLts()->material);
-  if (seissolParams.model.plasticity) {
-    synchronize(memoryManager.getLts()->plasticity);
-  }
 }
 
 struct LtsInfo {
@@ -248,12 +242,6 @@ static void initializeCellMatrices(LtsInfo& ltsInfo) {
 
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
 #endif
-
-  // synchronize data
-  synchronize(memoryManager.getLts()->dofs);
-  if (kernels::size<tensor::Qane>() > 0) {
-    synchronize(memoryManager.getLts()->dofsAne);
-  }
 }
 
 static void initializeClusteredLts(LtsInfo& ltsInfo) {
