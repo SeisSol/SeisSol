@@ -17,7 +17,7 @@ class DamagedElasticADERDG(ADERDGBase):
     }
     # self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
     self.db.update( parseXMLMatrixFile('{}/matrices_damaged-elastic.xml'.format(matricesDir), clones) )
-    self.db.update( parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, 'nb', self.order), clones=dict(), alignStride=self.alignStride) )
+    self.db.update( parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, 'ip', self.order), clones=dict(), alignStride=self.alignStride) )
     numberOfNodes = self.t(self.db.v.shape())[0]
     # For cell-average
     self.db.update(parseXMLMatrixFile('{}/phi_ave_{}.xml'.format(matricesDir, order), transpose=self.transpose, alignStride=self.alignStride))
@@ -28,7 +28,7 @@ class DamagedElasticADERDG(ADERDGBase):
     # For storing nodal values
     qNShape = (numberOfNodes, self.numberOfQuantities())
     self.QNodal = OptionalDimTensor('QNodal', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qNShape, alignStride=True)
-    dqMShape = (numberOfNodes, self.numberOfQuantities())
+    dqMShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     self.dQModal = OptionalDimTensor('dQModal', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), dqMShape, alignStride=True)
     FNShape = (numberOfNodes, self.numberOfQuantities())
     self.FNodal = OptionalDimTensor('FNodal', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), FNShape, alignStride=True)

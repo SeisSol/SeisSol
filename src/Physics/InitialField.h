@@ -29,11 +29,39 @@ namespace seissol {
       }
     };
 
+    //A planar wave travelling in direction kVec, for Riemann problem
+    class PlanarRiemann : public InitialField {
+    public:
+      //! Choose phase in [0, 2*pi]
+    // PlanarRiemann(const CellMaterialData& materialData,
+    //            double phase,
+    //            std::array<double, 3> kVec,
+    //            std::vector<int> varField,
+    //            std::vector<std::complex<double>> ampField
+    //            );
+    explicit PlanarRiemann(const CellMaterialData& materialData,
+                        double phase = 0.0,
+                        std::array<double, 3> kVec = {1.0, 0.0, 0.0});
+
+      void evaluate( double time,
+                     std::vector<std::array<double, 3>> const& points,
+                     const CellMaterialData& materialData,
+                     yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const override;
+    protected:
+      std::vector<int> m_varField;
+      std::vector<double> m_ampFieldL;
+      std::vector<double> m_ampFieldR;
+      const double m_phase;
+      const std::array<double, 3> m_kVec;
+  private:
+      void init(const CellMaterialData& materialData);
+    };
+
     //A planar wave travelling in direction kVec
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-    Planarwave(const CellMaterialData& materialData, 
+    Planarwave(const CellMaterialData& materialData,
                double phase,
                std::array<double, 3> kVec,
                std::vector<int> varField,

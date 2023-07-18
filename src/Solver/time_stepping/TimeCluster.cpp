@@ -756,39 +756,51 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       m_cellAverageKernel.QAve = Q_aveData;
       m_cellAverageKernel.execute();
 
+      unsigned int meshId = data.localIntegration.globalMeshId;
 
       // std::cout << data.dofs[0+0] << std::endl;
       // END TODO
       real EspI = Q_aveData[0] + Q_aveData[1] + Q_aveData[2];
       real alphaAve = Q_aveData[9];
-      real lambda0 = 9.71e10;
-      real mu0 = 8.27e10;
-      real beta_m = 0e2;
 
-      unsigned int meshId = data.localIntegration.globalMeshId;
+      // // Damage material for testing
+      // real lambda0 = 9.71e10;
+      // real mu0 = 8.27e10;
+      // real beta_m = 0e2;
 
-      // changed_materialLocal = materialData[l_cell].local;
-      // changed_materialLocal.mu
-      // = materialData[l_cell].local.mu*(1-1e6*EspI);
+      //  materialData[l_cell].local.mu = (1-alphaAve)*mu0*(1-beta_m*EspI);
+      //  materialData[l_cell].local.lambda = (1-alphaAve)*lambda0*(1-beta_m*EspI);
 
+      // materialData[l_cell].local.sigmaxx_alpha = lambda0*EspI + 2*mu0*Q_aveData[0];
+      // materialData[l_cell].local.sigmaxy_alpha = 2*mu0*Q_aveData[3];
+      // materialData[l_cell].local.sigmaxz_alpha = 2*mu0*Q_aveData[5];
+      // materialData[l_cell].local.sigmayx_alpha = 2*mu0*Q_aveData[3];
+      // materialData[l_cell].local.sigmayy_alpha = lambda0*EspI + 2*mu0*Q_aveData[1];
+      // materialData[l_cell].local.sigmayz_alpha = 2*mu0*Q_aveData[4];
+      // materialData[l_cell].local.sigmazx_alpha = 2*mu0*Q_aveData[5];
+      // materialData[l_cell].local.sigmazy_alpha = 2*mu0*Q_aveData[4];
+      // materialData[l_cell].local.sigmazz_alpha = lambda0*EspI + 2*mu0*Q_aveData[2];
 
-      // for (unsigned side = 0; side < 4; ++side){
-      //   changed_materialNeighbor[side].lambda
-      //   = materialData[l_cell].neighbor[side].lambda*0.9;
-      // }
+      // =======================
+      // Riemann problem material
+      real lambda0 = 1.0; //9.71e10;
+      real mu0 = 1.0; //8.27e10;
+      real beta_m = 1e1;
 
-       materialData[l_cell].local.mu = (1-alphaAve)*mu0*(1-beta_m*EspI);
-       materialData[l_cell].local.lambda = (1-alphaAve)*lambda0*(1-beta_m*EspI);
+      materialData[l_cell].local.mu = (1-alphaAve)*mu0*( 1-2*beta_m*Q_aveData[3] );
+      materialData[l_cell].local.lambda = (1-alphaAve)*lambda0*(1-0.0*EspI);
 
-       materialData[l_cell].local.sigmaxx_alpha = lambda0*EspI + 2*mu0*Q_aveData[0];
-       materialData[l_cell].local.sigmaxy_alpha = 2*mu0*Q_aveData[3];
-       materialData[l_cell].local.sigmaxz_alpha = 2*mu0*Q_aveData[5];
-       materialData[l_cell].local.sigmayx_alpha = 2*mu0*Q_aveData[3];
-       materialData[l_cell].local.sigmayy_alpha = lambda0*EspI + 2*mu0*Q_aveData[1];
-       materialData[l_cell].local.sigmayz_alpha = 2*mu0*Q_aveData[4];
-       materialData[l_cell].local.sigmazx_alpha = 2*mu0*Q_aveData[5];
-       materialData[l_cell].local.sigmazy_alpha = 2*mu0*Q_aveData[4];
-       materialData[l_cell].local.sigmazz_alpha = lambda0*EspI + 2*mu0*Q_aveData[2];
+      materialData[l_cell].local.sigmaxx_alpha = 0.0;
+      materialData[l_cell].local.sigmaxy_alpha = 0.0;
+      materialData[l_cell].local.sigmaxz_alpha = 0.0;
+      materialData[l_cell].local.sigmayx_alpha = 0.0;
+      materialData[l_cell].local.sigmayy_alpha = 0.0;
+      materialData[l_cell].local.sigmayz_alpha = 0.0;
+      materialData[l_cell].local.sigmazx_alpha = 0.0;
+      materialData[l_cell].local.sigmazy_alpha = 0.0;
+      materialData[l_cell].local.sigmazz_alpha = 0.0;
+
+      // =======================
 
       //  for (unsigned side = 0; side < 4; ++side){
       //   materialData[l_cell].neighbor[side].mu = 8.27e10*(1-1e7*EspI);
@@ -887,28 +899,45 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           // std::cout << faceNeighbors[l_cell][side][20*6+0]/faceNeighbors[l_cell][side][20*0+0]
           //           << " " << data.dofs[20*6+0]/data.dofs[20*0+0] << std::endl;
 
-          materialData[l_cell].neighbor[side].mu = (1-alphaAveNeigh)*mu0*(1-beta_m*EspINeigh);
-          materialData[l_cell].neighbor[side].lambda = (1-alphaAveNeigh)*lambda0*(1-beta_m*EspINeigh);
+          // // Damage material for code verification
+          // materialData[l_cell].neighbor[side].mu = (1-alphaAveNeigh)*mu0*(1-beta_m*EspINeigh);
+          // materialData[l_cell].neighbor[side].lambda = (1-alphaAveNeigh)*lambda0*(1-beta_m*EspINeigh);
 
-          // materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmaxz_alpha = 2*mu0*Q_aveData[5]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmayx_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmayy_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[1]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmayz_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmazx_alpha = 2*mu0*Q_aveData[5]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
-          // materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmaxz_alpha = 2*mu0*Q_aveData[5]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmayx_alpha = 2*mu0*Q_aveData[3]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmayy_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[1]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmayz_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmazx_alpha = 2*mu0*Q_aveData[5]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4]/timeStepSize();
+          // // materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2]/timeStepSize();
 
-          materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0];
-          materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3];
-          materialData[l_cell].neighbor[side].sigmaxz_alpha = 2*mu0*Q_aveData[5];
-          materialData[l_cell].neighbor[side].sigmayx_alpha = 2*mu0*Q_aveData[3];
-          materialData[l_cell].neighbor[side].sigmayy_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[1];
-          materialData[l_cell].neighbor[side].sigmayz_alpha = 2*mu0*Q_aveData[4];
-          materialData[l_cell].neighbor[side].sigmazx_alpha = 2*mu0*Q_aveData[5];
-          materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4];
-          materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2];
+          // materialData[l_cell].neighbor[side].sigmaxx_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[0];
+          // materialData[l_cell].neighbor[side].sigmaxy_alpha = 2*mu0*Q_aveData[3];
+          // materialData[l_cell].neighbor[side].sigmaxz_alpha = 2*mu0*Q_aveData[5];
+          // materialData[l_cell].neighbor[side].sigmayx_alpha = 2*mu0*Q_aveData[3];
+          // materialData[l_cell].neighbor[side].sigmayy_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[1];
+          // materialData[l_cell].neighbor[side].sigmayz_alpha = 2*mu0*Q_aveData[4];
+          // materialData[l_cell].neighbor[side].sigmazx_alpha = 2*mu0*Q_aveData[5];
+          // materialData[l_cell].neighbor[side].sigmazy_alpha = 2*mu0*Q_aveData[4];
+          // materialData[l_cell].neighbor[side].sigmazz_alpha = lambda0*EspINeigh + 2*mu0*Q_aveData[2];
+
+          // =======================
+          // Riemann problem material
+          materialData[l_cell].neighbor[side].mu = (1-alphaAveNeigh)*mu0*(1-beta_m*Q_aveData[3]);
+          materialData[l_cell].neighbor[side].lambda = (1-alphaAveNeigh)*lambda0*(1-0.0*EspINeigh);
+
+          materialData[l_cell].neighbor[side].sigmaxx_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmaxy_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmaxz_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmayx_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmayy_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmayz_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmazx_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmazy_alpha = 0.0;
+          materialData[l_cell].neighbor[side].sigmazz_alpha = 0.0;
+          // =======================
         }
 
 

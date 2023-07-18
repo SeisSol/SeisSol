@@ -416,8 +416,9 @@ private:
             using namespace seissol::dr::misc::quantity_indices;
             unsigned DAM = 9;
 
-            real lambda0 = 9.71e10;
-            real mu0 = 8.27e10;
+            real lambda0 = 1.0; //9.71e10;
+            real mu0 = 1.0; //8.27e10;
+            real beta_m = 1e1;
             real rho0 = materialData[l_cell].local.rho;
 
             real lambda_max = 1.0*std::sqrt( (lambda0+2*mu0)/rho0 ) ;
@@ -430,9 +431,14 @@ private:
 
               for (unsigned i = 0; i < seissol::dr::misc::numPaddedPoints;
                   i ++) {
-                lambda_max = std::max(
+                lambda_max =
+                std::max(
+                std::max(
+                std::max(
                   std::sqrt( (1- qIPlus[o][DAM][i]) * (lambda0+2*mu0)/rho0 ),
                   std::sqrt( (1-qIMinus[o][DAM][i]) * (lambda0+2*mu0)/rho0 )
+                ), std::sqrt( (1 - beta_m*qIPlus[o][XY][i]) * mu0/rho0)
+                ), std::sqrt( (1 - beta_m*qIMinus[o][XY][i]) * mu0/rho0)
                 );
 
                 sxxP = (1-qIPlus[o][DAM][i])*lambda0
@@ -452,7 +458,8 @@ private:
                 +
                 2*(1-qIPlus[o][DAM][i])*mu0
                 *qIPlus[o][ZZ][i];
-                sxyP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XY][i];
+                sxyP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XY][i]
+                  * (1 - beta_m * qIPlus[o][XY][i]);
                 syzP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][YZ][i];
                 szxP = 2*(1-qIPlus[o][DAM][i])*mu0*qIPlus[o][XZ][i];
 
@@ -473,7 +480,8 @@ private:
                 +
                 2*(1-qIMinus[o][DAM][i])*mu0
                 *qIMinus[o][ZZ][i];
-                sxyM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XY][i];
+                sxyM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XY][i]
+                  * (1 - beta_m * qIMinus[o][XY][i]);
                 syzM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][YZ][i];
                 szxM = 2*(1-qIMinus[o][DAM][i])*mu0*qIMinus[o][XZ][i];
 
