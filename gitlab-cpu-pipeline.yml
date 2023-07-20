@@ -39,37 +39,35 @@ build_seissol:
         matrix:
         - precision: [double, single]
           build_type: [Debug, Release]
+          equation: [elastic, poroelastic]
     script:
         - cmake --version
-        - equation=elastic
         - mechanisms=0
-        - for equation in [elastic, poroelastic] ;
-            do dirname="build_${equation}_${precision}_${build_type}";
-            echo "mkdir $dirname";
-            if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
-            mkdir -p $dirname && cd $dirname ;
-            pwd;
-            CMAKE_PREFIX_PATH=~ ;
-            cmake ..
-            -DNETCDF=OFF
-            -DMETIS=ON
-            -DCOMMTHREAD=OFF
-            -DASAGI=OFF
-            -DHDF5=ON
-            -DCMAKE_BUILD_TYPE=$build_type
-            -DTESTING=ON
-            -DLOG_LEVEL=warning
-            -DLOG_LEVEL_MASTER=info
-            -DHOST_ARCH=${HOST}
-            -DPRECISION=$precision
-            -DEQUATIONS=$equation
-            -DNUMBER_OF_MECHANISMS=$mechanisms
-            -DDR_QUAD_RULE=stroud
-            -DGEMM_TOOLS_LIST=LIBXSMM
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
-            make -j $(nproc);
-            cd .. ;
-          done;
+        - dirname="build_${equation}_${precision}_${build_type}";
+          echo "mkdir $dirname";
+          if [ "$equation" = viscoelastic2 ]; then mechanisms=3; else mechanisms=0; fi;
+          mkdir -p $dirname && cd $dirname ;
+          pwd;
+          CMAKE_PREFIX_PATH=~ ;
+          cmake ..
+          -DNETCDF=OFF
+          -DMETIS=ON
+          -DCOMMTHREAD=OFF
+          -DASAGI=OFF
+          -DHDF5=ON
+          -DCMAKE_BUILD_TYPE=$build_type
+          -DTESTING=ON
+          -DLOG_LEVEL=warning
+          -DLOG_LEVEL_MASTER=info
+          -DHOST_ARCH=${HOST}
+          -DPRECISION=$precision
+          -DEQUATIONS=$equation
+          -DNUMBER_OF_MECHANISMS=$mechanisms
+          -DDR_QUAD_RULE=stroud
+          -DGEMM_TOOLS_LIST=LIBXSMM
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
+          make -j $(nproc);
+          cd .. ;
           
     artifacts:
         paths:
@@ -114,7 +112,8 @@ run_tpv:
         - cd precomputed-seissol
         - git checkout 16487ef
         - cd ..
-        - cd build_elastic_${precision}_Release
+        - if [ "$tpv" = 5-poro ]; then equations=poroelastic; else equations=elastic; fi;
+        - cd build_${equations}_${precision}_Release
         - cp -r ../precomputed-seissol/tpv${tpv}/* .
         - ls
         - mkdir ./output
@@ -122,7 +121,7 @@ run_tpv:
         - export OMP_NUM_THREADS=$NUM_COMP_CORES
         - export OMP_PLACES="cores($NUM_COMP_CORES)"
         - ulimit -Ss unlimited
-        - ./SeisSol_Release_*_elastic ./parameters.par
+        - ./SeisSol_Release_*_${equations} ./parameters.par
         - mv ./precomputed/${precision} ./output/precomputed
         - mv ./output ../output-tpv{$tpv}-${precision}
     artifacts:
