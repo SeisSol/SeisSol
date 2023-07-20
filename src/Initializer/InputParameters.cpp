@@ -215,6 +215,9 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
   seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity =
       reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
+  auto showEdgeCut = reader.readWithDefault("showedgecutstatistics", false);
+  seissolParams.mesh.showEdgeCutStatistics = showEdgeCut;
+
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
 }

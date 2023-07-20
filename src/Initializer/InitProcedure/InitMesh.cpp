@@ -122,32 +122,42 @@ static void readMeshPUML(const seissol::initializer::parameters::SeisSolParamete
 #endif // defined(USE_HDF) && defined(USE_MPI)
 }
 
+size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
+  auto& mpiNeighbors = meshReader.getMPINeighbors();
+  size_t numEdges{0};
+  for (auto& [_, neighborInfo] : mpiNeighbors) {
+    // Note: this includes the case when multiple faces
+    // of an element are located at a partition boarder
+    numEdges += neighborInfo.elements.size();
+  }
+  return numEdges;
+}
+
 void seissol::initializer::initprocedure::initMesh() {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  const auto commRank = seissol::MPI::mpi.rank();
+  const auto commSize = seissol::MPI::mpi.size();
 
-  logInfo(seissol::MPI::mpi.rank()) << "Begin init mesh.";
+  logInfo(commRank) << "Begin init mesh.";
 
   // Call the pre mesh initialization hook
   seissol::Modules::callHook<seissol::PRE_MESH>();
 
   const auto meshFormat = seissolParams.mesh.meshFormat;
 
-  logInfo(seissol::MPI::mpi.rank()) << "Mesh file:" << seissolParams.mesh.meshFileName;
+  logInfo(commRank) << "Mesh file:" << seissolParams.mesh.meshFileName;
 
   seissol::Stopwatch watch;
   watch.start();
-
-  const auto commRank = seissol::MPI::mpi.rank();
-  const auto commSize = seissol::MPI::mpi.size();
 
   std::string realMeshFileName = seissolParams.mesh.meshFileName;
   switch (meshFormat) {
   case seissol::geometry::MeshFormat::Netcdf:
 #if USE_NETCDF
     realMeshFileName = seissolParams.mesh.meshFileName + ".nc";
-    logInfo(seissol::MPI::mpi.rank())
+    logInfo(commRank)
         << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
         << realMeshFileName;
     seissol::SeisSol::main.setMeshReader(
@@ -164,7 +174,8 @@ void seissol::initializer::initprocedure::initMesh() {
     logError() << "Mesh reader not implemented for format" << static_cast<int>(meshFormat);
   }
 
-  postMeshread(seissol::SeisSol::main.meshReader(),
+  auto& meshReader = seissol::SeisSol::main.meshReader();
+  postMeshread(meshReader,
                seissolParams.dynamicRupture.hasFault,
                seissolParams.mesh.displacement,
                seissolParams.mesh.scaling);
@@ -175,5 +186,14 @@ void seissol::initializer::initprocedure::initMesh() {
   // Call the post mesh initialization hook
   seissol::Modules::callHook<seissol::POST_MESH>();
 
-  logInfo(seissol::MPI::mpi.rank()) << "End init mesh.";
+  logInfo(commRank) << "End init mesh.";
+
+  if ((seissolParams.mesh.showEdgeCutStatistics) && (commSize > 1)) {
+    logInfo(commRank) << "Computing edge cut.";
+    const auto numEdges = getNumOutgoingEdges(meshReader);
+    const auto summary = statistics::parallelSummary(static_cast<double>(numEdges));
+    logInfo(commRank) << "Edge cut: mean =" << summary.mean << " std =" << summary.std
+                      << " min =" << summary.min << " median =" << summary.median
+                      << " max =" << summary.max;
+  }
 }
