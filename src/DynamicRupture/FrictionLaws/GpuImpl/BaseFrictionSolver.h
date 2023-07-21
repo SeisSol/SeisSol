@@ -43,6 +43,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           const auto pointIndex = item.get_local_id(0);
 
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
+                                                                  devImpAndEta[ltsFace],
                                                                   devImpedanceMatrices[ltsFace],
                                                                   devQInterpolatedPlus[ltsFace],
                                                                   devQInterpolatedMinus[ltsFace],
@@ -122,6 +123,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
           common::postcomputeImposedStateFromNewStress<gpuRangeType>(devFaultStresses[ltsFace],
                                                                      devTractionResults[ltsFace],
+                                                                     devImpAndEta[ltsFace],
+                                                                     devImpedanceMatrices[ltsFace],
                                                                      devImpedanceMatrices[ltsFace],
                                                                      devImposedStatePlus[ltsFace],
                                                                      devImposedStateMinus[ltsFace],

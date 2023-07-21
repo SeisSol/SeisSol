@@ -599,22 +599,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( seissol::geometry:
         case seissol::model::MaterialType::elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
-
-          auto plusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial));
-          auto minusEigenpair = seissol::model::getEigenDecomposition(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial));
-
-          Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
-          Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
-          Eigen::Matrix<real, N, N> etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
-
-          auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
-          auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
-          auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
-
-          copyEigenToYateto(impedanceMatrix, impedanceView);
-          copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
-          copyEigenToYateto(etaMatrix, etaView);
-
           break;
         }
         case seissol::model::MaterialType::viscoelastic: {
