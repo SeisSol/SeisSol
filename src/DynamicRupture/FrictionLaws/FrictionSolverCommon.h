@@ -284,8 +284,12 @@ inline void postcomputeImposedStateFromNewStress(
  */
 template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
 inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
                                 const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
+                                // See https://github.com/llvm/llvm-project/issues/60163
+                                // NOLINTNEXTLINE
                                 real initialPressure[misc::numPaddedPoints],
                                 const real nucleationPressure[misc::numPaddedPoints],
                                 real fullUpdateTime,
