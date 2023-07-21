@@ -125,7 +125,6 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                                      devTractionResults[ltsFace],
                                                                      devImpAndEta[ltsFace],
                                                                      devImpedanceMatrices[ltsFace],
-                                                                     devImpedanceMatrices[ltsFace],
                                                                      devImposedStatePlus[ltsFace],
                                                                      devImposedStateMinus[ltsFace],
                                                                      devQInterpolatedPlus[ltsFace],
