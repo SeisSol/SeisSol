@@ -56,6 +56,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        auto* devInitialPressure{this->initialPressure};
+        const auto* devNucleationPressure{this->nucleationPressure};
 
         this->queue.submit([&](sycl::handler& cgh) {
           if (timeIndex == 0) {
@@ -69,6 +71,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             common::adjustInitialStress<gpuRangeType, StdMath>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
+                devInitialPressure[ltsFace],
+                devNucleationPressure[ltsFace],
                 fullUpdateTime,
                 t0,
                 dt,
