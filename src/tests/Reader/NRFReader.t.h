@@ -32,6 +32,9 @@ TEST_CASE("NRF Reader") {
   REQUIRE(nrf.subfaults[0].timestep == AbsApprox(0.0002));
   REQUIRE(nrf.subfaults[0].mu == AbsApprox(0.0));
 
+  REQUIRE(nrf.size() == 1);
+  REQURIE(nrf.subfaults.size() == nrf.centres.size() && nrf.centres.size() == nrf.sroffsets.size())
+
   for (size_t dim = 0; dim < 3; dim++) {
     for (unsigned i = 0;
          i < std::min((size_t)nrf.sroffsets[1][dim] - nrf.sroffsets[0][dim], slipRates[dim].size());
