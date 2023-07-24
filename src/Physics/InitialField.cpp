@@ -65,7 +65,8 @@ seissol::physics::PlanarRiemann::PlanarRiemann(const CellMaterialData& materialD
 }
 
 void seissol::physics::PlanarRiemann::init(const CellMaterialData& materialData) {
-  assert(m_varField.size() == m_ampField.size());
+  assert(m_varField.size() == m_ampFieldL.size());
+  assert(m_varField.size() == m_ampFieldR.size());
 }
 
 void seissol::physics::PlanarRiemann::evaluate(double time,
