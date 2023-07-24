@@ -34,7 +34,7 @@ TEST_CASE("NRF Reader") {
 
   REQUIRE(nrf.size() == 1);
   REQUIRE(nrf.subfaults.size() == nrf.centres.size());
-  REQUIRE(nrf.centres.size() == nrf.sroffsets.size());
+  REQUIRE(nrf.centres.size() + 1 == nrf.sroffsets.size());
 
   for (size_t dim = 0; dim < 3; dim++) {
     for (unsigned i = 0;
