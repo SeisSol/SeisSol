@@ -101,7 +101,8 @@ inline void checkAlignmentPreCompute(
  *             at the 2d face quadrature nodes evaluated at the time
  *             quadrature points
  * @param[in] impAndEta contains eta and impedance values
- * @param[in] impedanceMatrices contains impedance and eta values, in the poroelastic case, these are non-diagonal matrices
+ * @param[in] impedanceMatrices contains impedance and eta values, in the poroelastic case, these
+ * are non-diagonal matrices
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
