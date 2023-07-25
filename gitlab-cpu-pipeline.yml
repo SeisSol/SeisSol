@@ -110,7 +110,7 @@ run_tpv:
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 16487ef
+        - git checkout 5b9ebc8 
         - cd ..
         - if [ "$tpv" = 5-poro ]; then equations=poroelastic; else equations=elastic; fi;
         - cd build_${equations}_${precision}_Release
