@@ -38,8 +38,8 @@ if __name__ == "__main__":
     print("Relative difference")
     print(relative_difference)
 
-    relative_difference_smaller_eps = (
-        relative_difference.iloc[1:, :] < args.epsilon
+    relative_difference_larger_eps = (
+        relative_difference.iloc[1:, :] > args.epsilon
     ).values
-    if not np.all(relative_difference_smaller_eps):
+    if np.any(relative_difference_larger_eps):
         sys.exit(1)
