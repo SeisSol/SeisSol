@@ -74,7 +74,7 @@ gpu_build:
         - git submodule --quiet update --init --recursive 
     script:
         - *common_gpu_steps
-        - pip3 install git+https://github.com/ravil-mobile/gemmforge.git@v0.0.207
+        - pip3 install git+https://github.com/SeisSol/gemmforge.git@v0.0.207
         - set -euo pipefail
         - for precision in double single; do
             mkdir -p ./build_${BACKEND}_${precision} && cd ./build_${BACKEND}_${precision} ;
