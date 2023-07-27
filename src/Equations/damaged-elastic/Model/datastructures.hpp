@@ -24,7 +24,7 @@ namespace seissol {
       DamagedElasticMaterial() {};
       DamagedElasticMaterial(double* materialValues, int numMaterialValues)
       {
-        assert(numMaterialValues == 3);
+        assert(numMaterialValues == 12);
 
         this->rho = materialValues[0];
         this->mu = materialValues[1];

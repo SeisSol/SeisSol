@@ -14,6 +14,69 @@
 
 extern seissol::Interoperability e_interoperability;
 
+// Riemann problem IC
+seissol::physics::PlanarRiemann::PlanarRiemann(const CellMaterialData& materialData,
+                                         double phase,
+                                         std::array<double, 3> kVec)
+    : m_phase(phase), m_kVec(kVec) {
+
+#ifndef USE_POROELASTIC
+  bool isAcoustic = false;
+#ifndef USE_ANISOTROPIC
+  isAcoustic = materialData.local.mu <= 1e-15;
+#endif
+  if (isAcoustic) {
+    // Acoustic materials has the following wave modes:
+    // -P, N, N, N, N, N, N, N, P
+    // Here we impose the P mode
+    m_varField = {8} ;
+    m_ampFieldL = {1.0};
+    m_ampFieldR = {1.0};
+  } else {
+    // Elastic materials have the following wave modes:
+    // -P, -S2, -S1, N, N, N, S1, S2, P
+    // Here we impose the -S2 and P mode
+    m_varField = {3, 7};
+    m_ampFieldL = {-0.5e0, 1.0e-1};
+    m_ampFieldR = {-1.0e0, 2.0e-1};
+  }
+#else
+  //Poroelastic materials have the following wave modes:
+  //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+  //Here we impose -S1, -Ps and P
+  m_varField = {2,3,12};
+  m_ampFieldL = {1.0, 1.0, 1.0};
+  m_ampFieldR = {1.0, 1.0, 1.0};
+#endif
+  init(materialData);
+}
+
+void seissol::physics::PlanarRiemann::init(const CellMaterialData& materialData) {
+  assert(m_varField.size() == m_ampFieldL.size());
+  assert(m_varField.size() == m_ampFieldR.size());
+}
+
+void seissol::physics::PlanarRiemann::evaluate(double time,
+                                            std::vector<std::array<double, 3>> const& points,
+					                                  const CellMaterialData& materialData,
+                                            yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+{
+  dofsQP.setZero();
+
+  for (unsigned v = 0; v < m_varField.size(); ++v) {
+    for (size_t i = 0; i < points.size(); ++i) {
+      if (points[i][0] < 0.0 ) {
+        dofsQP( i, m_varField[v] ) += m_ampFieldL[v] *
+        ( m_kVec[0] );
+      }
+      else{
+        dofsQP( i, m_varField[v] ) += m_ampFieldR[v] *
+        ( m_kVec[0] );
+      }
+    }
+  }
+}
+
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                double phase,
                std::array<double, 3> kVec,

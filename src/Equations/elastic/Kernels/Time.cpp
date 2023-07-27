@@ -187,8 +187,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 #else //USE_STP
   real const damage_para1 = 1.2e4/2;
   real const damage_para2 = 3e-6;
-  real const lambda0 = 9.71e10;
-  real const mu0 = 8.27e10;
+  // real const lambda0 = 9.71e10;
+  // real const mu0 = 8.27e10;
+  real const lambda0 = 1.0e0;
+  real const mu0 = 1.0e0;
+  real const beta_m = 0e1;
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
   // Compute the nodal solutions
@@ -208,7 +211,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
     fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-    1.0e0/(damage_para2*damage_para1)
+    0.0e0/(damage_para2*damage_para1)
       *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
     // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
   }
@@ -371,7 +374,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
     for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
       FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-      1.0e0/(damage_para2*damage_para1)
+      0.0e0/(damage_para2*damage_para1)
         *(lambda0/2.0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - damage_para1*alphaNodal[q]);
       // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
 
@@ -382,7 +385,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                     + 2*(1-alphaNodal[q])*mu0*eyyNodal[q];
       szzNodal[q] = (1-alphaNodal[q])*lambda0*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])
                     + 2*(1-alphaNodal[q])*mu0*ezzNodal[q];
-      sxyNodal[q] = 2*(1-alphaNodal[q])*mu0*exyNodal[q];
+      sxyNodal[q] = 2*(1-alphaNodal[q])*mu0*exyNodal[q]
+        * (1 - beta_m * exyNodal[q] );
       syzNodal[q] = 2*(1-alphaNodal[q])*mu0*eyzNodal[q];
       szxNodal[q] = 2*(1-alphaNodal[q])*mu0*ezxNodal[q];
       // //--- x-dir
