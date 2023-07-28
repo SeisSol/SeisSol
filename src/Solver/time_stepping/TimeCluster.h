@@ -156,6 +156,8 @@ private:
 
     kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;
 
+    kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
+
   /*
    * global data
    */
@@ -419,7 +421,7 @@ private:
             real lambda0 = 1.0;// 9.71e10;
             real mu0 = 1.0;//8.27e10;
             real rho0 = materialData[l_cell].local.rho;
-            real beta_m = 0e1;
+            real beta_m = 1e1;
 
             real lambda_max = 1.0*std::sqrt( (lambda0+2*mu0)/rho0 ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP
