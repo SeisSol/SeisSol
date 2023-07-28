@@ -156,6 +156,8 @@ private:
 
     kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;
 
+    kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
+
   /*
    * global data
    */

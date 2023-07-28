@@ -153,36 +153,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
   #endif
 
-  #ifdef USE_DAMAGEDELASTIC
-  // // Compute the Q at quadrature points in space and time
-  // /// Get quadrature points in time
-  // double timePoints[CONVERGENCE_ORDER];
-  // double timeWeights[CONVERGENCE_ORDER];
-  // seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
-  // for (unsigned int point = 0; point < CONVERGENCE_ORDER; ++point) {
-  //   timePoints[point] = 0.5 * (timeStepSize() * timePoints[point] + timeStepSize());
-  //   timeWeights[point] = 0.5 * timeStepSize() * timeWeights[point];
-  // }
-
-  // /// Get Q_{lp}(tau_z) at different time quadrature points
-  // alignas(PAGESIZE_STACK) real QInterpolatedBody[CONVERGENCE_ORDER][tensor::Q::size()]; // initializations?
-  // alignas(PAGESIZE_STACK) real* QInterpolatedBodyi;
-  // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-  //   QInterpolatedBodyi = QInterpolatedBody[timeInterval];
-  //   // m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], QInterpolatedBodyi);
-  // }
-
-  // /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
-
-  // /// Convert Q_{lp} at the initial time step from modal to nodal space
-
-
-  // /// Quadrature in time in nodal space and directly convert
-  // /// the summation results back into modal space in the python kernel
-
-  //================================END OF DAMAGE===============================
-  #endif
-
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
