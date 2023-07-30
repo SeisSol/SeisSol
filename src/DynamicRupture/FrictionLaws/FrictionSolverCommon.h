@@ -21,6 +21,7 @@ struct ForLoopRange {
   static constexpr size_t start{Start};
   static constexpr size_t end{End};
   static constexpr size_t step{Step};
+  static constexpr size_t size{End - Start};
 };
 
 enum class RangeType { CPU, GPU };
@@ -239,10 +240,23 @@ inline void postcomputeImposedStateFromNewStress(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    auto weight = timeWeights[o];
+  using NumPointsRange = typename NumPoints<Type>::Range;
+  real cachedImposedStateM[dr::misc::numQuantities][NumPointsRange::size];
+  real cachedImposedStateP[dr::misc::numQuantities][NumPointsRange::size];
 
-    using NumPointsRange = typename NumPoints<Type>::Range;
+  for (auto index = NumPointsRange::start; index < NumPointsRange::end;
+       index += NumPointsRange::step) {
+    auto i{startIndex + index};
+#pragma unroll
+    for (unsigned q = 0; q < dr::misc::numQuantities; ++q) {
+      cachedImposedStateM[q][index] = imposedStateM[q][i];
+      cachedImposedStateP[q][index] = imposedStateP[q][i];
+    }
+  }
+
+  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+    auto weight = static_cast<real>(timeWeights[o]);
+
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
@@ -254,22 +268,35 @@ inline void postcomputeImposedStateFromNewStress(
       const auto traction1 = tractionResults.traction1[o][i];
       const auto traction2 = tractionResults.traction2[o][i];
 
-      imposedStateM[N][i] += weight * normalStress;
-      imposedStateM[T1][i] += weight * traction1;
-      imposedStateM[T2][i] += weight * traction2;
-      imposedStateM[U][i] +=
+      cachedImposedStateM[N][index] += weight * normalStress;
+      cachedImposedStateM[T1][index] += weight * traction1;
+      cachedImposedStateM[T2][index] += weight * traction2;
+      cachedImposedStateM[U][index] +=
           weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      imposedStateM[V][i] +=
+      cachedImposedStateM[V][index] +=
           weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      imposedStateM[W][i] +=
+      cachedImposedStateM[W][index] +=
           weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      imposedStateP[N][i] += weight * normalStress;
-      imposedStateP[T1][i] += weight * traction1;
-      imposedStateP[T2][i] += weight * traction2;
-      imposedStateP[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      imposedStateP[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      imposedStateP[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
+      cachedImposedStateP[N][index] += weight * normalStress;
+      cachedImposedStateP[T1][index] += weight * traction1;
+      cachedImposedStateP[T2][index] += weight * traction2;
+      cachedImposedStateP[U][index] +=
+          weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
+      cachedImposedStateP[V][index] +=
+          weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
+      cachedImposedStateP[W][index] +=
+          weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
+    }
+  }
+
+  for (auto index = NumPointsRange::start; index < NumPointsRange::end;
+       index += NumPointsRange::step) {
+    auto i{startIndex + index};
+#pragma unroll
+    for (unsigned q = 0; q < dr::misc::numQuantities; ++q) {
+      imposedStateM[q][i] = cachedImposedStateM[q][index];
+      imposedStateP[q][i] = cachedImposedStateP[q][index];
     }
   }
 }
@@ -395,10 +422,23 @@ inline void computeFrictionEnergy(
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
+  real cachedAccumulatedSlip[Range::size];
+  real cachedFrictionalEnergy[Range::size];
+  real cachedSlip[3][Range::size];
+
+  for (auto index = Range::start; index < Range::end; index += Range::step) {
+    auto i{startIndex + index};
+    cachedAccumulatedSlip[index] = accumulatedSlip[i];
+    cachedFrictionalEnergy[index] = frictionalEnergy[i];
+#pragma unroll
+    for (unsigned d = 0; d < 3; ++d) {
+      cachedSlip[d][index] = slip[d][i];
+    }
+  }
 
   using namespace dr::misc::quantity_indices;
   for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
-    const auto timeWeight = timeWeights[o];
+    const auto timeWeight = static_cast<real>(timeWeights[o]);
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -413,11 +453,11 @@ inline void computeFrictionEnergy(
       const real interpolatedSlipRateMagnitude =
           misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
-      accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+      cachedAccumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
 
-      slip[0][i] += timeWeight * interpolatedSlipRate1;
-      slip[1][i] += timeWeight * interpolatedSlipRate2;
-      slip[2][i] += timeWeight * interpolatedSlipRate3;
+      cachedSlip[0][i] += timeWeight * interpolatedSlipRate1;
+      cachedSlip[1][i] += timeWeight * interpolatedSlipRate2;
+      cachedSlip[2][i] += timeWeight * interpolatedSlipRate3;
 
       const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
       const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
@@ -425,9 +465,19 @@ inline void computeFrictionEnergy(
 
       const auto spaceWeight = spaceWeights[i];
       const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      frictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
-                                       interpolatedTraction12 * interpolatedSlipRate2 +
-                                       interpolatedTraction13 * interpolatedSlipRate3);
+      cachedFrictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
+                                             interpolatedTraction12 * interpolatedSlipRate2 +
+                                             interpolatedTraction13 * interpolatedSlipRate3);
+    }
+  }
+
+  for (auto index = Range::start; index < Range::end; index += Range::step) {
+    auto i{startIndex + index};
+    accumulatedSlip[i] = cachedAccumulatedSlip[index];
+    frictionalEnergy[i] = cachedFrictionalEnergy[index];
+#pragma unroll
+    for (unsigned d = 0; d < 3; ++d) {
+      slip[d][i] = cachedSlip[d][index];
     }
   }
 }
