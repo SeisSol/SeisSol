@@ -147,6 +147,26 @@ seissol::physics::TravellingWave::TravellingWave(const CellMaterialData& materia
   }
 }
 
+seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(const CellMaterialData& materialData, const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM)
+: Planarwave(materialData, 0.5*M_PI, acousticTravellingWaveParametersITM.kVec, acousticTravellingWaveParametersITM.varField, acousticTravellingWaveParametersITM.ampField),
+m_origin(acousticTravellingWaveParametersITM.origin){
+
+    logInfo() << "Impose a travelling wave as initial condition";
+    logInfo() << "Origin = (" << m_origin[0] << ", " << m_origin[1] << ", " << m_origin[2] << ")";
+    logInfo() << "kVec = (" << m_kVec[0] << ", " << m_kVec[1] << ", " << m_kVec[2] << ")";
+    logInfo() << "Combine following wave modes";
+    for (size_t i = 0; i < m_ampField.size(); i++) {
+        logInfo() << "(" << m_varField[i] << ": " << m_ampField[i] << ")";
+    }
+}
+
+void seissol::physics::AcousticTravellingWaveITM::evaluate(double time,
+                                                           const std::vector<std::array<double, 3>> &points,
+                                                           const CellMaterialData &materialData, yateto::DenseTensorView<2, real, unsigned >& dofsQp) const {
+    dofsQp.setZero();
+    auto R = yateto::DenseTensorView<2, std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+}
+
 void seissol::physics::TravellingWave::evaluate(double time,
 				       	        std::vector<std::array<double, 3>> const& points,
 				       	        const CellMaterialData& materialData,

@@ -87,6 +87,19 @@ namespace seissol {
       std::array<double, 3> m_origin;
     };
 
+    class AcousticTravellingWaveITM : public Planarwave{
+    public:
+        AcousticTravellingWaveITM(const CellMaterialData& materialData, const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
+
+        void evaluate(double time,
+                      std::vector<std::array<double, 3>> const& points,
+                      const CellMaterialData& materialData,
+                      yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
+
+    private:
+        std::array<double, 3> m_origin;
+    };
+
     class ScholteWave : public InitialField {
     public:
       ScholteWave() = default;

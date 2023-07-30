@@ -408,6 +408,23 @@ void seissol::Interoperability::setTravellingWaveInformation(const double* origi
   }
 }
 
+void seissol::Interoperability::setAcousticTravellingWaveITMInformation(const double *origin, const double *kVec,
+                                                                        const double *ampField) {
+    assert(origin != nullptr);
+    assert(kVec != nullptr);
+    assert(ampField != nullptr);
+
+    m_travellingWaveParameters.origin = {origin[0], origin[1], origin[2]};
+    m_travellingWaveParameters.kVec = {kVec[0], kVec[1], kVec[2]};
+    constexpr double eps = 1e-15;
+    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+        if (std::abs(ampField[i]) > eps) {
+            m_travellingWaveParameters.varField.push_back(i);
+            m_travellingWaveParameters.ampField.push_back(ampField[i]);
+        }
+    }
+}
+
 void seissol::Interoperability::setInitialConditionType(char const* type) {
   assert(type != nullptr);
   // Note: Pointer to type gets deleted before doing the error computation.

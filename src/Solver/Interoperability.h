@@ -69,6 +69,7 @@ class seissol::Interoperability {
     // Type of the initial condition.
     std::string m_initialConditionType;
     TravellingWaveParameters m_travellingWaveParameters;
+    AcousticTravellingWaveParametersITM m_acousticTravellingWaveParametersITM;
     
     /* Brain dump of SeisSol's Fortran parts:
      * Raw fotran-pointer to cope with limited modularity of the
@@ -124,6 +125,8 @@ class seissol::Interoperability {
    void setInitialConditionType(char const *type);
 
    void setTravellingWaveInformation(const double* origin, const double* kVec, const double* ampField);
+
+   void setAcousticTravellingWaveITMInformation(const double* origin, const double* kVec, const double* ampField);
 
    /**
     * Sets the fortran domain.
