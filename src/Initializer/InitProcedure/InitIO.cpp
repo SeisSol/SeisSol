@@ -157,7 +157,9 @@ static void enableCheckpointing() {
 }
 
 static void initFaultOutputManager() {
-  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager();
+  const auto& seissolParams = seissol::SeisSol::main.getSeisSolParameters();
+  seissol::SeisSol::main.getMemoryManager().initFaultOutputManager(
+      seissolParams.output.faultOutput);
 
   auto* faultOutputManager = seissol::SeisSol::main.getMemoryManager().getFaultOutputManager();
   seissol::SeisSol::main.timeManager().setFaultOutputManager(faultOutputManager);
