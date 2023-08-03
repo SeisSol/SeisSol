@@ -103,6 +103,59 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   }
 }
 
+/**
+ * \brief Converts an input string to a vector of the datatype T. If the input string does not contain enough
+ * items to convert to an array of length n, we fill with default values. If the input string contains
+ * more than n items, we only consider the first n ones.
+ *
+ * \throws runtime_error if the input string contains parameters, which can not be converted to T.
+ * */
+template<typename T, size_t n>
+std::array<T, n> convertStringToArray(const std::string& inputString) {
+  auto result = std::array<T, n>();
+  if (inputString.empty()) {
+    return result;
+  }
+
+  size_t begin = 0;
+  size_t wordCount = 0;
+  enum class State { Word, Delimiter };
+  State s = inputString.at(0) == ' ' ? State::Delimiter : State::Word;
+
+  auto convert = [&inputString] (size_t begin, size_t end) {
+    size_t count = end - begin;
+    std::string word = inputString.substr(begin, count);
+    if constexpr (std::is_integral<T>::value) {
+      return std::stoi(word);
+    } else if constexpr (std::is_floating_point<T>::value) {
+      return std::stod(word);
+    } else {
+      return static_cast<T>(word);
+    }
+  };
+
+  for (size_t i = 0; i < inputString.size(); i++) {
+    if (inputString.at(i) == ' ') {
+      if (s == State::Word) {
+        result.at(wordCount) = convert(begin, i);
+        wordCount++;
+        if (wordCount >= n) {
+          break;
+        }
+      }
+      begin = i;
+      s = State::Delimiter;
+    } else {
+      s = State::Word;
+    }
+  }
+  if (wordCount < n) {
+    result.at(wordCount) = convert(begin, inputString.size());
+  }
+
+  return result;
+}
+
 using StringsType = std::list<std::string>;
 class FileProcessor {
 public:

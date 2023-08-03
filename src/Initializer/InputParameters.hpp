@@ -10,7 +10,7 @@
 #include <xdmfwriter/XdmfWriter.h>
 
 #include "Geometry/MeshReader.h"
-#include "SourceTerm/Manager.h"
+#include "SourceTerm/typedefs.hpp"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
 
@@ -71,7 +71,8 @@ enum class InitializationType : int {
   Snell,
   Ocean0,
   Ocean1,
-  Ocean2
+  Ocean2,
+  PressureInjection
 };
 
 struct InitializationParameters {
@@ -79,6 +80,8 @@ struct InitializationParameters {
   std::array<double, 3> origin;
   std::array<double, 3> kVec;
   std::array<double, NUMBER_OF_QUANTITIES> ampField;
+  double magnitude;
+  double width;
 };
 
 struct DynamicRuptureParameters {
@@ -102,7 +105,6 @@ struct MeshParameters {
   seissol::geometry::MeshFormat meshFormat;
   std::array<double, 3> displacement;
   std::array<std::array<double, 3>, 3> scaling;
-  bool showEdgeCutStatistics;
 };
 
 struct OutputInterval {

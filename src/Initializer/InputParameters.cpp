@@ -215,9 +215,6 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
   seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity =
       reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
-  auto showEdgeCut = reader.readWithDefault("showedgecutstatistics", false);
-  seissolParams.mesh.showEdgeCutStatistics = showEdgeCut;
-
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
 }
@@ -275,11 +272,18 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
           {"ocean_0", InitializationType::Ocean0},
           {"ocean_1", InitializationType::Ocean1},
           {"ocean_2", InitializationType::Ocean2},
+          {"pressureinjection", InitializationType::PressureInjection},
       });
-  seissolParams.initialization.origin = reader.readWithDefault("origin", std::array<double, 3>{0});
-  seissolParams.initialization.kVec = reader.readWithDefault("kvec", std::array<double, 3>{0});
+  const auto originString = reader.readWithDefault("origin", std::string("0.0 0.0 0.0"));
+  seissolParams.initialization.origin = initializers::convertStringToArray<double, 3>(originString);
+  const auto kVecString = reader.readWithDefault("kvec", std::string("0.0 0.0 0.0"));
+  seissolParams.initialization.kVec = initializers::convertStringToArray<double, 3>(kVecString);
+  const auto ampFieldString = reader.readWithDefault("ampfield", std::string(""));
   seissolParams.initialization.ampField =
-      reader.readWithDefault("ampfield", std::array<double, NUMBER_OF_QUANTITIES>{0});
+      initializers::convertStringToArray<double, NUMBER_OF_QUANTITIES>(ampFieldString);
+  seissolParams.initialization.magnitude = reader.readWithDefault("magnitude", 0.0);
+  seissolParams.initialization.width =
+      reader.readWithDefault("width", std::numeric_limits<double>::infinity());
 
   reader.warnUnknown();
 }
