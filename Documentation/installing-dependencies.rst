@@ -1,21 +1,235 @@
 Installing Dependencies
 =======================
 
-In order to run SeisSol, you need to first install:
+For compiling SeisSol, you will need the following dependencies during build:
 
--  Python (>= 3.5)
--  Numpy (>= 1.12.0)
--  hdf5 (>= 1.8, for instructions see below)
--  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 2021, icc, icpc, ifort) or GCC (>= 9.0, gcc, g++, gfortran)
--  Some MPI implementation (e.g. OpenMPI)
--  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
--  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>= 3.20) for the compilation of SeisSol
+- A C++17-capable compiler. We tested:
 
-For run-time partitioning you need to choose one of the following libraries:
+  - GCC (11.2.0)
+  - ICC (2022.0)
+- CMake (>= 3.20)
+- Python (>= 3.5)
+- Numpy (>= 1.12.0)
 
--  ParMETIS (with IDXTYPEWIDTH=64)
+Additionally, you need the following libraries:
+
+- MPI (Support for MPI Standard >= 2.2)
+- Eigen (>= 3.4)
+- hdf5 (>= 1.8)
+- easi (>= 1.2)
+- (optional) a code generator
+
+  - libxsmm (== 1.17, newer versions do not work with YATeTo right now)
+  - PSpaMM
+- (optional) mesh partitioning
+
+  - ParMETIS (needs METIS to be installed as well)
+  - ParHIP
+  - PT-SCOTCH
+- (optional) Netcdf (>= 4.4)
+- (optional) ASAGI
+
+All dependencies can be installed automatically with spack or manually by hand.
+For a minimal installation (e.g. for running SeisSol on your local machine),
+you may avoid all optional dependencies. However, for the maximal performance, and for compute clusters,
+we recommend having at least using a code generator and having a mesh partitioner linked to SeisSol.
+
+For the GPU version, the following packages need to be installed for the GPU version of SeisSol:
+
+- SYCL: either hipSYCL >= 0.9.3 or DPC++
+- gemmforge (>= 0.0.207)
+- (optional) chainforge (>= 0.0.2, for Nvidia and AMD GPUs)
+- (optional) CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
+
+.. _spack_installation:
+
+Spack installation
+------------------
+
+The `Spack <https://github.com/spack/spack/wiki>`_ package `seissol-env` allows to automatically install all dependencies of SeisSol (e.g. mpi, hdf5, netcdf, easi, asagi, etc),
+leaving only SeisSol itself left to be build.
+
+See https://github.com/SeisSol/seissol-spack-aid/tree/main/spack for details on the installation with spack.
+See also for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
+
+Manual Installation
+-------------------
+
+We recommend setting up a folder on your system which will contain the build files for all dependencies.
+For example, do `mkdir ~/seissol; cd seissol`.
+
+In _all_ cases before building something manually,
+make sure to check the installed module files. That is, type `module avail` and look for the software you want to use.
+Type `module load NAME` to load the respective software (with `NAME` being the name of the software, including the text after the slash, e.g. `module load cmake/3.20.0`).
+
+Setting Helpful Environment Variables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Create a file `setup.sh` with the following enviroment variables. The following script assumes that you use the folder `~/seissol`
+for building.
+
+.. code-block:: bash
+
+  # For intel compiler
+  # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  
+  # write the path here which you created your directory in (you can figure it out by typing `pwd`)
+  export SEISSOL_BASE=$HOME/seissol
+
+  export PREFIX=$SEISSOL_BASE/local
+  export PATH=$PREFIX/bin:$PATH
+  export LIBRARY_PATH=$PREFIX/lib:$PREFIX/lib64:$LIBRARY_PATH
+  export LD_LIBRARY_PATH=$PREFIX/lib:$PREFIX/lib64:$LD_LIBRARY_PATH
+  export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig:$PREFIX/lib64/pkgconfig:$PKG_CONFIG_PATH
+  export CMAKE_PREFIX_PATH=$PREFIX:$CMAKE_PREFIX_PATH
+  export CMAKE_INSTALL_PREFIX=$PREFIX
+  export CPATH=$PREFIX/include:$CPATH 
+  export C_INCLUDE_PATH=$PREFIX/include:$C_INCLUDE_PATH
+  export CXX_INCLUDE_PATH=$PREFIX/include:$CXX_INCLUDE_PATH
+  export EDITOR=nano # or e.g. vi,vim
+
+  # run "source ~/seissol/setup.sh" to apply environment to the current shell
+
+Required Dependencies
+~~~~~~~~~~~~~~~~~~~~~
+
+We assume that you have a compiler already installed.
+The same goes for a suitable Python installation.
+You will also need CMake in version 3.20.0 or above. Most likely, you system will already have a
+version of CMake installed; however, you may have to load a module to get a new enough version.
+
+If you do not have CMake in a new enough version available, you may also install it manually as follows.
+
+.. code-block:: bash
+
+  # you will need at least version 3.20.0 for GNU Compiler Collection 
+  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${HOME}/bin/cmake")
+  
+  ln -s ${PREFIX}/bin/cmake/bin/cmake ${PREFIX}/bin
+
+Note that this extracts CMake to the directory ``${PREFIX}/bin/cmake``, if you wish you can adjust that path. Note that you may now also use ``ccmake`` to get a terminal UI for configuring the following libraries.
+  
+Required Libraries
+~~~~~~~~~~~~~~~~~~
+
+The following libraries need to installed for all SeisSol CPU and GPU builds.
+To get a working CPU build, installing all libraries described here is enough.
+However, installing a GEMM generator and a graph partitioner is still recommended for better performance and better load balancing, respectively.
+
+Installing HDF5
+"""""""""""""""
+
+We begin with HDF5 which is needed for reading meshes in PUML format (the default format in SeisSol, and the output of PUMgen).
+If your system does not have it e.g. as a module file (type `module avail | grep hdf5` to look for it),
+you may compile it manually with the following commands:
+
+.. code-block:: bash
+
+  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.bz2
+  tar -xaf hdf5-1.10.8.tar.bz2
+  cd hdf5-1.10.8
+  CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc CXX=mpicxx ./configure --enable-parallel --prefix=$PREFIX --with-zlib --disable-shared
+  make -j8
+  make install
+  cd ..
+
+Installing Eigen
+""""""""""""""""
+
+Next, we look at Eigen which conveniently uses CMake as a build system for itself.
+Eigen is used in SeisSol for setting up matrices and other numerical computations, and optionally, also as code generator for matrix chain products.
+Once again, if you do not have Eigen installed, you may do so manually as follows:
+
+.. code-block:: bash
+
+   wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+   tar -xf eigen-3.4.0.tar.gz
+   cd eigen-3.4.0
+   mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX
+   make install
+   cd ../..
+
+Lastly, we need easi which is (most likely) not already installed on your system or as a module file, as it is a more SeisSol-specific library.
+It is used for setting up the model parameters.
+Here you can find the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
+
+And with that, we're good to go!
+
+Additional Requirements for GPUs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For GPUs, we need some more packages.
+
+Installing SYCL (for GPUs)
+""""""""""""""""""""""""""
+
+See section :ref:`Installing SYCL <installing_SYCL>`.
+
+Installing GemmForge, ChainForge (for GPUs)
+"""""""""""""""""""""""""""""""""""""""""""
+
+.. _gemmforge_installation:
+
+The GPU code generators are called GemmForge and ChainForge.
+Conveniently, they come as Python packages and can be installed with the following commands.
+
+.. code-block:: bash
+
+   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
+   pip3 install --user git+https://github.com/SeisSol/chainforge.git
+
+Note that ChainForge is optional.
+
+Once you have SYCL and GemmForge (maybe also ChainForge) ready, you are set for compiling SeisSol with GPUs.
+
+Code Generators for CPUs (optional, recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For CPU code generators, we support the following:
+
+- Eigen
+- libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
+- PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
+
+Note that using Eigen does not result in any additional dependencies, since it is needed in SeisSol anyways.
+Other than that, we recommend using the combination libxsmm and PSpaMM.
+
+For GPU code generators, we currently only support gemmforge and chainforge, and the latter (chainforge) is recommended.
+
+Installing Libxsmm
+""""""""""""""""""
+
+(to save data, we only use a shallow clone)
+
+.. code-block:: bash
+
+   git clone --depth=1 --branch 1.17 https://github.com/hfp/libxsmm
+   cd libxsmm
+   make generator
+   cp bin/libxsmm_gemm_generator $PREFIX/bin/
+   cd ..
+
+.. _installing_pspamm:
+
+Installing PSpaMM
+"""""""""""""""""
+
+(to save data, we only use a shallow clone)
+
+.. code-block:: bash
+
+   git clone --depth=1 https://github.com/SeisSol/PSpaMM.git
+   # make sure $PREFIX/bin exists or create it with "mkdir ~/bin"
+   ln -s $(pwd)/PSpaMM/pspamm.py $PREFIX/bin/pspamm.py
+
+Mesh Partitioning (optional, recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a good load balance on large clusters, SeisSol utilizes a mesh partitioning library during the startup of the simulation.
+Currently, the software supports the following libraries:
+
+-  ParMETIS (compile with IDXTYPEWIDTH=64)
 -  SCOTCH
 -  ParHIP
 
@@ -25,83 +239,35 @@ SCOTCH and ParHIP are free and open-source alternatives to ParMETIS and should b
 users from industry or for-profit institutions (cf. `ParMETIS license <https://github.com/KarypisLab/ParMETIS/blob/main/LICENSE>`_).
 A study comparing partition quality for SeisSol meshes can be found `here <https://home.in.tum.de/~schnelle/publications/bachelorsthesis-informatics-final.pdf>`_.
 
+ParMETIS
+""""""""
 
-In addition, the following packages need to be installed for the GPU version of SeisSol:
-
-- CUDA (>= 11.0)  for Nvidia GPUs, or HIP (ROCm>= 5.2.0) for AMD GPUs
-- SYCL: either hipSYCL >= 0.9.3 or DPC++
-- gemmforge (>= 0.0.207)
-- chainforge (>= 0.0.3, for Nvidia and AMD GPUs)
-
-
-These dependencies can be installed automatically with spack or can be installed manually one by one.
-
-
-.. _spack_installation:
-
-Spack installation
-------------------
-
-`Spack <https://github.com/spack/spack/wiki>`_ is a HPC software package manager.
-It automates the process of installing, upgrading, configuring, and removing computer programs.
-In particular, our spack package `seissol-env` allows automatically installing all dependencies of SeisSol (e.g. mpi, hdf5, netcdf, easi, asagi, etc).
-See https://github.com/SeisSol/seissol-spack-aid/tree/main/spack for details on the installation with spack.
-See also for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
-
-
-Manual installation
--------------------
-
-Initial Adjustments to .bashrc
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Add the following lines to your .bashrc (vi ~/.bashrc).
+ParMETIS may be installed as follows:
 
 .. code-block:: bash
 
-  # For intel compiler
-  # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
-  
-  export PATH=$HOME/bin:$PATH
-  export LIBRARY_PATH=$HOME/lib:$LIBRARY_PATH
-  export LD_LIBRARY_PATH=$HOME/lib:$LD_LIBRARY_PATH
-  export PKG_CONFIG_PATH=$HOME/lib/pkgconfig:$PKG_CONFIG_PATH
-  export CMAKE_PREFIX_PATH=$HOME
-  export EDITOR=vi
-  export CPATH=$HOME/include:$CPATH 
-
-  # run "exec bash" or "source ~/.bashrc" to apply environment to the current shell
-
-Installing CMake
-~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-  # you will need at least version 3.20.0 for GNU Compiler Collection 
-  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.20.0-linux-x86_64" "${HOME}/bin/cmake")
-  
-  # use version 3.16.2 for Intel Compiler Collection
-  (cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.16.2-Linux-x86_64" "${HOME}/bin/cmake")
-  
-  ln -s ${HOME}/bin/cmake/bin/cmake ${HOME}/bin
-
-Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
-  
-Installing HDF5
-~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.bz2
-  tar -xaf hdf5-1.10.8.tar.bz2
-  cd hdf5-1.10.8
-  CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran 
-  make -j8
+  wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
+  tar -xvf parmetis-4.0.3.tar.gz
+  cd parmetis-4.0.3
+  #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
+  make config cc=mpicc cxx=mpiCC prefix=$PREFIX 
   make install
+  cp build/Linux-x86_64/libmetis/libmetis.a $PREFIX/lib
+  cp metis/include/metis.h $PREFIX/include
   cd ..
 
-Installing netCDF
-~~~~~~~~~~~~~~~~~
+(Make sure $HOME/include contains metis.h and $HOME/lib contains
+libmetis.a. Otherwise, compile error: cannot find parmetis.)
+
+Other Software (optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+netCDF
+""""""
+
+NetCDF is needed for convergence tests, as these use periodic boundary conditions—and such are not supported by the PUML mesh format.
+Also, point sources utilize the netCDF backend.
+Once again, if you do not have it installed (sometimes it comes bundled with HDF5), you may do so manually.
 
 .. code-block:: bash
 
@@ -115,102 +281,13 @@ Installing netCDF
   make install
   cd ..
 
-.. _installing_eigen3:
-
-Installing Eigen3
-~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
-   tar -xf eigen-3.4.0.tar.gz
-   cd eigen-3.4.0
-   mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~
-   make install
-   cd ../..
-
-.. _installing_libxsmm:
-
-Installing Libxsmm
-~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   git clone --branch 1.17 https://github.com/hfp/libxsmm
-   cd libxsmm
-   make generator
-   cp bin/libxsmm_gemm_generator $HOME/bin
-   cd ..
-
-.. _installing_pspamm:
-
-Installing PSpaMM
-~~~~~~~~~~~~~~~~~
-
-
-
-.. code-block:: bash
-
-   git clone https://github.com/SeisSol/PSpaMM.git
-   # make sure $HOME/bin exists or create it with "mkdir ~/bin"
-   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin/pspamm.py
-   
-Instead of linking, you could also add the following line to your .bashrc:
-
-.. code-block:: bash
-
-   export PATH=<Your_Path_to_PSpaMM>:$PATH
-
-
-.. _installing_parmetis:
-
-Installing ParMetis
-~~~~~~~~~~~~~~~~~~~
-
-
-.. code-block:: bash
-
-  wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz
-  tar -xvf parmetis-4.0.3.tar.gz
-  cd parmetis-4.0.3
-  #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-  make config cc=mpicc cxx=mpiCC prefix=$HOME 
-  make install
-  cp build/Linux-x86_64/libmetis/libmetis.a $HOME/lib
-  cp metis/include/metis.h $HOME/include
-  cd ..
-
-(Make sure $HOME/include contains metis.h and $HOME/lib contains
-libmetis.a. Otherwise, compile error: cannot find parmetis.)
-
-
-Installing ASAGI (Optional)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ASAGI
+"""""
 
 See section :ref:`Installing ASAGI <installing_ASAGI>`.
 
-.. _compiling-seissol:
+Compiling SeisSol
+-----------------
 
-Installing easi
-~~~~~~~~~~~~~~~
-
-Follow the `installation instructions <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_.
-
-
-Installing GemmForge, ChainForge (for GPUs)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. _gemmforge_installation:
-
-.. code-block:: bash
-
-   pip3 install --user git+https://github.com/SeisSol/gemmforge.git
-   pip3 install --user git+https://github.com/SeisSol/chainforge.git
-
-Installing SYCL (for GPUs)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-See section :ref:`Installing SYCL <installing_SYCL>`.
-
-
+And with that, we're ready to compile SeisSol itself! For that, proceed to the next page
+:ref:`Compiling SeisSol <build_seissol>`.
