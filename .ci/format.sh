@@ -8,7 +8,7 @@
 
 format() {
     # don't use a directory with whitespace
-    local whitelist_dir="
+    local allowlist_dir="
         src/DynamicRupture
         src/tests/DynamicRupture
         src/tests/Model
@@ -18,8 +18,8 @@ format() {
         src/SourceTerm
         "
     
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
-    local whitelist_file="
+    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
+    local allowlist_file="
         src/Initializer/BasicTypedefs.hpp
         src/Initializer/InputParameters.hpp
         src/Initializer/InputParameters.cpp
@@ -63,7 +63,7 @@ format() {
         exit 166
     fi
 
-    for dir in ${whitelist_dir}; do
+    for dir in ${allowlist_dir}; do
         path=${SEISSOL_SOURCE_DIR}/${dir}
         files=$(find ${path} -type f -iname *.[ch] -o -iname *.[ch]pp -o -iname *.[ch]xx -iname *.cu)
         for file in ${files}; do
@@ -71,7 +71,7 @@ format() {
         done
     done
 
-    for file in ${whitelist_file}; do
+    for file in ${allowlist_file}; do
         ${formatter} -i -style=file ${SEISSOL_SOURCE_DIR}/$file
     done
 }

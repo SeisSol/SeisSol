@@ -9,12 +9,12 @@
 
 format() {
     # don't use a directory with whitespace
-    local whitelist_dir="
+    local allowlist_dir="
         src/DynamicRupture
         "
     
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to whitelist_dir instead
-    local whitelist_file="
+    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
+    local allowlist_file="
         src/main.cpp
         "
 
@@ -33,11 +33,11 @@ format() {
     # (it may not be 100%ly exact, but it works for our case)
 
     FILE_REGEX="^\$"
-    for dir in ${whitelist_dir}; do
+    for dir in ${allowlist_dir}; do
         escaped="$(printf '%s' "$dir" | sed 's/[.[\(*^$+?{|]/\\&/g')"
         FILE_REGEX="${FILE_REGEX}|${escaped}/"
     done
-    for file in ${whitelist_file}; do
+    for file in ${allowlist_file}; do
         escaped="$(printf '%s' "$file" | sed 's/[.[\(*^$+?{|]/\\&/g')"
         FILE_REGEX="${FILE_REGEX}|${escaped}\$"
     done
