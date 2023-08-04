@@ -201,7 +201,6 @@ class MPI : public MPIBasic {
    * Finalize MPI
    */
   void finalize() {
-    fault.finalize();
     MPI_Finalize();
   }
 

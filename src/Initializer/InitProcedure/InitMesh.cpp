@@ -52,9 +52,6 @@ static void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.exchangeGhostlayerMetadata();
 
   seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
-
-  // Setup the communicator for dynamic rupture
-  seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
 }
 
 static void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
