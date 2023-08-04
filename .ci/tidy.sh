@@ -28,7 +28,7 @@ format() {
         exit 177
     fi
 
-    # we'll treat all files as headers... Any code files are never included somewhere anyways (hopefully, at least).
+    # (we'll treat all files as headers here, but that should not have any effect on the behavior of clang-tidy)
     # regex escaping is from https://unix.stackexchange.com/a/209744
     # (it may not be 100%ly exact, but it works for our case)
 
