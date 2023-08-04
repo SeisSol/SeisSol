@@ -28,13 +28,18 @@ format() {
         exit 177
     fi
 
-    # we'll treat all files as headers... Which does not matter.
+    # we'll treat all files as headers... Any code files are never included somewhere anyways (hopefully, at least).
+    # regex escaping is from https://unix.stackexchange.com/a/209744
+    # (it may not be 100%ly exact, but it works for our case)
+
     FILE_REGEX="^\$"
     for dir in ${whitelist_dir}; do
-        FILE_REGEX="${FILE_REGEX}|${dir}/"
+        escaped="$(printf '%s' "$dir" | sed 's/[.[\(*^$+?{|]/\\&/g')"
+        FILE_REGEX="${FILE_REGEX}|${escaped}/"
     done
     for file in ${whitelist_file}; do
-        FILE_REGEX="${FILE_REGEX}|${file}\$"
+        escaped="$(printf '%s' "$file" | sed 's/[.[\(*^$+?{|]/\\&/g')"
+        FILE_REGEX="${FILE_REGEX}|${escaped}\$"
     done
 
     python3 ${SEISSOL_SOURCE_DIR}/.ci/run-clang-tidy.py -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
