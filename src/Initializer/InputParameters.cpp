@@ -201,11 +201,14 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
       {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
        {"puml", seissol::geometry::MeshFormat::PUML}});
 
-  seissolParams.mesh.displacement =
-      reader.readWithDefault("displacement", std::array<double, 3>{0, 0, 0});
-  auto scalingX = reader.readWithDefault("scalingmatrixx", std::array<double, 3>{1, 0, 0});
-  auto scalingY = reader.readWithDefault("scalingmatrixy", std::array<double, 3>{0, 1, 0});
-  auto scalingZ = reader.readWithDefault("scalingmatrixz", std::array<double, 3>{0, 0, 1});
+  seissolParams.mesh.displacement = seissol::initializers::convertStringToArray<double, 3>(
+      reader.readWithDefault("displacement", std::string("0.0 0.0 0.0")));
+  auto scalingX = seissol::initializers::convertStringToArray<double, 3>(
+      reader.readWithDefault("scalingmatrixx", std::string("1.0 0.0 0.0")));
+  auto scalingY = seissol::initializers::convertStringToArray<double, 3>(
+      reader.readWithDefault("scalingmatrixy", std::string("0.0 1.0 0.0")));
+  auto scalingZ = seissol::initializers::convertStringToArray<double, 3>(
+      reader.readWithDefault("scalingmatrixz", std::string("0.0 0.0 1.0")));
   seissolParams.mesh.scaling = {scalingX, scalingY, scalingZ};
 
   seissolParams.timeStepping.vertexWeight.weightElement =
@@ -215,8 +218,7 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
   seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity =
       reader.readWithDefault("vertexweightfreesurfacewithgravity", 100);
 
-  auto showEdgeCut = reader.readWithDefault("showedgecutstatistics", false);
-  seissolParams.mesh.showEdgeCutStatistics = showEdgeCut;
+  seissolParams.mesh.showEdgeCutStatistics = reader.readWithDefault("showedgecutstatistics", false);
 
   reader.warnDeprecated({"periodic", "periodic_direction"});
   reader.warnUnknown();
@@ -275,11 +277,24 @@ static void readInitialization(ParameterReader& baseReader, SeisSolParameters& s
           {"ocean_0", InitializationType::Ocean0},
           {"ocean_1", InitializationType::Ocean1},
           {"ocean_2", InitializationType::Ocean2},
+          {"pressureinjection", InitializationType::PressureInjection},
       });
-  seissolParams.initialization.origin = reader.readWithDefault("origin", std::array<double, 3>{0});
-  seissolParams.initialization.kVec = reader.readWithDefault("kvec", std::array<double, 3>{0});
+  const auto originString = reader.readWithDefault("origin", std::string("0.0 0.0 0.0"));
+  seissolParams.initialization.origin =
+      seissol::initializers::convertStringToArray<double, 3>(originString);
+  const auto kVecString = reader.readWithDefault("kvec", std::string("0.0 0.0 0.0"));
+  seissolParams.initialization.kVec =
+      seissol::initializers::convertStringToArray<double, 3>(kVecString);
+  std::string defaultAmpFieldString;
+  for (int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    defaultAmpFieldString += " 0.0";
+  }
+  const auto ampFieldString = reader.readWithDefault("ampfield", defaultAmpFieldString);
   seissolParams.initialization.ampField =
-      reader.readWithDefault("ampfield", std::array<double, NUMBER_OF_QUANTITIES>{0});
+      seissol::initializers::convertStringToArray<double, NUMBER_OF_QUANTITIES>(ampFieldString);
+  seissolParams.initialization.magnitude = reader.readWithDefault("magnitude", 0.0);
+  seissolParams.initialization.width =
+      reader.readWithDefault("width", std::numeric_limits<double>::infinity());
 
   reader.warnUnknown();
 }
@@ -352,7 +367,8 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
   // (these variables are usually not prefixed with "wavefield" or the likes)
 
   // bounds
-  auto bounds = reader.readWithDefault("outputregionbounds", std::array<double, 6>{0});
+  auto bounds = seissol::initializers::convertStringToArray<double, 6>(
+      reader.readWithDefault("outputregionbounds", std::string("0.0 0.0 0.0 0.0 0.0 0.0")));
   seissolParams.output.waveFieldParameters.bounds.boundsX.lower = bounds[0];
   seissolParams.output.waveFieldParameters.bounds.boundsX.upper = bounds[1];
   seissolParams.output.waveFieldParameters.bounds.boundsY.lower = bounds[2];
