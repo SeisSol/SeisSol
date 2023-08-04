@@ -48,5 +48,5 @@ jobs:
           cd build
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
-          python3 ../.ci/run-clang-tidy.py -quiet -header-filter=../src/DynamicRupture/* -j $(nproc)
+          ../.ci/tidy.sh ../ ./ -quiet -j $(nproc)
         displayName: clang-tidy
