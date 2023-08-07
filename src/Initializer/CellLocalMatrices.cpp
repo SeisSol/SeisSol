@@ -356,8 +356,12 @@ void seissol::initializers::initializeBoundaryMappings(const seissol::geometry::
   }
 }
 
-template<typename T, int dim1, int dim2>
-void copyEigenToYateto (Eigen::Matrix<T, dim1, dim2> const& matrix, yateto::DenseTensorView<2, T>& tensorView) {
+/**
+ * Copies an eigen3 matrix to a 2D yateto tensor
+ */
+template <typename T, int dim1, int dim2>
+void copyEigenToYateto(Eigen::Matrix<T, dim1, dim2> const& matrix,
+                       yateto::DenseTensorView<2, T>& tensorView) {
   assert(tensorView.shape(0) == dim1);
   assert(tensorView.shape(1) == dim2);
 
@@ -367,7 +371,7 @@ void copyEigenToYateto (Eigen::Matrix<T, dim1, dim2> const& matrix, yateto::Dens
       tensorView(row, col) = matrix(row, col);
     }
   }
-};
+}
 
 constexpr int N = tensor::Zminus::Shape[0];
 Eigen::Matrix<real, N, N> extractMatrix(eigenvalues::Eigenpair<std::complex<double>, NUMBER_OF_QUANTITIES> eigenpair) {

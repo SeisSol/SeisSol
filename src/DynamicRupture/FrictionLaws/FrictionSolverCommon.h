@@ -46,23 +46,6 @@ struct QInterpolated {
 };
 
 /**
- * Copies an eigen3 matrix to a 2D yateto tensor
- */
-template <typename T, int dim1, int dim2>
-void copyEigenToYateto(Eigen::Matrix<T, dim1, dim2> const& matrix,
-                       yateto::DenseTensorView<2, T>& tensorView) {
-  assert(tensorView.shape(0) == dim1);
-  assert(tensorView.shape(1) == dim2);
-
-  tensorView.setZero();
-  for (size_t row = 0; row < dim1; ++row) {
-    for (size_t col = 0; col < dim2; ++col) {
-      tensorView(row, col) = matrix(row, col);
-    }
-  }
-}
-
-/**
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPreCompute(
