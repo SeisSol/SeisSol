@@ -98,7 +98,8 @@ static std::vector<std::unique_ptr<physics::InitialField>> buildInitialCondition
              seissol::initializer::parameters::InitializationType::PressureInjection) {
     initialConditionDescription = "Pressure Injection";
 #ifndef USE_POROELASTIC
-    logError() << "The initial condition 'Pressure Injection' only works with poroelastic materials.";
+    logError()
+        << "The initial condition 'Pressure Injection' only works with poroelastic materials.";
 #endif
     initConditions.emplace_back(new physics::PressureInjection(initConditionParams));
   }
