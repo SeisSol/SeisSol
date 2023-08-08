@@ -17,6 +17,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializers::Layer& layerData,
   impAndEta = layerData.var(dynRup->impAndEta);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS);
   nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS);
+  nucleationStressInFaultCS2 = layerData.var(dynRup->nucleationStressInFaultCS2);
   mu = layerData.var(dynRup->mu);
   accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude);
   slip1 = layerData.var(dynRup->slip1);

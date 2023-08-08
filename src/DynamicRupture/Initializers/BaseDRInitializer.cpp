@@ -22,7 +22,7 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
 
     // read initial stress and nucleation stress
     auto addStressesToStorageMap = [&parameterToStorageMap, &it, this](StressTensor& initialStress,
-                                                                       bool readNucleation) {
+                                                                       int readNucleation) {
       // return pointer to first element
       auto getRawData = [](StressTensor::VectorOfArrays_t& vectorOfArrays) {
         return vectorOfArrays.data()->data();
@@ -58,10 +58,13 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
     };
 
     StressTensor initialStress(it->getNumberOfCells());
-    const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, false);
+    const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, 0);
     StressTensor nucleationStress(it->getNumberOfCells());
     const bool nucleationStressParameterizedByTraction =
-        addStressesToStorageMap(nucleationStress, true);
+        addStressesToStorageMap(nucleationStress, 1);
+    StressTensor nucleationStress2(it->getNumberOfCells());
+    const bool nucleationStressParameterizedByTraction2 =
+        addStressesToStorageMap(nucleationStress2, 2);
 
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, it);
@@ -83,10 +86,15 @@ void BaseDRInitializer::initializeFault(seissol::initializers::DynamicRupture co
     // rotate nucleation stress to fault coordinate system
     if (nucleationStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, it, nucleationStress);
+      rotateTractionToCartesianStress(dynRup, it, nucleationStress2);
     }
     real(*nucleationStressInFaultCS)[misc::numPaddedPoints][6] =
         it->var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(dynRup, it, nucleationStressInFaultCS, nucleationStress);
+
+    real(*nucleationStressInFaultCS2)[misc::numPaddedPoints][6] =
+        it->var(dynRup->nucleationStressInFaultCS2);
+    rotateStressToFaultCS(dynRup, it, nucleationStressInFaultCS2, nucleationStress2);
 
     initializeOtherVariables(dynRup, it);
   }
@@ -254,15 +262,20 @@ bool BaseDRInitializer::faultProvides(const std::string& parameter) {
 }
 
 std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
-    BaseDRInitializer::stressIdentifiers(bool readNucleation) {
+    BaseDRInitializer::stressIdentifiers(int readNucleation) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
-  if (readNucleation) {
-    tractionNames = {"Tnuc_n", "Tnuc_s", "Tnuc_d"};
-    cartesianNames = {"nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy", "nuc_yz", "nuc_xz"};
+  if (readNucleation == 2) {
+    tractionNames = {"Tnuc2_n", "Tnuc2_s", "Tnuc2_d"};
+    cartesianNames = {"nuc2_xx", "nuc2_yy", "nuc2_zz", "nuc2_xy", "nuc2_yz", "nuc2_xz"};
   } else {
-    tractionNames = {"T_n", "T_s", "T_d"};
-    cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
+    if (readNucleation == 1) {
+      tractionNames = {"Tnuc_n", "Tnuc_s", "Tnuc_d"};
+      cartesianNames = {"nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy", "nuc_yz", "nuc_xz"};
+    } else {
+      tractionNames = {"T_n", "T_s", "T_d"};
+      cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
+    }
   }
 
   bool allTractionParametersSupplied = true;
@@ -286,10 +299,10 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     return {tractionNames, Parametrization::Traction};
   } else {
     logError() << "Please specify a correct parametrization of the "
-               << (readNucleation ? "nucleation stress." : "initial stress.")
+               << (readNucleation > 0 ? "nucleation stress." : "initial stress.")
                << "You have either not specified all parameters or an uncommom mixture of "
                   "parameters. Give either all of "
-               << (readNucleation
+               << (readNucleation > 0
                        ? "(nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz) or all of (Tnuc_n, "
                          "Tnuc_s, Tnuc_d)"
                        : "(s_xx, s_yy, s_zz, s_xy, s_yz, s_xz) or all of (T_n, T_s, T_d)")
