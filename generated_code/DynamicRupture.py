@@ -80,7 +80,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 
-  fluxScale = Scalar('fluxScale')
+  fluxScale = Scalar('fluxScaleDR')
   generator.add('rotateFluxMatrix', fluxSolver['qp'] <= fluxScale * aderdg.starMatrix(0)['qk'] * aderdg.T['pk'])
 
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
