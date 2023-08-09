@@ -55,6 +55,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
         const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
+        const auto* devNucleationStressInFaultCS2{this->nucleationStressInFaultCS2};
 
         this->queue.submit([&](sycl::handler& cgh) {
           if (timeIndex == 0) {
@@ -67,6 +68,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             using StdMath = seissol::functions::SyclStdFunctions;
             common::adjustInitialStress<gpuRangeType, StdMath>(
                 devInitialStressInFaultCS[ltsFace],
+                devNucleationStressInFaultCS2[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
                 fullUpdateTime,
                 t0,
