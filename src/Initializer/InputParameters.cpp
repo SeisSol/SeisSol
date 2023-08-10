@@ -188,6 +188,54 @@ static void readBoundaries(ParameterReader& baseReader, SeisSolParameters& seiss
   reader.warnUnknown();
 }
 
+static void readCubeGenerator(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
+  auto reader = baseReader.readSubNode("cubegenerator");
+
+  seissolParams.cubeGenerator.boundaries.cubeMinX =
+      reader.readWithDefault("cubeminx", 6);
+  seissolParams.cubeGenerator.boundaries.cubeMaxX =
+      reader.readWithDefault("cubemaxx", 6);
+  seissolParams.cubeGenerator.boundaries.cubeMinY =
+      reader.readWithDefault("cubeminy", 6);
+  seissolParams.cubeGenerator.boundaries.cubeMaxY =
+      reader.readWithDefault("cubemaxy", 6);
+  seissolParams.cubeGenerator.boundaries.cubeMinZ =
+      reader.readWithDefault("cubeminz", 6);
+  seissolParams.cubeGenerator.boundaries.cubeMaxZ =
+      reader.readWithDefault("cubemaxz", 6);
+
+  seissolParams.cubeGenerator.dims.cubeX =
+      reader.readWithDefault("cubex", 2);
+  seissolParams.cubeGenerator.dims.cubeY =
+      reader.readWithDefault("cubey", 2);
+  seissolParams.cubeGenerator.dims.cubeZ =
+      reader.readWithDefault("cubez", 2);
+
+  seissolParams.cubeGenerator.partitions.cubePx =
+      reader.readWithDefault("cubepx", 1);
+  seissolParams.cubeGenerator.partitions.cubePy =
+      reader.readWithDefault("cubepy", 1);
+  seissolParams.cubeGenerator.partitions.cubePz =
+      reader.readWithDefault("cubepz", 1);
+
+  seissolParams.cubeGenerator.scaling.cubeS =
+      reader.readWithDefault("cubes", 100);
+  seissolParams.cubeGenerator.scaling.cubeSx =
+      reader.readWithDefault("cubesx", seissolParams.cubeGenerator.scaling.cubeS);
+  seissolParams.cubeGenerator.scaling.cubeSy =
+      reader.readWithDefault("cubesy", seissolParams.cubeGenerator.scaling.cubeS);
+  seissolParams.cubeGenerator.scaling.cubeSz =
+      reader.readWithDefault("cubesz", seissolParams.cubeGenerator.scaling.cubeS);
+
+  seissolParams.cubeGenerator.translation.cubeTx =
+      reader.readWithDefault("cubetx", 0.0);
+  seissolParams.cubeGenerator.translation.cubeTy =
+      reader.readWithDefault("cubety", 0.0);
+  seissolParams.cubeGenerator.translation.cubeTz =
+      reader.readWithDefault("cubetz", 0.0); 
+}
+
+
 static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("meshnml");
 
@@ -199,7 +247,36 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
       "meshgenerator",
       "puml",
       {{"netcdf", seissol::geometry::MeshFormat::Netcdf},
-       {"puml", seissol::geometry::MeshFormat::PUML}});
+       {"puml", seissol::geometry::MeshFormat::PUML},
+       {"cubegenerator", seissol::geometry::MeshFormat::CubeGenerator}});
+
+  if (seissolParams.mesh.meshFormat == seissol::geometry::MeshFormat::CubeGenerator) {
+    readCubeGenerator(baseReader, seissolParams);
+  }
+  else {
+    // TODO: big block of markUnused, is there a prettier way?
+    // could also write a seperate function containing these markUnused calls
+    reader.markUnused("cubegenerator");
+    reader.markUnused("cubeminx");
+    reader.markUnused("cubemaxx");
+    reader.markUnused("cubeminy");
+    reader.markUnused("cubemaxy");
+    reader.markUnused("cubeminz");
+    reader.markUnused("cubemaxz");
+    reader.markUnused("cubex");
+    reader.markUnused("cubey");
+    reader.markUnused("cubez");
+    reader.markUnused("cubepx");
+    reader.markUnused("cubepy");
+    reader.markUnused("cubepz");
+    reader.markUnused("cubes");
+    reader.markUnused("cubesx");
+    reader.markUnused("cubesy");
+    reader.markUnused("cubesz");
+    reader.markUnused("cubeTx");
+    reader.markUnused("cubeTy");
+    reader.markUnused("cubeTz");    
+  }
 
   seissolParams.mesh.displacement = seissol::initializers::convertStringToArray<double, 3>(
       reader.readWithDefault("displacement", std::string("0.0 0.0 0.0")));

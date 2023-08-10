@@ -108,6 +108,48 @@ struct MeshParameters {
   bool showEdgeCutStatistics;
 };
 
+struct CubeGeneratorBoundaries {
+  unsigned int cubeMinX;
+  unsigned int cubeMaxX;
+  unsigned int cubeMinY;
+  unsigned int cubeMaxY;
+  unsigned int cubeMinZ;
+  unsigned int cubeMaxZ;
+};
+
+struct CubeGeneratorDims {
+  unsigned cubeX;
+  unsigned cubeY;
+  unsigned cubeZ;
+};
+
+struct CubeGeneratorPartitions {
+  unsigned cubePx;
+  unsigned cubePy;
+  unsigned cubePz;
+};
+
+struct CubeGeneratorScaling {
+  double cubeS;
+  double cubeSx;
+  double cubeSy;
+  double cubeSz;
+};
+
+struct CubeGeneratorTranslation {
+  double cubeTx;
+  double cubeTy;
+  double cubeTz;
+};
+
+struct CubeGeneratorParameters {
+  CubeGeneratorBoundaries boundaries;
+  CubeGeneratorDims dims;
+  CubeGeneratorPartitions partitions;
+  CubeGeneratorScaling scaling;
+  CubeGeneratorTranslation translation;
+};
+
 struct OutputInterval {
   double lower;
   double upper;
@@ -205,6 +247,7 @@ struct SeisSolParameters {
   ModelParameters model;
   DynamicRuptureParameters dynamicRupture;
   MeshParameters mesh;
+  CubeGeneratorParameters cubeGenerator;
   InitializationParameters initialization;
   OutputParameters output;
   TimeSteppingParameters timeStepping;
