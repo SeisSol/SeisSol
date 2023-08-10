@@ -104,9 +104,15 @@ class ParameterReader {
     }
   }
 
-  void markUnused(const std::string& field) {
+  void markUnusedSingle(const std::string& field) {
     logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
     visited.emplace(field);
+  }
+
+  void markUnused(const std::vector<std::string>& fields) {
+    for (const auto& field : fields) {
+      markUnusedSingle(field);
+    }
   }
 
   ParameterReader readSubNode(const std::string& subnodeName) {
@@ -170,8 +176,8 @@ static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolPar
   seissolParams.model.freqRatio = reader.readOrFail<double>(
       "freqratio", "equations.freqratio is needed for the attenuation fitting.");
 #else
-  reader.markUnused("freqcentral");
-  reader.markUnused("freqratio");
+  reader.markUnused({"freqcentral",
+                     "freqratio"});
 #endif
 
   reader.warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
@@ -254,28 +260,26 @@ static void readMesh(ParameterReader& baseReader, SeisSolParameters& seissolPara
     readCubeGenerator(baseReader, seissolParams);
   }
   else {
-    // TODO: big block of markUnused, is there a prettier way?
-    // could also write a seperate function containing these markUnused calls
-    reader.markUnused("cubegenerator");
-    reader.markUnused("cubeminx");
-    reader.markUnused("cubemaxx");
-    reader.markUnused("cubeminy");
-    reader.markUnused("cubemaxy");
-    reader.markUnused("cubeminz");
-    reader.markUnused("cubemaxz");
-    reader.markUnused("cubex");
-    reader.markUnused("cubey");
-    reader.markUnused("cubez");
-    reader.markUnused("cubepx");
-    reader.markUnused("cubepy");
-    reader.markUnused("cubepz");
-    reader.markUnused("cubes");
-    reader.markUnused("cubesx");
-    reader.markUnused("cubesy");
-    reader.markUnused("cubesz");
-    reader.markUnused("cubeTx");
-    reader.markUnused("cubeTy");
-    reader.markUnused("cubeTz");    
+    reader.markUnused({"cubegenerator",
+                       "cubeminx",
+                       "cubemaxx",
+                       "cubeminy",
+                       "cubemaxy",
+                       "cubeminz",
+                       "cubemaxz",
+                       "cubex",
+                       "cubey",
+                       "cubez",
+                       "cubepx",
+                       "cubepy",
+                       "cubepz",
+                       "cubes",
+                       "cubesx",
+                       "cubesy",
+                       "cubesz",
+                       "cubeTx",
+                       "cubeTy",
+                       "cubeTz"});
   }
 
   seissolParams.mesh.displacement = seissol::initializers::convertStringToArray<double, 3>(
@@ -317,13 +321,13 @@ static void readTimeStepping(ParameterReader& baseReader, SeisSolParameters& sei
       });
 
   // TODO(David): integrate LTS parameters here
-  reader.markUnused("ltswigglefactormin");
-  reader.markUnused("ltswigglefactorstepsize");
-  reader.markUnused("ltswigglefactorenforcemaximumdifference");
-  reader.markUnused("ltsmaxnumberofclusters");
-  reader.markUnused("ltsautomergeclusters");
-  reader.markUnused("ltsallowedrelativeperformancelossautomerge");
-  reader.markUnused("ltsautomergecostbaseline");
+  reader.markUnused({"ltswigglefactormin",
+                     "ltswigglefactorstepsize",
+                     "ltswigglefactorenforcemaximumdifference",
+                     "ltsmaxnumberofclusters",
+                     "ltsautomergeclusters",
+                     "ltsallowedrelativeperformancelossautomerge",
+                     "ltsautomergecostbaseline"});
 
   reader.warnDeprecated({"ckmethod",
                          "dgfineout1d",
@@ -437,7 +441,7 @@ static void readOutput(ParameterReader& baseReader, SeisSolParameters& seissolPa
     seissolParams.output.checkpointParameters.fileName =
         reader.readOrFail<std::string>("checkpointfile", "No checkpoint filename given.");
   } else {
-    reader.markUnused("checkpointfile");
+    reader.markUnused({"checkpointfile"});
   }
 
   // output: wavefield
@@ -583,7 +587,7 @@ static void readSource(ParameterReader& baseReader, SeisSolParameters& seissolPa
     seissolParams.source.fileName =
         reader.readOrFail<std::string>("filename", "No source file specified.");
   } else {
-    reader.markUnused("filename");
+    reader.markUnused({"filename"});
   }
 
   reader.warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
@@ -605,9 +609,9 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   readAbortCriteria(baseReader, *this);
 
   // TODO(David): remove once DR parameter reading is integrated here
-  baseReader.markUnused("dynamicrupture");
-  baseReader.markUnused("elementwise");
-  baseReader.markUnused("pickpoint");
+  baseReader.markUnused({"dynamicrupture",
+                         "elementwise",
+                         "pickpoint"});
 
   baseReader.warnDeprecated({"rffile",
                              "inflowbound",
