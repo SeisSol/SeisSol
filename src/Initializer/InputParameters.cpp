@@ -530,14 +530,4 @@ void SeisSolParameters::readParameters(const YAML::Node& baseNode) {
   baseReader.warnUnknown();
 
   logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
-
-  auto printYesNo = [](bool yesno) { return yesno ? "yes" : "no"; };
-
-  logInfo(seissol::MPI::mpi.rank()) << "Model information:";
-  logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << printYesNo(isModelElastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Viscoelastic model:" << printYesNo(isModelViscoelastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Anelastic model:" << printYesNo(isModelAnelastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Poroelastic model:" << printYesNo(isModelPoroelastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Anisotropic model:" << printYesNo(isModelAnisotropic());
-  logInfo(seissol::MPI::mpi.rank()) << "Plasticity:" << printYesNo(this->model.plasticity);
 }
