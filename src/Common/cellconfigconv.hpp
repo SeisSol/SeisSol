@@ -24,33 +24,6 @@ void printSupportedConfigs() {
   logInfo() << "The end.";
 }
 
-template <std::size_t I>
-SupportedConfigs fromStructSub(const CellConfigT& config) {
-  if constexpr (I < std::variant_size_v<SupportedConfigs>) {
-    using ConfigI = std::variant_alternative_t<I, SupportedConfigs>;
-    if (ConfigI::cellConfig() == config) {
-      return SupportedConfigs(ConfigI());
-    } else {
-      return fromStructSub<I + 1>(config);
-    }
-  } else {
-    // TODO(David): make more descriptive
-    logError() << "Unknown cell configuration.";
-    throw std::runtime_error("Unknown cell configuration.");
-  }
-}
-
-SupportedConfigs configFromStruct(const CellConfigT& config) { return fromStructSub<0>(config); }
-
-constexpr CellConfigT configToStruct(const SupportedConfigs& config) {
-  return std::visit(
-      [&](auto&& elem) {
-        using ConfigT = std::decay_t<decltype(elem)>;
-        return ConfigT::cellConfig();
-      },
-      config);
-}
-
 // partially inspired by
 // https://stackoverflow.com/questions/66944744/syntax-to-unpack-tuple-on-parameter-pack-and-variadic-template
 
@@ -70,31 +43,31 @@ struct TransformVariadic<VariadicT<Args...>, ElementTransform> {
 template <typename OriginalT>
 struct RemoveDuplicateVariadic {};
 
-template <template <typename...>
-          typename VariadicT,
-          typename... Args>
+template <template <typename...> typename VariadicT, typename... Args>
 struct RemoveDuplicateVariadic<VariadicT<Args...>> {
-  template<typename Head>
+  template <typename Head>
   constexpr static bool containsHead() {
     return false;
   }
-  template<typename Head, typename Head2, typename... Rest>
+  template <typename Head, typename Head2, typename... Rest>
   constexpr static bool containsHead() {
     return containsHead<Head, Rest...>() || std::is_same_v<Head, Head2>;
   }
-  template<typename T>
+  template <typename T>
   struct VariadicPrepend {};
-  template<typename ... Rest>
+  template <typename... Rest>
   struct VariadicPrepend<VariadicT<Rest...>> {
-    template<typename Head>
+    template <typename Head>
     using Prepend = VariadicT<Head, Rest...>;
   };
-  template<typename Head, typename ... Rest>
+  template <typename Head, typename... Rest>
   struct Intermediate {
     using PreResult = typename Intermediate<Rest...>::Result;
-    using Result = std::conditional_t<containsHead<Head, Rest...>(), PreResult, typename VariadicPrepend<PreResult>::template Prepend<Head>>;
+    using Result = std::conditional_t<containsHead<Head, Rest...>(),
+                                      PreResult,
+                                      typename VariadicPrepend<PreResult>::template Prepend<Head>>;
   };
-  template<typename Head>
+  template <typename Head>
   struct Intermediate<Head> {
     using Result = VariadicT<Head>;
   };
@@ -107,8 +80,10 @@ using SelectMaterial = typename Config::MaterialT;
 template <typename Config>
 using SelectReal = typename Config::RealT;
 
-using SupportedMaterials = RemoveDuplicateVariadic<TransformVariadic<SupportedConfigs, SelectMaterial>::Result>::Result;
-using SupportedReals = RemoveDuplicateVariadic<TransformVariadic<SupportedConfigs, SelectReal>::Result>::Result;
+using SupportedMaterials =
+    RemoveDuplicateVariadic<TransformVariadic<SupportedConfigs, SelectMaterial>::Result>::Result;
+using SupportedReals =
+    RemoveDuplicateVariadic<TransformVariadic<SupportedConfigs, SelectReal>::Result>::Result;
 
 constexpr SupportedConfigs defaultConfig(bool plasticity) {
   if (plasticity) {

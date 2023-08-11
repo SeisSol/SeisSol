@@ -90,12 +90,10 @@ class EasiBoundary;
 struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
   using CellToGroupFunction = std::function<int(size_t)>;
-  using CellToConfigFunction = std::function<SupportedConfigs(size_t)>;
 
   CellToVertexArray(size_t size,
                     const CellToVertexFunction& elementCoordinates,
-                    const CellToGroupFunction& elementGroups,
-                    const CellToConfigFunction& elementConfigs);
+                    const CellToGroupFunction& elementGroups);
 
   size_t size;
   CellToVertexFunction elementCoordinates;
@@ -107,8 +105,7 @@ struct CellToVertexArray {
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
-                  const std::vector<int>& groups,
-                  const std::vector<CellConfigT>& configs);
+                  const std::vector<int>& groups);
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
