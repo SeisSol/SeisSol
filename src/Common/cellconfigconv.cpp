@@ -40,5 +40,5 @@ struct VerifyTensorSizes {
       "CellConfig correctness check failed: Too high convergence order for generated kernels.");
 };
 
-DeclareForAllConfigs<VerifyTensorSizes> verify;
+const DeclareForAllConfigs<VerifyTensorSizes> verify;
 } // namespace seissol

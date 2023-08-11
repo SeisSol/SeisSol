@@ -54,6 +54,8 @@ constexpr CellConfigT configToStruct(const SupportedConfigs& config) {
 // partially inspired by
 // https://stackoverflow.com/questions/66944744/syntax-to-unpack-tuple-on-parameter-pack-and-variadic-template
 
+// Also, say hello to a bit of templating. Just a tiny bit.
+
 template <typename OriginalT, template <typename> typename ElementTransform>
 struct TransformVariadic {};
 
@@ -65,13 +67,48 @@ struct TransformVariadic<VariadicT<Args...>, ElementTransform> {
   using Result = VariadicT<ElementTransform<Args>...>;
 };
 
+template <typename OriginalT>
+struct RemoveDuplicateVariadic {};
+
+template <template <typename...>
+          typename VariadicT,
+          typename... Args>
+struct RemoveDuplicateVariadic<VariadicT<Args...>> {
+  template<typename Head>
+  constexpr static bool containsHead() {
+    return false;
+  }
+  template<typename Head, typename Head2, typename... Rest>
+  constexpr static bool containsHead() {
+    return containsHead<Head, Rest...>() || std::is_same_v<Head, Head2>;
+  }
+  template<typename T>
+  struct VariadicPrepend {};
+  template<typename ... Rest>
+  struct VariadicPrepend<VariadicT<Rest...>> {
+    template<typename Head>
+    using Prepend = VariadicT<Head, Rest...>;
+  };
+  template<typename Head, typename ... Rest>
+  struct Intermediate {
+    using PreResult = typename Intermediate<Rest...>::Result;
+    using Result = std::conditional_t<containsHead<Head, Rest...>(), PreResult, typename VariadicPrepend<PreResult>::template Prepend<Head>>;
+  };
+  template<typename Head>
+  struct Intermediate<Head> {
+    using Result = VariadicT<Head>;
+  };
+
+  using Result = typename Intermediate<Args...>::Result;
+};
+
 template <typename Config>
 using SelectMaterial = typename Config::MaterialT;
 template <typename Config>
 using SelectReal = typename Config::RealT;
 
-using SupportedMaterials = TransformVariadic<SupportedConfigs, SelectMaterial>::Result;
-using SupportedReals = TransformVariadic<SupportedConfigs, SelectReal>::Result;
+using SupportedMaterials = RemoveDuplicateVariadic<TransformVariadic<SupportedConfigs, SelectMaterial>::Result>::Result;
+using SupportedReals = RemoveDuplicateVariadic<TransformVariadic<SupportedConfigs, SelectReal>::Result>::Result;
 
 constexpr SupportedConfigs defaultConfig(bool plasticity) {
   if (plasticity) {
