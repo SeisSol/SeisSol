@@ -15,14 +15,6 @@ struct CellConfig {
   using RealT = RealTP;
   static constexpr bool Plasticity = PlasticityP;
   static constexpr int ConvergenceOrder = ConvergenceOrderP;
-
-  static constexpr CellConfigT cellConfig() {
-    return CellConfigT{MaterialT::Type,
-                       MaterialT::Mechanisms,
-                       PrecisionFromType<RealT>::Precision,
-                       ConvergenceOrder,
-                       Plasticity};
-  }
 };
 } // namespace seissol
 
