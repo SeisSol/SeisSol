@@ -4,7 +4,6 @@
 #include "configs.hpp"
 #include "utils/logger.h"
 #include <type_traits>
-#include <typeinfo>
 #include <variant>
 
 namespace seissol {
@@ -12,7 +11,7 @@ template <std::size_t I>
 void printSupportedConfigsSub() {
   if constexpr (I < std::variant_size_v<SupportedConfigs>) {
     using ConfigI = std::variant_alternative_t<I, SupportedConfigs>;
-    logInfo() << I << ":::" << typeid(ConfigI).name();
+    logInfo() << I << ":::" << ConfigI::MaterialT::Text << PrecisionFromType<typename ConfigI::RealT>::Text << ConfigI::ConvergenceOrder << ConfigI::Plasticity;
     printSupportedConfigsSub<I+1>();
   }
 }
