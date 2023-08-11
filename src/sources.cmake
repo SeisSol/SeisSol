@@ -26,6 +26,7 @@ src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InputParameters.cpp
 
 src/Initializer/ConfigFile.cpp
+src/Initializer/ParameterMaterialDB.cpp
 
 src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp

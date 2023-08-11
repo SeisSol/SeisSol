@@ -29,6 +29,8 @@ format() {
         src/Initializer/InputParameters.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
+        src/Initializer/ParameterMaterialDB.hpp
+        src/Initializer/ParameterMaterialDB.cpp
         src/Initializer/preProcessorMacros.hpp
         src/Initializer/time_stepping/GlobalTimestep.hpp
         src/Initializer/time_stepping/GlobalTimestep.cpp

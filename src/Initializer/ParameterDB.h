@@ -71,7 +71,7 @@ class Component;
 
 namespace seissol {
 namespace initializers {
-constexpr auto NUM_QUADPOINTS = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
+constexpr std::size_t numQuadPoints(std::size_t order) { return order * order * order; }
 
 class QueryGenerator;
 class ElementBarycentreGenerator;
