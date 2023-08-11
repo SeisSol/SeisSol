@@ -40,6 +40,7 @@
 #ifndef INITIALIZER_LTS_H_
 #define INITIALIZER_LTS_H_
 
+#include <Common/configtensor.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <generated_code/tensor.h>
@@ -70,30 +71,27 @@ namespace seissol {
 
 namespace seissol::initializers {
   template<typename Config>
-  struct seissol::initializers::LTS : seissol::initializers::LTSVariableContainer {
-    static constexpr std::size_t DofsElaSize = Config::MaterialT::NumberOfQuantities * Config::ConvergenceOrder;
-    static constexpr std::size_t DofsAneSize = Config::MaterialT::NumberPerMechanism * Config::MaterialT::Mechanisms * Config::ConvergenceOrder;
-    static constexpr std::size_t PStrainSize = seissol::model::PlasticityData<Config>::NumberOfQuantities * seissol::kernels::NumberOfAlignedBasisFunctions(Config::ConvergenceOrder);
+  struct LTS : LTSVariableContainer {
+    using ConfigT = Config;
+    using RealT = typename Config::RealT;
+    using MaterialT = typename Config::MaterialT;
 
-    static_assert(DofsElaSize == tensor::Q::size(), "Tensor sizes do no match. Internal error.");
-    static_assert(DofsAneSize == kernels::size<tensor::Qane>(), "Anelastic tensor sizes do no match. Internal error.");
-
-    Variable<Config::RealT[DofsElaSize]>       dofs;
+    Variable<RealT[ConfigConstants<Config>::DofsElaSize]>       dofs;
     // size is zero if Qane is not defined
-    Variable<Config::RealT[ZeroLengthArrayHandler(Dofsanesize)]> dofsAne;
-    Variable<Config::RealT*>                         buffers;
-    Variable<Config::RealT*>                         derivatives;
+    Variable<RealT[ZeroLengthArrayHandler(ConfigConstants<Config>::DofsAneSize)]> dofsAne;
+    Variable<RealT*>                         buffers;
+    Variable<RealT*>                         derivatives;
     Variable<CellLocalInformation>          cellInformation;
-    Variable<Config::RealT*[4]>                      faceNeighbors;
+    Variable<RealT*[4]>                      faceNeighbors;
     Variable<LocalIntegrationData<Config>>          localIntegration;
     Variable<NeighboringIntegrationData<Config>>    neighboringIntegration;
     Variable<CellMaterialData>              material;
-    Variable<Config::MaterialT>                    materialData;
+    Variable<MaterialT>                    materialData;
     Variable<seissol::model::PlasticityData<Config>>                plasticity;
     Variable<CellDRMapping[4]>              drMapping;
     Variable<CellBoundaryMapping[4]>        boundaryMapping;
-    Variable<Config::RealT[PStrainSize]> pstrain;
-    Variable<Config::RealT*[4]>                      faceDisplacements;
+    Variable<RealT[ConfigConstants<Config>::PStrainSize]> pstrain;
+    Variable<RealT*[4]>                      faceDisplacements;
     Bucket                                  buffersDerivatives;
     Bucket                                  faceDisplacementsBuffer;
 
@@ -115,7 +113,7 @@ namespace seissol::initializers {
       }
 
       tree.addVar(                    dofs, LayerMask(Ghost),     PagesizeHeap,      MEMKIND_DOFS );
-      if (DofsAneSize > 0) {
+      if constexpr (ConfigConstants<Config>::DofsAneSize > 0) {
         tree.addVar(                 dofsAne, LayerMask(Ghost),     PagesizeHeap,      MEMKIND_DOFS );
       }
       tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
