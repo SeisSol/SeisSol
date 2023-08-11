@@ -25,6 +25,8 @@ src/Initializer/MemoryManager.cpp
 src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InputParameters.cpp
 
+src/Initializer/ConfigFile.cpp
+
 src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp

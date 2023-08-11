@@ -11,15 +11,17 @@ template <std::size_t I>
 void printSupportedConfigsSub() {
   if constexpr (I < std::variant_size_v<SupportedConfigs>) {
     using ConfigI = std::variant_alternative_t<I, SupportedConfigs>;
-    logInfo() << I << ":::" << ConfigI::MaterialT::Text << PrecisionFromType<typename ConfigI::RealT>::Text << ConfigI::ConvergenceOrder << ConfigI::Plasticity;
-    printSupportedConfigsSub<I+1>();
+    logInfo() << I << ":::" << ConfigI::MaterialT::Text
+              << PrecisionFromType<typename ConfigI::RealT>::Text << ConfigI::ConvergenceOrder
+              << ConfigI::Plasticity;
+    printSupportedConfigsSub<I + 1>();
   }
 }
 
 void printSupportedConfigs() {
-    logInfo() << "The following cell configurations are supported in this build of SeisSol:";
-    printSupportedConfigsSub<0>();
-    logInfo() << "The end.";
+  logInfo() << "The following cell configurations are supported in this build of SeisSol:";
+  printSupportedConfigsSub<0>();
+  logInfo() << "The end.";
 }
 
 template <std::size_t I>
@@ -49,20 +51,23 @@ constexpr CellConfigT configToStruct(const SupportedConfigs& config) {
       config);
 }
 
-// partially inspired by https://stackoverflow.com/questions/66944744/syntax-to-unpack-tuple-on-parameter-pack-and-variadic-template
+// partially inspired by
+// https://stackoverflow.com/questions/66944744/syntax-to-unpack-tuple-on-parameter-pack-and-variadic-template
 
-template<typename OriginalT, template<typename> typename ElementTransform>
-struct TransformVariadic {
-};
+template <typename OriginalT, template <typename> typename ElementTransform>
+struct TransformVariadic {};
 
-template<template<typename> typename ElementTransform, template<typename...> typename VariadicT, typename ...Args>
+template <template <typename> typename ElementTransform,
+          template <typename...>
+          typename VariadicT,
+          typename... Args>
 struct TransformVariadic<VariadicT<Args...>, ElementTransform> {
   using Result = VariadicT<ElementTransform<Args>...>;
 };
 
-template<typename Config>
+template <typename Config>
 using SelectMaterial = typename Config::MaterialT;
-template<typename Config>
+template <typename Config>
 using SelectReal = typename Config::RealT;
 
 using SupportedMaterials = TransformVariadic<SupportedConfigs, SelectMaterial>::Result;
@@ -77,16 +82,15 @@ constexpr SupportedConfigs defaultConfig(bool plasticity) {
   }
 }
 
-template<typename OriginalT>
-struct DeclareVariadic {
-};
+template <typename OriginalT>
+struct DeclareVariadic {};
 
-template<template<typename...> typename VariadicT, typename ...Args>
+template <template <typename...> typename VariadicT, typename... Args>
 struct DeclareVariadic<VariadicT<Args...>> {
   void dummy(Args... args) {}
 };
 
-template<template<typename> typename Struct>
+template <template <typename> typename Struct>
 using DeclareForAllConfigs = DeclareVariadic<TransformVariadic<SupportedConfigs, Struct>>;
 
 } // namespace seissol

@@ -37,8 +37,6 @@ struct PrecisionFromType<double> {
   static inline const std::string Text = "double";
 };
 
-
-
 struct CellConfigT {
   const seissol::model::MaterialType material;
   const std::size_t mechanisms;
@@ -47,8 +45,9 @@ struct CellConfigT {
   const bool plasticity;
 
   bool operator==(const CellConfigT& other) {
-    return material == other.material && mechanisms == other.mechanisms && precision == other.precision &&
-           convergenceOrder == other.convergenceOrder && plasticity == other.plasticity;
+    return material == other.material && mechanisms == other.mechanisms &&
+           precision == other.precision && convergenceOrder == other.convergenceOrder &&
+           plasticity == other.plasticity;
   }
 };
 
