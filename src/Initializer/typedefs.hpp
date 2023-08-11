@@ -204,7 +204,9 @@ struct MeshStructure {
 
 };
 
+//template<typename RealT=real>
 struct GlobalData {  
+  using RealT=real;
   /**
    * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass matrix):
    * 
@@ -213,7 +215,7 @@ struct GlobalData {
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
-  seissol::tensor::rDivM::Container<real const*> changeOfBasisMatrices;
+  seissol::tensor::rDivM::Container<RealT const*> changeOfBasisMatrices;
   
   /**
    * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
@@ -223,7 +225,7 @@ struct GlobalData {
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
-  seissol::tensor::fMrT::Container<real const*> localChangeOfBasisMatricesTransposed;
+  seissol::tensor::fMrT::Container<RealT const*> localChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the transposed global change of basis matrices:
@@ -233,7 +235,7 @@ struct GlobalData {
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  seissol::tensor::rT::Container<real const*> neighbourChangeOfBasisMatricesTransposed;
+  seissol::tensor::rT::Container<RealT const*> neighbourChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the global flux matrices:
@@ -242,7 +244,7 @@ struct GlobalData {
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  seissol::tensor::fP::Container<real const*> neighbourFluxMatrices;
+  seissol::tensor::fP::Container<RealT const*> neighbourFluxMatrices;
 
   /** 
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -253,7 +255,7 @@ struct GlobalData {
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
    **/ 
-  seissol::tensor::kDivM::Container<real const*> stiffnessMatrices;
+  seissol::tensor::kDivM::Container<RealT const*> stiffnessMatrices;
 
   /** 
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -264,12 +266,12 @@ struct GlobalData {
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
    **/ 
-  seissol::tensor::kDivMT::Container<real const*> stiffnessMatricesTransposed;
+  seissol::tensor::kDivMT::Container<RealT const*> stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
    **/
-  real *integrationBufferLTS{nullptr};
+  RealT *integrationBufferLTS{nullptr};
   
    /** 
    * Addresses of the global nodal flux matrices
@@ -285,10 +287,10 @@ struct GlobalData {
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
    **/ 
-  seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
+  seissol::tensor::V3mTo2nTWDivM::Container<RealT const*> nodalFluxMatrices;
 
-  seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
-  seissol::tensor::project2nFaceTo3m::Container<real const*> project2nFaceTo3m;
+  seissol::nodal::tensor::V3mTo2nFace::Container<RealT const*> V3mTo2nFace;
+  seissol::tensor::project2nFaceTo3m::Container<RealT const*> project2nFaceTo3m;
 
   /** 
    * Addresses of the global face to nodal matrices
@@ -306,21 +308,21 @@ struct GlobalData {
    **/ 
 
  
-  seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+  seissol::tensor::V3mTo2n::Container<RealT const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
-  real* evalAtQPMatrix{nullptr};
+  RealT* evalAtQPMatrix{nullptr};
 
   //! Project function evaluated at quadrature points to modal basis
-  real* projectQPMatrix{nullptr};
+  RealT* projectQPMatrix{nullptr};
   
   //! Switch to nodal for plasticity
-  real* vandermondeMatrix{nullptr};
-  real* vandermondeMatrixInverse{nullptr};
+  RealT* vandermondeMatrix{nullptr};
+  RealT* vandermondeMatrixInverse{nullptr};
 
   // A vector of ones. Note: It is only relevant for GPU computing.
   // It allows us to allocate this vector only once in the GPU memory
-  real* replicateStresses{nullptr};
+  RealT* replicateStresses{nullptr};
 };
 
 struct CompoundGlobalData {
@@ -332,10 +334,10 @@ struct CompoundGlobalData {
 template<typename Config>
 struct LocalIntegrationData {
   // star matrices
-  Config::RealT starMatrices[3][seissol::tensor::star::size(0)];
+  typename Config::RealT starMatrices[3][seissol::tensor::star::size(0)];
 
   // flux solver for element local contribution
-  Config::RealT nApNm1[4][seissol::tensor::AplusT::size()];
+  typename Config::RealT nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
   seissol::model::LocalSpecificData<Config> specific;
@@ -345,7 +347,7 @@ struct LocalIntegrationData {
 template<typename Config>
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  Config::RealT nAmNm1[4][seissol::tensor::AminusT::size()];
+  typename Config::RealT nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
   seissol::model::NeighborSpecificData<Config> specific;
