@@ -46,6 +46,7 @@
 #include <generated_code/init.h>
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
+#include <string>
 
 namespace seissol {
   namespace model {
@@ -54,6 +55,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::anisotropic;
+      static inline const std::string Text = "anisotropic";
 
       double c11;
       double c12;

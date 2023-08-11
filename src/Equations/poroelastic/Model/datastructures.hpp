@@ -4,6 +4,7 @@
 #include <cassert>
 #include "Model/common_datastructures.hpp"
 #include "Equations/elastic/Model/datastructures.hpp"
+#include <string>
 
 namespace seissol {
   namespace model {
@@ -12,6 +13,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::poroelastic;
+      static inline const std::string Text = "poroelastic";
 
       double bulkSolid;
       // double lambda; // given by elasticity

@@ -45,6 +45,7 @@
 #include <Model/common_datastructures.hpp>
 #include <Equations/elastic/Model/datastructures.hpp>
 #include <generated_code/tensor.h>
+#include <string>
 
 namespace seissol {
   namespace model {
@@ -55,6 +56,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 6;
       static constexpr std::size_t Mechansims = MechanismsP;
       static constexpr MaterialType Type = MaterialType::viscoelastic;
+      static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
 
       //! Relaxation frequencies
       double omega[ZeroLengthArrayHandler(Mechanisms)];
@@ -67,7 +69,6 @@ namespace seissol {
       double Qp;
       double Qs;
 
-      ViscoElasticMaterial() {}
       ViscoElasticMaterial( double* materialValues, int numMaterialValues)
       {
         assert(numMaterialValues == 3 + Mechanisms * 4);

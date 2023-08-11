@@ -45,6 +45,7 @@
 #include <cmath>
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
+#include <string>
 
 namespace seissol {
   namespace model {
@@ -53,6 +54,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::elastic;
+      static inline const std::string Text = "elastic";
 
       double lambda;
       double mu;
@@ -122,6 +124,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::acoustic;
+      static inline const std::string Text = "acoustic";
 
       void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
 
@@ -162,11 +165,12 @@ namespace seissol {
     // this one here should be more an absorbing (?) material. Swallows all incoming waves.
     // TEMPORARY! Should be the other way round, actually.
     // It's meant mostly as a dummy material
-    struct StaticMaterial : AcousticMaterial {
+    struct SolidMaterial : AcousticMaterial {
       static constexpr std::size_t NumberOfQuantities = 9; // TODO(someone): reduce that one (to... 0, I'd guess)
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::solid;
+      static inline const std::string Text = "solid";
 
       void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
         auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
