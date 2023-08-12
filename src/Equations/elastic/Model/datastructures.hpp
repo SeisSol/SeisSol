@@ -128,6 +128,8 @@ namespace seissol {
       static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "acoustic";
 
+      double lambda;
+
       void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
 
         auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());

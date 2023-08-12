@@ -4,7 +4,6 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
-#include "Kernels/DynamicRupture.h"
 #include "Common/constants.hpp"
 
 namespace seissol::dr::friction_law {

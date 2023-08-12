@@ -48,13 +48,9 @@
 
 #define NUMBER_OF_SPACE_QUADRATURE_POINTS ((ConvergenceOrder+1)*(ConvergenceOrder+1))
 
-namespace seissol {
-  namespace kernels {
-    class DynamicRupture;
-  }
-}
+namespace seissol::kernels {
 
-class seissol::kernels::DynamicRupture {
+class DynamicRupture {
   private:
     dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
@@ -66,8 +62,6 @@ class seissol::kernels::DynamicRupture {
   public:
     double timePoints[ConvergenceOrder];
     double timeWeights[ConvergenceOrder];
-
-  DynamicRupture() {}
 
     static void checkGlobalData(GlobalData const* global, size_t alignment);
     void setHostGlobalData(GlobalData const* global);
@@ -92,6 +86,8 @@ class seissol::kernels::DynamicRupture {
                             long long&                o_nonZeroFlops,
                             long long&                o_hardwareFlops );
 };
+
+}
 
 #endif
 
