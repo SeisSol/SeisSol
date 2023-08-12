@@ -45,6 +45,7 @@
 #include "CommunicationManager.h"
 #include <Initializer/preProcessorMacros.hpp>
 #include <Initializer/time_stepping/common.hpp>
+#include <ResultWriter/ReceiverWriter.h>
 #include "SeisSol.h"
 #include <ResultWriter/ClusteringWriter.h>
 

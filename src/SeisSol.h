@@ -254,10 +254,7 @@ public:
 	/**
 	 * Get the receiver writer module
 	 */
-	writer::ReceiverWriter& receiverWriter()
-	{
-		return m_receiverWriter;
-	}
+	writer::ReceiverWriter& receiverWriter();
 
   /**
    * Get the energy writer module

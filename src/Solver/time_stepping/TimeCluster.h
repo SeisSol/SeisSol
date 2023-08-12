@@ -82,7 +82,6 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 
-#include <Kernels/DynamicRupture.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 #include <Monitoring/ActorStateStatistics.h>
@@ -103,6 +102,7 @@ namespace seissol {
 
   namespace kernels {
     class ReceiverCluster;
+    class DynamicRupture;
   }
 }
 

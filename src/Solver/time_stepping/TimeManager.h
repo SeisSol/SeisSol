@@ -53,7 +53,6 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
 #include <Solver/FreeSurfaceIntegrator.h>
-#include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 #include "Solver/time_stepping/GhostTimeClusterFactory.h"
@@ -77,6 +76,10 @@ namespace seissol {
           }
           return result;
       }
+  }
+
+  namespace writer {
+    class ReceiverWriter;
   }
 }
 
