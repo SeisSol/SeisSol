@@ -90,9 +90,66 @@ struct MaterialAverager {
 };
 
 template <>
+struct MaterialAverager<::seissol::model::SolidMaterial> {
+  constexpr static bool Supported = true;
+  using MaterialT = ::seissol::model::SolidMaterial;
+  static MaterialT compute(const ::std::vector<MaterialT>& materials,
+                           size_t start,
+                           const ModelQuadratureRule& rule) {
+    double rhoMean = 0.0;
+
+    for (unsigned quadPointIdx = 0; quadPointIdx < rule.weights.size(); ++quadPointIdx) {
+      // Divide by volume of reference tetrahedron (1/6)
+      const double quadWeight = 6.0 * rule.weights[quadPointIdx];
+      const size_t globalPointIdx = start + quadPointIdx;
+      const auto& elementMaterial = materials[globalPointIdx];
+      rhoMean += elementMaterial.rho * quadWeight;
+    }
+
+    MaterialT result{};
+    result.rho = rhoMean;
+
+    return result;
+  }
+};
+
+template <>
+struct MaterialAverager<::seissol::model::AcousticMaterial> {
+  constexpr static bool Supported = true;
+  using MaterialT = ::seissol::model::AcousticMaterial;
+  static MaterialT compute(const ::std::vector<MaterialT>& materials,
+                           size_t start,
+                           const ModelQuadratureRule& rule) {
+    double rhoMean = 0.0;
+
+    // Average of the bulk modulus, used for acoustic material
+    double kMeanInv = 0.0;
+
+    for (unsigned quadPointIdx = 0; quadPointIdx < rule.weights.size(); ++quadPointIdx) {
+      // Divide by volume of reference tetrahedron (1/6)
+      const double quadWeight = 6.0 * rule.weights[quadPointIdx];
+      const size_t globalPointIdx = start + quadPointIdx;
+      const auto& elementMaterial = materials[globalPointIdx];
+      rhoMean += elementMaterial.rho * quadWeight;
+      kMeanInv += 1.0 / elementMaterial.lambda * quadWeight;
+    }
+
+    MaterialT result{};
+    result.rho = rhoMean;
+
+    // Harmonic average is used for mu/K, so take the reciprocal
+    result.lambda = 1.0 / kMeanInv;
+    result.mu = 0.0;
+
+    return result;
+  }
+};
+
+template <>
 struct MaterialAverager<::seissol::model::ElasticMaterial> {
   constexpr static bool Supported = true;
-  using MaterialT = ::seissol::model::ElasticMaterial; // TODO(David): differentiate to acoustic
+  using MaterialT =
+      ::seissol::model::ElasticMaterial; // TODO(David): differentiate to acoustic properly
   static MaterialT compute(const ::std::vector<MaterialT>& materials,
                            size_t start,
                            const ModelQuadratureRule& rule) {
@@ -115,6 +172,8 @@ struct MaterialAverager<::seissol::model::ElasticMaterial> {
       const size_t globalPointIdx = start + quadPointIdx;
       const auto& elementMaterial = materials[globalPointIdx];
       isAcoustic |= elementMaterial.mu == 0.0;
+      // TODO(David or Lukas): is this ifdef really correct? Wouldn't we need to iterate twice over
+      // everything first?
       if (!isAcoustic) {
         muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
       }
@@ -158,6 +217,7 @@ struct MaterialAverager<::seissol::model::ViscoElasticMaterial<Mechanisms>> {
     double QpMean = 0.0;
     double QsMean = 0.0;
 
+#pragma omp for simd
     for (unsigned quadPointIdx = 0; quadPointIdx < rule.weights.size(); ++quadPointIdx) {
       const double quadWeight = 6.0 * rule.weights[quadPointIdx];
       const size_t globalPointIdx = start + quadPointIdx;
@@ -337,22 +397,22 @@ void runMaterialQuery(::std::vector<OutputArrayT>& output,
                       const initializers::CellToVertexArray& ctov,
                       const ModelQuadratureRuleCollection& rules,
                       bool postprocess) {
-  if constexpr (::std::is_same_v<QueryMaterialT, OutputMaterialT>) {
-    logInfo() << "Material query for" << QueryMaterialT::Text << "(" << materialInfo.size()
-              << "cells)";
-  } else {
-    logInfo() << "Material query for" << QueryMaterialT::Text << "=>" << OutputMaterialT::Text
-              << "(" << materialInfo.size() << "cells)";
-  }
-
   const auto& last = materialInfo[materialInfo.size() - 1];
   auto uncompressedCount = last.uncompressedIndex + last.uncompressedSize;
 
   auto count = materialInfo.size();
 
+  if constexpr (::std::is_same_v<QueryMaterialT, OutputMaterialT>) {
+    logInfo() << "Material query for" << QueryMaterialT::Text << "(" << count << "cells,"
+              << uncompressedCount << "quadrature points)";
+  } else {
+    logInfo() << "Material query for" << QueryMaterialT::Text << "=>" << OutputMaterialT::Text
+              << "(" << count << "cells," << uncompressedCount << "quadrature points)";
+  }
+
   easi::Query query(uncompressedCount, 3);
 #pragma omp parallel for
-  for (size_t i = 0; i < materialInfo.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     auto mapped =
         rules.getRule(materialInfo[i].order).map(ctov.elementCoordinates(materialInfo[i].index));
     auto group = ctov.elementGroups(materialInfo[i].index);
