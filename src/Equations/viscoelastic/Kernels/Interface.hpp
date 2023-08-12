@@ -46,7 +46,7 @@
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
 
 namespace seissol::kernels {
-    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
+    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, seissol::model::ViscoElasticMaterial<Mechanisms>>, bool> = true>
     struct alignas(Alignment) LocalTmp {
       using RealT = typename Config::RealT;
       alignas(Alignment) RealT timeIntegratedAne[tensor::Iane::size()]{};
