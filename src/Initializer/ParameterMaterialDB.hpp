@@ -8,8 +8,11 @@
 #include <vector>
 
 namespace seissol::model {
-    
-    // retrieves different materials
-    ::std::pair<::std::vector<SupportedMaterials>, ::std::vector<::seissol::model::Plasticity>> queryMaterial(const initializer::CellConfigInfoMap& infoMap, const initializers::CellToVertexArray& ctov, bool fullCompute);
+
+// retrieves different materials
+::std::pair<::std::vector<SupportedMaterials>, ::std::vector<::seissol::model::Plasticity>>
+    queryMaterial(const initializer::CellConfigInfoMap& infoMap,
+                  const initializers::CellToVertexArray& ctov,
+                  bool fullCompute);
 
 } // namespace seissol::model
