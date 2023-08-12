@@ -82,7 +82,7 @@
 
 namespace seissol::kernels {
 
-template<typename Config, bool=true>
+template<typename Config>
 class Time : public TimeBase<Config> {
   public:
     using RealT = typename Config::RealT;

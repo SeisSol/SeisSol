@@ -51,9 +51,6 @@
 namespace seissol::kernels {
 
 template<typename Config>
-class LocalBase{};
-
-template<typename Config>
 class Local : public LocalBase<Config> {
   public:
     using RealT = typename Config::RealT;

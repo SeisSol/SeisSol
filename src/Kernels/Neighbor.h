@@ -77,7 +77,7 @@
 
 namespace seissol::kernels {
 
-template<typename Config, bool=true>
+template<typename Config>
 class Neighbor : public NeighborBase<Config> {
   public:
     using RealT = typename Config::RealT;
