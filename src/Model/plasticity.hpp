@@ -3,12 +3,12 @@
 #include <Kernels/precision.hpp>
 #include "Model/common_datastructures.hpp"
 #include <cmath>
+#include <string>
 
 namespace seissol::model {
     // plasticity information per cell
     template<typename Real_t = real>
-    struct PlasticityData {
-      
+    struct PlasticityData {      
       // initial loading (stress tensor)
       Real_t initialLoading[6];
       Real_t cohesionTimesCosAngularFriction;
@@ -34,6 +34,7 @@ namespace seissol::model {
 
       static constexpr std::size_t NumberOfQuantities = 7;
       static constexpr std::size_t NumberPerMechanism = 0;
+      static const inline std::string Text = "plasticity";
     };
 
 }

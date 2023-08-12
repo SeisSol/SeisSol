@@ -43,6 +43,7 @@
 
 #include <Kernels/precision.hpp>
 #include <array>
+#include <string>
 
 
 namespace seissol {
@@ -62,6 +63,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0; // ?
       static constexpr std::size_t Mechanisms = 0; // ?
       static constexpr MaterialType Type = MaterialType::solid; // ?
+      static const inline std::string Text = "material";
 
       double rho;
       virtual double getMaxWaveSpeed() const = 0;
@@ -74,6 +76,7 @@ namespace seissol {
     };
 
     struct Plasticity {
+      static const inline std::string Text = "plasticity";
       double bulkFriction;
       double plastCo;  
       double s_xx;
