@@ -56,6 +56,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 6;
       static constexpr std::size_t Mechansims = MechanismsP;
       static constexpr MaterialType Type = MaterialType::viscoelastic;
+      static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
       static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
 
       //! Relaxation frequencies

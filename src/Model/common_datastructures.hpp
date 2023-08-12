@@ -48,7 +48,6 @@
 
 namespace seissol {
   namespace model {
-    // TODO: add rigid, acoustic materials
     enum class MaterialType {
       solid,
       acoustic,
@@ -58,11 +57,23 @@ namespace seissol {
       poroelastic
     };
 
+    // the local solvers. CK is the default for elastic, acoustic etc.
+    // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use that one as well)
+    // poroelastic uses SpaceTimePredictorPoroelastic (someone may generalize that one, but so long I(David) had decided to put poroelastic in its name)
+    // the solver Unknown is a dummy to let all other implementations fail
+    enum class LocalSolver {
+      Unknown,
+      CauchyKovalevski,
+      CauchyKovalevskiAnelastic,
+      SpaceTimePredictorPoroelastic
+    };
+
     struct Material {
-      static constexpr std::size_t NumberOfQuantities = 3; // ?
+      static constexpr std::size_t NumberOfQuantities = 0; // ?
       static constexpr std::size_t NumberPerMechanism = 0; // ?
       static constexpr std::size_t Mechanisms = 0; // ?
       static constexpr MaterialType Type = MaterialType::solid; // ?
+      static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
       static const inline std::string Text = "material";
 
       double rho;

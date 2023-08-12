@@ -55,6 +55,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::anisotropic;
+      static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "anisotropic";
 
       double c11;

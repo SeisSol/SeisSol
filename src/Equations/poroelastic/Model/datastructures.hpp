@@ -13,6 +13,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::poroelastic;
+      static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
       static inline const std::string Text = "poroelastic";
 
       double bulkSolid;

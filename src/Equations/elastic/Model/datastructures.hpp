@@ -54,6 +54,7 @@ namespace seissol {
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::elastic;
+      static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "elastic";
 
       double lambda;
@@ -118,12 +119,13 @@ namespace seissol {
       }
     };
 
-    // TEMPORARY! Should be the other way round, actually.
-    struct AcousticMaterial : ElasticMaterial {
-      static constexpr std::size_t NumberOfQuantities = 9; // TODO(someone): reduce that one
+    // TODO(someone): inheritance?
+    struct AcousticMaterial : Material {
+      static constexpr std::size_t NumberOfQuantities = 3;
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::acoustic;
+      static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "acoustic";
 
       void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
@@ -163,13 +165,13 @@ namespace seissol {
     };
 
     // this one here should be more an absorbing (?) material. Swallows all incoming waves.
-    // TEMPORARY! Should be the other way round, actually.
     // It's meant mostly as a dummy material
-    struct SolidMaterial : AcousticMaterial {
-      static constexpr std::size_t NumberOfQuantities = 9; // TODO(someone): reduce that one (to... 0, I'd guess)
+    struct SolidMaterial : Material {
+      static constexpr std::size_t NumberOfQuantities = 0;
       static constexpr std::size_t NumberPerMechanism = 0;
       static constexpr std::size_t Mechanisms = 0;
       static constexpr MaterialType Type = MaterialType::solid;
+      static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
       static inline const std::string Text = "solid";
 
       void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const {
