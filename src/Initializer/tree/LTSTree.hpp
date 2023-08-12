@@ -74,10 +74,6 @@ private:
   std::unique_ptr<LTSVariableContainer> m_lts;
 
 public:
-  LTSTree() {}
-  
-  ~LTSTree() {}
-
   // delete the copy constructor. It would not work here right now.
   LTSTree(const LTSTree&) = delete;
 

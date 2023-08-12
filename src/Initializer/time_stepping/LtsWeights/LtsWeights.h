@@ -57,7 +57,6 @@ namespace PUML { class TETPUML; }
 
 namespace seissol::initializers::time_stepping {
 struct LtsWeightsConfig {
-  std::string velocityModel{};
   unsigned rate{};
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
@@ -120,7 +119,6 @@ protected:
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  std::string m_velocityModel{};
   unsigned m_rate{};
   std::vector<int> m_vertexWeights{};
   std::vector<double> m_imbalances{};

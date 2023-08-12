@@ -144,7 +144,7 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 }
 
 LtsWeights::LtsWeights(const LtsWeightsConfig& config, const LtsParameters* ltsParameters)
-    : m_velocityModel(config.velocityModel), m_rate(config.rate),
+    : m_rate(config.rate),
       m_vertexWeightElement(config.vertexWeightElement),
       m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
@@ -406,7 +406,7 @@ int LtsWeights::ipow(int x, int y) {
 }
 
 seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
-  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, m_velocityModel, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh));
+  return seissol::initializer::computeTimesteps(1.0, maximumAllowedTimeStep, seissol::initializers::CellToVertexArray::fromPUML(*m_mesh));
 }
 
 int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor) {
