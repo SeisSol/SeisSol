@@ -165,7 +165,7 @@ GlobalTimestep computeTimesteps(double cfl,
 #endif
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
     double pWaveVel = 0;
-    std::visit([&](auto&&) { pWaveVel = materials[cell].getMaxWaveSpeed(); }, materials[cell]);
+    std::visit([&](auto&& material) { pWaveVel = material.getMaxWaveSpeed(); }, materials[cell]);
     std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
         computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep);

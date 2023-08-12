@@ -47,7 +47,7 @@
 #include <PUML/Upward.h>
 #include "LtsWeights.h"
 
-#include <Initializer/time_stepping/GlobalTimestep.hpp>
+#include <Initializer/time_stepping/Timestep.hpp>
 #include <Parallel/MPI.h>
 
 #include <generated_code/init.h>

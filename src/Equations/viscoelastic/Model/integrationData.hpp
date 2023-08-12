@@ -9,15 +9,15 @@
 
 namespace seissol {
   namespace model {
-    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
-    struct LocalSpecificData {
+    template<typename Config>
+    struct LocalSpecificData<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic>> {
       typename Config::RealT E[tensor::E::size()];
       typename Config::RealT w[tensor::w::size()];
       typename Config::RealT W[tensor::W::size()];
     };
 
-    template<typename Config, int Mechanisms, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ViscoElasticMaterial<Mechanisms>>, bool> = true>
-    struct NeighborSpecificData {
+    template<typename Config>
+    struct NeighborSpecificData<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic>> {
       typename Config::RealT w[tensor::w::size()];
     };
   }

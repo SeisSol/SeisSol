@@ -46,7 +46,7 @@
 
 #include "LtsLayout.h"
 #include "MultiRate.hpp"
-#include "GlobalTimestep.hpp"
+#include "Timestep.hpp"
 #include <iterator>
 
 #include "Initializer/ParameterDB.h"

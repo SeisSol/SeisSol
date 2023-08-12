@@ -12,6 +12,8 @@
 #include "Numerical_aux/Eigenvalues.h"
 #include "generated_code/init.h"
 
+#include "datastructures.hpp"
+
 namespace seissol {
   namespace model {
     struct AdditionalPoroelasticParameters {

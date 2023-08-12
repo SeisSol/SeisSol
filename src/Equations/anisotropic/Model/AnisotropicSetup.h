@@ -49,6 +49,8 @@
 #include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
 
+#include "datastructures.hpp"
+
 namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
@@ -294,10 +296,11 @@ namespace seissol {
         }
       }
 
-    inline AnisotropicMaterial getRotatedMaterialCoefficients(real rotationParameters[36], AnisotropicMaterial& material) {
+    template<typename RealT>
+    AnisotropicMaterial getRotatedMaterialCoefficients(RealT rotationParameters[36], AnisotropicMaterial&& material) {
         AnisotropicMaterial rotatedMaterial;
         rotatedMaterial.rho = material.rho;
-        using Matrix66 = Eigen::Matrix<real, 6, 6>;
+        using Matrix66 = Eigen::Matrix<RealT, 6, 6>;
         Matrix66 N = Matrix66(rotationParameters);
         Matrix66 C = Matrix66();
         C(0,0) = material.c11;

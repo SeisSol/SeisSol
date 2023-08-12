@@ -45,6 +45,8 @@
 #include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
 
+#include "datastructures.hpp"
+
 namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;

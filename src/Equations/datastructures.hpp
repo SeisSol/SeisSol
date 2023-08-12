@@ -9,7 +9,6 @@
 #include "Equations/poroelastic/Model/datastructures.hpp"
 #include "Equations/viscoelastic/Model/datastructures.hpp"
 
-#include "Equations/anisotropic/Model/integrationData.hpp"
 #include "Equations/elastic/Model/integrationData.hpp"
 #include "Equations/poroelastic/Model/integrationData.hpp"
 #include "Equations/viscoelastic/Model/integrationData.hpp"

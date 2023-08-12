@@ -9,16 +9,16 @@
 namespace seissol {
   namespace model {
 
-    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, PoroElasticMaterial>, bool> = true>
-    struct LocalSpecificData {
+    template<typename Config>
+    struct LocalSpecificData<Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, PoroElasticMaterial>>> {
       typename Config::RealT sourceMatrix[seissol::tensor::ET::size()];
       typename Config::RealT G[Config::MaterialT::NumberOfQuantities];
       typename Config::RealT typicalTimeStepWidth;
       typename Config::RealT Zinv[Config::MaterialT::NumberOfQuantities][Config::ConvergenceOrder*Config::ConvergenceOrder];
     };
 
-    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, PoroElasticMaterial>, bool> = true>
-    struct NeighborSpecificData {};
+    template<typename Config>
+    struct NeighborSpecificData<Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, PoroElasticMaterial>>> {};
   }
 }
 

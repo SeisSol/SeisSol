@@ -49,8 +49,9 @@
 #include <yateto/TensorView.h>
 #include <generated_code/init.h>
 
-namespace seissol {
-  namespace model {
+#include "datastructures.hpp"
+
+namespace seissol::model {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
@@ -232,7 +233,6 @@ namespace seissol {
 
       seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
     }
-  }
 }
 
 #endif

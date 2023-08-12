@@ -8,12 +8,12 @@
 namespace seissol {
   namespace model {
 
-    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ElasticMaterial>, bool> = true>
-    struct LocalSpecificData {
+    template<typename Config>
+    struct LocalSpecificData<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski>> {
     };
 
-    template<typename Config, std::enable_if_t<std::is_same_v<typename Config::MaterialT, ElasticMaterial>, bool> = true>
-    struct NeighborSpecificData {
+    template<typename Config>
+    struct NeighborSpecificData<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski>> {
     };
   }
 }
