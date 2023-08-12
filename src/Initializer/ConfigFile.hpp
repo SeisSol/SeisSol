@@ -5,9 +5,9 @@
 namespace seissol::initializer {
 
 struct CellConfigInfo {
-    std::size_t id;
-    SupportedConfigs config;
-    std::string model;
+  std::size_t id;
+  SupportedConfigs config;
+  std::string model;
 };
 
 using CellConfigInfoMap = std::unordered_map<int, CellConfigInfo>;
