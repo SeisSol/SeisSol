@@ -60,8 +60,10 @@ struct VerifyTensorSizes {
       "CellConfig correctness check failed: Too high convergence order for generated kernels.");
 };
 
-const DeclareForAllConfigs<VerifyTensorSizes> verify;
-
 const std::array<SupportedConfigs, std::variant_size_v<SupportedConfigs>> ConfigInstances =
     configArray<0>({});
 } // namespace seissol
+
+namespace seissol::_definitions {
+const seissol::DeclareForAllConfigs<seissol::VerifyTensorSizes> declVerify;
+} // namespace seissol::_definitions

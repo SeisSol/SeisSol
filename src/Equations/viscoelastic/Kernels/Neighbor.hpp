@@ -39,7 +39,8 @@
  * Neighbor kernel of SeisSol.
  **/
 
-#include "Kernels/Neighbor.h"
+#ifndef WAVEPROP_KERNEL_NEIGHBOR_CKA_H_
+#define WAVEPROP_KERNEL_NEIGHBOR_CKA_H_
 
 #include <cassert>
 #include <stdint.h>
@@ -47,8 +48,18 @@
 #include <cstring>
 
 #include <generated_code/init.h>
+#include <generated_code/kernel.h>
+#include "Equations/datastructures.hpp"
 
-void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
+namespace seissol::waveprop::kernel::neighbor {
+    template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
+    class Neighbor {
+    protected:
+        kernel::neighbourFluxExt m_nfKrnlPrototype;
+        kernel::neighbour m_nKrnlPrototype;
+        dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+    public:
+        void setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % Alignment == 0 );
@@ -74,14 +85,14 @@ void seissol::kernels::Neighbor::setHostGlobalData(GlobalData const* global) {
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Neighbor::setGlobalData(const CompoundGlobalData& global) {
+void setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
+void computeNeighborsIntegral(  NeighborData&                     data,
                                                             CellDRMapping const             (&cellDrMapping)[4],
-                                                            real*                             i_timeIntegrated[4],
-                                                            real*                             faceNeighbors_prefetch[4] )
+                                                            RealT*                             i_timeIntegrated[4],
+                                                            RealT*                             faceNeighbors_prefetch[4] )
 {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
@@ -95,7 +106,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   // alignment of the degrees of freedom
   assert( ((uintptr_t)data.dofs) % Alignment == 0 );
 
-  real Qext[tensor::Qext::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+  RealT Qext[tensor::Qext::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
 
   kernel::neighbourFluxExt nfKrnl = m_nfKrnlPrototype;
   nfKrnl.Qext = Qext;
@@ -135,7 +146,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   nKrnl.execute();
 }
 
-void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
+void flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                                         const int i_neighboringIndices[4][2],
                                                         CellDRMapping const (&cellDrMapping)[4],
                                                         unsigned int &o_nonZeroFlops,
@@ -171,7 +182,7 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
 }
 
 
-unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
+unsigned bytesNeighborsIntegral()
 {
   unsigned reals = 0;
 
@@ -180,6 +191,11 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   // flux solvers load
   reals += 4 * tensor::AminusT::size() + tensor::w::size();
 
-  return reals * sizeof(real);
+  return reals * sizeof(RealT);
 }
 
+
+    };
+}
+
+#endif

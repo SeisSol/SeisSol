@@ -169,44 +169,19 @@ if (ASAGI)
     )
 endif()
 
-
-# Eqations have to be set at compile time currently.
-if ("${EQUATIONS}" STREQUAL "elastic")
-  target_sources(SeisSol-lib PRIVATE
+# material sources (to be consolidated)
+target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DirichletBoundary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
-    )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+)
+
+# Eqations have to be set at compile time currently (soon-to-make obsolete)
+if ("${EQUATIONS}" STREQUAL "elastic")
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ELASTIC)
-
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
-  )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_VISCOELASTIC2)
-
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/DirichletBoundary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
-  )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ANISOTROPIC)
-
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Time.cpp
-  )
-  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
+elseif ("${EQUATIONS}" STREQUAL "poroelastic")  
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_STP)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_POROELASTIC)
 endif()

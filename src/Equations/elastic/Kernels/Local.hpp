@@ -3,7 +3,6 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -36,10 +35,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Local kernel of SeisSol.
+ * Volume kernel of SeisSol.
  **/
 
-#include "Kernels/Local.h"
+#ifndef WAVEPROP_KERNEL_LOCAL_CK_H_
+#define WAVEPROP_KERNEL_LOCAL_CK_H_
 
 #include <yateto.h>
 
@@ -53,12 +53,23 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
 #pragma GCC diagnostic pop
+#include <memory>
+#include "generated_code/kernel.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
+#include "Physics/InitialField.h"
 
-#include <Kernels/common.hpp>
-GENERATE_HAS_MEMBER(ET)
-GENERATE_HAS_MEMBER(sourceMatrix)
-
-void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
+struct GlobalData;
+namespace seissol::waveprop::kernel::local {
+  template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski || Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic, bool> = true>
+    class Local {
+  protected:
+    static void checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % alignment == 0 );
@@ -70,7 +81,35 @@ void seissol::kernels::LocalBase::checkGlobalData(GlobalData const* global, size
 #endif
 }
 
-void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
+    kernel::volume m_volumeKernelPrototype;
+    kernel::localFlux m_localFluxKernelPrototype;
+    kernel::localFluxNodal m_nodalLfKrnlPrototype;
+
+    kernel::projectToNodalBoundary m_projectKrnlPrototype;
+    kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+
+    seissol::kernels::DirichletBoundary dirichletBoundary;
+
+#ifdef ACL_DEVICE
+    kernel::gpu_volume deviceVolumeKernelPrototype;
+    kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
+    kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
+    kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
+
+    const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
+public:
+    virtual void setInitConds(decltype(initConds) initConds) {
+      this->initConds = initConds;
+    }
+
+    physics::InitialField* getInitCond(size_t index) {
+      const auto& condition = this->initConds->at(index);
+      return condition.get();
+    }
+
+void setHostGlobalData(GlobalData const* global) {
   checkGlobalData(global, Alignment);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
@@ -82,7 +121,7 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
 
-void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+void setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
@@ -106,7 +145,7 @@ struct ApplyAnalyticalSolution {
                                                  localData(data) {}
 
 
-  void operator()(const real* nodes,
+  void operator()(const RealT* nodes,
                   double time,
                   seissol::init::INodal::view::type& boundaryDofs) {
 
@@ -129,9 +168,9 @@ private:
   LocalDataType& localData;
 };
 
-void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                              LocalData& data,
-                                              LocalTmp& tmp,
+void computeIntegral(RealT i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                              LocalData<Config>& data,
+                                              LocalTmp<Config>& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
@@ -165,7 +204,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       lfKrnl.execute(face);
     }
 
-    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    alignas(Alignment) RealT dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
@@ -182,7 +221,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
         auto* displ = tmp.nodalAvgDisplacements[face].data();
         auto displacement = init::averageNormalDisplacement::view::create(displ);
         auto applyFreeSurfaceBc = [&displacement, &materialData](
-            const real*, // nodes are unused
+            const RealT*, // nodes are unused
             init::INodal::view::type& boundaryDofs) {
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local->rho;
@@ -213,7 +252,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-          const real* nodes,
+          const RealT* nodes,
           init::INodal::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
@@ -263,12 +302,12 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   }
 }
 
-void seissol::kernels::Local::computeBatchedIntegral(
+void computeBatchedIntegral(
   ConditionalPointersToRealsTable& dataTable,
   ConditionalMaterialTable& materialTable,
   ConditionalIndicesTable& indicesTable,
-  kernels::LocalData::Loader& loader,
-  LocalTmp& tmp,
+  kernels::LocalData<Config>::Loader& loader,
+  LocalTmp<Config>& tmp,
   double timeStepWidth) {
 #ifdef ACL_DEVICE
   // Volume integral
@@ -278,7 +317,7 @@ void seissol::kernels::Local::computeBatchedIntegral(
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
-  real* tmpMem = nullptr;
+  RealT* tmpMem = nullptr;
   if (dataTable.find(key) != dataTable.end()) {
     auto &entry = dataTable[key];
 
@@ -286,14 +325,14 @@ void seissol::kernels::Local::computeBatchedIntegral(
     volKrnl.numElements = maxNumElements;
 
     // volume kernel always contains more elements than any local one
-    tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
+    tmpMem = (RealT*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
     volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    volKrnl.I = const_cast<const RealT **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      volKrnl.star(i) = const_cast<const RealT **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
@@ -310,8 +349,8 @@ void seissol::kernels::Local::computeBatchedIntegral(
       auto &entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
+      localFluxKrnl.I = const_cast<const RealT **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const RealT **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
       localFluxKrnl.linearAllocator.initialize(tmpMem);
       localFluxKrnl.streamPtr = device.api->getDefaultStream();
       localFluxKrnl.execute(face);
@@ -364,10 +403,10 @@ void seissol::kernels::Local::computeBatchedIntegral(
 #endif
 }
 
-void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
+void evaluateBatchedTimeDependentBc(
     ConditionalPointersToRealsTable& dataTable,
     ConditionalIndicesTable& indicesTable,
-    kernels::LocalData::Loader& loader,
+    kernels::LocalData<Config>::Loader& loader,
     double time,
     double timeStepWidth) {
 
@@ -384,7 +423,7 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
         auto cellId = cellIds[index];
         auto data = loader.entry(cellId);
 
-        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+        alignas(Alignment) RealT dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
         assert(initConds->size() == 1);
@@ -412,7 +451,7 @@ void seissol::kernels::Local::evaluateBatchedTimeDependentBc(
 #endif // ACL_DEVICE
 }
 
-void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+void flopsIntegral(FaceType const i_faceTypes[4],
                                             unsigned int &o_nonZeroFlops,
                                             unsigned int &o_hardwareFlops)
 {
@@ -456,7 +495,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   }
 }
 
-unsigned seissol::kernels::Local::bytesIntegral()
+unsigned bytesIntegral()
 {
   unsigned reals = 0;
 
@@ -468,5 +507,11 @@ unsigned seissol::kernels::Local::bytesIntegral()
   // DOFs write
   reals += tensor::Q::size();
   
-  return reals * sizeof(real);
+  return reals * sizeof(RealT);
 }
+
+};
+
+}
+#endif
+

@@ -39,11 +39,8 @@
  * Time kernel of SeisSol.
  **/
 
-#include "Kernels/Time.h"
-
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
+#ifndef WAVEPROP_KERNEL_TIME_CKA_H_
+#define WAVEPROP_KERNEL_TIME_CKA_H_
 
 #include <cstring>
 #include <cassert>
@@ -54,7 +51,16 @@ extern long long libxsmm_num_total_flops;
 #include <Kernels/denseMatrixOps.hpp>
 #include <generated_code/init.h>
 
-void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
+#include <generated_code/kernel.h>
+#include "Equations/datastructures.hpp"
+
+namespace seissol::waveprop::kernel::time {
+  template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
+  class Time {
+  protected:
+    kernel::derivative m_krnlPrototype;
+  public:
+    void setHostGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % Alignment == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % Alignment == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % Alignment == 0 );
@@ -64,15 +70,15 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.selectEla = init::selectEla::Values;
 }
 
-void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+void setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Time::computeAder(double i_timeStepWidth,
-                                         LocalData& data,
-                                         LocalTmp& tmp,
-                                         real o_timeIntegrated[tensor::I::size()],
-                                         real* o_timeDerivatives,
+void computeAder(double i_timeStepWidth,
+                                         LocalData<Config>& data,
+                                         LocalTmp<Config>& tmp,
+                                         RealT o_timeIntegrated[ConfigConstants<Config>::TensorSizeI],
+                                         RealT* o_timeDerivatives,
                                          bool updateDisplacement) {
   /*
    * assert alignments.
@@ -85,18 +91,18 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
    * compute ADER scheme.
    */
   // temporary result
-  real temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
-  real temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
-  real temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+  RealT temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+  RealT temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
+  RealT temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
 
   kernel::derivative krnl = m_krnlPrototype;
   kernel::derivativeTaylorExpansion intKrnl;
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
+  krnl.dQ(0) = const_cast<RealT*>(data.dofs);
   intKrnl.dQ(0) = data.dofs;
   if (o_timeDerivatives != nullptr) {
     streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
-    real* derOut = o_timeDerivatives;
+    RealT* derOut = o_timeDerivatives;
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derOut += tensor::dQ::size(i-1);
       krnl.dQ(i) = derOut;
@@ -109,8 +115,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     }
   }
 
-  krnl.dQane(0) = const_cast<real*>(data.dofsAne);
-  intKrnl.dQane(0) = const_cast<real*>(data.dofsAne);
+  krnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
+  intKrnl.dQane(0) = const_cast<RealT*>(data.dofsAne);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQane(i) = temporaryBufferAne[i%2];
     intKrnl.dQane(i) = temporaryBufferAne[i%2];
@@ -136,7 +142,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     krnl.execute(der);
 
     // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
+    intKrnl.power *= i_timeStepWidth / RealT(der+1);    
     intKrnl.execute(der);
   }
 
@@ -144,7 +150,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   // Compute integrated displacement over time step if needed.
 }
 
-void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
+void flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {  
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops =0;
@@ -164,7 +170,7 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   }
 }
 
-unsigned seissol::kernels::Time::bytesAder()
+unsigned bytesAder()
 {
   unsigned reals = 0;
   
@@ -178,14 +184,14 @@ unsigned seissol::kernels::Time::bytesAder()
            
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  return reals * sizeof(RealT);
 }
 
-void seissol::kernels::Time::computeIntegral( double                                      i_expansionPoint,
+void computeIntegral( double                                      i_expansionPoint,
                                               double                                      i_integrationStart,
                                               double                                      i_integrationEnd,
-                                              real const*                                 i_timeDerivatives,
-                                              real                                        o_timeIntegrated[tensor::I::size()] )
+                                              RealT const*                                 i_timeDerivatives,
+                                              RealT                                        o_timeIntegrated[ConfigConstants<Config>::TensorSizeI] )
 {
 
   /*
@@ -195,17 +201,17 @@ void seissol::kernels::Time::computeIntegral( double                            
   assert( ((uintptr_t)o_timeIntegrated)   % Alignment == 0 );
 
   // compute lengths of integration intervals
-  real l_deltaTLower = i_integrationStart - i_expansionPoint;
-  real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
+  RealT l_deltaTLower = i_integrationStart - i_expansionPoint;
+  RealT l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
   
   // initialization of scalars in the taylor series expansion (0th term)
-  real l_firstTerm  = static_cast<real>(1.0);
-  real l_secondTerm = static_cast<real>(1.0);
-  real l_factorial  = static_cast<real>(1.0);
+  RealT l_firstTerm  = static_cast<RealT>(1.0);
+  RealT l_secondTerm = static_cast<RealT>(1.0);
+  RealT l_factorial  = static_cast<RealT>(1.0);
   
   kernel::derivativeTaylorExpansionEla intKrnl;
   intKrnl.I = o_timeIntegrated;
-  real const* der = i_timeDerivatives;
+  RealT const* der = i_timeDerivatives;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = der;
     der += tensor::dQ::size(i);
@@ -215,7 +221,7 @@ void seissol::kernels::Time::computeIntegral( double                            
   for(int der = 0; der < ConvergenceOrder; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
-    l_factorial  *= static_cast<real>(der+1);
+    l_factorial  *= static_cast<RealT>(der+1);
 
     intKrnl.power  = l_firstTerm - l_secondTerm;
     intKrnl.power /= l_factorial;
@@ -224,10 +230,10 @@ void seissol::kernels::Time::computeIntegral( double                            
   }
 }
 
-void seissol::kernels::Time::computeTaylorExpansion( real         time,
-                                                     real         expansionPoint,
-                                                     real const*  timeDerivatives,
-                                                     real         timeEvaluated[tensor::Q::size()] ) {
+void computeTaylorExpansion( RealT         time,
+                                                     RealT         expansionPoint,
+                                                     RealT const*  timeDerivatives,
+                                                     RealT         timeEvaluated[tensor::Q::size()] ) {
   /*
    * assert alignments.
    */
@@ -237,13 +243,13 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   // assert that this is a forward evaluation in time
   assert( time >= expansionPoint );
 
-  real deltaT = time - expansionPoint;
+  RealT deltaT = time - expansionPoint;
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
   kernel::derivativeTaylorExpansionEla intKrnl;
   intKrnl.I = timeEvaluated;
-  real const* der = timeDerivatives;
+  RealT const* der = timeDerivatives;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = der;
     der += tensor::dQ::size(i);
@@ -253,11 +259,11 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   // iterate over time derivatives
   for(int derivative = 0; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
+    intKrnl.power *= deltaT / RealT(derivative+1);
   }
 }
 
-void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0; hardwareFlops = 0;
 
@@ -267,3 +273,9 @@ void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long 
     hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
   }
 }
+
+  };
+}
+
+#endif
+

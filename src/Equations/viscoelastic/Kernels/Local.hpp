@@ -39,15 +39,34 @@
  * Local kernel of SeisSol.
  **/
 
-#include "Kernels/Local.h"
+#ifndef WAVEPROP_KERNEL_LOCAL_CKA_H_
+#define WAVEPROP_KERNEL_LOCAL_CKA_H_
 
+#include <memory>
+#include <generated_code/kernel.h>
+#include "Physics/InitialField.h"
+#include "Equations/datastructures.hpp"
 #include <cassert>
 #include <stdint.h>
 #include <cstring>
 
 #include <yateto.h>
 
-void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
+namespace seissol {
+  namespace kernels {
+    template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
+    class Local {
+    protected:
+      kernel::volumeExt m_volumeKernelPrototype;
+      kernel::localFluxExt m_localFluxKernelPrototype;
+      kernel::local m_localKernelPrototype;
+      const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
+    public:
+      virtual void setInitConds(decltype(initConds) initConds) {
+        this->initConds = initConds;
+      }
+
+      void setHostGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % Alignment == 0 );
@@ -65,13 +84,13 @@ void seissol::kernels::Local::setHostGlobalData(GlobalData const* global) {
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Local::setGlobalData(const CompoundGlobalData& global) {
+void setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 }
 
-void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                              LocalData& data,
-                                              LocalTmp& tmp,
+void computeIntegral(RealT i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                              LocalData<Config>& data,
+                                              LocalTmp<Config>& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
@@ -84,7 +103,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   assert( ((uintptr_t)data.dofs)              % Alignment == 0 );
 #endif
 
-  real Qext[tensor::Qext::size()] __attribute__((aligned(Alignment)));
+  RealT Qext[tensor::Qext::size()] __attribute__((aligned(Alignment)));
 
   kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
@@ -121,7 +140,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   lKrnl.execute();
 }
 
-void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+void flopsIntegral(FaceType const i_faceTypes[4],
                                             unsigned int &o_nonZeroFlops,
                                             unsigned int &o_hardwareFlops )
 {
@@ -139,7 +158,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   o_hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
-unsigned seissol::kernels::Local::bytesIntegral()
+unsigned bytesIntegral()
 {
   unsigned reals = 0;
 
@@ -154,5 +173,12 @@ unsigned seissol::kernels::Local::bytesIntegral()
   // DOFs write
   reals += tensor::Q::size() + tensor::Qane::size();
   
-  return reals * sizeof(real);
+  return reals * sizeof(RealT);
 }
+
+    };
+  }
+}
+
+#endif
+
