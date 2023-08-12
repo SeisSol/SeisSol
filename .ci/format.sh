@@ -32,8 +32,8 @@ format() {
         src/Initializer/ParameterMaterialDB.hpp
         src/Initializer/ParameterMaterialDB.cpp
         src/Initializer/preProcessorMacros.hpp
-        src/Initializer/time_stepping/GlobalTimestep.hpp
-        src/Initializer/time_stepping/GlobalTimestep.cpp
+        src/Initializer/time_stepping/Timestep.hpp
+        src/Initializer/time_stepping/Timestep.cpp
         src/Initializer/tree/VariableContainer.hpp
         src/Kernels/common.hpp
         src/Monitoring/instrumentation.hpp

@@ -1,6 +1,7 @@
 
-#ifndef GLOBAL_TIMESTEP_HPP_
-#define GLOBAL_TIMESTEP_HPP_
+#ifndef TIMESTEP_HPP_
+#define TIMESTEP_HPP_
+#include <Geometry/MeshReader.h>
 #include <vector>
 #include <string>
 
@@ -13,10 +14,19 @@ struct GlobalTimestep {
   double globalMaxTimeStep;
 };
 
+struct LocalClustering {
+  std::vector<int> cluster;
+};
+
 GlobalTimestep computeTimesteps(double cfl,
                                 double maximumAllowedTimeStep,
-                                const std::string& velocityModel,
                                 const seissol::initializers::CellToVertexArray& cellToVertex);
+
+std::vector<int> clusterTimesteps(const GlobalTimestep& timestep, double rate, double wiggle);
+
+int enforceMaximumDifference(int maxDiff,
+                             std::vector<int>& localClustering,
+                             const geometry::MeshReader& meshReader);
 } // namespace seissol::initializer
 
 #endif
