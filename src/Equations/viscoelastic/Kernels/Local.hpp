@@ -56,6 +56,7 @@ namespace seissol {
   namespace kernels {
     template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
     class Local {
+        using RealT = typename Config::RealT;
     protected:
       kernel::volumeExt m_volumeKernelPrototype;
       kernel::localFluxExt m_localFluxKernelPrototype;

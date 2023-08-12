@@ -68,6 +68,7 @@ struct GlobalData;
 namespace seissol::waveprop::kernel::local {
   template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski || Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic, bool> = true>
     class Local {
+        using RealT = typename Config::RealT;
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment) {
 #ifndef NDEBUG

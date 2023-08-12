@@ -54,6 +54,7 @@
 namespace seissol::waveprop::kernel::neighbor {
     template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
     class Neighbor {
+        using RealT = typename Config::RealT;
     protected:
         kernel::neighbourFluxExt m_nfKrnlPrototype;
         kernel::neighbour m_nKrnlPrototype;

@@ -57,6 +57,7 @@
 namespace seissol::waveprop::kernel::time {
   template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevskiAnelastic, bool> = true>
   class Time {
+    using RealT = typename Config::RealT;
   protected:
     kernel::derivative m_krnlPrototype;
   public:
