@@ -55,8 +55,7 @@
 #include "Equations/viscoelastic/Model/datastructures.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
 
-namespace seissol {
-  namespace model {
+namespace seissol::model {
     template<typename T, typename Tmatrix, typename Tarray1, typename Tarray2>
 void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocity_indices) {
     //set lower left block
@@ -107,12 +106,12 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
                                std::complex<double> Mdata[T::NumberOfQuantities*T::NumberOfQuantities] );
 
     template<typename Config>
-    void initializeSpecificLocalData( const Config::MaterialT&,
+    void initializeSpecificLocalData( const typename Config::MaterialT&,
                                       double timeStepWidth,
                                       LocalSpecificData<Config>* LocalData ) {}
 
     template<typename Config>
-    void initializeSpecificNeighborData(  const Config::MaterialT&,
+    void initializeSpecificNeighborData(  const typename Config::MaterialT&,
                                           NeighborSpecificData<Config>* NeighborData ) {}
 
     /* 
@@ -147,13 +146,12 @@ void setBlocks(T QgodLocal, Tmatrix S, Tarray1 traction_indices, Tarray2 velocit
   VrtxCoords t = {i_tangent2(0), i_tangent2(1), i_tangent2(2)};
   getFaceRotationMatrix<MaterialT>(n, s, t, o_T, o_Tinv);
 
-}
+  }
 
-    template<typename Config>
-    struct LocalSpecificData;
-
-    template<typename Config>
-    struct NeighborSpecificData;
+  template<typename MaterialT, typename RealT>
+    MaterialT getRotatedMaterialCoefficients(RealT rotationParameters[36], MaterialT&& material) {
+      return std::forward<MaterialT>(material);
+    }
 }
 
 

@@ -103,6 +103,12 @@ namespace seissol {
       double pWaveVelocity;
       double sWaveVelocity;
     };
+
+    template<typename Config, typename = void>
+    struct LocalSpecificData{};
+
+    template<typename Config, typename = void>
+    struct NeighborSpecificData{};
   }
 }
 
