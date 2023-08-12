@@ -2,9 +2,7 @@
 
 #include "WavePropagation/dispatcher.hpp"
 #include "Initializer/tree/Layer.hpp"
-#include "Kernels/Time.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
+#include "Equations/Kernels.hpp"
 #include "Kernels/Plasticity.h"
 #include "Kernels/TimeCommon.h"
 #include "Model/plasticity.hpp"

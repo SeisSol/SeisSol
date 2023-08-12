@@ -2,14 +2,13 @@
 
 #include "WavePropagation/dispatcher.hpp"
 #include "Initializer/tree/Layer.hpp"
-#include "Kernels/Time.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
+#include "Equations/Kernels.hpp"
 #include "Kernels/Plasticity.h"
 #include "Kernels/TimeCommon.h"
 #include "Model/plasticity.hpp"
 #include "implbase.hpp"
 
+#include <WavePropagation/Kernel/Interaction/Interaction.hpp>
 #include <vector>
 
 namespace seissol::waveprop {
@@ -126,12 +125,8 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
 #endif
     for (unsigned int l_cell = 0; l_cell < this->layer.getNumberOfCells(); l_cell++) {
       auto data = loader.entry(l_cell);
-      seissol::kernels::TimeCommon<Config>::computeIntegrals(
-          this->timeKernel,
-          data.cellInformation.ltsSetup,
-          data.cellInformation.faceTypes,
-          subTimeStart,
-          timeStepSize,
+      seissol::waveprop::kernel::TimeIntegrator<Config>::timeIntegrateCell(
+          l_timeIntegrated,
           faceNeighbors[l_cell],
 #ifdef _OPENMP
           *reinterpret_cast<RealT(*)[4][tensor::I::size()]>(
@@ -141,7 +136,9 @@ class WavePropDispatcherCPU : public WavePropDispatcherPre<Config> {
           *reinterpret_cast<RealT(*)[4][tensor::I::size()]>(
               this->globalData.onHost->integrationBufferLTS),
 #endif
-          l_timeIntegrated);
+          data.cellInformation,
+          subTimeStart,
+          subTimeStart + timeStepSize);
 
       l_faceNeighbors_prefetch[0] =
           (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
