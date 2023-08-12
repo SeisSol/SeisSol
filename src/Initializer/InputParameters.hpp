@@ -25,6 +25,7 @@ struct ModelParameters {
   double freqCentral;
   double freqRatio;
   std::string materialFileName;
+  std::string configFileName;
   std::string boundaryFileName;
   bool hasBoundaryFile;
 };

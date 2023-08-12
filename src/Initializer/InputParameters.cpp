@@ -150,8 +150,14 @@ class ParameterReader {
 static void readModel(ParameterReader& baseReader, SeisSolParameters& seissolParams) {
   auto reader = baseReader.readSubNode("equations");
 
-  seissolParams.model.materialFileName =
-      reader.readOrFail<std::string>("materialfilename", "No material file given.");
+  seissolParams.model.configFileName = reader.readWithDefault("configfilename", std::string(""));
+  // the config file supersedes the material file
+  if (seissolParams.model.configFileName == "") {
+    seissolParams.model.materialFileName = reader.readOrFail<std::string>(
+        "materialfilename", "No material nor configuration file given.");
+  } else {
+    reader.markUnused("materialfilename");
+  }
   seissolParams.model.boundaryFileName =
       reader.readWithDefault("boundaryfilename", std::string(""));
   seissolParams.model.hasBoundaryFile = seissolParams.model.boundaryFileName != "";

@@ -1,10 +1,14 @@
 #include "ConfigFile.hpp"
 #include <Common/cellconfig.hpp>
+#include <Common/cellconfigconv.hpp>
 #include <Common/configs.hpp>
 #include <type_traits>
 #include <yaml-cpp/node/parse.h>
 #include <yaml-cpp/yaml.h>
 #include <string>
+#include "utils/logger.h"
+#include "Initializer/InputParameters.hpp"
+#include "SeisSol.h"
 
 namespace {
 template <std::size_t I>
@@ -29,11 +33,25 @@ static std::pair<std::size_t, seissol::SupportedConfigs> testConfig(const std::s
     throw std::runtime_error("Unknown cell configuration.");
   }
 }
+
+static std::unordered_map<int, CellConfigInfo> fallbackConfig() {
+  const auto& parameters = seissol::SeisSol::main.getSeisSolParameters();
+  std::unordered_map<int, CellConfigInfo> configs;
+  configs[0] = initializer::CellConfigInfo{0, // TODO(David): fix
+                                           defaultConfig(parameters.model.plasticity),
+                                           parameters.model.modelFileName};
+  return configs;
+}
 } // namespace
 
 namespace seissol::initializer {
 
 std::unordered_map<int, CellConfigInfo> readConfigFile(const std::string& filename) {
+  // TODO(David): remove, once we go to a new input format
+  if (filename == "") {
+    return fallbackConfig();
+  }
+
   YAML::Node root = YAML::LoadFile(filename);
   std::unordered_map<int, CellConfigInfo> configs;
   for (const auto& entries : root) {
