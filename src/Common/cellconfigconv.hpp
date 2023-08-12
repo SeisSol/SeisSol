@@ -105,4 +105,6 @@ struct DeclareVariadic<VariadicT<Args...>> {
 template <template <typename> typename Struct>
 using DeclareForAllConfigs = DeclareVariadic<TransformVariadic<SupportedConfigs, Struct>>;
 
+extern const std::array<SupportedConfigs, std::variant_size_v<SupportedConfigs>> ConfigInstances;
+
 } // namespace seissol

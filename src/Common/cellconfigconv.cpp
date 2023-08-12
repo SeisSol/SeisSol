@@ -5,7 +5,27 @@
 #include <Kernels/common.hpp>
 #include <Model/common_datastructures.hpp>
 #include <Model/plasticity.hpp>
+#include <stdexcept>
 #include <type_traits>
+#include <variant>
+
+namespace {
+template <std::size_t I>
+static constexpr std::array<seissol::SupportedConfigs,
+                            std::variant_size_v<seissol::SupportedConfigs>>
+    configArray(std::array<seissol::SupportedConfigs,
+                           std::variant_size_v<seissol::SupportedConfigs>>&& array) {
+  if constexpr (I < std::variant_size_v<seissol::SupportedConfigs>) {
+    array[I] = std::variant_alternative_t<I, seissol::SupportedConfigs>();
+    return configArray<I + 1>(
+        std::forward<
+            std::array<seissol::SupportedConfigs, std::variant_size_v<seissol::SupportedConfigs>>>(
+            array));
+  } else {
+    return array;
+  }
+}
+} // namespace
 
 namespace seissol {
 template <typename Config>
@@ -41,4 +61,7 @@ struct VerifyTensorSizes {
 };
 
 const DeclareForAllConfigs<VerifyTensorSizes> verify;
+
+const std::array<SupportedConfigs, std::variant_size_v<SupportedConfigs>> ConfigInstances =
+    configArray<0>({});
 } // namespace seissol
