@@ -76,13 +76,14 @@
 #include <device.h>
 #endif
 #include "Equations/datastructures.hpp"
+#include "Equations/Neighbor.hpp"
 
 struct GlobalData;
 
 namespace seissol::waveprop::kernel::neighbor {
 
-template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski || Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic, bool> = true>
-class Neighbor {
+template<typename Config>
+class Neighbor<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski || Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic>> {
     using RealT = typename Config::RealT;
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment) {

@@ -60,14 +60,15 @@
 #include "DirichletBoundary.h"
 #pragma GCC diagnostic pop
 #include "Physics/InitialField.h"
+#include "Equations/Neighbor.hpp"
 
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
 struct GlobalData;
 namespace seissol::waveprop::kernel::local {
-  template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski || Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic, bool> = true>
-    class Local {
+  template<typename Config>
+    class Local<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski || Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic>> {
         using RealT = typename Config::RealT;
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment) {

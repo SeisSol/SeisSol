@@ -68,14 +68,15 @@
  * Time kernel of SeisSol.
  **/
 
-#ifndef WAVEPROP_KERNEL_NEIGHBOR_STPP_H_
-#define WAVEPROP_KERNEL_NEIGHBOR_STPP_H_
+#ifndef WAVEPROP_KERNEL_TIME_STPP_H_
+#define WAVEPROP_KERNEL_TIME_STPP_H_
 
 #include <Equations/poroelastic/Model/datastructures.hpp>
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
 #include "Common/constants.hpp"
 #include "Equations/datastructures.hpp"
+#include "Equations/Time.hpp"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -83,8 +84,8 @@
 
 struct GlobalData;
 namespace seissol::waveprop::kernel::time {
-  template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic, bool> = true>
-    class Time {
+template<typename Config>
+    class Time<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::SpaceTimePredictorPoroelastic>> {
         using RealT = typename Config::RealT;
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment) {
@@ -92,7 +93,7 @@ namespace seissol::waveprop::kernel::time {
         assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % alignment == 0 );
         assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % alignment == 0 );
     }
-    
+
     kernel::spaceTimePredictor m_krnlPrototype;
     kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 

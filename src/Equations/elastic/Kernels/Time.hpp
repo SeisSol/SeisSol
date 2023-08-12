@@ -68,13 +68,14 @@
  * Time kernel of SeisSol.
  **/
 
-#ifndef KERNELS_TIMEBASE_H_
-#define KERNELS_TIMEBASE_H_
+#ifndef WAVEPROP_KERNEL_TIME_CK_H_
+#define WAVEPROP_KERNEL_TIME_CK_H_
 
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
 #include "Common/constants.hpp"
 #include "Equations/datastructures.hpp"
+#include "Equations/Time.hpp"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -82,8 +83,8 @@
 
 struct GlobalData;
 namespace seissol::waveprop::kernel::time {
-  template<typename Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski, bool> = true>
-    class Time {
+  template<typename Config>
+    class Time<Config, std::enable_if_t<Config::MaterialT::Solver == seissol::model::LocalSolver::CauchyKovalevski>> {
         using RealT = typename Config::RealT;
   protected:
     static void checkGlobalData(GlobalData const* global, size_t alignment) {
