@@ -15,16 +15,15 @@
 
 namespace seissol {
   namespace initializers {
-    struct Boundary;
+    template<typename Config>
+    struct Boundary : LTSVariableContainer {
+      Variable<BoundaryFaceInformation> faceInformation;
+      
+      void addTo(LTSTree& tree) override {
+        LayerMask mask = LayerMask(Ghost);
+        tree.addVar(faceInformation, mask, 1, MEMKIND_BOUNDARY);
+      }
+    };
   }
 }
-
-struct seissol::initializers::Boundary : seissol::initializers::LTSVariableContainer {
-  Variable<BoundaryFaceInformation> faceInformation;
-  
-  virtual void addTo(LTSTree& tree) override {
-    LayerMask mask = LayerMask(Ghost);
-    tree.addVar(faceInformation, mask, 1, MEMKIND_BOUNDARY);
-  }
-};
 #endif

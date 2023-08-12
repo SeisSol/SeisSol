@@ -13,7 +13,7 @@
 #include "SourceTerm/Manager.h"
 #include "Checkpoint/Backend.h"
 #include "time_stepping/LtsWeights/WeightsFactory.h"
-#include "Model/datastructures.hpp"
+#include "Equations/datastructures.hpp"
 
 namespace seissol::initializer::parameters {
 
